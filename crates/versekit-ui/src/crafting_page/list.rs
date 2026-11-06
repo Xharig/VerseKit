@@ -701,7 +701,7 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, mark
 /// The scrolling list: only the lines in sight are drawn.
 fn list_area(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, marks: &[Have], shown: &[usize], room: f32) {
     let mut clicked = None;
-    widgets::list_frame(ui, scheme, |frame| {
+    widgets::list_frame_marked(ui, scheme, |frame| {
         frame.set_width(frame.available_width());
         let width = frame.available_width() - widgets::SCROLL_WIDTH - 4.0;
         let (tile_w, tile_h, row_h, head_h) =

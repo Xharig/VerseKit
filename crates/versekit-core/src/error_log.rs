@@ -34,6 +34,8 @@ use crate::paths::Paths;
 use crate::redact::Redactor;
 
 pub const FILE: &str = "fehler.json";
+/// The setting that holds the time the player last looked at the errors (`%Y-%m-%d %H:%M:%S`).
+pub const SEEN_SETTING: &str = "fehler_gesehen";
 /// So many entries are kept.
 pub const MAX_ENTRIES: usize = 50;
 
@@ -128,14 +130,42 @@ impl<'a> ErrorLog<'a> {
         jsonio::write_text_atomic(&self.path(), &jsonio::dumps(&data, Some(1), false), Newline::Native).is_ok()
     }
 
-    /// Records an error (or, without `problem`, a note) under its location.
-    pub fn record(&self, label: &str, problem: Option<Problem<'_>>, note: &str) -> bool {
-        let now = formats::local_time(
+    fn now() -> String {
+        formats::local_time(
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0),
         )
         .map(|t| formats::strftime("%Y-%m-%d %H:%M:%S", &t))
-        .unwrap_or_default();
-        self.record_at(label, problem, note, &now)
+        .unwrap_or_default()
+    }
+
+    /// Records an error (or, without `problem`, a note) under its location.
+    pub fn record(&self, label: &str, problem: Option<Problem<'_>>, note: &str) -> bool {
+        self.record_at(label, problem, note, &Self::now())
+    }
+
+    /// How many errors of this version were written since the player last looked (or sent a report): what the
+    /// button "Fehler melden" counts. Old entries of earlier versions and notes are not new errors.
+    pub fn unseen(&self) -> usize {
+        let seen = self.paths.setting(SEEN_SETTING).unwrap_or_default();
+        self.read()
+            .iter()
+            .filter(|entry| entry.get("fassung").and_then(Value::as_str) == Some(self.version.as_str()))
+            .filter(|entry| entry.get("art").and_then(Value::as_str) != Some("Hinweis"))
+            .filter(|entry| {
+                let last = entry.get("zuletzt").or_else(|| entry.get("zeit")).and_then(Value::as_str).unwrap_or_default();
+                last > seen.as_str()
+            })
+            .count()
+    }
+
+    /// The player looked at the errors: from now on only newer ones count ([`unseen`](Self::unseen)).
+    pub fn mark_seen(&self) -> bool {
+        self.mark_seen_at(&Self::now())
+    }
+
+    /// [`mark_seen`](Self::mark_seen) with a given time stamp (`%Y-%m-%d %H:%M:%S`).
+    pub fn mark_seen_at(&self, now: &str) -> bool {
+        self.paths.set_setting(SEEN_SETTING, Value::str(now))
     }
 
     /// [`record`](Self::record) with a given time stamp (`%Y-%m-%d %H:%M:%S`).
@@ -235,6 +265,35 @@ mod tests {
             log.record_at(&format!("stelle{i}"), None, "Hinweis", "2026-10-20 02:00:00");
         }
         assert_eq!(log.count(), MAX_ENTRIES);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// "Fehler melden (n)" counts only the new errors of this version since the last look: not the old ones of
+    /// the file, not those of an earlier version, not notes; looking sets it to nothing, and an old error that
+    /// happens again counts as new.
+    #[test]
+    fn only_new_errors_since_the_last_look_are_counted() {
+        let dir = std::env::temp_dir().join(format!("versekit-fehler-neu-{}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::create_dir_all(&dir);
+        let paths = log_in(&dir);
+        let problem = |message| Some(Problem { kind: "IoError", message, trace: None });
+        // Written by the last version: 50 old entries and the same error again.
+        let before = ErrorLog::new(&paths, "5.1.3");
+        for i in 0..50 {
+            before.record_at(&format!("alt{i}"), problem("alt"), "", "2026-11-01 10:00:00");
+        }
+        let log = ErrorLog::new(&paths, "5.1.4");
+        assert_eq!(log.unseen(), 0, "the old entries of the earlier version are no new errors");
+        log.record_at("neu", None, "nur ein Hinweis", "2026-11-06 10:00:00");
+        assert_eq!(log.unseen(), 0, "a note is no error");
+        log.record_at("neu", problem("kaputt"), "", "2026-11-06 10:00:01");
+        log.record_at("neu2", problem("kaputt"), "", "2026-11-06 10:00:02");
+        assert_eq!(log.unseen(), 2);
+        assert!(log.mark_seen_at("2026-11-06 10:00:05"));
+        assert_eq!(log.unseen(), 0, "after looking nothing is new");
+        log.record_at("neu", problem("kaputt"), "", "2026-11-06 10:01:00");
+        assert_eq!(log.unseen(), 1, "the same error again after the look counts once");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

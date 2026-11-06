@@ -6,6 +6,50 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.4 - 2026-11-06
+
+> Ein einheitliches Bild auf allen Seiten, eine eigene Titelleiste, neue
+> Seiten für Übersetzung und Achsen, dazu ein Fix für das Mining-HUD.
+
+### Neu
+
+- **Eigene Titelleiste** — VerseKit zeichnet die Leiste oben selbst, mit
+  größerem Namen und eigenen Knöpfen. Unter Windows 11 erscheinen die
+  Snap-Layouts am Maximieren-Knopf.
+- **Übersetzung neu** — Je Kanal eine Karte mit Sprachliste und Quellen.
+  Testkanäle und HOTFIX können „Wie LIVE“ folgen, die eigene Adresse ist
+  ein Knopf.
+- **Achsen & Kurven neu** — Geräte als Reiter, die Achsenliste links, rechts
+  die gewählte Achse mit großer Kurve. „In die Belegungsdatei schreiben“
+  steht fest unten.
+- **Shader-Cache auf der Seite Grafik** — Die Karte zeigt die Größe, wann
+  zuletzt geleert wurde und ob seit dem letzten Patch geleert wurde.
+- **„Nutzung zählen lassen“ wieder abschaltbar** — Der Schalter steht unter
+  Einstellungen › Allgemein › Datenschutz. Aus heißt: nichts wird gesendet.
+
+### Verbessert
+
+- **Alle Seiten aus einem Guss** — Karten im Raster, kürzere Texte,
+  einheitliche Schriftgrößen, nichts abgeschnitten. Overlay, Handle-Suche
+  und das Signaturfenster sind neu aufgeteilt.
+- **Mein Lager** — Der Abgleich braucht einen Ort, der letzte Ort bleibt
+  stehen, neue Posten gehen sofort hinaus, und Ausgelassenes wird genannt.
+- **„Fehler melden“** zählt nur neue Fehler dieser Version.
+- **Star Citizen 5.0** — Orte und das Spielprotokoll sind vorbereitet, ein
+  Auftrag nach einem Verbindungsabbruch gilt nicht mehr als offen.
+- **Spieldaten** werden nicht gelesen, solange das Spiel läuft.
+
+### Behoben
+
+- **Mining-HUD unlesbar** — Bei drei Bergbau-Modulen landeten die
+  Bauplan-Angaben in der Namenszeile, die das Spiel im Cockpit zeigt. Sie
+  stehen jetzt in der Beschreibung. Gemeldet von greluc
+- **Hauptfenster oben aus dem Bild** — Bei Bildschirmen mit verschiedener
+  Skalierung lag das Fenster teils außerhalb. Es bleibt jetzt sichtbar.
+  Gemeldet von greluc
+- **„Keine Übersetzung“** nimmt VerseKits Angaben jetzt zuerst aus dem Kanal.
+- **HOTFIX und EPTU** fehlten in einigen Kanallisten.
+
 ## v5.1.3 - 2026-11-06
 
 > Kürzel gehen jetzt auch mit einer einzelnen Taste wie F13, dazu kleine

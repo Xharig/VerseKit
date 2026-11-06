@@ -1169,7 +1169,7 @@ mod tests {
         let mut bench = Bench::new(&paths);
         let texts = bench.settle();
         assert!(shows(&texts, &title(1)), "{texts:?}");
-        assert!(shows(&texts, "Verkauft: 2 Stück · 62 aUEC je Stück erhalten · laut Log an Levski · "), "{texts:?}");
+        assert!(shows(&texts, "Verkauft: 2 Stück · 62 aUEC je Stück · laut Log an Levski · "), "{texts:?}");
         let node = bench.button("Abbuchen: Venture Arms");
         assert!(!node.disabled, "{node:?}");
         assert_eq!(node.description, tf("s_lj_tipp_abbuchen", &[("n", Arg::from(pieces(2.0)))]));

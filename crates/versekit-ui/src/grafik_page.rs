@@ -542,8 +542,24 @@ pub fn show_head(ui: &mut Ui, scheme: &Scheme, state: &mut GrafikState, paths: &
     });
 }
 
-/// Draws the page that scrolls (below [`show_head`]).
-pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut GrafikState, paths: &Paths) {
+/// Draws the page that scrolls (below [`show_head`]). `shader` draws what the card of the shader cache holds: it is
+/// the last card of the page, also where the game has no graphics file yet.
+pub fn show_page(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    state: &mut GrafikState,
+    paths: &Paths,
+    shader: &mut dyn FnMut(&mut Ui),
+) {
+    let shader_title = t("s_sc_titel");
+    // The card alone, where the settings above it are missing.
+    let mut shader_alone = |ui: &mut Ui| {
+        ui.add_space(8.0);
+        widgets::card(ui, scheme, |ui| {
+            settings::setting_group(ui, scheme, &shader_title);
+            shader(ui);
+        });
+    };
     // Shown again after a stay elsewhere: the files and the box are read anew.
     let now = ui.input(|i| i.time);
     if now - state.drawn_at > 2.0 {
@@ -566,9 +582,13 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut GrafikState, paths: &
     }
     ui.add_space(8.0);
 
-    let Some(files) = &state.files else { return };
+    let Some(files) = &state.files else {
+        shader_alone(ui);
+        return;
+    };
     if files.switches.is_none() {
         ui.label(RichText::new(t("s_gr_keine_datei")).color(color(scheme.yellow)));
+        shader_alone(ui);
         return;
     }
     let has_renderer = state.renderer_value().is_some();
@@ -579,12 +599,17 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut GrafikState, paths: &
         titles.push(t("s_gr_cfg_titel"));
         sizes.push(1 + 3);
     }
+    // The shader cache last, as one row: its card holds its own blocks.
+    let shader_group = titles.len();
+    titles.push(shader_title.clone());
+    sizes.push(1);
     let groups: Vec<(&str, usize)> = titles.iter().map(String::as_str).zip(sizes).collect();
     let mut changed = false;
     let state_ref = &mut *state;
     settings::settings_page(ui, scheme, "grafik", &groups, &mut |ui, g, r| match g {
         0 => changed |= switch_row(ui, scheme, state_ref, has_renderer, r),
         1 => changed |= quality_row(ui, scheme, state_ref, r),
+        g if g == shader_group => shader(ui),
         _ => changed |= cfg_row(ui, scheme, state_ref, r),
     });
     if changed {
@@ -1039,7 +1064,8 @@ mod tests {
             let (state, paths) = (&mut self.state, &self.paths);
             let mut output = self.ctx.run_ui(input, |ui| {
                 show_head(ui, scheme, state, paths);
-                show_page(ui, scheme, state, paths);
+                // The card of the shader cache is not this page's own: an empty one here.
+                show_page(ui, scheme, state, paths, &mut |_| {});
             });
             output.textures_delta.clear();
             let mut texts = Vec::new();

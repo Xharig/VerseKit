@@ -314,7 +314,7 @@ fn whole_colour(scheme: &Scheme, state: &State) -> Color {
 }
 
 fn small(ui: &mut Ui, text: &str, tone: Color) {
-    ui.add(egui::Label::new(RichText::new(text).small().color(color(tone))).wrap());
+    widgets::reading(ui, RichText::new(text).small().color(color(tone)));
 }
 
 /// A coloured bar at the left of the row, as tall as the text.
@@ -361,35 +361,49 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ServerStatusState) {
     state.tick(ui.ctx(), at);
     small(ui, &t("s_st_lead"), scheme.sub);
     ui.add_space(6.0);
-    ui.horizontal_wrapped(|row| {
-        let busy = state.forced && state.job.is_some();
-        let word = t("s_st_nachsehen");
-        let button = widgets::Button::new(&word, ButtonKind::Strong, scheme);
-        if row.add_enabled(!busy, button).clicked() {
-            state.fetch(row.ctx(), false, true);
-            state.fetch_notices(row.ctx());
+    // The head card: the button with its loading line, the answer of the browser, then the whole in its colour
+    // (or the line that there is nothing yet).
+    let shown = widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_st_gesamt"));
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|row| {
+            let busy = state.forced && state.job.is_some();
+            let word = t("s_st_nachsehen");
+            let button = widgets::Button::new(&word, ButtonKind::Strong, scheme);
+            if row.add_enabled(!busy, button).clicked() {
+                state.fetch(row.ctx(), false, true);
+                state.fetch_notices(row.ctx());
+            }
+            if busy {
+                row.add(egui::Label::new(RichText::new(t("s_st_laedt")).small().color(color(scheme.sub))));
+            }
+        });
+        if let Some(answer) = &state.answer {
+            small(ui, answer, scheme.sub);
         }
-        if busy {
-            row.add(egui::Label::new(RichText::new(t("s_st_laedt")).small().color(color(scheme.sub))));
+        ui.add_space(6.0);
+        let shown = state.shown.clone();
+        if shown.is_empty() {
+            small(ui, &t(if shown.no_net { "s_stv_kein_netz" } else { "s_st_leer" }), scheme.sub);
+            return shown;
         }
-    });
-    if let Some(answer) = &state.answer {
-        small(ui, answer, scheme.sub);
-    }
-    ui.add_space(GAP);
-    let shown = state.shown.clone();
+        if shown.no_net {
+            small(ui, &t("s_stv_alt_ohne_netz"), scheme.gold);
+            ui.add_space(4.0);
+        }
+        banner(ui, scheme, &shown, at);
+        shown
+    })
+    .inner;
     if shown.is_empty() {
-        small(ui, &t(if shown.no_net { "s_stv_kein_netz" } else { "s_st_leer" }), scheme.sub);
         return;
     }
-    if shown.no_net {
-        small(ui, &t("s_stv_alt_ohne_netz"), scheme.gold);
-        ui.add_space(4.0);
-    }
-    banner(ui, scheme, &shown, at);
     ui.add_space(GAP);
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_st_systeme_kopf"));
+        ui.add_space(4.0);
         for system in &shown.systems {
             system_row(ui, scheme, system);
         }
@@ -397,6 +411,8 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ServerStatusState) {
     ui.add_space(GAP);
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_st_quelle_kopf"));
+        ui.add_space(4.0);
         if let Some(stand) = shown.stand {
             value_row(ui, scheme, &t("s_st_stand"), |ui| {
                 ui.label(clock(Some(stand as f64)));
@@ -412,42 +428,48 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ServerStatusState) {
                 link(ui, scheme, state, &shown.source, &shown.source);
             }
         });
+        ui.add_space(6.0);
+        small(ui, &t("s_stv_hinweis"), scheme.sub);
     });
-    ui.add_space(6.0);
-    small(ui, &t("s_stv_hinweis"), scheme.sub);
     ui.add_space(GAP);
-    widgets::heading(ui, scheme, &t("s_st_letzte"));
-    ui.add_space(4.0);
-    match state.notices.clone() {
-        None => small(ui, &t("s_st_laedt"), scheme.sub),
-        Some(list) if list.is_empty() => small(ui, &t("s_st_keine"), scheme.sub),
-        Some(list) => {
-            for incident in &list {
-                notice_card(ui, scheme, incident, at);
-                ui.add_space(6.0);
+    // The last incidents: one card, the incidents in a list one below the other, the link to all of them below.
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_st_letzte"));
+        ui.add_space(4.0);
+        match state.notices.clone() {
+            None => small(ui, &t("s_st_laedt"), scheme.sub),
+            Some(list) if list.is_empty() => small(ui, &t("s_st_keine"), scheme.sub),
+            Some(list) => {
+                widgets::list_frame(ui, scheme, |list_ui| {
+                    list_ui.set_width(list_ui.available_width());
+                    for (k, incident) in list.iter().enumerate() {
+                        if k > 0 {
+                            list_ui.separator();
+                        }
+                        notice_entry(list_ui, scheme, incident, at);
+                    }
+                });
             }
         }
-    }
-    if !shown.source.is_empty() {
-        ui.add_space(4.0);
-        if widgets::external_link(ui, scheme, &t("s_st_alle_zeigen")).clicked() {
-            state.follow(&shown.source);
+        if !shown.source.is_empty() {
+            ui.add_space(4.0);
+            if widgets::external_link(ui, scheme, &t("s_st_alle_zeigen")).clicked() {
+                state.follow(&shown.source);
+            }
         }
-    }
+    });
 }
 
-/// The strip at the top, as on the status page: how long ago it was asked, and the whole in its colour.
+/// The strip in the head card, as on the status page: how long ago it was asked, and the whole in its colour.
 fn banner(ui: &mut Ui, scheme: &Scheme, shown: &State, at: f64) {
     let tone = whole_colour(scheme, shown);
     let age = tf("s_st_zuletzt", &[("0", Arg::from(serverstatus::relative_time(Some(shown.fetched), at)))]);
     let word = t(if shown.all_well() { "s_st_ok" } else { "s_st_stoerung" });
-    widgets::card(ui, scheme, |ui| {
-        ui.set_width(ui.available_width());
-        ui.horizontal_wrapped(|row| {
-            bar(row, tone);
-            row.add(egui::Label::new(RichText::new(&word).strong().color(color(tone))));
-            row.add(egui::Label::new(RichText::new(&age).small().color(color(scheme.sub))));
-        });
+    ui.horizontal_wrapped(|row| {
+        bar(row, tone);
+        row.add(egui::Label::new(RichText::new(&word).strong().color(color(tone))));
+        row.add(egui::Label::new(RichText::new(&age).small().color(color(scheme.sub))));
     });
 }
 
@@ -467,9 +489,10 @@ fn system_row(ui: &mut Ui, scheme: &Scheme, system: &System) {
 }
 
 /// One incident as the status page shows it: title and open or resolved, the age, the severity apart from the
-/// systems it touches, the text in the word of CIG with its highlighted lines bold.
-fn notice_card(ui: &mut Ui, scheme: &Scheme, incident: &Incident, at: f64) {
-    widgets::card(ui, scheme, |ui| {
+/// systems it touches, the text in the word of CIG with its highlighted lines bold. An entry of the list in the card
+/// of the last incidents.
+fn notice_entry(ui: &mut Ui, scheme: &Scheme, incident: &Incident, at: f64) {
+    ui.vertical(|ui| {
         ui.set_width(ui.available_width());
         ui.horizontal_wrapped(|row| {
             let title = if incident.title.is_empty() { "—" } else { incident.title.as_str() };

@@ -125,9 +125,17 @@ pub struct GameTextsState {
     question: Option<Question>,
     custom: Vec<(String, Custom)>,
     status: Option<(f64, game_texts::Status)>,
-    /// The assistant only: "Nicht anfassen" was chosen in this run. It writes nothing (as in 4.12, where doing
-    /// nothing is the truth) and only marks the button.
+    /// The assistant only: "Keine Übersetzung" was chosen in this run. It writes nothing (as in 4.12, where doing
+    /// nothing is the truth) and only marks the choice.
     left_alone: bool,
+    /// The language picked in the list of a card (its key; "" for „Keine Übersetzung“), before a source of it is
+    /// chosen: (key of the card, language).
+    picked_language: Vec<(String, String)>,
+    /// The language a card shows where nothing is chosen nor picked (the checks set it).
+    default_language: Option<String>,
+    /// The sources a test channel was given because it follows the main installation: (channel, source), tried once
+    /// per change, also where it failed.
+    followed: Vec<(String, String)>,
     /// The block "Anti-AFK" on the page Spiel.
     anti_afk: anti_afk::AfkBlock,
     /// The block "user.cfg" at the foot of the page Spiel.
@@ -149,6 +157,9 @@ impl Default for GameTextsState {
             custom: Vec::new(),
             status: None,
             left_alone: false,
+            picked_language: Vec::new(),
+            default_language: None,
+            followed: Vec::new(),
             anti_afk: anti_afk::AfkBlock::default(),
             user_cfg: user_cfg::UserCfgBlock::default(),
         }
@@ -192,7 +203,7 @@ impl GameTextsState {
         }
     }
 
-    /// The assistant opens anew: "Nicht anfassen" is not chosen yet in this run.
+    /// The assistant opens anew: "Keine Übersetzung" is not chosen yet in this run.
     pub fn forget_leaving_alone(&mut self) {
         self.left_alone = false;
     }
@@ -647,38 +658,41 @@ pub fn show_game(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) -> Op
     let mut jump = None;
     hint(ui, scheme, &t("s_sp_lead"));
     ui.add_space(8.0);
-    if let Some(status) = state.status(now) {
-        if !paths.setting_bool(game_texts::SETTING_ON, true) {
-            if status.applied {
-                widgets::status_box(
-                    ui,
-                    scheme,
-                    scheme.sub,
-                    "circle-dashed",
-                    &t("s_sp_aus_rest"),
-                    &t("s_sp_aus_rest_h"),
-                );
-            } else {
-                widgets::status_box(ui, scheme, scheme.sub, "circle-dashed", &t("s_sp_aus_hinweis"), "");
-            }
-        } else if status.applied {
-            let mut extra = Vec::new();
-            if let Some(source) = &status.source {
-                extra.push(tf("s_sp_quelle_ist", &[("0", Arg::from(translation::display_name(source)))]));
-                let stand = translation::status_text(&paths, source, None, language::current(), &translation::today());
-                if !stand.is_empty() {
-                    extra.push(stand);
-                }
-            }
-            widgets::status_box(ui, scheme, scheme.accent, "circle-check", &t("s_sp_steht"), &extra.join(" · "));
-        } else {
-            widgets::status_box(ui, scheme, scheme.sub, "circle-dashed", &t("s_sp_nichts"), &t("s_sp_nichts_h"));
-        }
-    }
-    ui.add_space(GAP);
+    let status = state.status(now);
 
+    // The state of the notes in the game stands in the card of the source, under its title.
     widgets::card(ui, scheme, |ui| {
         crate::settings::setting_group(ui, scheme, &t("s_sp_quelle"));
+        if let Some(status) = &status {
+            if !paths.setting_bool(game_texts::SETTING_ON, true) {
+                if status.applied {
+                    widgets::status_box(
+                        ui,
+                        scheme,
+                        scheme.sub,
+                        "circle-dashed",
+                        &t("s_sp_aus_rest"),
+                        &t("s_sp_aus_rest_h"),
+                    );
+                } else {
+                    widgets::status_box(ui, scheme, scheme.sub, "circle-dashed", &t("s_sp_aus_hinweis"), "");
+                }
+            } else if status.applied {
+                let mut extra = Vec::new();
+                if let Some(source) = &status.source {
+                    extra.push(tf("s_sp_quelle_ist", &[("0", Arg::from(translation::display_name(source)))]));
+                    let stand =
+                        translation::status_text(&paths, source, None, language::current(), &translation::today());
+                    if !stand.is_empty() {
+                        extra.push(stand);
+                    }
+                }
+                widgets::status_box(ui, scheme, scheme.accent, "circle-check", &t("s_sp_steht"), &extra.join(" · "));
+            } else {
+                widgets::status_box(ui, scheme, scheme.sub, "circle-dashed", &t("s_sp_nichts"), &t("s_sp_nichts_h"));
+            }
+            ui.add_space(6.0);
+        }
         let chosen =
             paths.setting(game_ini_source()).map_or_else(|| t("s_uv_keine_quelle"), |s| translation::display_name(&s));
         hint(ui, scheme, &tf("s_sp_quelle_jetzt", &[("0", Arg::from(chosen))]));
@@ -765,7 +779,8 @@ fn channel_title(name: &str) -> String {
         .map_or_else(|| name.to_string(), |k| k.to_string())
 }
 
-/// The page „Übersetzung“: one card per channel.
+/// The page „Übersetzung“: one card per channel in the columns of cards (the main installation first, LIVE and PTU
+/// side by side), a closing card with what happened last and the warning.
 pub fn show_translation(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
     state.poll();
     let Some(paths) = state.paths.clone() else { return };
@@ -785,37 +800,54 @@ pub fn show_translation(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState
     let main_name = main_folder
         .as_deref()
         .and_then(|main| channels.iter().find(|(_, folder)| same(folder, main)).map(|(n, _)| n.clone()));
-    let Some(main_root) = main_folder.clone() else {
-        if channels.is_empty() {
-            hint(ui, scheme, &t("s_tq_kein_spiel"));
-            return;
-        }
-        for (name, folder) in &channels {
-            card(ui, scheme, state, &paths, name, folder, false, false);
-        }
+    // The cards: (title, folder, main).
+    let mut cards: Vec<(String, String, bool)> = Vec::new();
+    if let Some(main_root) = main_folder.clone() {
+        let title = main_name.clone().unwrap_or_else(|| channel_title(&paths.host.flavor.basename(&main_root)));
+        cards.push((title, main_root, true));
+    } else if channels.is_empty() {
+        no_game(ui, scheme);
         return;
-    };
-    let main_title = main_name.clone().unwrap_or_else(|| channel_title(&paths.host.flavor.basename(&main_root)));
-    card(ui, scheme, state, &paths, &main_title, &main_root, true, false);
+    }
     for (name, folder) in &channels {
         if Some(name) != main_name.as_ref() {
-            card(ui, scheme, state, &paths, name, folder, false, false);
+            cards.push((name.clone(), folder.clone(), false));
         }
     }
-    said_line(ui, scheme, state);
-    ui.add_space(8.0);
-    widgets::status_box(ui, scheme, scheme.gold, "shield-alert", &t("s_tq_warn"), &t("s_tq_warn_h"));
+    // The main installation, as the test channels may follow it.
+    let main_card = cards.iter().find(|(_, _, main)| *main).map(|(title, ..)| title.clone());
+    let main_source = paths.setting(translation::SETTING_SOURCE).unwrap_or_default();
+    let closing = main_folder.is_some();
+    let closing_title = t("s_tq_abschluss_kopf");
+    let mut groups: Vec<(&str, usize)> = cards.iter().map(|(title, ..)| (title.as_str(), 1)).collect();
+    if closing {
+        groups.push((closing_title.as_str(), 1));
+    }
+    crate::settings::settings_page(ui, scheme, "uebersetzung", &groups, &mut |c, g, _| {
+        let Some((title, root, main)) = cards.get(g) else {
+            // Under the cards of the channels: what happened last and the warning.
+            said_line(c, scheme, state);
+            c.add_space(8.0);
+            widgets::status_box(c, scheme, scheme.gold, "shield-alert", &t("s_tq_warn"), &t("s_tq_warn_h"));
+            return;
+        };
+        let follows = (!main && versekit_core::paths::FOLLOWS_LIVE.contains(&title.as_str()))
+            .then(|| main_card.as_deref().map(|main| (main, main_source.as_str())))
+            .flatten();
+        card_body(c, scheme, state, &paths, title, root, *main, false, follows);
+    });
     questions(ui, scheme, state);
 }
 
 /// The choice of the translation for the main installation alone, for the setup assistant: the card of the page
-/// (the sources, what is chosen and its state), the line that tells what happened, and the question before a
-/// source replaces the text file. Channels besides the main installation stay on the page of the translation.
+/// (the language, its source, what is chosen and its state), the line that tells what happened, and the question
+/// before a source replaces the text file. Channels besides the main installation stay on the page of the
+/// translation.
 pub fn show_main_choice(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
     state.poll();
     let Some(paths) = state.paths.clone() else { return };
     let Some(root) = paths.game_folder() else {
-        hint(ui, scheme, &t("s_tq_kein_spiel"));
+        no_game(ui, scheme);
         return;
     };
     let f = paths.host.flavor;
@@ -826,16 +858,94 @@ pub fn show_main_choice(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState
         .filter(|(name, _, p4k)| *p4k && translation::CHANNELS.contains(&name.as_str()))
         .find(|(_, folder, _)| same(folder, &root))
         .map_or_else(|| channel_title(&f.basename(&root)), |(name, _, _)| name);
-    card(ui, scheme, state, &paths, &title, &root, true, true);
-    said_line(ui, scheme, state);
+    // The line of what happened stands at the end of the card (`assistant`).
+    widgets::card(ui, scheme, |c| {
+        c.set_width(c.available_width());
+        widgets::card_title(c, scheme, &title);
+        card_body(c, scheme, state, &paths, &title, &root, true, true, None);
+    });
     questions(ui, scheme, state);
 }
 
-/// One card of a channel. `assistant`: it stands in the setup assistant, where "Nicht anfassen" asks nothing and
-/// writes nothing (as in 4.12) and nothing is marked before the player chose.
+/// The setting that says which test channels take the translation of the main installation: {channel: bool}.
+pub const SETTING_FOLLOWS: &str = "kanal_wie_live";
+
+/// Bavarian, a language of its own in the list though it lies in the German folder.
+const BAVARIAN: &str = "luftwerft_bar";
+
+/// A language of the list: its key (the language folder), its name, its flag, its sources in their order, and
+/// whether it is the one for fun (Bavarian), which says that it is a work in progress.
+struct Language {
+    key: String,
+    label: String,
+    flag: Option<&'static str>,
+    sources: Vec<String>,
+    fun: bool,
+}
+
+/// The languages a channel can be given, from the sources it can be given (Bavarian apart from German).
+fn languages(paths: &Paths, channel: Option<&str>) -> Vec<Language> {
+    let mut out = Vec::new();
+    for group in translation::grouped_sources(paths, channel, true) {
+        let (fun, plain): (Vec<String>, Vec<String>) = group.into_iter().partition(|id| id == BAVARIAN);
+        for (sources, fun) in [(plain, false), (fun, true)] {
+            // The name of the language from a translation of it (StarStrings names no language).
+            let Some(first) = sources.iter().find(|id| *id != "starstrings").or(sources.first()).cloned() else {
+                continue;
+            };
+            let name = translation::display_name(&first);
+            let mut label = name.split(" (").next().unwrap_or(&name).to_string();
+            if fun {
+                label.push_str(" [FUN]");
+            }
+            let key = if fun { BAVARIAN.to_string() } else { translation::language_folder(paths, &first, channel) };
+            out.push(Language { key, label, flag: translation::flag_of(&first), sources, fun });
+        }
+    }
+    out
+}
+
+/// The short name of a source on its chip: who makes it (Luftwerft, Dymerz, StarStrings) or „aus dem Spiel“.
+fn provider(id: &str) -> String {
+    if id == "starstrings" {
+        return "StarStrings".to_string();
+    }
+    let name = translation::display_name(id);
+    name.split_once('(').and_then(|(_, rest)| rest.split_once(')')).map_or(name.clone(), |(who, _)| who.to_string())
+}
+
+/// What a test channel does with the translation of the main installation: follows it (`Some(true)`), keeps its own
+/// (`Some(false)`), or nothing stored yet (`None`: it follows where both are the same now).
+fn follows_main(paths: &Paths, channel: &str) -> Option<bool> {
+    let stored = paths.settings().into_iter().find(|(k, _)| k == SETTING_FOLLOWS).map(|(_, v)| v);
+    match stored {
+        Some(Value::Object(map)) => map.iter().find(|(k, _)| k == channel).and_then(|(_, v)| match v {
+            Value::Bool(on) => Some(*on),
+            _ => None,
+        }),
+        _ => None,
+    }
+}
+
+/// Stores whether the test channel `channel` follows the main installation.
+fn set_follows_main(paths: &Paths, channel: &str, on: bool) {
+    let mut map = match paths.settings().into_iter().find(|(k, _)| k == SETTING_FOLLOWS).map(|(_, v)| v) {
+        Some(Value::Object(map)) => map,
+        _ => Vec::new(),
+    };
+    map.retain(|(k, _)| k != channel);
+    map.push((channel.to_string(), Value::Bool(on)));
+    paths.set_setting(SETTING_FOLLOWS, Value::Object(map));
+}
+
+/// The body of the card of a channel: what is chosen and its state, the language, its source, for a test channel
+/// whether it takes the translation of the main installation (`follows`: its title and source), the buttons and
+/// „Mehr …“ with the own address. `assistant`: it stands in the setup assistant, where „Keine Übersetzung“ asks
+/// nothing and writes nothing (as in 4.12), nothing is marked before the player chose, and the line of what happened
+/// stands at the end of the card.
 #[allow(clippy::too_many_arguments)]
-fn card(
-    ui: &mut Ui,
+fn card_body(
+    c: &mut Ui,
     scheme: &Scheme,
     state: &mut GameTextsState,
     paths: &Paths,
@@ -843,6 +953,7 @@ fn card(
     root: &str,
     main: bool,
     assistant: bool,
+    follows: Option<(&str, &str)>,
 ) {
     let channel = (!main).then_some(title);
     let current = if main {
@@ -854,113 +965,209 @@ fn card(
             .and_then(|(_, v)| v.as_str().map(str::to_string))
             .unwrap_or_default()
     };
-    widgets::card(ui, scheme, |c| {
-        c.set_width(c.available_width());
-        widgets::card_title(c, scheme, title);
-        hint(c, scheme, &t(if main { "s_tq_haupt" } else { "s_tq_neben" }));
-        c.add_space(6.0);
-        let mut groups = translation::grouped_sources(paths, channel, true);
-        groups.push(vec![CUSTOM.to_string(), String::new()]);
-        let busy = state.busy().then(|| t("inj_laeuft"));
-        let mut picked = None;
-        for group in &groups {
-            c.horizontal_wrapped(|row| {
-                for id in group {
-                    let name = if id.is_empty() { t("s_tq_nichts") } else { translation::display_name(id) };
-                    // In the assistant "Nicht anfassen" is marked once the player chose it (also over a source
-                    // chosen before, which stays untouched), not by an empty setting.
-                    let chosen = if !assistant {
-                        *id == current
-                    } else if state.left_alone {
-                        id.is_empty()
-                    } else {
-                        !id.is_empty() && *id == current
-                    };
-                    let kind = if chosen { ButtonKind::Strong } else { ButtonKind::Normal };
-                    // Each translation with the flag of its language, as in 4.12.
-                    let mut button = widgets::Button::new(&name, kind, scheme).blocked(busy.as_deref());
-                    if let Some(code) = translation::flag_of(id) {
-                        button = button.flag(code);
+    let card_key = format!("{title}{main}");
+    let busy = state.busy().then(|| t("inj_laeuft"));
+    // A test channel that follows the main installation takes its translation (once per change, also where it fails).
+    let following = follows.map(|(main_title, source)| {
+        let on = follows_main(paths, title).unwrap_or(current == source);
+        (main_title, source, on)
+    });
+    if let Some((_, source, true)) = following
+        && current != source
+        && !state.busy()
+        && state.question.is_none()
+        && !state.followed.iter().any(|(k, s)| k == title && s == source)
+    {
+        state.followed.push((title.to_string(), source.to_string()));
+        if source.is_empty() {
+            game_texts::leave_alone(paths, Some(title), root);
+        } else if source == CUSTOM || translation::available(paths, source, channel) {
+            state.choose(source, channel, root);
+        }
+    }
+    let led = following.is_some_and(|(_, _, on)| on);
+    // What is chosen and how it stands, first: the card says at once what it holds.
+    let shown = if assistant && state.left_alone {
+        tf("s_tq_unberuehrt", &[("0", Arg::from(title))])
+    } else if current.is_empty() {
+        if main { t("s_tq_nichts_gewaehlt") } else { tf("s_tq_unberuehrt", &[("0", Arg::from(title))]) }
+    } else {
+        let stand = translation::status_text(paths, &current, channel, language::current(), &translation::today());
+        if stand.is_empty() {
+            translation::display_name(&current)
+        } else {
+            format!("{} · {stand}", translation::display_name(&current))
+        }
+    };
+    hint(c, scheme, &shown);
+    c.add_space(4.0);
+    let langs = languages(paths, channel);
+    let picked_language = state.picked_language.iter().find(|(k, _)| *k == card_key).map(|(_, l)| l.clone());
+    let from_current = langs.iter().position(|l| l.sources.contains(&current));
+    let language = match picked_language.as_deref() {
+        Some("") => None,
+        Some(key) => langs.iter().position(|l| l.key == key),
+        None => from_current
+            .or_else(|| state.default_language.as_deref().and_then(|key| langs.iter().position(|l| l.key == key))),
+    };
+    // In the assistant nothing is marked before the player chose.
+    let none_chosen = if assistant { state.left_alone } else { current.is_empty() && language.is_none() };
+    let mut picked: Option<String> = None;
+    let mut new_language: Option<String> = None;
+    c.add_enabled_ui(!led, |c| {
+        // The language: a list with the flag of each, „Keine Übersetzung“ first.
+        let nothing = t("s_tq_nichts");
+        let selected = match (language, current.as_str()) {
+            (Some(k), _) => langs[k].label.clone(),
+            (None, CUSTOM) => t("s_sp_q_eigen"),
+            _ if none_chosen || current.is_empty() => nothing.clone(),
+            _ => translation::display_name(&current),
+        };
+        let name = t("s_tq_sprache");
+        crate::settings::setting_row(c, scheme, &name, "", false, |row| {
+            // The flag of the language in front of the list, on its line.
+            row.horizontal(|row| {
+                if let Some(code) = language.and_then(|k| langs[k].flag)
+                    && let Some((image, size)) = widgets::flag(row, code)
+                {
+                    row.add(image.fit_to_exact_size(size));
+                }
+                crate::settings::choice_box(row, ("uebersetzung-sprache", &card_key), &name, &selected, |list| {
+                    if list.selectable_label(none_chosen, &nothing).on_hover_text(t("s_tq_nichts_h")).clicked() {
+                        picked = Some(String::new());
                     }
+                    for (k, lang) in langs.iter().enumerate() {
+                        let text = if lang.fun {
+                            format!("{}  ·  {}", lang.label, t("s_tq_bayrisch_wip"))
+                        } else {
+                            lang.label.clone()
+                        };
+                        let on = language == Some(k);
+                        list.horizontal(|item| {
+                            if let Some(code) = lang.flag
+                                && let Some((image, size)) = widgets::flag(item, code)
+                            {
+                                item.add(image.fit_to_exact_size(size));
+                            }
+                            if item.selectable_label(on, text).clicked() {
+                                new_language = Some(lang.key.clone());
+                            }
+                        });
+                    }
+                });
+            });
+        });
+        // The sources of that language: who makes it, the one chosen stands out.
+        if let Some(k) = language {
+            crate::settings::setting_row(c, scheme, &t("s_tq_quelle"), "", false, |row| {
+                for id in &langs[k].sources {
+                    let chosen = if assistant { !state.left_alone && *id == current } else { *id == current };
+                    widgets::drawn_cards::note_choice(&format!("uebersetzung-quelle-{card_key}"), chosen);
+                    let kind = if chosen { ButtonKind::Strong } else { ButtonKind::Normal };
+                    let short = provider(id);
+                    // Named by its whole name for screen readers: „Deutsch (Dymerz)“.
+                    let spoken = translation::display_name(id);
+                    let button = widgets::Button::new(&short, kind, scheme).spoken(&spoken).blocked(busy.as_deref());
                     if row.add(button).clicked() {
                         picked = Some(id.clone());
-                    }
-                    // The note of Bavarian stands right beside its button, so it is clearly its own.
-                    if id == "luftwerft_bar" {
-                        row.label(RichText::new(t("s_tq_bayrisch_wip")).small().color(color(scheme.sub)));
                     }
                 }
             });
         }
-        let card_key = format!("{title}{main}");
-        if let Some(id) = picked {
-            let open = id == CUSTOM;
-            state.custom_of(&card_key, paths, channel).open = open;
-            if open {
-                // First the address; fetched with „Übernehmen und holen“.
-            } else if main && id.is_empty() && assistant {
-                // As in 4.12: doing nothing is the truth. Nothing is asked, nothing written or deleted.
-                state.left_alone = true;
-            } else if main && id.is_empty() {
-                state.question = Some(Question::LeaveAlone);
-            } else if main {
-                state.choose(&id, None, root);
-                // A source that needs no question is chosen now; one that asks first changes the mark only
-                // with the answer "Ja".
-                if state.question.is_none() {
-                    state.left_alone = false;
-                }
-            } else if id.is_empty() {
-                translation::set_channel_source(paths, title, "");
-                state.say(tf("s_tq_unberuehrt", &[("0", Arg::from(title))]), false);
-            } else {
-                state.choose(&id, channel, root);
-            }
-        }
-        let open = state.custom_of(&card_key, paths, channel).open || current == CUSTOM;
-        if open {
-            custom_box(c, scheme, state, paths, &card_key, channel, root);
-        }
-        let shown = if assistant && state.left_alone {
-            tf("s_tq_unberuehrt", &[("0", Arg::from(title))])
-        } else if current.is_empty() {
-            if main { t("s_tq_nichts_gewaehlt") } else { tf("s_tq_unberuehrt", &[("0", Arg::from(title))]) }
-        } else {
-            let stand = translation::status_text(paths, &current, channel, language::current(), &translation::today());
-            if stand.is_empty() {
-                translation::display_name(&current)
-            } else {
-                format!("{} · {stand}", translation::display_name(&current))
-            }
-        };
-        hint(c, scheme, &shown);
-        c.add_space(6.0);
-        let target = if current.is_empty() {
-            None
-        } else {
-            versekit_core::game_ini::target_ini_in(paths, root, &translation::language_folder(paths, &current, channel))
-        };
-        let backups = target.as_deref().map_or(0, |t| translation::backups_of(t).len());
-        let mut check = false;
-        let mut restore = false;
-        c.horizontal_wrapped(|row| {
-            check = row
-                .add(widgets::Button::new(&t("s_tq_pruefen"), ButtonKind::Normal, scheme).blocked(busy.as_deref()))
-                .clicked();
-            let none = (backups == 0).then(|| t("s_tq_zurueck_keine"));
-            let reason = busy.clone().or(none);
-            restore = row
-                .add(widgets::Button::new(&t("s_tq_zurueck"), ButtonKind::Normal, scheme).blocked(reason.as_deref()))
-                .clicked();
-        });
-        if check {
-            state.check_channel(&current, channel, root);
-        }
-        if restore && let Some(target) = target {
-            state.restore(target, translation::note_key(&current, channel));
-        }
     });
-    ui.add_space(12.0);
+    // A test channel: whether it takes the translation of the main installation.
+    if let Some((main_title, source, on)) = following {
+        let mut follow = on;
+        let name = tf("s_tq_wie", &[("0", Arg::from(main_title))]);
+        let help = tf("s_tq_wie_h", &[("0", Arg::from(main_title))]);
+        if widgets::switch_row_help(c, scheme, &name, &help, &mut follow).changed() {
+            set_follows_main(paths, title, follow);
+            if follow {
+                // Taken over now, once.
+                state.followed.retain(|(k, s)| !(k == title && s == source));
+            }
+        }
+    }
+    if let Some(key) = new_language {
+        state.picked_language.retain(|(k, _)| *k != card_key);
+        state.picked_language.push((card_key.clone(), key));
+    }
+    if let Some(id) = picked {
+        if id.is_empty() {
+            state.picked_language.retain(|(k, _)| *k != card_key);
+            state.picked_language.push((card_key.clone(), String::new()));
+        }
+        if main && id.is_empty() && assistant {
+            // As in 4.12: doing nothing is the truth. Nothing is asked, nothing written or deleted.
+            state.left_alone = true;
+        } else if main && id.is_empty() {
+            state.question = Some(Question::LeaveAlone);
+        } else if main {
+            state.choose(&id, None, root);
+            // A source that needs no question is chosen now; one that asks first changes the mark only
+            // with the answer "Ja".
+            if state.question.is_none() {
+                state.left_alone = false;
+            }
+        } else if id.is_empty() {
+            game_texts::leave_alone(paths, Some(title), root);
+            state.say(tf("s_tq_unberuehrt", &[("0", Arg::from(title))]), false);
+        } else {
+            state.choose(&id, channel, root);
+        }
+    }
+    c.add_space(4.0);
+    let target = if current.is_empty() {
+        None
+    } else {
+        versekit_core::game_ini::target_ini_in(paths, root, &translation::language_folder(paths, &current, channel))
+    };
+    let backups = target.as_deref().map_or(0, |t| translation::backups_of(t).len());
+    let mut check = false;
+    let mut restore = false;
+    let mut own = false;
+    c.horizontal_wrapped(|row| {
+        // Without a source there is nothing to look for.
+        let sourceless = (current.is_empty() || current == ORIGINAL).then(|| t("s_tq_pruefen_keine"));
+        let reason = busy.clone().or(sourceless);
+        check = row
+            .add(widgets::Button::new(&t("s_tq_pruefen"), ButtonKind::Normal, scheme).blocked(reason.as_deref()))
+            .clicked();
+        let none = (backups == 0).then(|| t("s_tq_zurueck_keine"));
+        let reason = busy.clone().or(none);
+        restore = row
+            .add(widgets::Button::new(&t("s_tq_zurueck"), ButtonKind::Normal, scheme).blocked(reason.as_deref()))
+            .clicked();
+        own = row
+            .add(widgets::Button::new(&t("s_sp_q_eigen"), ButtonKind::Normal, scheme))
+            .clicked();
+    });
+    if own {
+        state.custom_of(&card_key, paths, channel).open = true;
+    }
+    if check {
+        state.check_channel(&current, channel, root);
+    }
+    if restore && let Some(target) = target {
+        state.restore(target, translation::note_key(&current, channel));
+    }
+    let open = state.custom_of(&card_key, paths, channel).open || current == CUSTOM;
+    if open {
+        c.add_space(4.0);
+        custom_box(c, scheme, state, paths, &card_key, channel, root);
+    }
+    // In the assistant the card stands alone: the line that tells what happened closes it.
+    if assistant {
+        said_line(c, scheme, state);
+    }
+}
+
+/// Without a game folder: the sentence that says where to set it, in a card of its own.
+fn no_game(ui: &mut Ui, scheme: &Scheme) {
+    widgets::card(ui, scheme, |c| {
+        widgets::card_title(c, scheme, &t("s_ei_spielordner"));
+        hint(c, scheme, &t("s_tq_kein_spiel"));
+    });
 }
 
 fn custom_box(
@@ -1045,13 +1252,17 @@ fn questions(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
     let Some(paths) = state.paths.clone() else { return };
     match question {
         Question::Source { source, channel, root } => {
-            // The player took a source after all: "Nicht anfassen" no longer stands for the choice.
+            // The player took a source after all: "Keine Übersetzung" no longer stands for the choice.
             state.left_alone = false;
             game_texts::confirm(&paths, &source);
             state.fetch_source(source, channel, root);
         }
         Question::LeaveAlone => {
-            paths.set_setting(translation::SETTING_SOURCE, Value::str(""));
+            if let Some(root) = paths.game_folder() {
+                game_texts::leave_alone(&paths, None, &root);
+            } else {
+                paths.set_setting(translation::SETTING_SOURCE, Value::str(""));
+            }
             state.say(t("s_tq_nichts_ok"), false);
         }
     }
@@ -1224,8 +1435,35 @@ mod tests {
             let (nodes, _) = self.frame(which, state, Vec::new());
             let mut found: Vec<egui::Pos2> =
                 nodes.iter().filter(|(r, l, _)| *r == role && l == name).map(|(_, _, at)| *at).collect();
-            found.sort_by(|a, b| a.y.total_cmp(&b.y));
+            // From the top, and on one height from the left (the cards stand side by side).
+            found.sort_by(|a, b| {
+                (a.y.round(), a.x).partial_cmp(&(b.y.round(), b.x)).unwrap_or(std::cmp::Ordering::Equal)
+            });
             let Some(&at) = found.get(nth) else { return false };
+            self.press(which, state, at);
+            true
+        }
+
+        /// Click the first element of any role named `name` (an entry of an open list).
+        fn click_any(&self, which: &Which, state: &mut GameTextsState, name: &str) -> bool {
+            let (nodes, _) = self.frame(which, state, Vec::new());
+            let Some(at) = nodes.iter().find(|(_, l, _)| l == name).map(|(_, _, at)| *at) else { return false };
+            self.press(which, state, at);
+            true
+        }
+
+        /// Picks `entry` in the list of languages of the card `card` (from the top and the left).
+        fn pick(&self, which: &Which, state: &mut GameTextsState, card: usize, entry: &str) -> bool {
+            self.click_nth(which, state, Role::ComboBox, &t("s_tq_sprache"), card)
+                && self.click_any(which, state, entry)
+        }
+
+        /// Clicks „Eigene Adresse“ of the card `card`.
+        fn own_address(&self, which: &Which, state: &mut GameTextsState, card: usize) -> bool {
+            self.click_nth(which, state, Role::Button, &t("s_sp_q_eigen"), card)
+        }
+
+        fn press(&self, which: &Which, state: &mut GameTextsState, at: egui::Pos2) {
             let press = |pressed| egui::Event::PointerButton {
                 pos: at,
                 button: egui::PointerButton::Primary,
@@ -1233,8 +1471,12 @@ mod tests {
                 modifiers: egui::Modifiers::default(),
             };
             self.frame(which, state, vec![egui::Event::PointerMoved(at), press(true), press(false)]);
-            true
         }
+    }
+
+    /// The language folder of German, for the cards that show its sources.
+    fn german_folder() -> String {
+        "german_(germany)".to_string()
     }
 
     /// Wait until the step on its thread is done.
@@ -1296,12 +1538,9 @@ mod tests {
         ctx.enable_accesskit();
         let scheme = versekit_core::theme::current();
         let (mut labels, mut flags) = (Vec::new(), 0);
-        // A flag per source on each card (the main one and the PTU), none for the own address and
-        // for leaving it alone.
-        let sources = [None, Some("PTU")]
-            .into_iter()
-            .map(|channel| translation::grouped_sources(&paths, channel, true).concat().len())
-            .sum::<usize>();
+        // The flag of the language beside the list of each card (the main one and the PTU).
+        state.default_language = Some(german_folder());
+        let sources = 2;
         // The flags are decoded next to the frames, each on its own: frames until all are there
         // (at most ten seconds, the whole test suite may be running beside it).
         for _ in 0..500 {
@@ -1337,8 +1576,49 @@ mod tests {
         let count = |name: &str| labels.iter().filter(|l| *l == name).count();
         assert_eq!((count("LIVE"), count("PTU")), (1, 1), "{labels:?}");
         assert_eq!(count("Spieldaten LIVE"), 0, "the copy is named by its channel");
-        assert_eq!(flags, sources, "a flag for each source on both cards");
+        assert_eq!(flags, sources, "the flag of the language on both cards");
         let _ = fs::remove_dir_all(&root);
+    }
+
+    /// All five channels installed: five cards, one per channel, each named by it.
+    #[test]
+    fn five_channels_give_five_cards() {
+        let game = Game::new("fuenf");
+        let base = game.live.trim_end_matches("/LIVE").to_string();
+        for channel in versekit_core::paths::CHANNELS.iter().filter(|c| **c != "LIVE") {
+            let folder = format!("{base}/{channel}");
+            fs::create_dir_all(&folder).unwrap();
+            fs::write(format!("{folder}/Data.p4k"), "").unwrap();
+            fs::write(format!("{folder}/Game.log"), "").unwrap();
+        }
+        let mut state =
+            GameTextsState::with_parts(&game.paths, Arc::new(Fake::default()), Arc::new(game_texts::NoArchive));
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let scheme = versekit_core::theme::current();
+        let mut labels: Vec<String> = Vec::new();
+        for _ in 0..3 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1600.0, 5000.0))),
+                ..Default::default()
+            };
+            let output = ctx.run_ui(input, |ui| show_translation(ui, scheme, &mut state));
+            labels = output
+                .shapes
+                .iter()
+                .filter_map(|c| match &c.shape {
+                    egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                    _ => None,
+                })
+                .collect();
+        }
+        assert_eq!(versekit_core::paths::CHANNELS.len(), 5);
+        for channel in versekit_core::paths::CHANNELS {
+            assert_eq!(labels.iter().filter(|l| *l == channel).count(), 1, "one card {channel}: {labels:?}");
+        }
+        // Every channel beside LIVE can follow it, HOTFIX too: four switches.
+        let follow = tf("s_tq_wie", &[("0", Arg::from("LIVE"))]);
+        assert_eq!(labels.iter().filter(|l| **l == follow).count(), 4, "{labels:?}");
     }
 
     #[test]
@@ -1492,6 +1772,10 @@ mod tests {
         fs::write(game.ini(), "old=Text\n").unwrap();
         let mut state = GameTextsState::with_parts(&game.paths, german_net(), Arc::new(game_texts::NoArchive));
         let page = Page::new();
+        // The language first: its sources come up as chips, named by their whole name.
+        assert!(!page.click(&Which::Translation, &mut state, Role::Button, &t("s_sp_q_dymerz_de")), "no source before");
+        assert!(page.pick(&Which::Translation, &mut state, 0, "Deutsch"), "the list of languages");
+        assert!(state.question.is_none(), "a language alone asks nothing and writes nothing");
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_sp_q_dymerz_de")));
         assert!(state.question.is_some(), "it asks before it replaces the text file");
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("e_ja")));
@@ -1524,6 +1808,18 @@ mod tests {
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_tq_pruefen")));
         settle(&mut state);
         assert!(game.text().starts_with("Bounty_title_001=Kopfgeld neu"), "{}", &game.text()[..60]);
+    }
+
+    /// Without a source there is nothing to look for: the button is grey and a click starts nothing.
+    #[test]
+    fn without_a_source_looking_for_a_new_version_is_locked() {
+        let game = Game::new("cardnone");
+        fs::write(game.ini(), GAME).unwrap();
+        let mut state = GameTextsState::with_parts(&game.paths, german_net(), Arc::new(game_texts::NoArchive));
+        let page = Page::new();
+        assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_tq_pruefen")));
+        assert!(!state.busy(), "nothing is looked for");
+        assert_eq!(game.text(), GAME, "the file stays");
     }
 
     /// The link of the overview tile: with nothing chosen it says so and starts nothing; else every channel with
@@ -1582,7 +1878,8 @@ mod tests {
         let mut state =
             GameTextsState::with_parts(&game.paths, Arc::new(Fake::default()), Arc::new(game_texts::NoArchive));
         let page = Page::new();
-        assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_tq_nichts")));
+        // „Keine Übersetzung“, the first entry of the list of languages.
+        assert!(page.pick(&Which::Translation, &mut state, 0, &t("s_tq_nichts")));
         assert_eq!(state.question, Some(Question::LeaveAlone));
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("e_ja")));
         assert_eq!(game.paths.setting(translation::SETTING_SOURCE), None);
@@ -1609,9 +1906,11 @@ mod tests {
         let url = "https://www.luftwerft.com/download/resources/localizations/PTU/german_(germany)/global.ini";
         let net = Arc::new(Fake::default().with_head(url, &[("ETag", "\"ptu-1\"")]).with(url, direct_file()));
         let mut state = GameTextsState::with_parts(&game.paths, net.clone(), Arc::new(game_texts::NoArchive));
+        // Both cards show the German sources: the PTU, which has none yet, too.
+        state.default_language = Some(german_folder());
         let page = Page::new();
         let name = translation::display_name("luftwerft_de");
-        // The second button of that name sits on the card of the PTU.
+        // The second button of that name sits on the card of the PTU (beside the one of LIVE).
         assert!(page.click_nth(&Which::Translation, &mut state, Role::Button, &name, 1));
         assert!(matches!(&state.question, Some(Question::Source { channel: Some(c), .. }) if c == "PTU"));
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("e_nein")));
@@ -1640,7 +1939,8 @@ mod tests {
         let net = Arc::new(Fake::default().with_head(url, &[("ETag", "\"own-1\"")]).with(url, direct_file()));
         let mut state = GameTextsState::with_parts(&game.paths, net, Arc::new(game_texts::NoArchive));
         let page = Page::new();
-        assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_sp_q_eigen")));
+        // The own address stands in „Mehr …“.
+        assert!(page.own_address(&Which::Translation, &mut state, 0));
         state.custom_of("LIVEtrue", &game.paths, None).url = url.into();
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_tq_uebernehmen")));
         assert!(matches!(&state.question, Some(Question::Source { source, .. }) if source == CUSTOM));
@@ -1660,7 +1960,7 @@ mod tests {
         let mut state =
             GameTextsState::with_parts(&game.paths, Arc::new(Fake::default()), Arc::new(game_texts::NoArchive));
         let page = Page::new();
-        assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_sp_q_eigen")));
+        assert!(page.own_address(&Which::Translation, &mut state, 0));
         assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_tq_uebernehmen")));
         assert_eq!(state.said().cloned(), Some((t("s_tq_url_falsch"), true)));
     }
@@ -1696,8 +1996,10 @@ mod tests {
         let page = Page::new();
         let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
         let texts = texts_of(&nodes);
-        for key in ["aafk_h", "aafk_hinweis", "aafk_hinweis_h"] {
-            assert!(texts.contains(&t(key).as_str()), "{key}: {texts:?}");
+        // The help of the switch stands on hover behind the symbol `info`, not as a line; the note of risk stays.
+        assert!(!texts.iter().any(|text| crate::widgets::shown_as_hint(text, &t("aafk_h"))), "aafk_h: {texts:?}");
+        for key in ["aafk_hinweis", "aafk_hinweis_h"] {
+            assert!(texts.iter().any(|text| crate::widgets::shown_as_hint(text, &t(key))), "{key}: {texts:?}");
         }
         assert!(has(&nodes, Role::CheckBox, &t("aafk_titel")), "the switch: {nodes:?}");
         assert!(!texts.contains(&t("aafk_nur_windows").as_str()), "where it can be done there is no such sentence");
@@ -1713,8 +2015,9 @@ mod tests {
         let page = Page::new();
         let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
         let texts = texts_of(&nodes);
+        // The name in its row, the hint on hover.
         assert!(
-            texts.contains(&t("aafk_warten").as_str()) && texts.contains(&t("aafk_warten_h").as_str()),
+            texts.contains(&t("aafk_warten").as_str()) && !texts.contains(&t("aafk_warten_h").as_str()),
             "{texts:?}"
         );
         assert_eq!(state.anti_afk.seconds, 300);
@@ -1734,7 +2037,9 @@ mod tests {
         let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
         let texts = texts_of(&nodes);
         assert!(texts.contains(&t("aafk_taste").as_str()), "{texts:?}");
-        assert!(texts.contains(&t("aafk_taste_standard").as_str()), "no file: the factory setting {texts:?}");
+        // Where the key comes from stands on hover over its row.
+        use versekit_core::anti_afk_key::Origin;
+        assert_eq!(state.anti_afk.chord.origin, Origin::Default, "no file: the factory setting {texts:?}");
         assert!(texts.contains(&"Alt links + X"), "{texts:?}");
         let profile = format!("{}/USER/Client/0/Profiles/default", game.live);
         fs::create_dir_all(&profile).unwrap();
@@ -1743,12 +2048,12 @@ mod tests {
         state.anti_afk.looked_at = None;
         let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
         let texts = texts_of(&nodes);
-        assert!(texts.contains(&"Alt links + K") && texts.contains(&t("aafk_taste_eigene").as_str()), "{texts:?}");
+        assert!(texts.contains(&"Alt links + K") && state.anti_afk.chord.origin == Origin::Own, "{texts:?}");
         fs::write(format!("{profile}/actionmaps.xml"), "<ActionMaps><kaputt").unwrap();
         state.anti_afk.looked_at = None;
         let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
         let texts = texts_of(&nodes);
-        assert!(texts.contains(&"Alt links + X") && texts.contains(&t("aafk_taste_ersatz").as_str()), "{texts:?}");
+        assert!(texts.contains(&"Alt links + X") && state.anti_afk.chord.origin == Origin::Fallback, "{texts:?}");
     }
 
     /// The switch for keys of macro software stands on without the setting, and a click stores the other way.
@@ -2044,7 +2349,13 @@ mod tests {
         assert!(has(&nodes, Role::Button, &t("s_uc_speichern")) && has(&nodes, Role::Button, &t("s_uc_neu")));
         assert_eq!(state.user_cfg.own, "sys_MaxFPS = 60\n; mine", "no language lines, no empty line");
         assert_eq!(state.user_cfg.whole.as_deref(), Some(CFG), "the whole file as it is");
-        assert!(!nodes.iter().any(|(_, label, _)| *label == t("s_uc_kanal")), "one channel: nothing to choose");
+        // Every channel of the one list stands there; one not installed does nothing.
+        for channel in versekit_core::paths::CHANNELS {
+            assert!(has(&nodes, Role::Button, channel), "{channel}: {nodes:?}");
+        }
+        let live = state.user_cfg.folder.clone();
+        page.click(&Which::Game, &mut state, Role::Button, "PTU");
+        assert_eq!(state.user_cfg.folder, live, "PTU is not installed: nothing to choose");
         // The path of the file stands in the line above the box.
         let path = format!("{}/user.cfg", game.live).replace('\\', "/");
         assert!(nodes.iter().any(|(_, label, _)| label.replace('\\', "/").contains(&path)), "{path}: {nodes:?}");
@@ -2215,9 +2526,11 @@ mod tests {
         let page = Page::new();
         let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
         assert!(has(&nodes, Role::Button, "LIVE") && has(&nodes, Role::Button, "PTU"), "{nodes:?}");
-        assert!(!has(&nodes, Role::Button, "EPTU"), "no Data.p4k, no channel");
         assert!(nodes.iter().any(|(_, label, _)| *label == t("s_uc_kanal")));
         assert_eq!(state.user_cfg.own, "sys_MaxFPS = 60\n; mine", "the first channel at first");
+        // EPTU stands grey: no Data.p4k, no channel to choose.
+        page.click(&Which::Game, &mut state, Role::Button, "EPTU");
+        assert!(!state.user_cfg.folder.ends_with("EPTU"), "no Data.p4k, no channel");
         assert!(page.click(&Which::Game, &mut state, Role::Button, "PTU"));
         assert!(state.user_cfg.folder.ends_with("PTU"), "{}", state.user_cfg.folder);
         assert_eq!(state.user_cfg.own, "ptu_only = 1");

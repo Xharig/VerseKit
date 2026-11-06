@@ -23,7 +23,7 @@
 //!
 //! - nothing is cut off: no line of text and no control reaches over the edge of its card or of the window, and
 //!   no two lines of text lie over each other;
-//! - the cards of a row are as tall as each other and their edges are flush;
+//! - the cards of a row begin on one line (each is as tall as its content);
 //! - the height of a card stays the same over thirty frames (nothing grows by itself).
 //!
 //! Beyond the sample data come three states: the first entry of every list that opens a detail chosen, the
@@ -361,14 +361,10 @@ fn crooked(cards: &[Rect]) -> Vec<String> {
             if in_a_column(left) || in_a_column(right) {
                 continue;
             }
+            // Each card is as tall as its content (no card is stretched to the height of its row), but cards side
+            // by side begin on one line.
             if (left.min.y - right.min.y).abs() > TOLERANCE {
                 found.push(format!("Karten nebeneinander beginnen verschieden hoch: {left:?} und {right:?}"));
-            } else if (left.height() - right.height()).abs() > TOLERANCE {
-                found.push(format!(
-                    "Karten nebeneinander sind verschieden hoch: {:.1} und {:.1} bei {left:?}",
-                    left.height(),
-                    right.height()
-                ));
             }
         }
     }
@@ -643,6 +639,30 @@ fn offline_updates(dir: &Path, own: &str) -> versekit_core::update_flow::Env {
     }
 }
 
+/// Two sticks in the game folder `game`, with values on their axes, flight functions on them and an old entry of an
+/// earlier id: the page Achsen & Kurven shows all its parts, not only its sentence for a missing file.
+fn sticks(game: &Path) {
+    let (left, right) = ("03F33344-0000-0000-0000-504944564944", "43F43344-0000-0000-0000-504944564944");
+    std::fs::write(
+        game.join("Game.log"),
+        format!("Connected joystick0:  VPC Stick L  {{{left}}}\nConnected joystick1:  VPC Stick R  {{{right}}}\n"),
+    )
+    .expect("game log");
+    let profile = game.join("USER").join("Client").join("0").join("Profiles").join("default");
+    std::fs::create_dir_all(&profile).expect("profile");
+    let maps = format!(
+        r#"<ActionMaps><ActionProfiles version="1" profileName="default">
+<deviceoptions name="VPC Stick L  {{{left}}}"><option input="x" deadzone="0.05"/><option input="x" saturation="0.95"/><option input="y" deadzone="0.05"/><option input="rotz" deadzone="0.1"/><option input="slider1" saturation="0.9"/></deviceoptions>
+<deviceoptions name="VPC Stick R  {{{right}}}"><option input="x" deadzone="0.04"/><option input="y" deadzone="0.04"/></deviceoptions>
+<deviceoptions name="VPC Stick L  {{83F33344-0000-0000-0000-504944564944}}"><option input="x" deadzone="0.2"/></deviceoptions>
+<options type="joystick" instance="1" Product="VPC Stick L  {{{left}}}"><flight_move_pitch exponent="1.5"/><flight_move_strafe_vertical exponent="1.2"/><flight_move_roll exponent="1.3"/></options>
+<options type="joystick" instance="2" Product="VPC Stick R  {{{right}}}"/>
+<actionmap name="spaceship_movement"><action name="v_pitch"><rebind input="js1_y"/></action><action name="v_strafe_vertical"><rebind input="js1_y"/></action><action name="v_roll"><rebind input="js1_x"/></action><action name="v_yaw"><rebind input="js2_x"/></action></actionmap>
+</ActionProfiles></ActionMaps>"#
+    );
+    std::fs::write(profile.join("actionmaps.xml"), maps).expect("bindings");
+}
+
 /// The window on the data folder `dir`, a throwaway one, with [`releases`] remembered and the page `key` open.
 /// Nothing reaches the net, the home folder of this computer or its game installation.
 fn release_page(dir: &Path, key: &str, own: &str) -> SamplePage {
@@ -650,6 +670,9 @@ fn release_page(dir: &Path, key: &str, own: &str) -> SamplePage {
     let game = dir.join("LIVE");
     std::fs::create_dir_all(&game).expect("game folder");
     std::fs::write(game.join("Game.log"), "").expect("game log");
+    if key == "hf_achsen" {
+        sticks(&game);
+    }
     let (home, game) = (dir.to_string_lossy().into_owned(), game.to_string_lossy().into_owned());
     let vars = [
         (ENV_HOME, home.as_str()),
@@ -1067,8 +1090,9 @@ fn the_check_sees_a_control_over_the_window_and_a_shortened_line() {
 fn the_check_sees_cards_of_a_row_that_differ_and_a_card_that_grows() {
     let level = [card(10.0, 10.0, 200.0, 110.0), card(208.0, 10.0, 398.0, 110.0)];
     assert!(crooked(&level).is_empty());
+    // A card taller than its neighbour is as tall as its content: no finding.
     let tall = [card(10.0, 10.0, 200.0, 110.0), card(208.0, 10.0, 398.0, 135.0)];
-    assert!(crooked(&tall).iter().any(|find| find.contains("verschieden hoch")));
+    assert!(crooked(&tall).is_empty(), "{:?}", crooked(&tall));
     let low = [card(10.0, 10.0, 200.0, 110.0), card(208.0, 30.0, 398.0, 110.0)];
     assert!(crooked(&low).iter().any(|find| find.contains("beginnen verschieden")));
     // Two columns, the left one a card taller than the right one has under another card: no row.
@@ -1107,4 +1131,491 @@ fn the_parts_cover_every_page_once() {
     for key in LISTS_WITH_DETAIL.iter().chain(&RELEASE_PAGES).chain([&MAP_PAGE]) {
         assert!(keys.contains(key), "{key} is no page of the window");
     }
+}
+
+/// Wide and flat windows (interface points at the size `normal`): Full HD, WQHD, ultrawide, and two flat ones.
+const WIDE_WINDOWS: [Vec2; 5] =
+    [vec2(1920.0, 1080.0), vec2(2560.0, 1440.0), vec2(3440.0, 1440.0), vec2(3440.0, 900.0), vec2(2560.0, 600.0)];
+/// The farthest a switch, a choice, a slider or a number field stands from the label to its left on its line.
+const MOST_FROM_NAME: f32 = 700.0;
+/// The farthest a button stands from the field to its left on its line.
+const NEAR_FIELD: f32 = 48.0;
+
+/// The smallest of `cards` that holds the middle of `rect` (a card in a card is the nearer one).
+fn innermost(cards: &[Rect], rect: Rect) -> Option<Rect> {
+    cards.iter().copied().filter(|card| card.contains(rect.center())).min_by(|a, b| a.area().total_cmp(&b.area()))
+}
+
+/// What stands too far apart in a wide window: a control far from its name, a field wider than a field gets
+/// (search lines are as wide as their place by the house rules and are left out), a button far from its field.
+fn spread(nodes: &[Node], searches: &[Rect], lists: &[Rect], cards: &[Rect]) -> Vec<String> {
+    let mut found = Vec::new();
+    let is_search =
+        |rect: Rect| searches.iter().any(|s| (s.min - rect.min).length() < 3.0 && (s.max - rect.max).length() < 3.0);
+    // A row of a list has its actions at its right end by the house rules.
+    let in_a_list = |rect: Rect| lists.iter().any(|list| list.contains(rect.center()));
+    for node in nodes {
+        if in_a_list(node.rect) {
+            continue;
+        }
+        // What stands in the card beside it on the same height is not on its line.
+        let card = innermost(cards, node.rect);
+        let on_line = |other: Rect| {
+            other.max.y > node.rect.min.y + 2.0
+                && other.min.y < node.rect.max.y - 2.0
+                && card.is_none_or(|card| card.contains(other.center()))
+        };
+        match node.role {
+            Role::TextInput if !is_search(node.rect) => {
+                if node.rect.width() > versekit_ui::widgets::FIELD_MAX_WIDTH + TOLERANCE {
+                    found.push(format!("Feld {:.0} breit: {:?}", node.rect.width(), node.name));
+                }
+                let next = nodes
+                    .iter()
+                    .filter(|b| {
+                        b.role == Role::Button && on_line(b.rect) && b.rect.min.x >= node.rect.max.x - TOLERANCE
+                    })
+                    .map(|b| b.rect.min.x - node.rect.max.x)
+                    .fold(f32::INFINITY, f32::min);
+                if next.is_finite() && next > NEAR_FIELD {
+                    found.push(format!("Knopf {next:.0} Punkte neben dem Feld {:?}", node.name));
+                }
+            }
+            Role::CheckBox | Role::Switch | Role::ComboBox | Role::Slider | Role::SpinButton => {
+                // The nearest thing to its left on its line: when that is a label, it is the name of the control.
+                let left = nodes
+                    .iter()
+                    .filter(|o| o.id != node.id && on_line(o.rect) && o.rect.max.x <= node.rect.min.x + TOLERANCE)
+                    .filter(|o| is_control(o.role))
+                    .min_by(|a, b| (node.rect.min.x - a.rect.max.x).total_cmp(&(node.rect.min.x - b.rect.max.x)));
+                if let Some(name) = left.filter(|o| o.role == Role::Label) {
+                    let gap = node.rect.min.x - name.rect.max.x;
+                    if gap > MOST_FROM_NAME {
+                        found.push(format!("{:?} {:?} steht {gap:.0} Punkte von seinem Namen", node.role, node.name));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
+/// In a wide or flat window the controls stay with their names, fields keep a width one can use, and a button
+/// stands beside its field: on every page.
+#[test]
+fn in_a_wide_window_nothing_stands_far_from_what_it_belongs_to() {
+    set_thread_language(Choice::De);
+    theme::set_thread_current("krt");
+    let mut findings = Vec::new();
+    let mut controls = 0;
+    // The hangar is rebuilt in a session of its own.
+    for key in page_keys().into_iter().filter(|key| *key != "hf_hangar") {
+        for window in WIDE_WINDOWS {
+            let mut harness = harness(key);
+            settle(&mut harness, 1, window);
+            drawn_cards::take_searches();
+            drawn_cards::take_lists();
+            let frame = frame_of(&mut harness, window);
+            let (searches, lists) = (drawn_cards::take_searches(), drawn_cards::take_lists());
+            // The window itself stands in a list frame: only the lists on the page count.
+            let lists: Vec<Rect> = lists.into_iter().filter(|list| list.width() < window.x - 40.0).collect();
+            controls += frame.nodes.iter().filter(|n| matches!(n.role, Role::CheckBox | Role::TextInput)).count();
+            let cards: Vec<Rect> = frame.cards.iter().map(|(card, _)| *card).collect();
+            for find in spread(&frame.nodes, &searches, &lists, &cards) {
+                findings.push(format!("{key} {:.0}×{:.0}: {find}", window.x, window.y));
+            }
+        }
+    }
+    drawn_cards::record(false);
+    assert!(controls > 100, "only {controls} switches and fields looked at");
+    assert!(findings.is_empty(), "{} Befunde:\n{}", findings.len(), findings.join("\n"));
+}
+
+#[test]
+fn the_check_of_wide_windows_sees_what_stands_apart() {
+    let node =
+        |id: u128, role: Role, x0: f32, x1: f32| Node { id, role, name: String::new(), rect: card(x0, 10.0, x1, 30.0) };
+    // A name, its switch right after it, a field of a usual width with its button beside it: fine.
+    let fine = [node(1, Role::Label, 10.0, 300.0), node(2, Role::Switch, 380.0, 424.0)];
+    assert!(spread(&fine, &[], &[], &[]).is_empty());
+    let field = [node(1, Role::TextInput, 10.0, 500.0), node(2, Role::Button, 508.0, 600.0)];
+    assert!(spread(&field, &[], &[], &[]).is_empty());
+    // The switch at the far edge, a field over the whole width, a button far from its field.
+    let far = [node(1, Role::Label, 10.0, 300.0), node(2, Role::Switch, 1500.0, 1544.0)];
+    assert_eq!(spread(&far, &[], &[], &[]).len(), 1);
+    assert_eq!(spread(&[node(1, Role::TextInput, 10.0, 1500.0)], &[], &[], &[]).len(), 1);
+    let apart = [node(1, Role::TextInput, 10.0, 500.0), node(2, Role::Button, 900.0, 1000.0)];
+    assert_eq!(spread(&apart, &[], &[], &[]).len(), 1);
+    // The same button in the card beside the one of the field is not its button.
+    let two_cards = [card(0.0, 0.0, 700.0, 100.0), card(710.0, 0.0, 1400.0, 100.0)];
+    assert!(spread(&apart, &[], &[], &two_cards).is_empty());
+    assert_eq!(spread(&apart, &[], &[], &[card(0.0, 0.0, 1400.0, 100.0)]).len(), 1, "one card: still far");
+    // A search line may be as wide as its place; a row of a list keeps its actions at its right end; a choice after
+    // another choice is no pair of a name and its control.
+    let search = node(1, Role::TextInput, 10.0, 1500.0);
+    let place = search.rect;
+    assert!(spread(&[search], &[place], &[], &[]).is_empty());
+    assert!(spread(&far, &[], &[card(0.0, 0.0, 2000.0, 100.0)], &[]).is_empty());
+    let choices = [
+        node(1, Role::Label, 10.0, 100.0),
+        node(2, Role::ComboBox, 120.0, 300.0),
+        node(3, Role::ComboBox, 1000.0, 1200.0),
+    ];
+    assert!(spread(&choices, &[], &[], &[]).is_empty());
+}
+
+// ------------------------------------------------------------ the rules of every page
+
+/// The windows every page is drawn in for the rules: the usual widths and flat ones.
+const RULE_WINDOWS: [Vec2; 6] = [
+    vec2(1280.0, 800.0),
+    vec2(1920.0, 1080.0),
+    vec2(2560.0, 1440.0),
+    vec2(3440.0, 1440.0),
+    vec2(3440.0, 900.0),
+    vec2(2560.0, 600.0),
+];
+/// The least share of its width a card fills with its content (the rest is empty to the right).
+const LEAST_FILL: f32 = 0.65;
+/// Cards narrower than this are left to the other checks: a small card is full by its nature.
+const FILL_FROM_WIDTH: f32 = 320.0;
+
+/// Pages that keep a rule apart, each with its reason. A page here whose findings are gone has to leave the list.
+const RULE_EXCEPTIONS: [(&str, &str); 23] = [
+    // Pages whose rebuild on the building blocks comes in 5.1.4 after this change (a session of its own): each leaves
+    // the list when it is rebuilt; the check then holds for it like for every other page.
+    ("hf_farmliste", "Umbau ausstehend: Karte über volle Breite"),
+    ("hf_bergbau", "Umbau ausstehend: leere Karten, Hinweiszeilen"),
+    ("hf_bergung", "Umbau ausstehend: Karte über volle Breite"),
+    ("hf_einkaufsliste", "Umbau ausstehend: Karten über volle Breite"),
+    ("hf_contested", "Umbau ausstehend: Karten über volle Breite"),
+    ("hf_allgemein", "Umbau ausstehend: Accounts und Bestand über volle Breite"),
+    ("hf_ordner", "Umbau ausstehend: Spielkanäle schmal"),
+    ("hf_module", "Umbau ausstehend: eine Spalte bei 1280"),
+    ("hf_erkennung", "Umbau ausstehend: Karten über volle Breite"),
+    ("hf_startprogramme", "Umbau ausstehend: Karten über volle Breite"),
+    ("k_basetool_verbindung", "Umbau ausstehend: Verbindung und Datenschutz über volle Breite"),
+    ("hf_sichern", "Umbau ausstehend: Karten über volle Breite"),
+    ("hf_spiel", "Umbau ausstehend: Karten über volle Breite"),
+    ("hf_grafik", "Umbau ausstehend: Schreib-Leiste und Rechner-Karte über volle Breite (Shader-Karte erfüllt die Regeln)"),
+    ("hf_blickwinkel", "Umbau ausstehend: Karte über volle Breite"),
+    ("hf_joysticks", "Umbau ausstehend: Karten über volle Breite"),
+    ("hf_ueber", "Umbau ausstehend (Auftrag Update & Über)"),
+    ("hf_patchaenderungen", "Umbau ausstehend (Auftrag Geänderte Spielwerte)"),
+    ("hf_serverstatus", "Umbau ausstehend (Auftrag Serverstatus)"),
+    ("hf_handlesuche", "Umbau ausstehend (Auftrag Handle-Suche)"),
+    ("hf_danke", "Umbau ausstehend (Auftrag Danke & Lizenzen)"),
+    ("hf_wasistneu", "Umbau ausstehend (Auftrag Was ist neu)"),
+    ("hf_diagnose", "Umbau ausstehend: Karten über volle Breite"),
+];
+
+/// Cards that run empty to the right: the content (lines and controls seen in the card) ends before
+/// [`LEAST_FILL`] of its width.
+fn empty_cards(cards: &[(Rect, Rect)], lines: &[Rect], nodes: &[Rect], pictures: &[Rect]) -> Vec<String> {
+    empty_cards_named(cards, lines, nodes, pictures, &[])
+}
+
+/// [`empty_cards`] that names each card found by the topmost of `texts` in it (its title).
+fn empty_cards_named(
+    cards: &[(Rect, Rect)],
+    lines: &[Rect],
+    nodes: &[Rect],
+    pictures: &[Rect],
+    texts: &[(Rect, String)],
+) -> Vec<String> {
+    let mut found = Vec::new();
+    for (card, seen) in cards {
+        if card.width() < FILL_FROM_WIDTH || seen.height() < 60.0 {
+            continue;
+        }
+        // A card with a picture area is an editor: it may take the whole width (its pictures are checked apart).
+        if pictures.iter().any(|picture| card.contains(picture.center())) {
+            continue;
+        }
+        // The content of the whole card, also of the part below the edge of the window: a card cut by it is not empty.
+        let inside = |rect: &&Rect| card.contains(rect.center()) && rect.width() < card.width();
+        let right = lines.iter().chain(nodes).filter(inside).map(|rect| rect.max.x).fold(card.min.x, f32::max);
+        let fill = (right - card.min.x) / card.width();
+        if fill < LEAST_FILL {
+            let title = texts
+                .iter()
+                .filter(|(rect, _)| card.contains(rect.center()))
+                .min_by(|a, b| a.0.top().total_cmp(&b.0.top()))
+                .map_or("", |(_, text)| text.as_str());
+            found.push(format!(
+                "Karte „{title}“ zu {:.0} % leer ({:.0} breit, Inhalt bis {:.0})",
+                (1.0 - fill) * 100.0,
+                card.width(),
+                right - card.min.x
+            ));
+        }
+    }
+    found
+}
+
+/// Columns of cards side by side whose ends lie far apart while a card of the longer one would fit into the shorter
+/// one: moving it would end both higher. The cards of a page only (a card in a card is left out); a wide card begins a
+/// new run of columns.
+fn unbalanced_columns(cards: &[Rect]) -> Vec<String> {
+    const SPACE: f32 = 12.0;
+    let top: Vec<Rect> = cards
+        .iter()
+        .copied()
+        .filter(|c| !cards.iter().any(|o| o != c && o.contains_rect(*c) && o.area() > c.area()))
+        .collect();
+    let (Some(left), Some(right)) =
+        (top.iter().map(|c| c.left()).reduce(f32::min), top.iter().map(|c| c.right()).reduce(f32::max))
+    else {
+        return Vec::new();
+    };
+    let wide: Vec<Rect> = top.iter().copied().filter(|c| c.width() > 0.6 * (right - left)).collect();
+    let narrow: Vec<Rect> = top.iter().copied().filter(|c| c.width() <= 0.6 * (right - left)).collect();
+    // The run of a card: how many wide cards stand above it.
+    let run = |c: &Rect| wide.iter().filter(|w| w.top() < c.top()).count();
+    let mut found = Vec::new();
+    for a in &narrow {
+        for b in &narrow {
+            // `a` is the last card of its column in its run, `b` the last of another column of the same run.
+            let last = |c: &Rect| {
+                !narrow
+                    .iter()
+                    .any(|o| o != c && (o.left() - c.left()).abs() < 1.0 && run(o) == run(c) && o.top() > c.top())
+            };
+            if (a.left() - b.left()).abs() < 1.0 || run(a) != run(b) || !last(a) || !last(b) {
+                continue;
+            }
+            let gap = a.bottom() - b.bottom();
+            // Some card of the column of `a` that would end higher under `b`.
+            let movable = narrow
+                .iter()
+                .filter(|c| (c.left() - a.left()).abs() < 1.0 && run(c) == run(a) && c.top() > b.top())
+                .any(|c| c.height() + SPACE + 0.5 < gap);
+            if movable {
+                found.push(format!("Spalten laufen {gap:.0} auseinander, eine Karte passt in die kürzere"));
+            }
+        }
+    }
+    found
+}
+
+/// Settings rows without a control: by the house rules a small heading instead.
+fn bare_rows(rows: &[Rect]) -> Vec<String> {
+    rows.iter()
+        .map(|row| format!("Zeile ohne Steuerelement bei {:.0},{:.0} (Untertitel nehmen)", row.min.x, row.min.y))
+        .collect()
+}
+
+/// Picture areas narrower than [`versekit_ui::widgets::PICTURE_MIN_WIDTH`]: nobody makes out what they show.
+fn small_pictures(pictures: &[Rect]) -> Vec<String> {
+    let least = versekit_ui::widgets::PICTURE_MIN_WIDTH;
+    pictures
+        .iter()
+        .filter(|picture| picture.width() < least - TOLERANCE)
+        .map(|picture| format!("Bildfläche nur {:.0} breit (mindestens {least:.0})", picture.width()))
+        .collect()
+}
+
+/// Hints in small grey text that stand as a line under a row: right below a line with a control, beginning where the
+/// name of that line begins. The house rules want them on hover behind the symbol `info`.
+fn hints_under_rows(hints: &[Rect], nodes: &[Node], cards: &[Rect]) -> Vec<String> {
+    let control = |role: Role| {
+        matches!(
+            role,
+            Role::CheckBox
+                | Role::Switch
+                | Role::ComboBox
+                | Role::Slider
+                | Role::SpinButton
+                | Role::TextInput
+                | Role::RadioButton
+        )
+    };
+    let mut found = Vec::new();
+    for hint in hints {
+        // Only a row of the card the hint stands in.
+        let card = innermost(cards, *hint);
+        let in_card = |rect: Rect| card.is_none_or(|card| innermost(cards, rect) == Some(card));
+        let row = nodes.iter().filter(|n| control(n.role) && in_card(n.rect)).find(|n| {
+            let above = n.rect.max.y <= hint.min.y + 2.0 && n.rect.max.y >= hint.min.y - 30.0;
+            let line =
+                |o: &&Node| o.rect.max.y > n.rect.min.y + 2.0 && o.rect.min.y < n.rect.max.y - 2.0 && in_card(o.rect);
+            let named_at_the_hint =
+                nodes.iter().filter(line).any(|o| o.role == Role::Label && (o.rect.min.x - hint.min.x).abs() < 6.0);
+            above && n.rect.min.x > hint.min.x && named_at_the_hint
+        });
+        if row.is_some() {
+            let name = row.map(|n| n.name.as_str()).unwrap_or_default();
+            found.push(format!(
+                "Hinweis als Zeile unter einer Einstellung bei {:.0},{:.0} ({name})",
+                hint.min.x, hint.min.y
+            ));
+        }
+    }
+    found
+}
+
+/// Choices with more than one piece standing out as chosen.
+fn doubled_choices(choices: &[(String, bool)]) -> Vec<String> {
+    let mut names: Vec<&str> = choices.iter().filter(|(_, on)| *on).map(|(name, _)| name.as_str()).collect();
+    names.sort_unstable();
+    let mut found = Vec::new();
+    for name in names.iter().copied() {
+        let count = names.iter().filter(|n| **n == name).count();
+        let said = format!("Auswahl „{name}“ {count}-mal hervorgehoben");
+        if count > 1 && !found.contains(&said) {
+            found.push(said);
+        }
+    }
+    found
+}
+
+/// Every page of the side bar, on real data where it has them in the sample, in German and English, in every window
+/// of [`RULE_WINDOWS`]: no card runs empty to the right, no hint stands as a line under a row, no choice shows two
+/// pieces as chosen. A page that keeps a rule apart stands in [`RULE_EXCEPTIONS`] with its reason.
+#[test]
+fn every_page_keeps_the_rules_of_cards_hints_and_choices() {
+    let mut by_page: Vec<(String, Vec<String>)> = Vec::new();
+    for language in [Choice::De, Choice::En] {
+        set_thread_language(language);
+        theme::set_thread_current("krt");
+        // One page alone for a look at it (`LAYOUT_GUARD_PAGE=hf_overlay cargo test ...`).
+        let only = std::env::var("LAYOUT_GUARD_PAGE").ok();
+        for key in page_keys().into_iter().filter(|key| only.as_deref().is_none_or(|one| one == *key)) {
+            // The sample of the page and the page on data of a throwaway folder, offline.
+            let dir = versekit_core::testdir::Dir::new("layout-guard-regeln");
+            let placeholder = versekit_core::language::t("s_mu_seite");
+            for (window, real) in RULE_WINDOWS.iter().flat_map(|w| [(*w, false), (*w, true)]) {
+                let mut harness = if real { harness_of(release_page(dir.path(), key, "5.0.0")) } else { harness(key) };
+                settle(&mut harness, 1, window);
+                // The sticks are read in a thread of their own: their page is measured once they stand on it.
+                if real && key == "hf_achsen" {
+                    for _ in 0..20 {
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                        settle(&mut harness, 1, window);
+                    }
+                }
+                drawn_cards::take_hints();
+                drawn_cards::take_choices();
+                drawn_cards::take_rows();
+                drawn_cards::take_pictures();
+                drawn_cards::take_bare_rows();
+                let frame = frame_of(&mut harness, window);
+                let (hints, choices, rows) =
+                    (drawn_cards::take_hints(), drawn_cards::take_choices(), drawn_cards::take_rows());
+                let (pictures, bare) = (drawn_cards::take_pictures(), drawn_cards::take_bare_rows());
+                // The real page that only shows the placeholder of the sample says nothing of the page.
+                if real && frame.lines.iter().any(|l| l.text == placeholder) {
+                    continue;
+                }
+                // The rows count with their column of controls: it is where every control of the card stands.
+                let lines: Vec<Rect> = frame.lines.iter().map(|l| l.rect.intersect(l.clip)).chain(rows).collect();
+                // A card in a card is content of the outer one.
+                let nodes: Vec<Rect> = frame
+                    .nodes
+                    .iter()
+                    .map(|n| n.rect)
+                    .chain(frame.cards.iter().map(|(card, seen)| card.intersect(*seen)))
+                    .collect();
+                let texts: Vec<(Rect, String)> = frame.lines.iter().map(|l| (l.rect, l.text.clone())).collect();
+                let mut found = empty_cards_named(&frame.cards, &lines, &nodes, &pictures, &texts);
+                found.extend(small_pictures(&pictures));
+                found.extend(bare_rows(&bare));
+                let page_cards: Vec<Rect> = frame.cards.iter().map(|(card, _)| *card).collect();
+                found.extend(unbalanced_columns(&page_cards));
+                let cards: Vec<Rect> = frame.cards.iter().map(|(card, _)| *card).collect();
+                found.extend(hints_under_rows(&hints, &frame.nodes, &cards));
+                found.extend(doubled_choices(&choices));
+                let tag = format!(
+                    "{}{} {:.0}×{:.0}",
+                    if language == Choice::De { "DE" } else { "EN" },
+                    if real { " echt" } else { "" },
+                    window.x,
+                    window.y
+                );
+                if found.is_empty() {
+                    continue;
+                }
+                match by_page.iter_mut().find(|(page, _)| page == key) {
+                    Some((_, list)) => list.extend(found.into_iter().map(|f| format!("{tag}: {f}"))),
+                    None => by_page.push((key.to_string(), found.into_iter().map(|f| format!("{tag}: {f}")).collect())),
+                }
+            }
+        }
+    }
+    drawn_cards::record(false);
+    set_thread_language(Choice::De);
+    // Every page with findings, for the list of what is left to do.
+    for (page, list) in &by_page {
+        let count = |word: &str| list.iter().filter(|f| f.contains(word)).count();
+        let (empty, hints, choices) = (count("leer ("), count("Hinweis als Zeile"), count("hervorgehoben"));
+        let (pictures, bare, columns) = (count("Bildfläche"), count("ohne Steuerelement"), count("auseinander"));
+        let real = if list.iter().any(|f| f.contains(" echt ")) { ", auch echt" } else { "" };
+        eprintln!(
+            "SEITE {page}: leere Karten {empty}, Hinweiszeilen {hints}, doppelt hervorgehoben {choices}, kleine Bildflächen {pictures}, Zeilen ohne Steuerelement {bare}, ungleiche Spalten {columns}{real}"
+        );
+        let shown = if std::env::var("LAYOUT_GUARD_PAGE").is_ok() { list.len() } else { 4 };
+        for finding in list.iter().take(shown) {
+            eprintln!("  BEFUND {finding}");
+        }
+    }
+    let open: Vec<String> = by_page
+        .iter()
+        .filter(|(page, _)| !RULE_EXCEPTIONS.iter().any(|(own, _)| own == page))
+        .map(|(page, list)| format!("{page}:\n  {}", list.iter().take(6).cloned().collect::<Vec<_>>().join("\n  ")))
+        .collect();
+    let stale: Vec<&str> =
+        RULE_EXCEPTIONS.iter().map(|(page, _)| *page).filter(|page| !by_page.iter().any(|(p, _)| p == page)).collect();
+    assert!(open.is_empty(), "{} Seiten verletzen die Regeln:\n{}", open.len(), open.join("\n"));
+    // Only a run over every page knows which exceptions are left without a finding.
+    if std::env::var("LAYOUT_GUARD_PAGE").is_err() {
+        assert!(stale.is_empty(), "Ausnahmen ohne Befund, aus der Liste nehmen: {stale:?}");
+    }
+}
+
+#[test]
+fn the_rules_of_every_page_see_an_empty_card_a_hint_under_a_row_and_a_doubled_choice() {
+    // A card of 1000 whose content ends at 400: empty; one whose content ends at 800: full.
+    let lines = [card(10.0, 10.0, 400.0, 30.0)];
+    let full = [card(10.0, 40.0, 800.0, 60.0)];
+    let seen = card(0.0, 0.0, 1000.0, 100.0);
+    assert_eq!(empty_cards(&[(seen, seen)], &lines, &[], &[]).len(), 1);
+    assert!(empty_cards(&[(seen, seen)], &lines, &full, &[]).is_empty());
+    // A card with a picture area is an editor and may be wide; the picture keeps its least width.
+    assert!(empty_cards(&[(seen, seen)], &lines, &[], &[card(10.0, 40.0, 600.0, 90.0)]).is_empty());
+    assert!(small_pictures(&[card(10.0, 40.0, 600.0, 90.0)]).is_empty());
+    assert_eq!(small_pictures(&[card(10.0, 40.0, 400.0, 90.0)]).len(), 1, "a picture too small to see");
+    // Two columns: the left ends 600 lower, and its second card (100 tall) would fit under the right one.
+    let uneven = [
+        card(0.0, 0.0, 400.0, 300.0),
+        card(0.0, 312.0, 400.0, 412.0),
+        card(0.0, 424.0, 400.0, 1000.0),
+        card(412.0, 0.0, 812.0, 400.0),
+    ];
+    assert!(!unbalanced_columns(&uneven).is_empty());
+    // Level columns, or one long card that no move makes shorter: fine.
+    let level = [card(0.0, 0.0, 400.0, 300.0), card(0.0, 312.0, 400.0, 412.0), card(412.0, 0.0, 812.0, 400.0)];
+    assert!(unbalanced_columns(&level).is_empty());
+    let long = [card(0.0, 0.0, 400.0, 1000.0), card(412.0, 0.0, 812.0, 200.0)];
+    assert!(unbalanced_columns(&long).is_empty());
+    assert_eq!(bare_rows(&[card(10.0, 10.0, 400.0, 30.0)]).len(), 1);
+    // A row of a name and its switch, a hint right under the name: found; the same hint away from any row: not.
+    let node = |role: Role, x0: f32, x1: f32, y0: f32| Node {
+        id: 0,
+        role,
+        name: String::new(),
+        rect: card(x0, y0, x1, y0 + 20.0),
+    };
+    let row = [node(Role::Label, 20.0, 200.0, 10.0), node(Role::Switch, 380.0, 424.0, 10.0)];
+    assert_eq!(hints_under_rows(&[card(20.0, 32.0, 300.0, 44.0)], &row, &[]).len(), 1);
+    assert!(hints_under_rows(&[card(20.0, 200.0, 300.0, 212.0)], &row, &[]).is_empty());
+    // The same hint in a card of its own beside the row: not under the row.
+    let cards = [card(0.0, 0.0, 450.0, 31.0), card(0.0, 31.0, 450.0, 100.0)];
+    assert!(hints_under_rows(&[card(20.0, 32.0, 300.0, 44.0)], &row, &cards).is_empty());
+    // Two pieces of one choice chosen: found; one chosen of each: not.
+    let doubled = [("platz".to_string(), true), ("platz".to_string(), true), ("schema".to_string(), true)];
+    assert_eq!(doubled_choices(&doubled).len(), 1);
+    assert!(doubled_choices(&[("platz".to_string(), true), ("platz".to_string(), false)]).is_empty());
 }

@@ -34,6 +34,8 @@ const $ = (t, a = {}, kids = []) => {
   for (const c of kids) e.appendChild(c);
   return e;
 };
+// A note on how something is counted: closed, opened on demand.
+const erklaerung = (text) => $('details', { class: 'erklaerung' }, [$('summary', { text: 'So wird gezählt' }), $('p', { class: 'hinweis', text })]);
 const NS = 'http://www.w3.org/2000/svg';
 const s = (t, a = {}) => { const e = document.createElementNS(NS, t);
   for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
@@ -353,7 +355,7 @@ function render(d, span) {
       kpi(int(dlTotal), 'Downloads gesamt (mit gelöschten)'),
       kpi((d.kurzlinks || []).filter((r) => days.includes(r.tag)).reduce((a, r) => a + r.n, 0),
           'über die Webseite (Zeitraum)')])])]));
-  k.appendChild($('p', { class: 'hinweis', text: 'Pfeil = die letzten 7 vollen Tage gegen die 7 Tage davor, in Klammern der Wert der Vorwoche. Aktiv = hat sich an dem Tag gemeldet (UTC), jede Installation höchstens einmal am Tag, ohne Kennung. Wer die Meldung abschaltet, fehlt. Der laufende Tag zählt bei Schnitt, Vergleich und bestem Tag nicht mit, weil er noch nicht zu Ende ist. Neue und Bleiben erst ab VerseKit 5.2. Reichweite zählt nur Downloads über xharig.com/windows und /linux, also neue Leute; Auto-Updates bestehender Nutzer stehen klein darunter. Der Kanal erscheint, sobald gepostete Links ein Kennzeichen tragen.' }));
+  k.appendChild(erklaerung('Pfeil = die letzten 7 vollen Tage gegen die 7 Tage davor, in Klammern der Wert der Vorwoche. Aktiv = hat sich an dem Tag gemeldet (UTC), jede Installation höchstens einmal am Tag, ohne Kennung. Wer die Meldung abschaltet, fehlt. Der laufende Tag zählt bei Schnitt, Vergleich und bestem Tag nicht mit, weil er noch nicht zu Ende ist. Neue und Bleiben erst ab VerseKit 5.2. Reichweite zählt nur Downloads über xharig.com/windows und /linux, also neue Leute; Auto-Updates bestehender Nutzer stehen klein darunter. Der Kanal erscheint, sobald gepostete Links ein Kennzeichen tragen.'));
 
   // Erst ab dem ersten Tag mit Meldungen: davor wurde noch nicht gezählt (bei „1 Jahr“ sonst Monate Nulllinie).
   const from = firstData(total), shown = days.slice(from);
@@ -378,7 +380,7 @@ function render(d, span) {
       'Aktive Nutzer je Woche, mit Markierungen der Versionen',
       { marks, markName: 'fertige Version (Name beim Überfahren)',
         when: (i) => 'Woche ab ' + short(weeks[i].ab) + (weeks[i].tage < 7 ? ' (' + weeks[i].tage + ' Tage)' : '') });
-    wc.appendChild($('p', { class: 'hinweis', text: 'Je Woche (Montag bis Sonntag, UTC) der Schnitt der aktiven Installationen je Tag, über die ganze Zeit seit der ersten Meldung. Senkrechte Linie = in dieser Woche kam eine fertige Version heraus.' }));
+    wc.appendChild(erklaerung('Je Woche (Montag bis Sonntag, UTC) der Schnitt der aktiven Installationen je Tag, über die ganze Zeit seit der ersten Meldung. Senkrechte Linie = in dieser Woche kam eine fertige Version heraus.'));
   }
 
   // Alles Weitere ist für die Entwicklung: eingeklappt unter einer Überschrift.
@@ -421,7 +423,7 @@ function render(d, span) {
       { name: 'Windows', color: C_WIN, values: days.map((t) => perDayW[t] || 0) },
       { name: 'Linux', color: C_LIN, dash: true, values: days.map((t) => perDayL[t] || 0) }],
       'Downloads je Tag');
-    dayCard.appendChild($('p', { class: 'hinweis', text: 'Gemessen stündlich. Fehlt ein Tag, steht sein Zuwachs am nächsten gemessenen Tag. Gelöschte Releases zählen mit.' }));
+    dayCard.appendChild(erklaerung('Gemessen stündlich. Fehlt ein Tag, steht sein Zuwachs am nächsten gemessenen Tag. Gelöschte Releases zählen mit.'));
   }
 
   // Anteile über die letzten 7 Tage INKLUSIVE heute, aber nur Tage mit
@@ -547,7 +549,7 @@ function render(d, span) {
       b.textContent = label(landOpen); b.setAttribute('aria-expanded', String(landOpen));
     }
   }
-  lc.appendChild($('p', { class: 'hinweis', text: 'Nutzer/Tag = aktive Nutzer je Tag im Durchschnitt der letzten 7 Tage, Downloads = im gewählten Zeitraum, klein darunter der Anteil. Downloads hier = über xharig.com/windows und /linux (Knöpfe der Webseite). Direkt bei GitHub und per Auto-Update verrät GitHub kein Land.' }));
+  lc.appendChild(erklaerung('Nutzer/Tag = aktive Nutzer je Tag im Durchschnitt der letzten 7 Tage, Downloads = im gewählten Zeitraum, klein darunter der Anteil. Downloads hier = über xharig.com/windows und /linux (Knöpfe der Webseite). Direkt bei GitHub und per Auto-Update verrät GitHub kein Land.'));
 
   // Zwei Reihen zu je drei kleinen Blöcken.
   const lastDay = [...days].reverse().find((t) => perDay[t]) || today;
@@ -584,7 +586,7 @@ function render(d, span) {
   const off = Object.fromEntries(share('kachel_aus'));
   const tc = card('Ausgeblendete Kacheln der Startseite (Durchschnitt 7 Tage)');
   zusammen(tc, bars(tc, Object.keys(TILES).map((k) => [TILES[k], off[k] || 0]), pct));
-  tc.appendChild($('p', { class: 'hinweis', text: 'Erst ab v4.1.2 gemeldet. Ab Werk ist nur die Spielzeit ausgeblendet.' }));
+  tc.appendChild(erklaerung('Erst ab v4.1.2 gemeldet. Ab Werk ist nur die Spielzeit ausgeblendet.'));
 
   document.getElementById('stand').textContent = 'Stand ' + new Date().toLocaleString('de-DE')
     + ' · lädt alle 10 Minuten neu';

@@ -3495,14 +3495,14 @@ mod tests {
         page.sync = counter.sync();
         page.picks.ship = "Eclipse".into();
         let shown = frame_with(&ctx, &mut page, &[], 1300.0, &catalog);
-        assert!(has(&shown, "Zu Eclipse fehlen noch die Steckplatz-Daten. Sie werden gerade geholt."), "{shown:?}");
+        assert!(has(&shown, "Steckplatz-Daten für Eclipse werden geholt."), "{shown:?}");
         assert!(listed(&shown).is_empty(), "{shown:?}");
         assert!(!has(&shown, &t("s_he_nichts")), "not \"nothing found\": {shown:?}");
         assert!(page.sync.asked(crate::slot_sync::Trigger::BlueprintNoData) >= 1);
         assert!(page.sync.wait_idle(WAIT));
         set_language(Choice::En);
         let shown = frame_with(&ctx, &mut page, &[], 1300.0, &catalog);
-        assert!(has(&shown, "The slot data for Eclipse is still missing. It is being fetched now."), "{shown:?}");
+        assert!(has(&shown, "Slot data for Eclipse is being fetched."), "{shown:?}");
         set_language(Choice::De);
         assert!(page.sync.wait_idle(WAIT));
     }

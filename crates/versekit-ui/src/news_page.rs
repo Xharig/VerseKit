@@ -120,13 +120,27 @@ impl NewsState {
     pub fn show(&mut self, ui: &mut Ui, scheme: &Scheme, releases: &[Release]) {
         ui.add(egui::Label::new(RichText::new(t("s_wn_lead")).small().color(color(scheme.sub))).wrap());
         ui.add_space(GAP);
-        ui.horizontal_wrapped(|row| {
-            for (kind, word) in filters() {
-                let button_kind = if self.filter == kind { ButtonKind::Strong } else { ButtonKind::Normal };
-                if row.add(widgets::Button::new(&word, button_kind, scheme)).clicked() && self.filter != kind {
-                    self.filter = kind;
-                    self.flipped.clear();
+        // The head card: the filters and, when no version has a change of the kind chosen, the line that says so.
+        widgets::card(ui, scheme, |ui| {
+            widgets::card_title(ui, scheme, &t("s_wn_auswahl"));
+            ui.horizontal_wrapped(|row| {
+                for (kind, word) in filters() {
+                    let button_kind = if self.filter == kind { ButtonKind::Strong } else { ButtonKind::Normal };
+                    if row.add(widgets::Button::new(&word, button_kind, scheme)).clicked() && self.filter != kind {
+                        self.filter = kind;
+                        self.flipped.clear();
+                    }
                 }
+            });
+            self.build(releases);
+            let filter = self.filter;
+            let entries = self.built.as_ref().map_or(&[][..], |(_, _, shown)| shown.as_slice());
+            let any = entries
+                .iter()
+                .any(|shown| shown.points.iter().any(|(kind, _)| filter.is_none_or(|wanted| wanted == *kind)));
+            if !any {
+                ui.add_space(GAP);
+                ui.label(RichText::new(t("s_wn_nichts")).small().color(color(scheme.sub)));
             }
         });
         ui.add_space(GAP);
@@ -134,7 +148,6 @@ impl NewsState {
         let width = badge_width(ui);
         let mut flip = None;
         let mut drawn = 0;
-        self.build(releases);
         let entries = self.built.as_ref().map_or(&[][..], |(_, _, shown)| shown.as_slice());
         for (place, shown) in entries.iter().enumerate() {
             let points: Vec<&(Kind, String)> =
@@ -151,10 +164,6 @@ impl NewsState {
                 flip = Some(place);
             }
             ui.add_space(4.0);
-        }
-        if drawn == 0 {
-            ui.add_space(GAP);
-            ui.label(RichText::new(t("s_wn_nichts")).small().color(color(scheme.sub)));
         }
         if let Some(place) = flip
             && !self.flipped.remove(&place)

@@ -86,6 +86,70 @@ pub struct Snapshot {
     pub names: BTreeMap<String, String>,
     /// The `bt` keys that are items.
     pub items: BTreeSet<String>,
+    /// The materials the last pass could not resolve, lower case.
+    pub left_materials: BTreeSet<String>,
+    /// The places the Basetool does not know that the last pass met, lower case.
+    pub left_places: BTreeSet<String>,
+    /// The lots (by identifier) whose change the Basetool refused in the last pass, with its reason.
+    pub refused: BTreeMap<String, String>,
+}
+
+/// Why the Basetool does not get an own row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Gap {
+    /// The row has no place; the Basetool needs one.
+    NoPlace,
+    /// The place of the row is not in the catalog of the Basetool.
+    UnknownPlace,
+    /// The Basetool does not know the material or item.
+    UnknownPart,
+    /// The Basetool refused the change of the lot (`AMBIGUOUS`, `LOCATION_UNKNOWN` …).
+    Refused,
+}
+
+fn folded(text: &str) -> String {
+    py_strip(text).to_lowercase()
+}
+
+/// Why the pass leaves an own row out, or `None` when nothing keeps it from the Basetool. The material comes
+/// first, as in the pass; `key` is the identifier of the lot the row belongs to, if its material was resolved.
+pub fn gap_of(name: &str, place: &str, key: Option<&str>, snap: &Snapshot) -> Option<Gap> {
+    if snap.left_materials.contains(&folded(name)) {
+        return Some(Gap::UnknownPart);
+    }
+    let place = folded(place);
+    if place.is_empty() {
+        Some(Gap::NoPlace)
+    } else if snap.left_places.contains(&place) {
+        Some(Gap::UnknownPlace)
+    } else if key.is_some_and(|key| snap.refused.contains_key(key)) {
+        Some(Gap::Refused)
+    } else {
+        None
+    }
+}
+
+/// The lots whose change the last pass saw refused: identifier to reason. A lot refused because it was removed
+/// elsewhere is a conflict the player decides, not a refusal.
+fn refused_lots(sub: &Map) -> BTreeMap<String, String> {
+    let Some(Value::Object(entries)) = get(sub, "rejected") else { return BTreeMap::new() };
+    entries
+        .iter()
+        .filter_map(|(key, reason)| Some((key.clone(), reason.as_str()?.to_string())))
+        .filter(|(_, reason)| reason != "REMOVED_ELSEWHERE")
+        .collect()
+}
+
+/// The names the pass left out, lower case, from the list in the state.
+fn left_out(sub: &Map, kind: &str) -> BTreeSet<String> {
+    let Some(Value::Array(names)) = get(sub, "skipped").and_then(|s| s.get(kind)) else { return BTreeSet::new() };
+    names
+        .iter()
+        .filter_map(Value::as_str)
+        .filter(|name| *name != crate::basetool::stock_sync::NO_PLACE)
+        .map(folded)
+        .filter(|name| !name.is_empty())
+        .collect()
 }
 
 fn number(value: Option<&Value>) -> f64 {
@@ -147,7 +211,14 @@ pub fn snapshot(state: &Map) -> Option<Snapshot> {
             }
         }
     }
-    Some(Snapshot { lots, names, items })
+    Some(Snapshot {
+        lots,
+        names,
+        items,
+        left_materials: left_out(sub, "material"),
+        left_places: left_out(sub, "location"),
+        refused: refused_lots(sub),
+    })
 }
 
 /// `(personal, [(unit, amount)])` of a lot. Without `split` (an older
@@ -412,6 +483,55 @@ mod tests {
         // Without `split` everything is personal.
         let old = value(r#"{"quantity": {"amount": 3, "unit": "SCU"}}"#);
         assert_eq!(split_of(&old), (3.0, Vec::new()));
+    }
+
+    fn snap_with_skipped(skipped: &str) -> Snapshot {
+        let state = value(&format!(
+            r#"{{"stock": {{"server": {{}}, "resolved": {{}}, "items": {{}}, "skipped": {skipped}}}}}"#
+        ));
+        let Value::Object(state) = state else { panic!("object") };
+        snapshot(&state).expect("a snapshot")
+    }
+
+    #[test]
+    fn a_row_the_pass_leaves_out_says_why_and_the_material_comes_first() {
+        let none = crate::basetool::stock_sync::NO_PLACE;
+        let snap = snap_with_skipped(&format!(
+            r#"{{"material": ["Mystery Ore", " Odd "], "location": ["Nowhere", "{none}"]}}"#
+        ));
+        assert_eq!(gap_of("mystery ore", "Levski", None, &snap), Some(Gap::UnknownPart), "case does not matter");
+        assert_eq!(gap_of(" Odd", "Levski", None, &snap), Some(Gap::UnknownPart), "spaces do not matter");
+        assert_eq!(gap_of("Iron", "", None, &snap), Some(Gap::NoPlace));
+        assert_eq!(gap_of("Iron", "   ", None, &snap), Some(Gap::NoPlace));
+        assert_eq!(gap_of("Iron", " nowhere ", None, &snap), Some(Gap::UnknownPlace));
+        assert_eq!(gap_of("Iron", "Levski", None, &snap), None);
+        let unknown = gap_of("Mystery Ore", "", None, &snap);
+        assert_eq!(unknown, Some(Gap::UnknownPart), "unknown material before missing place");
+        // The dash the pass writes for a row without a place is no place of its own.
+        assert!(!snap.left_places.contains(crate::basetool::stock_sync::NO_PLACE));
+        assert_eq!(gap_of("Iron", "\u{2014}", None, &snap), None);
+    }
+
+    #[test]
+    fn a_state_without_a_skipped_list_leaves_nothing_out_except_a_row_without_a_place() {
+        let snap = snap();
+        assert_eq!(gap_of("Titanium", "Area18", None, &snap), None);
+        assert_eq!(gap_of("Titanium", "", None, &snap), Some(Gap::NoPlace));
+    }
+
+    #[test]
+    fn a_lot_the_basetool_refused_is_a_gap_unless_it_is_a_conflict_the_player_decides() {
+        let state = value(
+            r#"{"stock": {"server": {}, "resolved": {}, "items": {},
+                "rejected": {"bt-mirage|orison|0|0": "AMBIGUOUS", "bt-iron|orison|500|0": "REMOVED_ELSEWHERE"}}}"#,
+        );
+        let Value::Object(state) = state else { panic!("object") };
+        let snap = snapshot(&state).expect("a snapshot");
+        assert_eq!(gap_of("Mirage", "Orison", Some("bt-mirage|orison|0|0"), &snap), Some(Gap::Refused));
+        assert_eq!(gap_of("Mirage", "Orison", Some("bt-other|orison|0|0"), &snap), None, "another lot");
+        assert_eq!(gap_of("Mirage", "Orison", None, &snap), None, "a row never resolved has no lot to be refused");
+        assert_eq!(gap_of("Iron", "Orison", Some("bt-iron|orison|500|0"), &snap), None, "a conflict is decided elsewhere");
+        assert_eq!(snap.refused.get("bt-mirage|orison|0|0").map(String::as_str), Some("AMBIGUOUS"));
     }
 
     #[test]

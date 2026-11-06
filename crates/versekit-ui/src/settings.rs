@@ -20,7 +20,7 @@
 //! bar for a new version and the block that places the overlay on the screen.
 
 use egui::{
-    Align, CornerRadius, CursorIcon, InnerResponse, Layout, Rect, RichText, Role, Sense, Stroke, StrokeKind, TextStyle,
+    Align, CornerRadius, CursorIcon, InnerResponse, Layout, Rect, Role, Sense, Stroke, StrokeKind, TextStyle,
     Ui, Vec2, WidgetInfo, pos2, vec2,
 };
 use versekit_core::theme::{IconTint, Scheme};
@@ -41,16 +41,16 @@ pub const CONTROL_WIDTH: f32 = 232.0;
 /// slip away under the mouse when the number goes from 99 to 100.
 pub const VALUE_WIDTH: f32 = 52.0;
 
-/// One setting: its name at the left, the control in the column of controls at the right, a short
-/// hint below in small muted text. After a jump from the menu filter to its
+/// One setting in one line: its name at the left with the symbol `info` behind it, the control in the column of
+/// controls right after the names; the hint stands on hover over the row, never as a grey line below (the house
+/// rule, enforced here for every page). After a jump from the menu filter to its
 /// name or its hint the row frames itself in the accent (see
 /// [`crate::highlight`]); `lit` says that the jump leads to this row under
 /// another name (the row shows a text other than the one the filter found).
 ///
 /// The column is [`CONTROL_WIDTH`] wide and its left edge is the same in every row of a card; the controls are
 /// laid out from there to the right (what does not fit goes to a second line) and stand at that edge, whatever
-/// their own width. The hint sits right below the name and the control in the middle of the name line, whatever
-/// its height: hints of rows side by side then stand on one line, with a switch, a button or radio buttons.
+/// their own width.
 pub fn setting_row<R>(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -59,37 +59,103 @@ pub fn setting_row<R>(
     lit: bool,
     control: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<R> {
+    row(ui, scheme, name, hint, lit, CONTROL_WIDTH, control)
+}
+
+/// A small heading in a card: a name in small muted text, with its hint on hover behind the symbol `info`, over the
+/// rows it is about. What would be a settings row without a control is one of these (the check of every page finds
+/// such a row). Framed after a jump from the menu filter to its name or hint.
+pub fn subheading(ui: &mut Ui, scheme: &Scheme, name: &str, hint: &str) {
+    let line = ui.horizontal(|line| {
+        line.label(egui::RichText::new(name).small().color(color(scheme.sub)));
+        let icon = line.text_style_height(&TextStyle::Small);
+        if !hint.is_empty()
+            && let Some(image) = crate::icons::themed("info", scheme, IconTint::Normal, icon)
+        {
+            line.add(image);
+        }
+    });
+    let rect = line.response.rect;
+    if !hint.is_empty() {
+        ui.interact(rect, ui.auto_id_with(("subheading", name)), Sense::hover()).on_hover_text(hint);
+    }
+    crate::highlight::mark(ui, scheme, rect, &[name, hint]);
+    ui.add_space(4.0);
+}
+
+/// A setting in one line: the same as [`setting_row`] (every setting stands in one line, its hint on hover behind
+/// the symbol `info` after the name, never as a grey line below).
+pub fn setting_line<R>(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    name: &str,
+    hint: &str,
+    lit: bool,
+    control: impl FnOnce(&mut Ui) -> R,
+) -> InnerResponse<R> {
+    row(ui, scheme, name, hint, lit, CONTROL_WIDTH, control)
+}
+
+fn row<R>(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    name: &str,
+    hint: &str,
+    lit: bool,
+    wanted: f32,
+    control: impl FnOnce(&mut Ui) -> R,
+) -> InnerResponse<R> {
     let top = ui.cursor().min;
     let width = ui.available_width();
-    let line_height = widgets::TOGGLE_SIZE.y;
+    // As tall as a button: every row is as tall, whatever its control, and its name stands in the middle of it.
+    let line_height = widgets::button_size(ui, scheme, ButtonKind::Normal, "Ag").y.max(widgets::TOGGLE_SIZE.y);
     // A row too narrow for the column and a name keeps a name of 80 points; the column takes the rest.
-    let column_width = CONTROL_WIDTH.min((width - GAP - 80.0).max(0.0));
-    let column = Rect::from_min_size(pos2(top.x + width - column_width, top.y), vec2(column_width, line_height));
+    let column_width = wanted.min((width - GAP - 80.0).max(0.0));
+    // The column stands right after the names, at the same place in every row of a card, not at its far edge.
+    let names = widgets::name_column(width, column_width);
+    let column = Rect::from_min_size(pos2(top.x + names + GAP, top.y), vec2(column_width, line_height));
     let mut controls = ui.new_child(
         egui::UiBuilder::new().max_rect(column).layout(Layout::left_to_right(Align::Center).with_main_wrap(true)),
     );
     let inner = control(&mut controls);
     let used = controls.min_rect();
-    // The name and the hint take what the column leaves, and wrap there.
+    // The name takes the column of names (the whole row without a control) and wraps before the symbol `info`.
     let text_right = if used.width() > 0.0 { column.left() - GAP } else { top.x + width };
     let text_area = Rect::from_min_max(top, pos2(text_right.max(top.x + 80.0), top.y + f32::MAX / 4.0));
     let mut text = ui.new_child(egui::UiBuilder::new().max_rect(text_area).layout(Layout::top_down(Align::Min)));
     text.allocate_ui_with_layout(vec2(text_area.width(), line_height), Layout::left_to_right(Align::Center), |ui| {
-        ui.add(egui::Label::new(name).wrap());
+        let icon = ui.text_style_height(&TextStyle::Small);
+        let info = !hint.is_empty();
+        // The symbol `info` keeps its place after the name: the name wraps before it.
+        let room = ui.available_width() - if info { icon + ui.spacing().item_spacing.x } else { 0.0 };
+        ui.scope(|ui| {
+            ui.set_max_width(room);
+            ui.add(egui::Label::new(name).wrap());
+        });
+        if info && let Some(image) = crate::icons::themed("info", scheme, IconTint::Normal, icon) {
+            ui.add(image);
+        }
     });
-    if !hint.is_empty() {
-        text.add(egui::Label::new(RichText::new(hint).small().color(color(scheme.sub))).wrap());
-    }
     let bottom = text.min_rect().bottom().max(used.bottom());
     let rect = Rect::from_min_max(top, pos2(top.x + width, bottom));
     #[cfg(test)]
     {
-        if used.width() > 0.0 {
-            column_log::row(rect, Rect::from_min_max(column.min, pos2(column.max.x, bottom)), used, text.min_rect());
+        // A line with a column of its own width (choices and a number in one line) is not a row of the column.
+        if used.width() > 0.0 && wanted == CONTROL_WIDTH {
+            let column = Rect::from_min_max(column.min, pos2(column.max.x, bottom));
+            column_log::row(rect, column, used, text.min_rect(), Rect::NOTHING);
         }
         column_log::named(name);
     }
+    // The row as content for the checks: its names and its whole column of controls. A row without a control is no
+    // setting: by the house rules it is a small heading over what follows, and the check finds it.
+    widgets::drawn_cards::note_row(Rect::from_min_max(top, pos2(column.max.x, bottom)));
+    if used.width() <= 0.0 {
+        widgets::drawn_cards::note_bare_row(rect);
+    }
+    // The hint stands whole on the row.
     let response = ui.allocate_rect(rect, Sense::hover());
+    let response = if hint.is_empty() { response } else { response.on_hover_text(hint) };
     if !crate::highlight::mark(ui, scheme, rect, &[name, hint]) && lit {
         crate::highlight::frame(ui, scheme, rect);
     }
@@ -112,6 +178,8 @@ pub(crate) mod column_log {
         pub used: Rect,
         /// What the name and the hint took.
         pub text: Rect,
+        /// The line of the hint (`Rect::NOTHING` without one).
+        pub hint: Rect,
     }
 
     thread_local! {
@@ -130,8 +198,8 @@ pub(crate) mod column_log {
         NAMES.with(|names| std::mem::take(&mut *names.borrow_mut()))
     }
 
-    pub fn row(row: Rect, column: Rect, used: Rect, text: Rect) {
-        ROWS.with(|rows| rows.borrow_mut().push(Row { row, column, used, text }));
+    pub fn row(row: Rect, column: Rect, used: Rect, text: Rect, hint: Rect) {
+        ROWS.with(|rows| rows.borrow_mut().push(Row { row, column, used, text, hint }));
     }
 
     pub fn choice(field: Rect) {
@@ -228,10 +296,26 @@ pub fn setting_group(ui: &mut Ui, scheme: &Scheme, title: &str) {
 
 /// Narrowest a card of settings gets before the cards stack.
 pub const SETTINGS_COLUMN_MIN: f32 = 420.0;
+/// The width a card of setting rows asks for: the names, the column of controls and the margins of the card. A wide
+/// window gets as many columns of cards as fit at this width (up to four), so that no card runs empty to the right.
+pub const SETTINGS_CARD_WIDTH: f32 = crate::layout::ROW_CELL + 2.0 * GAP;
+/// The most columns of cards a page gets.
+const MOST_CARD_COLUMNS: usize = 4;
 
-/// A settings page: each group a card of its own, two cards side by side and
-/// as tall as each other; if the window is too narrow for two, the cards
-/// stack, each as tall as its content.
+/// How many columns of cards a page `width` wide gets: one where two would be narrower than
+/// [`SETTINGS_COLUMN_MIN`], else as many as fit at [`SETTINGS_CARD_WIDTH`], two at least, [`MOST_CARD_COLUMNS`] at
+/// most.
+pub fn card_columns(width: f32) -> usize {
+    if width < 2.0 * SETTINGS_COLUMN_MIN + GAP {
+        return 1;
+    }
+    crate::layout::columns_that_fit(width, SETTINGS_CARD_WIDTH, MOST_CARD_COLUMNS).max(2)
+}
+
+/// A settings page: each group a card of its own, as tall as its content, in columns like a wall of bricks (the
+/// next card goes into the shortest column; two columns, more in a wide window, see [`card_columns`]); if the window
+/// is too narrow for two, the cards stack. These rules hold for every page that lays its cards out here: a card is
+/// never stretched, never wider than a column, and short cards stand side by side.
 /// `groups` are (title, number of rows); `row(ui, group, row)` draws one row,
 /// usually with [`setting_row`]. Returns the cards drawn, in order.
 pub fn settings_page(
@@ -244,7 +328,8 @@ pub fn settings_page(
     settings_page_wide(ui, scheme, id_salt, groups, &[], row)
 }
 
-/// [`settings_page`] where the groups in `wide` (by number) get a line of their own and the whole width.
+/// [`settings_page`] where the groups in `wide` (by number) get a line of their own and the whole width: only for a
+/// content that needs it (a table, an editor), never for a card of rows.
 pub fn settings_page_wide(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -254,57 +339,92 @@ pub fn settings_page_wide(
     row: &mut dyn FnMut(&mut Ui, usize, usize),
 ) -> Vec<Rect> {
     let mut cards = Vec::new();
-    let side_by_side = ui.available_width() >= 2.0 * SETTINGS_COLUMN_MIN + GAP;
-    // The groups by line: two side by side, a wide one alone.
-    let mut lines: Vec<Vec<(usize, &(&str, usize))>> = Vec::new();
-    for (g, group) in groups.iter().enumerate() {
-        match lines.last_mut() {
-            Some(line) if line.len() < 2 && !wide.contains(&g) && !wide.contains(&line[0].0) => line.push((g, group)),
-            _ => lines.push(vec![(g, group)]),
-        }
-    }
-    for (p, pair) in lines.iter().enumerate() {
-        if p > 0 {
-            ui.add_space(GAP);
-        }
-        let alone = pair.len() == 1 && wide.contains(&pair[0].0);
-        // Side by side both cards get the height of the taller one from the
-        // frame before.
-        let id = ui.make_persistent_id((id_salt, "pair", p));
-        let tallest: f32 = if side_by_side { ui.ctx().data(|d| d.get_temp(id)).unwrap_or(0.0) } else { 0.0 };
-        let mut measured: f32 = 0.0;
-        let mut card = |ui: &mut Ui, g: usize, (title, rows): &(&str, usize)| {
-            let shown = widgets::card(ui, scheme, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.set_min_height(tallest);
-                let top = ui.cursor().min.y;
-                setting_group(ui, scheme, title);
-                (0..*rows).for_each(|r| row(ui, g, r));
-                measured = measured.max(ui.cursor().min.y - top);
-            });
-            cards.push(shown.response.rect);
-        };
-        if side_by_side && !alone {
-            // Always two places, so a single last card keeps half the width.
-            crate::layout::columns_or_stack(ui, SETTINGS_COLUMN_MIN, 2, |ui, i| {
-                if let Some((g, group)) = pair.get(i) {
-                    card(ui, *g, group);
-                }
-            });
-        } else {
-            for (i, (g, group)) in pair.iter().enumerate() {
-                if i > 0 {
-                    ui.add_space(GAP);
-                }
-                card(ui, *g, group);
-            }
-        }
-        if side_by_side && (measured - tallest).abs() > 0.5 {
-            ui.ctx().data_mut(|d| d.insert_temp(id, measured));
+    let count = card_columns(ui.available_width());
+    let side_by_side = count > 1;
+    // One card of a group, as tall as its content; its height is kept for the next frame.
+    let mut card = |ui: &mut Ui, g: usize| {
+        let (title, rows) = groups[g];
+        let shown = widgets::card(ui, scheme, |ui| {
+            ui.set_min_width(ui.available_width());
+            setting_group(ui, scheme, title);
+            (0..rows).for_each(|r| row(ui, g, r));
+        });
+        let id = egui::Id::unique(("settings-card", id_salt, g));
+        let height = shown.response.rect.height();
+        if ui.ctx().data(|d| d.get_temp::<f32>(id)).is_none_or(|before| (before - height).abs() > 0.5) {
+            ui.ctx().data_mut(|d| d.insert_temp(id, height));
             ui.ctx().request_repaint();
         }
+        cards.push((g, shown.response.rect));
+    };
+    let mut g = 0;
+    while g < groups.len() {
+        if g > 0 {
+            ui.add_space(GAP);
+        }
+        // A wide group, or a window too narrow for two: one card over the whole width.
+        if !side_by_side || wide.contains(&g) {
+            card(ui, g);
+            g += 1;
+            continue;
+        }
+        // The groups up to the next wide one in columns like a wall of bricks: each card goes under the one of the
+        // shortest column (the heights of the frame before; of equal ones the left), none is stretched.
+        let end = (g..groups.len()).find(|i| wide.contains(i)).unwrap_or(groups.len());
+        let height = |ui: &Ui, i: usize| -> f32 {
+            ui.ctx().data(|d| d.get_temp(egui::Id::unique(("settings-card", id_salt, i)))).unwrap_or(0.0)
+        };
+        // Always the columns of the page, also for fewer cards: a card keeps the width it asks for and does not run
+        // empty over a wider column.
+        let mut columns: Vec<Vec<usize>> = vec![Vec::new(); count];
+        let mut filled = vec![0.0_f32; count];
+        for i in g..end {
+            let shortest = (0..count).fold(0, |best, c| if filled[c] + 0.5 < filled[best] { c } else { best });
+            columns[shortest].push(i);
+            filled[shortest] += height(ui, i) + GAP;
+        }
+        // Then a card goes over to the shortest column while that makes the tallest one shorter: the columns end about
+        // level (a long card early on no longer leaves the other column empty below). The order of the groups stays
+        // within each column.
+        for _ in 0..(end - g) * count {
+            let tall = (0..count).fold(0, |best, c| if filled[c] > filled[best] { c } else { best });
+            let short = (0..count).fold(0, |best, c| if filled[c] < filled[best] { c } else { best });
+            let gap = filled[tall] - filled[short];
+            let best = columns[tall]
+                .iter()
+                .enumerate()
+                .map(|(k, i)| (k, height(ui, *i) + GAP))
+                .filter(|(_, taken)| *taken + 0.5 < gap)
+                .min_by(|a, b| (gap - 2.0 * a.1).abs().total_cmp(&(gap - 2.0 * b.1).abs()));
+            let Some((k, taken)) = best else { break };
+            let moved = columns[tall].remove(k);
+            columns[short].push(moved);
+            columns[short].sort_unstable();
+            filled[tall] -= taken;
+            filled[short] += taken;
+        }
+        let top = ui.cursor().min;
+        let width = ui.available_width();
+        let column_width = ((width - (count - 1) as f32 * GAP) / count as f32).floor();
+        let mut bottom = top.y;
+        for (c, column) in columns.iter().enumerate() {
+            let left = top.x + c as f32 * (column_width + GAP);
+            let place = Rect::from_min_size(pos2(left, top.y), vec2(column_width, f32::MAX / 4.0));
+            let mut inner = ui.new_child(egui::UiBuilder::new().max_rect(place).layout(Layout::top_down(Align::Min)));
+            for (k, i) in column.iter().enumerate() {
+                if k > 0 {
+                    inner.add_space(GAP);
+                }
+                card(&mut inner, *i);
+            }
+            bottom = bottom.max(inner.min_rect().bottom());
+        }
+        ui.advance_cursor_after_rect(Rect::from_min_max(top, pos2(top.x + width, bottom)));
+        g = end;
     }
-    cards
+    // In the order of the groups, whatever column each stands in.
+    cards.sort_by_key(|(g, _)| *g);
+    cards.into_iter().map(|(_, rect)| rect).collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -496,22 +616,26 @@ pub struct OverlayTexts<'a> {
     pub bar_bottom: &'a str,
 }
 
-/// Side of the square: the cross and the four corners in its notches.
-pub const PLACE_SQUARE: f32 = 184.0;
-/// Side of one corner piece.
-const PLACE_CORNER: f32 = 66.0;
-/// Height of the two bar boxes below the square.
-const BAR_ROW: f32 = 64.0;
-/// Space between the pieces that together form the square.
+/// Width of the field of places: two corners side by side, the row of free movement as wide.
+pub const PLACE_SQUARE: f32 = 180.0;
+/// Height of a row of two corners.
+const CORNER_HEIGHT: f32 = 60.0;
+/// Height of the row of free movement between the two rows of corners.
+const FREE_HEIGHT: f32 = 34.0;
+/// Height of the whole field: corners, free movement, corners, a seam between each.
+const PLACE_HEIGHT: f32 = 2.0 * CORNER_HEIGHT + FREE_HEIGHT + 2.0 * PLACE_SEAM;
+/// About the width of the whole block: the field and the radio buttons of the bar beside it.
+pub const PLACE_BLOCK_WIDTH: f32 = PLACE_SQUARE + GAP + 150.0;
+/// Space between the pieces that together form the field.
 const PLACE_SEAM: f32 = 2.0;
+/// The name of the choice of the place, for the check that one piece stands out at most.
+const PLACE_CHOICE: &str = "overlay-platz";
 
-/// The block that places the overlay, compact and symmetric: free movement
-/// is a cross over the whole height and width, the four corners sit in its
-/// notches, together a square. Below it the
-/// two bar boxes side by side, together as wide as the square: bar on top at
-/// the left, at the bottom at the right. A corner at the bottom puts the bar
-/// at the bottom, one at the top on top; the boxes change it afterwards.
-/// Returns whether anything changed.
+/// The block that places the overlay, small and symmetric, in three rows without gaps: the two top corners, free
+/// movement over the whole width, the two bottom corners. No piece lies over another, and only the place chosen
+/// stands out. Beside it the bar, on top or at the bottom, as two radio buttons (a choice of its own, which does not
+/// stand out like a place). A corner at the bottom puts the bar at the bottom, one at the top on top; the radio
+/// buttons change it afterwards. Returns whether anything changed.
 pub fn overlay_place(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -519,36 +643,37 @@ pub fn overlay_place(
     bar: &mut BarSide,
     texts: &OverlayTexts,
 ) -> bool {
-    let (block, _) = ui.allocate_exact_size(vec2(PLACE_SQUARE, PLACE_SQUARE + GAP + BAR_ROW), Sense::hover());
-    let square = Rect::from_min_size(block.min, Vec2::splat(PLACE_SQUARE));
     let mut changed = false;
-    // The cross first: the corners come after, lie on top and take the click
-    // in their notches; everything else of the square is the cross.
-    if free_cross(ui, scheme, square, texts.free, *place == OverlayPlace::Free) {
-        *place = OverlayPlace::Free;
-        changed = true;
-    }
-    for (k, (spot, align)) in CORNERS.into_iter().enumerate() {
-        let chosen = *place == spot;
-        // The chosen corner shows the bar as set, the others as they would start.
-        let shown = if chosen { *bar } else { corner_bar(align) };
-        if corner_piece(ui, scheme, corner_rect(square, align), texts.corners[k], align, shown, chosen) {
-            *place = spot;
-            *bar = corner_bar(align);
+    ui.horizontal_top(|ui| {
+        let (square, _) = ui.allocate_exact_size(vec2(PLACE_SQUARE, PLACE_HEIGHT), Sense::hover());
+        for (k, (spot, align)) in CORNERS.into_iter().enumerate() {
+            let chosen = *place == spot;
+            widgets::drawn_cards::note_choice(PLACE_CHOICE, chosen);
+            // The chosen corner shows the bar as set, the others as they would start.
+            let shown = if chosen { *bar } else { corner_bar(align) };
+            if corner_piece(ui, scheme, corner_rect(square, align), texts.corners[k], align, shown, chosen) {
+                *place = spot;
+                *bar = corner_bar(align);
+                changed = true;
+            }
+        }
+        // Free movement: the row between the corners.
+        let free = *place == OverlayPlace::Free;
+        widgets::drawn_cards::note_choice(PLACE_CHOICE, free);
+        if free_piece(ui, scheme, free_rect(square), texts.free, free) {
+            *place = OverlayPlace::Free;
             changed = true;
         }
-    }
-    let row = Rect::from_min_size(pos2(block.min.x, square.max.y + GAP), vec2(PLACE_SQUARE, BAR_ROW));
-    let half = (PLACE_SQUARE - PLACE_SEAM) / 2.0;
-    for (k, (side, name)) in
-        [(BarSide::Top, texts.bar_top), (BarSide::Bottom, texts.bar_bottom)].into_iter().enumerate()
-    {
-        let rect = Rect::from_min_size(row.min + vec2(k as f32 * (half + PLACE_SEAM), 0.0), vec2(half, BAR_ROW));
-        if bar_box(ui, scheme, rect, name, side, *bar == side) {
-            *bar = side;
-            changed = true;
-        }
-    }
+        ui.add_space(GAP);
+        ui.vertical(|ui| {
+            for (side, name) in [(BarSide::Top, texts.bar_top), (BarSide::Bottom, texts.bar_bottom)] {
+                if widgets::radio(ui, scheme, *bar == side, name).clicked() && *bar != side {
+                    *bar = side;
+                    changed = true;
+                }
+            }
+        });
+    });
     changed
 }
 
@@ -566,51 +691,40 @@ fn corner_bar(corner: egui::Align2) -> BarSide {
     if corner.y() == egui::Align::Max { BarSide::Bottom } else { BarSide::Top }
 }
 
+/// A corner piece: half of the top or the bottom row, a seam apart from the other.
 fn corner_rect(square: Rect, align: egui::Align2) -> Rect {
-    align.align_size_within_rect(Vec2::splat(PLACE_CORNER), square)
+    align.align_size_within_rect(vec2((PLACE_SQUARE - PLACE_SEAM) / 2.0, CORNER_HEIGHT), square)
 }
 
-/// The outline of the cross: the square without the corner pieces and the
-/// seam around them, clockwise from the top of the upright bar.
-fn cross_outline(square: Rect) -> Vec<egui::Pos2> {
-    let (a, b, s) = (PLACE_CORNER + PLACE_SEAM, PLACE_SQUARE - PLACE_CORNER - PLACE_SEAM, PLACE_SQUARE);
-    [(a, 0.0), (b, 0.0), (b, a), (s, a), (s, b), (b, b), (b, s), (a, s), (a, b), (0.0, b), (0.0, a), (a, a)]
-        .into_iter()
-        .map(|(x, y)| square.min + vec2(x, y))
-        .collect()
+/// The piece for free movement: the middle row over the whole width, a seam from the corners above and below.
+fn free_rect(square: Rect) -> Rect {
+    Rect::from_center_size(square.center(), vec2(PLACE_SQUARE, FREE_HEIGHT))
 }
 
-/// The free-movement cross: a cross from edge to edge, the move symbol and the name
-/// in one line across its middle; chosen = accent frame and dark accent area.
-fn free_cross(ui: &mut Ui, scheme: &Scheme, square: Rect, text: &str, chosen: bool) -> bool {
-    let response = ui.interact(square, ui.make_persistent_id(("overlay-place", "free")), Sense::click());
+/// The piece for free movement: the move symbol and the name in one line; chosen = accent frame and dark accent
+/// area, like a corner.
+fn free_piece(ui: &mut Ui, scheme: &Scheme, rect: Rect, text: &str, chosen: bool) -> bool {
+    let response = ui.interact(rect, ui.make_persistent_id(("overlay-place", "free")), Sense::click());
     let (fill, border, width) = piece_colors(scheme, chosen, response.hovered());
-    let (a, b) = (PLACE_CORNER + PLACE_SEAM, PLACE_SQUARE - PLACE_CORNER - PLACE_SEAM);
-    let upright = Rect::from_min_max(square.min + vec2(a, 0.0), square.min + vec2(b, PLACE_SQUARE));
-    let across = Rect::from_min_max(square.min + vec2(0.0, a), square.min + vec2(PLACE_SQUARE, b));
+    let radius = control_radius(scheme);
     let painter = ui.painter();
-    painter.rect_filled(upright, 0.0, color(fill));
-    painter.rect_filled(across, 0.0, color(fill));
-    painter.add(egui::epaint::PathShape::closed_line(cross_outline(square), Stroke::new(width, color(border))));
+    painter.rect(rect, radius, color(fill), Stroke::new(width, color(border)), StrokeKind::Inside);
     let small = TextStyle::Small.resolve(ui.style());
     let galley = painter.layout_no_wrap(text.to_string(), small, color(scheme.fg));
     let icon = 16.0;
-    let left = square.center().x - (icon + 4.0 + galley.size().x) / 2.0;
-    let icon_rect = Rect::from_min_size(pos2(left, square.center().y - icon / 2.0), Vec2::splat(icon));
-    painter.galley(pos2(icon_rect.max.x + 4.0, square.center().y - galley.size().y / 2.0), galley, color(scheme.fg));
+    let left = rect.center().x - (icon + 4.0 + galley.size().x) / 2.0;
+    let icon_rect = Rect::from_min_size(pos2(left, rect.center().y - icon / 2.0), Vec2::splat(icon));
+    painter.galley(pos2(icon_rect.max.x + 4.0, rect.center().y - galley.size().y / 2.0), galley, color(scheme.fg));
     let tone = if chosen { scheme.accent } else { scheme.sub };
     if let Some(image) = crate::icons::image("move", tone, icon) {
         image.paint_at(ui, icon_rect);
     }
-    // The focus frame follows the cross, not the square around it.
-    if response.has_focus() {
-        let ring = egui::epaint::PathShape::closed_line(cross_outline(square), Stroke::new(2.0, color(scheme.accent)));
-        ui.painter().add(ring);
-    }
+    response.widget_info(|| egui::WidgetInfo::selected(Role::RadioButton, true, chosen, text));
+    widgets::focus_ring(ui, &response, scheme, radius);
     response.on_hover_cursor(CursorIcon::PointingHand).clicked()
 }
 
-/// Fill, frame and frame width of a piece, like the bar boxes.
+/// Fill, frame and frame width of a piece.
 fn piece_colors(
     scheme: &Scheme,
     chosen: bool,
@@ -628,7 +742,7 @@ fn piece_colors(
 /// Where the small overlay sits in a corner piece: in the corner of the
 /// screen it stands for.
 fn corner_mark(rect: Rect, corner: egui::Align2) -> Rect {
-    corner.align_size_within_rect(vec2(30.0, 20.0), rect.shrink(10.0))
+    corner.align_size_within_rect(vec2(26.0, 17.0), rect.shrink(8.0))
 }
 
 /// A corner piece: a small overlay in that corner with its bar on `bar`'s
@@ -655,39 +769,9 @@ fn corner_piece(
         BarSide::Bottom => Rect::from_min_max(pos2(mark.min.x, mark.max.y - 5.0), mark.max),
     };
     painter.rect_filled(strip, 1.0, color(tone));
+    response.widget_info(|| egui::WidgetInfo::selected(Role::RadioButton, true, chosen, text));
     widgets::focus_ring(ui, &response, scheme, radius);
     response.on_hover_text(text).on_hover_cursor(CursorIcon::PointingHand).clicked()
-}
-
-/// One of the two bar boxes: a small overlay with its bar on top or at the
-/// bottom, the name below; chosen = accent frame and dark accent area.
-fn bar_box(ui: &mut Ui, scheme: &Scheme, rect: Rect, name: &str, side: BarSide, chosen: bool) -> bool {
-    let response = ui.interact(rect, ui.make_persistent_id(("overlay-bar", name)), Sense::click());
-    let (fill, border, width) = if chosen {
-        (scheme.accent_dark, scheme.accent, 2.0)
-    } else if response.hovered() {
-        (scheme.hover, scheme.accent, 1.0)
-    } else {
-        (scheme.surface, scheme.control_border(), 1.0)
-    };
-    let painter = ui.painter();
-    painter.rect(rect, control_radius(scheme), color(fill), Stroke::new(width, color(border)), StrokeKind::Inside);
-    // The small overlay, its bar in the accent.
-    let overlay = Rect::from_center_size(pos2(rect.center().x, rect.min.y + 22.0), vec2(40.0, 24.0));
-    painter.rect(overlay, 3.0, color(scheme.bg), Stroke::new(1.0, color(scheme.line)), StrokeKind::Inside);
-    let strip = match side {
-        BarSide::Top => Rect::from_min_size(overlay.min, vec2(overlay.width(), 6.0)),
-        BarSide::Bottom => Rect::from_min_max(pos2(overlay.min.x, overlay.max.y - 6.0), overlay.max),
-    };
-    painter.rect_filled(strip, 2.0, color(scheme.accent));
-    let galley = painter.layout_no_wrap(name.to_string(), TextStyle::Small.resolve(ui.style()), color(scheme.fg));
-    painter.galley(
-        pos2(rect.center().x - galley.size().x / 2.0, rect.max.y - galley.size().y - 8.0),
-        galley,
-        color(scheme.fg),
-    );
-    widgets::focus_ring(ui, &response, scheme, control_radius(scheme));
-    response.on_hover_cursor(CursorIcon::PointingHand).clicked()
 }
 
 #[cfg(test)]
@@ -770,56 +854,67 @@ mod tests {
             top = ui.cursor().min;
             overlay_place(ui, s, &mut place, &mut bar, &TEXTS);
         });
-        let square = Rect::from_min_size(top, Vec2::splat(PLACE_SQUARE));
+        let square = Rect::from_min_size(top, vec2(PLACE_SQUARE, PLACE_HEIGHT));
         let mut at = |pos| {
             click(&ctx, pos, &mut |ui| {
                 overlay_place(ui, s, &mut place, &mut bar, &TEXTS);
             });
             (place, bar)
         };
-        let boxes = square.max.y + GAP + BAR_ROW / 2.0;
+        // The radio buttons of the bar stand beside the square, the one on top above.
+        let radios = square.max.x + GAP + 8.0;
         // A bottom corner puts the bar at the bottom first, a top corner on top.
         assert_eq!(at(square.right_bottom() - vec2(10.0, 10.0)), (OverlayPlace::BottomRight, BarSide::Bottom));
-        assert_eq!(at(pos2(square.left() + 30.0, boxes)), (OverlayPlace::BottomRight, BarSide::Top), "box changes it");
+        assert_eq!(at(pos2(radios, square.top() + 8.0)), (OverlayPlace::BottomRight, BarSide::Top), "the bar changes");
         assert_eq!(at(square.left_top() + vec2(10.0, 10.0)), (OverlayPlace::TopLeft, BarSide::Top));
-        let bottom_left = square.left_bottom() + vec2(PLACE_CORNER - 6.0, -(PLACE_CORNER - 6.0));
-        assert_eq!(at(bottom_left), (OverlayPlace::BottomLeft, BarSide::Bottom), "inside the notch: the corner");
-        // Free keeps the bar.
-        assert_eq!(
-            at(square.center()),
-            (OverlayPlace::Free, BarSide::Bottom),
-            "the cross has its middle in the middle"
-        );
-        // The cross reaches every edge: its ends belong to it, not to a corner.
-        for end in [square.center_top() + vec2(0.0, 4.0), square.left_center() + vec2(4.0, 0.0)] {
-            assert_eq!(at(square.right_top() + vec2(-10.0, 10.0)).0, OverlayPlace::TopRight);
-            assert_eq!(at(end).0, OverlayPlace::Free, "end of the cross at {end:?}");
-        }
-        assert_eq!(at(pos2(square.right() - 30.0, boxes)).1, BarSide::Bottom);
+        assert_eq!(at(square.left_bottom() + vec2(10.0, -10.0)), (OverlayPlace::BottomLeft, BarSide::Bottom));
+        assert_eq!(at(square.right_top() + vec2(-10.0, 10.0)).0, OverlayPlace::TopRight);
+        // Free in the middle keeps the bar, also at the ends of its row.
+        assert_eq!(at(square.center()), (OverlayPlace::Free, BarSide::Top), "the middle is free");
+        assert_eq!(at(square.left_center() + vec2(4.0, 0.0)).0, OverlayPlace::Free, "the row reaches the edge");
+        assert_eq!(at(pos2(radios, square.top() + 30.0)).1, BarSide::Bottom);
     }
 
     #[test]
-    fn the_cross_and_the_corners_make_one_square() {
-        let square = Rect::from_min_size(pos2(0.0, 0.0), Vec2::splat(PLACE_SQUARE));
-        let outline = cross_outline(square);
-        // Every corner piece fills its notch up to the seam.
-        for (_, align) in CORNERS {
-            let rect = corner_rect(square, align);
-            assert!(square.contains_rect(rect));
-            let notch = outline.iter().filter(|p| rect.expand(PLACE_SEAM + 0.01).contains(**p)).count();
-            assert_eq!(notch, 3, "{align:?}: the three points of the notch lie a seam from the piece");
+    fn the_corners_and_free_movement_fill_the_field_without_lying_over_each_other() {
+        let square = Rect::from_min_size(pos2(0.0, 0.0), vec2(PLACE_SQUARE, PLACE_HEIGHT));
+        let corners: Vec<Rect> = CORNERS.iter().map(|(_, align)| corner_rect(square, *align)).collect();
+        let free = free_rect(square);
+        // Five pieces a seam apart: no gap but the seams, nothing outside the field.
+        let area: f32 = corners.iter().map(|c| c.area()).sum::<f32>() + free.area();
+        let seams = 2.0 * PLACE_SQUARE * PLACE_SEAM + 2.0 * CORNER_HEIGHT * PLACE_SEAM;
+        assert!((square.area() - area - seams).abs() < 2.0, "{area} and seams of {}", square.area());
+        assert!(corners.iter().chain([&free]).all(|c| square.contains_rect(*c)));
+        assert_eq!(free.center(), square.center(), "symmetric");
+        // No piece lies over another.
+        for (k, a) in corners.iter().enumerate() {
+            assert!(!a.intersects(free.shrink(0.5)), "corner {k} over free movement");
+            for b in &corners[k + 1..] {
+                assert!(!a.shrink(0.5).intersects(b.shrink(0.5)), "corners over each other");
+            }
         }
-        // The cross ends flush with the square on all four sides.
-        let ends = |f: fn(&egui::Pos2) -> bool| outline.iter().filter(|p| f(p)).count();
-        assert_eq!(ends(|p| p.y == 0.0), 2);
-        assert_eq!(ends(|p| p.y == PLACE_SQUARE), 2);
-        assert_eq!(ends(|p| p.x == 0.0), 2);
-        assert_eq!(ends(|p| p.x == PLACE_SQUARE), 2);
+    }
+
+    #[test]
+    fn one_place_stands_out_at_a_time() {
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let s = theme::by_id("original").expect("scheme");
+        for chosen in [OverlayPlace::TopRight, OverlayPlace::Free] {
+            let (mut place, mut bar) = (chosen, BarSide::Top);
+            widgets::drawn_cards::take_choices();
+            frame(&ctx, vec![], &mut |ui| {
+                overlay_place(ui, s, &mut place, &mut bar, &TEXTS);
+            });
+            let pieces = widgets::drawn_cards::take_choices();
+            assert_eq!(pieces.len(), 5, "four corners and free");
+            assert_eq!(pieces.iter().filter(|(_, on)| *on).count(), 1, "{chosen:?}: {pieces:?}");
+        }
     }
 
     #[test]
     fn the_small_overlay_sits_in_the_corner_it_stands_for() {
-        let square = Rect::from_min_size(pos2(0.0, 0.0), Vec2::splat(PLACE_SQUARE));
+        let square = Rect::from_min_size(pos2(0.0, 0.0), vec2(PLACE_SQUARE, PLACE_HEIGHT));
         for (spot, align) in CORNERS {
             let rect = corner_rect(square, align);
             let mark = corner_mark(rect, align);
@@ -831,21 +926,21 @@ mod tests {
     }
 
     #[test]
-    fn the_free_name_fits_the_arm_of_the_cross() {
+    fn the_free_name_fits_its_piece() {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         frame(&ctx, vec![], &mut |_| {});
         frame(&ctx, vec![], &mut |ui| {
             let small = TextStyle::Small.resolve(ui.style());
             let size = ui.painter().layout_no_wrap(TEXTS.free.to_string(), small, egui::Color32::WHITE).size();
-            let arm = PLACE_SQUARE - 2.0 * (PLACE_CORNER + PLACE_SEAM);
-            assert!(16.0 + 4.0 + size.x < PLACE_SQUARE - 16.0, "„{}“ is too wide for the square", TEXTS.free);
-            assert!(size.y < arm - 8.0, "„{}“ is too tall for the arm", TEXTS.free);
+            let piece = free_rect(Rect::from_min_size(pos2(0.0, 0.0), vec2(PLACE_SQUARE, PLACE_HEIGHT)));
+            assert!(16.0 + 4.0 + size.x < piece.width() - 8.0, "„{}“ is too wide for its piece", TEXTS.free);
+            assert!(size.y < piece.height() - 4.0, "„{}“ is too tall for its piece", TEXTS.free);
         });
     }
 
     #[test]
-    fn group_cards_stand_side_by_side_and_equally_tall() {
+    fn group_cards_stand_like_a_wall_of_bricks_each_as_tall_as_its_content() {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         let s = theme::by_id("original").expect("scheme");
@@ -865,9 +960,11 @@ mod tests {
         let (a, b, c) = (cards[0], cards[1], cards[2]);
         assert_eq!(a.top(), b.top(), "the first two groups stand side by side");
         assert!(a.right() < b.left());
-        assert!((a.height() - b.height()).abs() < 0.5, "one row and three rows, yet equally tall: {a:?} {b:?}");
-        assert!(c.top() > a.bottom(), "the third group starts the next pair");
-        assert!(c.width() < a.width() + 1.0, "a single last card keeps half the width");
+        assert!(b.height() > a.height() + 20.0, "one row and three rows: each as tall as its content: {a:?} {b:?}");
+        // The third goes under the shorter column, the one of the first group.
+        assert!((c.left() - a.left()).abs() < 0.5 && c.top() > a.bottom(), "under the shorter card: {a:?} {c:?}");
+        assert!(c.top() < b.bottom(), "right under it, not under the taller one: {b:?} {c:?}");
+        assert!((c.width() - a.width()).abs() < 1.0, "a card keeps the width of its column");
     }
 
     #[test]

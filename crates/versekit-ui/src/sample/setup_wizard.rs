@@ -916,7 +916,7 @@ impl SamplePage {
         Self::paragraph(ui, scheme, &t("inj_fremd"), true);
         ui.add_space(8.0);
         // Nothing is chosen at first: the game is changed only on a click, and a source that replaces the text
-        // file asks first (once per source). The card is the one of the page of the translation; "Nicht anfassen"
+        // file asks first (once per source). The card is the one of the page of the translation; "Keine Übersetzung"
         // asks nothing here and writes nothing, as in 4.12.
         game_texts_page::show_main_choice(ui, scheme, &mut self.game_texts);
     }
@@ -1753,15 +1753,24 @@ mod tests {
         // The step scrolls: the card of the translation stands at its end.
         scroll_step(&mut bench, -400.0);
         let texts = bench.settle();
-        // The card of the page of the translation stands in the step: the sources, and what is chosen.
+        // The card of the page of the translation stands in the step: the list of languages, nothing chosen.
         let paths = bench.page.store.as_ref().map(|s| Paths::new(s.paths.host.clone())).unwrap();
         let sources: Vec<String> = versekit_core::translation::grouped_sources(&paths, None, true).concat();
         let foreign = sources.iter().find(|id| !id.is_empty() && *id != "original").expect("a foreign source");
         let name = versekit_core::translation::display_name(foreign);
-        assert!(shows(&texts, &name), "{name} stands in the step: {texts:?}");
+        let (language_name, maker) =
+            name.split_once(" (").map(|(l, m)| (l.to_string(), m.trim_end_matches(')').to_string())).unwrap();
+        let nothing = language::t("s_tq_nichts");
+        assert!(shows(&texts, &nothing), "„Keine Übersetzung“ stands in the list: {texts:?}");
         assert!(shows(&texts, &language::t("s_tq_nichts_gewaehlt")), "nothing is chosen at first");
+        // The language from the list, then its sources come up.
+        bench.click(&nothing);
+        bench.settle();
+        bench.click(&language_name);
+        let texts = bench.settle();
+        assert!(shows(&texts, &maker), "{maker} stands in the step: {texts:?}");
         // A foreign source asks first; nothing is written by the question.
-        bench.click(&name);
+        bench.click(&maker);
         let texts = bench.settle();
         assert!(shows(&texts, &language::t("s_sp_warnung_titel")), "the question comes: {texts:?}");
         assert!(bench.page.setup_open(), "the assistant stays open behind it");
@@ -1908,7 +1917,7 @@ mod tests {
     }
 
     #[test]
-    fn leaving_the_texts_alone_in_the_assistant_asks_nothing_and_writes_nothing_as_in_4_12() {
+    fn no_translation_in_the_assistant_asks_nothing_and_writes_nothing_as_in_4_12() {
         let _language = crate::language_lock();
         for (name, kept) in [("einrichtung-unberuehrt", false), ("einrichtung-unberuehrt-quelle", true)] {
             let (page, dir) = page_with_game(name);
@@ -1923,7 +1932,16 @@ mod tests {
             }
             bench.settle();
             scroll_step(&mut bench, -400.0);
-            bench.click(&language::t("s_tq_nichts"));
+            // „Keine Übersetzung“ from the list of languages: the field opens it, its first entry chooses it.
+            let texts = bench.settle();
+            let shown = texts
+                .iter()
+                .map(|(text, _)| text.clone())
+                .find(|text| *text == language::t("s_tq_nichts") || text.starts_with("English"))
+                .unwrap_or_else(|| language::t("s_tq_nichts"));
+            bench.click(&shown);
+            bench.settle();
+            bench.click_nth(&language::t("s_tq_nichts"), usize::from(shown == language::t("s_tq_nichts")));
             let texts = bench.settle();
             let question = language::t("s_tq_nichts_warnung");
             let first = question.split("\n\n").next().unwrap().to_string();
@@ -2014,7 +2032,7 @@ mod tests {
             w.state.step = w.steps.iter().position(|s| *s == Step::Storage).unwrap();
         }
         let texts = bench.settle();
-        assert!(shows(&texts, "Hier darf VerseKit nicht speichern"), "the reason is said: {texts:?}");
+        assert!(shows(&texts, "VerseKit darf hier nicht speichern"), "the reason is said: {texts:?}");
         assert!(!shows(&texts, &language::t("ablage_ok")), "a blocked folder is not called good: {texts:?}");
         bench.click(&language::t("s_mlg_bestaetigen"));
         bench.settle();
@@ -2228,7 +2246,8 @@ mod tests {
             assert!(!bench.page.setup_open(), "{key}: closed before the click");
             if key == "hf_sichern" {
                 assert!(shows(&texts, &language::t("s_si_einrichtung")), "the row has its name");
-                assert!(shows(&texts, &language::t("s_si_einrichtung_h")), "and says what it does");
+                // What it does stands on hover behind the symbol `info`, not as a line.
+                assert!(!shows(&texts, &language::t("s_si_einrichtung_h")), "and says what it does on hover");
             }
             bench.click_nth(&button, nth);
             bench.settle();

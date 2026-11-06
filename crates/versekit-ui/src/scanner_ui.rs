@@ -93,7 +93,11 @@ impl Ground {
     /// Takes the room of the model on the page: at most `most` points wide, in the shape of the game window.
     fn allocate(&self, ui: &mut Ui, sense: Sense, most: f32) -> (Rect, egui::Response) {
         let width = ui.available_width().min(most);
-        ui.allocate_exact_size(vec2(width, width * self.ratio()), sense)
+        let taken = ui.allocate_exact_size(vec2(width, width * self.ratio()), sense);
+        // A picture area: content of its card for the checks, as a row is, and an editor of its own width.
+        crate::widgets::drawn_cards::note_row(taken.0);
+        crate::widgets::drawn_cards::note_picture(taken.0);
+        taken
     }
 }
 
@@ -558,25 +562,27 @@ fn picture_zoom(size: (usize, usize), room: f32) -> f32 {
     whole.min(room.max(1.0) / w as f32)
 }
 
-/// The scanner on the page Mining: the switch and, while it is on, the teaching of the digits.
+/// The scanner on the page Mining, in a card of its own: the switch and, while it is on, the teaching of the digits.
 pub fn show_box(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, mining: &MiningData) {
-    ui.label(RichText::new(t("s_bg_scan_kopf")).strong().color(color(scheme.accent)));
-    if !versekit_core::screen_grab::supported() {
-        widgets::hint(ui, scheme, &t("s_sg_nur_windows"));
-        return;
-    }
-    let mut on = state.on;
-    let toggled = widgets::switch_row_help(ui, scheme, &t("s_bg_scan_kopf"), &t("s_bg_scan_h"), &mut on).changed();
-    if toggled {
-        state.set_on(on);
-    }
-    if !state.on {
-        widgets::hint(ui, scheme, &t("scan_wache_aus"));
-        return;
-    }
-    ui.add_space(6.0);
-    ui.label(RichText::new(t("s_bg_scan_anlernen")).strong());
-    show_teaching(ui, scheme, state, mining);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_bg_scan_kopf"));
+        if !versekit_core::screen_grab::supported() {
+            widgets::hint(ui, scheme, &t("s_sg_nur_windows"));
+            return;
+        }
+        let mut on = state.on;
+        let toggled = widgets::switch_row_help(ui, scheme, &t("s_bg_scan_kopf"), &t("s_bg_scan_h"), &mut on).changed();
+        if toggled {
+            state.set_on(on);
+        }
+        if !state.on {
+            widgets::hint(ui, scheme, &t("scan_wache_aus"));
+            return;
+        }
+        ui.add_space(6.0);
+        ui.label(RichText::new(t("s_bg_scan_anlernen")).strong());
+        show_teaching(ui, scheme, state, mining);
+    });
 }
 
 /// The teaching of the digits: the picture that stands, the number typed for it and what came of it. On the page
@@ -736,7 +742,7 @@ fn paint_ground(ui: &Ui, scheme: &Scheme, rect: Rect, ground: &Ground) {
     let painter = ui.painter();
     let edge = Stroke::new(1.5, color(scheme.sub));
     let caption = t("s_sg_modell_spiel");
-    let font = egui::FontId::proportional(11.0);
+    let font = egui::TextStyle::Small.resolve(ui.style());
     match ground.texture {
         Some(texture) => {
             let full = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
@@ -798,10 +804,8 @@ pub fn model_cards(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, place
     if let Some(line) = state.ground_line(now) {
         widgets::hint(ui, scheme, &line);
     }
-    for i in 0..2 {
-        if i > 0 {
-            ui.add_space(ui.spacing().item_spacing.y * 2.0);
-        }
+    // Side by side where each keeps the width of a picture area, else one under the other over the whole width.
+    crate::layout::columns_or_stack_loose(ui, MODELS_SIDE_BY_SIDE, 2, |ui, i| {
         let [title, hint, button] = if i == 0 { place } else { frame };
         widgets::card(ui, scheme, |ui| {
             widgets::card_title(ui, scheme, title);
@@ -838,8 +842,12 @@ pub fn model_cards(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, place
                 widgets::hint(ui, scheme, &t("s_sg_rahmen_privat"));
             }
         });
-    }
+    });
 }
+
+/// The narrowest a card of a model gets beside the other one: its picture area at its least width, with the margins
+/// of the card.
+const MODELS_SIDE_BY_SIDE: f32 = crate::widgets::PICTURE_MIN_WIDTH + 2.0 * crate::layout::GAP + 4.0;
 
 /// The model of the screen for the search frame: the player draws the area in which the signature stands (in the
 /// HUD of the ship, near the top in the middle); only this area is read. A drag inside the frame moves it, one on
@@ -946,7 +954,7 @@ pub fn frame_model(
                 at,
                 egui::Align2::LEFT_BOTTOM,
                 t("s_sg_modell_gemerkt"),
-                egui::FontId::proportional(11.0),
+                egui::TextStyle::Small.resolve(ui.style()),
                 color(scheme.fg),
             );
         }

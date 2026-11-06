@@ -326,6 +326,60 @@ fn workspace_sources() -> Vec<(String, String)> {
     out
 }
 
+/// The names of the game channels.
+const CHANNEL_NAMES: [&str; 5] = ["\"LIVE\"", "\"HOTFIX\"", "\"PTU\"", "\"EPTU\"", "\"TECH-PREVIEW\""];
+
+/// The places that may write the channels out, each with its reason.
+const OWN_CHANNEL_LISTS: [(&str, &str); 3] = [
+    // The one list.
+    ("versekit-core/src/paths.rs", "CHANNELS, TEST_CHANNELS und FOLLOWS_LIVE"),
+    // Folder names to ids, the longer names first so that EPTU is not read as PTU.
+    ("versekit-gamedata/src/lib.rs", "Zuordnung Ordnername zu Kennung"),
+    // The rows of the menu filter, checked against the one list by a test of their own.
+    ("versekit-ui/src/sample.rs", "Zeilen der Tabelle PAGE_SETTINGS"),
+];
+
+/// Lists of channels defined outside the one list: a `const` or `static` whose value names two channels or more.
+fn own_channel_lists(file: &str, text: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    for keyword in ["const ", "static "] {
+        for (at, _) in text.match_indices(keyword) {
+            // The value after `=` up to its `;` (the type before it may hold one: `[&str; 3]`).
+            let rest = &text[at..];
+            let Some(equals) = rest.find('=') else { continue };
+            let value = &rest[equals..];
+            let value = &value[..value.find(';').unwrap_or(value.len())];
+            if CHANNEL_NAMES.iter().filter(|name| value.contains(*name)).count() >= 2 {
+                found.push(format!("{file}:{}", line_of(text, at)));
+            }
+        }
+    }
+    found
+}
+
+/// Every page and part takes the channels from `paths::CHANNELS`: no second list that could miss a channel.
+#[test]
+fn the_channels_come_from_one_list() {
+    let mut found = Vec::new();
+    for (file, text) in workspace_sources() {
+        let unix = file.replace('\\', "/");
+        let is_test = unix.contains("/tests/") || unix.ends_with("tests.rs") || unix.ends_with("/tests.rs");
+        if is_test || OWN_CHANNEL_LISTS.iter().any(|(own, _)| unix.ends_with(own)) {
+            continue;
+        }
+        found.extend(own_channel_lists(&unix, &text));
+    }
+    assert!(found.is_empty(), "Eigene Kanalliste statt paths::CHANNELS:\n{}", found.join("\n"));
+}
+
+#[test]
+fn the_channel_scan_finds_a_second_list() {
+    let second = "pub const CHANNEL_ROWS: [&str; 3] = [\"LIVE\", \"PTU\", \"TECH-PREVIEW\"];";
+    assert_eq!(own_channel_lists("x.rs", second).len(), 1);
+    let one = "const CHANNEL_ROWS: [&str; 5] = versekit_core::paths::CHANNELS;\nconst NAME: &str = \"LIVE\";";
+    assert!(own_channel_lists("x.rs", one).is_empty(), "the one list or a single name is no list");
+}
+
 /// The first line of every file's licence header keeps its dash.
 const HEADER: &str = "// Verse-Kit — companion for Star Citizen.";
 
@@ -896,5 +950,64 @@ fn the_search_line_scan_finds_a_plain_search() {
         "widgets::SuggestField::new(\"hangar-eintragen\", &hint, scheme, &more).show(ui, t, e);",
     ] {
         assert!(plain_searches("x.rs", fine).is_empty(), "Fehlalarm: {fine}: {:?}", plain_searches("x.rs", fine));
+    }
+}
+
+/// Files that may name a size of text as a number: the sizes themselves (`lib.rs`) and the picture of the game's
+/// own screen in the sample, which copies what the game shows.
+const OWN_TEXT_SIZES: [&str; 2] = ["lib.rs", "sample/preview.rs"];
+
+/// Every size of text written as a number: `FontId::proportional(13.0)`, `fonts::bold(10.0)`,
+/// `RichText::new(…).size(22.0)` and the like, each with its line.
+fn literal_text_sizes(file: &str, text: &str) -> Vec<String> {
+    let calls = ["FontId::proportional(", "FontId::monospace(", "FontId::new(", "fonts::bold(", ".size("];
+    let mut found = Vec::new();
+    for (n, line) in text.lines().enumerate() {
+        let code = comment_start(line).map_or(line, |at| &line[..at]);
+        for call in calls {
+            let mut rest = code;
+            while let Some(at) = rest.find(call) {
+                let after = &rest[at + call.len()..];
+                let number = after.trim_start().starts_with(|c: char| c.is_ascii_digit());
+                // `.size(` is a size of text only on rich text, not on a spinner or a picture.
+                let text_size = call != ".size(" || code.contains("RichText");
+                if number && text_size {
+                    found.push(format!("{file}:{}: {}", n + 1, line.trim()));
+                }
+                rest = after;
+            }
+        }
+    }
+    found
+}
+
+/// Every text takes its size from the few sizes of the interface (`versekit_ui::text_styles`), never a number of
+/// its own: a page of its own sizes is what makes the sizes drift apart.
+#[test]
+fn text_sizes_come_from_the_styles_of_the_interface() {
+    let findings: Vec<String> = ui_program_sources()
+        .iter()
+        .filter(|(f, _)| !OWN_TEXT_SIZES.contains(&f.as_str()))
+        .flat_map(|(f, t)| literal_text_sizes(f, t))
+        .collect();
+    assert!(findings.is_empty(), "Schriftgröße als Zahl:\n{}", findings.join("\n"));
+}
+
+#[test]
+fn the_text_size_scan_finds_a_number() {
+    for size in [
+        "let font = egui::FontId::proportional(11.0);",
+        "cell.label(RichText::new(count.to_string()).size(22.0).color(c));",
+        "let galley = layout(text, crate::fonts::bold(10.0), c);",
+    ] {
+        assert_eq!(literal_text_sizes("x.rs", size).len(), 1, "nicht gefunden: {size}");
+    }
+    for fine in [
+        "let font = egui::TextStyle::Small.resolve(ui.style());",
+        "let spinner = egui::Spinner::new().size(14.0).color(c);",
+        "let big = fonts::bold(egui::TextStyle::Heading.resolve(ui.style()).size);",
+        "// FontId::proportional(11.0) in a comment",
+    ] {
+        assert!(literal_text_sizes("x.rs", fine).is_empty(), "Fehlalarm: {fine}");
     }
 }

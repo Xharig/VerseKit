@@ -51,6 +51,9 @@ static REQUEST: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<RequestLocationInventory> Player\[[^\]]*\] requested inventory for Location\[([^\]]+)\]")
         .expect("pattern")
 });
+/// A key of Star Citizen 5.0 with the name of the game in parentheses: `sector_…`, `cluster_…` or `location_…`.
+static IN_GAME_NAME: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(?:sector|cluster|location)_\S+ \((.+)\)$").expect("pattern"));
 static PLACE_ID: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"Location:(\d+)").expect("pattern"));
 static ATC: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"ATC Location: ([A-Za-z][\w-]*) \[(\d+)\]").expect("pattern"));
@@ -371,9 +374,17 @@ pub fn names(paths: &Paths) -> HashMap<String, String> {
     }
 }
 
-/// `Stanton2_Orison` → `Orison`; without a name the key, only more readable.
+/// `Stanton2_Orison` → `Orison`; `sector_ht_a_swamp_001 (Planters Claim)` → `Planters Claim` (Star Citizen 5.0 puts
+/// the name of the game behind the key of a sector, a cluster or a location); without a name the key, only more
+/// readable.
 pub fn display_name(key: &str, names: &HashMap<String, String>) -> String {
-    names.get(&key.to_lowercase()).cloned().unwrap_or_else(|| key.replace('_', " "))
+    if let Some(name) = names.get(&key.to_lowercase()) {
+        return name.clone();
+    }
+    match IN_GAME_NAME.captures(key) {
+        Some(c) => c[1].trim().to_string(),
+        None => key.replace('_', " "),
+    }
 }
 
 /// The row for the overlay, or `None` when there is nothing to show.
@@ -432,6 +443,39 @@ mod tests {
             "<RequestInventory> Request[5] Inventory[1:Location:815]",
         ];
         assert_eq!(pairs_in(old_form), vec![pair("815", "Stanton1_Lorville")]);
+    }
+
+    /// Star Citizen 5.0 writes the name of the game behind the key of a sector, a cluster or a location: the player
+    /// reads that name as in the game. The lines are made up in the same shape.
+    #[test]
+    fn a_key_with_the_name_of_the_game_in_parentheses_shows_that_name() {
+        let line = |key: &str| {
+            format!(
+                "<2026-11-06T08:00:00.000Z> [Notice] <RequestLocationInventory> Player[Xy] requested inventory for Location[{key}] [Team_Test][Inventory]"
+            )
+        };
+        let keys = [
+            "sector_xx_a_dunes_007 (Teststrand)",
+            "cluster_xx_a_habitation_l_001_demo (Beispielfelder)",
+            "location_xx_a_farm_m_002 (Hof von Test)",
+        ];
+        let names = HashMap::new();
+        for (number, key) in keys.iter().enumerate() {
+            let query = format!("<Query Inventory> Request[5] Inventory[1:Location:{}]", 100 + number);
+            let lines = [line(key), query];
+            let found = pairs_in(lines.iter().map(String::as_str));
+            assert_eq!(found, vec![pair(&(100 + number).to_string(), key)], "the key is read with its parentheses");
+            let shown = display_name(key, &names);
+            assert!(!shown.contains('(') && !shown.contains("xx_a"), "{shown}");
+        }
+        assert_eq!(display_name(keys[0], &names), "Teststrand");
+        assert_eq!(display_name(keys[1], &names), "Beispielfelder");
+        assert_eq!(display_name(keys[2], &names), "Hof von Test");
+        // A name the readable list knows still wins; keys without parentheses stay as before.
+        let known = HashMap::from([(keys[0].to_lowercase(), "Bekannt".to_string())]);
+        assert_eq!(display_name(keys[0], &known), "Bekannt");
+        assert_eq!(display_name("Nyx_Levski", &names), "Nyx Levski");
+        assert_eq!(display_name("Stanton2_Orison", &names), "Stanton2 Orison");
     }
 
     #[test]

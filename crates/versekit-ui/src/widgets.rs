@@ -547,7 +547,7 @@ pub fn heat_map_tipped(
 ) -> Response {
     let highest = rows.iter().flatten().copied().fold(0.0, f64::max);
     let columns = rows.iter().map(Vec::len).max().unwrap_or(0).max(1);
-    let font = egui::FontId::proportional(13.0);
+    let font = TextStyle::Body.resolve(ui.style());
     let label_width = labels
         .iter()
         .map(|l| ui.painter().layout_no_wrap((*l).to_string(), font.clone(), color(scheme.sub)).size().x + 10.0)
@@ -712,6 +712,8 @@ impl SearchLook {
 
 /// Draws the magnifier inside `field` at the left edge: in the accent while the field has the cursor.
 fn search_icon(ui: &mut Ui, field: &Response, scheme: &Scheme) {
+    // A search line is as wide as its place by the house rules: the checks of the widths leave it out.
+    drawn_cards::note_search(field.rect);
     let tint = if field.has_focus() { IconTint::Highlight } else { IconTint::Normal };
     let rect = Rect::from_center_size(
         pos2(field.rect.left() + 4.0 + SEARCH_ICON_SIZE / 2.0, field.rect.center().y),
@@ -746,7 +748,13 @@ pub struct SearchTarget {
 
 /// A [`search_field`] with a target for Enter (the menu filter opens its first hit): Enter hands the text over
 /// and empties the field, Escape empties it. The caller still holds the text of this frame from before the field.
-pub fn search_field_with_target(ui: &mut Ui, text: &mut String, hint: &str, scheme: &Scheme, width: f32) -> SearchTarget {
+pub fn search_field_with_target(
+    ui: &mut Ui,
+    text: &mut String,
+    hint: &str,
+    scheme: &Scheme,
+    width: f32,
+) -> SearchTarget {
     let mut response = search_field(ui, text, hint, scheme, width);
     let (enter, escape) = ui.input(|i| (i.key_pressed(egui::Key::Enter), i.key_pressed(egui::Key::Escape)));
     let mut entered = None;
@@ -868,7 +876,9 @@ impl<'a> SuggestField<'a> {
             ctx.options_mut(|o| o.input_options.surrender_focus_on = egui::SurrenderFocusOn::Never);
         }
         let margin = if self.searching { search_margin() } else { clearable_margin() };
-        let edit = text_field(text, self.hint, scheme).id(id).margin(margin).desired_width(self.width);
+        // A search line is as wide as its place; a field to pick from is never wider than a field gets.
+        let width = if self.searching { self.width } else { self.width.min(FIELD_MAX_WIDTH) };
+        let edit = text_field(text, self.hint, scheme).id(id).margin(margin).desired_width(width);
         // While the list is open, Tab and Esc act on the list, not on the focus.
         let filter = edit.get_event_filter();
         let now = egui::EventFilter { tab: filter.tab || state.open, escape: filter.escape || state.open, ..filter };
@@ -1301,7 +1311,7 @@ fn flag_png(code: &str, size: u32) -> Option<&'static [u8]> {
 /// A flag in the size of the line (4:3), or `None` for a country without one.
 /// The file is picked by the pixels the line has on the screen (as 4.12 with
 /// `dpi.px`), so a zoomed or sharp screen gets a larger file, not a blurred one.
-fn flag(ui: &Ui, code: &str) -> Option<(egui::Image<'static>, Vec2)> {
+pub(crate) fn flag(ui: &Ui, code: &str) -> Option<(egui::Image<'static>, Vec2)> {
     let scale = ui.ctx().pixels_per_point();
     let text = TextStyle::Body.resolve(ui.style()).size * scale;
     let size = FLAG_SIZES.into_iter().min_by(|a, b| (*a as f32 - text).abs().total_cmp(&(*b as f32 - text).abs()))?;
@@ -1392,26 +1402,75 @@ pub fn switch_line(
     on: &mut bool,
     knob: Option<versekit_core::theme::Color>,
 ) -> (Response, Rect) {
+    switch_line_with(ui, scheme, label, "", on, knob)
+}
+
+/// [`switch_line`] with its help text on hover behind the symbol `info` after the name (`""`: none).
+pub fn switch_line_with(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    label: &str,
+    help: &str,
+    on: &mut bool,
+    knob: Option<versekit_core::theme::Color>,
+) -> (Response, Rect) {
+    // The name in the column of names, the switch right after it: at the same place as in a settings row.
+    let names = name_column(ui.available_width(), TOGGLE_SIZE.x);
+    // As tall as a settings row, so that both kinds of rows stand alike in a card.
+    let height = button_size(ui, scheme, ButtonKind::Normal, "Ag").y.max(TOGGLE_SIZE.y);
     let line = ui.horizontal(|ui| {
-        ui.label(label);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.add(Toggle::new(on, scheme).knob(knob))
-        })
-        .inner
+        ui.spacing_mut().item_spacing.x = 0.0;
+        ui.set_min_height(height);
+        ui.allocate_ui_with_layout(vec2(names, height), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            ui.set_width(names);
+            let icon = ui.text_style_height(&TextStyle::Small);
+            let room = if help.is_empty() { names } else { names - icon - 4.0 };
+            ui.scope(|ui| {
+                ui.set_max_width(room);
+                ui.add(egui::Label::new(label).wrap());
+            });
+            if !help.is_empty()
+                && let Some(image) = crate::icons::themed("info", scheme, IconTint::Normal, icon)
+            {
+                ui.add_space(4.0);
+                ui.add(image);
+            }
+        });
+        ui.add_space(crate::layout::GAP);
+        ui.add(Toggle::new(on, scheme).knob(knob))
     });
     let response = line.inner;
     let (enabled, now) = (response.enabled(), *on);
     response.widget_info(|| WidgetInfo::selected(Role::CheckBox, enabled, now, label));
-    (response, line.response.rect)
+    let rect = line.response.rect;
+    if !help.is_empty() {
+        ui.interact(rect, ui.auto_id_with(("switch-help", label)), Sense::hover()).on_hover_text(help);
+    }
+    // The row as content: the names and the column of controls, as in a settings row.
+    let column = names + crate::layout::GAP + crate::settings::CONTROL_WIDTH;
+    drawn_cards::note_row(Rect::from_min_size(rect.min, vec2(column, rect.height())));
+    (response, rect)
 }
 
-/// [`switch_row`] with its help text in small muted text below: after a jump from the menu filter to the
-/// label or to the help text the line and the help are framed together.
+/// [`switch_row`] with its help text on hover behind the symbol `info` (one line, never a grey line below): after a
+/// jump from the menu filter to the label or to the help text the line is framed.
 pub fn switch_row_help(ui: &mut Ui, scheme: &Scheme, label: &str, help: &str, on: &mut bool) -> Response {
-    let (switch, row) = switch_line(ui, scheme, label, on, None);
-    let note = hint_label(ui, scheme, help);
-    crate::highlight::mark(ui, scheme, row.union(note.rect), &[label, help]);
+    let (switch, row) = switch_line_with(ui, scheme, label, help, on, None);
+    crate::highlight::mark(ui, scheme, row, &[label, help]);
     switch
+}
+
+/// Whether `shown` is how [`hint_line`] shows the hint `full`: whole, its first sentence, or its beginning cut at a
+/// word with „…“. For the checks that look for a hint on the screen.
+#[cfg(test)]
+pub(crate) fn shown_as_hint(shown: &str, full: &str) -> bool {
+    if shown == full {
+        return true;
+    }
+    if let Some(head) = shown.strip_suffix(" …") {
+        return !head.is_empty() && full.starts_with(head);
+    }
+    shown.ends_with('.') && full.starts_with(shown) && full[shown.len()..].starts_with(' ')
 }
 
 /// A short explanation in small muted text, wrapped; after a jump from the menu filter to its text it frames
@@ -1424,7 +1483,88 @@ pub fn hint(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
 
 /// [`hint`] without the frame of a menu filter jump, for a caller that frames it together with more.
 pub fn hint_label(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
-    ui.add(egui::Label::new(RichText::new(text).small().color(color(scheme.sub))).wrap())
+    let note = reading(ui, RichText::new(text).small().color(color(scheme.sub)));
+    // For the check that no hint stands as a grey line under a row.
+    drawn_cards::note_hint(note.rect);
+    note
+}
+
+/// The widest a text to read gets, in points: about a hundred characters a line, also in a very wide window.
+pub const READ_WIDTH: f32 = 640.0;
+
+/// A text to read (an explanation, a hint, a note), wrapped at [`READ_WIDTH`] at most.
+pub fn reading(ui: &mut Ui, text: impl Into<egui::WidgetText>) -> Response {
+    let width = ui.available_width().min(READ_WIDTH);
+    if width >= ui.available_width() {
+        return ui.add(egui::Label::new(text).wrap());
+    }
+    ui.allocate_ui_with_layout(vec2(width, 0.0), Layout::top_down(Align::Min), |ui| {
+        ui.set_max_width(width);
+        ui.add(egui::Label::new(text).wrap())
+    })
+    .inner
+}
+
+/// The narrowest a picture area (an editor on a picture of the game, such as the models of the signature window)
+/// gets, in points: smaller, nobody makes out what it shows nor places anything well on it. Such an area takes the
+/// whole width of its card; two stand side by side only where each keeps this width.
+pub const PICTURE_MIN_WIDTH: f32 = 560.0;
+
+/// The widest an input field gets, in points: in a wide window a field does not run over the whole card, and its
+/// button stays beside it.
+pub const FIELD_MAX_WIDTH: f32 = 600.0;
+
+/// The width of the names of setting and switch rows, in points (it grows with the size of the interface): the
+/// control of every such row stands right after it, at the same place in every card, never at the far edge.
+pub const NAME_WIDTH: f32 = 360.0;
+
+/// The width of the names in a row `row_width` wide whose controls take `control_width`: [`NAME_WIDTH`], less in
+/// a narrow row (80 points at least).
+pub fn name_column(row_width: f32, control_width: f32) -> f32 {
+    NAME_WIDTH.min((row_width - crate::layout::GAP - control_width).max(80.0))
+}
+
+/// The hint under the name of a row, in one line at most: a hint that fits stands whole; a longer one stands cut at
+/// the end of a word with „…“ and the symbol `info`, and whole when the pointer is on it. Gives the response of the
+/// line and whether the hint was cut.
+pub fn hint_line(ui: &mut Ui, scheme: &Scheme, text: &str) -> (Response, bool) {
+    let font = TextStyle::Small.resolve(ui.style());
+    let tone = color(scheme.sub);
+    let room = ui.available_width();
+    let wide = |ui: &Ui, text: &str| ui.painter().layout_no_wrap(text.to_string(), font.clone(), tone).size().x;
+    if wide(ui, text) <= room {
+        let line = ui.add(egui::Label::new(RichText::new(text).small().color(tone)).extend());
+        drawn_cards::note_hint(line.rect);
+        return (line, false);
+    }
+    let icon = ui.text_style_height(&TextStyle::Small);
+    let room = room - icon - ui.spacing().item_spacing.x;
+    // The first sentence whole where it fits; else words as long as they fit with the „…“ behind them, never a
+    // word cut in the middle.
+    let first = text.split_once(". ").map(|(head, _)| format!("{head}."));
+    let shown = match first {
+        Some(first) if wide(ui, &first) <= room => first,
+        _ => {
+            let mut shown = String::new();
+            for word in text.split(' ') {
+                let next = if shown.is_empty() { word.to_string() } else { format!("{shown} {word}") };
+                if wide(ui, &format!("{next} …")) > room {
+                    break;
+                }
+                shown = next;
+            }
+            format!("{shown} …")
+        }
+    };
+    let line = ui.horizontal(|row| {
+        row.add(egui::Label::new(RichText::new(shown).small().color(tone)).extend());
+        if let Some(image) = crate::icons::themed("info", scheme, IconTint::Normal, icon) {
+            row.add(image);
+        }
+    });
+    let response = line.response.interact(Sense::hover()).on_hover_text(text);
+    drawn_cards::note_hint(response.rect);
+    (response, true)
 }
 
 /// A row of tabs: text, the chosen one in the accent with a line below,
@@ -1769,6 +1909,55 @@ pub fn icon_button(ui: &mut Ui, scheme: &Scheme, icon: &str, meaning: &str) -> R
     response.on_hover_cursor(CursorIcon::PointingHand).on_hover_text(meaning)
 }
 
+/// An icon button that does nothing right now: greyed out, `reason` on hover and for screen readers.
+pub fn icon_button_blocked(ui: &mut Ui, scheme: &Scheme, icon: &str, reason: &str) -> Response {
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(ICON_BUTTON_SIZE), Sense::hover());
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, false, reason));
+    if ui.is_rect_visible(rect) {
+        let colors = blocked_colors(scheme);
+        let stroke = Stroke::new(1.0, color(colors.border));
+        ui.painter().rect(rect.shrink(1.0), control_radius(scheme), color(colors.fill), stroke, StrokeKind::Inside);
+        if let Some(image) = crate::icons::image(icon, colors.text, 16.0) {
+            image.paint_at(ui, Rect::from_center_size(rect.center(), Vec2::splat(16.0)));
+        }
+    }
+    response.on_hover_cursor(CursorIcon::NotAllowed).on_hover_text(reason)
+}
+
+/// Width of a button of the window frame in the head bar.
+pub const CAPTION_WIDTH: f32 = 46.0;
+
+/// A button of the window frame (minimize, maximize or restore, close) in the head bar: [`CAPTION_WIDTH`] wide and as
+/// high as the bar; its field lights up on hover, in red for closing. `system_hot`: the system says the pointer
+/// rests on it (the maximize button under Windows 11 gets no pointer events of its own).
+pub fn caption_button(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    icon: &str,
+    meaning: &str,
+    closing: bool,
+    system_hot: bool,
+) -> Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(CAPTION_WIDTH, BAR_HEIGHT), Sense::click());
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, true, meaning));
+    if ui.is_rect_visible(rect) {
+        let hot = response.hovered() || system_hot;
+        if hot {
+            ui.painter().rect_filled(rect, 0.0, color(if closing { scheme.red } else { scheme.hover }));
+        }
+        let tone = match (hot, closing) {
+            (true, true) => scheme.bg,
+            (true, false) => scheme.accent,
+            (false, _) => scheme.sub,
+        };
+        if let Some(image) = crate::icons::image(icon, tone, 14.0) {
+            image.paint_at(ui, Rect::from_center_size(rect.center(), Vec2::splat(14.0)));
+        }
+    }
+    focus_ring(ui, &response, scheme, CornerRadius::ZERO);
+    response.on_hover_cursor(CursorIcon::PointingHand).on_hover_text(meaning)
+}
+
 /// The pin next to a page heading (like 4.12): pins the page to the
 /// overview or loosens it again. While pinned it shows `pin-off` in the
 /// accent. `hints` are (pin, loosen).
@@ -2053,7 +2242,8 @@ fn nav_row(
 /// The new sign: small, filled with the accent,
 /// bold dark text. It goes once the area has been opened.
 pub fn new_badge(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
-    let galley = ui.painter().layout_no_wrap(text.to_string(), crate::fonts::bold(10.0), color(scheme.bg));
+    let size = TextStyle::Small.resolve(ui.style()).size;
+    let galley = ui.painter().layout_no_wrap(text.to_string(), crate::fonts::bold(size), color(scheme.bg));
     let (rect, response) = ui.allocate_exact_size(galley.size() + vec2(10.0, 4.0), Sense::hover());
     let radius = CornerRadius::same(if scheme.square { 0 } else { 7 });
     ui.painter().rect_filled(rect, radius, color(scheme.accent));
@@ -2384,7 +2574,7 @@ pub fn line_chart(
     let plot = Rect::from_min_max(rect.min + vec2(34.0, 6.0), rect.max - vec2(6.0, 20.0));
     let highest = points.iter().map(|(_, v)| *v).fold(f32::EPSILON, f32::max);
     let painter = ui.painter().clone();
-    let small = egui::FontId::proportional(11.0);
+    let small = TextStyle::Small.resolve(ui.style());
     for step in 0..=2 {
         let y = plot.bottom() - plot.height() * step as f32 / 2.0;
         let line = if step == 0 { scheme.sub } else { scheme.line };
@@ -2520,12 +2710,37 @@ pub const LIST_FRAME_EXTRA: f32 = 2.0 * (LIST_FRAME_SIDE as f32 + LIST_FRAME_STR
 /// The frame around a list: field color with the border of the controls, so
 /// one sees where the list ends.
 pub fn list_frame<R>(ui: &mut Ui, scheme: &Scheme, add_contents: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
-    Frame::new()
+    let shown = Frame::new()
         .fill(color(scheme.field))
         .stroke(Stroke::new(LIST_FRAME_STROKE, color(scheme.control_border())))
         .corner_radius(control_radius(scheme))
         .inner_margin(Margin::same(LIST_FRAME_SIDE))
-        .show(ui, add_contents)
+        .show(ui, add_contents);
+    drawn_cards::note_list(shown.response.rect);
+    shown
+}
+
+/// [`list_frame`] for a big list or table that stands on the page without a card: the same frame with the two
+/// corner brackets of a card (top left, bottom right), so it belongs to the cards around it.
+pub fn list_frame_marked<R>(ui: &mut Ui, scheme: &Scheme, add_contents: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
+    let shown = list_frame(ui, scheme, add_contents);
+    paint_corner_marks(ui, scheme, shown.response.rect, control_radius(scheme));
+    shown
+}
+
+/// The two corner brackets in the accent of the scheme at `rect`: square in square schemes, otherwise following
+/// the rounding `radius`.
+fn paint_corner_marks(ui: &Ui, scheme: &Scheme, rect: Rect, radius: CornerRadius) {
+    let stroke = Stroke::new(2.0, color(scheme.accent));
+    if scheme.square {
+        for mark in corner_marks(rect) {
+            ui.painter().line(mark.to_vec(), stroke);
+        }
+    } else {
+        for mark in rounded_corner_marks(rect, f32::from(radius.nw)) {
+            ui.painter().line(mark, stroke);
+        }
+    }
 }
 
 /// What an empty list or page shows: a muted icon and one sentence that says
@@ -2668,7 +2883,82 @@ pub mod drawn_cards {
     thread_local! {
         /// Place, clipping area and whether the card floats above the page.
         static CARDS: RefCell<Vec<(egui::Rect, egui::Rect, bool)>> = const { RefCell::new(Vec::new()) };
+        /// The places of the search lines drawn.
+        static SEARCHES: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
+        /// The places of the list frames drawn.
+        static LISTS: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
+        /// The places of the hints in small grey text drawn.
+        static HINTS: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
+        /// The places of the setting and switch rows drawn, with their column of controls.
+        static ROWS: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
+        /// The picture areas drawn.
+        static PICTURES: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
+        /// The settings rows without a control drawn.
+        static BARE_ROWS: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
+        /// The pieces of choices drawn: the choice they belong to, and whether the piece stands out as chosen.
+        static CHOICES: RefCell<Vec<(String, bool)>> = const { RefCell::new(Vec::new()) };
         static ON: Cell<bool> = const { Cell::new(cfg!(test)) };
+    }
+
+    /// The place a row takes as content: its name and the whole column of controls, also where its control is
+    /// narrower (a switch): the column is where every control of the card stands.
+    pub(crate) fn note_row(rect: egui::Rect) {
+        if ON.with(Cell::get) {
+            ROWS.with(|rows| rows.borrow_mut().push(rect));
+        }
+    }
+
+    /// The places of the rows drawn since the last call.
+    pub fn take_rows() -> Vec<egui::Rect> {
+        ROWS.with(|rows| std::mem::take(&mut *rows.borrow_mut()))
+    }
+
+    /// A settings row without a control: by the house rules a small heading instead.
+    pub(crate) fn note_bare_row(rect: egui::Rect) {
+        if ON.with(Cell::get) {
+            BARE_ROWS.with(|rows| rows.borrow_mut().push(rect));
+        }
+    }
+
+    /// The settings rows without a control drawn since the last call.
+    pub fn take_bare_rows() -> Vec<egui::Rect> {
+        BARE_ROWS.with(|rows| std::mem::take(&mut *rows.borrow_mut()))
+    }
+
+    /// A picture area ([`super::PICTURE_MIN_WIDTH`]): an editor, which may take the whole width of a card.
+    pub(crate) fn note_picture(rect: egui::Rect) {
+        if ON.with(Cell::get) {
+            PICTURES.with(|pictures| pictures.borrow_mut().push(rect));
+        }
+    }
+
+    /// The picture areas drawn since the last call.
+    pub fn take_pictures() -> Vec<egui::Rect> {
+        PICTURES.with(|pictures| std::mem::take(&mut *pictures.borrow_mut()))
+    }
+
+    pub(crate) fn note_hint(rect: egui::Rect) {
+        if ON.with(Cell::get) {
+            HINTS.with(|hints| hints.borrow_mut().push(rect));
+        }
+    }
+
+    /// The places of the hints in small grey text drawn since the last call.
+    pub fn take_hints() -> Vec<egui::Rect> {
+        HINTS.with(|hints| std::mem::take(&mut *hints.borrow_mut()))
+    }
+
+    /// A piece of the choice `choice` (a name the drawing gives it), standing out as chosen or not: a choice shows
+    /// one chosen piece at most.
+    pub fn note_choice(choice: &str, chosen: bool) {
+        if ON.with(Cell::get) {
+            CHOICES.with(|choices| choices.borrow_mut().push((choice.to_string(), chosen)));
+        }
+    }
+
+    /// The pieces of choices drawn since the last call.
+    pub fn take_choices() -> Vec<(String, bool)> {
+        CHOICES.with(|choices| std::mem::take(&mut *choices.borrow_mut()))
     }
 
     pub(super) fn note(rect: egui::Rect, clip: egui::Rect, floating: bool) {
@@ -2677,11 +2967,40 @@ pub mod drawn_cards {
         }
     }
 
+    pub(super) fn note_search(rect: egui::Rect) {
+        if ON.with(Cell::get) {
+            SEARCHES.with(|searches| searches.borrow_mut().push(rect));
+        }
+    }
+
+    /// The places of the search lines drawn since the last call.
+    pub fn take_searches() -> Vec<egui::Rect> {
+        SEARCHES.with(|searches| std::mem::take(&mut *searches.borrow_mut()))
+    }
+
+    pub(super) fn note_list(rect: egui::Rect) {
+        if ON.with(Cell::get) {
+            LISTS.with(|lists| lists.borrow_mut().push(rect));
+        }
+    }
+
+    /// The places of the list frames drawn since the last call.
+    pub fn take_lists() -> Vec<egui::Rect> {
+        LISTS.with(|lists| std::mem::take(&mut *lists.borrow_mut()))
+    }
+
     /// Starts or stops noting the cards drawn by this thread; stopping forgets the ones noted.
     pub fn record(on: bool) {
         ON.with(|flag| flag.set(on));
         if !on {
             take();
+            take_searches();
+            take_lists();
+            take_hints();
+            take_choices();
+            take_rows();
+            take_pictures();
+            take_bare_rows();
         }
     }
 
@@ -2791,18 +3110,9 @@ pub fn card<R>(ui: &mut Ui, scheme: &Scheme, add_contents: impl FnOnce(&mut Ui) 
     if let Some(added) = pad {
         row_cards::end_card(added);
     }
-    let stroke = Stroke::new(2.0, color(scheme.accent));
     let rect = shown.response.rect;
     drawn_cards::note(rect, ui.clip_rect(), ui.layer_id().order != egui::Order::Background);
-    if scheme.square {
-        for mark in corner_marks(rect) {
-            ui.painter().line(mark.to_vec(), stroke);
-        }
-    } else {
-        for mark in rounded_corner_marks(rect, f32::from(radius.nw)) {
-            ui.painter().line(mark, stroke);
-        }
-    }
+    paint_corner_marks(ui, scheme, rect, radius);
     shown
 }
 
@@ -3207,22 +3517,31 @@ pub fn ranking_row_tone(
 /// the accent with a check mark. `names[i]` belongs to `schemes[i]`.
 /// Returns the id of a clicked scheme.
 pub fn scheme_cards(ui: &mut Ui, current: &Scheme, schemes: &[Scheme], names: &[String]) -> Option<&'static str> {
-    const CARD: Vec2 = vec2(150.0, 70.0);
+    const GAP_X: f32 = 12.0;
+    // Three to a row where they fit at 110 points or more, at most 200 wide, so a wide card shows two even rows and
+    // no lone card under five; else as many as fit at 150.
+    let third = ((ui.available_width() - 2.0 * GAP_X) / 3.0).floor();
+    let three = third >= 110.0;
+    let card_size = vec2(if three { third.min(200.0) } else { 150.0 }, 70.0);
     let mut picked = None;
     ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing = vec2(12.0, 10.0);
-        for (s, name) in schemes.iter().zip(names) {
+        ui.spacing_mut().item_spacing = vec2(GAP_X, 10.0);
+        for (i, (s, name)) in schemes.iter().zip(names).enumerate() {
+            if three && i > 0 && i % 3 == 0 {
+                ui.end_row();
+            }
             let on = s.id == current.id;
+            drawn_cards::note_choice("farbschema", on);
             // A fixed size known before drawing, so the row wraps before a card
             // that would not fit (an open-ended `vertical` made it grow instead).
             let label_height = ui.text_style_height(&TextStyle::Small).max(14.0) + 4.0;
-            let size = vec2(CARD.x, CARD.y + ui.spacing().item_spacing.y + label_height);
+            let size = vec2(card_size.x, card_size.y + ui.spacing().item_spacing.y + label_height);
             let card = ui.allocate_ui_with_layout(size, Layout::top_down(Align::Min), |ui| {
-                ui.set_width(CARD.x);
-                let (rect, response) = ui.allocate_exact_size(CARD, Sense::click());
+                ui.set_width(card_size.x);
+                let (rect, response) = ui.allocate_exact_size(card_size, Sense::click());
                 if ui.is_rect_visible(rect) {
                     let p = ui.painter();
-                    let f = CARD.y / 78.0;
+                    let f = card_size.y / 78.0;
                     let at = |x: f32, y: f32| rect.min + vec2(x, y * f);
                     let border = if on || response.hovered() { current.accent } else { s.line };
                     p.rect(rect, 0.0, color(s.bg), Stroke::new(2.0, color(border)), StrokeKind::Inside);
@@ -3233,17 +3552,17 @@ pub fn scheme_cards(ui: &mut Ui, current: &Scheme, schemes: &[Scheme], names: &[
                     );
                     p.circle_filled(at(13.0 * f, 11.0), 3.0 * f, color(s.accent));
                     p.rect_filled(
-                        Rect::from_min_max(at(12.0 * f, 28.0), at(CARD.x - 12.0 * f, 34.0)),
+                        Rect::from_min_max(at(12.0 * f, 28.0), at(card_size.x - 12.0 * f, 34.0)),
                         0.0,
                         color(s.surface),
                     );
                     p.rect_filled(
-                        Rect::from_min_max(at(12.0 * f, 40.0), at(CARD.x - 50.0 * f, 46.0)),
+                        Rect::from_min_max(at(12.0 * f, 40.0), at(card_size.x - 50.0 * f, 46.0)),
                         0.0,
                         color(s.surface),
                     );
                     p.rect_filled(
-                        Rect::from_min_max(at(12.0 * f, 56.0), at(CARD.x - 30.0 * f, 64.0)),
+                        Rect::from_min_max(at(12.0 * f, 56.0), at(card_size.x - 30.0 * f, 64.0)),
                         0.0,
                         color(s.accent),
                     );
@@ -3437,14 +3756,14 @@ pub fn hotkey_picker(
             .map(|k| ui.painter().layout_no_wrap((*k).to_string(), font.clone(), color(scheme.fg)).size().x)
             .fold(0.0_f32, f32::max);
         let width = (widest + ui.spacing().icon_width + 3.0 * ui.spacing().button_padding.x).max(80.0);
-        let combo = egui::ComboBox::from_id_salt(("tastenkuerzel", id_salt)).selected_text(picked).width(width).show_ui(
-            ui,
-            |list| {
+        let combo = egui::ComboBox::from_id_salt(("tastenkuerzel", id_salt))
+            .selected_text(picked)
+            .width(width)
+            .show_ui(ui, |list| {
                 for (k, name) in keys.iter().enumerate() {
                     list.selectable_value(key, k, *name);
                 }
-            },
-        );
+            });
         name_combo(&combo.response, key_name, picked);
     });
     before != (modifiers.iter().map(|(_, on)| *on).collect::<Vec<_>>(), *key)
@@ -3484,7 +3803,8 @@ pub fn folder_field(ui: &mut Ui, scheme: &Scheme, path: &mut String, words: (&st
 /// path only when `typed` says the field was left, not with every key.
 pub fn folder_field_events(ui: &mut Ui, scheme: &Scheme, path: &mut String, words: (&str, &str)) -> FolderEvents {
     let placeholder = versekit_core::language::t("s_ff_ordner_ph");
-    let typed = ui.add(text_field(path, &placeholder, scheme).desired_width(f32::INFINITY)).lost_focus();
+    let width = ui.available_width().min(FIELD_MAX_WIDTH);
+    let typed = ui.add(text_field(path, &placeholder, scheme).desired_width(width)).lost_focus();
     let mut events = FolderEvents { typed, ..FolderEvents::default() };
     ui.horizontal(|ui| {
         events.browse = ui.add(Button::new(words.0, ButtonKind::Normal, scheme)).clicked();

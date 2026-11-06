@@ -405,6 +405,19 @@ fn names_in<S: AsRef<str>>(lines: &[S], names: &[(String, String)]) -> Vec<(Stri
     found
 }
 
+/// The keys of the file that get the block of an item: its description key,
+/// never its name key. Where the game data name the name key as description,
+/// the `_Desc` key beside the `_Name` key is taken if the file has it, else
+/// nothing; the game shows names in its cockpit displays.
+fn description_keys<'a>(known: &ItemKeys, all_keys: &'a HashMap<String, Vec<String>>) -> Option<&'a Vec<String>> {
+    let text = known.text.to_lowercase();
+    if text != known.name.to_lowercase() {
+        return all_keys.get(&text);
+    }
+    let stem = text.strip_suffix("_name")?;
+    all_keys.get(&format!("{stem}_desc"))
+}
+
 /// Every key of the lines in lower case → the keys in their own spelling,
 /// and the name keys of `texts` in lower case → the name without tag. Name
 /// and description keys do not always start with `item_Name` and `item_Desc`
@@ -611,7 +624,7 @@ pub fn build<S: AsRef<str>>(
         if let Some(known) = texts.get(&item.entity.to_lowercase()) {
             // A key the file lacks shows nothing of ours; a guessed one would
             // be a description the game does not show for this item.
-            let Some(keys) = all_keys.get(&known.text.to_lowercase()) else { continue };
+            let Some(keys) = description_keys(known, &all_keys) else { continue };
             let label = file_names
                 .get(&known.name.to_lowercase())
                 .filter(|name| !name.is_empty())
@@ -969,6 +982,41 @@ mod tests {
         assert!(shared.ends_with("\\nCrafting: 2 ingredients · 4 min"), "the same for both: {shared}");
         assert!(blocks["item_Desc_cds_heavy_armor_01_core"].contains("\\nBlueprint: <EM4>[x]</EM4> owned\\n"));
         assert_eq!(blocks.len(), 2);
+    }
+
+    /// Mining modules whose game data name the name key as description.
+    const MODULES: [&str; 4] = [
+        "item_Mining_Modules_Passive_THCN_Power_BTGL_Name=Deluge Module",
+        "item_Mining_Modules_Passive_THCN_Power_BTGL_Desc=Manufacturer: Greycat Industrial",
+        "item_Mining_Modules_Active_GRIN_Charge_BTGL_Name=Clearcut Module",
+        "cfp_title=Destroy Stolen Data",
+    ];
+
+    fn module(name: &str, entity: &str) -> Item {
+        armor(name, "BP_CRAFT_Mining_Modules_Passive_Deluge", entity, true)
+    }
+
+    fn module_texts() -> ItemTexts {
+        [
+            ("d1", keys("item_Mining_Modules_Passive_THCN_Power_BTGL_Name", "item_Mining_Modules_Passive_THCN_Power_BTGL_Name")),
+            ("c1", keys("item_Mining_Modules_Active_GRIN_Charge_BTGL_Name", "item_Mining_Modules_Active_GRIN_Charge_BTGL_Name")),
+        ]
+        .into_iter()
+        .map(|(guid, keys)| (guid.to_string(), keys))
+        .collect()
+    }
+
+    #[test]
+    fn a_name_key_never_gets_a_block_the_description_beside_it_does() {
+        let items = [module("Deluge Module", "d1"), module("Clearcut Module", "c1")];
+        let blocks = english_blocks(&MODULES, &items, &module_texts());
+        assert!(!blocks.contains_key("item_Mining_Modules_Passive_THCN_Power_BTGL_Name"), "{blocks:?}");
+        assert!(!blocks.contains_key("item_Mining_Modules_Active_GRIN_Charge_BTGL_Name"), "{blocks:?}");
+        assert!(
+            blocks["item_Mining_Modules_Passive_THCN_Power_BTGL_Desc"].contains("Blueprint: <EM4>[x]</EM4>"),
+            "{blocks:?}"
+        );
+        assert_eq!(blocks.len(), 1, "the module without a description in the file gets nothing: {blocks:?}");
     }
 
     #[test]

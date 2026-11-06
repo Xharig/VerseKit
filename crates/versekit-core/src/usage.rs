@@ -19,10 +19,10 @@
 //! how (`usage_ping.py`, `page_usage.py`): the same fields in the same form
 //! as 4.12, to the same receiver (`tools/nutzung-worker/`). No identifier, no
 //! name, no handle, no paths; the counters are ids of pages, routes and
-//! actions only.
+//! actions only, and the age of the installation is a number of days.
 //!
-//! In v5 it is always on: there is no switch (`nutzung_melden` is not read).
-//! `SC_BP_NO_NET` switches it off, and with it the counting; a target that is
+//! On by default; the setting `nutzung_melden` (as in 4.12, so old choices count) switches it off: nothing is sent
+//! and nothing is counted. `SC_BP_NO_NET` switches it off too, and with it the counting; a target that is
 //! not `https://` (as `aus`) as well. Unlike 4.12, `http://` to the own
 //! computer counts as a target, for the made-up receiver of the checks. A
 //! version the receiver would not take (`5.0.0-dev`) sends nothing and
@@ -40,10 +40,16 @@ use crate::text::py_strip;
 pub const TARGET: &str = "https://nutzung-versekit.xharig.com/ping";
 /// Another target for checks; anything without `https://` switches off.
 pub const ENV_TARGET: &str = "SC_BP_NUTZUNG_ZIEL";
+/// The switch of the player (`usage_ping.SETTING`): on unless it says off.
+pub const SETTING: &str = "nutzung_melden";
 /// The UTC day of the last report that arrived (`usage_ping.LAST`).
 pub const LAST_SETTING: &str = "nutzung_zuletzt";
 /// The counters until the next report (`page_usage.FILE`).
 pub const FILE: &str = "seitennutzung.json";
+/// The UTC day the installation was first seen, `YYYY-MM-DD`; only the days since go out, never this day.
+pub const INSTALLED_SETTING: &str = "installiert_am";
+/// The most days the report names: older installations send this (the receiver takes 0 to this).
+pub const MAX_AGE: i64 = 31;
 /// How often the background looks whether a report is due (`CHECK_EVERY`).
 pub const CHECK_EVERY: Duration = Duration::from_secs(3600);
 /// The next try after a failed one (`RETRY_AFTER`).
@@ -69,12 +75,28 @@ pub const ACTIONS: [&str; 12] = [
     "galerie_sprung",
     "galerie_karten",
 ];
+/// New with VerseKit 5, apart from the lists of the Python version (`ROUTES_V5` in `pages.js`): a page opened
+/// after typing in the menu filter.
+pub const ROUTES_V5: [&str; 1] = ["suche"];
+/// New with VerseKit 5 (`SEARCH` in `pages.js`): how often the menu filter was used and how often it found
+/// nothing, once per search each, never the word searched for.
+pub const SEARCH: [&str; 2] = ["suche_benutzt", "suche_ohne_treffer"];
+
+/// Whether `route` is a way a page is opened by, of the old list or of the new one.
+fn known_route(route: &str) -> bool {
+    ROUTES.contains(&route) || ROUTES_V5.contains(&route)
+}
+
+/// Whether `key` is an action counted, of the old list or of the search.
+fn known_action(key: &str) -> bool {
+    ACTIONS.contains(&key) || SEARCH.contains(&key)
+}
 /// The page ids of the main window that are counted (`pages.page_ids()`);
 /// the receiver knows these and three more of older versions. The one page "Dismantle & Salvage" is counted
 /// by the view it shows: `bergung` for a wreck, `zerlegen` for the calculation of a part.
 /// `statistik_auswertung` stays in the list: the receiver knows it, and the counts under it are added to
 /// `statistik` by [`ALIASES`].
-pub const PAGES: [&str; 61] = [
+pub const PAGES: [&str; 62] = [
     "uebersicht",
     "liste",
     "fortschritt",
@@ -121,6 +143,7 @@ pub const PAGES: [&str; 61] = [
     "patchaenderungen",
     "ueber",
     "serverstatus",
+    "handlesuche",
     "diagnose",
     "danke",
     "erkennung",
@@ -153,9 +176,14 @@ pub const MAX_MISSES_PER_TARGET: usize = 5;
 
 const FIELDS: [&str; 5] = ["pages", "entry", "clicks", "misses", "actions"];
 /// Old page names that count as their new page (`my_stock_page.ALIASES`); the evaluation page of the statistics
-/// is part of the overview since 5.0.
-const ALIASES: [(&str, &str); 3] =
-    [("lager", "meinlager"), ("handelslager", "meinlager"), ("statistik_auswertung", "statistik")];
+/// is part of the overview since 5.0, the shader cache a card of the graphics page since 5.1.4 (`shader` stays in
+/// [`PAGES`], so that the counts of older versions are still taken).
+const ALIASES: [(&str, &str); 4] = [
+    ("lager", "meinlager"),
+    ("handelslager", "meinlager"),
+    ("statistik_auswertung", "statistik"),
+    ("shader", "grafik"),
+];
 /// The language folders of the game and their codes (`usage_ping._GAME_LANGUAGES`).
 const GAME_LANGUAGES: [(&str, &str); 11] = [
     ("english", "en"),
@@ -207,6 +235,11 @@ pub fn would_send(host: &Host, version: &str) -> bool {
     !no_net(host) && target(host).is_some() && version_ok(version)
 }
 
+/// Did the player leave the report on? On by default (`usage_ping.enabled`).
+pub fn enabled(paths: &Paths) -> bool {
+    paths.setting_bool(SETTING, true)
+}
+
 /// Today in UTC, as the receiver counts (`usage_ping.today`).
 pub fn today_utc(now: std::time::SystemTime) -> String {
     let days = now.duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() / 86_400) as i64;
@@ -228,6 +261,77 @@ pub struct Facts {
     pub update: bool,
     pub view: String,
     pub tiles_off: Vec<String>,
+    /// Whole days since the installation, at most [`MAX_AGE`].
+    pub age: Option<i64>,
+}
+
+/// Days since 1970-01-01 of a date `YYYY-MM-DD`; `None` for anything else.
+fn days_of(text: &str) -> Option<i64> {
+    let parts: Vec<&str> = text.split('-').collect();
+    let [year, month, day] = parts.as_slice() else { return None };
+    if year.len() != 4 || month.len() != 2 || day.len() != 2 {
+        return None;
+    }
+    let (year, month, day): (i64, i64, i64) = (year.parse().ok()?, month.parse().ok()?, day.parse().ok()?);
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let year_of_era = year - era * 400;
+    let day_of_year = (153 * ((month + 9) % 12) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    Some(era * 146_097 + day_of_era - 719_468)
+}
+
+fn day_text(days: i64) -> String {
+    crate::export::utc_text(days * 86_400, false)[..10].to_string()
+}
+
+fn days_at(time: std::time::SystemTime) -> i64 {
+    time.duration_since(std::time::UNIX_EPOCH).map_or(0, |d| (d.as_secs() / 86_400) as i64)
+}
+
+/// The oldest day the data folder proves: the earliest creation or change time of the folder and of the files
+/// directly in it.
+fn oldest_proof(paths: &Paths) -> Option<i64> {
+    let folder = crate::pypath::Flavor::native().dirname(&paths.app_file(FILE));
+    let earliest = |meta: &std::fs::Metadata| match (meta.created().ok(), meta.modified().ok()) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    };
+    let mut oldest = std::fs::metadata(&folder).ok().and_then(|meta| earliest(&meta));
+    if let Ok(entries) = std::fs::read_dir(&folder) {
+        for meta in entries.flatten().take(2000).filter_map(|entry| entry.metadata().ok()) {
+            oldest = match (oldest, earliest(&meta)) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            };
+        }
+    }
+    oldest.map(days_at)
+}
+
+/// The day the installation counts from: the one kept, else the oldest the data folder proves, else `today`.
+fn install_day(paths: &Paths, today: i64) -> i64 {
+    let kept = paths.setting(INSTALLED_SETTING).as_deref().and_then(days_of);
+    kept.or_else(|| oldest_proof(paths)).map_or(today, |day| day.min(today))
+}
+
+/// Whole days since the installation on `now`, at most [`MAX_AGE`]; a clock that went back counts 0.
+pub fn age(paths: &Paths, now: std::time::SystemTime) -> i64 {
+    let today = days_at(now);
+    (today - install_day(paths, today)).clamp(0, MAX_AGE)
+}
+
+/// Keeps the day of the installation once, as a date without a time. An installation that has no day yet gets
+/// the oldest one its data folder proves, or `now`.
+pub fn remember_install(paths: &Paths, now: std::time::SystemTime) {
+    if paths.setting(INSTALLED_SETTING).as_deref().and_then(days_of).is_some() {
+        return;
+    }
+    let day = install_day(paths, days_at(now));
+    paths.set_setting(INSTALLED_SETTING, Value::str(day_text(day)));
 }
 
 /// `windows` or `linux` (`usage_ping.system`).
@@ -291,10 +395,12 @@ pub fn facts(paths: &Paths, ui: &str) -> Facts {
         update: paths.setting_bool("update_pruefen", true) && paths.setting_bool("update_automatisch", true),
         view: if paths.setting("ansicht").as_deref() == Some("karten") { "karten" } else { "reiter" }.into(),
         tiles_off,
+        age: Some(age(paths, std::time::SystemTime::now())),
     }
 }
 
-/// Exactly what goes out, in the order of 4.12 (`usage_ping.payload`).
+/// Exactly what goes out, in the order of 4.12 (`usage_ping.payload`), with the age of the installation in whole
+/// days after the tiles and never the day itself.
 pub fn payload(version: &str, facts: &Facts, counts: &Map) -> Map {
     let strings = |items: &[String]| Value::Array(items.iter().map(Value::str).collect());
     let mut out: Map = vec![
@@ -310,6 +416,8 @@ pub fn payload(version: &str, facts: &Facts, counts: &Map) -> Map {
         ("view".into(), Value::str(&facts.view)),
         ("tiles_off".into(), strings(&facts.tiles_off)),
     ];
+    if let Some(days) = facts.age {
+        out.push(("alter".into(), Value::int(days.clamp(0, MAX_AGE))));    }
     out.extend(outgoing(&Value::Object(counts.clone())));
     out
 }
@@ -458,7 +566,7 @@ pub fn clean(raw: &Value) -> Map {
         }
     }
     for field in ["entry", "clicks"] {
-        let key_ok = |k: &str| if field == "entry" { ROUTES.contains(&k) } else { step_like(k) };
+        let key_ok = |k: &str| if field == "entry" { known_route(k) } else { step_like(k) };
         for (page, inner) in block(raw, field) {
             let Value::Object(inner) = inner else { continue };
             if !page_like(page) {
@@ -485,7 +593,7 @@ pub fn clean(raw: &Value) -> Map {
         }
     }
     for (key, n) in block(raw, "actions") {
-        if let (true, Some(n)) = (ACTIONS.contains(&key.as_str()), count(n)) {
+        if let (true, Some(n)) = (known_action(key), count(n)) {
             jsonio::map_set(block_mut(&mut out, "actions"), key, Value::int(n));
         }
     }
@@ -603,7 +711,8 @@ impl PageUsage {
     /// Is counting on? Only while a report would go out (`page_usage.active`); on a copy of the data
     /// (the test mode) only to a receiver on this computer.
     pub fn active(&self) -> bool {
-        would_send(&self.paths.host, &self.version)
+        enabled(&self.paths)
+            && would_send(&self.paths.host, &self.version)
             && target(&self.paths.host).is_some_and(|address| crate::testmode::usage_allowed(&self.paths, &address))
     }
 
@@ -701,7 +810,7 @@ impl PageUsage {
         }
         let known = PAGES.contains(&page);
         match &state.session {
-            Some(session) if ROUTES.contains(&route) && known && session.page.as_deref() != Some(page) => {}
+            Some(session) if known_route(route) && known && session.page.as_deref() != Some(page) => {}
             _ => return,
         }
         let now = self.now(clock);
@@ -722,14 +831,14 @@ impl PageUsage {
         self.save(&state);
     }
 
-    /// An action of [`ACTIONS`] once, only how often (`page_usage.action`).
+    /// An action of [`ACTIONS`] or [`SEARCH`] once, only how often (`page_usage.action`).
     pub fn action(&self, key: &str) {
         let mut state = self.lock();
         if !self.active() {
             self.drop_all(&mut state);
             return;
         }
-        if !ACTIONS.contains(&key) {
+        if !known_action(key) {
             return;
         }
         add(block_mut(self.load(&mut state), "actions"), key, 1);
@@ -852,6 +961,9 @@ pub fn spawn_ping(paths: Paths, usage: std::sync::Arc<PageUsage>) {
 /// sends no second report the same day.
 pub fn send_if_due(transport: &dyn Transport, usage: &PageUsage, facts: &Facts, day: &str) -> Sent {
     let paths = &usage.paths;
+    if !enabled(paths) {
+        return Sent::Off;
+    }
     // A copy of the data (the test mode) never reports to the real receiver: test runs would count as players.
     let Some(address) =
         target(&paths.host).filter(|a| !no_net(&paths.host) && crate::testmode::usage_allowed(paths, a))
@@ -864,6 +976,7 @@ pub fn send_if_due(transport: &dyn Transport, usage: &PageUsage, facts: &Facts, 
     if paths.setting(LAST_SETTING).as_deref() == Some(day) || usage.lock().sent_day.as_deref() == Some(day) {
         return Sent::Already;
     }
+    remember_install(paths, std::time::SystemTime::now());
     let state = usage.stored();
     let body = payload_text(&payload(&usage.version, facts, &state)).into_bytes();
     let request = Request {

@@ -486,12 +486,17 @@ impl UpdateUi {
         let height: f32 = ui.data(|d| d.get_temp(height_id)).unwrap_or(0.0);
         let mut taller = 0.0_f32;
         if ui.available_width() >= NARROW {
-            ui.columns(2, |columns| {
-                for (column, (texts, channel, chosen, with_prerelease)) in columns.iter_mut().zip(&mut boxes) {
-                    let shown =
-                        channel_box(column, scheme, texts, channel, *chosen, busy, *with_prerelease, height, out);
-                    taller = taller.max(shown);
-                }
+            ui.scope(|ui| {
+                // egui widens the row by what the widest column takes beyond its share; one point spare keeps a
+                // rounded box inside the card.
+                ui.set_max_width(ui.available_width() - 1.0);
+                ui.columns(2, |columns| {
+                    for (column, (texts, channel, chosen, with_prerelease)) in columns.iter_mut().zip(&mut boxes) {
+                        let shown =
+                            channel_box(column, scheme, texts, channel, *chosen, busy, *with_prerelease, height, out);
+                        taller = taller.max(shown);
+                    }
+                });
             });
         } else {
             for (i, (texts, channel, chosen, with_prerelease)) in boxes.iter_mut().enumerate() {

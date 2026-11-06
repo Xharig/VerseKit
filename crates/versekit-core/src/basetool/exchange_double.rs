@@ -205,6 +205,8 @@ struct World {
     touch: Vec<(String, Touch)>,
     /// The next change of the unit of a ship is refused: id of the ship and the reason of the answer.
     unit_refusals: Vec<(String, String)>,
+    /// Quantity changes of a material or item (lower case name) that are refused, with the reason.
+    material_refusals: Vec<(String, String)>,
 }
 
 type Touch = Box<dyn FnOnce() + Send>;
@@ -277,6 +279,7 @@ impl ExchangeDouble {
                 race: Vec::new(),
                 touch: Vec::new(),
                 unit_refusals: Vec::new(),
+                material_refusals: Vec::new(),
             }),
         }
     }
@@ -331,6 +334,13 @@ impl ExchangeDouble {
         world.faults.clear();
         world.token_faults.clear();
         world.unit_refusals.clear();
+        world.material_refusals.clear();
+    }
+
+    /// Every change of the quantity of a material or item named `name` is refused with `reason` (`AMBIGUOUS`)
+    /// until [`heal`](Self::heal).
+    pub fn refuse_material(&self, name: &str, reason: &str) {
+        self.world().material_refusals.push((lower(name), reason.into()));
     }
 
     /// The next change that sets the unit of the ship `id` is refused with `reason`
@@ -1006,6 +1016,11 @@ impl World {
             }
             let material = op.get("material");
             let bt = text_of(material.and_then(|m| m.get("bt")));
+            let named = lower(&text_of(material.and_then(|m| m.get("name"))));
+            if let Some((_, reason)) = self.material_refusals.iter().find(|(name, _)| *name == named) {
+                report.push(failure(index, "rejected", reason));
+                continue;
+            }
             let place = text_of(op.get("location").and_then(|l| l.get("name")));
             if !self.places.iter().any(|p| lower(p) == lower(&place)) {
                 report.push(failure(index, "rejected", "LOCATION_UNKNOWN"));

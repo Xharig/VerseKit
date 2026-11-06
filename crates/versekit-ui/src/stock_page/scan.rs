@@ -339,7 +339,7 @@ mod tests {
         show_jobs(&mut state, vec![job("Gold ? 122 cSCU", &["Gold"], &["Gold"], "")], true);
         let (text, tone) = state.scan.message.clone().expect("message");
         assert_eq!(tone, Tone::Warn);
-        assert!(text.contains("nicht sicher gelesen: Gold") && text.contains("aufgehoben"), "{text}");
+        assert!(text.contains("unsicher gelesen: Gold") && text.contains("aufgehoben"), "{text}");
         // Nothing read: the field keeps what it held.
         show_jobs(&mut state, Vec::new(), false);
         assert_eq!(state.refinery_text, "Gold ? 122 cSCU");

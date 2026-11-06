@@ -197,6 +197,7 @@ fn names_key(paths: &Paths, lang: Lang) -> String {
 /// Reads the names in the language: the profile from the archive, the texts from the `global.ini` of the game
 /// folder and, where the folder holds none, from the archive.
 fn load_names(paths: &Paths, lang: Lang, key: String) -> Names {
+    let _topic = versekit_core::archive_lock::reading_for("controls");
     let profile = versekit_gamedata::control_profile::profile(paths);
     let folder = paths.game_folder().unwrap_or_default();
     let (labels, groups) = if controls::ini_texts(&folder, lang).is_empty() {

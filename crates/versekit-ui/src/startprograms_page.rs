@@ -54,6 +54,8 @@ const WHEN_KEYS: [(When, &str); 3] =
 
 /// Longest time to wait the page offers (a day); a longer one in the file stays until it is changed.
 const WAIT_MOST: i64 = 86_400;
+/// The least width of a card of a program before the cards stand under each other.
+const PROGRAM_CELL: f32 = 520.0;
 
 /// One entry with the texts of its fields (kept while they are typed).
 struct Item {
@@ -200,7 +202,8 @@ fn field(
         let reserved = button.map_or(0.0, |word| {
             widgets::button_size(ui, scheme, ButtonKind::Normal, word).x + ui.spacing().item_spacing.x
         });
-        let width = (ui.available_width() - reserved - layout::SAFETY).max(80.0);
+        // Never wider than a field needs to be: in a wide window its button stays right beside it.
+        let width = (ui.available_width() - reserved - layout::SAFETY).clamp(80.0, widgets::FIELD_MAX_WIDTH);
         let response =
             ui.add(widgets::text_field(text, hint, scheme).id_salt(salt).desired_width(width)).labelled_by(name.id);
         focused = response.has_focus();
@@ -282,12 +285,11 @@ fn card(ui: &mut Ui, scheme: &Scheme, item: &mut Item) -> Did {
         settings::setting_row(ui, scheme, &end, "", false, |row| {
             did.changed |= switch(row, scheme, &mut item.entry.end, &format!("{title}: {end}"));
         });
-        // Start at the left, the red button at the other edge: no mis-click from one to the other.
+        // The buttons of the card together in one line; a wider gap before the red one keeps a mis-click away.
         ui.horizontal(|ui| {
             did.run = ui.add(widgets::Button::new(&t("s_pg_jetzt"), ButtonKind::Normal, scheme)).clicked();
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                did.remove = ui.add(widgets::Button::new(&t("s_pg_entfernen"), ButtonKind::Danger, scheme)).clicked();
-            });
+            ui.add_space(3.0 * layout::GAP);
+            did.remove = ui.add(widgets::Button::new(&t("s_pg_entfernen"), ButtonKind::Danger, scheme)).clicked();
         });
     });
     did
@@ -306,11 +308,7 @@ pub fn show_page(
         state.load(paths);
     }
     ui.label(RichText::new(t("s_pg_lead")).small().color(color(scheme.sub)));
-    // A line of its own that is always there, so that nothing below moves when the mark shows.
-    ui.allocate_ui(egui::vec2(ui.available_width(), 22.0), |ui| {
-        widgets::saved_hint(ui, scheme, state.saved_at, &t("s_pg_gespeichert"));
-    });
-    ui.add_space(4.0);
+    ui.add_space(8.0);
 
     // The answer of a file dialog goes into the card it was opened for.
     if let Some((uid, pending)) = &state.dialog
@@ -327,13 +325,25 @@ pub fn show_page(
         }
     }
 
-    // The main switch: off, nothing starts and the list stays.
+    // The main card: the title with the saved mark, the main switch (off, nothing starts and the list stays)
+    // and, with no program yet, what to do.
     let name = t("s_pg_aktiv");
     let mut flipped = false;
     widgets::card(ui, scheme, |ui| {
+        // The title line is always as tall, so that nothing below moves when the mark shows.
+        ui.horizontal(|ui| {
+            ui.set_min_height(22.0);
+            widgets::card_title(ui, scheme, &t("s_pg_kopf"));
+            ui.add_space(8.0);
+            widgets::saved_hint(ui, scheme, state.saved_at, &t("s_pg_gespeichert"));
+        });
+        ui.add_space(4.0);
         settings::setting_row(ui, scheme, &name, &t("s_pg_aktiv_h"), false, |row| {
             flipped = switch(row, scheme, &mut state.main_on, &name);
         });
+        if state.items.is_empty() {
+            ui.label(RichText::new(t("s_pg_leer")).small().color(color(scheme.sub)));
+        }
     });
     if flipped {
         let word = if state.main_on { t("e_an") } else { t("e_aus") };
@@ -345,18 +355,26 @@ pub fn show_page(
     }
     ui.add_space(8.0);
 
-    if state.items.is_empty() {
-        ui.label(RichText::new(t("s_pg_leer")).small().color(color(scheme.sub)));
-        ui.add_space(4.0);
-    }
     let (mut save, mut remove, mut opened) = (false, None, None);
-    for index in 0..state.items.len() {
-        let uid = state.items[index].uid;
-        let did = ui.push_id(("startprogramm", uid), |ui| card(ui, scheme, &mut state.items[index])).inner;
+    // In a wide window the cards of the programs stand side by side, up to three in a row.
+    let count = state.items.len();
+    let columns = layout::columns_that_fit(ui.available_width(), PROGRAM_CELL, 3);
+    let mut drawn: Vec<(usize, Did)> = Vec::with_capacity(count);
+    for first in (0..count).step_by(columns) {
+        let items = &mut state.items;
+        layout::columns_or_stack(ui, PROGRAM_CELL, columns, |ui, column| {
+            let index = first + column;
+            if index < count {
+                let uid = items[index].uid;
+                drawn.push((index, ui.push_id(("startprogramm", uid), |ui| card(ui, scheme, &mut items[index])).inner));
+            }
+        });
         ui.add_space(8.0);
+    }
+    for (index, did) in drawn {
         save |= did.changed;
         if did.browse {
-            opened = Some(uid);
+            opened = Some(state.items[index].uid);
         }
         if did.remove {
             remove = Some(index);
@@ -397,13 +415,21 @@ pub fn show_page(
     if save {
         state.save(paths);
     }
-    if ui.add(widgets::Button::new(&t("s_pg_neu"), ButtonKind::Strong, scheme)).clicked() {
+    // The closing card: the button for one more program and the risk.
+    let add = widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_pg_neu_kopf"));
+        ui.add_space(4.0);
+        let add = ui.add(widgets::Button::new(&t("s_pg_neu"), ButtonKind::Strong, scheme)).clicked();
+        ui.add_space(10.0);
+        ui.label(RichText::new(t("s_pg_risiko")).small().color(color(scheme.sub)));
+        add
+    })
+    .inner;
+    if add {
         state.next_uid += 1;
         state.items.push(Item::new(state.next_uid, Entry::default()));
         state.save(paths);
     }
-    ui.add_space(10.0);
-    ui.label(RichText::new(t("s_pg_risiko")).small().color(color(scheme.sub)));
 }
 
 #[cfg(test)]
@@ -607,7 +633,8 @@ mod tests {
         bench.click(&t("s_pg_neu"));
         assert_eq!(bench.stored(), vec![Entry::default()], "the new entry is in the file without a save button");
         let texts = bench.settle().0;
-        assert!(shows(&texts, &t("s_pg_neuer")) && shows(&texts, &t("s_pg_keine_datei")), "{texts:?}");
+        // The card is named; that no file is chosen yet stands on hover over its head and in the empty field below.
+        assert!(shows(&texts, &t("s_pg_neuer")) && !shows(&texts, &t("s_pg_keine_datei")), "{texts:?}");
         assert!(!shows(&texts, &t("s_pg_leer")));
         // A text field is taken when Enter is pressed.
         bench.type_into(&t("s_pl_programmname"), "TeamSpeak");
@@ -669,7 +696,7 @@ mod tests {
         bench.state.invalidate();
         // A click elsewhere leaves the field.
         bench.type_only(&t("s_pl_programmname"), "Mumble");
-        bench.click(&t("s_pg_aktiv_h"));
+        bench.click(&t("s_pg_aktiv"));
         assert_eq!(bench.stored()[0].name, "Mumble", "taken over with the click elsewhere");
         // The page goes away with the text still in the field: the window flushes it.
         bench.type_only(&t("s_pg_keine"), "--go");

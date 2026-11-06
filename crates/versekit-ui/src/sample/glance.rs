@@ -438,7 +438,7 @@ mod tests {
         let sessions = [(10_000, 10_000 + 3 * 3600 + 5 * 60), (30_000, 30_000 + 42 * 60)];
         let (text, hover) = head(&sessions, 42 * 60, Lang::De);
         assert_eq!(text, "3 h 47 min  (+42 min)");
-        assert!(hover.starts_with("Deine Spielzeit seit "), "{hover}");
+        assert!(hover.starts_with("Spielzeit seit "), "{hover}");
         assert_eq!(head(&sessions, 3 * 3600 + 5 * 60, Lang::De).0, "3 h 47 min  (+3 h 05 min)");
         // The game does not run: no brackets.
         assert_eq!(head(&sessions, 0, Lang::De).0, "3 h 47 min");

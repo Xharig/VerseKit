@@ -88,7 +88,7 @@ pub const ONE_AREA_SETTING: &str = "uebersicht_ein_bereich";
 
 /// The pages that can be pinned: (page name of 4.12, text key of its name in
 /// v5) (`cards.PAGES`).
-pub const PAGES: [(&str, &str); 43] = [
+pub const PAGES: [(&str, &str); 42] = [
     ("liste", "hf_liste"),
     ("fortschritt", "hf_fortschritt"),
     ("auftragslog", "hf_auftragslog"),
@@ -127,7 +127,6 @@ pub const PAGES: [(&str, &str); 43] = [
     ("blickwinkel", "hf_blickwinkel"),
     ("joysticks", "hf_joysticks"),
     ("achsen", "hf_achsen"),
-    ("shader", "hf_shader"),
     ("patchaenderungen", "hf_patchaenderungen"),
     ("serverstatus", "hf_serverstatus"),
     ("danke", "hf_danke"),
@@ -137,8 +136,9 @@ pub const PAGES: [(&str, &str); 43] = [
 /// Old page names that count as their new page (`my_stock_page.ALIASES`); the wishlist is the section
 /// "Planned" of the hangar page, the dismantle calculation a view of the page "Dismantle & Salvage", the
 /// evaluation of the statistics part of their overview, naming the ships part of the hangar page, the relations
-/// a tab of the handle search.
-const PAGE_ALIASES: [(&str, &str); 7] = [
+/// a tab of the handle search, the shader cache the last card of the graphics page (since 5.1.4).
+const PAGE_ALIASES: [(&str, &str); 8] = [
+    ("shader", "grafik"),
     ("beziehungen", "handlesuche"),
     ("lager", "meinlager"),
     ("handelslager", "meinlager"),

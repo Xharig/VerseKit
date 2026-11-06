@@ -86,6 +86,7 @@ fn plain_facts() -> Facts {
         update: true,
         view: "reiter".into(),
         tiles_off: vec!["spielzeit".into()],
+        age: Some(3),
     }
 }
 
@@ -97,6 +98,9 @@ struct Lists {
     routes: BTreeSet<String>,
     actions: BTreeSet<String>,
     tiles: BTreeSet<String>,
+    /// The way and the two counts of the search, new with VerseKit 5.
+    routes_v5: BTreeSet<String>,
+    search: BTreeSet<String>,
     numbers: Vec<(String, i64)>,
 }
 
@@ -145,11 +149,20 @@ fn worker_lists() -> Lists {
             (name.to_string(), digits.parse().unwrap())
         })
         .collect();
-    Lists { pages: block("PAGES"), routes: block("ROUTES"), actions: block("ACTIONS"), tiles: block("TILES"), numbers }
+    Lists {
+        pages: block("PAGES"),
+        routes: block("ROUTES"),
+        actions: block("ACTIONS"),
+        tiles: block("TILES"),
+        routes_v5: block("ROUTES_V5"),
+        search: block("SEARCH"),
+        numbers,
+    }
 }
 
-const WORKER_FIELDS: [&str; 16] = [
+const WORKER_FIELDS: [&str; 17] = [
     "actions",
+    "alter",
     "autostart",
     "clicks",
     "entry",
@@ -228,6 +241,9 @@ fn check(text: &str, lists: &Lists) -> Result<(), (u16, String)> {
     }
     if get("tiles_off").is_some_and(|v| !unique_strings(v, lists.tiles.len(), &|s| lists.tiles.contains(s))) {
         return bad("tiles_off");
+    }
+    if get("alter").is_some_and(|v| !matches!(v, Value::Int(n) if n.parse::<i64>().is_ok_and(|n| (0..=31).contains(&n)))) {
+        return bad("alter");
     }
     let is_count = |v: &Value| matches!(v, Value::Int(n) if n.parse::<i64>().is_ok_and(|n| (1..=9999).contains(&n)));
     let page = |s: &str| lists.pages.contains(s);
@@ -393,6 +409,8 @@ fn the_lists_match_the_receiver() {
     assert_eq!(ours, lists.pages, "the counted pages are the receiver's");
     assert_eq!(lists.routes, ROUTES.iter().map(|s| s.to_string()).collect());
     assert_eq!(lists.actions, ACTIONS.iter().map(|s| s.to_string()).collect());
+    assert_eq!(lists.routes_v5, ROUTES_V5.iter().map(|s| s.to_string()).collect(), "the way of the search");
+    assert_eq!(lists.search, SEARCH.iter().map(|s| s.to_string()).collect(), "the counts of the search");
     assert_eq!(lists.tiles, crate::overview::TILES.iter().map(|(id, _)| id.to_string()).collect());
     assert_eq!(
         lists.numbers,
@@ -402,7 +420,8 @@ fn the_lists_match_the_receiver() {
             ("MAX_MISS_PAIRS".to_string(), MAX_MISS_PAIRS as i64)
         ]
     );
-    assert_eq!(lists.pages.len(), 64);
+    assert_eq!(lists.pages.len(), 65);
+    assert!(PAGES.contains(&"handlesuche") && lists.pages.contains("handlesuche"), "the handle search is counted");
 }
 
 #[test]
@@ -538,7 +557,7 @@ fn the_report_is_written_as_python_writes_it() {
         text,
         "{\"v\": \"5.0.0\", \"os\": \"windows\", \"ui\": \"de\", \"game\": \"de\", \"rc\": false, \
          \"mods\": [\"basetool\", \"schiffe\"], \"overlay\": \"immer\", \"autostart\": true, \"update\": true, \
-         \"view\": \"reiter\", \"tiles_off\": [\"spielzeit\"], \"pages\": {\"hangar\": 1, \"liste\": 2}, \
+         \"view\": \"reiter\", \"tiles_off\": [\"spielzeit\"], \"alter\": 3, \"pages\": {\"hangar\": 1, \"liste\": 2}, \
          \"entry\": {\"liste\": {\"seitenleiste\": 1, \"start\": 1}}, \"clicks\": {\"liste\": {\"2\": 1, \"10\": 1}}, \
          \"misses\": {}, \"actions\": {\"lager_sync\": 3}}"
     );
@@ -565,6 +584,7 @@ fn the_report_holds_no_more_than_the_known_fields() {
             "update",
             "view",
             "tiles_off",
+            "alter",
             "pages",
             "entry",
             "clicks",
@@ -629,6 +649,38 @@ fn a_way_through_the_window_is_counted_as_4_12_counts_it() {
          \"misses\":{\"verkauf>laeden\":1,\"routen>laeden\":1},\"actions\":{}}"
     );
     assert_eq!(s.file_text().as_deref(), Some(file_text(&stored).as_str()), "the file holds the same, compact");
+}
+
+/// The handle search is a page of the side bar and is counted like the others, also under its old name
+/// "Beziehungen".
+#[test]
+fn the_handle_search_is_counted_as_a_page() {
+    let s = Setup::new("handle-page", &[], "5.1.4");
+    let u = &s.usage;
+    u.window_opened();
+    u.page_opened("handlesuche", Some("seitenleiste"), Some(0.0));
+    u.page_opened("liste", Some("sprung"), Some(5.0));
+    u.window_closed(Some(10.0));
+    let stored = u.stored();
+    assert_eq!(block(&stored, "pages"), &obj("{\"handlesuche\": 1, \"liste\": 1}"));
+    assert_eq!(block(block(&stored, "entry"), "handlesuche"), &obj("{\"seitenleiste\": 1}"));
+}
+
+#[test]
+fn the_search_counts_as_a_way_and_as_two_counts_and_an_unknown_one_not() {
+    let s = Setup::new("suche", &[], "5.0.0");
+    let u = &s.usage;
+    u.window_opened();
+    u.action("suche_benutzt");
+    u.action("suche_ohne_treffer");
+    u.action("suche_benutzt");
+    u.action("suche_irgendwas");
+    u.page_opened("laeden", Some("suche"), Some(1.0));
+    u.page_opened("verkauf", Some("suchfeld"), Some(2.0));
+    u.window_closed(Some(5.0));
+    let stored = u.stored();
+    assert_eq!(block(&stored, "actions").clone(), obj("{\"suche_benutzt\": 2, \"suche_ohne_treffer\": 1}"));
+    assert_eq!(block(&stored, "entry").clone(), obj("{\"laeden\": {\"suche\": 1}}"), "an unknown way counts nothing");
 }
 
 #[test]
@@ -740,6 +792,22 @@ fn the_counts_of_the_former_evaluation_page_go_to_the_statistics_overview() {
     );
 }
 
+/// The shader cache is a card of the graphics page since 5.1.4: what older versions counted under `shader` goes to
+/// `grafik`, added up, and the name stays a known page so that their reports are still taken.
+#[test]
+fn the_counts_of_the_former_shader_page_go_to_the_graphics_page() {
+    assert!(PAGES.contains(&"shader") && PAGES.contains(&"grafik"));
+    let state = clean(&Value::Object(obj("{\"pages\": {\"shader\": 3, \"grafik\": 2}, \
+          \"entry\": {\"shader\": {\"karte\": 1}, \"grafik\": {\"seitenleiste\": 2}}, \
+          \"clicks\": {\"shader\": {\"1\": 2}}, \
+          \"misses\": {\"shader>grafik\": 4, \"liste>shader\": 1}}")));
+    assert_eq!(
+        file_text(&state),
+        "{\"pages\":{\"grafik\":5},\"entry\":{\"grafik\":{\"karte\":1,\"seitenleiste\":2}},\
+         \"clicks\":{\"grafik\":{\"1\":2}},\"misses\":{\"liste>grafik\":1},\"actions\":{}}"
+    );
+}
+
 #[test]
 fn outgoing_caps_sorts_and_keeps_the_most_frequent_misses() {
     let mut raw =
@@ -814,7 +882,7 @@ fn once_a_day_the_report_goes_out_and_the_counters_are_emptied() {
         one.body,
         "{\"v\": \"5.0.0\", \"os\": \"windows\", \"ui\": \"de\", \"game\": \"de\", \"rc\": false, \
          \"mods\": [\"basetool\", \"schiffe\"], \"overlay\": \"immer\", \"autostart\": true, \"update\": true, \
-         \"view\": \"reiter\", \"tiles_off\": [\"spielzeit\"], \"pages\": {\"uebersicht\": 1}, \
+         \"view\": \"reiter\", \"tiles_off\": [\"spielzeit\"], \"alter\": 3, \"pages\": {\"uebersicht\": 1}, \
          \"entry\": {\"uebersicht\": {\"start\": 1}}, \"clicks\": {\"uebersicht\": {\"0\": 1}}, \"misses\": {}, \
          \"actions\": {\"galerie_offen\": 1}}"
     );
@@ -857,6 +925,31 @@ fn no_net_a_switched_off_target_and_a_source_build_send_nothing() {
     assert_eq!(send_if_due(&t, &aus.usage, &plain_facts(), "2026-10-23"), Sent::Off);
     assert!(receiver.seen().is_empty(), "nothing reached the receiver");
     assert_eq!(dev.paths().setting(LAST_SETTING), None);
+}
+
+/// The switch `nutzung_melden` of 4.12: on without a setting, off sends nothing and counts nothing, and an old
+/// "on" counts as it did.
+#[test]
+fn the_switch_off_sends_no_ping_and_counts_nothing() {
+    let receiver = Receiver::start(None);
+    let t = transport();
+    let s = send_setup("schalter", &receiver, "5.0.0", &[]);
+    assert!(enabled(s.paths()), "on by default");
+    s.usage.window_opened();
+    s.usage.page_opened("uebersicht", Some("start"), Some(0.0));
+    assert!(s.file_text().is_some(), "counted while on");
+    s.paths().set_setting(SETTING, Value::Bool(false));
+    assert!(!enabled(s.paths()) && !s.usage.active());
+    assert_eq!(send_if_due(&t, &s.usage, &plain_facts(), "2026-10-23"), Sent::Off);
+    assert!(receiver.seen().is_empty(), "no ping went out");
+    assert_eq!(s.paths().setting(LAST_SETTING), None, "the day stays open");
+    s.usage.page_opened("liste", Some("seitenleiste"), Some(1.0));
+    s.usage.action("galerie_offen");
+    assert!(s.file_text().is_none(), "the counters are gone and nothing new is counted");
+    // On again: the report goes out.
+    s.paths().set_setting(SETTING, Value::Bool(true));
+    assert_eq!(send_if_due(&t, &s.usage, &plain_facts(), "2026-10-23"), Sent::Sent);
+    assert_eq!(receiver.seen().len(), 1);
 }
 
 #[test]
@@ -932,4 +1025,123 @@ fn a_copy_of_the_data_never_reports_to_a_receiver_elsewhere() {
     assert_eq!(send_if_due(&recorder, &local, &plain_facts(), "2026-10-23"), Sent::Sent);
     assert_eq!(*recorder.0.lock().unwrap(), [elsewhere, "http://127.0.0.1:9/ping"]);
     let _ = std::fs::remove_dir_all(root);
+}
+
+// ------------------------------------------------------------ the age of the installation
+
+fn noon_of(day: &str) -> std::time::SystemTime {
+    std::time::UNIX_EPOCH + Duration::from_secs((days_of(day).unwrap() * 86_400 + 43_200) as u64)
+}
+
+#[test]
+fn a_date_is_read_and_written_back_the_same() {
+    assert_eq!(days_of("1970-01-01"), Some(0));
+    assert_eq!(days_of("2000-03-01"), Some(11_017));
+    for day in ["2026-02-28", "2026-03-01", "2024-02-29", "2026-11-06"] {
+        assert_eq!(day_text(days_of(day).unwrap()), day);
+    }
+    for odd in ["", "gestern", "2026-13-01", "2026-00-10", "2026-10-32", "20261020", "2026-1-5", "2026-10-20 12:00"] {
+        assert_eq!(days_of(odd), None, "{odd:?}");
+    }
+}
+
+#[test]
+fn the_age_counts_whole_days_since_the_installation_and_stops_at_31() {
+    let s = Setup::new("alter-zaehlt", &[], "5.1.4");
+    assert!(s.paths().set_setting(INSTALLED_SETTING, Value::str("2026-10-20")));
+    for (today, days) in [
+        ("2026-10-20", 0),
+        ("2026-10-21", 1),
+        ("2026-11-06", 17),
+        ("2026-11-19", 30),
+        ("2026-11-20", 31),
+        ("2026-11-21", 31),
+        ("2027-06-01", 31),
+        ("2026-10-01", 0),
+    ] {
+        assert_eq!(age(s.paths(), noon_of(today)), days, "on {today}");
+    }
+    assert_eq!(MAX_AGE, 31);
+    // The receiver takes the same upper bound.
+    let worker = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/nutzung-worker/worker.js"),
+    )
+    .unwrap();
+    let at = worker.find("export const MAX_AGE = ").expect("MAX_AGE in the receiver") + "export const MAX_AGE = ".len();
+    let digits: String = worker[at..].chars().take_while(char::is_ascii_digit).collect();
+    assert_eq!(digits.parse::<i64>().unwrap(), MAX_AGE);
+}
+
+#[test]
+fn an_installation_without_a_date_gets_the_oldest_one_its_folder_proves_and_a_new_one_gets_today() {
+    let s = Setup::new("alter-bestand", &[], "5.1.4");
+    let now = std::time::SystemTime::now();
+    // A file that is twenty days old stands for an installation that exists for a while.
+    let old = s.root.join("rohstoffe.json");
+    std::fs::write(&old, "{}").unwrap();
+    let back = now - Duration::from_secs(20 * 86_400);
+    std::fs::File::options().write(true).open(&old).unwrap().set_modified(back).unwrap();
+    assert_eq!(s.paths().setting(INSTALLED_SETTING), None);
+    assert_eq!(age(s.paths(), now), 20);
+    assert_eq!(s.paths().setting(INSTALLED_SETTING), None, "asking stores nothing");
+    remember_install(s.paths(), now);
+    let kept = s.paths().setting(INSTALLED_SETTING).expect("a date is kept now");
+    assert_eq!(kept, day_text(days_at(now) - 20));
+    // The date stays: the age grows with the days and the date is not worked out again.
+    std::fs::remove_file(&old).unwrap();
+    assert_eq!(age(s.paths(), now + Duration::from_secs(5 * 86_400)), 25);
+    remember_install(s.paths(), now + Duration::from_secs(9 * 86_400));
+    assert_eq!(s.paths().setting(INSTALLED_SETTING), Some(kept));
+    // A folder with nothing older than today starts at 0.
+    let fresh = Setup::new("alter-neu", &[], "5.1.4");
+    remember_install(fresh.paths(), now);
+    assert_eq!(fresh.paths().setting(INSTALLED_SETTING), Some(day_text(days_at(now))));
+    assert_eq!(age(fresh.paths(), now), 0);
+    // A date that cannot be read counts as none.
+    assert!(fresh.paths().set_setting(INSTALLED_SETTING, Value::str("gestern")));
+    remember_install(fresh.paths(), now);
+    assert_eq!(fresh.paths().setting(INSTALLED_SETTING), Some(day_text(days_at(now))));
+}
+
+#[test]
+fn the_report_names_the_days_and_never_the_date() {
+    let receiver = Receiver::start(None);
+    let s = send_setup("alter-sendet", &receiver, "5.1.4", &[]);
+    let today = today_utc(std::time::SystemTime::now());
+    let installed = day_text(days_of(&today).unwrap() - 12);
+    assert!(s.paths().set_setting(INSTALLED_SETTING, Value::str(&installed)));
+    let f = facts(s.paths(), "de");
+    assert_eq!(f.age, Some(12));
+    assert_eq!(send_if_due(&transport(), &s.usage, &f, &today), Sent::Sent);
+    let body = receiver.seen()[0].body.clone();
+    let sent = jsonio::loads(&body).unwrap();
+    assert_eq!(sent.get("alter"), Some(&Value::int(12)));
+    assert!(!body.contains(&installed), "the day of the installation does not go out: {body}");
+    assert!(!body.contains("installiert"), "{body}");
+    assert_eq!(check(&body, &worker_lists()), Ok(()));
+    // Older than the bound goes out as the bound.
+    let old = send_setup("alter-alt", &receiver, "5.1.4", &[]);
+    let long_ago = day_text(days_of(&today).unwrap() - 400);
+    assert!(old.paths().set_setting(INSTALLED_SETTING, Value::str(&long_ago)));
+    let f = facts(old.paths(), "de");
+    assert_eq!(send_if_due(&transport(), &old.usage, &f, &today), Sent::Sent);
+    let body = receiver.seen()[1].body.clone();
+    assert_eq!(jsonio::loads(&body).unwrap().get("alter"), Some(&Value::int(31)));
+    assert!(!body.contains(&long_ago), "{body}");
+    assert_eq!(check(&body, &worker_lists()), Ok(()));
+}
+
+#[test]
+fn the_date_is_kept_only_where_a_report_goes_out() {
+    let receiver = Receiver::start(None);
+    let t = transport();
+    let off = send_setup("alter-aus", &receiver, "5.1.4", &[("SC_BP_NO_NET", "1")]);
+    assert_eq!(send_if_due(&t, &off.usage, &plain_facts(), "2026-10-23"), Sent::Off);
+    assert_eq!(off.paths().setting(INSTALLED_SETTING), None, "nothing is kept where nothing is sent");
+    let dev = send_setup("alter-quelle", &receiver, "5.1.4-dev", &[]);
+    assert_eq!(send_if_due(&t, &dev.usage, &plain_facts(), "2026-10-23"), Sent::Version);
+    assert_eq!(dev.paths().setting(INSTALLED_SETTING), None);
+    let on = send_setup("alter-an", &receiver, "5.1.4", &[]);
+    assert_eq!(send_if_due(&t, &on.usage, &plain_facts(), "2026-10-23"), Sent::Sent);
+    assert!(on.paths().setting(INSTALLED_SETTING).is_some(), "the date is kept with the first report");
 }

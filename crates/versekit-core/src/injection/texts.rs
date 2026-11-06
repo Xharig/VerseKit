@@ -94,7 +94,7 @@ pub const GERMAN: Words = Words {
     list: "Baupläne — angehakt ist, was du hast",
     from_rank: "erst ab",
     empty_tiers: "Achtung: %d der %d Stufen dieses Auftrags geben gar keine Baupläne.",
-    source: "Angaben von scmdb.net · eingefügt von Verse-Kit",
+    source: "Angaben von scmdb.net · eingefügt von VerseKit",
     separator: ".",
     it_heading: "VERSE-KIT: BAUPLAN & HERSTELLUNG",
     it_blueprint: "Bauplan",
@@ -133,7 +133,7 @@ pub const ENGLISH: Words = Words {
     list: "Blueprints — ticked means you have it",
     from_rank: "needs",
     empty_tiers: "Note: %d of the %d tiers of this contract give no blueprints at all.",
-    source: "Data from scmdb.net · added by Verse-Kit",
+    source: "Data from scmdb.net · added by VerseKit",
     separator: ",",
     it_heading: "VERSE-KIT: BLUEPRINT & CRAFTING",
     it_blueprint: "Blueprint",
@@ -423,6 +423,6 @@ mod tests {
         assert!(lines.contains(&"   <EM4>[x]</EM4> Abc"));
         assert!(lines.contains(&"   [  ] Longer Name  needs Sr (1,500 XP)"));
         assert!(lines.contains(&"# Note: 1 of the 3 tiers of this contract give no blueprints at all."));
-        assert_eq!(lines.last(), Some(&"Data from scmdb.net · added by Verse-Kit"));
+        assert_eq!(lines.last(), Some(&"Data from scmdb.net · added by VerseKit"));
     }
 }

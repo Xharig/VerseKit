@@ -697,7 +697,7 @@ mod tests {
         let page = SamplePage::preview();
         assert_eq!(
             org_stock_glance(&page, Lang::De).line,
-            "Noch nichts geholt. Auf der Seite Lager der Einheit Jetzt abgleichen klicken."
+            "Noch nichts geholt. Klick im Lager der Einheit auf Jetzt abgleichen."
         );
         let dir = std::env::temp_dir().join(format!("versekit-farm-kachel-{}", versekit_core::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -705,7 +705,7 @@ mod tests {
         let paths = Paths::new(super::super::real_data::host_apart(&dir));
         // Nothing noted: the sentence of the page.
         let none = farm_glance(&page, &paths, &[], Lang::De);
-        assert!(none.line.starts_with("Nichts zum Farmen vorgemerkt."), "{none:?}");
+        assert!(none.line.starts_with("Nichts vorgemerkt."), "{none:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

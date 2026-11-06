@@ -261,6 +261,7 @@ static ARCHIVE_CACHE: ArchiveCache = ArchiveCache::new();
 /// The real reading: one entry of the archive, nothing else.
 fn read_archive_entry(archive: &str, language: &str) -> Result<Vec<u8>, ReadError> {
     let folder = Path::new(archive).parent().unwrap_or_else(|| Path::new("."));
+    let _topic = versekit_core::archive_lock::reading_for("texts");
     let game = GameData::open(folder).map_err(|error| ReadError::Other(error_text(&error)))?;
     match game.read_entry(&archive_path(language)) {
         Ok(bytes) if bytes.is_empty() => Err(ReadError::Empty),

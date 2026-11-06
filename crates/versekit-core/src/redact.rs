@@ -60,10 +60,10 @@ const CREDENTIAL: &str = r"(?i)([?&](?:token|key|api[_-]?key|apikey|secret|auth|
 const PLAYER_NUMBER: &str = r"((?:\bfor|\bby|\bKill:) '[A-Za-z0-9-]+' \[|'<SPIELER>' \[)\d+\]";
 /// `geid 2000123`, `playerGEID=2000123`, `owner_geid[5]`, `accountId: 55`, `"player_id":"9"`.
 const PLAYER_KEY: &str = r#"(?i)\b([a-z_]*geid|[a-z_]*?(?:player|account|user|character|owner)_?id)(["']?(?:[ \t]*[=:][ \t]*|[ \t]+)["'\[]?|\[)\d+"#;
-/// Where the game's log names the player: `Handle[Name]`, `- name Name - state STATE_CURRENT`,
-/// `nickname="Name"`.
+/// Where the game's log names the player: `Handle[Name]`, `handle[Name]` (login session of Star Citizen 5),
+/// `- name Name - state STATE_CURRENT`, `nickname="Name"`.
 const HANDLE_IN_LOG: &str =
-    r#"Handle\[([^\]\s]+)\]| - name (\S+) - state STATE_CURRENT|(?i:nickname)[ \t]*[=:][ \t]*"?([A-Za-z0-9_-]+)"#;
+    r#"(?i:handle)\[([^\]\s]+)\]| - name (\S+) - state STATE_CURRENT|(?i:nickname)[ \t]*[=:][ \t]*"?([A-Za-z0-9_-]+)"#;
 /// `shopId=…`, `kioskId: …`; only a value with a digit is a number of a place.
 const SHOP_KEY: &str = r#"(?i)\b(shopid|kioskid)(["']?(?:[ \t]*[=:][ \t]*|[ \t]+)["'\[]?)([A-Za-z0-9_-]+)"#;
 const MAIL: &str = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}";
@@ -577,6 +577,11 @@ mod tests {
             "User Login Success - Handle[<SPIELER>] ... <SPIELER> betritt; - name <SPIELER> - state STATE_CURRENT, <SPIELER>"
         );
         assert_eq!(r.redact("nickname=\"Gast-1\" sagt Gast-1"), "nickname=\"<SPIELER>\" sagt <SPIELER>");
+        // The login session of Star Citizen 5 writes the handle small.
+        assert_eq!(
+            r.redact("<CLoginSession> Fully authenticated : handle[Neu_Ling] hub[1] in 7.9s, Neu_Ling"),
+            "<CLoginSession> Fully authenticated : handle[<SPIELER>] hub[1] in 7.9s, <SPIELER>"
+        );
     }
 
     #[test]

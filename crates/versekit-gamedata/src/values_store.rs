@@ -289,7 +289,9 @@ impl Rebuild {
     /// costs the next start the reading.
     pub fn run(&self) -> Option<Built> {
         let folder = self.channel_folder.as_deref();
+        let topic = versekit_core::archive_lock::reading_for("values");
         let game = folder.map(GameData::open);
+        drop(topic);
         let build = game.as_ref().and_then(|g| g.as_ref().ok()).and_then(GameData::scmdb_build);
         let archive: Result<GameValues, Error> = match game {
             Some(game) => game.and_then(|game| {

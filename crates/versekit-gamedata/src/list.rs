@@ -630,7 +630,9 @@ fn note(label: &str, key: &str, detail: &str) {
 /// scmdb's; scmdb's alone when the archive cannot be read. `None` when
 /// neither gives blueprints.
 fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file: &str) -> Option<Built> {
+    let topic = versekit_core::archive_lock::reading_for("catalog");
     let game = archive.map(GameData::open_file);
+    drop(topic);
     let archive_build = game.as_ref().and_then(|game| game.as_ref().ok()).and_then(GameData::scmdb_build);
     let version = game
         .as_ref()

@@ -4,7 +4,7 @@
 
 VerseKit runs on your computer. There is no account, no advertising and no
 tracking. Once a day the program reports that it is running and which pages
-were used, without any ID, always on and without a switch (see *Count usage*). This page states in full
+were used, without any ID, on by default and switchable off under Settings › General › Privacy (see *Count usage*). This page states in full
 what the program reads, what it fetches from the internet and what it sends.
 
 ## What is read on your computer
@@ -58,11 +58,14 @@ Once a day VerseKit sends exactly these details to `nutzung-versekit.xharig.com`
 | which page you left again after a few seconds, and where you stayed next | Selling → Shops: 7× |
 | how often you added a material or a refinery yield to My Inventory by hand | added by hand: 2× |
 | how often you opened the "What's new" gallery and opened a page from it | gallery opened: 1× |
-| from VerseKit 5.2: the age of the installation in days, without an ID (from 31 days only "older") | 3 days |
+| from VerseKit 5.1.4: the age of the installation in whole days, without an ID (from 31 days always 31) | 3 days |
 
 The age is counted on its own, not together with version, system or country.
 This shows how many people are new and how many are still there after a week,
-but not who.
+but not who. Only the number of days is sent, never the date. VerseKit keeps
+the date of the installation once, as a day without a time, in your settings
+(`installiert_am`). For an installation that already existed it is the oldest
+day your data folder proves, otherwise the day of the first start.
 
 The page and action details are only counters since the last report, using
 fixed IDs: no content, no amounts, no resources, no search terms, no names, no
@@ -77,8 +80,9 @@ not kept. This counts how many people use VerseKit on a given day and which
 parts, but not who, and no single installation can be followed across days.
 Only the developer sees the numbers.
 
-The report is always on; there is no switch for it. Only `SC_BP_NO_NET=1` stops
-it, and with it the counting of pages.
+The report is on by default. Under Settings › General › Privacy you switch off
+"Count usage" (key `nutzung_melden`); then nothing is sent and nothing is
+counted, and the counters so far are deleted. `SC_BP_NO_NET=1` stops it as well.
 
 ## Downloads from the website
 

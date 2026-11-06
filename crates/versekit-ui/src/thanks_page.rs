@@ -97,15 +97,34 @@ fn small(ui: &mut Ui, text: &str, tone: egui::Color32) {
     ui.add(egui::Label::new(RichText::new(text).small().color(tone)).wrap());
 }
 
-fn section(ui: &mut Ui, scheme: &Scheme, title: &str, hint: &str) {
+/// A group of the page: a card with its title, below it the hint in small muted text, then what the group holds.
+fn group<R>(ui: &mut Ui, scheme: &Scheme, title: &str, hint: &str, add: impl FnOnce(&mut Ui) -> R) -> R {
     ui.add_space(GAP);
-    widgets::heading(ui, scheme, title);
-    ui.add_space(2.0);
-    small(ui, hint, color(scheme.sub));
-    ui.add_space(GAP);
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, title);
+        ui.add_space(2.0);
+        small(ui, hint, color(scheme.sub));
+        ui.add_space(GAP);
+        add(ui)
+    })
+    .inner
 }
 
-/// A link that opens in the browser; the answer stands under the page head.
+/// The entries of a group one below the other in a list, a line between two.
+fn entries<T>(ui: &mut Ui, scheme: &Scheme, items: &[T], mut entry: impl FnMut(&mut Ui, &T)) {
+    widgets::list_frame(ui, scheme, |list| {
+        list.set_width(list.available_width());
+        for (k, item) in items.iter().enumerate() {
+            if k > 0 {
+                list.separator();
+            }
+            entry(list, item);
+        }
+    });
+}
+
+/// A link that opens in the browser; the answer stands at the top of the first card.
 /// A long address is broken where the line ends, never cut off or pushed
 /// out of the page.
 fn link(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, shown: &str, url: &str) {
@@ -119,8 +138,10 @@ fn link(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, shown: &str, url:
     }
 }
 
-fn credit_box(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, credit: &Credit) {
-    widgets::card(ui, scheme, |ui| {
+/// One source, an entry of the list of its group: the name with its licence, the text, the address, the licence
+/// text to fold out.
+fn credit_entry(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, credit: &Credit) {
+    ui.vertical(|ui| {
         ui.set_width(ui.available_width());
         ui.horizontal_wrapped(|row| {
             row.label(RichText::new(credit.name).strong());
@@ -134,7 +155,6 @@ fn credit_box(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, credit: &Cr
             licence_fold(ui, scheme, state, credit.name, text);
         }
     });
-    ui.add_space(GAP);
 }
 
 /// The full licence text of a bundled source, folded under a head that opens and closes it.
@@ -163,9 +183,10 @@ fn licence_fold(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, name: &'s
     }
 }
 
-fn person_box(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, person: &Person) {
+/// One person, an entry of the list of the people: the head opens and closes what came of the feedback.
+fn person_entry(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, person: &Person) {
     let open = state.open.contains(person.name);
-    let shown = widgets::card(ui, scheme, |ui| {
+    let shown = ui.vertical(|ui| {
         ui.set_width(ui.available_width());
         let head = ui.horizontal(|row| {
             if let Some(image) = crate::icons::themed(
@@ -199,22 +220,19 @@ fn person_box(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState, person: &Pe
     if shown.inner.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() && !state.open.remove(person.name) {
         state.open.insert(person.name);
     }
-    ui.add_space(GAP);
 }
 
 /// The page.
 pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState) {
     small(ui, &t("s_dkv_lead"), color(scheme.sub));
-    if let Some(answer) = state.answer.clone() {
-        ui.add_space(4.0);
-        small(ui, &answer, color(scheme.sub));
-    }
 
     // Who built it: first, with the picture; the page names other people's
-    // work and this belongs before it.
-    section(ui, scheme, &t("hf_wer"), &t("s_ub_wer_h"));
-    widgets::card(ui, scheme, |ui| {
-        ui.set_width(ui.available_width());
+    // work and this belongs before it. The answer of the last link stands at the top of it.
+    group(ui, scheme, &t("hf_wer"), &t("s_ub_wer_h"), |ui| {
+        if let Some(answer) = state.answer.clone() {
+            small(ui, &answer, color(scheme.sub));
+            ui.add_space(4.0);
+        }
         ui.horizontal(|row| {
             row.add(
                 egui::Image::from_bytes("bytes://xharig.png", include_bytes!("../../../assets/xharig.png"))
@@ -241,28 +259,30 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState) {
         small(ui, &t("s_dkv_selbst_h"), color(scheme.sub));
     });
 
-    section(ui, scheme, &t("s_dk_dabei"), &t("s_dk_dabei_h"));
-    for entry in &BUNDLED {
-        credit_box(ui, scheme, state, entry);
-    }
+    group(ui, scheme, &t("s_dk_dabei"), &t("s_dk_dabei_h"), |ui| {
+        entries(ui, scheme, &BUNDLED, |ui, entry| credit_entry(ui, scheme, state, entry));
+    });
 
-    section(ui, scheme, &t("s_dk_extern"), &t("s_dkv_extern_h"));
-    for entry in &FETCHED {
-        credit_box(ui, scheme, state, entry);
-    }
+    group(ui, scheme, &t("s_dk_extern"), &t("s_dkv_extern_h"), |ui| {
+        entries(ui, scheme, &FETCHED, |ui, entry| credit_entry(ui, scheme, state, entry));
+    });
 
-    section(ui, scheme, &t("s_dk_leute"), &t("s_dkv_leute_h"));
-    small(ui, &t("s_dk_aufklappen"), color(scheme.sub));
-    ui.add_space(GAP);
-    for entry in &PEOPLE {
-        person_box(ui, scheme, state, entry);
-    }
+    group(ui, scheme, &t("s_dk_leute"), &t("s_dkv_leute_h"), |ui| {
+        small(ui, &t("s_dk_aufklappen"), color(scheme.sub));
+        ui.add_space(GAP);
+        entries(ui, scheme, &PEOPLE, |ui, entry| person_entry(ui, scheme, state, entry));
+    });
 
+    // The marks and the notice of the fan kit, in a card under the head of the notice.
     ui.add_space(GAP);
-    small(ui, &t("s_dkv_marken"), color(scheme.sub));
-    ui.add_space(GAP);
-    ui.label(t(FAN_CONTENT_HEAD));
-    small(ui, &t(FAN_CONTENT), color(scheme.sub));
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t(FAN_CONTENT_HEAD));
+        ui.add_space(2.0);
+        small(ui, &t("s_dkv_marken"), color(scheme.sub));
+        ui.add_space(GAP);
+        small(ui, &t(FAN_CONTENT), color(scheme.sub));
+    });
     ui.add_space(GAP);
 }
 

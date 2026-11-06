@@ -1952,9 +1952,11 @@ mod tests {
         let scheme = theme::by_id("original").expect("original");
         let mut v = view(scheme, &rows, &status, Shown::Open);
         v.contracts = &lines;
-        let size = vec2(420.0, 500.0);
+        // Tall enough that the third line stands inside the window at the text sizes of the interface.
+        let size = vec2(420.0, 800.0);
         let (first, _) = frame(&v, size, None);
         let target = first.hide_buttons[2].center();
+        assert!(target.y < size.y, "the button of the third line lies outside the window: {target:?}");
         let ctx = egui::Context::default();
         crate::install(&ctx);
         let mut hidden = Vec::new();

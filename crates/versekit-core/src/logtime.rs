@@ -91,6 +91,8 @@ pub struct Facts {
     pub spawn: bool,
     pub first: Option<String>,
     pub last: Option<String>,
+    /// The stamp of the first line that tells the player arrived ([`SPAWN_MARKER`]).
+    pub spawned: Option<String>,
 }
 
 /// The first stamp in a text.
@@ -107,7 +109,23 @@ impl Facts {
     pub fn of(text: &str) -> Facts {
         let first = first_stamp(text).map(str::to_string);
         let last = first.as_ref().and_then(|_| last_stamp(text).map(str::to_string));
-        Facts { spawn: text.contains(SPAWN_MARKER), first, last }
+        let spawned = text.find(SPAWN_MARKER).and_then(|at| {
+            let start = text[..at].rfind(['\n', '\r']).map_or(0, |i| i + 1);
+            let line = text[start..].split(['\n', '\r']).next().unwrap_or_default();
+            TIME.find(line).map(|m| m.as_str()[1..].to_string())
+        });
+        Facts { spawn: text.contains(SPAWN_MARKER), first, last, spawned }
+    }
+
+    /// Seconds from the first arrival of the player to the last stamp; 0 unless both parse, the stamps are not zero
+    /// and the player arrived.
+    pub fn after_spawn(&self) -> i64 {
+        let spawned = seconds(self.spawned.as_deref().unwrap_or(""));
+        let last = seconds(self.last.as_deref().unwrap_or(""));
+        match (spawned, last) {
+            (Some(a), Some(b)) if a != 0 && b != 0 => (b - a).max(0),
+            _ => 0,
+        }
     }
 
     /// Seconds from the first to the last stamp; 0 unless both parse and are not zero.
@@ -181,6 +199,18 @@ mod tests {
         assert!(Facts::of("x OnClientSpawned y").spawn);
         assert_eq!(Facts::of("kein Stempel"), Facts::default());
         assert_eq!(facts.duration(), 7200);
+    }
+
+    #[test]
+    fn the_time_since_the_arrival_counts_from_the_first_spawn_line() {
+        let text = "<2026-11-06T08:11:17.443Z> Log started\n<2026-11-06T08:11:42.663Z> [CSessionManager::OnClientSpawned] Spawned!\n<2026-11-06T08:22:12.241Z> [CSessionManager::OnClientSpawned] Spawned!\n<2026-11-06T09:13:11.000Z> ende\n";
+        let facts = Facts::of(text);
+        assert_eq!(facts.spawned.as_deref(), Some("2026-11-06T08:11:42"));
+        assert_eq!(facts.after_spawn(), 61 * 60 + 29);
+        assert_eq!(facts.duration(), 61 * 60 + 54);
+        // Without an arrival, or with an arrival without a stamp, nothing is measured.
+        assert_eq!(Facts::of("<2026-11-06T08:11:17.443Z> a\n<2026-11-06T09:13:11.000Z> b\n").after_spawn(), 0);
+        assert_eq!(Facts::of("<2026-11-06T08:11:17.443Z> a\nOnClientSpawned ohne Stempel\n<2026-11-06T09:13:11.000Z> b\n").after_spawn(), 0);
     }
 
     #[test]

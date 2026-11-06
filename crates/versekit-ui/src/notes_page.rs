@@ -1290,6 +1290,94 @@ mod tests {
         assert!(segments(&ctx, &mut state) >= lines_before + 7, "the lines of the table are drawn");
     }
 
+    /// The lines of the table in `lines` (the numbers of its lines in the text) as the page draws them, with the
+    /// letters of each cell.
+    fn drawn_table(
+        ctx: &egui::Context,
+        state: &mut NotesState,
+        width: f32,
+        lines: std::ops::Range<usize>,
+    ) -> rich::tests::Drawn {
+        let scheme = versekit_core::theme::current();
+        let mut shapes = Vec::new();
+        for time in [50.0, 50.1] {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    time: Some(time),
+                    screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(width, 900.0))),
+                    ..Default::default()
+                },
+                |ui| {
+                    layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
+                },
+            );
+            output.textures_delta.clear();
+            shapes = output.shapes;
+        }
+        let body = ctx.global_style().text_styles[&egui::TextStyle::Body].size;
+        let pad = (body * 0.8).round();
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<egui::epaint::TextShape>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.clone()),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().for_each(|s| texts(s, out)),
+                _ => {}
+            }
+        }
+        let mut all = Vec::new();
+        shapes.iter().for_each(|c| texts(&c.shape, &mut all));
+        let field = all.iter().find(|t| t.galley.text().contains('\t')).expect("the field is drawn");
+        rich::tests::measure(&shapes, &field.galley, field.pos, lines, (pad, color(scheme.line)))
+    }
+
+    #[test]
+    fn the_table_on_the_page_is_closed_all_round_and_every_cell_keeps_the_same_room_to_its_lines() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        for (scale, width) in [(1.0, 900.0), (1.25, 900.0), (1.5, 560.0), (2.0, 400.0), (1.0, 260.0)] {
+            let (ctx, mut state) = page_with("Erze\nLindinium\t12\nSavrilium\t7");
+            ctx.set_pixels_per_point(scale);
+            let mut look = state.memos().items[0].look.clone();
+            look.set_lines(1..3, LineKind::Table);
+            state.restyled(look, 0.0);
+            // The cursor stands in a cell: the buttons for rows and columns are there.
+            mark(&ctx, &mut state, 6..6, 1.0);
+            assert_eq!(bar_buttons(&ctx), rich::BUTTONS.len() + rich::TABLE_BUTTONS.len());
+            let drawn = drawn_table(&ctx, &mut state, width, 1..3);
+            let problems = rich::tests::check(&drawn, 2);
+            let seen = format!("scale {scale}, {width} wide: {:?} {:?}", drawn.verticals, drawn.cells);
+            assert_eq!(problems, Vec::<String>::new(), "{seen}");
+        }
+    }
+
+    #[test]
+    fn a_table_typed_in_by_hand_keeps_its_frame_and_its_room_at_every_step() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        let (ctx, mut state) = page_with("Erze");
+        mark(&ctx, &mut state, 4..4, 1.0);
+        click_button(&ctx, &mut state, TABLE, 1.1);
+        frame(&ctx, &mut state, 900.0, 1.2, Vec::new());
+        let tab = key(egui::Key::Tab, egui::Modifiers::NONE);
+        let mut time = 1.3;
+        let mut problems = Vec::new();
+        for typed in ["Lindinium", "12", "Savrilium", "7"] {
+            frame(&ctx, &mut state, 900.0, time, type_text(typed));
+            for (step, rows) in [("typed", 1..3), ("again", 1..3)] {
+                let table = state.memos().items[0].text.clone();
+                let lines = table.split('\n').count();
+                let columns = table.split('\n').skip(1).map(|l| l.split('\t').count()).max().unwrap_or(1);
+                let rows = rows.start..lines.min(rows.end.max(lines));
+                let drawn = drawn_table(&ctx, &mut state, 900.0, rows);
+                for problem in rich::tests::check(&drawn, columns) {
+                    problems.push(format!("after {typed:?} ({step}) in {table:?}: {problem}"));
+                }
+            }
+            frame(&ctx, &mut state, 900.0, time + 0.05, vec![tab.clone()]);
+            time += 0.1;
+        }
+        assert_eq!(problems, Vec::<String>::new());
+    }
+
     #[test]
     fn the_row_and_column_buttons_change_the_table_and_the_table_button_takes_it_out() {
         let _language = crate::language_lock();

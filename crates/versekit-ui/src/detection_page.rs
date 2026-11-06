@@ -207,6 +207,8 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths
 
     // The catalog.
     widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_er_kat_kopf"));
+        ui.add_space(4.0);
         let busy = state.catalog.is_some();
         let reason = busy.then(|| t("s_er_kat_laeuft"));
         let mut clicked = false;
@@ -232,8 +234,10 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths
     });
     ui.add_space(8.0);
 
-    // Blueprints with no known source.
+    // Blueprints with no known source and the stock from the log, in one card.
     widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_er_listen_kopf"));
+        ui.add_space(4.0);
         let name = t("s_er_alle");
         settings::setting_row(ui, scheme, &name, &t("s_er_alle_h"), false, |row| {
             let switch = row.add(widgets::Toggle::new(&mut state.all, scheme));
@@ -249,11 +253,8 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths
                 });
             }
         });
-    });
-    ui.add_space(8.0);
 
-    // The stock from the log.
-    widgets::card(ui, scheme, |ui| {
+        // The stock from the log.
         let name = t("s_lj_schalter");
         settings::setting_row(ui, scheme, &name, &t("s_lj_schalter_h"), false, |row| {
             let switch = row.add(widgets::Toggle::new(&mut state.stock_log, scheme));
@@ -280,6 +281,8 @@ pub fn show_account(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, pa
     poll(ui, state, paths);
     let mut chosen: Option<String> = None;
     widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_er_acc_kopf"));
+        ui.add_space(4.0);
         let name = t("s_er_acc");
         settings::setting_row(ui, scheme, &name, &t("s_er_acc_h"), false, |row| match &state.accounts {
             Some(accounts) if !accounts.list.is_empty() || accounts.own.is_some() => {
@@ -672,12 +675,13 @@ mod tests {
         let mut bench = Bench::new(home, paths);
         let texts = bench.until(|texts| shows(texts, &t("s_er_fremd_keine")));
         assert!(shows(&texts, &t("s_lj_schalter")), "{texts:?}");
+        // The hint, with what is kept, on hover behind the symbol `info`, never as a line under the name.
+        let hint = t("s_lj_schalter_h");
+        let first = hint.split_once(". ").map_or(hint.clone(), |(head, _)| format!("{head}."));
+        assert!(!shows(&texts, &first), "the hint stands on hover: {texts:?}");
         assert!(
-            shows(
-                &texts,
-                "Gespeichert werden nur Klasse, Menge, Preis, Zeit, Ort und Ladenname, nie Namen oder Spielerkennungen."
-            ),
-            "the hint names what is kept: {texts:?}"
+            hint.contains("Speichert nur Klasse, Menge, Preis, Zeit, Ort und Laden, nie Namen oder Spielerkennungen."),
+            "the hint names what is kept: {hint}"
         );
         assert!(stock_journal::enabled(&bench.paths), "on by default");
         assert_eq!(bench.paths.setting("lager_aus_log"), None, "nothing stored yet");

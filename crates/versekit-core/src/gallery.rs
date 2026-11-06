@@ -102,7 +102,8 @@ pub const HIGHLIGHTS: [(&str, &[Highlight]); 3] = [
             Highlight {
                 kind: Kind::Better,
                 picture: "shader",
-                target: Target::Page("hf_shader"),
+                // The shader cache is the last card of the graphics page since 5.1.4.
+                target: Target::Page("hf_grafik"),
                 title: "gal_spiel_t",
                 text: "gal_spiel_x",
                 way: "gal_spiel_w",

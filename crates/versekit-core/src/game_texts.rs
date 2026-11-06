@@ -212,7 +212,77 @@ pub fn remove(paths: &Paths) -> Outcome {
             outcome = together(outcome, injection::remove_texts(paths, &target, &language));
         }
     }
+    // A channel left alone is no longer tended, but notes may still stand in its files: they go as well.
+    for root in game_roots(paths) {
+        for (target, language) in files_with_notes(paths, &root) {
+            outcome = together(outcome, injection::remove_texts(paths, &target, &language));
+        }
+    }
     outcome
+}
+
+/// The main installation and every installed channel, each folder once.
+fn game_roots(paths: &Paths) -> Vec<String> {
+    let flavor = paths.host.flavor;
+    let key = |p: &str| flavor.normcase(&flavor.normpath(p));
+    let mut roots: Vec<String> = Vec::new();
+    for root in paths.game_folder().into_iter().chain(paths.installed_channels().into_iter().map(|(_, folder, _)| folder)) {
+        if !roots.iter().any(|seen| key(seen) == key(&root)) {
+            roots.push(root);
+        }
+    }
+    roots
+}
+
+/// The text files below a game folder that still hold notes of ours, with their language folders. Nothing on a copy
+/// of the data.
+fn files_with_notes(paths: &Paths, root: &str) -> Vec<(String, String)> {
+    if translation::only_looks(paths, root) {
+        return Vec::new();
+    }
+    let flavor = paths.host.flavor;
+    let Some(folder) = ["data", "Data"]
+        .iter()
+        .map(|spelling| flavor.join_all(root, &[spelling, "Localization"]))
+        .find(|folder| std::path::Path::new(folder).is_dir())
+    else {
+        return Vec::new();
+    };
+    let Ok(entries) = std::fs::read_dir(folder) else { return Vec::new() };
+    let mut languages: Vec<String> = entries
+        .filter_map(Result::ok)
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    languages.sort();
+    languages
+        .into_iter()
+        .filter_map(|language| {
+            let target = game_ini::target_ini_in(paths, root, &language)?;
+            (game_ini::is_file(&target) && injection::is_applied(&target)).then_some((target, language))
+        })
+        .collect()
+}
+
+/// A game folder is left alone from now on ("Nicht anfassen"): first VerseKit's notes leave its text files and the
+/// original wording stands again, then the choice is stored as "nothing". `channel` is `None` for the main
+/// installation. How many spots went.
+pub fn leave_alone(paths: &Paths, channel: Option<&str>, root: &str) -> usize {
+    let mut count = 0;
+    for (target, language) in files_with_notes(paths, root) {
+        if let Outcome::Done(spots) = injection::remove_texts(paths, &target, &language) {
+            count += spots;
+        }
+    }
+    match channel {
+        Some(channel) => {
+            translation::set_channel_source(paths, channel, "");
+        }
+        None => {
+            paths.set_setting(game_ini::SETTING_SOURCE, Value::str(""));
+        }
+    }
+    count
 }
 
 /// The outcome of the main file and one of another channel as one: the spots count together, a failure of the main
@@ -480,10 +550,11 @@ pub fn switch_side(
     source: &str,
     progress: &dyn Fn(translation::Progress),
 ) -> Result<String, String> {
-    translation::set_channel_source(paths, channel, source);
     if source.is_empty() {
+        leave_alone(paths, Some(channel), root);
         return Ok(String::new());
     }
+    translation::set_channel_source(paths, channel, source);
     let said = if source == ORIGINAL {
         let placed = archive.fetch_original(paths, root, true)?;
         if placed.written {
@@ -532,7 +603,7 @@ fn side_notes(paths: &Paths, net: &dyn Net, archive: &dyn Archive, kept: &Kept, 
 
 /// `Watcher._aktive_quelle`: the chosen source of the main installation when
 /// it is set up. A choice that is set counts as it is, also the original
-/// texts and „leave alone“: then there is no source to fetch or to enter in
+/// texts and „no translation“: then there is no source to fetch or to enter in
 /// the `user.cfg` (4.12 fell back to the first source with a note and so
 /// undid such a choice). Only without any choice the first set up counts.
 pub fn active_source(paths: &Paths) -> Option<String> {

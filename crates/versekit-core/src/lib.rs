@@ -25,6 +25,7 @@
 
 pub mod anti_afk;
 pub mod anti_afk_key;
+pub mod archive_lock;
 pub mod asop;
 pub mod auto_update;
 pub mod autostart;
@@ -178,6 +179,7 @@ pub mod usercfg;
 pub mod version;
 pub mod watchlist;
 pub mod win_ocr;
+pub mod snap_layouts;
 pub mod window_signal;
 pub mod writeguard;
 pub mod zip;

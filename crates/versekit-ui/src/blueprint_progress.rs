@@ -141,95 +141,133 @@ fn fold_head(ui: &mut Ui, scheme: &Scheme, id: &str, open: bool, title: &str, st
     clickable(ui, id, row.response.rect)
 }
 
+/// [`fold_head`] as the first row of a card: arrow, the title in the look of a card title, a number. Returns a
+/// click on it.
+fn fold_title(ui: &mut Ui, scheme: &Scheme, id: &str, open: bool, title: &str, number: &str) -> bool {
+    let right = ui.max_rect().right();
+    let row = ui.horizontal(|head| {
+        let arrow = if open { "chevron-down" } else { "chevron-right" };
+        if let Some(image) = icons::themed(arrow, scheme, IconTint::Normal, 12.0) {
+            head.add(image);
+        }
+        widgets::card_title(head, scheme, title);
+        head.label(RichText::new(number).color(color(scheme.sub)));
+    });
+    // The whole width of the card is the head to click, without taking room in the row.
+    let mut rect = row.response.rect;
+    rect.max.x = rect.max.x.max(right);
+    clickable(ui, id, rect)
+}
+
 /// Draws the page; returns where a click wants to go in the blueprint list.
 pub fn show(ui: &mut Ui, scheme: &Scheme, data: &ListData, state: &mut ProgressState) -> Option<(ListJump, String)> {
     let mut jump = None;
     ui.label(RichText::new(t("s_fo_lead")).small().color(color(scheme.sub)));
     ui.add_space(4.0);
-    // Fewer blueprints than ever before: above the numbers one stumbles over.
-    if let Some(paths) = data.paths() {
-        let now = ui.input(|i| i.time);
-        if state.shrink.as_ref().is_none_or(|(at, _)| now - at >= SHRINK_LOOK_SECONDS || now < *at) {
-            state.shrink = Some((now, shrinkage_of(paths)));
-        }
-        if let Some((_, Some(shrink))) = &state.shrink {
-            shrink_box(ui, scheme, shrink, &paths.app_folder());
-        }
-    }
-    ui.horizontal_wrapped(|row| {
-        for (watch, key) in [(false, "s_fo_alle"), (true, "s_fo_merk")] {
-            let kind = if state.watch_only == watch { ButtonKind::Strong } else { ButtonKind::Normal };
-            let word = t(key);
-            if row.add(widgets::Button::new(&word, kind, scheme)).clicked() {
-                state.watch_only = watch;
+    // The whole: the warning, the choice of all or the watch list, the big number with its bar. Nothing to count
+    // ends the page here.
+    let areas = widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_fo_gesamt_kopf"));
+        // Fewer blueprints than ever before: above the numbers one stumbles over.
+        if let Some(paths) = data.paths() {
+            let now = ui.input(|i| i.time);
+            if state.shrink.as_ref().is_none_or(|(at, _)| now - at >= SHRINK_LOOK_SECONDS || now < *at) {
+                state.shrink = Some((now, shrinkage_of(paths)));
+            }
+            if let Some((_, Some(shrink))) = &state.shrink {
+                shrink_box(ui, scheme, shrink, &paths.app_folder());
             }
         }
-    });
-    ui.add_space(GAP);
-
-    // Only blueprints clicked onto the watch list: a pattern stands for no
-    // particular piece and has no progress.
-    let only = state.watch_only.then_some(&data.watched);
-    if state.watch_only && !data.catalog.blueprints.iter().any(|b| data.watched.contains(&b.key)) {
-        ui.label(RichText::new(t("s_fo_merk_leer")).color(color(scheme.sub)));
-        return None;
-    }
-    let areas = counts(data, only);
-    let total: usize = areas.values().flat_map(|kinds| kinds.values()).map(|(n, _)| n).sum();
-    let have: usize = areas.values().flat_map(|kinds| kinds.values()).map(|(_, h)| h).sum();
-    let share = have as f64 / total.max(1) as f64;
-    ui.horizontal(|head| {
-        head.label(RichText::new(have.to_string()).heading().strong().color(color(scheme.accent)));
-        let of = tf("s_fo_von", &[("0", Arg::from(total)), ("1", Arg::from(100.0 * share))]);
-        head.label(RichText::new(of.trim()).color(color(scheme.sub)));
-    });
-    let width = ui.available_width();
-    widgets::progress(ui, scheme, share as f32, width);
-    ui.add_space(GAP);
-
-    for (area, kinds) in &areas {
-        let key = bp::TOP_GROUPS[(*area).min(bp::TOP_GROUPS.len() - 1)];
-        let area_total: usize = kinds.values().map(|(n, _)| n).sum();
-        let area_have: usize = kinds.values().map(|(_, h)| h).sum();
-        let open = state.open_areas.contains(key);
-        let title = t(&format!("gruppe_{key}"));
-        if fold_head(ui, scheme, key, open, &title, true, &format!("{area_have} / {area_total}")) {
-            if open {
-                state.open_areas.remove(key);
-            } else {
-                state.open_areas.insert(key);
+        ui.horizontal_wrapped(|row| {
+            for (watch, key) in [(false, "s_fo_alle"), (true, "s_fo_merk")] {
+                let kind = if state.watch_only == watch { ButtonKind::Strong } else { ButtonKind::Normal };
+                let word = t(key);
+                if row.add(widgets::Button::new(&word, kind, scheme)).clicked() {
+                    state.watch_only = watch;
+                }
             }
+        });
+        ui.add_space(GAP);
+
+        // Only blueprints clicked onto the watch list: a pattern stands for no
+        // particular piece and has no progress.
+        let only = state.watch_only.then_some(&data.watched);
+        if state.watch_only && !data.catalog.blueprints.iter().any(|b| data.watched.contains(&b.key)) {
+            ui.label(RichText::new(t("s_fo_merk_leer")).color(color(scheme.sub)));
+            return None;
         }
-        widgets::progress(ui, scheme, area_have as f32 / area_total.max(1) as f32, width);
-        if open {
-            ui.indent(("fortschritt-bereich", key), |inner| {
-                let mut rows: Vec<(&String, &(usize, usize))> = kinds.iter().collect();
-                rows.sort_by(|a, b| b.1.0.cmp(&a.1.0).then_with(|| a.0.cmp(b.0)));
-                for (k, (kind, (kind_total, kind_have))) in rows.into_iter().enumerate() {
-                    // The stripe goes under the row: its place is taken before the row is drawn.
-                    let stripe = inner.painter().add(egui::Shape::Noop);
-                    let row = inner.horizontal(|line| {
-                        line.add_sized(
-                            [KIND_NAME_WIDTH, line.spacing().interact_size.y],
-                            egui::Label::new(RichText::new(kind).color(color(scheme.sub))).truncate(),
-                        );
-                        line.with_layout(Layout::right_to_left(Align::Center), |right| {
-                            right.label(RichText::new(format!("{kind_have} / {kind_total}")).color(color(scheme.sub)));
-                            let bar = right.available_width().min(260.0);
-                            widgets::progress(right, scheme, *kind_have as f32 / (*kind_total).max(1) as f32, bar);
-                        });
-                    });
-                    let rect = row.response.rect;
-                    if k % 2 == 1 {
-                        inner.painter().set(stripe, egui::Shape::rect_filled(rect, 0.0, color(scheme.bar)));
-                    }
-                    // A count like 38 / 70 does not say which ones are missing: the click shows them.
-                    if clickable(inner, ("fortschritt-art", kind), rect) {
-                        jump = Some((ListJump::Kind(kind.clone()), format!("{}: {kind}", t("hf_fortschritt"))));
+        let areas = counts(data, only);
+        let total: usize = areas.values().flat_map(|kinds| kinds.values()).map(|(n, _)| n).sum();
+        let have: usize = areas.values().flat_map(|kinds| kinds.values()).map(|(_, h)| h).sum();
+        let share = have as f64 / total.max(1) as f64;
+        ui.horizontal(|head| {
+            head.label(RichText::new(have.to_string()).heading().strong().color(color(scheme.accent)));
+            let of = tf("s_fo_von", &[("0", Arg::from(total)), ("1", Arg::from(100.0 * share))]);
+            head.label(RichText::new(of.trim()).color(color(scheme.sub)));
+        });
+        let width = ui.available_width();
+        widgets::progress(ui, scheme, share as f32, width);
+        Some(areas)
+    })
+    .inner?;
+    ui.add_space(GAP);
+
+    // The areas, each folding out to its kinds.
+    if !areas.is_empty() {
+        widgets::card(ui, scheme, |ui| {
+            widgets::card_title(ui, scheme, &t("s_fo_bereiche_kopf"));
+            let width = ui.available_width();
+            for (index, (area, kinds)) in areas.iter().enumerate() {
+                if index > 0 {
+                    ui.add_space(GAP);
+                }
+                let key = bp::TOP_GROUPS[(*area).min(bp::TOP_GROUPS.len() - 1)];
+                let area_total: usize = kinds.values().map(|(n, _)| n).sum();
+                let area_have: usize = kinds.values().map(|(_, h)| h).sum();
+                let open = state.open_areas.contains(key);
+                let title = t(&format!("gruppe_{key}"));
+                if fold_head(ui, scheme, key, open, &title, true, &format!("{area_have} / {area_total}")) {
+                    if open {
+                        state.open_areas.remove(key);
+                    } else {
+                        state.open_areas.insert(key);
                     }
                 }
-            });
-        }
+                widgets::progress(ui, scheme, area_have as f32 / area_total.max(1) as f32, width);
+                if open {
+                    ui.indent(("fortschritt-bereich", key), |inner| {
+                        let mut rows: Vec<(&String, &(usize, usize))> = kinds.iter().collect();
+                        rows.sort_by(|a, b| b.1.0.cmp(&a.1.0).then_with(|| a.0.cmp(b.0)));
+                        for (k, (kind, (kind_total, kind_have))) in rows.into_iter().enumerate() {
+                            // The stripe goes under the row: its place is taken before the row is drawn.
+                            let stripe = inner.painter().add(egui::Shape::Noop);
+                            let row = inner.horizontal(|line| {
+                                line.add_sized(
+                                    [KIND_NAME_WIDTH, line.spacing().interact_size.y],
+                                    egui::Label::new(RichText::new(kind).color(color(scheme.sub))).truncate(),
+                                );
+                                line.with_layout(Layout::right_to_left(Align::Center), |right| {
+                                    let count = format!("{kind_have} / {kind_total}");
+                                    right.label(RichText::new(count).color(color(scheme.sub)));
+                                    let bar = right.available_width().min(260.0);
+                                    let part = *kind_have as f32 / (*kind_total).max(1) as f32;
+                                    widgets::progress(right, scheme, part, bar);
+                                });
+                            });
+                            let rect = row.response.rect;
+                            if k % 2 == 1 {
+                                inner.painter().set(stripe, egui::Shape::rect_filled(rect, 0.0, color(scheme.bar)));
+                            }
+                            // A count like 38 / 70 does not say which ones are missing: the click shows them.
+                            if clickable(inner, ("fortschritt-art", kind), rect) {
+                                let back = format!("{}: {kind}", t("hf_fortschritt"));
+                                jump = Some((ListJump::Kind(kind.clone()), back));
+                            }
+                        }
+                    });
+                }
+            }
+        });
         ui.add_space(GAP);
     }
 
@@ -239,19 +277,20 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, data: &ListData, state: &mut ProgressS
         let best = bp::worthwhile_contracts(&data.catalog, &data.have);
         let shown = best.len().min(BEST_SHOWN);
         let number = if best.is_empty() { String::new() } else { shown.to_string() };
-        ui.add_space(GAP);
-        if fold_head(ui, scheme, "fortschritt-lohnt", state.best_open, &t("s_fo_lohnt"), false, &number) {
-            state.best_open = !state.best_open;
-        }
-        if state.best_open {
-            ui.label(RichText::new(t("s_fo_lohnt_hilfe")).small().color(color(scheme.sub)));
-            if best.is_empty() {
-                ui.label(RichText::new(t("s_fo_lohnt_leer")).color(color(scheme.sub)));
-            } else if let Some(to) = best_contracts(ui, scheme, &best[..shown]) {
-                let keys = versekit_core::mission_log::literal_blueprints(&data.catalog, &to);
-                jump = Some((ListJump::Contract(to.clone(), keys), format!("{}: {to}", t("s_fo_lohnt"))));
+        widgets::card(ui, scheme, |ui| {
+            if fold_title(ui, scheme, "fortschritt-lohnt", state.best_open, &t("s_fo_lohnt"), &number) {
+                state.best_open = !state.best_open;
             }
-        }
+            if state.best_open {
+                ui.label(RichText::new(t("s_fo_lohnt_hilfe")).small().color(color(scheme.sub)));
+                if best.is_empty() {
+                    ui.label(RichText::new(t("s_fo_lohnt_leer")).color(color(scheme.sub)));
+                } else if let Some(to) = best_contracts(ui, scheme, &best[..shown]) {
+                    let keys = versekit_core::mission_log::literal_blueprints(&data.catalog, &to);
+                    jump = Some((ListJump::Contract(to.clone(), keys), format!("{}: {to}", t("s_fo_lohnt"))));
+                }
+            }
+        });
     }
     jump
 }
@@ -288,9 +327,16 @@ fn best_contracts(ui: &mut Ui, scheme: &Scheme, best: &[bp::Worthwhile]) -> Opti
                         let place = bp::place_text(place);
                         text.add(egui::Label::new(RichText::new(place).small().color(color(scheme.sub))).truncate());
                     }
-                    text.label(RichText::new(t("s_fo_lohnt_klick")).small().color(color(scheme.sub)));
+                    text.add(
+                        egui::Label::new(RichText::new(t("s_fo_lohnt_klick")).small().color(color(scheme.sub))).wrap(),
+                    );
                 });
-                line.allocate_space(egui::vec2(line.available_width(), 0.0));
+                // The rest of the row belongs to the click; where the text took it all there is no rest, and a
+                // space of no width would still push the row a gap beyond its frame.
+                let rest = line.available_width();
+                if rest > 0.0 {
+                    line.allocate_space(egui::vec2(rest, 0.0));
+                }
             });
             let rect = row.response.rect;
             if k % 2 == 1 {
@@ -325,20 +371,33 @@ mod tests {
                     ..ProgressState::default()
                 };
                 let mut over = 0.0;
+                let mut beyond = Vec::new();
                 for _ in 0..3 {
                     let input = egui::RawInput {
                         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 2000.0))),
                         ..Default::default()
                     };
+                    let mut right = 0.0;
                     let mut output = ctx.run_ui(input, |ui| {
                         show(ui, scheme, &data, &mut state);
                         // The outer area grows with what is drawn: measure against the window.
-                        over = (ui.min_rect().right() - ui.ctx().content_rect().right()).max(0.0);
+                        right = ui.ctx().content_rect().right();
+                        over = (ui.min_rect().right() - right).max(0.0);
                     });
                     output.textures_delta.clear();
+                    // What is drawn beyond the window, to name it in the finding.
+                    beyond = output
+                        .shapes
+                        .iter()
+                        .filter(|clipped| clipped.shape.visual_bounding_rect().right() > right + 0.5)
+                        .map(|clipped| match &clipped.shape {
+                            egui::Shape::Text(text) => format!("Text {:?}", text.galley.text()),
+                            other => format!("{:?}", other.visual_bounding_rect()),
+                        })
+                        .collect();
                 }
                 if over > 0.5 {
-                    findings.push(format!("Größe {points} Breite {width}: {over:.0} zu breit"));
+                    findings.push(format!("Größe {points} Breite {width}: {over:.0} zu breit: {beyond:?}"));
                 }
             }
         }

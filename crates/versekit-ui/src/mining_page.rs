@@ -415,7 +415,10 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) -> Optio
         ui.add_space(10.0);
     }
     if state.mining.is_empty() {
-        no_data(ui, scheme, state, ("compass", "s_bg_keine_daten"));
+        widgets::card(ui, scheme, |ui| {
+            widgets::card_title(ui, scheme, &t("s_bg_daten_kopf"));
+            no_data(ui, scheme, state, ("compass", "s_bg_keine_daten"));
+        });
         return None;
     }
     signature_box(ui, scheme, state);
@@ -553,8 +556,16 @@ fn method_box(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
     });
 }
 
-/// The calculator of the scan signature: a value gives the ores with their chunks, a name its signatures.
+/// The calculator of the scan signature in a card of its own.
 fn signature_box(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_bg_sig_kopf"));
+        signature_body(ui, scheme, state);
+    });
+}
+
+/// What the card of the signature holds: a value gives the ores with their chunks, a name its signatures.
+fn signature_body(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
     let width = ui.available_width() - crate::layout::SAFETY;
     widgets::search_field(ui, &mut state.signature, &t("s_pl_signatur"), scheme, width);
     ui.label(sub(scheme, t("s_bg_sig_hilfe")));
@@ -713,7 +724,7 @@ fn list(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) -> bool {
     }
     let mut toggled: Option<String> = None;
     let mut to_refineries = false;
-    widgets::list_frame(ui, scheme, |inner| {
+    widgets::list_frame_marked(ui, scheme, |inner| {
         inner.set_width(inner.available_width());
         let mut k = 0;
         for ore in &ores {

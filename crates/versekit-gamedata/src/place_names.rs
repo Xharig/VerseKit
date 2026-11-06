@@ -131,6 +131,7 @@ pub fn keep_current(archive: &Path, file: &str) -> Keep {
 /// the error log, too few names in the start trail. Without a game nothing happens.
 pub fn keep(paths: &versekit_core::paths::Paths) -> Option<Keep> {
     let archive = paths.archive_file()?;
+    let _topic = versekit_core::archive_lock::reading_for("signatures");
     let outcome = keep_current(Path::new(&archive), &paths.app_file(FILE));
     match &outcome {
         Keep::Failed(reason) => versekit_core::errors::record("location.refresh_names", reason),

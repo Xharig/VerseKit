@@ -224,6 +224,41 @@ fn a_block_of_the_same_source_is_replaced_and_comes_back() {
     assert_eq!(fx.text(), foreign);
 }
 
+/// The block of an earlier version, with the footer that spelled the name with a hyphen, is replaced by the block with
+/// the footer of today, once: nothing of the old footer stays and nothing stands twice.
+#[test]
+fn a_block_with_the_old_footer_is_replaced_and_the_footer_is_written_without_the_hyphen() {
+    for (language, old, new, heading) in [
+        (
+            "german_(germany)",
+            "Angaben von scmdb.net · eingefügt von Verse-Kit",
+            "Angaben von scmdb.net · eingefügt von VerseKit",
+            "MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP",
+        ),
+        (
+            "english",
+            "Data from scmdb.net · added by Verse-Kit",
+            "Data from scmdb.net · added by VerseKit",
+            "POSSIBLE BLUEPRINTS FOR THIS MISSION TYPE",
+        ),
+    ] {
+        let earlier = format!(
+            "Bounty_desc_001=Fang ihn.\\n\\n{}\\n{heading}\\n# Chance\\n   [  ] Atzkav Sniper Rifle\\n\\n{old}\n",
+            "-".repeat(57)
+        );
+        let fx = Fixture::new("old-footer", language, &earlier);
+        apply_texts(&fx.paths, &fx.ini, language, &inputs(&[]), false);
+        let text = fx.text();
+        assert!(!text.contains("Verse-Kit"), "{language}: nothing of the old footer stays: {text}");
+        assert_eq!(text.matches(new).count(), 1, "{language}: the new footer stands once: {text}");
+        assert_eq!(text.matches(heading).count(), 1, "{language}: and so does the block: {text}");
+        // Written again, the file does not change.
+        let once = text;
+        apply_texts(&fx.paths, &fx.ini, language, &inputs(&[]), false);
+        assert_eq!(fx.text(), once, "{language}");
+    }
+}
+
 #[test]
 fn our_block_sits_before_a_foreign_appendix_and_it_survives() {
     let game = "Bounty_desc_001=Catch him.\\n\\n--- STATS ---\\nDanger: 3\n";

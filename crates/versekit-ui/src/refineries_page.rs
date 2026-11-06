@@ -88,6 +88,15 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
         mining_page::no_data(ui, scheme, state, ("factory", "s_rf_keine"));
         return;
     }
+    // The table stands in a list frame with the corner brackets; it is measured inside the frame.
+    widgets::list_frame_marked(ui, scheme, |ui| table(ui, scheme, &columns, &rows));
+    ui.add_space(10.0);
+    ui.label(sub(scheme, t("s_rf_quelle")));
+    mining_page::stand(ui, scheme, state);
+}
+
+/// The table of yields: the materials on the left, standing still, the values beside them, scrolling sideways.
+fn table(ui: &mut Ui, scheme: &Scheme, columns: &[Column], rows: &[refining::Row]) {
     let heads: Vec<String> = columns.iter().map(|c| refining::head(&short_name(c))).collect();
     let body = egui::TextStyle::Body;
     let line = ui.text_style_height(&body);
@@ -127,12 +136,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
         let room = vec2(table.available_width(), height);
         table.allocate_ui_with_layout(room, Layout::top_down(Align::Min), |values| {
             let area = egui::ScrollArea::horizontal().id_salt("raffinerie-tafel").auto_shrink([false, true]);
-            values_table(values, scheme, area, (&columns, &rows, &heads), (value_width, line, row, lift));
+            values_table(values, scheme, area, (columns, rows, &heads), (value_width, line, row, lift));
         });
     });
-    ui.add_space(10.0);
-    ui.label(sub(scheme, t("s_rf_quelle")));
-    mining_page::stand(ui, scheme, state);
 }
 
 /// The width of a column of values and the height of a row, grown with the window: the columns share the width

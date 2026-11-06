@@ -248,8 +248,11 @@ pub fn show_large(ctx: &Context, scheme: &Scheme, large: &mut Large) -> bool {
             ui.add(egui::Label::new(heading).wrap());
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
-                let label = t(if large.whole { "s_kv_quadrant" } else { "s_kv_ganz" });
-                if ui.add(widgets::Button::new(&label, ButtonKind::Normal, scheme)).clicked() {
+                let (key, hint) =
+                    if large.whole { ("s_kv_quadrant", "s_kv_quadrant_h") } else { ("s_kv_ganz", "s_kv_ganz_h") };
+                let label = t(key);
+                let toggle = widgets::Button::new(&label, ButtonKind::Normal, scheme);
+                if ui.add(toggle).on_hover_text(t(hint)).clicked() {
                     large.whole = !large.whole;
                 }
                 let line = values_line(&large.values);

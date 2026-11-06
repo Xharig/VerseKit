@@ -503,14 +503,14 @@ fn results(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
         return;
     }
     let row_height = ui.text_style_height(&egui::TextStyle::Body) + 10.0;
-    let room = layout::list_room(ui, row_height);
+    let room = layout::list_room(ui, row_height) - widgets::LIST_FRAME_EXTRA;
     let area = egui::ScrollArea::vertical()
         .id_salt(LIST_ID)
         .max_height(room)
         .min_scrolled_height(room)
         .auto_shrink([false, true]);
     let mut jump = None;
-    let shown = widgets::scroll_area(ui, scheme, area, |ui| {
+    let shown = widgets::list_frame_marked(ui, scheme, |ui| widgets::scroll_area(ui, scheme, area, |ui| {
         ui.set_max_width(ui.available_width() - layout::SAFETY);
         jump = match state.mode {
             Mode::Sell if state.picks.is_empty() => sell_overview(ui, scheme, state),
@@ -520,7 +520,8 @@ fn results(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
             }
             Mode::Buy => buy_view(ui, scheme, state),
         };
-    });
+    }))
+    .inner;
     state.list_overflow = trade::overflow_of(&shown);
     if let Some(name) = jump {
         state.choose(&name);

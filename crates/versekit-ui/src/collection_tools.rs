@@ -119,13 +119,19 @@ pub fn show_export(ui: &mut Ui, scheme: &Scheme, state: &mut CollectionTools, pa
         let name = kind_name(kind);
         let what = if kind == Kind::Full { t("s_be_voll_h") } else { count.clone() };
         let busy = state.saving.is_some().then(|| t("s_be_speichern"));
-        settings::setting_row(ui, scheme, &name, &what, false, |row| {
+        // How many a file holds is what the row is about: it stands beside the button; what the full backup holds
+        // stands on hover.
+        let hint = if kind == Kind::Full { what.as_str() } else { "" };
+        settings::setting_row(ui, scheme, &name, hint, false, |row| {
             let button_kind =
                 if kind == Kind::Basetool { ButtonKind::Brand(theme::KRT_ORANGE) } else { ButtonKind::Normal };
             let button =
                 widgets::Button::new(&save_word, button_kind, scheme).icon("save").spoken(&name).blocked(busy.as_deref());
             if row.add(button).clicked() {
                 picked = Some(kind);
+            }
+            if kind != Kind::Full {
+                row.label(egui::RichText::new(&what).small().color(crate::color(scheme.sub)));
             }
         });
     }

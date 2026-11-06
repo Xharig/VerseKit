@@ -56,10 +56,26 @@ const LEFT_SECONDS: f64 = 4.0 * POLL_SECONDS;
 const LOOK_GIVE_UP_SECONDS: f64 = 15.0;
 /// The space between two parts of the page.
 const GAP: f32 = 8.0;
-/// The picture of the curve on the page, in points.
-const PLOT_SIDE: f32 = 240.0;
-/// Below this width the picture stands above the list instead of beside it.
-const SIDE_BY_SIDE: f32 = 620.0;
+/// The picture of the curve: at least this side, in points (also where the card is narrower than the picture).
+const PLOT_LEAST: f32 = 240.0;
+/// The picture of the curve: at most this side, in points.
+const PLOT_MOST: f32 = 420.0;
+/// The share of the axis card the picture takes where it stands beside the sliders.
+const PLOT_SHARE: f32 = 0.40;
+/// Below this width of the axis card the picture stands above the sliders instead of beside them.
+const PLOT_BESIDE: f32 = 640.0;
+/// The width of the list of the axes at the left.
+const LIST_WIDTH: f32 = 400.0;
+/// Below this width the list of the axes stands above the axis instead of beside it.
+const SIDE_BY_SIDE: f32 = LIST_WIDTH + GAP + PLOT_BESIDE;
+/// The widest the card of the axis gets: wider, its picture and sliders would leave the right of it empty.
+const AXIS_MOST: f32 = 1400.0;
+/// The widest a slider gets, in points.
+const SLIDER_MOST: f32 = 520.0;
+/// The id of the menu "Gerät" and of the menu "Gerätesatz".
+const DEVICE_MENU: &str = "achsen-menue-geraet";
+const SET_MENU: &str = "achsen-menue-satz";
+const COPY_MENU: &str = "achsen-menue-uebertragen";
 
 /// A line of the list of the files: where it lies and when it was changed.
 #[derive(Clone, Debug)]
@@ -176,6 +192,12 @@ pub struct AxesState {
     /// Why the name in the field was refused, with the name it was refused for: shown under the field for as long as
     /// the field holds that name.
     set_refusal: Option<(String, String)>,
+    /// The side of the picture of the curve as last drawn (it follows the width of the card).
+    plot_side: f32,
+    /// The page draws the axis of a device: the foot with "write" and "discard" stands below it.
+    footed: bool,
+    /// The height the foot took when it was last drawn, for the room the page leaves it.
+    foot_height: f32,
 }
 
 impl Default for AxesState {
@@ -200,6 +222,9 @@ impl Default for AxesState {
             leftovers_open: false,
             set_name: String::new(),
             set_refusal: None,
+            plot_side: PLOT_LEAST,
+            footed: false,
+            foot_height: 0.0,
         }
     }
 }
@@ -208,6 +233,11 @@ impl AxesState {
     /// The line for the foot, once.
     pub fn take_notice(&mut self) -> Option<Said> {
         self.notice.take()
+    }
+
+    /// The room the foot below the page needs (0 where the page draws none): the page scrolls above it.
+    pub fn foot_height(&self) -> f32 {
+        if self.footed { self.foot_height } else { 0.0 }
     }
 
     /// The block "Altbestand" open (the tests look at what is in it).
@@ -478,23 +508,13 @@ fn read_look(paths: &Paths, before: Option<Arc<Look>>) -> Arc<Look> {
 }
 
 fn small(ui: &mut Ui, scheme: &Scheme, text: &str) {
-    ui.add(egui::Label::new(RichText::new(text).small().color(color(scheme.sub))).wrap());
+    widgets::reading(ui, RichText::new(text).small().color(color(scheme.sub)));
 }
 
 /// The name of a box inside a card (a device set, an old entry), in bold.
 fn block_title(ui: &mut Ui, text: &str) {
     let title = widgets::bold(ui, text, egui::TextStyle::Body);
     ui.label(title);
-}
-
-/// A card of its own below what stands above, with its title on top; gives what `add` gives.
-fn titled_card<R>(ui: &mut Ui, scheme: &Scheme, title: &str, add: impl FnOnce(&mut Ui) -> R) -> R {
-    ui.add_space(GAP);
-    widgets::card(ui, scheme, |ui| {
-        widgets::card_title(ui, scheme, title);
-        add(ui)
-    })
-    .inner
 }
 
 /// The plain name of a game axis (`Nicken`), or the technical name where the game has none.
@@ -513,13 +533,13 @@ fn function_label(functions: &[Function]) -> String {
     }
 }
 
-/// Draws the page.
+/// Draws the page: the devices as tabs with the menus "Gerät" and "Gerätesatz" at their right, a question that waits
+/// for its answer, the list of the axes at the left and the axis with its large curve at the right, the old entries
+/// below. "Write" and "discard" stand in the foot below the page ([`show_foot`]), which does not scroll.
 pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, paths: &Paths) {
     state.poll(ui, paths);
-    ui.add(egui::Label::new(RichText::new(t("s_ac_lead")).small().color(color(scheme.sub))).wrap());
-    ui.add_space(GAP);
-    ui.add(egui::Label::new(RichText::new(t("s_ac_hinweis")).small()).wrap());
-    ui.add_space(GAP);
+    state.footed = false;
+    lead(ui, scheme);
     let Some(look) = state.look.clone() else {
         widgets::loading(ui, scheme, &t("s_gh_liest"));
         return;
@@ -530,52 +550,312 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, paths: &Pa
     }
     let live: Vec<&DeviceBlock> =
         look.summary.blocks.iter().filter(|block| block.active && !block.ident.is_empty()).collect();
-    if live.is_empty() {
-        small(ui, scheme, &t(if look.unreadable { "s_js_datei_gesperrt" } else { "s_ac_keine" }));
-        // The sets can be looked at and deleted all the same.
-        let sets = sets_block(ui, scheme, state, &look);
-        run(state, paths, sets);
-        return;
-    }
-    if !live.iter().any(|block| block.ident == state.device) {
+    if !live.is_empty() && !live.iter().any(|block| block.ident == state.device) {
         state.device = live[0].ident.clone();
     }
-    // The bar of the devices.
-    ui.horizontal_wrapped(|ui| {
-        for block in &live {
-            let kind = if block.ident == state.device { ButtonKind::Strong } else { ButtonKind::Normal };
-            let label = device_label(&look, block);
-            let response = ui.add(widgets::Button::new(&label, kind, scheme).wrapping());
-            let on = block.ident == state.device;
-            response.widget_info(|| egui::WidgetInfo::selected(egui::Role::Tab, true, on, &label));
-            // The device that is chosen already stays as it is, with the axis the player chose.
-            if response.clicked() && !on {
-                state.device = block.ident.clone();
-                state.axis.clear();
-            }
-        }
-    });
-    ui.add_space(GAP);
-    let Some(block) = live.iter().find(|block| block.ident == state.device).copied() else { return };
+    let block = live.iter().find(|block| block.ident == state.device).copied();
+    let head = head_bar(ui, scheme, state, &look, &live, block);
+    let asked = question(ui, scheme, state, &look);
+    let act = head.or(asked);
+    let Some(block) = block else {
+        small(ui, scheme, &t(if look.unreadable { "s_js_datei_gesperrt" } else { "s_ac_keine" }));
+        finish(ui, state, paths, act);
+        return;
+    };
     let present: Vec<&str> = axes::AXES.iter().copied().filter(|axis| block.axis(axis).is_some()).collect();
     if present.is_empty() {
-        // No value: the tools stay, "make it like the other" is the way to fill a device that has none.
+        // No value: the menus stay, "make it like the other" is the way to fill a device that has none.
         small(ui, scheme, &t("s_ac_keine_werte"));
-        let tools = device_tools(ui, scheme, state, &look, block);
-        let sets = sets_block(ui, scheme, state, &look);
         let old = leftovers(ui, scheme, state, &look);
-        run(state, paths, tools.or(sets).or(old));
+        finish(ui, state, paths, act.or(old));
         return;
     }
     if !present.contains(&state.axis.as_str()) {
         state.axis = present[0].to_string();
     }
+    state.footed = true;
     let axis = state.axis.clone();
     let wide = ui.available_width() >= SIDE_BY_SIDE;
+    let mut chosen: Option<String> = None;
+    if wide {
+        ui.horizontal_top(|ui| {
+            ui.vertical(|ui| {
+                ui.set_width(LIST_WIDTH);
+                chosen = axes_card(ui, scheme, &look, block, &state.axis);
+            });
+            ui.add_space(GAP);
+            ui.vertical(|ui| {
+                ui.set_width(ui.available_width().min(AXIS_MOST));
+                axis_card(ui, scheme, state, &look, block, &axis);
+            });
+        });
+    } else {
+        chosen = axes_card(ui, scheme, &look, block, &state.axis);
+        ui.add_space(GAP);
+        axis_card(ui, scheme, state, &look, block, &axis);
+    }
+    let old = leftovers(ui, scheme, state, &look);
+    if let Some(next) = chosen {
+        state.axis = next;
+    }
+    finish(ui, state, paths, act.or(old));
+    if let Some(large) = &mut state.large
+        && !axes_plot::show_large(ui.ctx(), scheme, large)
+    {
+        state.large = None;
+    }
+}
 
+/// The two lines at the top: what the page is for, and on hover of its symbol why old values stop counting.
+fn lead(ui: &mut Ui, scheme: &Scheme) {
+    let line = ui.horizontal_wrapped(|line| {
+        line.add(egui::Label::new(RichText::new(t("s_ac_lead")).small().color(color(scheme.sub))).wrap());
+        let side = line.text_style_height(&egui::TextStyle::Small);
+        if let Some(image) = icons::themed("info", scheme, versekit_core::theme::IconTint::Normal, side) {
+            line.add(image);
+        }
+    });
+    ui.interact(line.response.rect, ui.make_persistent_id("achsen-lead"), egui::Sense::hover())
+        .on_hover_text(t("s_ac_hinweis"));
+    ui.add_space(GAP);
+}
+
+/// Does what was asked for, and closes the menus where a question now waits on the page: it stands under the tabs
+/// and must not hide behind a menu.
+fn finish(ui: &Ui, state: &mut AxesState, paths: &Paths, act: Option<Act>) {
+    run(state, paths, act);
+    if state.pending.as_ref().is_some_and(|pending| asked_on_top(pending.change)) {
+        for menu in [DEVICE_MENU, SET_MENU] {
+            egui::Popup::close_id(ui.ctx(), egui::Id::unique(menu));
+        }
+    }
+}
+
+/// The changes whose question stands under the tabs (the old entries ask in their own card).
+fn asked_on_top(change: Change) -> bool {
+    !matches!(change, Change::Clean | Change::Adopt)
+}
+
+/// The foot below the page, outside the scrolling: "write" and "discard", the mark of an unsaved change and why
+/// nothing may be written now. Drawn only where the page shows the axis of a device.
+pub fn show_foot(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, paths: &Paths) {
+    let Some(look) = state.look.clone().filter(|_| state.footed) else {
+        state.foot_height = 0.0;
+        return;
+    };
+    let nothing = t("s_ac_nichts_offen");
+    let changed = state.changed_any();
+    let save_reason = look.quiet.as_deref().or_else(|| (!changed).then_some(nothing.as_str()));
+    let discard_reason = (!changed).then_some(nothing.as_str());
+    let mut act = None;
+    let top = ui.cursor().top();
+    ui.add_space(GAP / 2.0);
+    widgets::card(ui, scheme, |ui| {
+        ui.horizontal(|ui| {
+            let save = t("s_ac_speichern");
+            if ui.add(widgets::Button::new(&save, ButtonKind::Strong, scheme).blocked(save_reason)).clicked() {
+                act = Some(Act::Save);
+            }
+            let discard = t("s_ac_verwerfen");
+            if ui.add(widgets::Button::new(&discard, ButtonKind::Normal, scheme).blocked(discard_reason)).clicked() {
+                act = Some(Act::Discard);
+            }
+            if changed {
+                ui.add(
+                    egui::Label::new(RichText::new(t("s_ac_geaendert")).color(color(scheme.gold))).selectable(false),
+                );
+            }
+            // Why nothing may be written now, else that the game has to be closed: at the right end of the foot.
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let said = look.quiet.clone().unwrap_or_else(|| t("s_js_spiel_zu"));
+                ui.add(egui::Label::new(RichText::new(said).small().color(color(scheme.sub))).wrap());
+            });
+        });
+    });
+    state.foot_height = ui.cursor().top() - top;
+    run(state, paths, act);
+}
+
+/// The tabs of the devices and, at their right, the menus "Gerät" and "Gerätesatz".
+fn head_bar(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    state: &mut AxesState,
+    look: &Look,
+    live: &[&DeviceBlock],
+    block: Option<&DeviceBlock>,
+) -> Option<Act> {
+    let (device_word, set_word) = (t("s_ac_menue_geraet"), t("s_ac_menue_satz"));
+    let menus = widgets::icon_button_size(ui, scheme, ButtonKind::Normal, &device_word).x
+        + widgets::icon_button_size(ui, scheme, ButtonKind::Normal, &set_word).x
+        + 2.0 * ui.spacing().item_spacing.x;
+    let mut act = None;
+    ui.horizontal_top(|row| {
+        let room = (row.available_width() - menus - GAP).max(120.0);
+        row.scope(|tabs| {
+            tabs.set_max_width(room);
+            tabs.horizontal_wrapped(|tabs| {
+                for block in live {
+                    let on = block.ident == state.device;
+                    let kind = if on { ButtonKind::Strong } else { ButtonKind::Normal };
+                    let label = device_label(look, block);
+                    let response = tabs.add(widgets::Button::new(&label, kind, scheme).wrapping());
+                    response.widget_info(|| egui::WidgetInfo::selected(egui::Role::Tab, true, on, &label));
+                    // The device that is chosen already stays as it is, with the axis the player chose.
+                    if response.clicked() && !on {
+                        state.device = block.ident.clone();
+                        state.axis.clear();
+                    }
+                }
+            });
+        });
+        row.with_layout(egui::Layout::right_to_left(egui::Align::Min), |row| {
+            let sets = sets_menu(row, scheme, state, look, &set_word);
+            let tools = device_menu(row, scheme, look, block, &device_word);
+            act = sets.or(tools);
+        });
+    });
+    ui.add_space(GAP);
+    act
+}
+
+/// The frame of a menu of the page.
+fn menu_frame(scheme: &Scheme) -> egui::Frame {
+    egui::Frame::new()
+        .fill(color(scheme.field))
+        .stroke(egui::Stroke::new(1.0, color(scheme.accent)))
+        .corner_radius(control_radius(scheme))
+        .inner_margin(egui::Margin::same(10))
+}
+
+/// A menu of the page behind a button with `word`: it stays open while the player works in it and closes on a click
+/// beside it or on what it does.
+fn menu<R>(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    id: &str,
+    word: &str,
+    blocked: Option<&str>,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> Option<R> {
+    let button = widgets::Button::new(word, ButtonKind::Normal, scheme).icon("chevron-down").blocked(blocked);
+    let response = ui.add(button);
+    if blocked.is_some() {
+        return None;
+    }
+    egui::Popup::menu(&response)
+        .id(egui::Id::unique(id))
+        .frame(menu_frame(scheme))
+        .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+        .show(|menu| {
+            menu.set_min_width(300.0);
+            menu.set_max_width(460.0);
+            add(menu)
+        })
+        .map(|shown| shown.inner)
+}
+
+/// The menu "Gerät": make the other stick like this one, and swap the numbers of two sticks. Both ask first and are
+/// blocked while the game runs; with one device there is nothing to do with another.
+fn device_menu(ui: &mut Ui, scheme: &Scheme, look: &Look, block: Option<&DeviceBlock>, word: &str) -> Option<Act> {
+    let others: Vec<&DeviceBlock> = look
+        .summary
+        .blocks
+        .iter()
+        .filter(|other| other.active && !other.ident.is_empty() && block.is_some_and(|b| other.ident != b.ident))
+        .collect();
+    let lonely = t("s_ac_menue_geraet_allein");
+    let blocked = (block.is_none() || others.is_empty()).then_some(lonely.as_str());
+    let block = block?;
+    menu(ui, scheme, DEVICE_MENU, word, blocked, |menu| {
+        let mut act = None;
+        let quiet = look.quiet.as_deref();
+        for (at, (change, head, lead, button)) in [
+            (Change::Align, "s_ac_kopf_angleichen", "s_ac_lead_angleichen", "s_ac_angleichen"),
+            (Change::Swap, "s_ac_kopf_tauschen", "s_ac_lead_tauschen", "s_ac_tauschen"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            if at > 0 {
+                menu.add_space(GAP);
+            }
+            block_title(menu, &t(head));
+            small(menu, scheme, &t(lead));
+            menu.add_space(GAP / 2.0);
+            for other in &others {
+                let wanted = Pending {
+                    change,
+                    from: block.ident.clone(),
+                    to: other.ident.clone(),
+                    from_name: device_label(look, block),
+                    to_name: device_label(look, other),
+                };
+                let label = tf(button, &[("0", Arg::from(wanted.to_name.as_str()))]);
+                let widget = widgets::Button::new(&label, ButtonKind::Normal, scheme).wrapping().blocked(quiet);
+                if menu.add(widget).clicked() {
+                    act = Some(Act::Ask(wanted));
+                }
+            }
+        }
+        if act.is_some() {
+            menu.close();
+        }
+        act
+    })
+    .flatten()
+}
+
+/// The menu "Gerätesatz": the saved sets with "apply" and "delete", and a new set under a name. Applying asks first
+/// (and is blocked while the game runs or when there is nothing to change); deleting asks too; a name that exists
+/// asks before it is overwritten. The questions stand under the tabs.
+fn sets_menu(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look, word: &str) -> Option<Act> {
+    menu(ui, scheme, SET_MENU, word, None, |menu| sets_body(menu, scheme, state, look)).flatten()
+}
+
+/// The question of a change that waits for its yes, under the tabs, with its two answers.
+fn question(ui: &mut Ui, scheme: &Scheme, state: &AxesState, look: &Look) -> Option<Act> {
+    let pending = state.pending.as_ref().filter(|pending| asked_on_top(pending.change))?;
+    let names = [("0", Arg::from(pending.from_name.as_str())), ("1", Arg::from(pending.to_name.as_str()))];
+    let (text, danger) = match pending.change {
+        Change::Align => (tf("s_ac_angleichen_frage", &names), false),
+        Change::Swap => (tf("s_ac_tausch_frage", &names), false),
+        Change::SetApply => {
+            let set = look.sets.iter().find(|set| set.name == pending.from)?;
+            let (settings, missing) = device_sets::plan(set, &look.summary.blocks, &look.summary.game);
+            let key = if settings.len() == 1 { "s_gs_frage_eins" } else { "s_gs_frage" };
+            let mut text = tf(key, &[("0", Arg::from(set.name.as_str())), ("1", Arg::from(settings.len() as i64))]);
+            if !missing.is_empty() {
+                text.push_str("\n\n");
+                text.push_str(&tf("s_gs_fehlt", &[("0", Arg::from(missing.join(", ").as_str()))]));
+            }
+            (text, false)
+        }
+        Change::SetDelete => (tf("s_gs_loeschen_frage", &[("0", Arg::from(pending.from.as_str()))]), true),
+        Change::SetOverwrite => (tf("s_gs_ueberschreiben_frage", &[("0", Arg::from(pending.from.as_str()))]), true),
+        Change::Clean | Change::Adopt => return None,
+    };
+    let frame = egui::Frame::new()
+        .fill(color(scheme.surface))
+        .stroke(egui::Stroke::new(1.0, color(scheme.gold)))
+        .corner_radius(control_radius(scheme))
+        .inner_margin(egui::Margin::same(10));
+    let answer = frame
+        .show(ui, |ui| {
+            ui.set_max_width(widgets::READ_WIDTH);
+            ask(ui, scheme, &text, danger)
+        })
+        .inner;
+    ui.add_space(GAP);
+    answer
+}
+
+/// The card of the axis: its name and device on top, the large curve at the left, the presets, the sliders and the
+/// sensitivity of the functions on it at the right (one above the other where the card is narrow).
+fn axis_card(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look, block: &DeviceBlock, axis: &str) {
     // The sliders first: the picture shows what they show.
-    let shares = shares_of(state, block, &axis);
-    let sensitivities = sensitivity_keys(&look, block, &axis);
+    let shares = shares_of(state, block, axis);
+    let sensitivities = sensitivity_keys(look, block, axis);
     let plotted = plotted_sensitivity(state, &sensitivities);
     let values = Values {
         deadzone: Some(SHARE.value(shares.0)),
@@ -583,75 +863,130 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, paths: &Pa
         exponent: Some(plotted.exponent),
         curve: Vec::new(),
     };
-
-    let mut chosen: Option<String> = None;
-    let plot_column = |ui: &mut Ui, state: &mut AxesState| {
-        axes_plot::show(ui, scheme, egui::vec2(PLOT_SIDE, PLOT_SIDE), state.whole, &values, None);
-        ui.add_space(GAP);
-        ui.set_max_width(PLOT_SIDE);
-        // The buttons first: their place must not move with the length of the text below.
-        ui.horizontal_wrapped(|ui| {
-            let label = t(if state.whole { "s_kv_quadrant" } else { "s_kv_ganz" });
-            if ui.add(widgets::Button::new(&label, ButtonKind::Normal, scheme)).clicked() {
-                state.whole = !state.whole;
-            }
-            if ui.add(widgets::Button::new(&t("s_ac_gross"), ButtonKind::Normal, scheme)).clicked() {
-                state.large = Some(Large {
-                    title: match &plotted.function {
-                        Some(name) => format!("{} {} {} · {}", t("s_ac_titel_gross"), block.name, axis, name),
-                        None => format!("{} {} {}", t("s_ac_titel_gross"), block.name, axis),
-                    },
-                    values: values.clone(),
-                    whole: state.whole,
-                });
-            }
-        });
-        // Says whose sensitivity the curve draws, and that the player can choose when there are several.
+    widgets::card(ui, scheme, |ui| {
+        let title =
+            tf("s_ac_achse_titel", &[("0", Arg::from(axis)), ("1", Arg::from(device_label(look, block).as_str()))]);
+        widgets::card_title(ui, scheme, &title);
         ui.add_space(GAP / 2.0);
-        let says = match &plotted.function {
-            Some(name) => tf("s_ac_zeigt", &[("0", Arg::from(name.as_str()))]),
-            None => t("s_ac_zeigt_keine"),
-        };
-        ui.add(egui::Label::new(RichText::new(says).small()).wrap());
-        if plotted.several {
-            small(ui, scheme, &t("s_ac_zeigt_mehrere"));
-        }
-    };
-    let (mut act, mut tools, mut sets, mut old): (Option<Act>, Option<Act>, Option<Act>, Option<Act>) =
-        (None, None, None, None);
-    if wide {
-        ui.horizontal_top(|ui| {
-            ui.vertical(|ui| {
-                ui.set_width((ui.available_width() - PLOT_SIDE - 2.0 * GAP).max(200.0));
-                chosen = axes_card(ui, scheme, &look, block, &state.axis);
-                ui.add_space(GAP);
-                act = sliders_and_functions(ui, scheme, state, &look, block, &axis, &sensitivities);
-                tools = device_tools(ui, scheme, state, &look, block);
-                sets = sets_block(ui, scheme, state, &look);
-                old = leftovers(ui, scheme, state, &look);
+        let room = ui.available_width();
+        let beside = room >= PLOT_BESIDE;
+        let side =
+            if beside { (room * PLOT_SHARE).clamp(PLOT_LEAST, PLOT_MOST) } else { room.clamp(PLOT_LEAST, PLOT_MOST) };
+        // Whole points: the picture is placed on the pixels, its curve must be drawn on the same side.
+        state.plot_side = side.round();
+        if beside {
+            ui.horizontal_top(|ui| {
+                ui.vertical(|ui| {
+                    ui.set_width(state.plot_side);
+                    plot_column(ui, scheme, state, block, axis, &plotted, &values);
+                });
+                ui.add_space(2.0 * GAP);
+                ui.vertical(|ui| {
+                    ui.set_width(ui.available_width());
+                    controls(ui, scheme, state, look, block, axis, &sensitivities);
+                });
             });
+        } else {
+            plot_column(ui, scheme, state, block, axis, &plotted, &values);
             ui.add_space(GAP);
-            ui.vertical(|ui| plot_column(ui, state));
-        });
-    } else {
-        ui.vertical(|ui| plot_column(ui, state));
+            controls(ui, scheme, state, look, block, axis, &sensitivities);
+        }
+    });
+}
+
+/// The picture of the curve with its two buttons and whose sensitivity it draws.
+fn plot_column(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    state: &mut AxesState,
+    block: &DeviceBlock,
+    axis: &str,
+    plotted: &Plotted,
+    values: &Values,
+) {
+    let side = state.plot_side;
+    axes_plot::show(ui, scheme, egui::vec2(side, side), state.whole, values, None);
+    ui.add_space(GAP);
+    ui.set_max_width(side);
+    // The buttons first: their place must not move with the length of the text below.
+    ui.horizontal_wrapped(|ui| {
+        // Each says on hover what it does: the range of the curve here, a window of its own there.
+        let (key, hint) = if state.whole { ("s_kv_quadrant", "s_kv_quadrant_h") } else { ("s_kv_ganz", "s_kv_ganz_h") };
+        let (label, larger_label) = (t(key), t("s_ac_gross"));
+        let toggle = widgets::Button::new(&label, ButtonKind::Normal, scheme);
+        if ui.add(toggle).on_hover_text(t(hint)).clicked() {
+            state.whole = !state.whole;
+        }
+        let larger = widgets::Button::new(&larger_label, ButtonKind::Normal, scheme);
+        if ui.add(larger).on_hover_text(t("s_ac_gross_h")).clicked() {
+            state.large = Some(Large {
+                title: match &plotted.function {
+                    Some(name) => format!("{} {} {} · {}", t("s_ac_titel_gross"), block.name, axis, name),
+                    None => format!("{} {} {}", t("s_ac_titel_gross"), block.name, axis),
+                },
+                values: values.clone(),
+                whole: state.whole,
+            });
+        }
+    });
+    // Says whose sensitivity the curve draws, and that the player can choose when there are several.
+    ui.add_space(GAP / 2.0);
+    let says = match &plotted.function {
+        Some(name) => tf("s_ac_zeigt", &[("0", Arg::from(name.as_str()))]),
+        None => t("s_ac_zeigt_keine"),
+    };
+    ui.add(egui::Label::new(RichText::new(says).small()).wrap());
+    if plotted.several {
+        small(ui, scheme, &t("s_ac_zeigt_mehrere"));
+    }
+}
+
+/// The presets, the dead zone and the saturation, the sensitivity of the functions on the axis and the menu that
+/// copies the values to other axes.
+fn controls(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    state: &mut AxesState,
+    look: &Look,
+    block: &DeviceBlock,
+    axis: &str,
+    sensitivities: &[(Key, Function)],
+) {
+    presets_block(ui, scheme, state, block, axis, sensitivities);
+    ui.add_space(GAP);
+    for (prop, text) in [(Prop::Deadzone, t("s_kv_totzone")), (Prop::Saturation, t("s_kv_saettigung"))] {
+        let file = physical_file(block, axis, prop);
+        let key = physical_key(block, axis, prop);
+        // The same column of names as the sensitivity below: all sliders begin in one line.
+        slider_row(ui, scheme, state, &key, file, SHARE, &text, 20, Name::Plain);
+    }
+    if look.numbers.contains_key(&block.ident) {
         ui.add_space(GAP);
-        chosen = axes_card(ui, scheme, &look, block, &state.axis);
-        ui.add_space(GAP);
-        act = sliders_and_functions(ui, scheme, state, &look, block, &axis, &sensitivities);
-        tools = device_tools(ui, scheme, state, &look, block);
-        sets = sets_block(ui, scheme, state, &look);
-        old = leftovers(ui, scheme, state, &look);
+        crate::settings::subheading(ui, scheme, &t("s_ac_kopf_empf"), &t("s_ac_lead_empf"));
+        if sensitivities.is_empty() {
+            small(ui, scheme, &t("s_ac_keine_funktion"));
+        }
+        let shown = shown_pair(state, sensitivities).map(|(key, _)| key.clone());
+        for (key, function) in sensitivities {
+            let name = Name::Pick { shown: shown.as_ref() == Some(key) };
+            let touched = slider_row(
+                ui,
+                scheme,
+                state,
+                key,
+                game_file(function),
+                EXPONENT,
+                &function_name(&function.axis),
+                20,
+                name,
+            );
+            if touched {
+                // The curve follows the function the player is working on.
+                state.shown = Some(key.clone());
+            }
+        }
     }
-    if let Some(next) = chosen {
-        state.axis = next;
-    }
-    run(state, paths, act.or(tools).or(sets).or(old));
-    if let Some(large) = &mut state.large
-        && !axes_plot::show_large(ui.ctx(), scheme, large)
-    {
-        state.large = None;
-    }
+    copy_block(ui, scheme, state, look, block, axis);
 }
 
 /// Does what the player asked for with a click.
@@ -822,7 +1157,7 @@ fn axis_row(ui: &mut Ui, scheme: &Scheme, row: &mut AxisRow, salt: &str) -> bool
             ui.set_width(ui.available_width());
             let gap = ui.spacing().item_spacing.x;
             let name_width = crate::joysticks_page::text_width(ui, "slider1", egui::TextStyle::Body) + 12.0;
-            let side = (ui.available_width() * 0.34).max(60.0);
+            let side = (ui.available_width() * 0.28).max(60.0);
             let middle = (ui.available_width() - name_width - side - 2.0 * gap).max(60.0);
             ui.horizontal_top(|ui| {
                 crate::joysticks_page::cell(ui, name_width, egui::Align::Min, |ui| {
@@ -941,14 +1276,10 @@ fn ask(ui: &mut Ui, scheme: &Scheme, text: &str, danger: bool) -> Option<Act> {
     answer
 }
 
-/// The device sets: a whole set-up under one name. Applying asks first (and is blocked while the game runs or when
-/// there is nothing to change); deleting asks too; a name that exists asks before it is overwritten.
-fn sets_block(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -> Option<Act> {
-    titled_card(ui, scheme, &t("s_gs_titel"), |ui| sets_body(ui, scheme, state, look))
-}
-
-/// What the card of the device sets holds below its title.
+/// What the menu of the device sets holds: the saved sets, each with "apply" and "delete", and below them the name
+/// and the button for a new set. The questions stand under the tabs ([`question`]).
 fn sets_body(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -> Option<Act> {
+    block_title(ui, &t("s_gs_titel"));
     small(ui, scheme, &t("s_gs_lead"));
     ui.add_space(GAP / 2.0);
     let mut act = None;
@@ -957,9 +1288,9 @@ fn sets_body(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -
         small(ui, scheme, &t("s_gs_keine"));
     }
     for set in &look.sets {
-        let (settings, missing) = device_sets::plan(set, &look.summary.blocks, &look.summary.game);
+        let (settings, _) = device_sets::plan(set, &look.summary.blocks, &look.summary.game);
         let frame = egui::Frame::new()
-            .fill(color(scheme.field))
+            .fill(color(scheme.surface))
             .stroke(egui::Stroke::new(1.0, color(scheme.line)))
             .corner_radius(control_radius(scheme))
             .inner_margin(egui::Margin::same(8));
@@ -981,63 +1312,39 @@ fn sets_body(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -
                 to_name: String::new(),
             };
             let delete = Pending { change: Change::SetDelete, ..apply.clone() };
-            if state.pending.as_ref() == Some(&apply) {
-                let key = if settings.len() == 1 { "s_gs_frage_eins" } else { "s_gs_frage" };
-                let mut text = tf(key, &[("0", Arg::from(set.name.as_str())), ("1", Arg::from(settings.len() as i64))]);
-                if !missing.is_empty() {
-                    text.push_str("\n\n");
-                    text.push_str(&tf("s_gs_fehlt", &[("0", Arg::from(missing.join(", ").as_str()))]));
+            let nothing = t("s_gs_f_nichts_zu_tun");
+            let reason = quiet.or_else(|| settings.is_empty().then_some(nothing.as_str()));
+            ui.horizontal_wrapped(|ui| {
+                // Every set has the same two buttons: a screen reader hears whose they are.
+                let label = t("s_gs_anwenden");
+                let spoken = format!("{label}: {}", set.name);
+                let button = widgets::Button::new(&label, ButtonKind::Normal, scheme).spoken(&spoken);
+                if ui.add(button.blocked(reason)).clicked() {
+                    act = Some(Act::Ask(apply.clone()));
                 }
-                act = ask(ui, scheme, &text, false).or(act.take());
-            } else if state.pending.as_ref() == Some(&delete) {
-                let text = tf("s_gs_loeschen_frage", &[("0", Arg::from(set.name.as_str()))]);
-                act = ask(ui, scheme, &text, true).or(act.take());
-            } else {
-                let nothing = t("s_gs_f_nichts_zu_tun");
-                let reason = quiet.or_else(|| settings.is_empty().then_some(nothing.as_str()));
-                ui.horizontal_wrapped(|ui| {
-                    // Every set has the same two buttons: a screen reader hears whose they are.
-                    let label = t("s_gs_anwenden");
-                    let spoken = format!("{label}: {}", set.name);
-                    let button = widgets::Button::new(&label, ButtonKind::Normal, scheme).spoken(&spoken);
-                    if ui.add(button.blocked(reason)).clicked() {
-                        act = Some(Act::Ask(apply.clone()));
-                    }
-                    let label = t("s_gs_loeschen");
-                    let spoken = format!("{label}: {}", set.name);
-                    if ui.add(widgets::Button::new(&label, ButtonKind::Normal, scheme).spoken(&spoken)).clicked() {
-                        act = Some(Act::Ask(delete.clone()));
-                    }
-                });
-            }
+                let label = t("s_gs_loeschen");
+                let spoken = format!("{label}: {}", set.name);
+                if ui.add(widgets::Button::new(&label, ButtonKind::Normal, scheme).spoken(&spoken)).clicked() {
+                    act = Some(Act::Ask(delete.clone()));
+                }
+            });
         });
         ui.add_space(GAP / 2.0);
     }
     // A new set: the name and the button.
-    let overwrite = Pending {
-        change: Change::SetOverwrite,
-        from: py_strip_name(&state.set_name),
-        to: String::new(),
-        from_name: String::new(),
-        to_name: String::new(),
-    };
-    if state.pending.as_ref() == Some(&overwrite) {
-        let text = tf("s_gs_ueberschreiben_frage", &[("0", Arg::from(overwrite.from.as_str()))]);
-        act = ask(ui, scheme, &text, true).or(act.take());
-    } else {
-        ui.horizontal_wrapped(|ui| {
-            let width = (ui.available_width() * 0.5).clamp(120.0, 260.0);
-            widgets::clearable_field(ui, &mut state.set_name, &t("s_pl_satzname"), scheme, width);
-            let label = t("s_gs_speichern");
-            if ui.add(widgets::Button::new(&label, ButtonKind::Normal, scheme)).clicked() {
-                act = Some(Act::SaveSet);
-            }
-        });
-        if let Some((name, why)) = &state.set_refusal
-            && *name == state.set_name
-        {
-            ui.add(egui::Label::new(RichText::new(why).small().color(color(scheme.red))).wrap().selectable(false));
+    ui.add_space(GAP / 2.0);
+    ui.horizontal_wrapped(|ui| {
+        let width = (ui.available_width() * 0.5).clamp(120.0, 220.0);
+        widgets::clearable_field(ui, &mut state.set_name, &t("s_pl_satzname"), scheme, width);
+        let label = t("s_gs_speichern");
+        if ui.add(widgets::Button::new(&label, ButtonKind::Normal, scheme)).clicked() {
+            act = Some(Act::SaveSet);
         }
+    });
+    if let Some((name, why)) = &state.set_refusal
+        && *name == state.set_name
+    {
+        ui.add(egui::Label::new(RichText::new(why).small().color(color(scheme.red))).wrap().selectable(false));
     }
     act
 }
@@ -1185,139 +1492,6 @@ fn leftovers_body(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Lo
     act
 }
 
-/// The two blocks under the sliders: make the other stick like this one, and swap the numbers of two sticks. Both
-/// ask first and are blocked while the game runs.
-fn device_tools(ui: &mut Ui, scheme: &Scheme, state: &AxesState, look: &Look, block: &DeviceBlock) -> Option<Act> {
-    let others: Vec<&DeviceBlock> = look
-        .summary
-        .blocks
-        .iter()
-        .filter(|other| other.active && !other.ident.is_empty() && other.ident != block.ident)
-        .collect();
-    if others.is_empty() {
-        return None;
-    }
-    let mut act = None;
-    let quiet = look.quiet.as_deref();
-    for (change, head, lead, button, question) in [
-        (Change::Align, "s_ac_kopf_angleichen", "s_ac_lead_angleichen", "s_ac_angleichen", "s_ac_angleichen_frage"),
-        (Change::Swap, "s_ac_kopf_tauschen", "s_ac_lead_tauschen", "s_ac_tauschen", "s_ac_tausch_frage"),
-    ] {
-        titled_card(ui, scheme, &t(head), |ui| {
-            small(ui, scheme, &t(lead));
-            ui.add_space(GAP / 2.0);
-            for other in &others {
-                let wanted = Pending {
-                    change,
-                    from: block.ident.clone(),
-                    to: other.ident.clone(),
-                    from_name: device_label(look, block),
-                    to_name: device_label(look, other),
-                };
-                if state.pending.as_ref() == Some(&wanted) {
-                    let text = tf(
-                        question,
-                        &[("0", Arg::from(wanted.from_name.as_str())), ("1", Arg::from(wanted.to_name.as_str()))],
-                    );
-                    if let Some(next) = ask(ui, scheme, &text, false) {
-                        act = Some(next);
-                    }
-                } else {
-                    let label = tf(button, &[("0", Arg::from(wanted.to_name.as_str()))]);
-                    let widget = widgets::Button::new(&label, ButtonKind::Normal, scheme).wrapping().blocked(quiet);
-                    if ui.add(widget).clicked() {
-                        act = Some(Act::Ask(wanted));
-                    }
-                }
-            }
-        });
-    }
-    act
-}
-
-/// The sliders of the axis and the sensitivity of its functions, then the two buttons.
-fn sliders_and_functions(
-    ui: &mut Ui,
-    scheme: &Scheme,
-    state: &mut AxesState,
-    look: &Look,
-    block: &DeviceBlock,
-    axis: &str,
-    sensitivities: &[(Key, Function)],
-) -> Option<Act> {
-    // The presets, the dead zone and the saturation of the axis.
-    widgets::card(ui, scheme, |ui| {
-        presets_block(ui, scheme, state, block, axis, sensitivities);
-        ui.add_space(GAP);
-        for (prop, text) in [(Prop::Deadzone, t("s_kv_totzone")), (Prop::Saturation, t("s_kv_saettigung"))] {
-            let file = physical_file(block, axis, prop);
-            let key = physical_key(block, axis, prop);
-            slider_row(ui, scheme, state, &key, file, SHARE, &text, 14, Name::Plain);
-        }
-        ui.add_space(GAP / 2.0);
-        if state.changed_any() {
-            ui.add(egui::Label::new(RichText::new(t("s_ac_geaendert")).color(color(scheme.gold))).wrap());
-        } else {
-            // The place of the mark stays: what stands below must not jump when the first slider is moved.
-            ui.add_space(ui.text_style_height(&egui::TextStyle::Body));
-        }
-    });
-    if look.numbers.contains_key(&block.ident) {
-        titled_card(ui, scheme, &t("s_ac_kopf_empf"), |ui| {
-            small(ui, scheme, &t("s_ac_lead_empf"));
-            ui.add_space(GAP / 2.0);
-            if sensitivities.is_empty() {
-                small(ui, scheme, &t("s_ac_keine_funktion"));
-            }
-            let shown = shown_pair(state, sensitivities).map(|(key, _)| key.clone());
-            for (key, function) in sensitivities {
-                let name = Name::Pick { shown: shown.as_ref() == Some(key) };
-                let touched = slider_row(
-                    ui,
-                    scheme,
-                    state,
-                    key,
-                    game_file(function),
-                    EXPONENT,
-                    &function_name(&function.axis),
-                    20,
-                    name,
-                );
-                if touched {
-                    // The curve follows the function the player is working on.
-                    state.shown = Some(key.clone());
-                }
-            }
-        });
-    }
-    copy_block(ui, scheme, state, look, block, axis);
-    // The two buttons. Writing needs a changed slider and a quiet game; each says on the button what is wrong.
-    ui.add_space(GAP);
-    let nothing = t("s_ac_nichts_offen");
-    let changed = state.changed_any();
-    let save_reason = look.quiet.as_deref().or_else(|| (!changed).then_some(nothing.as_str()));
-    let discard_reason = (!changed).then_some(nothing.as_str());
-    let mut act = None;
-    widgets::card(ui, scheme, |ui| {
-        ui.horizontal_wrapped(|ui| {
-            let save = t("s_ac_speichern");
-            if ui.add(widgets::Button::new(&save, ButtonKind::Strong, scheme).blocked(save_reason)).clicked() {
-                act = Some(Act::Save);
-            }
-            let discard = t("s_ac_verwerfen");
-            if ui.add(widgets::Button::new(&discard, ButtonKind::Normal, scheme).blocked(discard_reason)).clicked() {
-                act = Some(Act::Discard);
-            }
-        });
-        if let Some(reason) = look.quiet.as_deref() {
-            small(ui, scheme, reason);
-        } else {
-            small(ui, scheme, &t("s_js_spiel_zu"));
-        }
-    });
-    act
-}
-
 /// What the name at the start of a slider row does.
 #[derive(Clone, Copy)]
 enum Name {
@@ -1385,7 +1559,7 @@ fn slider_row(
             }
         });
         let shown = axes::two_decimals(Some(scale.value(now)));
-        let room = (ui.available_width() - 56.0).clamp(80.0, 260.0);
+        let room = (ui.available_width() - 56.0).clamp(80.0, SLIDER_MOST);
         let response = ui.add(widgets::Slider::new(&mut now, scale.from, scale.to, scheme).width(room));
         let enabled = response.enabled();
         response.widget_info(|| egui::WidgetInfo::slider(enabled, scale.value(now), name));
@@ -1429,9 +1603,7 @@ fn presets_block(
     axis: &str,
     functions: &[(Key, Function)],
 ) {
-    widgets::card_title(ui, scheme, &t("s_ac_kopf_vor"));
-    small(ui, scheme, &t("s_ac_lead_vor"));
-    ui.add_space(GAP / 2.0);
+    crate::settings::subheading(ui, scheme, &t("s_ac_kopf_vor"), &t("s_ac_lead_vor"));
     let (deadzone, saturation) = shares_of(state, block, axis);
     let exponents: Vec<i64> =
         functions.iter().map(|(key, function)| state.slide(key, game_file(function)).now).collect();
@@ -1487,10 +1659,16 @@ fn copy_block(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look, 
         state.copy_for = (block.ident.clone(), axis.to_string());
         state.copy_targets.clear();
     }
-    titled_card(ui, scheme, &t("s_ac_kopf_uebertragen"), |ui| copy_body(ui, scheme, state, look, block, axis, &others));
+    ui.add_space(GAP);
+    let word = t("s_ac_kopf_uebertragen");
+    menu(ui, scheme, COPY_MENU, &word, None, |menu| {
+        if copy_body(menu, scheme, state, look, block, axis, &others) {
+            menu.close();
+        }
+    });
 }
 
-/// What the card "Auf andere Achsen übertragen" holds below its title: the ticks and the button.
+/// What the menu "Auf andere Achsen übertragen" holds: the ticks and the button; true when the values were copied.
 fn copy_body(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -1499,7 +1677,7 @@ fn copy_body(
     block: &DeviceBlock,
     axis: &str,
     others: &[&str],
-) {
+) -> bool {
     small(ui, scheme, &t("s_ac_lead_uebertragen"));
     ui.add_space(GAP / 2.0);
     let mut all = others.iter().all(|other| state.copy_targets.contains(*other));
@@ -1543,7 +1721,9 @@ fn copy_body(
         state.copy_targets.clear();
         let key = if count == 1 { "s_ac_uebertragen_fertig_eins" } else { "s_ac_uebertragen_fertig" };
         state.notice = Some(Said::note(tf(key, &[("0", Arg::from(count))])));
+        return true;
     }
+    false
 }
 
 #[cfg(test)]
@@ -1649,6 +1829,8 @@ mod tests {
         places: Vec<(egui::Role, String, Rect)>,
         /// The points of the curve as drawn (the accent line with the points of the curve), empty where none is.
         curve: Vec<Pos2>,
+        /// The room the page is drawn in.
+        size: egui::Vec2,
     }
 
     impl Bench {
@@ -1667,6 +1849,7 @@ mod tests {
                 nodes: Vec::new(),
                 places: Vec::new(),
                 curve: Vec::new(),
+                size: egui::vec2(1280.0, 4000.0),
             }
         }
 
@@ -1678,13 +1861,17 @@ mod tests {
             let scheme = theme::current();
             self.time += 0.05;
             let input = egui::RawInput {
-                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(1280.0, 4000.0))),
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, self.size)),
                 time: Some(self.time),
                 events,
                 ..Default::default()
             };
             let (state, paths) = (&mut self.state, &self.paths);
-            let mut output = self.ctx.run_ui(input, |ui| show_page(ui, scheme, state, paths));
+            // The page and its foot below it, as the window draws them.
+            let mut output = self.ctx.run_ui(input, |ui| {
+                show_page(ui, scheme, state, paths);
+                show_foot(ui, scheme, state, paths);
+            });
             output.textures_delta.clear();
             let mut texts = Vec::new();
             let mut rects = Vec::new();
@@ -1750,8 +1937,35 @@ mod tests {
             texts
         }
 
-        /// Clicks the first text that is `label`.
+        /// Opens the menu of the page that holds what `found` looks for, where it is not on the screen yet: each
+        /// thing of the page is at most one click on a menu away. True when it is on the screen then.
+        fn reveal(&mut self, found: impl Fn(&Bench) -> bool) -> bool {
+            self.settle();
+            if found(self) {
+                return true;
+            }
+            // From a page with no menu open: an open one could lie over the button of the next.
+            for menu in [DEVICE_MENU, SET_MENU, COPY_MENU] {
+                egui::Popup::close_id(&self.ctx, egui::Id::unique(menu));
+            }
+            self.settle();
+            for menu in [t("s_ac_menue_satz"), t("s_ac_menue_geraet"), t("s_ac_kopf_uebertragen")] {
+                let Some(at) = self.rects.iter().find(|(text, _)| *text == menu).map(|(_, rect)| rect.center()) else {
+                    continue;
+                };
+                self.press_at(at);
+                if found(self) {
+                    return true;
+                }
+                // Not in this menu: it is closed again.
+                self.press_at(at);
+            }
+            false
+        }
+
+        /// Clicks the first text that is `label`, opening the menu it stands in where it is in one.
         fn click(&mut self, label: &str) -> Texts {
+            self.reveal(|bench| bench.rects.iter().any(|(text, _)| text == label));
             let texts = self.settle();
             let at = self
                 .rects
@@ -1787,6 +2001,7 @@ mod tests {
 
         /// The place of the named element of that kind.
         fn place(&mut self, role: egui::Role, name: &str) -> Rect {
+            self.reveal(|bench| bench.places.iter().any(|(r, n, _)| *r == role && n == name));
             let texts = self.settle();
             self.places
                 .iter()
@@ -1830,14 +2045,14 @@ mod tests {
 
     /// The curve as the page must draw it for these values, moved to where the page drew its first point (the
     /// picture does not stand at the corner of the screen).
-    fn expected_curve(drawn: &[Pos2], deadzone: f64, saturation: f64, exponent: f64) -> Vec<Pos2> {
+    fn expected_curve(drawn: &[Pos2], side: f32, deadzone: f64, saturation: f64, exponent: f64) -> Vec<Pos2> {
         let values = Values {
             deadzone: Some(deadzone),
             saturation: Some(saturation),
             exponent: Some(exponent),
             curve: Vec::new(),
         };
-        let area = axes_plot::area(egui::vec2(PLOT_SIDE, PLOT_SIDE));
+        let area = axes_plot::area(egui::vec2(side, side));
         let line = axes_plot::line(&area, false, &values);
         let shift = drawn.first().map_or(egui::Vec2::ZERO, |first| *first - line[0]);
         line.into_iter().map(|p| p + shift).collect()
@@ -1845,7 +2060,7 @@ mod tests {
 
     /// Does the page draw exactly the curve of these values (to a thousandth of a point)?
     fn draws(bench: &Bench, deadzone: f64, saturation: f64, exponent: f64) -> bool {
-        let want = expected_curve(&bench.curve, deadzone, saturation, exponent);
+        let want = expected_curve(&bench.curve, bench.state.plot_side, deadzone, saturation, exponent);
         bench.curve.len() == want.len() && bench.curve.iter().zip(&want).all(|(a, b)| (*a - *b).length() < 1e-3)
     }
 
@@ -1854,6 +2069,72 @@ mod tests {
         theme::set_current("original");
         language::set_language(Choice::De);
         guard
+    }
+
+    /// Everything the page can do: on the page, or behind one click on one of its menus.
+    #[test]
+    fn every_function_of_the_page_is_on_it_or_one_menu_away() {
+        let _guard = setup();
+        let mut bench = Bench::new("erreichbar", Some(&file()));
+        save_set_as(&mut bench, "mit Pedalen");
+        bench.state.take_notice();
+        bench.click("y");
+        let mut wanted: Vec<String> = [
+            "s_kv_ganz",
+            "s_ac_gross",
+            "s_ac_vor_standard",
+            "s_ac_vor_balanced",
+            "s_ac_vor_fine",
+            "s_ac_vor_direct",
+            "s_ac_vor_pedals",
+            "s_ac_speichern",
+            "s_ac_verwerfen",
+            "s_gs_anwenden",
+            "s_gs_loeschen",
+            "s_gs_speichern",
+            "s_ac_uebertragen",
+            "s_ac_befund",
+        ]
+        .iter()
+        .map(|key| t(key))
+        .collect();
+        wanted.push(tf("s_ac_angleichen", &[("0", Arg::from("RIGHT VPC Stick"))]));
+        wanted.push(tf("s_ac_tauschen", &[("0", Arg::from("RIGHT VPC Stick"))]));
+        wanted.extend(["LEFT VPC Stick", "RIGHT VPC Stick", "x", "rotz", "mit Pedalen"].map(String::from));
+        wanted.push(function_name("flight_move_pitch"));
+        for label in &wanted {
+            let found = bench.reveal(|bench| bench.rects.iter().any(|(text, _)| text == label));
+            assert!(found, "{label} is neither on the page nor in one of its menus: {:?}", bench.settle());
+        }
+        // The ticks of the axes to copy to, and the sliders, by their names.
+        for (role, name) in [
+            (egui::Role::CheckBox, t("s_ac_alle_achsen")),
+            (egui::Role::Slider, t("s_kv_totzone")),
+            (egui::Role::Slider, t("s_kv_saettigung")),
+        ] {
+            let found = bench.reveal(|bench| bench.places.iter().any(|(r, n, _)| *r == role && *n == name));
+            assert!(found, "no {role:?} {name}");
+        }
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    /// The page of a window of 1920×1080 at the usual size (118 %): the page area less the side bar, the head and
+    /// the foot of the window. The axis with the most on it, the old entries closed and the foot fit without scrolling.
+    #[test]
+    fn the_page_fits_a_window_of_1920_by_1080() {
+        let _guard = setup();
+        let mut bench = Bench::new("passt", Some(&file()));
+        bench.size = egui::vec2(1360.0, 790.0);
+        bench.click("y");
+        let texts = bench.settle();
+        let bottom = bench.rects.iter().map(|(_, rect)| rect.max.y).fold(0.0, f32::max);
+        assert!(bottom <= bench.size.y, "the page ends at {bottom:.0}, the room at {}: {texts:?}", bench.size.y);
+        // The picture is large, the foot below everything.
+        assert!(bench.state.plot_side >= 360.0, "the curve only {:.0}", bench.state.plot_side);
+        let save = bench.place(egui::Role::Button, &t("s_ac_speichern"));
+        let old = bench.place(egui::Role::Button, &format!("{}, {}", t("s_ac_befund"), t("s_ac_befund_kopf_eins")));
+        assert!(save.min.y > old.max.y, "the foot stands below the page: {save:?} {old:?}");
+        let _ = std::fs::remove_dir_all(&bench.home);
     }
 
     #[test]
@@ -2703,8 +2984,11 @@ mod tests {
         bench.settle();
         let texts = bench.click("RIGHT VPC Stick");
         assert!(shows(&texts, &t("s_ac_keine_werte")), "{texts:?}");
+        // The menus stay: "make it like the other" in "Gerät", the sets in "Gerätesatz".
         let button = tf("s_ac_angleichen", &[("0", Arg::from("LEFT VPC Stick"))]);
-        assert!(shows(&texts, &button) && shows(&texts, &t("s_gs_titel")), "{texts:?}");
+        for wanted in [button, t("s_gs_titel")] {
+            assert!(bench.reveal(|bench| bench.rects.iter().any(|(text, _)| *text == wanted)), "{wanted}: {texts:?}");
+        }
         let _ = std::fs::remove_dir_all(&bench.home);
     }
 
@@ -2747,7 +3031,8 @@ mod tests {
         assert!(device_sets::sets(&bench.paths).is_empty());
         let said = bench.state.take_notice().expect("told");
         assert!(!said.fault && said.text == tf("s_gs_geloescht", &[("0", Arg::from("mit Pedalen"))]), "{said:?}");
-        assert!(shows(&texts, &t("s_gs_keine")), "{texts:?}");
+        let none = t("s_gs_keine");
+        assert!(bench.reveal(|bench| bench.rects.iter().any(|(text, _)| *text == none)), "{texts:?}");
         let _ = std::fs::remove_dir_all(&bench.home);
     }
 }

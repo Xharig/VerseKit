@@ -53,7 +53,7 @@ pub const SCU: &str = "SCU";
 pub const PIECE: &str = "PIECE";
 
 /// Shown for a place without a name (the dash of 4.12).
-const NO_PLACE: &str = "\u{2014}";
+pub const NO_PLACE: &str = "\u{2014}";
 
 /// Python's `float(x or 0)` for a value of a file.
 fn float_or_zero(value: Option<&Value>) -> f64 {

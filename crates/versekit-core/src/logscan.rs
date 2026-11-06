@@ -46,10 +46,13 @@ static SUFFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
     .expect("fester Ausdruck")
 });
 
-static ACCOUNT_RES: LazyLock<[Regex; 2]> = LazyLock::new(|| {
+/// The lines that name the player, in the order they are tried: the two of the logs of Star Citizen 4 first, so
+/// that those logs are read as before; the line of the login session of Star Citizen 5 last.
+static ACCOUNT_RES: LazyLock<[Regex; 3]> = LazyLock::new(|| {
     [
         Regex::new(r"User Login Success - Handle\[([^\]\r\n]+)\]").expect("fester Ausdruck"),
         Regex::new(&format!(r" - name ({PY_NONSPACE}+) - state STATE_CURRENT")).expect("fester Ausdruck"),
+        Regex::new(r"<CLoginSession>[^\r\n]*?Fully authenticated : handle\[([^\]\r\n]+)\]").expect("fester Ausdruck"),
     ]
 });
 
@@ -248,6 +251,35 @@ mod tests {
         // Python counts the separators \x1c to \x1f as whitespace.
         assert_eq!(account_from_text("User Login Success - Handle[\u{1f}Erst\u{1c}]"), s("Erst"));
         assert_eq!(account_from_text(" - name Zw\u{1f}eit - state STATE_CURRENT"), None);
+    }
+
+    /// The line of the login of Star Citizen 5 as the log of the PTU has it.
+    const LOGIN_5: &str = "<2026-11-06T07:28:47.909Z> [Notice] <CLoginSession> [CompleteAuthentication] {success} \
+                           Fully authenticated : handle[Xharig] hub[1] in 7.9s [Team_GameServices][Login]";
+
+    #[test]
+    fn the_handle_is_read_from_the_login_of_star_citizen_5_and_the_older_lines_keep_their_place() {
+        assert_eq!(account_from_text(LOGIN_5), s("Xharig"));
+        // The character line of the new game (state unspecified) says nothing of the player.
+        let new_character = "<AccountLoginCharacterStatus_Character> Character: x - name Xharig - state STATE_UNSPECIFIED";
+        assert_eq!(account_from_text(new_character), None);
+        assert_eq!(account_from_text(&format!("{new_character}\n{LOGIN_5}")), s("Xharig"));
+        // A log that has the old lines is read as before, the new line comes last.
+        let old = "<Legacy login response> [CIG-net] User Login Success - Handle[Alt] - Time";
+        assert_eq!(account_from_text(&format!("{LOGIN_5}\n{old}")), s("Alt"));
+        // Only the line of the login session counts, and an empty handle gives no name.
+        assert_eq!(account_from_text("<Party> Fully authenticated : handle[Fremd]"), None);
+        assert_eq!(account_from_text("<CLoginSession> Fully authenticated : handle[] hub[1]"), None);
+    }
+
+    #[test]
+    fn the_handle_of_a_log_of_star_citizen_5_is_found_in_the_file() {
+        let dir = std::env::temp_dir().join(format!("versekit-logscan-5-{}", crate::testdir::run_tag()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("ptu.log");
+        std::fs::write(&file, format!("<2026-11-06T07:28:40.000Z> [Notice] start\n{LOGIN_5}\n")).unwrap();
+        assert_eq!(account_of_file(&file), s("Xharig"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

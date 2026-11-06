@@ -317,7 +317,7 @@ mod tests {
         assert!(person.ideas.contains(&"s_dkv_shockwaffel_idee"), "{:?}", person.ideas);
         for (lang, bar) in [(Lang::De, "Info-Leiste"), (Lang::En, "info bar")] {
             let text = text_in(lang, "s_dkv_shockwaffel_idee").unwrap_or_default();
-            assert!(text.contains(bar), "{lang:?}: {text}");
+            assert!(text.to_lowercase().contains(&bar.to_lowercase()), "{lang:?}: {text}");
         }
     }
 

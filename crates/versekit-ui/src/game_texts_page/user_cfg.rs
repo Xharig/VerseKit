@@ -199,18 +199,24 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
     if !channels.iter().any(|(_, folder)| *folder == block.folder) {
         block.folder = channels[0].1.clone();
     }
-    if channels.len() > 1 {
-        ui.horizontal_wrapped(|row| {
-            row.label(t("s_uc_kanal"));
-            for (name, folder) in &channels {
-                let kind = if *folder == block.folder { ButtonKind::Strong } else { ButtonKind::Normal };
-                if row.add(widgets::Button::new(name, kind, scheme)).clicked() && *folder != block.folder {
-                    block.folder.clone_from(folder);
-                    block.said = None;
-                }
+    // Every channel of the one list, in its order; one that is not installed stands grey with the reason.
+    let missing = t("s_uc_nicht_installiert");
+    ui.horizontal_wrapped(|row| {
+        row.label(t("s_uc_kanal"));
+        for name in versekit_core::paths::CHANNELS {
+            let found = channels.iter().find(|(channel, _)| channel == name);
+            let chosen = found.is_some_and(|(_, folder)| *folder == block.folder);
+            let kind = if chosen { ButtonKind::Strong } else { ButtonKind::Normal };
+            let button = widgets::Button::new(name, kind, scheme).blocked(found.is_none().then_some(missing.as_str()));
+            if row.add(button).clicked()
+                && let Some((_, folder)) = found
+                && *folder != block.folder
+            {
+                block.folder.clone_from(folder);
+                block.said = None;
             }
-        });
-    }
+        }
+    });
     if block.read_for.as_deref() != Some(block.folder.as_str()) {
         block.reload();
     }

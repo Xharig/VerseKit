@@ -273,6 +273,8 @@ pub struct StockState {
     kind: Option<Kind>,
     place: String,
     purpose: usize,
+    /// The list shows only the rows the Basetool does not get.
+    only_gaps: bool,
     pub search: String,
     sort: Column,
     descending: bool,
@@ -342,6 +344,7 @@ impl Default for StockState {
             kind: None,
             place: String::new(),
             purpose: 0,
+            only_gaps: false,
             search: String::new(),
             sort: Column::Name,
             descending: false,
@@ -446,6 +449,73 @@ impl StockState {
     pub(crate) fn book_goods(&mut self, goods: &str, amount: &str, place: &str) {
         self.trade_form = TradeForm { goods: goods.into(), amount: amount.into(), place: place.into(), ..TradeForm::default() };
         self.save_trade();
+    }
+
+    /// The error at the place field of the material form (tests).
+    #[cfg(test)]
+    pub(crate) fn place_error(&self) -> Option<String> {
+        self.raw_form.errors.place.clone()
+    }
+
+    /// The error at the place field of the goods form (tests).
+    #[cfg(test)]
+    pub(crate) fn trade_place_error(&self) -> Option<String> {
+        self.trade_form.errors.place.clone()
+    }
+
+    /// The places the three forms start on: material, goods, items (tests).
+    #[cfg(test)]
+    pub(crate) fn form_places(&self) -> [String; 3] {
+        [self.raw_form.place.clone(), self.trade_form.place.clone(), self.item_form.place.clone()]
+    }
+
+    /// Changes the amount of a material entry through the form (tests).
+    #[cfg(test)]
+    pub(crate) fn change_raw(&mut self, index: usize, amount: &str) {
+        self.edit(Store::Raw, index);
+        self.raw_form.amount = amount.into();
+        self.save_raw();
+    }
+
+    /// Gives a material entry a place through the form (tests).
+    #[cfg(test)]
+    pub(crate) fn change_raw_place(&mut self, index: usize, place: &str) {
+        self.edit(Store::Raw, index);
+        self.raw_form.place = place.into();
+        self.save_raw();
+    }
+
+    /// Books the lines of the refinery field at `place` (tests).
+    #[cfg(test)]
+    pub(crate) fn book_refinery_lines(&mut self, text: &str, place: &str) {
+        self.refinery_text = text.into();
+        self.refinery_place = place.into();
+        book_refinery(self);
+    }
+
+    /// The click on the line above the list (tests).
+    #[cfg(test)]
+    pub(crate) fn click_gap_line(&mut self) {
+        let rows = self.rows();
+        self.toggle_gaps(&rows);
+    }
+
+    /// Shows the tab of the items or of the materials (tests).
+    #[cfg(test)]
+    pub(crate) fn show_items_tab(&mut self, items: bool) {
+        self.items = items;
+    }
+
+    /// Whether the tab of the items is shown (tests).
+    #[cfg(test)]
+    pub(crate) fn items_tab(&self) -> bool {
+        self.items
+    }
+
+    /// Name and place of the rows the list lets through (tests).
+    #[cfg(test)]
+    pub(crate) fn shown_rows(&self) -> Vec<(String, String)> {
+        visible(self, &self.rows()).into_iter().map(|r| (r.name, r.place)).collect()
     }
 
     /// Entry form and refinery open, for tests of the page around the list.
@@ -699,12 +769,21 @@ impl StockState {
         let f = &mut self.trade_form;
         (f.goods, f.amount, f.cost, f.errors) = (String::new(), String::new(), String::new(), Errors::default());
         f.stolen = false;
+        f.place = self.trade_place.clone();
     }
 
     fn reset_item(&mut self) {
         let f = &mut self.item_form;
         (f.name, f.amount, f.errors) = (String::new(), String::new(), Errors::default());
         f.stolen = false;
+        f.place = self.trade_place.clone();
+    }
+
+    /// Both forms of the trade stock start on the place last booked there.
+    fn remember_trade_place(&mut self, place: &str) {
+        self.trade_place = place.to_string();
+        self.trade_form.place = place.to_string();
+        self.item_form.place = place.to_string();
     }
 
     pub(crate) fn rows(&self) -> Vec<Row> {
@@ -887,9 +966,13 @@ impl StockState {
             return;
         }
         let Some(place) = self.data.official_place(&self.raw_form.place) else {
-            self.raw_form.errors.place = Some(t("s_mlg_ort_fremd"));
+            self.raw_form.errors.place = Some(self.unknown_place_text());
             return;
         };
+        if self.lacks_place(&place) {
+            self.raw_form.errors.place = Some(t("s_ml_ort_fehlt"));
+            return;
+        }
         self.raw_form.place = place.clone();
         let quality =
             stock::parse_number(&self.raw_form.quality).map(stock::py_round_int).filter(|q| (0..=1000).contains(q));
@@ -936,6 +1019,7 @@ impl StockState {
                     amount,
                 });
             }
+            self.split.booked(Store::Raw, &name, &place, Some(quality), false);
             self.raw_place = place;
             self.reset_raw();
             self.say(text);
@@ -958,7 +1042,11 @@ impl StockState {
             return;
         }
         if !self.data.knows_place(&self.trade_form.place) {
-            self.trade_form.errors.place = Some(t("s_mlg_ort_fremd"));
+            self.trade_form.errors.place = Some(self.unknown_place_text());
+            return;
+        }
+        if self.lacks_place(&self.trade_form.place) {
+            self.trade_form.errors.place = Some(t("s_ml_ort_fehlt"));
             return;
         }
         let f = self.trade_form.clone();
@@ -997,7 +1085,8 @@ impl StockState {
                     amount,
                 });
             }
-            self.trade_place = f.place;
+            self.split.booked(Store::Trade, &name, &f.place, None, f.stolen);
+            self.remember_trade_place(&f.place);
             let form = &mut self.trade_form;
             (form.goods, form.amount, form.cost) = (String::new(), String::new(), String::new());
             self.say(t("s_hl_gebucht"));
@@ -1021,7 +1110,11 @@ impl StockState {
             return;
         }
         if !self.data.knows_place(&self.item_form.place) {
-            self.item_form.errors.place = Some(t("s_mlg_ort_fremd"));
+            self.item_form.errors.place = Some(self.unknown_place_text());
+            return;
+        }
+        if self.lacks_place(&self.item_form.place) {
+            self.item_form.errors.place = Some(t("s_ml_ort_fehlt"));
             return;
         }
         let number = |v: &Value| match v {
@@ -1063,7 +1156,8 @@ impl StockState {
                     amount,
                 });
             }
-            self.trade_place = f.place;
+            self.split.booked(Store::Trade, &name, &f.place, None, f.stolen);
+            self.remember_trade_place(&f.place);
             (self.item_form.name, self.item_form.amount) = (String::new(), String::new());
             self.say(t("s_hl_gebucht"));
         }
@@ -1243,7 +1337,11 @@ impl StockState {
     /// Whether search or a filter narrows the list (for the reset button in
     /// the page head).
     pub fn is_narrowed(&self) -> bool {
-        !self.search.trim().is_empty() || self.kind.is_some() || !self.place.is_empty() || self.purpose != 0
+        !self.search.trim().is_empty()
+            || self.kind.is_some()
+            || !self.place.is_empty()
+            || self.purpose != 0
+            || self.only_gaps
     }
 
     /// Back to the whole stock of the tab.
@@ -1252,6 +1350,31 @@ impl StockState {
         self.kind = None;
         self.place.clear();
         self.purpose = 0;
+        self.only_gaps = false;
+    }
+
+    /// The line above the list was clicked: only the rows the Basetool does not get, or all again.
+    fn toggle_gaps(&mut self, rows: &[Row]) {
+        if self.only_gaps {
+            self.only_gaps = false;
+            return;
+        }
+        self.reset();
+        self.split.set_scope_index(0);
+        self.only_gaps = true;
+        if !rows.iter().any(|r| r.item == self.items && self.split.gap(r).is_some()) {
+            self.items = !self.items;
+        }
+    }
+
+    /// The error of a place that is not in the list: with the sync on, an empty field is no way out.
+    fn unknown_place_text(&self) -> String {
+        t(if self.split.place_required() { "s_ml_ort_fremd_pflicht" } else { "s_mlg_ort_fremd" })
+    }
+
+    /// Whether the sync needs a place that is missing in `place`.
+    fn lacks_place(&self, place: &str) -> bool {
+        self.split.place_required() && versekit_core::text::py_strip(place).is_empty()
     }
 
     /// Opens a panel, or closes it when it is open; an open question goes.
@@ -1281,6 +1404,7 @@ fn visible(state: &StockState, rows: &[Row]) -> Vec<Row> {
         .filter(|r| state.items || state.purpose != 1 || r.store == Store::Raw)
         .filter(|r| state.items || state.purpose != 2 || r.store == Store::Trade)
         .filter(|r| search.is_empty() || lower(&r.name).contains(&search) || lower(&r.place).contains(&search))
+        .filter(|r| !state.only_gaps || state.split.gap(r).is_some())
         .filter_map(|r| state.split.scoped(r))
         .collect()
 }
@@ -1459,16 +1583,21 @@ fn cells(state: &StockState, scheme: &Scheme, lang: Lang, line: &Line, columns: 
 
 fn badges_of(state: &StockState, scheme: &Scheme, line: &Line, selling: bool) -> Vec<(String, Color)> {
     let mixed = !state.items && !selling;
+    // What keeps a row from the Basetool comes first, so it stays among the two badges a row shows.
+    let gap_mark = |rows: &[Row]| {
+        rows.iter().find_map(|row| state.split.gap(row)).map(|gap| (crate::stock_share::gap_word(gap), scheme.gold))
+    };
     match line {
         Line::Group(_, rows, _) => {
-            let mut marks = vec![(t(&state.kind_of(&rows[0]).text_key()), scheme.sub)];
+            let mut marks: Vec<(String, Color)> = gap_mark(rows).into_iter().collect();
+            marks.push((t(&state.kind_of(&rows[0]).text_key()), scheme.sub));
             if mixed && rows.iter().any(|r| r.store == Store::Trade) {
                 marks.push((t("s_ml_verkauf"), scheme.accent));
             }
             marks
         }
         Line::Post(row, nested) => {
-            let mut marks = Vec::new();
+            let mut marks: Vec<(String, Color)> = gap_mark(std::slice::from_ref(row)).into_iter().collect();
             if !nested {
                 marks.push((t(&state.kind_of(row).text_key()), scheme.sub));
             }
@@ -1602,6 +1731,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     }
     tabs(ui, scheme, state, &rows);
     ui.add_space(GAP);
+    gap_line(ui, scheme, state, &rows);
     if state.items {
         let now = ui.input(|i| i.time);
         state.look_at_suggestions(now, false);
@@ -1613,6 +1743,22 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     ui.add_space(4.0);
     list(ui, scheme, state, &rows, lang);
     show_message(ui, scheme, state);
+}
+
+/// The line above the list that says how many rows the Basetool does not get; a click narrows the list to them.
+fn gap_line(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, rows: &[Row]) {
+    let Some(text) = state.split.gaps(rows).text() else {
+        state.only_gaps = false;
+        return;
+    };
+    let word = t(if state.only_gaps { "s_ml_luecke_alle" } else { "s_ml_luecke_nur" });
+    let kind = if state.only_gaps { ButtonKind::Strong } else { ButtonKind::Normal };
+    let spoken = format!("{text}, {word}");
+    let button = widgets::Button::new(&text, kind, scheme).icon("triangle-alert").wrapping().spoken(&spoken);
+    if ui.add(button).on_hover_text(&word).clicked() {
+        state.toggle_gaps(rows);
+    }
+    ui.add_space(GAP);
 }
 
 fn show_message(ui: &Ui, scheme: &Scheme, state: &mut StockState) {
@@ -1755,20 +1901,32 @@ fn edit_share_buttons(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
 }
 
 /// Save, cancel and delete while editing; add otherwise. Returns the clicks.
-fn form_buttons(ui: &mut Ui, scheme: &Scheme, editing: bool, raw: bool) -> (bool, bool, bool) {
+fn form_buttons(ui: &mut Ui, scheme: &Scheme, editing: bool, raw: bool, no_place: bool) -> (bool, bool, bool) {
     let (mut save, mut cancel, mut delete) = (false, false, false);
     ui.add_space(GAP);
+    let missing = t("s_ml_ort_fehlt");
     ui.horizontal_wrapped(|row| {
         let (save_key, cancel_key) =
             if raw { ("s_lg_speichern", "s_lg_abbrechen") } else { ("s_hl_speichern", "s_hl_abbrechen") };
+        let key = if editing {
+            save_key
+        } else if raw {
+            "s_lg_eintragen"
+        } else {
+            "s_hl_buchen"
+        };
+        let word = t(key);
+        // Without a place the button stays grey and says why, next to it as well as on hover.
+        save = row
+            .add(widgets::Button::new(&word, ButtonKind::Strong, scheme).blocked(no_place.then_some(missing.as_str())))
+            .clicked();
+        if no_place {
+            row.label(RichText::new(&missing).small().color(color(scheme.gold)));
+        }
         if editing {
-            save = row.add(widgets::Button::new(&t(save_key), ButtonKind::Strong, scheme)).clicked();
             cancel = row.add(widgets::Button::new(&t(cancel_key), ButtonKind::Normal, scheme)).clicked();
             row.add_space(16.0);
             delete = row.add(widgets::Button::new(&t("s_lg_posten_weg"), ButtonKind::Danger, scheme)).clicked();
-        } else {
-            let key = if raw { "s_lg_eintragen" } else { "s_hl_buchen" };
-            save = row.add(widgets::Button::new(&t(key), ButtonKind::Strong, scheme)).clicked();
         }
     });
     (save, cancel, delete)
@@ -1854,7 +2012,7 @@ fn raw_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
             enter |= plain_field(col, scheme, &mut f.quality, &t("s_pl_qualitaet"), &mut f.errors.quality);
         }
     });
-    field_label(ui, &t("s_lg_ort"));
+    field_label(ui, &t(if state.split.place_required() { "s_ml_ort" } else { "s_lg_ort" }));
     let f = &mut state.raw_form;
     enter |= suggest_field(ui, scheme, "lager-ort", &t("s_mlg_pl_ort"), &mut f.place, &places, &mut f.errors.place);
     let editing = state.editing_index(Store::Raw);
@@ -1865,7 +2023,8 @@ fn raw_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         state.split.show_for(ui, scheme);
     }
     edit_share_buttons(ui, scheme, state);
-    let (save, cancel, delete) = form_buttons(ui, scheme, editing.is_some(), true);
+    let no_place = state.lacks_place(&state.raw_form.place);
+    let (save, cancel, delete) = form_buttons(ui, scheme, editing.is_some(), true, no_place);
     form_actions(state, Form::Raw, save || enter, cancel, delete.then_some(editing).flatten().map(|i| (Store::Raw, i)));
 }
 
@@ -1888,6 +2047,7 @@ fn trade_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     let mut enter = false;
     let goods = state.data.goods();
     let places = state.data.places().to_vec();
+    let required = state.split.place_required();
     let piece = state.editing.as_ref().is_some_and(|e| stock::is_pieces(&e.entry));
     let f = &mut state.trade_form;
     field_label(ui, &t("s_hl_ware"));
@@ -1907,7 +2067,7 @@ fn trade_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     let f = &mut state.trade_form;
     field_label(ui, &t("s_mlg_einkauf"));
     enter |= plain_field(ui, scheme, &mut f.cost, &t("s_mlg_pl_einkauf"), &mut f.errors.cost);
-    field_label(ui, &t("s_hl_ort"));
+    field_label(ui, &t(if required { "s_ml_ort" } else { "s_hl_ort" }));
     enter |=
         suggest_field(ui, scheme, "lager-handelsort", &t("s_mlg_pl_ort"), &mut f.place, &places, &mut f.errors.place);
     ui.add_space(4.0);
@@ -1917,7 +2077,8 @@ fn trade_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         state.split.show_for(ui, scheme);
     }
     edit_share_buttons(ui, scheme, state);
-    let (save, cancel, delete) = form_buttons(ui, scheme, editing.is_some(), false);
+    let no_place = state.lacks_place(&state.trade_form.place);
+    let (save, cancel, delete) = form_buttons(ui, scheme, editing.is_some(), false, no_place);
     form_actions(
         state,
         Form::Trade,
@@ -1930,6 +2091,7 @@ fn trade_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
 fn item_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     let mut enter = false;
     let places = state.data.places().to_vec();
+    let required = state.split.place_required();
     let f = &mut state.item_form;
     field_label(ui, &t("s_ml_item"));
     enter |= suggest_field(
@@ -1943,7 +2105,7 @@ fn item_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     );
     field_label(ui, &t("s_hl_menge_stueck"));
     enter |= plain_field(ui, scheme, &mut f.amount, &t("s_ml_stueck_h"), &mut f.errors.amount);
-    field_label(ui, &t("s_hl_ort"));
+    field_label(ui, &t(if required { "s_ml_ort" } else { "s_hl_ort" }));
     enter |= suggest_field(ui, scheme, "lager-itemort", &t("s_mlg_pl_ort"), &mut f.place, &places, &mut f.errors.place);
     ui.add_space(4.0);
     widgets::switch_row(ui, scheme, &t("s_hl_gestohlen"), &mut f.stolen);
@@ -1952,7 +2114,8 @@ fn item_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         state.split.show_for(ui, scheme);
     }
     edit_share_buttons(ui, scheme, state);
-    let (save, cancel, delete) = form_buttons(ui, scheme, editing.is_some(), false);
+    let no_place = state.lacks_place(&state.item_form.place);
+    let (save, cancel, delete) = form_buttons(ui, scheme, editing.is_some(), false, no_place);
     form_actions(
         state,
         Form::Item,
@@ -2041,7 +2204,14 @@ fn refinery_section(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
             scan::read_button(row, scheme, state);
             if !read.entries.is_empty() {
                 let label = tf("s_rf_knopf", &[("0", Arg::Int(read.entries.len() as i64))]);
-                book = row.add(widgets::Button::new(&label, ButtonKind::Strong, scheme)).clicked() || enter;
+                let missing = t("s_ml_ort_fehlt");
+                let no_place = state.lacks_place(&state.refinery_place);
+                let button = widgets::Button::new(&label, ButtonKind::Strong, scheme)
+                    .blocked(no_place.then_some(missing.as_str()));
+                book = row.add(button).clicked() || enter;
+                if no_place {
+                    row.label(RichText::new(&missing).small().color(color(scheme.gold)));
+                }
             }
         });
         scan::notes(ui, scheme, state);
@@ -2056,7 +2226,11 @@ fn refinery_section(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
 fn book_refinery(state: &mut StockState) {
     state.refinery_error = None;
     if !state.data.knows_place(state.refinery_place.trim()) {
-        state.refinery_error = Some(t("s_mlg_ort_fremd"));
+        state.refinery_error = Some(state.unknown_place_text());
+        return;
+    }
+    if state.lacks_place(&state.refinery_place) {
+        state.refinery_error = Some(t("s_ml_ort_fehlt"));
         return;
     }
     state.reload();
@@ -2067,6 +2241,9 @@ fn book_refinery(state: &mut StockState) {
         stock::raw_add(&mut state.raw, &state.data, &y.material, y.amount, Some(y.quality), &place);
     }
     if state.write(Store::Raw) {
+        for y in &read.entries {
+            state.split.booked(Store::Raw, &y.material, &place, Some(y.quality), false);
+        }
         let typed: Vec<(String, f64, i64)> = read.entries.iter().map(|y| (y.material.clone(), y.amount, y.quality)).collect();
         scan::learn_from_booking(state, &typed);
         let left: Vec<String> = read.errors.iter().map(|(line, _)| line.clone()).collect();
@@ -2266,7 +2443,7 @@ fn list(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, rows: &[Row], lang
     let editing = state.editing.as_ref().map(|e| (e.store, e.index));
     let now = ui.input(|i| i.time);
     let mut act = None;
-    let drawn = widgets::list_frame(ui, scheme, |frame| {
+    let drawn = widgets::list_frame_marked(ui, scheme, |frame| {
         frame.set_width(frame.available_width() - crate::layout::SAFETY);
         let area = egui::ScrollArea::vertical()
             .id_salt("lager-liste")
@@ -2416,10 +2593,19 @@ fn draw_line(
     let marks = badges_of(state, scheme, line, table.selling);
     let (tag, extra) = name_extras(state, line);
     let response = ui.interact(rect, id, Sense::click());
+    // A row the Basetool refused says on hover what it answered.
+    let refusal = match line {
+        Line::Post(row, _) => state.split.refusal_text(row),
+        Line::Group(..) => None,
+    };
+    if let Some(text) = &refusal {
+        response.clone().on_hover_text(text);
+    }
     let mut spoken: Vec<&str> = vec![name.as_str()];
     spoken.extend(tag.as_deref());
     spoken.extend(marks.iter().map(|(m, _)| m.as_str()));
     spoken.extend(Some(extra.as_str()).filter(|e| !e.is_empty()));
+    spoken.extend(refusal.as_deref());
     spoken.extend(texts.iter().map(|(t, _)| t.as_str()).filter(|t| !t.is_empty()));
     let state_word = match line {
         Line::Group(_, _, true) => Some(t("s_mlg_offen")),
@@ -2513,15 +2699,19 @@ fn draw_line(
             let mut act = None;
             // Of a part of the lot only sharing and taking back count; edit and delete are for the whole row.
             let whole = state.split.whole(row);
-            if hovered {
-                if whole {
-                    if named_icon(&mut buttons, scheme, "trash-2", &t("s_lg_weg")).clicked() {
-                        act = Some(Act::Delete(row.store, row.index));
-                    }
-                    if named_icon(&mut buttons, scheme, "pencil", &t("s_ml_bearbeiten")).clicked() {
-                        act = Some(Act::Edit(row.store, row.index));
-                    }
+            let pending = state.split.pending(row);
+            if hovered && whole {
+                if named_icon(&mut buttons, scheme, "trash-2", &t("s_lg_weg")).clicked() {
+                    act = Some(Act::Delete(row.store, row.index));
                 }
+                if named_icon(&mut buttons, scheme, "pencil", &t("s_ml_bearbeiten")).clicked() {
+                    act = Some(Act::Edit(row.store, row.index));
+                }
+            } else if pending && whole {
+                // The place of the edit and delete buttons, which show on hover.
+                buttons.add_space(2.0 * (widgets::ICON_BUTTON_SIZE + buttons.spacing().item_spacing.x));
+            }
+            if hovered {
                 for kind in state.split.actions(row).into_iter().rev() {
                     let (icon, key) = match kind {
                         ShareKind::Share => ("users", "s_ml_teilen"),
@@ -2531,6 +2721,10 @@ fn draw_line(
                         act = Some(Act::Share(row.store, row.index, kind));
                     }
                 }
+            }
+            // Sharing waits for the lot at the Basetool: the button is there from the start, greyed, and says so.
+            if pending {
+                widgets::icon_button_blocked(&mut buttons, scheme, "users", &t("s_ml_abgleich"));
             }
             if act.is_none() && whole && response.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 act = Some(Act::Edit(row.store, row.index));
@@ -3260,6 +3454,47 @@ mod tests {
         assert_eq!(state.raw_place, "Levski");
         assert_eq!(state.raw_form.place, "Levski");
         assert!(state.setting_values().contains(&(SETTING_RAW_PLACE, Value::str("Levski"))));
+    }
+
+    #[test]
+    fn the_place_of_the_last_entry_starts_every_form_and_survives_cancelling_and_a_restart() {
+        let (mut state, folder) =
+            with_scratch("ort-bleibt", r#"{"format": 1, "posten": []}"#, r#"{"format": 1, "posten": []}"#);
+        state.raw_form = RawForm {
+            material: "Iron".into(),
+            amount: "1".into(),
+            quality: "1".into(),
+            place: "Levski".into(),
+            ..RawForm::default()
+        };
+        state.save_raw();
+        assert_eq!(state.form_places()[0], "Levski", "the next material starts on the same place");
+        // Goods booked at two places: the form starts on the one booked last, also for items.
+        for place in ["Levski", "Seraphim Station"] {
+            state.trade_form =
+                TradeForm { goods: "Laranite".into(), amount: "5".into(), place: place.into(), ..TradeForm::default() };
+            state.save_trade();
+            assert_eq!(state.trade_form.errors, Errors::default(), "{place}");
+        }
+        assert_eq!(state.form_places()[1..], ["Seraphim Station", "Seraphim Station"], "goods and items share it");
+        // Editing the first goods entry shows its place; cancelling brings the last one back.
+        let first = state.rows().iter().find(|r| r.store == Store::Trade && r.place == "Levski").map(|r| r.index);
+        state.edit(Store::Trade, first.expect("the goods at Levski"));
+        assert_eq!(state.trade_form.place, "Levski");
+        state.stop_editing();
+        assert_eq!(state.form_places()[1..], ["Seraphim Station", "Seraphim Station"]);
+        state.edit(Store::Raw, 0);
+        state.raw_form.place = "Orison".into();
+        state.stop_editing();
+        assert_eq!(state.form_places()[0], "Levski", "a place typed and not booked is not remembered");
+        // Written as the window writes the settings, read again at the next start.
+        let stored = Value::Object(state.setting_values().into_iter().map(|(k, v)| (k.to_string(), v)).collect());
+        let (paths, home) =
+            data_folder("ort-neustart", &[("einstellungen.json", &jsonio::dumps(&stored, None, false))]);
+        let again = StockState::with_files(&paths);
+        assert_eq!(again.form_places(), ["Levski", "Seraphim Station", "Seraphim Station"]);
+        let _ = std::fs::remove_dir_all(&folder);
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     /// The page fits a narrow window at every size, also with goods for sale.

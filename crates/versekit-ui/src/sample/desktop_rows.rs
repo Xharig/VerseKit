@@ -49,6 +49,11 @@ pub(super) enum Wish {
 /// The row of the bridge to scmdb.net for [`DesktopRows::control`]; it stands in the group Datenschutz.
 pub(super) const SCMDB_ROW: usize = 3;
 
+/// Whether the message of the system can show: on Windows only as a balloon at the icon next to the clock.
+fn notice_reachable_on(windows: bool, tray: bool) -> bool {
+    !windows || tray
+}
+
 /// The state of the rows.
 pub(super) struct DesktopRows {
     pub tray: bool,
@@ -61,6 +66,8 @@ pub(super) struct DesktopRows {
     menu_present: bool,
     /// The command for a shortcut of the desktop, where the hotkey cannot reach everywhere.
     pub shortcut: Option<String>,
+    /// Is this Windows, where the message of the system hangs on the icon next to the clock?
+    windows: bool,
 }
 
 impl Default for DesktopRows {
@@ -72,6 +79,7 @@ impl Default for DesktopRows {
             notice_possible: true,
             menu_present: false,
             shortcut: None,
+            windows: cfg!(windows),
         }
     }
 }
@@ -85,6 +93,12 @@ impl DesktopRows {
         self.notice_possible = cfg!(windows) || notify::available();
         self.menu_present = desktop_entry::present(&paths.host);
         self.shortcut = desktop_entry::shortcut_command(&paths.host);
+    }
+
+    /// Can the message of the system reach the player with the icon as it is set? On Windows it needs the icon next
+    /// to the clock, elsewhere nothing.
+    pub fn notice_reachable(&self) -> bool {
+        notice_reachable_on(self.windows, self.tray)
     }
 
     /// The settings as stored, under the keys the overlay reads.
@@ -109,6 +123,13 @@ impl DesktopRows {
                 }
             }
             1 if !self.notice_possible => reason(row, "s_systemmeldung_fehlt"),
+            // On Windows the message is a balloon at the icon next to the clock: without the icon the switch is
+            // grey and says what it needs.
+            1 if !self.notice_reachable() => {
+                let mut shown = self.notice;
+                row.add_enabled(false, widgets::Toggle::new(&mut shown, scheme))
+                    .on_disabled_hover_text(t("s_systemmeldung_braucht"));
+            }
             1 => {
                 if row.add(widgets::Toggle::new(&mut self.notice, scheme)).changed() {
                     return Some(Wish::Notice(self.notice));
@@ -320,10 +341,61 @@ mod tests {
         assert_eq!(in_row(&t("s_tray"), &t("s_nur_win")), !cfg!(windows), "the icon: the reason off Windows");
         let message = cfg!(windows) || notify::available();
         assert_eq!(in_row(&t("s_systemmeldung"), &t("s_systemmeldung_fehlt")), !message, "notify-send missing");
+        // The entry in the application menu: a row with its button where there are such menus, no row elsewhere.
         let menus = desktop_entry::available();
-        assert_eq!(in_row(&t("s_menue"), &t("s_ei_nur_linux")), !menus, "the menu entry: the reason on Windows");
-        assert_eq!(in_row(&t("s_menue"), &t("s_menue_anlegen")), menus, "the button where there are such menus");
+        assert_eq!(row_of(&t("s_menue")).is_some(), menus, "the row only where there are such menus: {texts:?}");
+        if menus {
+            assert!(in_row(&t("s_menue"), &t("s_menue_anlegen")), "the button where there are such menus");
+        }
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// One click on the switch of the message of the system (row 1), as a person makes it: what the row asks for
+    /// and the state of the switch afterwards.
+    fn click_the_message(rows: &mut DesktopRows) -> (Option<Wish>, bool) {
+        /// One frame of the row: where it stands and what it asked for.
+        fn frame(ctx: &egui::Context, rows: &mut DesktopRows, events: Vec<egui::Event>) -> (egui::Rect, Option<Wish>) {
+            let scheme = versekit_core::theme::by_id("original").expect("original");
+            let input = egui::RawInput { events, ..Default::default() };
+            let mut shown = (egui::Rect::NOTHING, None);
+            let mut output = ctx.run_ui(input, |ui| {
+                let row = ui.scope(|ui| rows.control(ui, scheme, 1));
+                shown = (row.response.rect, row.inner);
+            });
+            output.textures_delta.clear();
+            shown
+        }
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let at = frame(&ctx, rows, Vec::new()).0.center();
+        let button = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        let mut wish = None;
+        for events in [vec![egui::Event::PointerMoved(at)], vec![button(true)], vec![button(false)], Vec::new()] {
+            wish = wish.or(frame(&ctx, rows, events).1);
+        }
+        (wish, rows.notice)
+    }
+
+    /// On Windows the message of the system is a balloon at the icon next to the clock: without the icon its
+    /// switch is grey and a click does nothing; with the icon the click switches it. Elsewhere the icon does not
+    /// matter.
+    #[test]
+    fn without_the_icon_on_windows_the_switch_of_the_message_is_grey_and_does_nothing() {
+        let _language = crate::language_lock();
+        language::set_language(language::Choice::De);
+        let mut grey = DesktopRows { tray: false, notice: true, windows: true, ..DesktopRows::default() };
+        assert!(!grey.notice_reachable());
+        assert_eq!(click_the_message(&mut grey), (None, true), "a grey switch keeps its state");
+        let mut with_icon = DesktopRows { tray: true, notice: true, windows: true, ..DesktopRows::default() };
+        assert_eq!(click_the_message(&mut with_icon), (Some(Wish::Notice(false)), false), "the click lands");
+        let mut linux = DesktopRows { tray: false, notice: true, windows: false, ..DesktopRows::default() };
+        assert!(linux.notice_reachable(), "off Windows the icon does not matter");
+        assert_eq!(click_the_message(&mut linux), (Some(Wish::Notice(false)), false));
     }
 
     #[test]
@@ -335,6 +407,8 @@ mod tests {
             "s_nur_win",
             "s_systemmeldung",
             "s_systemmeldung_h",
+            "s_systemmeldung_h_linux",
+            "s_systemmeldung_braucht",
             "s_systemmeldung_fehlt",
             "s_menue",
             "s_menue_h",

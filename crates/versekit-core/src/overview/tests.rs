@@ -170,6 +170,17 @@ fn the_pinned_evaluation_page_counts_as_the_overview_of_the_statistics() {
     assert_eq!(page_key("statistik"), Some("hf_st_uebersicht"));
 }
 
+/// The shader cache is the last card of the graphics page since 5.1.4: a pinned `shader` is the page Grafik, once.
+#[test]
+fn the_pinned_shader_cache_counts_as_the_graphics_page() {
+    let (p, root) = paths("pinned-shader", r#"{"karten_angeheftet": ["shader", "hangar", "grafik"]}"#);
+    assert_eq!(pinned(&p), ids(&["grafik", "hangar"]), "once, at the place of the first");
+    let _ = std::fs::remove_dir_all(root);
+    assert_eq!(resolve("shader").0, "grafik");
+    assert_eq!(page_key("shader"), None, "no page of its own any more");
+    assert_eq!(page_key(resolve("shader").0), Some("hf_grafik"));
+}
+
 #[test]
 fn every_page_and_tile_target_has_its_key() {
     assert_eq!(page_key("laeden"), Some("hf_laeden"));

@@ -367,7 +367,7 @@ fn sample_overview(patches: &[(String, Vec<Change>)], offered: &[Offered]) -> Ve
 }
 
 fn small(ui: &mut Ui, text: &str, tone: Color) {
-    ui.add(egui::Label::new(RichText::new(text).small().color(color(tone))).wrap());
+    widgets::reading(ui, RichText::new(text).small().color(color(tone)));
 }
 
 /// The colour of a tone of a changed field: up in the accent, down in red, gone in gold, the same muted.
@@ -385,26 +385,6 @@ fn tone_colour(scheme: &Scheme, tone: &Tone) -> Color {
 pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     state.tick(ui.ctx());
     small(ui, &t("s_pav_lead"), scheme.sub);
-    ui.add_space(4.0);
-    small(ui, &t("s_pav_sammlung"), scheme.sub);
-    ui.add_space(GAP);
-    ui.horizontal_wrapped(|row| {
-        let word = t("s_pa_suchen");
-        let busy = state.sync_job.is_some();
-        if row.add_enabled(!busy, widgets::Button::new(&word, ButtonKind::Normal, scheme)).clicked() {
-            state.search(row.ctx());
-        }
-        let said = match &state.said {
-            None => None,
-            Some(Said::Running) => Some(t("s_pa_laeuft")),
-            Some(Said::New(n)) => Some(tf("s_pa_neu", &[("n", Arg::from(*n))])),
-            Some(Said::Nothing) => Some(t("s_pav_keine_neuen")),
-            Some(Said::NoNet) => Some(t("s_pa_kein_netz")),
-        };
-        if let Some(said) = said {
-            row.add(egui::Label::new(RichText::new(said).small().color(color(scheme.sub))).wrap());
-        }
-    });
     ui.add_space(GAP);
     patch_list(ui, scheme, state);
     ui.add_space(GAP);
@@ -413,15 +393,38 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     items(ui, scheme, state);
 }
 
-/// The patches with changes, in a list of its own height; the empty ones counted below it.
+/// The card of the patches: the collection, the button for new patches with its line, the patches with changes in
+/// a list of its own height, the empty ones counted below it.
 fn patch_list(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     let shown: Vec<Patch> = state.list.iter().filter(|p| !p.empty).cloned().collect();
     let left_out = state.list.len() - shown.len();
-    if !shown.is_empty() {
-        let row_height = ui.spacing().interact_size.y + ui.spacing().item_spacing.y + 6.0;
-        let mut picked = None;
-        widgets::card(ui, scheme, |ui| {
-            ui.set_width(ui.available_width());
+    let row_height = ui.spacing().interact_size.y + ui.spacing().item_spacing.y + 6.0;
+    let mut picked = None;
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_pa_patches_kopf"));
+        ui.add_space(4.0);
+        small(ui, &t("s_pav_sammlung"), scheme.sub);
+        ui.add_space(6.0);
+        ui.horizontal_wrapped(|row| {
+            let word = t("s_pa_suchen");
+            let busy = state.sync_job.is_some();
+            if row.add_enabled(!busy, widgets::Button::new(&word, ButtonKind::Normal, scheme)).clicked() {
+                state.search(row.ctx());
+            }
+            let said = match &state.said {
+                None => None,
+                Some(Said::Running) => Some(t("s_pa_laeuft")),
+                Some(Said::New(n)) => Some(tf("s_pa_neu", &[("n", Arg::from(*n))])),
+                Some(Said::Nothing) => Some(t("s_pav_keine_neuen")),
+                Some(Said::NoNet) => Some(t("s_pa_kein_netz")),
+            };
+            if let Some(said) = said {
+                row.add(egui::Label::new(RichText::new(said).small().color(color(scheme.sub))).wrap());
+            }
+        });
+        if !shown.is_empty() {
+            ui.add_space(6.0);
             let area = ScrollArea::vertical()
                 .id_salt("patch-liste")
                 .max_height(LIST_ROWS * row_height)
@@ -445,18 +448,18 @@ fn patch_list(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
                     });
                 }
             });
-        });
-        if let Some(version) = picked {
-            state.choose(&version);
         }
-    }
-    if left_out > 0 {
-        ui.add_space(4.0);
-        small(ui, &tf("s_pav_leere_weg", &[("n", Arg::from(left_out))]), scheme.sub);
+        if left_out > 0 {
+            ui.add_space(4.0);
+            small(ui, &tf("s_pav_leere_weg", &[("n", Arg::from(left_out))]), scheme.sub);
+        }
+    });
+    if let Some(version) = picked {
+        state.choose(&version);
     }
 }
 
-/// The areas of the patch chosen with their counts, all of them first.
+/// The areas of the patch chosen with their counts, all of them first, in a card of their own.
 fn area_choice(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     if state.chosen.is_none() || state.areas.is_empty() {
         return;
@@ -466,58 +469,78 @@ fn area_choice(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     let mut choices: Vec<(&str, usize)> = vec![(all_word.as_str(), total)];
     choices.extend(state.areas.iter().map(|(kind, n)| (kind.as_str(), *n)));
     let mut chosen = state.area;
-    if widgets::count_toggles(ui, scheme, &choices, &mut chosen) {
+    let changed = widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_pa_kategorie"));
+        ui.add_space(4.0);
+        widgets::count_toggles(ui, scheme, &choices, &mut chosen)
+    })
+    .inner;
+    if changed {
         state.area = chosen;
     }
 }
 
-/// The items of the area chosen; at most [`SHOWN_AT_MOST`], the rest counted.
+/// The card of the changes: the items of the area chosen, at most [`SHOWN_AT_MOST`], the rest counted; or the line
+/// that says why there are none.
 fn items(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) {
-    let Some(version) = state.chosen.as_deref() else {
-        let knopf = t("s_pa_suchen");
-        let text = if state.stored().is_empty() {
-            tf("s_pav_erst_holen", &[("knopf", Arg::from(knopf))])
-        } else {
-            t("s_pav_waehlen")
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_pa_aenderungen_kopf"));
+        ui.add_space(4.0);
+        let Some(version) = state.chosen.as_deref() else {
+            let knopf = t("s_pa_suchen");
+            let text = if state.stored().is_empty() {
+                tf("s_pav_erst_holen", &[("knopf", Arg::from(knopf))])
+            } else {
+                t("s_pav_waehlen")
+            };
+            small(ui, &text, scheme.sub);
+            return;
         };
-        small(ui, &text, scheme.sub);
-        return;
-    };
-    if !state.kept(version) {
-        let entry = state.list.iter().find(|p| p.version == version);
-        let text = match entry {
-            Some(patch) if !patch.empty => tf(
-                "s_pav_nicht_geholt",
-                &[
-                    ("plus", Arg::from(patch.summary.added)),
-                    ("minus", Arg::from(patch.summary.removed)),
-                    ("tilde", Arg::from(patch.summary.modified)),
-                    ("knopf", Arg::from(t("s_pa_suchen"))),
-                ],
-            ),
-            _ => t("s_pav_leer_klick"),
-        };
-        small(ui, &text, scheme.sub);
-        return;
-    }
-    let wanted = state.area.checked_sub(1).and_then(|i| state.areas.get(i)).map(|(kind, _)| kind.as_str());
-    let shown: Vec<&Change> = state.changes.iter().filter(|c| wanted.is_none_or(|w| c.kind == w)).collect();
-    if shown.is_empty() {
-        small(ui, &t("s_pa_nichts_hier"), scheme.sub);
-        return;
-    }
-    for change in shown.iter().take(SHOWN_AT_MOST) {
-        item(ui, scheme, change);
-        ui.add_space(6.0);
-    }
-    if shown.len() > SHOWN_AT_MOST {
-        small(ui, &tf("s_pa_mehr", &[("n", Arg::from(shown.len() - SHOWN_AT_MOST))]), scheme.sub);
-    }
+        if !state.kept(version) {
+            let entry = state.list.iter().find(|p| p.version == version);
+            let text = match entry {
+                Some(patch) if !patch.empty => tf(
+                    "s_pav_nicht_geholt",
+                    &[
+                        ("plus", Arg::from(patch.summary.added)),
+                        ("minus", Arg::from(patch.summary.removed)),
+                        ("tilde", Arg::from(patch.summary.modified)),
+                        ("knopf", Arg::from(t("s_pa_suchen"))),
+                    ],
+                ),
+                _ => t("s_pav_leer_klick"),
+            };
+            small(ui, &text, scheme.sub);
+            return;
+        }
+        let wanted = state.area.checked_sub(1).and_then(|i| state.areas.get(i)).map(|(kind, _)| kind.as_str());
+        let shown: Vec<&Change> = state.changes.iter().filter(|c| wanted.is_none_or(|w| c.kind == w)).collect();
+        if shown.is_empty() {
+            small(ui, &t("s_pa_nichts_hier"), scheme.sub);
+            return;
+        }
+        widgets::list_frame(ui, scheme, |list| {
+            list.set_width(list.available_width());
+            for (k, change) in shown.iter().take(SHOWN_AT_MOST).enumerate() {
+                if k > 0 {
+                    list.separator();
+                }
+                item(list, scheme, change);
+            }
+        });
+        if shown.len() > SHOWN_AT_MOST {
+            ui.add_space(4.0);
+            small(ui, &tf("s_pa_mehr", &[("n", Arg::from(shown.len() - SHOWN_AT_MOST))]), scheme.sub);
+        }
+    });
 }
 
-/// One item: what happened to it, its name and size, and each changed field.
+/// One item, an entry of the list in the card of the changes: what happened to it, its name and size, and each
+/// changed field.
 fn item(ui: &mut Ui, scheme: &Scheme, change: &Change) {
-    widgets::card(ui, scheme, |ui| {
+    ui.vertical(|ui| {
         ui.set_width(ui.available_width());
         ui.horizontal_wrapped(|row| {
             let (word, tone) = match change.fate {

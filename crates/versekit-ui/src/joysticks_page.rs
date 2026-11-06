@@ -390,7 +390,7 @@ fn list_row(ui: &mut Ui, scheme: &Scheme, row: &Row, columns: (f32, f32)) {
 
 /// A small grey text, wrapped.
 fn small(ui: &mut Ui, scheme: &Scheme, text: &str) {
-    ui.add(egui::Label::new(RichText::new(text).small().color(color(scheme.sub))).wrap());
+    widgets::reading(ui, RichText::new(text).small().color(color(scheme.sub)));
 }
 
 /// The name of a block: the title of its card.
@@ -410,12 +410,12 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut JoystickState, paths:
     state.poll(ui, paths);
     ui.add(egui::Label::new(RichText::new(t("s_js_lead")).small().color(color(scheme.sub))).wrap());
     ui.add_space(GAP);
-    ui.add(egui::Label::new(RichText::new(t("s_js_hinweis")).small()).wrap());
-    ui.add_space(GAP);
     let mut act = None;
     widgets::card(ui, scheme, |ui| {
         ui.set_min_width(ui.available_width());
         act = hub(ui, scheme, state);
+        ui.add_space(GAP);
+        ui.add(egui::Label::new(RichText::new(t("s_js_hinweis")).small().color(color(scheme.sub))).wrap());
     });
     if state.look.is_some() {
         ui.add_space(GAP);

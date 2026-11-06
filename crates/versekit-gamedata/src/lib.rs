@@ -95,7 +95,26 @@ impl GameData {
     ///
     /// [`Error::Archive`] when the file is missing or no readable archive.
     pub fn open_file(path: impl AsRef<Path>) -> Result<Self, Error> {
+        let paths = versekit_core::paths::global();
+        Self::open_file_after(path, &|| versekit_core::archive_lock::may_read(paths), versekit_core::archive_lock::POLL)
+    }
+
+    /// [`GameData::open_file`] with the lock given: waits, asking `closed` every `poll`, until it says that the game is
+    /// closed. A thread of its own reads; this call waits without an error.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Archive`] when the file is missing or no readable archive.
+    pub fn open_file_after(
+        path: impl AsRef<Path>,
+        closed: &dyn Fn() -> bool,
+        poll: std::time::Duration,
+    ) -> Result<Self, Error> {
         let path = path.as_ref().to_path_buf();
+        // A file that is not there is no reading to wait with.
+        if path.is_file() {
+            versekit_core::archive_lock::wait_with(closed, poll);
+        }
         let archive = Archive::open(&path).map_err(|source| Error::Archive { path, source: Box::new(source) })?;
         Ok(Self { archive })
     }
@@ -418,6 +437,47 @@ mod tests {
         assert_eq!(scmdb_build("sc-alpha-4.11.0", "ptu", "13000000").as_deref(), Some("4.11.0-ptu.13000000"));
         assert_eq!(scmdb_build("sc-alpha-4.10.2", "live", ""), None);
         assert_eq!(scmdb_build("main", "live", "1"), None);
+    }
+
+    #[test]
+    fn the_archive_is_opened_only_after_the_game_is_closed_and_a_missing_file_does_not_wait() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::{Duration, Instant};
+
+        let dir = std::env::temp_dir().join(format!("versekit-sperre-p4k-{}", versekit_core::testdir::run_tag()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("Data.p4k");
+        std::fs::write(&file, b"no archive").unwrap();
+        let closed = Arc::new(AtomicBool::new(false));
+        let reader = {
+            let (closed, file) = (Arc::clone(&closed), file.clone());
+            std::thread::spawn(move || {
+                let started = Instant::now();
+                let outcome = super::GameData::open_file_after(
+                    &file,
+                    &|| closed.load(Ordering::SeqCst),
+                    Duration::from_millis(5),
+                );
+                (outcome.is_err(), started.elapsed())
+            })
+        };
+        let waited = Instant::now();
+        while !versekit_core::archive_lock::waiting() && waited.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(versekit_core::archive_lock::waiting(), "the reading waits while the game runs");
+        std::thread::sleep(Duration::from_millis(60));
+        assert!(!reader.is_finished(), "and does not read");
+        closed.store(true, Ordering::SeqCst);
+        let (failed, took) = reader.join().expect("the reading ended");
+        assert!(failed, "the file is no archive, which is said only now");
+        assert!(took >= Duration::from_millis(60), "{took:?}");
+        // A file that is not there fails at once, whatever the game does.
+        let started = Instant::now();
+        let gone = super::GameData::open_file_after(dir.join("none.p4k"), &|| false, Duration::from_millis(5));
+        assert!(gone.is_err() && started.elapsed() < Duration::from_secs(2));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

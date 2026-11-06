@@ -109,12 +109,35 @@ use egui::{Color32, CornerRadius, Stroke, Theme, Visuals};
 use versekit_core::font_size;
 use versekit_core::theme::{Color, Scheme};
 
-/// Everything the user interface needs once at startup: Lato, the SVG
+/// Everything the user interface needs once at startup: Lato, the text sizes, the SVG
 /// loaders for the icons and the filter of the streamer mode.
 pub fn install(ctx: &egui::Context) {
     fonts::install(ctx);
+    ctx.all_styles_mut(|style| style.text_styles = text_styles());
     icons::install(ctx);
     streamer::install(ctx);
+}
+
+/// Size of the text of rows, buttons and fields at the size `normal`, in points.
+pub const BODY_SIZE: f32 = 13.0;
+/// Size of hints, notes under a setting and other small text: close below the body text, so it stays readable
+/// at every size of the interface.
+pub const SMALL_SIZE: f32 = 11.5;
+/// Size of the title of a page and of big figures.
+pub const HEADING_SIZE: f32 = 17.0;
+
+/// The few sizes of text the interface uses: small, body (rows, buttons, numbers) and heading; the title of a card
+/// lies between body and heading ([`widgets::CARD_TITLE_SCALE`]).
+pub fn text_styles() -> std::collections::BTreeMap<egui::TextStyle, egui::FontId> {
+    use egui::{FontId, TextStyle};
+    [
+        (TextStyle::Small, FontId::proportional(SMALL_SIZE)),
+        (TextStyle::Body, FontId::proportional(BODY_SIZE)),
+        (TextStyle::Button, FontId::proportional(BODY_SIZE)),
+        (TextStyle::Heading, FontId::proportional(HEADING_SIZE)),
+        (TextStyle::Monospace, FontId::monospace(BODY_SIZE)),
+    ]
+    .into()
 }
 
 /// Sets the size of the whole interface (text, controls, icons, spacing)
@@ -405,6 +428,60 @@ mod tests {
         }
         assert_eq!(sent.len(), 1, "{sent:?}");
         assert!((sent[0].x - font_size::BASE_MIN_SIZE.0).abs() < 0.5, "{sent:?}");
+    }
+
+    /// The sizes of text a style resolves, small to large, with the title of a card.
+    fn sizes_of(style: &egui::Style) -> Vec<f32> {
+        let size = |text: egui::TextStyle| text.resolve(style).size;
+        let body = size(egui::TextStyle::Body);
+        let mut sizes = vec![
+            size(egui::TextStyle::Small),
+            body,
+            size(egui::TextStyle::Button),
+            size(egui::TextStyle::Monospace),
+            body * widgets::CARD_TITLE_SCALE,
+            size(egui::TextStyle::Heading),
+        ];
+        sizes.sort_by(f32::total_cmp);
+        sizes.dedup_by(|a, b| (*a - *b).abs() < 0.01);
+        sizes
+    }
+
+    /// What is wrong with the sizes: too many of them, small text far below the body text, a heading far above it.
+    fn size_faults(style: &egui::Style) -> Vec<String> {
+        let sizes = sizes_of(style);
+        let body = egui::TextStyle::Body.resolve(style).size;
+        let mut faults = Vec::new();
+        if sizes.len() > 4 {
+            faults.push(format!("{} sizes of text: {sizes:?}", sizes.len()));
+        }
+        if sizes[0] < 0.85 * body {
+            faults.push(format!("the smallest text {} is far below the body text {body}", sizes[0]));
+        }
+        if sizes[sizes.len() - 1] > 1.35 * body {
+            faults.push(format!("the largest text {} is far above the body text {body}", sizes[sizes.len() - 1]));
+        }
+        faults
+    }
+
+    #[test]
+    fn the_interface_uses_few_text_sizes_close_to_the_body_text() {
+        let ctx = egui::Context::default();
+        install(&ctx);
+        let mut style = None;
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| style = Some(ui.style().as_ref().clone()));
+        output.textures_delta.clear();
+        let style = style.expect("a frame ran");
+        assert_eq!(egui::TextStyle::Small.resolve(&style).size, SMALL_SIZE, "install sets the sizes");
+        assert_eq!(size_faults(&style), Vec::<String>::new());
+    }
+
+    #[test]
+    fn the_size_check_sees_egui_s_own_sizes() {
+        // Counter-check: egui's own sizes (small 9 under body 13, heading 18) are what the check is there to catch.
+        let faults = size_faults(&egui::Style::default());
+        assert!(faults.iter().any(|f| f.contains("smallest")), "{faults:?}");
+        assert!(faults.iter().any(|f| f.contains("largest")), "{faults:?}");
     }
 
     #[test]

@@ -1193,7 +1193,7 @@ pub fn show_at(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut Li
             6 => "deckel_leer",
             _ => "nichts_gefunden",
         };
-        widgets::list_frame(ui, scheme, |list| {
+        widgets::list_frame_marked(ui, scheme, |list| {
             list.set_width(list.available_width());
             widgets::empty_state(list, scheme, "scan-search", &t(empty));
         });
@@ -1237,7 +1237,7 @@ pub fn show_at(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut Li
     let period = state.period;
     let mut clicked: Option<(usize, usize)> = None;
     let mut measured = None;
-    widgets::list_frame(ui, scheme, |list| {
+    widgets::list_frame_marked(ui, scheme, |list| {
         list.set_width(list.available_width());
         let mut area = egui::ScrollArea::vertical()
             .id_salt("bauplan-liste")

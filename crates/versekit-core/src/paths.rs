@@ -52,7 +52,16 @@ use crate::text::{lines_universal, py_isspace, py_strip};
 /// ⚠⚠ HOTFIX must be included: the usual way to a patched version is to
 /// rename the LIVE folder to HOTFIX. If HOTFIX is missing here, the
 /// configured game folder is gone from one day to the next.
+///
+/// The one list of the channels: every page (installation and paths, user.cfg, translation, the channels found,
+/// backup) and every part of the core takes it from here, so that none of them misses a channel again.
 pub const CHANNELS: [&str; 5] = ["LIVE", "HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
+/// The channels of [`CHANNELS`] that are test builds (what they hold is confidential by the terms of service, and a
+/// translation takes the test version of its source there).
+pub const TEST_CHANNELS: [&str; 3] = ["PTU", "EPTU", "TECH-PREVIEW"];
+/// The channels whose translation can follow that of LIVE ("Wie LIVE"): the test channels and HOTFIX. HOTFIX is a
+/// build of LIVE and no test channel: it is not confidential and takes the LIVE version of a source.
+pub const FOLLOWS_LIVE: [&str; 4] = ["HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
 
 /// ⚠⚠ Only these two share a blueprint collection. The test environments
 /// run on separate save data; reading them too would claim a collection

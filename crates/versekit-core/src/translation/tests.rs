@@ -100,6 +100,20 @@ fn every_source_knows_its_folder_and_the_test_versions_are_right() {
     assert!(spec(&game.paths, "luftwerft_de", Some("TECH-PREVIEW")).unwrap().url.unwrap().contains("/PTU/german_"));
 }
 
+/// The channels that can follow LIVE are the test channels and HOTFIX; HOTFIX stays no test channel (it is a build
+/// of LIVE: not confidential, the LIVE version of a source).
+#[test]
+fn hotfix_follows_live_and_stays_no_test_channel() {
+    use crate::paths::FOLLOWS_LIVE;
+    for channel in TEST_CHANNELS {
+        assert!(FOLLOWS_LIVE.contains(&channel), "{channel}");
+    }
+    assert!(FOLLOWS_LIVE.contains(&"HOTFIX") && !TEST_CHANNELS.contains(&"HOTFIX"));
+    assert_eq!(FOLLOWS_LIVE.len(), TEST_CHANNELS.len() + 1, "nothing else follows");
+    assert!(!FOLLOWS_LIVE.contains(&"LIVE"));
+    assert!(FOLLOWS_LIVE.iter().all(|channel| CHANNELS.contains(channel)));
+}
+
 #[test]
 fn grouped_sources_like_4_12() {
     let game = Game::new("groups");
@@ -403,7 +417,7 @@ fn on_a_copy_of_the_data_only_a_look_is_taken_and_said_calmly() {
     assert_eq!(net.asked(), [format!("HEAD {url}")], "only the header is asked, the file is not fetched");
     assert!(!std::path::Path::new(&game.ini(&game.live, "german_(germany)")).exists(), "nothing in the game");
     let state = state_de(&game, "luftwerft_de", None);
-    assert!(state.contains("Eine neue Fassung gibt es, im Testbetrieb nicht eingespielt"), "{state}");
+    assert!(state.contains("Neue Fassung, im Testbetrieb nicht eingespielt"), "{state}");
     assert!(!state.contains("gesperrt") && !state.contains("nicht geholt"), "no lock is told as a failure: {state}");
     assert_eq!(installed(&game.paths, "luftwerft_de", None).as_deref(), Some("etag:a"), "the note of the copy stays");
 
@@ -422,7 +436,7 @@ fn on_a_copy_of_the_data_only_a_look_is_taken_and_said_calmly() {
     assert_eq!(looked, Ok(Looked::Newer(Some("2026-10-28".into()))));
     assert_eq!(github.asked(), [release], "only the release, no file");
     let state = state_de(&game, "starstrings", None);
-    assert!(state.contains("Neue Fassung vom 28.10.2026 gibt es, im Testbetrieb nicht eingespielt"), "{state}");
+    assert!(state.contains("Neue Fassung vom 28.10.2026, im Testbetrieb nicht eingespielt"), "{state}");
     for lang in [Lang::De, Lang::En] {
         let said = looked.clone().unwrap().text_in(lang);
         assert!(said.contains(if lang == Lang::De { "28.10.2026" } else { "2026-10-28" }), "{said}");

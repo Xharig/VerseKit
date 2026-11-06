@@ -291,8 +291,7 @@ fn material_row(ui: &mut Ui, scheme: &Scheme, k: usize, line: &Material, stock_r
 }
 
 fn order_rows(ui: &mut Ui, scheme: &Scheme, orders: &[Order]) {
-    ui.add_space(8.0);
-    ui.label(widgets::bold(ui, t("s_bd_auftraege"), egui::TextStyle::Body));
+    widgets::card_title(ui, scheme, &t("s_bd_auftraege"));
     ui.label(sub(scheme, t("s_bd_auftraege_h")));
     if orders.is_empty() {
         widgets::empty_state(ui, scheme, "scan-search", &t("s_bd_keine_auftraege"));
@@ -358,52 +357,76 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut DemandState) {
     }
     ui.label(sub(scheme, t("s_bd_lead")));
     ui.add_space(6.0);
-    if !state.reason.is_empty() {
-        state_box(ui, scheme, scheme.yellow, &t("s_p9_bedarf_kein_recht_kopf"), &t("s_p9_bedarf_kein_recht"));
-        return;
-    }
-    let Some(data) = state.data.clone() else {
-        ui.label(sub(scheme, t("s_bd_warten")));
-        ui.add_space(6.0);
-        if let Some(code) = state.failure() {
-            ui.label(RichText::new(versekit_core::basetool::error::error_text(&code)).small().color(color(scheme.red)));
+    // The first card: the state of the sync, and without a demand what stands in its place.
+    let data = widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_bt_abgleich"));
+        if !state.reason.is_empty() {
+            state_box(ui, scheme, scheme.yellow, &t("s_p9_bedarf_kein_recht_kopf"), &t("s_p9_bedarf_kein_recht"));
+            return None;
         }
-        if state.asked.is_some() {
-            widgets::loading(ui, scheme, &t("s_bt_laeuft"));
-        } else if let Some(link) = &state.link {
-            let word = t("s_bt_jetzt");
-            if ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("rotate-cw")).clicked() {
-                state.asked = Some(link.sync.status().generation());
-                link.sync.request_now();
+        let Some(data) = state.data.clone() else {
+            ui.label(sub(scheme, t("s_bd_warten")));
+            ui.add_space(6.0);
+            if let Some(code) = state.failure() {
+                let said = versekit_core::basetool::error::error_text(&code);
+                ui.label(RichText::new(said).small().color(color(scheme.red)));
             }
+            if state.asked.is_some() {
+                widgets::loading(ui, scheme, &t("s_bt_laeuft"));
+            } else if let Some(link) = &state.link {
+                let word = t("s_bt_jetzt");
+                if ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("rotate-cw")).clicked() {
+                    state.asked = Some(link.sync.status().generation());
+                    link.sync.request_now();
+                }
+            }
+            return None;
+        };
+        if let Some(at) = state.fetched_at() {
+            let now = state.link.as_ref().map_or(at, |l| (l.clock)());
+            let exact = formats::date_time(language::current(), at);
+            widgets::data_age(ui, scheme, (now - at).max(0.0), &exact);
         }
-        return;
-    };
-    if let Some(at) = state.fetched_at() {
-        let now = state.link.as_ref().map_or(at, |l| (l.clock)());
-        let exact = formats::date_time(language::current(), at);
-        widgets::data_age(ui, scheme, (now - at).max(0.0), &exact);
-    }
-    ui.label(widgets::bold(ui, t("s_bd_rohstoffe"), egui::TextStyle::Body));
-    material_rows(ui, scheme, state, &data);
-    ui.add_space(8.0);
-    ui.label(widgets::bold(ui, t("s_bd_gegenstaende"), egui::TextStyle::Body));
-    if data.items.is_empty() {
-        widgets::empty_state(ui, scheme, "scan-search", &t("s_bd_nichts"));
-    } else {
-        widgets::list_frame(ui, scheme, |list| {
-            list.set_width(list.available_width());
-            for (k, item) in data.items.iter().enumerate() {
-                let piece = is_piece(&item.unit) || item.unit.is_empty();
-                let right = tn("s_bd_offen", &[Arg::from(amount_text(item.amount)), Arg::from(unit_word(piece))]);
-                let below = if item.craftable { t("s_bd_kannst_bauen") } else { String::new() };
-                row(list, scheme, k, (&item.name, item.craftable), &right, &below);
-            }
+        Some(data)
+    })
+    .inner;
+    let Some(data) = data else { return };
+    ui.add_space(crate::layout::GAP);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_bd_rohstoffe"));
+        material_rows(ui, scheme, state, &data);
+    });
+    ui.add_space(crate::layout::GAP);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_bd_gegenstaende"));
+        if data.items.is_empty() {
+            widgets::empty_state(ui, scheme, "scan-search", &t("s_bd_nichts"));
+        } else {
+            widgets::list_frame(ui, scheme, |list| {
+                list.set_width(list.available_width());
+                for (k, item) in data.items.iter().enumerate() {
+                    let piece = is_piece(&item.unit) || item.unit.is_empty();
+                    let right = tn("s_bd_offen", &[Arg::from(amount_text(item.amount)), Arg::from(unit_word(piece))]);
+                    let below = if item.craftable { t("s_bd_kannst_bauen") } else { String::new() };
+                    row(list, scheme, k, (&item.name, item.craftable), &right, &below);
+                }
+            });
+        }
+        if data.orders.is_none() {
+            hint_line(ui, scheme);
+        }
+    });
+    if let Some(orders) = &data.orders {
+        ui.add_space(crate::layout::GAP);
+        widgets::card(ui, scheme, |ui| {
+            order_rows(ui, scheme, orders);
+            hint_line(ui, scheme);
         });
     }
-    if let Some(orders) = &data.orders {
-        order_rows(ui, scheme, orders);
-    }
+}
+
+/// The closing hint of the page, at the end of its last card.
+fn hint_line(ui: &mut Ui, scheme: &Scheme) {
     ui.add_space(10.0);
     ui.label(sub(scheme, t("s_bd_hinweis")));
 }

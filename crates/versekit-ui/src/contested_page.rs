@@ -370,18 +370,20 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
     start_card(ui, scheme, state);
     ui.add_space(GAP);
     widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_cz_overlay_kopf"));
         widgets::switch_row_help(ui, scheme, &t("s_cz_overlay"), &t("s_cz_overlay_h"), &mut state.overlay);
     });
     ui.add_space(GAP);
-    widgets::heading(ui, scheme, &t("s_cz_timer"));
-    ui.add(egui::Label::new(sub(scheme, t("s_cz_timer_lead"))).wrap());
-    ui.add_space(4.0);
-    let mut index = 0;
-    for group in &GROUPS {
-        let first = index;
-        index += group.sections.iter().map(|section| section.timers.len()).sum::<usize>();
-        widgets::card(ui, scheme, |ui| {
-            widgets::card_title(ui, scheme, group.name);
+    // The self timers: one card, each group of them under its name.
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_cz_timer"));
+        ui.add(egui::Label::new(sub(scheme, t("s_cz_timer_lead"))).wrap());
+        let mut index = 0;
+        for group in &GROUPS {
+            let first = index;
+            index += group.sections.iter().map(|section| section.timers.len()).sum::<usize>();
+            ui.add_space(GAP);
+            ui.add(egui::Label::new(RichText::new(group.name).strong()).wrap());
             ui.add_space(2.0);
             let mut offsets = Vec::new();
             let mut at = first;
@@ -403,9 +405,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
                     });
                 }
             });
-        });
-        ui.add_space(GAP);
-    }
+        }
+    });
+    ui.add_space(GAP);
     maps_section(ui, scheme, state);
 }
 
@@ -519,7 +521,13 @@ fn constrain_view(view: egui::Rect, frame: egui::Vec2, picture: egui::Vec2) -> e
 /// after a click into the map until the pointer leaves it; otherwise the wheel scrolls the page. Dragging moves the
 /// map, a double click shows the whole map again, and under it stand its maker and a link to where it was published.
 fn maps_section(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
-    widgets::heading(ui, scheme, &t("s_cz_karten"));
+    widgets::card(ui, scheme, |ui| maps_card(ui, scheme, state));
+    ui.add_space(GAP);
+}
+
+/// The contents of the card of the maps: title, how to use them, the tabs, the chosen map and its maker.
+fn maps_card(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
+    widgets::card_title(ui, scheme, &t("s_cz_karten"));
     ui.add(egui::Label::new(sub(scheme, t("s_cz_karten_lead"))).wrap());
     ui.add_space(4.0);
     let names: Vec<&str> = MAPS.iter().map(|map| map.name).collect();
@@ -599,7 +607,6 @@ fn maps_section(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
             row.ctx().open_url(egui::OpenUrl::new_tab(map.url));
         }
     });
-    ui.add_space(GAP);
 }
 
 /// The phase, the countdown, the lamps and the next openings.
@@ -788,6 +795,7 @@ pub fn lamp_dots(ui: &mut Ui, scheme: &Scheme, lamps: &[Lamp; LAMPS]) {
 /// for the advanced.
 fn start_card(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
     widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_cz_start_kopf"));
         let lang = language::current();
         let source_name = format!("{} ({})", contested::SOURCE_NAME, contested::SOURCE_OPERATOR);
         if let Some(start) = state.start() {

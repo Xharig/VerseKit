@@ -86,7 +86,7 @@ impl FleetView {
 }
 
 fn small(ui: &mut Ui, text: &str, tone: egui::Color32) {
-    ui.add(egui::Label::new(RichText::new(text).small().color(tone)).wrap());
+    widgets::reading(ui, RichText::new(text).small().color(tone));
 }
 
 /// `2026-10-19` as `19.10.2026` or `19 Oct 2026`; what does not parse stays as it is.

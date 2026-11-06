@@ -57,6 +57,13 @@ section.block.klein{grid-column:span 2}
 }
 .block h2{font-size:24px;line-height:1.25;letter-spacing:0;margin:0 0 18px;max-width:none}
 .block .hinweis{font-size:14px}
+.erklaerung{margin:12px 0 0}
+.erklaerung summary{cursor:pointer;font-size:14px;color:var(--leise);list-style:none;display:inline-flex;align-items:center;gap:6px}
+.erklaerung summary::-webkit-details-marker{display:none}
+.erklaerung summary::before{content:"i";display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1px solid var(--linie-hell);border-radius:50%;font-size:11px;font-style:italic}
+.erklaerung summary:hover{color:var(--neon)}
+.erklaerung[open] summary{color:var(--neon)}
+.erklaerung .hinweis{margin-top:8px}
 .empty{color:var(--leise);padding:6px 0 10px}
 
 /* Datenblatt der Kennzahlen: Eckwinkel um alle, Linien dazwischen */

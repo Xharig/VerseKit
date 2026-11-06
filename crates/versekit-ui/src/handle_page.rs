@@ -694,11 +694,11 @@ fn search_tab(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState, now: f6
         widgets::hint(ui, scheme, &t("s_hqs_verlauf_h"));
         ui.add_space(4.0);
         list(ui, scheme, state, now, Which::Recent, &t("s_hqs_verlauf_leer"));
+        // The settings of the search stand with the info bar, in one place with its other settings.
+        ui.add_space(GAP);
+        widgets::hint(ui, scheme, &t("s_hqs_einstellungen_wo"));
     });
     state.opened = false;
-    ui.add_space(GAP);
-    // The settings of the search stand with the info bar, in one place with its other settings.
-    widgets::hint(ui, scheme, &t("s_hqs_einstellungen_wo"));
 }
 
 /// The tab "Beziehungen": the export and the import, and the handles and organizations marked. An entry opened

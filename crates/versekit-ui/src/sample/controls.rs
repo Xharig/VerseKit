@@ -37,13 +37,15 @@ pub(super) const KOFI_URL: &str = "https://ko-fi.com/xharig";
 /// Pages that are no more in the menu and the page that took over: the hangar delivery settings
 /// sit in the fold "Kopplung verwalten" of Mein Hangar, the wishlist is the section "Planned" of it, the
 /// dismantle calculation is a view of the page "Dismantle & Salvage", and the evaluation of the statistics is
-/// part of their overview, and the relations are a tab of the handle search.
-const REMOVED_PAGES: [(&str, &str); 5] = [
+/// part of their overview, the relations are a tab of the handle search, and the shader cache is the last card of
+/// the graphics page.
+const REMOVED_PAGES: [(&str, &str); 6] = [
     ("hf_beziehungen", "hf_handlesuche"),
     ("hf_hangar_einlieferung", "hf_hangar"),
     ("hf_wunschliste", "hf_hangar"),
     ("hf_zerlegen", "hf_bergung"),
     ("hf_st_auswertung", "hf_st_uebersicht"),
+    ("hf_shader", "hf_grafik"),
 ];
 
 /// The file of what the user has seen, in the data folder, as 4.12 keeps it.
@@ -89,7 +91,11 @@ fn version_parts(version: &str) -> (u64, u64, u64) {
 
 /// The page of an area, where the menu has one.
 fn page_of_area(area: &str) -> Option<&'static str> {
-    super::NAV.iter().flat_map(|(_, pages)| pages.iter()).map(|(page, _)| *page).find(|page| page.strip_prefix("hf_") == Some(area))
+    super::NAV
+        .iter()
+        .flat_map(|(_, pages)| pages.iter())
+        .map(|(page, _)| *page)
+        .find(|page| page.strip_prefix("hf_") == Some(area))
 }
 
 /// The pages that carry the mark now: an area that came with a version up to the own one and was not seen since
@@ -140,10 +146,13 @@ impl SamplePage {
     /// A page that was taken out of the menu and may still be named (a stored last page, a pinned
     /// tile): the page that took over opens instead, and the setting that was on the old page
     /// opens with it.
-    pub(super) fn follow_removed_page(&mut self) {
+    pub(super) fn follow_removed_page(&mut self, now: f64) {
         if let Some((old, to)) = REMOVED_PAGES.iter().find(|(old, _)| *old == self.page) {
             self.page = (*to).to_string();
-            if *old == "hf_beziehungen" {
+            if *old == "hf_shader" {
+                // The card of the shader cache is framed and scrolled into view, as a hit of the menu filter.
+                self.highlight = Some((t("s_sc_titel"), now));
+            } else if *old == "hf_beziehungen" {
                 self.handles.tab = crate::handle_page::Tab::Relations;
             } else if *old == "hf_wunschliste" {
                 self.hangar.show_planned();
@@ -386,7 +395,23 @@ impl SamplePage {
         self.errors_looked = Some((now, stamp));
         if changed {
             let log = versekit_core::error_log::ErrorLog::new(&store.paths, env!("CARGO_PKG_VERSION"));
-            self.error_count = u32::try_from(log.count()).unwrap_or(u32::MAX);
+            self.error_count = u32::try_from(log.unseen()).unwrap_or(u32::MAX);
+            // The error page is open: what turns up now is looked at right away.
+            if self.error_count > 0 && self.page == "hf_diagnose" && log.mark_seen() {
+                self.error_count = 0;
+            }
+        }
+    }
+
+    /// The error page is open: what is written so far is seen, the count starts again at nothing.
+    pub(super) fn mark_errors_seen(&mut self) {
+        let Some(store) = &self.store else { return };
+        if self.error_count == 0 {
+            return;
+        }
+        let log = versekit_core::error_log::ErrorLog::new(&store.paths, env!("CARGO_PKG_VERSION"));
+        if log.mark_seen() {
+            self.error_count = 0;
         }
     }
 
@@ -401,7 +426,8 @@ impl SamplePage {
                 let last = data.get("zuletzt").and_then(Value::as_str).unwrap_or_default().to_string();
                 // An area missing from the list counts as seen with the version started last: that one had it.
                 let seen = |area: &str| {
-                    let noted = areas.as_ref().and_then(|a| a.get(area)).map(|v| v.as_str().unwrap_or_default().to_string());
+                    let noted =
+                        areas.as_ref().and_then(|a| a.get(area)).map(|v| v.as_str().unwrap_or_default().to_string());
                     noted.or_else(|| Some(last.clone()))
                 };
                 self.new_pages = new_pages(own, seen);
@@ -565,13 +591,15 @@ pub(in crate::sample) mod tests {
         closed: bool,
         /// The time of the next frames in seconds; without one the window counts its own.
         pub(in crate::sample) time: Option<f64>,
+        /// The height of the window in points.
+        pub(in crate::sample) height: f32,
     }
 
     impl Bench {
         pub(in crate::sample) fn new(page: SamplePage) -> Bench {
             let ctx = egui::Context::default();
             crate::install(&ctx);
-            Bench { ctx, page, closed: false, time: None }
+            Bench { ctx, page, closed: false, time: None, height: font_size::BASE_MIN_SIZE.1.max(900.0) }
         }
 
         pub(in crate::sample) fn frame(&mut self, events: Vec<Event>) -> Vec<(String, Pos2)> {
@@ -582,12 +610,9 @@ pub(in crate::sample) mod tests {
                     _ => {}
                 }
             }
-            let (width, height) = font_size::BASE_MIN_SIZE;
+            let width = font_size::BASE_MIN_SIZE.0;
             let input = egui::RawInput {
-                screen_rect: Some(egui::Rect::from_min_size(
-                    Pos2::ZERO,
-                    egui::vec2(width.max(1300.0), height.max(900.0)),
-                )),
+                screen_rect: Some(egui::Rect::from_min_size(Pos2::ZERO, egui::vec2(width.max(1300.0), self.height))),
                 events,
                 time: self.time,
                 ..Default::default()
@@ -667,12 +692,9 @@ pub(in crate::sample) mod tests {
         /// Where the controls named `label` for a screen reader stand, from one frame.
         fn named(&mut self, label: &str) -> Vec<egui::Rect> {
             self.ctx.enable_accesskit();
-            let (width, height) = font_size::BASE_MIN_SIZE;
+            let width = font_size::BASE_MIN_SIZE.0;
             let input = egui::RawInput {
-                screen_rect: Some(egui::Rect::from_min_size(
-                    Pos2::ZERO,
-                    egui::vec2(width.max(1300.0), height.max(900.0)),
-                )),
+                screen_rect: Some(egui::Rect::from_min_size(Pos2::ZERO, egui::vec2(width.max(1300.0), self.height))),
                 time: self.time,
                 ..Default::default()
             };
@@ -888,9 +910,38 @@ pub(in crate::sample) mod tests {
         Ok(())
     }
 
+    /// The usage report is on from the factory, its switch is on the page General in the group Privacy and is
+    /// stored under the key of 4.12, so that an old choice counts.
+    #[test]
+    fn the_usage_switch_is_on_from_the_factory_stands_in_privacy_and_is_stored() {
+        let _language = crate::language_lock();
+        let (mut page, dir) = real_page("nutzung-schalter", "{\n  \"nutzung_melden\": false\n}\n", &[]);
+        // An old choice of 4.12 is read.
+        assert!(!page.usage_on, "the stored 'off' counts");
+        let paths = Paths::new(super::super::real_data::host_in(&dir, &[]));
+        assert!(!versekit_core::usage::enabled(&paths));
+        // The row stands in the group of privacy.
+        let (title, rows) = super::super::settings_of("hf_allgemein")
+            .iter()
+            .find(|(title, _)| *title == "s_ei_datenschutz")
+            .copied()
+            .expect("the group Datenschutz");
+        assert!(rows.iter().any(|(name, hint, _)| *name == "s_nutzung" && *hint == "s_nutzung_h"), "{title}: {rows:?}");
+        // The first saving only takes the state as it is; then "on" again is stored with the other settings.
+        page.save_changes();
+        page.usage_on = true;
+        assert!(
+            page.setting_values()
+                .iter()
+                .any(|(key, value)| *key == versekit_core::usage::SETTING && *value == Value::Bool(true))
+        );
+        page.save_changes();
+        assert!(versekit_core::usage::enabled(&Paths::new(super::super::real_data::host_in(&dir, &[]))));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn the_restart_waits_until_the_settings_are_written() {
-        use std::sync::atomic::Ordering;
         let _language = crate::language_lock();
         let (page, dir) = real_page("neustart-schreiben", "", &[]);
         let mut bench = Bench::new(page);
@@ -899,12 +950,12 @@ pub(in crate::sample) mod tests {
         SETTINGS_FILE.with(|p| *p.borrow_mut() = Some(dir.join("einstellungen.json")));
         bench.settle();
         // A write takes its time; a setting changed just before the restart is still on its way.
-        super::super::WRITE_DELAY_MS.store(300, Ordering::Relaxed);
+        bench.page.slow_writes(300);
         bench.page.overlay_rows = 44;
         bench.page.data_folder.pretend_switched(&Outcome::Switched);
         bench.page.go_to("hf_ordner");
         bench.click(&language::t("s_da_neustart_knopf"));
-        super::super::WRITE_DELAY_MS.store(0, Ordering::Relaxed);
+        bench.page.slow_writes(0);
         let seen = FILE_AT_START.with(|f| f.borrow().clone()).expect("the program was started");
         assert!(seen.contains("44"), "the new program finds the setting written: {seen}");
         let _ = std::fs::remove_dir_all(dir);
@@ -930,6 +981,47 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The overlay page: „Anzeige“ and „Platz“ side by side and about equally tall, „Wann sichtbar“ in one line and
+    /// „Tastenkürzel“ under them over the whole width, all four in the window without scrolling.
+    #[test]
+    fn the_overlay_page_shows_display_and_place_side_by_side_and_fits_without_scrolling() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("overlay-raster", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.page.go_to("hf_overlay");
+        bench.settle();
+        crate::widgets::drawn_cards::record(true);
+        bench.frame(Vec::new());
+        let (cards, _) = crate::widgets::drawn_cards::take_split();
+        crate::widgets::drawn_cards::record(false);
+        let cards: Vec<egui::Rect> = cards.into_iter().map(|(card, _)| card).collect();
+        assert!(cards.len() >= 4, "{cards:?}");
+        // The first card and the one beside it, then the ones right under each of them.
+        let display = cards[0];
+        let beside = |card: egui::Rect| {
+            cards.iter().copied().find(|c| (c.top() - card.top()).abs() < 1.0 && c.left() > card.right())
+        };
+        let under = |card: egui::Rect| {
+            cards
+                .iter()
+                .copied()
+                .filter(|c| (c.left() - card.left()).abs() < 1.0 && c.top() > card.bottom())
+                .min_by(|a, b| a.top().total_cmp(&b.top()))
+        };
+        let place = beside(display).expect("„Platz“ beside „Anzeige“");
+        let (low, high) = (display.height().min(place.height()), display.height().max(place.height()));
+        assert!(high - low < 0.2 * high, "about equally tall: {display:?} {place:?}");
+        let (when, keys) = (under(display).expect("„Wann sichtbar“"), under(place).expect("„Tastenkürzel“"));
+        // Side by side: their tops apart by less than a title and a row (the columns of cards even out their ends).
+        assert!(
+            (when.top() - keys.top()).abs() < 60.0,
+            "„Wann sichtbar“ and „Tastenkürzel“ side by side: {when:?} {keys:?}"
+        );
+        assert!((when.width() - display.width()).abs() < 1.0, "in the columns of cards: {when:?}");
+        assert!(keys.bottom() <= bench.height, "without scrolling: {keys:?} in a window {} tall", bench.height);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// The hotkey of the refinery scan on the overlay page: changed in its picker, said as registered while the
     /// overlay runs, refused without a modifier key, kept in `hotkey_scan`.
     #[test]
@@ -937,6 +1029,8 @@ pub(in crate::sample) mod tests {
         let _language = crate::language_lock();
         let (page, dir) = real_page("scan-taste", "", &[]);
         let mut bench = Bench::new(page);
+        // Tall enough for the picker of the scan, the second one of the page.
+        bench.height = 1800.0;
         bench.page.overlay_runs = || true;
         bench.page.go_to("hf_overlay");
         let texts = bench.settle();
@@ -963,7 +1057,11 @@ pub(in crate::sample) mod tests {
         }
         bench.click_nth("Alt", 1);
         bench.settle();
-        assert_eq!(hotkey_text(bench.page.scan_modifiers, bench.page.scan_key).as_deref(), Some("Alt+R"), "the last one stays");
+        assert_eq!(
+            hotkey_text(bench.page.scan_modifiers, bench.page.scan_key).as_deref(),
+            Some("Alt+R"),
+            "the last one stays"
+        );
         let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
         assert_eq!(said, Some(language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from("Alt+R"))])));
         let _ = std::fs::remove_dir_all(dir);
@@ -1207,7 +1305,7 @@ pub(in crate::sample) mod tests {
         assert!([t("s_uv_lese"), t("s_gr_klasse_leer")].contains(&computer), "{computer}");
         assert_eq!(
             overview.tile("raffinerie").line,
-            "Kein laufender Auftrag bekannt. Am Terminal Alt+Umschalt+R drücken, dann läuft hier die Zeit mit",
+            "Kein laufender Auftrag bekannt. Drück am Terminal Alt+Umschalt+R.",
             "no job known: the hotkey at the terminal starts the time"
         );
         assert_eq!(
@@ -1560,6 +1658,42 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The menu filter counts once per search as used and, when the menu shows nothing, once as without hits; a page
+    /// opened from it counts the way „suche“. The word searched for is never kept.
+    #[test]
+    fn the_menu_filter_counts_each_search_once_and_its_pages_by_the_way_of_the_search() {
+        use versekit_core::jsonio::{self, Value};
+        use versekit_core::usage::PageUsage;
+        let _language = crate::language_lock();
+        let (mut page, dir) = start_page_in("suche-zaehlen", "", &[]);
+        let host = || super::super::real_data::host_in(&dir, &[(versekit_core::legacy::ENV_NO_NET, "0")]);
+        let counter = std::sync::Arc::new(PageUsage::new(Paths::new(host()), "5.0.0"));
+        page.usage = Some(std::sync::Arc::clone(&counter));
+        let mut bench = Bench::new(page);
+        bench.settle();
+        // One search: a word comes, the hit is clicked, then a word that finds nothing, all without emptying.
+        bench.page.nav_filter = "Hangar".into();
+        bench.settle();
+        bench.click_nth(&t("hf_hangar"), 0);
+        assert_eq!(bench.page.page, "hf_hangar");
+        bench.page.nav_filter = "Hangarqqq".into();
+        bench.settle();
+        bench.settle();
+        // Emptied, then a second search that finds nothing.
+        bench.page.nav_filter.clear();
+        bench.settle();
+        bench.page.nav_filter = "zzqqx".into();
+        bench.settle();
+        bench.page.count_window_end(Some(1.0e6));
+        let stored = Value::Object(counter.stored());
+        let field = |name: &str| jsonio::dumps(stored.get(name).expect("field"), None, false);
+        assert_eq!(field("actions"), r#"{"suche_benutzt": 2, "suche_ohne_treffer": 2}"#);
+        assert!(field("entry").contains(r#""hangar": {"suche": 1}"#), "{}", field("entry"));
+        let all = jsonio::dumps(&stored, None, false);
+        assert!(!all.contains("Hangarqqq") && !all.contains("zzqqx"), "never the word: {all}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// The pages "Was steckt drin?" and "Lohnt das Zerlegen?" are one page now: every old way leads to it, and
     /// the usage counters keep telling the wreck and the calculation of a part apart.
     #[test]
@@ -1743,7 +1877,8 @@ pub(in crate::sample) mod tests {
             .map(|(_, at)| at)
             .collect();
         browse.sort_by(|a, b| a.y.total_cmp(&b.y));
-        assert_eq!(browse.len(), 3, "{browse:?}");
+        // One for every channel: LIVE, HOTFIX, PTU, EPTU, TECH-PREVIEW.
+        assert_eq!(browse.len(), versekit_core::paths::CHANNELS.len(), "{browse:?}");
         browse
     }
 
@@ -1752,17 +1887,18 @@ pub(in crate::sample) mod tests {
     #[test]
     fn another_channel_can_be_given_its_own_folder() {
         let _language = crate::language_lock();
-        // An entry for a channel the page has no row for stays as it is.
+        // An entry for another channel, whose folder is not there, stays as it is.
         let (page, dir) = real_page("kanaele", r#"{"kanal_ordner": {"HOTFIX": "Z:/Spiele/HOTFIX"}}"#, &[]);
         let mut bench = Bench::new(page);
         bench.page.choose_folder = chooses;
         bench.page.go_to("hf_ordner");
         let browse = game_folder_buttons(&mut bench);
-        bench.click_at(browse[1]);
+        // The rows in the order of the channels: PTU is the third.
+        bench.click_at(browse[2]);
         bench.settle();
         assert_eq!(asked().len(), 1, "the dialog was asked for the PTU folder");
         let chosen = chosen_folder();
-        assert_eq!(bench.page.folders[1], chosen, "the choice stands in the field");
+        assert_eq!(bench.page.folders[2], chosen, "the choice stands in the field");
         let paths = Paths::new(bench.page.store.as_ref().unwrap().paths.host.clone());
         // Read back without the separator at the end, as every folder of a channel.
         let saved = chosen.trim_end_matches(['\\', '/']).to_string();
@@ -1773,27 +1909,27 @@ pub(in crate::sample) mod tests {
 
         // A folder that is not there is not taken, and said.
         let gone = dir.join("gibt-es-nicht").to_string_lossy().into_owned();
-        bench.page.folders[1].clone_from(&gone);
-        bench.page.commit_game_folder(1);
+        bench.page.folders[2].clone_from(&gone);
+        bench.page.commit_game_folder(2);
         bench.settle();
         assert_eq!(bench.notice(), Some(tf("s_bs_ordner_nein", &[("0", Arg::from(gone.as_str()))])));
         assert_eq!(paths.chosen_channel_folders(), [("PTU".to_string(), saved.clone())], "the choice stays");
         // Nor a folder that is the game folder already: the field shows the choice again.
         let live = dir.to_string_lossy().into_owned();
         bench.page.folders[0].clone_from(&live);
-        bench.page.folders[1].clone_from(&live);
-        bench.page.commit_game_folder(1);
+        bench.page.folders[2].clone_from(&live);
+        bench.page.commit_game_folder(2);
         bench.settle();
         assert_eq!(bench.notice(), Some(tf("s_pf_kanal_doppelt", &[("0", Arg::from("LIVE"))])));
-        assert_eq!(bench.page.folders[1], chosen);
+        assert_eq!(bench.page.folders[2], chosen);
         assert_eq!(paths.chosen_channel_folders(), [("PTU".to_string(), saved.clone())], "the choice stays");
 
         // An empty field: the folder next to LIVE again, the choice gone.
-        bench.page.folders[1].clear();
-        bench.page.commit_game_folder(1);
+        bench.page.folders[2].clear();
+        bench.page.commit_game_folder(2);
         bench.settle();
         assert!(paths.chosen_channel_folders().is_empty());
-        assert_eq!(bench.page.folders[1], bench.page.channels_found[1]);
+        assert_eq!(bench.page.folders[2], bench.page.channels_found[2]);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -1909,20 +2045,40 @@ pub(in crate::sample) mod tests {
         assert_eq!(page.error_count, 0);
         let paths = Paths::new(super::super::real_data::host_in(&dir, &[]));
         let log = versekit_core::error_log::ErrorLog::new(&paths, env!("CARGO_PKG_VERSION"));
-        assert!(log.record("test.eins", None, "eins"));
+        let problem = |message| Some(versekit_core::error_log::Problem { kind: "Test", message, trace: None });
+        // An old entry of the file and one of an earlier version are no new errors.
+        assert!(log.record_at("test.alt", problem("alt"), "", "2026-01-01 00:00:01"));
+        assert!(versekit_core::error_log::ErrorLog::new(&paths, "4.0.0").record_at(
+            "test.frueher",
+            problem("frueher"),
+            "",
+            "2999-01-01 00:00:01"
+        ));
+        assert!(log.record_at("test.eins", problem("eins"), "", "2026-01-01 00:00:02"));
         page.follow_errors(10.0);
-        assert_eq!(page.error_count, 1, "the new entry is counted");
-        assert!(log.record("test.zwei", None, "zwei"));
+        assert_eq!(page.error_count, 2, "the entries of this version are counted, not the earlier version");
+        assert!(log.record_at("test.zwei", problem("zwei"), "", "2026-01-01 00:00:03"));
         page.follow_errors(10.5);
-        assert_eq!(page.error_count, 1, "not looked at again within two seconds");
+        assert_eq!(page.error_count, 2, "not looked at again within two seconds");
         page.follow_errors(13.0);
-        assert_eq!(page.error_count, 2);
-        // The frame of the window looks too, nobody calls it by hand.
-        assert!(log.record("test.drei", None, "drei"));
-        page.errors_looked = None;
+        assert_eq!(page.error_count, 3);
+        // Opening the error page counts as looking: nothing is new any more.
+        page.go_to("hf_diagnose");
         let mut bench = Bench::new(page);
         bench.frame(Vec::new());
-        assert_eq!(bench.page.error_count, 3);
+        assert_eq!(bench.page.error_count, 0, "after looking the count is zero");
+        bench.page.errors_looked = None;
+        bench.frame(Vec::new());
+        assert_eq!(bench.page.error_count, 0, "and it stays zero when the file is read again");
+        // Only what happens later counts again.
+        assert!(log.record_at("test.drei", problem("drei"), "", "2999-01-01 00:00:04"));
+        bench.page.errors_looked = None;
+        bench.frame(Vec::new());
+        assert_eq!(bench.page.error_count, 0, "the page is still open and has seen it");
+        bench.page.go_to("hf_ueber");
+        bench.page.errors_looked = None;
+        bench.frame(Vec::new());
+        assert_eq!(bench.page.error_count, 1, "an error written after the look is counted");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -1960,7 +2116,11 @@ pub(in crate::sample) mod tests {
         assert_eq!(bench.page.hotkey_modifiers, [false; 3], "nothing pressed, and it stays so");
         assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("F13"));
         let said = bench.notice();
-        assert_eq!(said, Some(language::tf("s_hk_ok", &[("0", language::Arg::from("F13"))])), "registered, not refused");
+        assert_eq!(
+            said,
+            Some(language::tf("s_hk_ok", &[("0", language::Arg::from("F13"))])),
+            "registered, not refused"
+        );
         let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
         assert!(stored.contains("\"hotkey\": \"F13\""), "{stored}");
         bench.click(&language::t("s_ei_taste_strg"));
@@ -2104,7 +2264,9 @@ pub(in crate::sample) mod tests {
                 phase: egui::TouchPhase::Move,
                 source: egui::MouseWheelSource::Wheel,
             };
-            bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
+            // Over the left column of cards: on the overlay page the right one holds the picture of the signature
+            // window, which takes the wheel for itself.
+            bench.frame(vec![egui::Event::PointerMoved(Pos2::new(400.0, 450.0))]);
             for _ in 0..80 {
                 bench.frame(vec![wheel(120.0)]);
             }
@@ -2156,7 +2318,9 @@ pub(in crate::sample) mod tests {
                 phase: egui::TouchPhase::Move,
                 source: egui::MouseWheelSource::Wheel,
             };
-            bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
+            // Over the left column of cards: on the overlay page the right one holds the picture of the signature
+            // window, which takes the wheel for itself.
+            bench.frame(vec![egui::Event::PointerMoved(Pos2::new(400.0, 450.0))]);
             for _ in 0..80 {
                 bench.frame(vec![wheel(120.0)]);
             }
@@ -2280,7 +2444,9 @@ pub(in crate::sample) mod tests {
                 phase: egui::TouchPhase::Move,
                 source: egui::MouseWheelSource::Wheel,
             };
-            bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
+            // Over the left column of cards: on the overlay page the right one holds the picture of the signature
+            // window, which takes the wheel for itself.
+            bench.frame(vec![egui::Event::PointerMoved(Pos2::new(400.0, 450.0))]);
             for _ in 0..80 {
                 bench.frame(vec![wheel(120.0)]);
             }
@@ -2296,7 +2462,8 @@ pub(in crate::sample) mod tests {
                 assert!(texts.iter().any(|(t, _)| t.to_lowercase() == text), "{key} ({text}) is not on the page");
             }
             // Each slider shows its percent beside it.
-            assert!(texts.iter().filter(|(t, _)| t == "100 %").count() >= 2, "both at 100 %");
+            let percents: Vec<&(String, Pos2)> = texts.iter().filter(|(t, _)| t.ends_with('%')).collect();
+            assert!(texts.iter().filter(|(t, _)| t == "100 %").count() >= 2, "both at 100 %: {percents:?}");
         }
         language::set_language(language::Choice::De);
         let file = dir.join("einstellungen.json");
@@ -2345,7 +2512,10 @@ pub(in crate::sample) mod tests {
         let mut again = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[])));
         again.forget_seen();
         assert_eq!(again.new_pages, ["hf_farmliste"]);
-        assert_eq!(SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[]))).new_pages, ["hf_farmliste"]);
+        assert_eq!(
+            SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[]))).new_pages,
+            ["hf_farmliste"]
+        );
         // A fresh install marks nothing and writes down every area as seen.
         let fresh = folder("neu-marke-frisch");
         let page = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&fresh, &[])));
@@ -2362,16 +2532,17 @@ pub(in crate::sample) mod tests {
         let seen_with = |pairs: &'static [(&'static str, &'static str)], last: &'static str| {
             move |area: &str| Some(pairs.iter().find(|(a, _)| *a == area).map_or(last, |(_, v)| *v).to_string())
         };
-        // Coming from 3.90: Mein Lager (4.10), Shader and Grafik (3.97), the overview (3.98), Kaufen & Verkaufen
-        // (3.92) and the farm list (5.0) are new.
+        // Coming from 3.90: Mein Lager (4.10), Grafik (3.97), the overview (3.98), Kaufen & Verkaufen (3.92) and the
+        // farm list (5.0) are new. The shader cache has no page of its own any more (a card of Grafik): no mark.
         let marked = new_pages("5.0.0", seen_with(&[], "3.90.0"));
-        for page in ["hf_meinlager", "hf_shader", "hf_grafik", "hf_verkauf", "hf_farmliste"] {
+        for page in ["hf_meinlager", "hf_grafik", "hf_verkauf", "hf_farmliste"] {
             assert!(marked.contains(&page), "{page} in {marked:?}");
         }
+        assert!(!marked.contains(&"hf_shader"), "{marked:?}");
         assert!(!marked.contains(&"hf_hangar") && !marked.contains(&"hf_liste"), "older areas: {marked:?}");
         // One of them seen with 5.0: its mark alone is gone.
-        let marked = new_pages("5.0.0", seen_with(&[("shader", "5.0.0")], "3.90.0"));
-        assert!(!marked.contains(&"hf_shader") && marked.contains(&"hf_grafik"), "{marked:?}");
+        let marked = new_pages("5.0.0", seen_with(&[("grafik", "5.0.0")], "3.90.0"));
+        assert!(!marked.contains(&"hf_grafik") && marked.contains(&"hf_meinlager"), "{marked:?}");
         // An area of a later version than the own one stays unmarked.
         assert!(!new_pages("4.12.0", seen_with(&[], "3.0.0")).contains(&"hf_farmliste"));
         assert_eq!(version_parts("5.0.0-rc2"), (5, 0, 0));

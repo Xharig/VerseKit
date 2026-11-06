@@ -101,6 +101,8 @@ struct Bench {
     size: egui::Vec2,
     /// Every named element of the last frame with its place.
     nodes: Vec<(egui::Role, String, Rect)>,
+    /// The named elements of the last frame that do nothing now (grey).
+    grey: Vec<(egui::Role, String)>,
 }
 
 impl Bench {
@@ -108,7 +110,13 @@ impl Bench {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         ctx.enable_accesskit();
-        Bench { ctx, state: ShaderState::default(), size: egui::vec2(1000.0, 700.0), nodes: Vec::new() }
+        Bench {
+            ctx,
+            state: ShaderState::default(),
+            size: egui::vec2(1000.0, 700.0),
+            nodes: Vec::new(),
+            grey: Vec::new(),
+        }
     }
 
     fn frame(&mut self, paths: &Paths, events: Vec<Event>) -> Texts {
@@ -130,9 +138,19 @@ impl Bench {
             }
         }
         output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut texts));
-        self.nodes = output
-            .platform_output
-            .accesskit_update
+        let update = output.platform_output.accesskit_update;
+        self.grey = update
+            .as_ref()
+            .map(|update| {
+                update
+                    .nodes
+                    .iter()
+                    .filter(|(_, node)| node.is_disabled())
+                    .map(|(_, node)| (node.role(), node.label().unwrap_or_default().to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.nodes = update
             .map(|update| {
                 update
                     .nodes
@@ -203,6 +221,12 @@ impl Bench {
             .unwrap_or_else(|| panic!("no {role:?} {name} on the screen: {texts:?} {:?}", self.nodes))
     }
 
+    /// Whether the named element of that kind stands on the screen and does something (is not grey).
+    fn enabled(&self, role: egui::Role, name: &str) -> bool {
+        self.nodes.iter().any(|(r, n, _)| *r == role && n == name)
+            && !self.grey.iter().any(|(r, n)| *r == role && n == name)
+    }
+
     fn switch(&mut self, paths: &Paths, name: &str) {
         let at = self.place(paths, egui::Role::CheckBox, name).center();
         self.press_at(paths, at);
@@ -236,6 +260,40 @@ fn size_of(mib: usize) -> String {
 fn ask(bench: &mut Bench, paths: &Paths, button: &str) -> Texts {
     bench.click(paths, &t(button));
     bench.until(paths, |texts| shows(texts, &t("s_mlg_bestaetigen")))
+}
+
+/// The card says how large the caches are and when they were last emptied through VerseKit; emptied before the last
+/// patch of the game (its archive is newer), it says so; emptying through the card keeps the moment.
+#[test]
+fn the_card_tells_the_size_when_it_was_last_cleared_and_whether_that_was_before_the_patch() {
+    let _language = setup();
+    let w = world("groesse", Some(7200), Some("sc-alpha-4.1"));
+    let mut bench = Bench::new();
+    // 11 MB in all, never emptied through VerseKit, nothing to say about the patch.
+    let size = tf("s_sc_groesse", &[("0", Arg::from(size_of(11).as_str()))]);
+    let texts = bench.until(&w.paths, |texts| shows(texts, &size));
+    assert!(shows(&texts, &size) && shows(&texts, &t("s_sc_nie_geleert")), "{texts:?}");
+    assert!(!shows(&texts, &t("s_sc_seit_patch")), "{texts:?}");
+    // Emptied long before the archive of the game was written: said so, with the day.
+    let game = w.paths.game_folder().expect("a game folder");
+    std::fs::write(format!("{game}/Data.p4k"), "").expect("archive");
+    w.paths.set_setting(SETTING_CLEARED, Value::int(1_000_000));
+    let texts = bench.settle(&w.paths);
+    assert!(shows(&texts, &t("s_sc_seit_patch")), "{texts:?}");
+    let day = versekit_core::stats_report::local_day(versekit_core::language::current(), 1_000_000);
+    assert!(shows(&texts, &tf("s_sc_geleert_am", &[("0", Arg::from(day.as_str()))])), "{texts:?}");
+    // Counter-check: emptied after the patch, nothing said.
+    w.paths.set_setting(SETTING_CLEARED, Value::int(versekit_core::export::now_unix() + 60));
+    let texts = bench.settle(&w.paths);
+    assert!(!shows(&texts, &t("s_sc_seit_patch")), "{texts:?}");
+    // Emptying through the card keeps the moment it was done.
+    w.paths.set_setting(SETTING_CLEARED, Value::int(1_000_000));
+    ask(&mut bench, &w.paths, "s_sc_knopf");
+    bench.click(&w.paths, &t("s_mlg_bestaetigen"));
+    let done = tf("s_sc_fertig", &[("0", Arg::from(size_of(11).as_str()))]);
+    bench.until(&w.paths, |texts| shows(texts, &done));
+    assert!(cleared_at(&w.paths).is_some_and(|at| at >= versekit_core::export::now_unix() - 60), "kept");
+    let _ = std::fs::remove_dir_all(w.home);
 }
 
 #[test]
@@ -411,19 +469,27 @@ fn only_old_says_so_and_asks_nothing_when_no_version_is_old_or_the_installed_one
 fn nothing_is_deleted_while_the_game_runs_or_when_nobody_can_say_by_either_way() {
     let _language = setup();
     for button in ["s_sc_knopf", "s_sc_knopf_alt"] {
-        for (name, age, reason) in [("laeuft", Some(5), "s_sc_spiel"), ("unklar", None, "s_sc_unklar")] {
+        for (name, age) in [("laeuft", Some(5)), ("unklar", None)] {
             let w = world(&format!("{button}-{name}"), age, Some("sc-alpha-4.1"));
             let mut bench = Bench::new();
+            // The button is grey (the reason on hover): a click starts nothing, there is nothing to answer.
+            bench.settle(&w.paths);
+            assert!(!bench.enabled(egui::Role::Button, &t(button)), "{button} {name}: grey");
             bench.click(&w.paths, &t(button));
-            let texts = bench.until(&w.paths, |texts| shows(texts, &t(reason)));
-            assert!(shows(&texts, &t(reason)), "{button} {name}: the window says why: {texts:?}");
-            assert!(!shows(&texts, &t("s_mlg_bestaetigen")), "{button} {name}: no question");
+            let texts = bench.settle(&w.paths);
+            assert!(!shows(&texts, &t("s_sc_sucht")) && !shows(&texts, &t("s_mlg_bestaetigen")), "{button} {name}");
             for file in [&w.current, &w.old, &w.driver, &w.crash] {
                 assert!(Path::new(file).is_file(), "{button} {name}: {file} stays");
             }
             assert!(bench.state.phase_is_idle(), "{button} {name}");
             let _ = std::fs::remove_dir_all(w.home);
         }
+        // Counter-check: the game quiet for two hours, the button does something.
+        let w = world(&format!("{button}-ruhig"), Some(7200), Some("sc-alpha-4.1"));
+        let mut bench = Bench::new();
+        bench.settle(&w.paths);
+        assert!(bench.enabled(egui::Role::Button, &t(button)), "{button}: not grey while the game is quiet");
+        let _ = std::fs::remove_dir_all(w.home);
     }
 }
 

@@ -712,7 +712,7 @@ fn stamp_now() -> String {
 // ------------------------------------------------------------ the page
 
 fn small(ui: &mut Ui, text: &str, tone: egui::Color32) {
-    ui.add(egui::Label::new(RichText::new(text).small().color(tone)).wrap());
+    widgets::reading(ui, RichText::new(text).small().color(tone));
 }
 
 /// A row with name and hint above, the control full width below.
@@ -735,130 +735,145 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut DiagnoseState) {
     state.tick(ui.ctx());
     let sub = color(scheme.sub);
     small(ui, &t("s_div_lead"), sub);
-    match (state.target.address(), state.target.available()) {
-        (_, false) => small(ui, &state.off_text(), sub),
-        (Some(address), true) if address.starts_with("http://") => small(ui, &t("s_div_ziel_lokal"), sub),
-        _ => {}
-    }
-    if let Some(receiver) = &state.receiver {
-        let seen = receiver.received();
-        let line = match seen.last() {
-            None => t("s_div_empfaenger_leer"),
-            Some(&(bytes, files)) => {
-                let args = [("0", Arg::from(seen.len())), ("1", Arg::from(bytes)), ("2", Arg::from(files))];
-                tf("s_div_empfaenger", &args)
-            }
-        };
-        small(ui, &line, sub);
-        ui.ctx().request_repaint_after(Duration::from_millis(500));
-    }
     ui.add_space(GAP);
 
-    // The three ways out stay at the top, in sight without scrolling.
-    ui.horizontal_wrapped(|row| {
-        let send_word = t("s_di_absenden");
-        // No target: the button is locked, with the reason, instead of answering only after a click.
-        let off = (!state.target.available()).then(|| state.off_text());
-        let send = widgets::Button::new(&send_word, ButtonKind::Danger, scheme).icon("send").blocked(off.as_deref());
-        if row.add(send).clicked() {
-            state.send(row.ctx());
+    // The three ways out stay at the top, in sight without scrolling, in the card of sending.
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_div_senden_kopf"));
+        match (state.target.address(), state.target.available()) {
+            (_, false) => small(ui, &state.off_text(), sub),
+            (Some(address), true) if address.starts_with("http://") => small(ui, &t("s_div_ziel_lokal"), sub),
+            _ => {}
         }
-        let issue_word = t("s_di_melden");
-        if row.add(widgets::Button::new(&issue_word, ButtonKind::Strong, scheme).icon("external-link")).clicked() {
-            state.open_issue(row.ctx());
-        }
-        let copy_word = t("s_di_kopieren");
-        if row.add(widgets::Button::new(&copy_word, ButtonKind::Normal, scheme).icon("copy")).clicked() {
-            state.copy(row.ctx());
-        }
-    });
-    ui.add_space(4.0);
-    let consent_word = t("s_di_zustimmung");
-    if widgets::switch_row(ui, scheme, &consent_word, &mut state.consent).changed() {
-        state.paths.set_setting(CONSENT_SETTING, Value::Bool(state.consent));
-    }
-    // The images of the scanners (taught signatures, kept refinery readings): only where there are some, and
-    // asked each time.
-    let scans = state.scan_images(ui.input(|i| i.time));
-    if scans > 0 {
-        let word = tf("s_di_zustimmung_bilder", &[("0", Arg::from(scans))]);
-        widgets::switch_row(ui, scheme, &word, &mut state.scan_consent);
-    }
-    if let Some((text, tone)) = &state.notice {
-        let tone = match tone {
-            Tone::Good => scheme.accent,
-            Tone::Bad => scheme.red,
-            Tone::Quiet => scheme.sub,
-        };
-        small(ui, text, color(tone));
-    }
-    ui.add_space(GAP);
-
-    // The name.
-    let now = ui.input(|i| i.time);
-    let hint = t("s_pl_melder");
-    wide_row(ui, scheme, &t("s_melder"), &t("s_melderv_h"), |ui| {
-        let before = state.reporter.clone();
-        let response = ui.add(widgets::text_field(&mut state.reporter, &hint, scheme).desired_width(f32::INFINITY));
-        if response.changed() && state.reporter != before {
-            state.last_edit = now;
-        }
-        if response.lost_focus() {
-            state.commit_reporter();
-        }
-    });
-
-    // The sentence of the player.
-    let message_hint = t("s_meldung");
-    wide_row(ui, scheme, &message_hint, &t("s_meldungv_h"), |ui| {
-        let edit =
-            widgets::text_area(&mut state.message, &message_hint, scheme).desired_rows(4).desired_width(f32::INFINITY);
-        if ui.add(edit).changed() {
-            state.last_edit = now;
-        }
-        if state.asked_for_sentence && state.message.trim().is_empty() {
-            small(ui, &t("s_di_ohne_satz_feld"), color(scheme.red));
-        }
-    });
-
-    // The images.
-    let budget_mb = send::IMAGE_BUDGET / (1024 * 1024);
-    let images_hint = tf("s_bilderv_h", &[("0", Arg::from(send::IMAGE_LIMIT)), ("1", Arg::from(budget_mb))]);
-    wide_row(ui, scheme, &t("s_bilder"), &images_hint, |ui| {
-        let word = t("s_di_bild_waehlen");
-        if ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("image-plus")).clicked() {
-            if state.pictures.len() >= send::IMAGE_LIMIT {
-                let text = tf("s_di_bild_voll", &[("0", Arg::from(send::IMAGE_LIMIT))]);
-                state.say(text, Tone::Bad);
-            } else {
-                let filters: [(&str, &[&str]); 1] = [("PNG / JPG", &["png", "jpg", "jpeg"])];
-                state.dialog = Some(file_dialog::open_file(ui.ctx(), &t("s_di_bild_titel"), &filters, None));
-            }
-        }
-        let mut gone = None;
-        for (index, picture) in state.pictures.iter().enumerate() {
-            ui.horizontal(|row| {
-                row.label(&picture.name);
-                let meaning = tf("s_di_bild_weg", &[("0", Arg::from(picture.name.as_str()))]);
-                let remove = widgets::icon_button(row, scheme, "x", &meaning);
-                remove.widget_info(|| WidgetInfo::labeled(Role::Button, true, &meaning));
-                if remove.clicked() {
-                    gone = Some(index);
+        if let Some(receiver) = &state.receiver {
+            let seen = receiver.received();
+            let line = match seen.last() {
+                None => t("s_div_empfaenger_leer"),
+                Some(&(bytes, files)) => {
+                    let args = [("0", Arg::from(seen.len())), ("1", Arg::from(bytes)), ("2", Arg::from(files))];
+                    tf("s_div_empfaenger", &args)
                 }
-            });
+            };
+            small(ui, &line, sub);
+            ui.ctx().request_repaint_after(Duration::from_millis(500));
         }
-        if let Some(index) = gone {
-            state.remove_picture(index);
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|row| {
+            let send_word = t("s_di_absenden");
+            // No target: the button is locked, with the reason, instead of answering only after a click.
+            let off = (!state.target.available()).then(|| state.off_text());
+            let send =
+                widgets::Button::new(&send_word, ButtonKind::Danger, scheme).icon("send").blocked(off.as_deref());
+            if row.add(send).clicked() {
+                state.send(row.ctx());
+            }
+            let issue_word = t("s_di_melden");
+            if row.add(widgets::Button::new(&issue_word, ButtonKind::Strong, scheme).icon("external-link")).clicked()
+            {
+                state.open_issue(row.ctx());
+            }
+            let copy_word = t("s_di_kopieren");
+            if row.add(widgets::Button::new(&copy_word, ButtonKind::Normal, scheme).icon("copy")).clicked() {
+                state.copy(row.ctx());
+            }
+        });
+        ui.add_space(4.0);
+        let consent_word = t("s_di_zustimmung");
+        if widgets::switch_row(ui, scheme, &consent_word, &mut state.consent).changed() {
+            state.paths.set_setting(CONSENT_SETTING, Value::Bool(state.consent));
         }
+        // The images of the scanners (taught signatures, kept refinery readings): only where there are some, and
+        // asked each time.
+        let scans = state.scan_images(ui.input(|i| i.time));
+        if scans > 0 {
+            let word = tf("s_di_zustimmung_bilder", &[("0", Arg::from(scans))]);
+            widgets::switch_row(ui, scheme, &word, &mut state.scan_consent);
+        }
+        if let Some((text, tone)) = &state.notice {
+            let tone = match tone {
+                Tone::Good => scheme.accent,
+                Tone::Bad => scheme.red,
+                Tone::Quiet => scheme.sub,
+            };
+            small(ui, text, color(tone));
+        }
+        ui.add_space(4.0);
+        small(ui, &t("s_div_ohne_github"), sub);
     });
+    ui.add_space(GAP);
 
-    // The report.
-    ui.add(egui::Label::new(RichText::new(t("s_div_bericht_name")).strong()));
-    report_box(ui, scheme, state);
+    // What the player adds: name, sentence, images.
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_div_angaben_kopf"));
+        // The name.
+        let now = ui.input(|i| i.time);
+        let hint = t("s_pl_melder");
+        wide_row(ui, scheme, &t("s_melder"), &t("s_melderv_h"), |ui| {
+            let before = state.reporter.clone();
+            let response =
+                ui.add(widgets::text_field(&mut state.reporter, &hint, scheme).desired_width(f32::INFINITY));
+            if response.changed() && state.reporter != before {
+                state.last_edit = now;
+            }
+            if response.lost_focus() {
+                state.commit_reporter();
+            }
+        });
+
+        // The sentence of the player.
+        let message_hint = t("s_meldung");
+        wide_row(ui, scheme, &message_hint, &t("s_meldungv_h"), |ui| {
+            let edit = widgets::text_area(&mut state.message, &message_hint, scheme)
+                .desired_rows(4)
+                .desired_width(f32::INFINITY);
+            if ui.add(edit).changed() {
+                state.last_edit = now;
+            }
+            if state.asked_for_sentence && state.message.trim().is_empty() {
+                small(ui, &t("s_di_ohne_satz_feld"), color(scheme.red));
+            }
+        });
+
+        // The images.
+        let budget_mb = send::IMAGE_BUDGET / (1024 * 1024);
+        let images_hint = tf("s_bilderv_h", &[("0", Arg::from(send::IMAGE_LIMIT)), ("1", Arg::from(budget_mb))]);
+        wide_row(ui, scheme, &t("s_bilder"), &images_hint, |ui| {
+            let word = t("s_di_bild_waehlen");
+            if ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("image-plus")).clicked() {
+                if state.pictures.len() >= send::IMAGE_LIMIT {
+                    let text = tf("s_di_bild_voll", &[("0", Arg::from(send::IMAGE_LIMIT))]);
+                    state.say(text, Tone::Bad);
+                } else {
+                    let filters: [(&str, &[&str]); 1] = [("PNG / JPG", &["png", "jpg", "jpeg"])];
+                    state.dialog = Some(file_dialog::open_file(ui.ctx(), &t("s_di_bild_titel"), &filters, None));
+                }
+            }
+            let mut gone = None;
+            for (index, picture) in state.pictures.iter().enumerate() {
+                ui.horizontal(|row| {
+                    row.label(&picture.name);
+                    let meaning = tf("s_di_bild_weg", &[("0", Arg::from(picture.name.as_str()))]);
+                    let remove = widgets::icon_button(row, scheme, "x", &meaning);
+                    remove.widget_info(|| WidgetInfo::labeled(Role::Button, true, &meaning));
+                    if remove.clicked() {
+                        gone = Some(index);
+                    }
+                });
+            }
+            if let Some(index) = gone {
+                state.remove_picture(index);
+            }
+        });
+    });
     ui.add_space(GAP);
-    widgets::status_box(ui, scheme, scheme.accent, "shield-check", &t("s_di_sicher"), &t("s_div_sicher_h"));
-    ui.add_space(GAP);
-    small(ui, &t("s_div_ohne_github"), sub);
+
+    // The report, with the promise of what it holds.
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_div_bericht_name"));
+        report_box(ui, scheme, state);
+        ui.add_space(GAP);
+        widgets::status_box(ui, scheme, scheme.accent, "shield-check", &t("s_di_sicher"), &t("s_div_sicher_h"));
+    });
     ui.add_space(GAP);
 }
 

@@ -35,10 +35,10 @@ use versekit_core::basetool::error::error_text;
 use versekit_core::basetool::orgunits::{OrgUnit, label as unit_label};
 use versekit_core::basetool::scopes::SETTING_STOCK;
 use versekit_core::basetool::stock_split::{
-    self, Failure, Kind, PIECE, RowRef, Scope, Share, Snapshot, check_amount, reason_key, share_op, split_of,
+    self, Failure, Gap, Kind, PIECE, RowRef, Scope, Share, Snapshot, check_amount, reason_key, share_op, split_of,
     unshare_op,
 };
-use versekit_core::basetool::sync::{Shared, SyncHandle};
+use versekit_core::basetool::sync::{Phase, Shared, SyncHandle};
 use versekit_core::jsonio::Value;
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::stock::{Row, Store};
@@ -97,6 +97,77 @@ struct Wish {
     since: f64,
 }
 
+/// A row just booked or changed whose lot the Basetool may not have yet.
+struct Fresh {
+    store: Store,
+    name: String,
+    place: String,
+    quality: Option<i64>,
+    stolen: bool,
+    /// When the booking was made (time of the sync).
+    since: f64,
+}
+
+impl Fresh {
+    fn is(&self, row: &Row) -> bool {
+        row.store == self.store
+            && row.name.to_lowercase() == self.name.to_lowercase()
+            && row.place.to_lowercase() == self.place.to_lowercase()
+            && row.quality == self.quality
+            && row.stolen == self.stolen
+    }
+}
+
+/// How many own rows the Basetool does not get, by reason.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Gaps {
+    pub no_place: usize,
+    pub unknown_place: usize,
+    pub unknown_part: usize,
+    pub refused: usize,
+}
+
+impl Gaps {
+    pub fn total(&self) -> usize {
+        self.no_place + self.unknown_place + self.unknown_part + self.refused
+    }
+
+    /// "2 entries not in the Basetool: 1 without a location, 1 unknown part", or nothing where none is left out.
+    pub fn text(&self) -> Option<String> {
+        let n = |count: usize| Arg::Int(count as i64);
+        let mut parts = Vec::new();
+        if self.no_place > 0 {
+            parts.push(tf("s_ml_luecke_ort", &[("0", n(self.no_place))]));
+        }
+        if self.unknown_place > 0 {
+            parts.push(tf("s_ml_luecke_ort_fremd", &[("0", n(self.unknown_place))]));
+        }
+        if self.unknown_part > 0 {
+            let key = if self.unknown_part == 1 { "s_ml_luecke_teil_1" } else { "s_ml_luecke_teil_n" };
+            parts.push(tf(key, &[("0", n(self.unknown_part))]));
+        }
+        if self.refused > 0 {
+            parts.push(tf("s_ml_luecke_abgelehnt", &[("0", n(self.refused))]));
+        }
+        let total = self.total();
+        if total == 0 {
+            return None;
+        }
+        let key = if total == 1 { "s_ml_luecke_1" } else { "s_ml_luecke_n" };
+        Some(tf(key, &[("0", n(total)), ("1", Arg::from(parts.join(", ")))]))
+    }
+}
+
+/// The word a row carries for the reason the Basetool does not get it.
+pub fn gap_word(gap: Gap) -> String {
+    t(match gap {
+        Gap::NoPlace => "s_ml_b_ohne_ort",
+        Gap::UnknownPlace => "s_ml_b_ort_fremd",
+        Gap::UnknownPart => "s_ml_b_teil_fremd",
+        Gap::Refused => "s_ml_b_abgelehnt",
+    })
+}
+
 /// How long a booking waits for its lot at the Basetool (seconds).
 const WISH_WAIT_SECONDS: f64 = 180.0;
 
@@ -126,6 +197,8 @@ pub struct Split {
     units: Vec<OrgUnit>,
     units_fetched: bool,
     shares: HashMap<(Store, usize), Share>,
+    /// The identifier of the lot each row belongs to, for the rows whose material the sync resolved.
+    keys: HashMap<(Store, usize), String>,
     pub scope: Scope,
     form: Option<Form>,
     sending: Option<Sending>,
@@ -137,6 +210,11 @@ pub struct Split {
     wishes: Vec<Wish>,
     /// What the page is to say next, from a booking that ended without a send.
     said: Option<String>,
+    /// The rows booked or changed lately that the Basetool has no lot for yet.
+    fresh: Vec<Fresh>,
+    /// How often a booking asked the sync for a pass (tests).
+    #[cfg(test)]
+    asked: usize,
 }
 
 fn amount_text(value: f64, piece: bool) -> String {
@@ -172,6 +250,7 @@ impl Split {
         if !linked {
             self.snapshot = None;
             self.seen = None;
+            self.fresh.clear();
         } else if self.seen != Some(generation) || self.snapshot.is_none() {
             self.seen = Some(generation);
             self.snapshot = link.sync.state().and_then(|state| stock_split::snapshot(&state));
@@ -182,6 +261,7 @@ impl Split {
         let Some(snapshot) = &self.snapshot else {
             self.scope = Scope::All;
             self.shares.clear();
+            self.keys.clear();
             self.form = None;
             return;
         };
@@ -207,8 +287,21 @@ impl Split {
                 }
             })
             .collect();
+        self.keys = rows
+            .iter()
+            .zip(&refs)
+            .filter_map(|(row, reference)| Some(((row.store, row.index), stock_split::row_key(reference, snapshot)?)))
+            .collect();
         let parts = stock_split::attach(&refs, Some(snapshot));
         self.shares = rows.iter().zip(parts).map(|(row, part)| ((row.store, row.index), part)).collect();
+        // A row stops waiting once its lot is there, it is gone, or the Basetool took too long.
+        let now = link.sync.now();
+        let shares = &self.shares;
+        self.fresh.retain(|fresh| {
+            let here = rows.iter().find(|row| fresh.is(row));
+            now - fresh.since <= WISH_WAIT_SECONDS
+                && here.is_some_and(|row| shares.get(&(row.store, row.index)).is_some_and(|s| s.lot.is_none()))
+        });
         // A form belongs to the lot it was opened for.
         let stale = self.form.as_ref().is_some_and(|form| {
             let here = rows.iter().find(|r| (r.store, r.index) == (form.store, form.index));
@@ -345,6 +438,68 @@ impl Split {
             out.push(Kind::Unshare);
         }
         out
+    }
+
+    /// Whether the stock sync is switched on: the Basetool needs a place for every lot, so the forms ask for one.
+    pub fn place_required(&self) -> bool {
+        self.link.as_ref().is_some_and(|link| link.sync.paths().setting_bool(SETTING_STOCK, false))
+    }
+
+    /// A row was booked or changed: the pass follows at once, and until the Basetool has the lot of the row
+    /// it shows the button for the unit's storage as waiting.
+    pub fn booked(&mut self, store: Store, name: &str, place: &str, quality: Option<i64>, stolen: bool) {
+        let Some(link) = &self.link else { return };
+        let stopped = link.sync.status().get().1.is_some_and(|status| status.phase == Phase::Stopped);
+        if !self.place_required() || !link.sync.linked() || stopped {
+            return;
+        }
+        link.sync.request_now();
+        let since = link.sync.now();
+        let (name, place) = (name.to_string(), place.to_string());
+        self.fresh.push(Fresh { store, name, place, quality, stolen, since });
+        #[cfg(test)]
+        {
+            self.asked += 1;
+        }
+    }
+
+    /// Whether the row waits for its lot at the Basetool: booked lately, nothing keeps it from there.
+    pub fn pending(&self, row: &Row) -> bool {
+        self.available()
+            && self.fresh.iter().any(|fresh| fresh.is(row))
+            && self.shares.get(&(row.store, row.index)).is_some_and(|share| share.lot.is_none())
+            && self.gap(row).is_none()
+    }
+
+    /// Why the pass leaves this row out of the Basetool, once the stock was synced.
+    pub fn gap(&self, row: &Row) -> Option<Gap> {
+        let key = self.keys.get(&(row.store, row.index)).map(String::as_str);
+        stock_split::gap_of(&row.name, &row.place, key, self.snapshot.as_ref()?)
+    }
+
+    /// What the Basetool said when it refused the change of this row, in words; nothing for a row it did not refuse.
+    pub fn refusal_text(&self, row: &Row) -> Option<String> {
+        let key = self.keys.get(&(row.store, row.index))?;
+        let reason = self.snapshot.as_ref()?.refused.get(key)?;
+        Some(match reason_key(reason) {
+            Some(text) => t(text),
+            None => tf("s_ml_r_anders", &[("0", Arg::from(reason.clone()))]),
+        })
+    }
+
+    /// How many of the rows the Basetool does not get, by reason.
+    pub fn gaps(&self, rows: &[Row]) -> Gaps {
+        let mut gaps = Gaps::default();
+        for row in rows {
+            match self.gap(row) {
+                Some(Gap::NoPlace) => gaps.no_place += 1,
+                Some(Gap::UnknownPlace) => gaps.unknown_place += 1,
+                Some(Gap::UnknownPart) => gaps.unknown_part += 1,
+                Some(Gap::Refused) => gaps.refused += 1,
+                None => {}
+            }
+        }
+        gaps
     }
 
     /// The name of a unit: from the list, "left unit" for one the list no longer has.
@@ -692,6 +847,26 @@ impl Split {
     #[cfg(test)]
     pub(crate) fn for_error(&self) -> Option<&str> {
         self.for_error.as_deref()
+    }
+
+    /// Test seam: how often a booking asked the sync for a pass.
+    #[cfg(test)]
+    pub(crate) fn passes_asked(&self) -> usize {
+        self.asked
+    }
+
+    /// Test seam: how many rows wait for their lot.
+    #[cfg(test)]
+    pub(crate) fn rows_waiting(&self) -> usize {
+        self.fresh.len()
+    }
+
+    /// Test seam: the rows have been waiting `seconds` longer.
+    #[cfg(test)]
+    pub(crate) fn age_fresh(&mut self, seconds: f64) {
+        for fresh in &mut self.fresh {
+            fresh.since -= seconds;
+        }
     }
 
     /// Test seam: the share of a row.
@@ -1135,6 +1310,280 @@ mod tests {
         b.frame();
         assert_eq!(b.state.take_message_text(), Some(t("s_ml_fuer_spaeter")));
         assert!(!b.state.split.wish_pending());
+    }
+
+    impl Bench {
+        fn row_of(&self, name: &str, place: &str) -> Row {
+            self.state.rows().into_iter().find(|r| r.name == name && r.place == place).expect("row")
+        }
+
+        fn trade(&self) -> Vec<Value> {
+            stock::load(&self.wire.sync.paths().app_file(stock::TRADE_FILE), "test")
+        }
+
+        /// The named buttons of one frame: (label, disabled).
+        fn buttons(&mut self) -> Vec<(String, bool)> {
+            self.ctx.enable_accesskit();
+            self.ctx.all_styles_mut(|style| style.animation_time = 0.0);
+            let mut found = Vec::new();
+            for _ in 0..2 {
+                let input = egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1800.0))),
+                    ..Default::default()
+                };
+                let scheme = versekit_core::theme::current();
+                let state = &mut self.state;
+                let mut output = self.ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+                output.textures_delta.clear();
+                if let Some(update) = output.platform_output.accesskit_update {
+                    found = update
+                        .nodes
+                        .iter()
+                        .filter(|(_, node)| node.role() == egui::accesskit::Role::Button)
+                        .filter_map(|(_, node)| Some((node.label()?.to_owned(), node.is_disabled())))
+                        .collect();
+                }
+            }
+            found
+        }
+    }
+
+    #[test]
+    fn with_the_sync_on_a_booking_needs_a_place_and_the_form_says_so() {
+        use versekit_core::language::{Lang, with_language};
+        let _language = crate::language_lock();
+        language::set_language(Choice::De);
+        let mut b = bench("ort-pflicht");
+        b.ctx.all_styles_mut(|style| style.animation_time = 0.0);
+        b.state.open_forms();
+        assert!(b.state.split.place_required());
+        // Without a place nothing is booked, and the field says what is missing.
+        b.state.book_raw("Iron", "3", "420", "");
+        assert_eq!(b.raw().len(), 1, "no entry without a place");
+        assert_eq!(b.state.place_error(), Some(t("s_ml_ort_fehlt")));
+        b.state.book_goods("Laranite", "5", "");
+        assert!(b.trade().is_empty(), "no goods without a place");
+        assert_eq!(b.state.trade_place_error(), Some(t("s_ml_ort_fehlt")));
+        for language in [Lang::De, Lang::En] {
+            with_language(language, || {
+                let has = |seen: &[String], key: &str| seen.iter().any(|s| s == &t(key).to_lowercase());
+                let seen = b.texts();
+                assert!(has(&seen, "s_ml_ort"), "the label without \"optional\": {seen:?}");
+                assert!(!has(&seen, "s_lg_ort"), "{seen:?}");
+                assert!(has(&seen, "s_ml_ort_fehlt"), "the button says why it is grey: {seen:?}");
+                let buttons = b.buttons();
+                let add = buttons.iter().find(|(label, _)| label == &t("s_lg_eintragen"));
+                assert_eq!(add.map(|(_, disabled)| *disabled), Some(true), "{buttons:?}");
+            });
+        }
+        // With a place the entry goes in, and the place stays for the next one: the button is awake at once.
+        b.state.book_raw("Iron", "3", "420", "Area18");
+        assert_eq!(b.raw().len(), 2);
+        let seen = b.texts();
+        assert!(!seen.iter().any(|s| s == &t("s_ml_ort_fehlt").to_lowercase()), "{seen:?}");
+        let buttons = b.buttons();
+        let add = buttons.iter().find(|(label, _)| label == &t("s_lg_eintragen"));
+        assert_eq!(add.map(|(_, disabled)| *disabled), Some(false), "{buttons:?}");
+        assert_eq!(b.state.form_places()[0], "Area18");
+        // Sync off: the place is optional again, as before.
+        assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(false)));
+        b.frame();
+        assert!(!b.state.split.place_required());
+        b.state.book_raw("Iron", "1", "300", "");
+        assert_eq!(b.raw().len(), 3, "without the sync a place stays optional");
+        let seen = b.texts();
+        assert!(has_text(&seen, "s_lg_ort") && !has_text(&seen, "s_ml_ort"), "{seen:?}");
+    }
+
+    fn has_text(seen: &[String], key: &str) -> bool {
+        seen.iter().any(|s| s == &t(key).to_lowercase())
+    }
+
+    #[test]
+    fn the_refinery_booking_needs_a_place_with_the_sync_on() {
+        let _language = crate::language_lock();
+        language::set_language(Choice::De);
+        let mut b = bench("raffinerie-ort");
+        b.state.book_refinery_lines("Iron 295 188", "");
+        assert_eq!(b.raw().len(), 1, "nothing booked without a place");
+        b.state.book_refinery_lines("Iron 295 188", "Area18");
+        assert_eq!(b.raw().len(), 2);
+        assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(false)));
+        b.state.book_refinery_lines("Iron 100 150", "");
+        assert_eq!(b.raw().len(), 3, "optional with the sync off");
+    }
+
+    #[test]
+    fn a_booking_or_a_change_asks_for_a_pass_at_once_and_the_row_waits_until_the_basetool_has_its_lot() {
+        let _language = crate::language_lock();
+        language::set_language(Choice::De);
+        let mut b = bench("abgleich");
+        let asked = b.state.split.passes_asked();
+        b.state.book_raw("Iron", "3", "420", "Area18");
+        assert_eq!(b.state.split.passes_asked(), asked + 1, "the booking asks for a pass");
+        b.frame();
+        let row = b.row_of("Iron", "Area18");
+        assert!(b.state.split.pending(&row), "the Basetool has no lot yet");
+        assert!(b.state.split.actions(&row).is_empty());
+        let buttons = b.buttons();
+        assert!(
+            buttons.contains(&(t("s_ml_abgleich"), true)),
+            "the greyed button is there from the start: {buttons:?}"
+        );
+        // The pass brought the lot: the button works.
+        b.settle();
+        let row = b.row_of("Iron", "Area18");
+        assert!(!b.state.split.pending(&row));
+        assert_eq!(b.state.split.rows_waiting(), 0);
+        assert_eq!(b.state.split.actions(&row), vec![Kind::Share]);
+        assert!(!b.buttons().iter().any(|(label, _)| label == &t("s_ml_abgleich")));
+        // A change asks as well, and the Basetool gets the new amount with the pass.
+        let asked = b.state.split.passes_asked();
+        let at = b.row_of("Titanium", "Area18").index;
+        b.state.change_raw(at, "12");
+        assert_eq!(b.state.split.passes_asked(), asked + 1, "the change asks for a pass");
+        b.settle();
+        assert_eq!(b.double.lot_amount("Titanium", "Area18", 600, false), 12.0);
+        // Goods and items ask the same.
+        let asked = b.state.split.passes_asked();
+        b.state.book_goods("Laranite", "5", "Area18");
+        assert_eq!(b.state.split.passes_asked(), asked + 1);
+    }
+
+    #[test]
+    fn a_row_gives_up_waiting_after_a_while_and_nothing_waits_without_the_sync() {
+        let _language = crate::language_lock();
+        language::set_language(Choice::De);
+        let mut b = bench("abgleich-spaet");
+        b.state.book_raw("Iron", "3", "420", "Area18");
+        b.frame();
+        assert_eq!(b.state.split.rows_waiting(), 1);
+        b.state.split.age_fresh(WISH_WAIT_SECONDS + 1.0);
+        b.frame();
+        assert_eq!(b.state.split.rows_waiting(), 0);
+        assert!(!b.state.split.pending(&b.row_of("Iron", "Area18")));
+        // Sync off: no pass is asked for, no row waits.
+        assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(false)));
+        b.frame();
+        let asked = b.state.split.passes_asked();
+        b.state.book_raw("Iron", "1", "300", "Area18");
+        assert_eq!((b.state.split.passes_asked(), b.state.split.rows_waiting()), (asked, 0));
+    }
+
+    #[test]
+    fn rows_the_basetool_does_not_get_are_counted_marked_and_filtered_by_a_click() {
+        use versekit_core::language::{Lang, with_language};
+        let _language = crate::language_lock();
+        language::set_language(Choice::De);
+        let mut b = bench("luecken");
+        // One entry booked while the sync was off has no place; the others come with it on.
+        assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(false)));
+        b.frame();
+        b.state.book_raw("Iron", "1", "420", "");
+        assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(true)));
+        b.state.book_raw("Taranite", "1", "420", "Area18");
+        b.state.book_raw("Hadanite", "2", "500", "Levski");
+        b.state.book_raw("Iron", "2", "200", "Area18");
+        b.settle();
+        let rows = b.state.rows();
+        let gaps = b.state.split.gaps(&rows);
+        assert_eq!((gaps.no_place, gaps.unknown_place, gaps.unknown_part), (1, 1, 1));
+        assert_eq!(
+            gaps.text().as_deref(),
+            Some("3 Posten nicht im Basetool: 1 ohne Ort, 1 mit unbekanntem Ort, 1 unbekanntes Teil")
+        );
+        assert_eq!(b.state.split.gap(&b.row_of("Iron", "")), Some(Gap::NoPlace));
+        assert_eq!(b.state.split.gap(&b.row_of("Hadanite", "Levski")), Some(Gap::UnknownPlace));
+        assert_eq!(b.state.split.gap(&b.row_of("Taranite", "Area18")), Some(Gap::UnknownPart));
+        assert_eq!(b.state.split.gap(&b.row_of("Iron", "Area18")), None);
+        assert_eq!(b.state.split.gap(&b.row_of("Titanium", "Area18")), None);
+        // The click narrows the list to exactly these rows, a second click gives all back.
+        let all = b.state.shown_rows().len();
+        assert_eq!(all, 5);
+        b.state.click_gap_line();
+        let mut shown = b.state.shown_rows();
+        shown.sort();
+        let want = |name: &str, place: &str| (name.to_string(), place.to_string());
+        assert_eq!(shown, vec![want("Hadanite", "Levski"), want("Iron", ""), want("Taranite", "Area18")]);
+        assert!(b.state.is_narrowed());
+        for language in [Lang::De, Lang::En] {
+            with_language(language, || {
+                let seen = b.texts();
+                for key in ["s_ml_b_ohne_ort", "s_ml_b_ort_fremd", "s_ml_b_teil_fremd"] {
+                    assert!(has_text(&seen, key), "{key}: {seen:?}");
+                }
+                let line = b.state.split.gaps(&b.state.rows()).text().expect("a line").to_lowercase();
+                assert!(seen.iter().any(|s| s == &line), "{line}: {seen:?}");
+            });
+        }
+        b.state.click_gap_line();
+        assert_eq!(b.state.shown_rows().len(), all);
+        assert!(!b.state.is_narrowed());
+        // From the other tab the click goes to the tab that holds the rows.
+        b.state.show_items_tab(true);
+        b.state.click_gap_line();
+        assert!(!b.state.items_tab());
+        // Once nothing is left out, the filter lets go by itself.
+        for (name, place) in [("Taranite", "Area18"), ("Hadanite", "Levski"), ("Iron", "")] {
+            let at = b.row_of(name, place).index;
+            let mut raw = b.raw();
+            raw.remove(at);
+            assert!(stock::save(&b.wire.sync.paths().app_file(stock::RAW_FILE), &raw, "test"));
+            b.state.follow_files();
+        }
+        b.settle();
+        b.frame();
+        assert!(!b.state.is_narrowed(), "no row left out, no filter left");
+        assert_eq!(b.state.split.gaps(&b.state.rows()), Gaps::default());
+    }
+
+    #[test]
+    fn a_row_edited_to_a_place_leaves_the_list_of_left_out_rows_at_once() {
+        let _language = crate::language_lock();
+        language::set_language(Choice::De);
+        let mut b = bench("luecke-bearbeitet");
+        assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(false)));
+        b.frame();
+        b.state.book_raw("Iron", "1", "420", "");
+        assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(true)));
+        b.settle();
+        assert_eq!(b.state.split.gaps(&b.state.rows()).no_place, 1);
+        let at = b.row_of("Iron", "").index;
+        b.state.change_raw_place(at, "Area18");
+        b.frame();
+        assert_eq!(b.state.split.gaps(&b.state.rows()), Gaps::default(), "the place is there, nothing keeps it now");
+        assert!(b.state.split.pending(&b.row_of("Iron", "Area18")), "and it waits for its lot");
+        b.settle();
+        assert!(!b.state.split.pending(&b.row_of("Iron", "Area18")));
+        assert_eq!(b.state.split.actions(&b.row_of("Iron", "Area18")), vec![Kind::Share]);
+    }
+
+    #[test]
+    fn a_row_the_basetool_refuses_is_counted_marked_and_says_what_the_basetool_answered() {
+        let _language = crate::language_lock();
+        language::set_language(Choice::De);
+        let mut b = bench("abgelehnt");
+        b.double.refuse_material("Iron", "AMBIGUOUS");
+        b.state.book_raw("Iron", "3", "420", "Area18");
+        b.settle();
+        let row = b.row_of("Iron", "Area18");
+        assert_eq!(b.state.split.gap(&row), Some(Gap::Refused));
+        assert_eq!(b.state.split.refusal_text(&row), Some(t("s_ml_r_unbekannt")));
+        assert!(!b.state.split.pending(&row), "a refused row does not wait");
+        assert!(b.state.split.actions(&row).is_empty(), "and there is no lot to give into a unit");
+        assert_eq!(b.state.split.gaps(&b.state.rows()).refused, 1);
+        assert_eq!(
+            b.state.split.gaps(&b.state.rows()).text().as_deref(),
+            Some("1 Posten nicht im Basetool: 1 vom Basetool abgelehnt")
+        );
+        assert_eq!(b.state.split.gap(&b.row_of("Titanium", "Area18")), None, "the other rows are in");
+        assert!(has_text(&b.texts(), "s_ml_b_abgelehnt"));
+        // The Basetool takes it later: the mark goes and the button works.
+        b.double.heal();
+        b.settle();
+        let row = b.row_of("Iron", "Area18");
+        assert_eq!(b.state.split.gap(&row), None);
+        assert_eq!(b.state.split.actions(&row), vec![Kind::Share]);
     }
 
     #[test]

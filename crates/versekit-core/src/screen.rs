@@ -194,6 +194,54 @@ pub fn title_visible(x: i32, y: i32, width: i32, screens: &[Area]) -> bool {
     })
 }
 
+/// Where a window of `size` (screen pixels) opens: the rectangle (x, y, width, height) in screen pixels, wholly in the
+/// work area of one screen. With a remembered place `at` it is the screen that holds it, or the nearest one when it lies
+/// on none (a screen went away, a place above a smaller screen), and the window is moved only as far as it needs to lie
+/// in that work area, its top edge first; without one it stands in the middle of the main screen. A window larger than
+/// the work area shrinks to it. Everything is in the pixels of the whole desktop, so every screen counts with its own
+/// scaling and no single scale comes in. `nearest` gives the work area of the screen that holds or is nearest to a
+/// point, `primary` the one of the main screen; `None` where the screens cannot be asked.
+pub fn plan_window(
+    at: Option<(i32, i32)>,
+    size: (i32, i32),
+    nearest: &dyn Fn(i32, i32) -> Option<Area>,
+    primary: Option<Area>,
+) -> Option<Area> {
+    let work = match at {
+        Some((x, y)) => nearest(x, y)?,
+        None => primary?,
+    };
+    let (wx, wy, ww, wh) = work;
+    if ww <= 0 || wh <= 0 {
+        return None;
+    }
+    let (w, h) = (size.0.clamp(1, ww), size.1.clamp(1, wh));
+    let (x, y) = match at {
+        Some((x, y)) => (x.clamp(wx, wx + ww - w), y.clamp(wy, wy + wh - h)),
+        None => (wx + (ww - w) / 2, wy + (wh - h) / 2),
+    };
+    Some((x, y, w, h))
+}
+
+/// Puts the window `hwnd` at `area` (screen pixels of the whole desktop); with `size` also its size, otherwise only its
+/// place. Whether Windows did it. Not on other systems.
+#[cfg(windows)]
+pub fn place_window(hwnd: isize, area: Area, size: bool) -> bool {
+    use windows_sys::Win32::Foundation::HWND;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER, SetWindowPos,
+    };
+    let (x, y, w, h) = area;
+    let flags = SWP_NOZORDER | SWP_NOACTIVATE | if size { 0 } else { SWP_NOSIZE };
+    // SAFETY: a window handle of this process and plain numbers; Windows checks the handle.
+    unsafe { SetWindowPos(hwnd as HWND, std::ptr::null_mut(), x, y, w, h, flags) != 0 }
+}
+
+#[cfg(not(windows))]
+pub fn place_window(_hwnd: isize, _area: Area, _size: bool) -> bool {
+    false
+}
+
 // ------------------------------------------------------------ fixed screens
 
 thread_local! {
@@ -606,6 +654,70 @@ mod tests {
         ];
         for (display, wayland, session, want) in cases {
             assert_eq!(choose_backend(display, wayland, session), want, "{display:?} {wayland:?} {session:?}");
+        }
+    }
+
+    /// Three screens side by side, as a player has them: on the left a small one upright at 100 %, reaching far
+    /// above the middle one; in the middle and on the right, the main screen, a large one each at 150 %. All places in
+    /// the pixels of the whole desktop, the task bar at the bottom of each.
+    fn three_screens() -> Setup {
+        Setup {
+            scale: 1.5,
+            primary: 2,
+            monitors: vec![
+                Monitor { area: (-3640, -520, 1080, 1920), work: (-3640, -520, 1080, 1880) },
+                Monitor { area: (-2560, 0, 2560, 1440), work: (-2560, 0, 2560, 1400) },
+                Monitor { area: (0, 0, 2560, 1440), work: (0, 0, 2560, 1400) },
+            ],
+        }
+    }
+
+    fn plan(setup: &Setup, at: Option<(i32, i32)>, size: (i32, i32)) -> Option<Area> {
+        plan_window(at, size, &|x, y| setup.monitor_area(x, y, true), setup.primary_area(true))
+    }
+
+    #[test]
+    fn a_window_opens_on_its_own_screen_with_the_top_edge_in_its_work_area_whatever_the_scalings() {
+        let setup = three_screens();
+        let size = (1920, 1230);
+        // Where it was, on the middle screen: it stays.
+        assert_eq!(plan(&setup, Some((-2000, 100)), size), Some((-2000, 100, 1920, 1230)));
+        // Above the middle screen lie places that belong to no screen: it opens on the middle screen, at its top.
+        assert_eq!(plan(&setup, Some((-2000, -300)), size), Some((-2000, 0, 1920, 1230)));
+        assert_eq!(plan(&setup, Some((-1000, -480)), size), Some((-1920, 0, 1920, 1230)));
+        // The left screen reaches higher: a place above the middle one that lies on it keeps its height.
+        assert_eq!(plan(&setup, Some((-3500, -400)), (1000, 800)), Some((-3560, -400, 1000, 800)));
+        // Larger than the work area of the left screen: it shrinks to it and stands at its edge.
+        assert_eq!(plan(&setup, Some((-3600, -500)), size), Some((-3640, -500, 1080, 1230)));
+        // The bottom edge may not leave the work area either (the task bar).
+        assert_eq!(plan(&setup, Some((100, 900)), size), Some((100, 170, 1920, 1230)));
+        // No place remembered: in the middle of the main screen.
+        assert_eq!(plan(&setup, None, size), Some((320, 85, 1920, 1230)));
+        // Whatever the place: the whole window lies in the work area of one screen, the top edge with it.
+        for x in (-4000..2800).step_by(173) {
+            for y in (-900..1700).step_by(131) {
+                let (px, py, w, h) = plan(&setup, Some((x, y)), size).expect("a place");
+                let work = setup.monitor_area(px, py, true).expect("a screen");
+                let inside = px >= work.0 && py >= work.1 && px + w <= work.0 + work.2 && py + h <= work.1 + work.3;
+                assert!(inside, "({x}, {y}) gives {:?} outside {work:?}", (px, py, w, h));
+            }
+        }
+        // No screen to ask: nothing is planned.
+        assert_eq!(plan_window(Some((0, 0)), size, &|_, _| None, None), None);
+    }
+
+    #[test]
+    fn the_place_does_not_wander_when_it_is_stored_and_planned_again_and_again() {
+        let setup = three_screens();
+        for start in [(-2000, 100), (-2000, -300), (-3500, -400), (320, 85), (2000, 1700), (-4000, 2500)] {
+            let first = plan(&setup, Some(start), (1920, 1230)).expect("a place");
+            let mut now = first;
+            for round in 0..6 {
+                // What the window shows is stored as it is and planned from there on the next start.
+                let again = plan(&setup, Some((now.0, now.1)), (now.2, now.3)).expect("a place");
+                assert_eq!(again, first, "start {start:?}, round {round}");
+                now = again;
+            }
         }
     }
 }

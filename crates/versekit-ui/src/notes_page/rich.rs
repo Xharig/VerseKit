@@ -595,7 +595,11 @@ pub(crate) fn paint_tables(ui: &Ui, galley: &egui::Galley, at: Pos2, clip: Rect,
         }
         fresh = row.ends_with_newline;
     }
-    let painter = ui.painter_at(clip.expand(1.0));
+    // The closing line of a table stands a little right of its last letters, where the clip of the text ends.
+    let mut area = clip.expand(1.0);
+    let reach = tables.iter().filter_map(|table| table.borders.last()).fold(0.0, |a: f32, b| a.max(*b));
+    area.max.x = area.max.x.max(at.x + reach + 1.0);
+    let painter = ui.painter_at(area);
     let stroke = Stroke::new(1.0, fonts.grid);
     for table in tables {
         let (Some(first), Some(last)) = (spans.get(table.lines.start), spans.get(table.lines.end - 1)) else {
@@ -638,6 +642,185 @@ pub(crate) fn paint_markers(ui: &Ui, galley: &egui::Galley, at: Pos2, clip: Rect
         first_row = row.ends_with_newline;
         if row.ends_with_newline {
             line += 1;
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    const GRID: Color32 = Color32::from_rgb(250, 10, 10);
+
+    /// What a table looks like once drawn: the x of every vertical line, the y and the length of every horizontal
+    /// one, and for each line of the table the left and right edge of the letters of each of its cells and the
+    /// top and bottom of its letters.
+    pub(crate) struct Drawn {
+        pub verticals: Vec<f32>,
+        pub horizontals: Vec<(f32, f32, f32)>,
+        pub cells: Vec<Vec<(f32, f32)>>,
+        pub heights: Vec<(f32, f32)>,
+        pub pad: f32,
+    }
+
+    /// The table in the lines `lines` of `galley` (standing at `at`) as drawn in `shapes`: only what lies inside the
+    /// clip of its shape is seen.
+    pub(crate) fn measure(
+        shapes: &[egui::epaint::ClippedShape],
+        galley: &egui::Galley,
+        at: Pos2,
+        lines: Range<usize>,
+        (pad, grid): (f32, Color32),
+    ) -> Drawn {
+        let top = at.y + galley.rows[lines.start].pos.y;
+        let bottom = at.y + galley.rows[lines.end - 1].pos.y + galley.rows[lines.end - 1].size.y;
+        fn collect(shape: &egui::Shape, grid: Color32, out: &mut Vec<[Pos2; 2]>) {
+            match shape {
+                egui::Shape::LineSegment { points, stroke } if stroke.color == grid => out.push(*points),
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| collect(s, grid, out)),
+                _ => {}
+            }
+        }
+        let (mut verticals, mut horizontals) = (Vec::new(), Vec::new());
+        for clipped in shapes {
+            let mut own = Vec::new();
+            collect(&clipped.shape, grid, &mut own);
+            let seen = clipped.clip_rect.expand(0.5);
+            for [a, b] in own.into_iter().filter(|[a, b]| seen.contains(*a) && seen.contains(*b)) {
+                if (a.x - b.x).abs() < 0.01 && a.y.min(b.y) >= top - 1.0 && a.y.max(b.y) <= bottom + 1.0 {
+                    verticals.push(a.x);
+                } else if (a.y - b.y).abs() < 0.01 && a.y >= top - 1.0 && a.y <= bottom + 1.0 {
+                    horizontals.push((a.y, a.x.min(b.x), a.x.max(b.x)));
+                }
+            }
+        }
+        verticals.sort_by(f32::total_cmp);
+        verticals.dedup_by(|a, b| (*a - *b).abs() < 0.01);
+        horizontals.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let (mut cells, mut heights) = (Vec::new(), Vec::new());
+        for number in lines {
+            let row = &galley.rows[number];
+            let mut line: Vec<(f32, f32)> = Vec::new();
+            let mut cell: Option<(f32, f32)> = None;
+            let mut high: Option<(f32, f32)> = None;
+            for glyph in &row.glyphs {
+                if glyph.chr == '\t' {
+                    line.extend(cell.take());
+                    continue;
+                }
+                let left = at.x + row.pos.x + glyph.pos.x;
+                cell = Some(cell.map_or((left, left + glyph.advance_width), |(l, _)| (l, left + glyph.advance_width)));
+                let up = at.y + row.pos.y + glyph.pos.y - glyph.font_ascent;
+                let span = (up, up + glyph.font_height);
+                high = Some(high.map_or(span, |(a, b)| (a.min(span.0), b.max(span.1))));
+            }
+            line.extend(cell);
+            cells.push(line);
+            heights.push(high.unwrap_or((0.0, 0.0)));
+        }
+        Drawn { verticals, horizontals, cells, heights, pad }
+    }
+
+    /// Lays out `text` with the lines `table` as a table and draws its lines, as the notes page does.
+    fn draw(text: &str, table: Range<usize>, wrap: f32) -> Drawn {
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut look = Formatting::default();
+        look.set_lines(table.clone(), LineKind::Table);
+        let mut galley = None;
+        let mut galley_out = None;
+        let mut pad = 0.0;
+        let mut shapes = Vec::new();
+        let at = Pos2::new(10.0, 10.0);
+        for _ in 0..2 {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(900.0, 600.0))),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                let body = egui::TextStyle::Body.resolve(ui.style());
+                let fonts = Fonts {
+                    title: crate::fonts::bold(20.0),
+                    bold: crate::fonts::bold(body.size),
+                    body,
+                    title_color: Color32::WHITE,
+                    body_color: Color32::WHITE,
+                    grid: GRID,
+                };
+                let tables = RefCell::new(Vec::new());
+                let galley = layout(ui, text, text, &look, 0, &fonts, wrap, &tables);
+                // The field clips what it draws to the room of its text, as the notes page hands it over.
+                paint_tables(ui, &galley, at, Rect::from_min_size(at, galley.size()), &tables.borrow(), &fonts);
+                pad = fonts.pad();
+                galley_out = Some(galley);
+            });
+            output.textures_delta.clear();
+            shapes = output.shapes;
+            galley = galley_out.take();
+        }
+        measure(&shapes, &galley.expect("a frame"), at, table, (pad, GRID))
+    }
+
+    /// The table is closed all round and every cell keeps the same room to the line on its left, whatever the
+    /// row.
+    pub(crate) fn check(drawn: &Drawn, columns: usize) -> Vec<String> {
+        let mut problems = Vec::new();
+        let room = drawn.pad * 0.5;
+        if drawn.verticals.len() != columns + 1 {
+            problems.push(format!("{} vertical lines, wanted {}: {:?}", drawn.verticals.len(), columns + 1, drawn.verticals));
+            return problems;
+        }
+        let (left, right) = (drawn.verticals[0], drawn.verticals[columns]);
+        for (n, (_, from, to)) in drawn.horizontals.iter().enumerate() {
+            if (from - left).abs() > 0.6 || (to - right).abs() > 0.6 {
+                problems.push(format!("horizontal line {n} runs {from}..{to}, the table {left}..{right}"));
+            }
+        }
+        // One line above every row and one under the last; the letters keep the same room above and below in
+        // every row.
+        let rows = drawn.cells.len();
+        if drawn.horizontals.len() != rows + 1 {
+            problems.push(format!("{} horizontal lines, wanted {}", drawn.horizontals.len(), rows + 1));
+            return problems;
+        }
+        let rooms: Vec<(f32, f32)> = (0..rows)
+            .map(|r| (drawn.heights[r].0 - drawn.horizontals[r].0, drawn.horizontals[r + 1].0 - drawn.heights[r].1))
+            .collect();
+        for (r, (above, below)) in rooms.iter().enumerate() {
+            // A row without a letter has nothing to keep room for.
+            if drawn.heights[r] == (0.0, 0.0) || drawn.heights[0] == (0.0, 0.0) {
+                continue;
+            }
+            if (above - rooms[0].0).abs() > 1.0 || (below - rooms[0].1).abs() > 1.0 || *above < 1.0 || *below < 1.0 {
+                problems.push(format!("row {r}: {above} above the letters and {below} below, the first row {:?}", rooms[0]));
+            }
+        }
+        for (row, cells) in drawn.cells.iter().enumerate() {
+            for (c, (from, to)) in cells.iter().enumerate() {
+                if (from - drawn.verticals[c] - room).abs() > 1.0 {
+                    problems.push(format!("row {row} cell {c}: text starts {} after the line, wanted {room}", from - drawn.verticals[c]));
+                }
+                if drawn.verticals[c + 1] - to < room - 1.0 {
+                    problems.push(format!("row {row} cell {c}: text ends {} before the line, wanted {room}", drawn.verticals[c + 1] - to));
+                }
+            }
+        }
+        problems
+    }
+
+    #[test]
+    fn a_table_is_closed_all_round_and_every_cell_keeps_the_same_room_to_its_lines() {
+        for (text, rows, columns) in [
+            ("Lindinium\t12\nSavrilium\t7", 0..2, 2),
+            ("Name\tmenge\tort\nLindinium\t12\tArea18\nSavrilium\t7\tLevski\nx\ty\tz", 0..4, 3),
+            ("Titel\nLindinium\t12\nSavrilium\t7", 1..3, 2),
+            ("a\tb", 0..1, 2),
+            ("Lindinium\t12\nSavrilium", 0..2, 2),
+            ("Savrilium\nLindinium\t12\t7", 0..2, 3),
+            ("Lindinium\t\nSavrilium\t7", 0..2, 2),
+        ] {
+            let drawn = draw(text, rows, 600.0);
+            assert_eq!(check(&drawn, columns), Vec::<String>::new(), "{text:?}: {:?} {:?}", drawn.verticals, drawn.cells);
         }
     }
 }

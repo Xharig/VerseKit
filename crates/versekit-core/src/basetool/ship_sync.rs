@@ -44,8 +44,9 @@
 //! 5. **What was removed elsewhere does not come back silently**, only with
 //!    `override` after consent.
 //!
-//! ⚠ Not wired to a sync worker yet and no request is made: P6 hands over the
-//! pure half. The worker puts [`plan`] and [`change_sets`] on top of the feed.
+//! This is the half without the net. The hangar area of the sync
+//! ([`ship_area`](crate::basetool::ship_area)) puts [`plan`] and
+//! [`change_sets`] on top of the feed and makes the requests.
 
 use std::collections::{BTreeMap, BTreeSet};
 

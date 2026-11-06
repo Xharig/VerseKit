@@ -57,6 +57,7 @@ export const PAGES = {
   patchaenderungen: ['Info', 'Geänderte Spielwerte'],
   ueber: ['Info', 'Update & Über'],
   serverstatus: ['Info', 'Serverstatus'],
+  handlesuche: ['Info', 'Handle-Suche'],
   diagnose: ['Info', 'Fehler melden'],
   danke: ['Info', 'Danke & Lizenzen'],
   erkennung: ['Für Fortgeschrittene', 'Erkennung'],
@@ -84,6 +85,8 @@ export const MERGED = {
   lager: 'meinlager',
   handelslager: 'meinlager',
   bereich_schiffe: 'bereich_logistik',
+  // Seit 5.1.4 die letzte Karte der Seite Grafik.
+  shader: 'grafik',
 };
 
 // Die Wege, auf denen eine Seite geöffnet wird (`page_usage.ROUTES`).

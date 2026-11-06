@@ -1178,11 +1178,16 @@ fn card_titles(width: f32) -> (Pos2, Pos2, f32) {
     (found.0, found.1, over)
 }
 
+/// The two models stand side by side where each keeps the least width of a picture area, else one under the other
+/// over the whole width; they never stick out.
 #[test]
-fn the_two_models_stand_one_below_the_other_on_every_page() {
+fn the_two_models_stand_side_by_side_only_where_each_keeps_its_least_width() {
     let _language = crate::language_lock();
     set_language(Choice::De);
-    for width in [1400.0, 900.0, 400.0, 300.0] {
+    let (left, right, over) = card_titles(1400.0);
+    assert!((left.y - right.y).abs() < 1.0 && right.x > left.x + crate::widgets::PICTURE_MIN_WIDTH, "side by side: {left:?} {right:?}");
+    assert!(over <= 0.5, "sticks out by {over} at 1400");
+    for width in [900.0, 400.0, 300.0] {
         let (upper, lower, over) = card_titles(width);
         assert!((upper.x - lower.x).abs() < 1.0, "one column at {width}: {upper:?} {lower:?}");
         assert!(lower.y > upper.y + 150.0, "the second below the first at {width}");

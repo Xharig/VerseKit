@@ -317,7 +317,8 @@ pub struct Clicks {
 /// nothing and says why on hover.
 pub fn folder_row(ui: &mut Ui, scheme: &Scheme, id_salt: &str, folder: &str, blocked: Option<&str>) -> Clicks {
     let mut view: &str = folder;
-    ui.add(egui::TextEdit::singleline(&mut view).id_salt(id_salt).desired_width(f32::INFINITY)).on_hover_text(folder);
+    let width = ui.available_width().min(widgets::FIELD_MAX_WIDTH);
+    ui.add(egui::TextEdit::singleline(&mut view).id_salt(id_salt).desired_width(width)).on_hover_text(folder);
     let mut clicks = Clicks::default();
     ui.horizontal_wrapped(|ui| {
         let (browse_text, open_text) = (t("s_durchsuchen"), t("s_oeffnen"));

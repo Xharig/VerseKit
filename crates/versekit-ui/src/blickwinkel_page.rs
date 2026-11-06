@@ -212,24 +212,25 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FovState, paths: &Pat
     state.refresh(ui, paths);
     ui.add(egui::Label::new(RichText::new(t("s_fv_lead")).small().color(color(scheme.sub))).wrap());
     ui.add_space(8.0);
-    ui.add(egui::Label::new(RichText::new(t("s_fv_erklaerung")).small()).wrap());
-    ui.add_space(10.0);
 
+    // One card for the screen: the explanation, the button for measuring, then the width and the distance (or the
+    // sentence that nothing is measured yet).
     let width_mm = state.calibration.width_mm();
-    let word = if width_mm.is_some() { t("s_fv_neu_messen") } else { t("s_fv_messen") };
-    let kind = if width_mm.is_some() { ButtonKind::Normal } else { ButtonKind::Strong };
-    if ui.add(widgets::Button::new(&word, kind, scheme)).clicked() {
-        state.start_measuring(ui, paths);
-        return;
-    }
-    ui.add_space(8.0);
-    let Some(width_mm) = width_mm else {
-        ui.add(egui::Label::new(RichText::new(t("s_fv_nicht_gemessen")).small().color(color(scheme.sub))).wrap());
-        dialog(ui, scheme, state);
-        return;
-    };
-
-    widgets::card(ui, scheme, |ui| {
+    let measure = widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_fv_messen_kopf"));
+        ui.add_space(4.0);
+        ui.add(egui::Label::new(RichText::new(t("s_fv_erklaerung")).small()).wrap());
+        ui.add_space(10.0);
+        let word = if width_mm.is_some() { t("s_fv_neu_messen") } else { t("s_fv_messen") };
+        let kind = if width_mm.is_some() { ButtonKind::Normal } else { ButtonKind::Strong };
+        if ui.add(widgets::Button::new(&word, kind, scheme)).clicked() {
+            return true;
+        }
+        ui.add_space(8.0);
+        let Some(width_mm) = width_mm else {
+            ui.add(egui::Label::new(RichText::new(t("s_fv_nicht_gemessen")).small().color(color(scheme.sub))).wrap());
+            return false;
+        };
         value_row(
             ui,
             scheme,
@@ -266,7 +267,17 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FovState, paths: &Pat
         if state.distance_invalid() {
             ui.label(RichText::new(t("s_fv_abstand_ungueltig")).small().color(color(scheme.red)));
         }
-    });
+        false
+    })
+    .inner;
+    if measure {
+        state.start_measuring(ui, paths);
+        return;
+    }
+    let Some(width_mm) = width_mm else {
+        dialog(ui, scheme, state);
+        return;
+    };
 
     if let Some(distance_mm) = state.calibration.distance_mm
         && let Some(analysis) = fov::analyse(width_mm, distance_mm, &state.game)
@@ -277,11 +288,13 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FovState, paths: &Pat
     dialog(ui, scheme, state);
 }
 
-/// The lines with what the numbers say, and the verdict in a box.
+/// The lines with what the numbers say, and the verdict in a box, all in one card.
 fn results(ui: &mut Ui, scheme: &Scheme, analysis: &Analysis) {
     let accent = color(scheme.accent);
     let gold = color(scheme.gold);
     widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_fv_ergebnis_kopf"));
+        ui.add_space(4.0);
         let neutral = format!("{}°", formats::fixed(lang(), analysis.neutral, 1));
         if analysis.unreachable {
             let narrowest = analysis.narrowest.unwrap_or(0.0);
@@ -299,23 +312,24 @@ fn results(ui: &mut Ui, scheme: &Scheme, analysis: &Analysis) {
             let value = format!("{} cm", formats::fixed(lang(), optimal / 10.0, 0));
             value_row(ui, scheme, &t("s_fv_optimalpunkt"), &value, &t("s_fv_optimalpunkt_hilfe"), None);
         }
+        let Game::Known { verdict: Some(verdict), .. } = analysis.game else { return };
+        let (text, hue) = match verdict {
+            Verdict::AtMinimum => (t("s_fv_am_minimum"), scheme.accent),
+            Verdict::ToMinimum(narrowest) => (tf("s_fv_zum_minimum", &[("0", Arg::from(narrowest))]), scheme.gold),
+            Verdict::Good => (t("s_fv_passt_gut"), scheme.accent),
+            Verdict::TooFar(cm, grade) => (tf("s_fv_zu_weit", &[("0", Arg::from(cm))]), grade_color(scheme, grade)),
+            Verdict::TooNear(cm, grade) => (tf("s_fv_zu_nah", &[("0", Arg::from(cm))]), grade_color(scheme, grade)),
+        };
+        ui.add_space(6.0);
+        // The first sentence is the verdict, the rest says what it means (a muted line below).
+        let (head, line) = text.split_once(". ").map_or((text.as_str(), ""), |(head, line)| (head, line));
+        let head = if line.is_empty() { head.to_string() } else { format!("{head}.") };
+        let icon =
+            if matches!(verdict, Verdict::Good | Verdict::AtMinimum) { "circle-check" } else { "triangle-alert" };
+        verdict_box(ui, scheme, hue, icon, &head, line);
+        ui.add_space(8.0);
+        ui.add(egui::Label::new(RichText::new(t("s_fv_hinweis_deutung")).small().color(color(scheme.sub))).wrap());
     });
-    let Game::Known { verdict: Some(verdict), .. } = analysis.game else { return };
-    let (text, hue) = match verdict {
-        Verdict::AtMinimum => (t("s_fv_am_minimum"), scheme.accent),
-        Verdict::ToMinimum(narrowest) => (tf("s_fv_zum_minimum", &[("0", Arg::from(narrowest))]), scheme.gold),
-        Verdict::Good => (t("s_fv_passt_gut"), scheme.accent),
-        Verdict::TooFar(cm, grade) => (tf("s_fv_zu_weit", &[("0", Arg::from(cm))]), grade_color(scheme, grade)),
-        Verdict::TooNear(cm, grade) => (tf("s_fv_zu_nah", &[("0", Arg::from(cm))]), grade_color(scheme, grade)),
-    };
-    ui.add_space(12.0);
-    // The first sentence is the verdict, the rest says what it means (a muted line below).
-    let (head, line) = text.split_once(". ").map_or((text.as_str(), ""), |(head, line)| (head, line));
-    let head = if line.is_empty() { head.to_string() } else { format!("{head}.") };
-    let icon = if matches!(verdict, Verdict::Good | Verdict::AtMinimum) { "circle-check" } else { "triangle-alert" };
-    verdict_box(ui, scheme, hue, icon, &head, line);
-    ui.add_space(8.0);
-    ui.add(egui::Label::new(RichText::new(t("s_fv_hinweis_deutung")).small().color(color(scheme.sub))).wrap());
 }
 
 /// The box of a lasting state like `widgets::status_box` (frame, bar, symbol, bold sentence, muted line below),
@@ -730,7 +744,9 @@ mod tests {
         let texts = bench.settle();
         assert!(shows(&texts, "59,6 cm"), "the width of the screen: {texts:?}");
         assert!(shows(&texts, "46,2°"), "the neutral angle: {texts:?}");
-        assert!(shows(&texts, &tf("s_fv_neutral_unerreichbar", &[("0", Arg::from(85.3))])), "not reachable: {texts:?}");
+        // Why it cannot be reached stands on hover over its row (every hint does); the box below says the verdict.
+        let reason = tf("s_fv_neutral_unerreichbar", &[("0", Arg::from(85.3))]);
+        assert!(!shows(&texts, &reason), "on hover, not as a line under the row: {texts:?}");
         assert!(shows(&texts, "85°"), "the setting in the game: {texts:?}");
         assert!(!shows(&texts, &t("s_fv_optimalpunkt")), "no sweet spot where it cannot be set: {texts:?}");
         // The verdict stands in a box: the first sentence in bold, what it means below it.
@@ -758,7 +774,10 @@ mod tests {
             .map(|(a, b)| (format!("{a}."), b.to_string()))
             .unwrap();
         assert!(shows(&texts, &head) && shows(&texts, &line), "{texts:?}");
-        assert!(shows(&texts, &t("s_fv_neutral_hilfe")), "{texts:?}");
+        // The hint stands on hover behind the symbol `info`, never as a line under its name.
+        let hint = t("s_fv_neutral_hilfe");
+        let start = hint.split(' ').take(4).collect::<Vec<_>>().join(" ");
+        assert!(!texts.iter().any(|(text, _)| text.starts_with(&start)), "{texts:?}");
         // At the sweet spot itself: good.
         fov::remember(&bench.paths, None, None, Some(218.0));
         bench.state.invalidate();

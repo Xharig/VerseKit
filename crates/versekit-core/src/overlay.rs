@@ -2177,13 +2177,13 @@ mod tests {
         assert!(result.save(&paths));
         assert_eq!(RescanResult::load(&paths), Some(result));
         let said = result.phrase().render(crate::language::Lang::De);
-        assert_eq!(said, "132 Protokolle noch einmal gelesen. Baupläne: 3 dazugekommen. Aufträge: 7 neu, 2 berichtigt.");
+        assert_eq!(said, "132 Protokolle neu gelesen. Baupläne: 3 neu. Aufträge: 7 neu, 2 berichtigt.");
         // A reading that failed is kept as such and says so instead of numbers.
         let failed = RescanResult::failure(1_790_000_100.0);
         assert!(failed.save(&paths));
         assert_eq!(RescanResult::load(&paths), Some(failed));
-        assert_eq!(failed.phrase().render(crate::language::Lang::De), "Das erneute Einlesen hat nicht geklappt.");
-        assert_eq!(failed.phrase().render(crate::language::Lang::En), "Reading the logs again did not work.");
+        assert_eq!(failed.phrase().render(crate::language::Lang::De), "Erneutes Einlesen fehlgeschlagen.");
+        assert_eq!(failed.phrase().render(crate::language::Lang::En), "Rereading the logs failed.");
         // Something else under the key is no result.
         paths.set_setting(keys::RESCAN_RESULT, Value::str("kaputt"));
         assert_eq!(RescanResult::load(&paths), None);

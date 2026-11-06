@@ -30,6 +30,9 @@ use crate::settings::{self, CONTROL_WIDTH, column_log};
 
 /// Two edges are the same when they differ by less than this (points).
 const SAME: f32 = 0.6;
+/// The most a line of a hint is high: one line of small text with its symbol (as high as a control line); two lines
+/// of small text are well above it.
+const ONE_HINT_LINE: f32 = crate::SMALL_SIZE * 2.0;
 
 /// The pages of the window with settings rows: every page of the navigation and the ones only a jump leads to.
 fn pages() -> Vec<&'static str> {
@@ -46,6 +49,18 @@ fn faults(rows: &[column_log::Row], choices: &[Rect]) -> Vec<String> {
         let wanted = CONTROL_WIDTH.min((row.row.width() - crate::layout::GAP - 80.0).max(0.0));
         if (row.column.width() - wanted).abs() > SAME {
             found.push(format!("column {:.1} wide instead of {wanted:.1}", row.column.width()));
+        }
+        // The column stands right after the names, at the same place in every card of that width.
+        let left = row.row.min.x + crate::widgets::name_column(row.row.width(), wanted) + crate::layout::GAP;
+        if (row.column.min.x - left).abs() > SAME {
+            found.push(format!(
+                "column at {:.1} instead of {left:.1}, right after the names (the row ends at {:.1})",
+                row.column.min.x, row.row.max.x
+            ));
+        }
+        // The hint is one line at most: what is longer stands on hover.
+        if row.hint.is_positive() && row.hint.height() > ONE_HINT_LINE {
+            found.push(format!("a hint {:.0} high, more than one line", row.hint.height()));
         }
         if (row.used.min.x - row.column.min.x).abs() > SAME {
             found.push(format!(
@@ -64,11 +79,11 @@ fn faults(rows: &[column_log::Row], choices: &[Rect]) -> Vec<String> {
             found.push(format!("the name reaches {:.1} into the column", row.text.max.x - row.column.min.x));
         }
     }
-    // One left edge in a card: rows that end at the same place begin their column at the same place.
+    // One left edge in a card: rows that begin and end at the same place begin their column at the same place.
     for (i, a) in rows.iter().enumerate() {
         for b in &rows[i + 1..] {
-            let (same_card, wider) =
-                ((a.row.max.x - b.row.max.x).abs() < SAME, (a.column.min.x - b.column.min.x).abs() > SAME);
+            let same_card = (a.row.max.x - b.row.max.x).abs() < SAME && (a.row.min.x - b.row.min.x).abs() < SAME;
+            let wider = (a.column.min.x - b.column.min.x).abs() > SAME;
             if same_card && wider && (a.column.width() - b.column.width()).abs() < SAME {
                 found.push(format!("two rows of a card: columns at {:.1} and {:.1}", a.column.min.x, b.column.min.x));
             }
@@ -248,19 +263,26 @@ fn the_slider_leaves_a_place_for_its_number_that_does_not_move() {
 #[test]
 fn the_check_finds_a_column_that_is_not_one() {
     let rect = |x0: f32, x1: f32| Rect::from_min_max(egui::pos2(x0, 0.0), egui::pos2(x1, 30.0));
-    let row = |column: Rect, used: Rect, text: Rect| column_log::Row { row: rect(0.0, 700.0), column, used, text };
-    let good = row(rect(468.0, 700.0), rect(468.0, 500.0), rect(0.0, 300.0));
-    assert!(faults(&[good], &[]).is_empty());
+    let hint = Rect::from_min_max(egui::pos2(0.0, 30.0), egui::pos2(300.0, 44.0));
+    let row = |column: Rect, used: Rect, text: Rect| column_log::Row { row: rect(0.0, 700.0), column, used, text, hint };
+    // A row 700 wide: names 360, the gap, the column of 232 right after them.
+    let good = row(rect(368.0, 600.0), rect(368.0, 400.0), rect(0.0, 300.0));
+    assert!(faults(&[good], &[]).is_empty(), "{:?}", faults(&[good], &[]));
     // Controls at the right end of the column.
-    assert_eq!(faults(&[row(rect(468.0, 700.0), rect(640.0, 700.0), rect(0.0, 300.0))], &[]).len(), 1);
+    assert_eq!(faults(&[row(rect(368.0, 600.0), rect(540.0, 600.0), rect(0.0, 300.0))], &[]).len(), 1);
     // A column of another width.
-    assert_eq!(faults(&[row(rect(500.0, 700.0), rect(500.0, 520.0), rect(0.0, 300.0))], &[]).len(), 1);
+    assert!(!faults(&[row(rect(368.0, 650.0), rect(368.0, 400.0), rect(0.0, 300.0))], &[]).is_empty());
+    // A column at the far edge of the row, as before: not right after the names.
+    assert_eq!(faults(&[row(rect(468.0, 700.0), rect(468.0, 500.0), rect(0.0, 300.0))], &[]).len(), 1);
     // Controls beyond the column, a name into the column.
-    assert_eq!(faults(&[row(rect(468.0, 700.0), rect(468.0, 740.0), rect(0.0, 300.0))], &[]).len(), 1);
-    assert_eq!(faults(&[row(rect(468.0, 700.0), rect(468.0, 500.0), rect(0.0, 520.0))], &[]).len(), 1);
+    assert_eq!(faults(&[row(rect(368.0, 600.0), rect(368.0, 640.0), rect(0.0, 300.0))], &[]).len(), 1);
+    assert_eq!(faults(&[row(rect(368.0, 600.0), rect(368.0, 400.0), rect(0.0, 420.0))], &[]).len(), 1);
+    // A hint in two lines.
+    let tall = column_log::Row { hint: Rect::from_min_max(egui::pos2(0.0, 30.0), egui::pos2(300.0, 60.0)), ..good };
+    assert_eq!(faults(&[tall], &[]).len(), 1, "{:?}", faults(&[tall], &[]));
     // A drop-down narrower than its column, and two rows of one card with different edges.
-    assert_eq!(faults(&[good], &[rect(468.0, 600.0)]).len(), 1);
-    let other = row(rect(440.0, 700.0), rect(440.0, 460.0), rect(0.0, 300.0));
+    assert_eq!(faults(&[good], &[rect(368.0, 500.0)]).len(), 1);
+    let other = row(rect(340.0, 572.0), rect(340.0, 360.0), rect(0.0, 300.0));
     assert!(!faults(&[good, other], &[]).is_empty());
 }
 

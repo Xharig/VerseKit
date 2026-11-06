@@ -186,7 +186,7 @@ const BAR_GROUND: Color32 = Color32::from_rgb(0x14, 0x18, 0x22);
 const BAR_ITEM: Color32 = Color32::from_rgb(0x3a, 0x44, 0x58);
 
 /// The corner of a taskbar with the clock, and the icon of Verse-Kit next to it when the player wants it there:
-/// what the switch "Symbol in der Ablage neben der Uhr" does. `tray_on` draws the icon.
+/// what the switch "Symbol neben der Uhr" does. `tray_on` draws the icon.
 pub fn taskbar_picture(ui: &mut Ui, scheme: &Scheme, tray_on: bool) {
     let width = ui.available_width().min(FRAME_MAX_WIDTH);
     let (rect, response) = ui.allocate_exact_size(vec2(width, TASKBAR_FRAME_HEIGHT), Sense::hover());

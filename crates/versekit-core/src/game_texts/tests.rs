@@ -357,7 +357,7 @@ fn the_active_source_is_the_choice_as_it_is() {
     // A chosen source that is not set up is no source, even when another is.
     s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("starstrings"));
     assert_eq!(active_source(&s.paths), None);
-    // „Leave alone“ and the original texts are choices of their own.
+    // „No translation“ and the original texts are choices of their own.
     s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str(""));
     assert_eq!(active_source(&s.paths), None);
     s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str(ORIGINAL));
@@ -603,6 +603,46 @@ fn a_side_channel_gets_its_language_and_the_notes_like_the_main_installation() {
     // The menu line of the game: the button "Wieder entfernen" takes the notes out of both channels.
     remove(&s.paths);
     assert_eq!(fs::read_to_string(&german).unwrap(), before);
+    assert_eq!(fs::read_to_string(s.ini()).unwrap(), "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n");
+}
+
+/// "Nicht anfassen" for a channel: the notes of VerseKit leave its text file first, the original wording stands again,
+/// and the choice is "nothing".
+#[test]
+fn leaving_a_channel_alone_takes_the_notes_out_first() {
+    let s = Setup::new("ptu-nicht-anfassen");
+    s.set_up_german();
+    let ptu = s.ptu_with_scdl_leftovers();
+    let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
+    let before = fs::read_to_string(&german).unwrap();
+    assert!(matches!(apply(&s.paths, &Fake::default(), &FakeArchive::default(), ""), Outcome::Done(_)));
+    assert!(fs::read_to_string(&german).unwrap().contains("Kopfgeld <EM4>[BP]</EM4>"));
+    let spots = leave_alone(&s.paths, Some("PTU"), &ptu);
+    assert!(spots > 0, "the spots that went are counted");
+    assert_eq!(fs::read_to_string(&german).unwrap(), before, "the file is as it was before the notes");
+    assert!(!injection::is_applied(&german));
+    let chosen = translation::channel_sources(&s.paths);
+    assert!(chosen.iter().all(|(k, _)| k != "PTU"), "the choice for the channel is gone: {chosen:?}");
+    // The main installation was not touched.
+    assert!(fs::read_to_string(s.ini()).unwrap().contains("Kopfgeld <EM4>[BP]</EM4>"));
+}
+
+/// A channel that was put on "Nicht anfassen" while notes still stood in its file (older versions left them there):
+/// "Wieder entfernen" takes them out, too.
+#[test]
+fn removing_also_reaches_a_channel_left_alone_that_still_holds_notes() {
+    let s = Setup::new("ptu-rest");
+    s.set_up_german();
+    let ptu = s.ptu_with_scdl_leftovers();
+    let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
+    let before = fs::read_to_string(&german).unwrap();
+    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    assert!(injection::is_applied(&german));
+    translation::set_channel_source(&s.paths, "PTU", "");
+    assert!(side_channels(&s.paths, s.paths.game_folder().as_deref()).is_empty(), "the channel is no longer tended");
+    remove(&s.paths);
+    assert_eq!(fs::read_to_string(&german).unwrap(), before);
+    assert!(!injection::is_applied(&german));
     assert_eq!(fs::read_to_string(s.ini()).unwrap(), "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n");
 }
 

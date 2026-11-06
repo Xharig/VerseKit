@@ -1317,7 +1317,7 @@ struct BookIn {
 
 fn small(ui: &mut Ui, scheme: &Scheme, text: &str, tone: Color) {
     let _ = scheme;
-    ui.add(egui::Label::new(RichText::new(text).small().color(color(tone))).wrap());
+    widgets::reading(ui, RichText::new(text).small().color(color(tone)));
 }
 
 fn tone_color(scheme: &Scheme, tone: Tone) -> Color {
@@ -2203,7 +2203,7 @@ fn list(ui: &mut Ui, scheme: &Scheme, state: &mut OrgStockState, data: &Arc<OrgS
     let writable = data.can_write(&state.unit);
     let mut toggled = None;
     let mut open_form = None;
-    widgets::list_frame(ui, scheme, |frame| {
+    widgets::list_frame_marked(ui, scheme, |frame| {
         frame.set_width(frame.available_width() - crate::layout::SAFETY);
         frame.spacing_mut().item_spacing.y = 0.0;
         for (n, lot) in lots.iter().enumerate() {

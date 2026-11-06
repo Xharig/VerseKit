@@ -895,7 +895,7 @@ fn capture_box(
         egui::UiBuilder::new().max_rect(inner).layout(egui::Layout::top_down(egui::Align::Center)),
         |ui| {
             // Not selectable: a label that can be selected takes the click away from the box under it.
-            ui.add(egui::Label::new(RichText::new(&main).size(18.0).strong().color(hue)).wrap().selectable(false));
+            ui.add(egui::Label::new(RichText::new(&main).heading().strong().color(hue)).wrap().selectable(false));
             if !sub.is_empty() {
                 ui.add(egui::Label::new(RichText::new(&sub).small().color(color(scheme.sub))).wrap().selectable(false));
             }

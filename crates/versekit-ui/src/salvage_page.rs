@@ -508,78 +508,86 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut SalvageState, craftin
     state.refresh_names(crafting);
     ui.label(sub(scheme, t("s_zb_lead")));
     ui.add_space(6.0);
-    ui.label(widgets::bold(ui, t("s_zb_suche"), egui::TextStyle::Body));
-    ui.label(sub(scheme, t("s_wr_such_hilfe")));
-    let more = |n: usize| tf("s_mlg_mehr", &[("n", Arg::from(n))]);
-    let hint = t("s_zb_suche_platz");
-    let width = ui.available_width() - crate::layout::SAFETY;
-    let entries = std::mem::take(&mut state.entries);
-    let shown = widgets::SuggestField::new("bergung-suche", &hint, scheme, &more).width(width).searching().show(
-        ui,
-        &mut state.typed,
-        &entries,
-    );
-    let ship_count = state.ship_count;
-    state.entries = entries;
-    let mut look = false;
-    if let Some(index) = shown.picked
-        && let Some(name) = state.entries.get(index).cloned()
-    {
-        // A pick is a choice: what was picked is shown at once.
-        if index < ship_count {
-            state.look_up_ship(ui.ctx(), name);
-        } else {
-            state.open_part(&name);
-        }
-    }
-    if shown.response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) && !shown.is_open {
-        look = true;
-    }
-    if shown.response.changed() {
-        state.no_match = false;
-    }
-    state.drop_stale();
-    let typed = state.typed.trim().to_string();
-    // The fault stands at the field it belongs to.
-    if state.no_match {
-        ui.label(RichText::new(t("s_zb_kein_treffer")).color(color(scheme.red)));
-    } else if !typed.is_empty() && state.shown.name().is_none() && !state.anything_holds(&typed) {
-        ui.label(sub(scheme, t("s_zb_nichts_gefunden")));
-    }
-    ui.horizontal_wrapped(|row| {
-        let word = t("s_wr_nachsehen");
-        let busy = t("s_wr_hole");
-        let button =
-            widgets::Button::new(&word, ButtonKind::Strong, scheme).blocked(state.looking().then_some(busy.as_str()));
-        if row.add(button).clicked() && !state.looking() {
-            look = true;
-        }
-        if row.add(widgets::Button::new(&t("s_wr_leeren"), ButtonKind::Normal, scheme)).clicked() {
-            state.clear();
-        }
-        if state.paths.is_some()
-            && row.add(widgets::Button::new(&t("s_wr_vergessen"), ButtonKind::Normal, scheme)).clicked()
+    // The search in its card: the field, what it says about the text, the buttons and what they answered.
+    let look = widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_zb_suche"));
+        ui.label(sub(scheme, t("s_wr_such_hilfe")));
+        let more = |n: usize| tf("s_mlg_mehr", &[("n", Arg::from(n))]);
+        let hint = t("s_zb_suche_platz");
+        let width = ui.available_width() - crate::layout::SAFETY;
+        let entries = std::mem::take(&mut state.entries);
+        let shown = widgets::SuggestField::new("bergung-suche", &hint, scheme, &more).width(width).searching().show(
+            ui,
+            &mut state.typed,
+            &entries,
+        );
+        let ship_count = state.ship_count;
+        state.entries = entries;
+        let mut look = false;
+        if let Some(index) = shown.picked
+            && let Some(name) = state.entries.get(index).cloned()
         {
-            let count = state.paths.as_ref().map_or(0, |p| salvage::load(p).len());
-            if count == 0 {
-                state.said = Some((t("s_wr_nichts_gemerkt"), false));
+            // A pick is a choice: what was picked is shown at once.
+            if index < ship_count {
+                state.look_up_ship(ui.ctx(), name);
             } else {
-                state.asking = Some(count);
+                state.open_part(&name);
             }
         }
-        if state.can_go_back()
-            && row.add(widgets::Button::new(&t("s_zb_zurueck_wrack"), ButtonKind::Normal, scheme)).clicked()
-        {
-            state.back_to_wreck();
+        if shown.response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) && !shown.is_open {
+            look = true;
         }
-    });
+        if shown.response.changed() {
+            state.no_match = false;
+        }
+        state.drop_stale();
+        let typed = state.typed.trim().to_string();
+        // The fault stands at the field it belongs to.
+        if state.no_match {
+            ui.label(RichText::new(t("s_zb_kein_treffer")).color(color(scheme.red)));
+        } else if !typed.is_empty() && state.shown.name().is_none() && !state.anything_holds(&typed) {
+            ui.label(sub(scheme, t("s_zb_nichts_gefunden")));
+        }
+        ui.horizontal_wrapped(|row| {
+            let word = t("s_wr_nachsehen");
+            let busy = t("s_wr_hole");
+            let button = widgets::Button::new(&word, ButtonKind::Strong, scheme)
+                .blocked(state.looking().then_some(busy.as_str()));
+            if row.add(button).clicked() && !state.looking() {
+                look = true;
+            }
+            if row.add(widgets::Button::new(&t("s_wr_leeren"), ButtonKind::Normal, scheme)).clicked() {
+                state.clear();
+            }
+            if state.paths.is_some()
+                && row.add(widgets::Button::new(&t("s_wr_vergessen"), ButtonKind::Normal, scheme)).clicked()
+            {
+                let count = state.paths.as_ref().map_or(0, |p| salvage::load(p).len());
+                if count == 0 {
+                    state.said = Some((t("s_wr_nichts_gemerkt"), false));
+                } else {
+                    state.asking = Some(count);
+                }
+            }
+            if state.can_go_back()
+                && row.add(widgets::Button::new(&t("s_zb_zurueck_wrack"), ButtonKind::Normal, scheme)).clicked()
+            {
+                state.back_to_wreck();
+            }
+        });
+        if let Some((said, fault)) = &state.said {
+            let tone = if *fault { scheme.red } else { scheme.sub };
+            ui.label(RichText::new(said).color(color(tone)));
+        }
+        look
+    })
+    .inner;
     if look {
         state.submit(ui.ctx(), crafting);
     }
-    forget_question(ui, scheme, state);
-    if let Some((said, fault)) = &state.said {
-        let tone = if *fault { scheme.red } else { scheme.sub };
-        ui.label(RichText::new(said).color(color(tone)));
+    if state.asking.is_some() {
+        ui.add_space(crate::layout::GAP);
+        forget_question(ui, scheme, state);
     }
     ui.add_space(8.0);
     if state.looking() {
@@ -595,6 +603,7 @@ fn forget_question(ui: &mut Ui, scheme: &Scheme, state: &mut SalvageState) {
     let question =
         if count == 1 { t("s_wr_vergessen_frage_1") } else { tf("s_wr_vergessen_frage", &[("0", Arg::from(count))]) };
     widgets::card(ui, scheme, |card| {
+        widgets::card_title(card, scheme, &t("s_wr_vergessen"));
         card.label(question);
         card.horizontal_wrapped(|row| {
             if row.add(widgets::Button::new(&t("s_wr_vergessen_ja"), ButtonKind::Danger, scheme)).clicked() {
@@ -629,7 +638,8 @@ fn results(ui: &mut Ui, scheme: &Scheme, state: &mut SalvageState, crafting: &mu
         .auto_shrink([false, true]);
     let mut open = None;
     let shown = widgets::scroll_area(ui, scheme, area, |ui| {
-        ui.set_max_width(ui.available_width() - crate::layout::SAFETY);
+        // The result stands in cards as wide as the cards above the area.
+        ui.set_max_width(ui.available_width());
         open = result(ui, scheme, state, crafting);
     });
     state.list_overflow = trade::overflow_of(&shown);
@@ -643,15 +653,21 @@ fn results(ui: &mut Ui, scheme: &Scheme, state: &mut SalvageState, crafting: &mu
 fn result(ui: &mut Ui, scheme: &Scheme, state: &SalvageState, crafting: &mut CraftingState) -> Option<String> {
     match &state.shown {
         Shown::Nothing => {
-            warning(ui, scheme);
-            if let Some((values, _, _)) = crafting.parts() {
-                ui.add_space(6.0);
-                dismantle_view::rules(ui, scheme, values);
-            }
+            widgets::card(ui, scheme, |ui| {
+                widgets::card_title(ui, scheme, &t("s_zb_vorab_kopf"));
+                warning(ui, scheme);
+                if let Some((values, _, _)) = crafting.parts() {
+                    ui.add_space(6.0);
+                    dismantle_view::rules(ui, scheme, values);
+                }
+            });
             None
         }
-        Shown::Unreachable { .. } => {
-            widgets::load_failed(ui, scheme, &t("s_wr_netz"), &t("s_wr_nochmal"));
+        Shown::Unreachable { name } => {
+            widgets::card(ui, scheme, |ui| {
+                widgets::card_title(ui, scheme, &tf("s_wr_ueberschrift", &[("0", Arg::from(name.as_str()))]));
+                widgets::load_failed(ui, scheme, &t("s_wr_netz"), &t("s_wr_nochmal"));
+            });
             None
         }
         Shown::Part { name, .. } => {
@@ -659,15 +675,13 @@ fn result(ui: &mut Ui, scheme: &Scheme, state: &SalvageState, crafting: &mut Cra
             None
         }
         Shown::Wreck { name, parts, when } => {
-            warning(ui, scheme);
-            ui.add_space(8.0);
-            wreck(ui, scheme, state, crafting, (name, parts, *when))
+            widgets::card(ui, scheme, |ui| wreck(ui, scheme, state, crafting, (name, parts, *when))).inner
         }
     }
 }
 
-/// The wreck: the parts with their count, kind and price, the sum and what it means. A part that has a
-/// recipe is a link to its calculation; the name of the one clicked comes back.
+/// The card of the wreck: its title, the warning, the parts with their count, kind and price, the sum and what
+/// it means. A part that has a recipe is a link to its calculation; the name of the one clicked comes back.
 fn wreck(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -675,13 +689,15 @@ fn wreck(
     crafting: &CraftingState,
     (name, parts, when): (&str, &[Part], f64),
 ) -> Option<String> {
+    widgets::card_title(ui, scheme, &tf("s_wr_ueberschrift", &[("0", Arg::from(name))]));
+    warning(ui, scheme);
+    ui.add_space(8.0);
     if parts.is_empty() {
         let concept = state.paths.is_some() && state.ships.is_concept(name);
         let said = t(if concept { "s_wr_konzept" } else { "s_wr_unbekannt" });
         ui.add(egui::Label::new(RichText::new(said).color(color(scheme.gold))).wrap());
         return None;
     }
-    ui.label(widgets::bold(ui, tf("s_wr_ueberschrift", &[("0", Arg::from(name))]), egui::TextStyle::Body));
     ui.add(egui::Label::new(sub(scheme, t("s_wr_werk_hinweis"))).wrap());
     let lang = language::current();
     let (total, _, without) = salvage::value(parts, |code| state.price(code));
@@ -1186,7 +1202,7 @@ mod tests {
         // Before any result the page says what a player wreck is worth and what the fabricator keeps.
         assert!(drawn.has(&t("s_wr_npc_kopf")), "{:?}", drawn.texts);
         assert!(
-            drawn.texts.iter().any(|(text, _)| text.starts_with("Der Fabricator gibt 50 % zurück")),
+            drawn.texts.iter().any(|(text, _)| text.starts_with("Fabricator: 50 % zurück")),
             "{:?}",
             drawn.texts
         );
@@ -1209,7 +1225,7 @@ mod tests {
             let summed = drawn.has(&tf("s_zl_alles_zurueck", &[("prozent", Arg::from(50))]))
                 || drawn.texts.iter().any(|(text, _)| text.contains(&t("s_zl_nichts")));
             assert!(summed, "{name}: {:?}", drawn.texts);
-            assert!(drawn.texts.iter().any(|(text, _)| text.starts_with("Der Fabricator gibt 50 % zurück")));
+            assert!(drawn.texts.iter().any(|(text, _)| text.starts_with("Fabricator: 50 % zurück")));
         }
         // A name without a recipe says so instead of showing an empty list.
         state.open_part("Nothing");

@@ -4,7 +4,7 @@
 
 VerseKit läuft auf deinem Rechner. Es gibt kein Konto, keine Werbung und kein
 Tracking. Einmal am Tag meldet das Programm, dass es läuft und welche Seiten
-genutzt wurden, ohne Kennung, immer an und ohne Schalter (siehe *Nutzung zählen*). Diese Seite sagt vollständig, was
+genutzt wurden, ohne Kennung, ab Werk an und unter Einstellungen › Allgemein › Datenschutz abschaltbar (siehe *Nutzung zählen*). Diese Seite sagt vollständig, was
 das Programm liest, was es aus dem Netz holt und was es verschickt.
 
 ## Was auf deinem Rechner gelesen wird
@@ -58,11 +58,15 @@ Einmal am Tag schickt VerseKit an `nutzung-versekit.xharig.com` genau diese Anga
 | welche Seite du nach wenigen Sekunden wieder verlassen hast, und wo du danach geblieben bist | Verkauf → Shops: 7× |
 | wie oft du in Mein Lager einen Rohstoff von Hand oder eine Raffinerie-Ausbeute eingetragen hast | von Hand eingetragen: 2× |
 | wie oft du die Galerie „Was ist neu" geöffnet und daraus eine Seite geöffnet hast | Galerie geöffnet: 1× |
-| ab VerseKit 5.2: das Alter der Installation in Tagen, ohne Kennung (ab 31 Tagen nur „älter") | 3 Tage |
+| ab VerseKit 5.1.4: das Alter der Installation in ganzen Tagen, ohne Kennung (ab 31 Tagen immer 31) | 3 Tage |
 
 Das Alter wird für sich gezählt, nicht zusammen mit Version, System oder
 Land. Damit lässt sich sehen, wie viele neu dazukommen und wie viele nach
-einer Woche noch dabei sind, aber nicht, wer.
+einer Woche noch dabei sind, aber nicht, wer. Gesendet wird nur die Zahl der
+Tage, nie das Datum. Das Datum der Installation merkt sich VerseKit einmal als
+Tag ohne Uhrzeit in deinen Einstellungen (`installiert_am`). Bei einer
+Installation, die es schon gab, ist es der älteste Tag, den dein Datenordner
+belegt, sonst der Tag des ersten Starts.
 
 Die Seiten- und Handlungsangaben sind nur Zähler seit der letzten Meldung, mit
 festen Kennungen: keine Inhalte, keine Mengen, keine Rohstoffe, keine
@@ -78,8 +82,10 @@ VerseKit an einem Tag nutzen und was davon, aber nicht, wer, und auch keine
 einzelne Installation über mehrere Tage verfolgen. Die Zahlen sieht nur der
 Entwickler.
 
-Die Meldung ist immer an, einen Schalter dafür gibt es nicht. Nur mit
-`SC_BP_NO_NET=1` entfällt sie, und mit ihr das Mitzählen der Seiten.
+Die Meldung ist ab Werk an. Unter Einstellungen › Allgemein › Datenschutz
+schaltest du „Nutzung zählen lassen“ aus (Schlüssel `nutzung_melden`); dann
+wird nichts gesendet und nichts mitgezählt, und die bisherigen Zähler werden
+gelöscht. Ebenso entfällt sie mit `SC_BP_NO_NET=1`.
 
 ## Downloads über die Webseite
 

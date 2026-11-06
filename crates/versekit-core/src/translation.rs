@@ -55,10 +55,10 @@ pub const ORIGINAL: &str = game_ini::ORIGINAL;
 pub const SETTING_SOURCE: &str = game_ini::SETTING_SOURCE;
 pub const SETTING_CUSTOM: &str = game_ini::SETTING_CUSTOM;
 pub const SETTING_CHANNELS: &str = "kanal_quellen";
-/// Channels a translation can be picked for.
-pub const CHANNELS: [&str; 5] = ["LIVE", "HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
-/// Channels that get the test version of a source.
-pub const TEST_CHANNELS: [&str; 3] = ["PTU", "EPTU", "TECH-PREVIEW"];
+/// Channels a translation can be picked for: all of them ([`crate::paths::CHANNELS`]).
+pub use crate::paths::CHANNELS;
+/// Channels that get the test version of a source ([`crate::paths::TEST_CHANNELS`]).
+pub use crate::paths::TEST_CHANNELS;
 /// The field of a note with the version box of the file as it was placed ([`injection::menu_text_of`]).
 const HEAD: &str = "kopf";
 /// More than this nobody loads as a text file.

@@ -345,6 +345,8 @@ pub struct SamplePage {
     mangohud: bool,
     /// Streamer mode: private details are hidden on the screen (`versekit_core::streamer`).
     streamer: bool,
+    /// The daily usage report and the counting for it are on (`usage::SETTING`).
+    usage_on: bool,
     /// The page "Shader-Cache".
     shader: shader_page::ShaderState,
     grafik: grafik_page::GrafikState,
@@ -417,6 +419,9 @@ pub struct SamplePage {
     /// How the page asked for since the last frame was opened (`page_usage.ROUTES`); `None` is a
     /// page the program changed by itself, which counts not.
     usage_route: Option<&'static str>,
+    /// Whether this search in the menu filter (from a word typed into the empty field until it is empty again)
+    /// was counted as used (`suche_benutzt`) and as without hits (`suche_ohne_treffer`), each once.
+    search_counted: (bool, bool),
     /// Whether the opening of the window was counted.
     usage_started: bool,
     /// Where goods are sold or bought (Kaufen & Verkaufen).
@@ -448,7 +453,7 @@ pub struct SamplePage {
     /// All sidebar groups folded by the button next to the menu filter.
     nav_folded: bool,
     /// The game folder per channel: LIVE, PTU, TECH-PREVIEW.
-    folders: [String; 3],
+    folders: [String; CHANNEL_COUNT],
     /// The game folder the program really finds (a Game.log lies in it), on real data.
     game_found: Option<String>,
     /// Where the game was looked for, shown while it is not found (read with the settings, not every frame).
@@ -636,7 +641,7 @@ pub struct SamplePage {
     /// (`kanal_ordner`, other entries of it kept); a channel without one is found next to LIVE.
     channels_saved: versekit_core::jsonio::Map,
     /// The folder of each channel next to LIVE, shown while none is chosen.
-    channels_found: [String; 3],
+    channels_found: [String; CHANNEL_COUNT],
     /// When the error log was looked at for its count, and its stamp (time, size) then.
     errors_looked: Option<(f64, Option<(std::time::SystemTime, u64)>)>,
     /// A tool connected the real Basetool under its own name: the name and the lock of the bookings.
@@ -646,6 +651,9 @@ pub struct SamplePage {
     folder_refused: Option<String>,
     /// The search for the game folder below a typed or chosen folder, while it runs.
     folder_search: Option<controls::FolderSearch>,
+    /// The window has no frame of the system: the head bar is its title bar, with buttons of its own, and the
+    /// edges can be dragged to resize.
+    own_frame: bool,
 }
 
 /// Where the window was, in screen pixels: its inner size, the top left
@@ -752,6 +760,13 @@ impl MainSignals {
     pub fn serve(window: &impl raw_window_handle::HasWindowHandle, ctx: &egui::Context) -> MainSignals {
         let signals = MainSignals::default();
         let (noted, ctx) = (signals.clone(), ctx.clone());
+        // The own title bar answers for its maximize button, so that Windows 11 shows the snap layouts there.
+        let button = versekit_core::snap_layouts::MaxButton::new();
+        let woken = ctx.clone();
+        if versekit_core::snap_layouts::install(system_handle(window), button.clone(), move || woken.request_repaint())
+        {
+            ctx.data_mut(|d| d.insert_temp(egui::Id::unique(SNAP_BUTTON_ID), button));
+        }
         window_signal::serve(system_handle(window), Role::Main, move |signal| {
             noted.note(signal);
             ctx.request_repaint();
@@ -903,9 +918,166 @@ pub fn fit_to_work_area(mut open: Opening, work: Option<(i32, i32, i32, i32)>, s
     open
 }
 
-/// Under test: how long each write of the settings thread takes in addition.
-#[cfg(test)]
-static WRITE_DELAY_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+/// Where the window has to go so that its whole top edge lies in `work`, the work area of its screen, or `None` where
+/// it does. `outer` and `work` are (x, y, width, height) in screen pixels; the window is moved, not changed in size.
+/// The top edge is the title bar: above the work area it can not be reached, and below or beside it there is nothing to
+/// grab.
+pub fn top_correction(outer: (i32, i32, i32, i32), work: (i32, i32, i32, i32)) -> Option<(i32, i32)> {
+    let ((x, y, w, h), (wx, wy, ww, wh)) = (outer, work);
+    if ww <= 0 || wh <= 0 {
+        return None;
+    }
+    // A bar of 40 pixels at least is kept on the screen sideways.
+    let grab = w.min(40);
+    let new_x = x.max(wx + grab - w).min(wx + ww - grab);
+    let new_y = y.max(wy).min((wy + wh - 40).max(wy));
+    let _ = h;
+    ((new_x, new_y) != (x, y)).then_some((new_x, new_y))
+}
+
+/// Where the rectangles of the three buttons of the window frame (minimize, maximize, close, from left to right) of
+/// the last frame are kept, for the checks.
+pub const FRAME_BUTTONS_ID: &str = "fensterknoepfe";
+/// Where the state of the maximize button for the snap layouts of Windows 11 is kept in the context.
+pub const SNAP_BUTTON_ID: &str = "fenster-schnappen";
+
+/// The free part of the head bar and the three buttons of the window frame at its right end: minimize, maximize or
+/// restore, close. A drag on the free part moves the window (so the system's snapping and the keys with the Windows key
+/// work), a double click maximizes or restores it. Closing asks as the frame of the system does. Gives the left edge
+/// of the buttons.
+fn frame_buttons(ui: &mut egui::Ui, scheme: &Scheme, bar: egui::Rect) -> f32 {
+    use versekit_core::language::t;
+    let maximized = ui.input(|i| i.viewport().maximized == Some(true));
+    let buttons = egui::Rect::from_min_max(
+        egui::pos2(bar.right() - 3.0 * widgets::CAPTION_WIDTH, bar.top()),
+        bar.right_bottom(),
+    );
+    // Made first, so that what stands on the bar takes its own clicks.
+    let grab = egui::Rect::from_min_max(bar.left_top(), egui::pos2(buttons.left(), bar.bottom()));
+    let drag = ui.interact(grab, ui.scope_id().with("kopfleiste-ziehen"), egui::Sense::click_and_drag());
+    if drag.drag_started_by(egui::PointerButton::Primary) {
+        ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
+    }
+    if drag.double_clicked() {
+        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
+    }
+    let mut row =
+        ui.new_child(egui::UiBuilder::new().max_rect(buttons).layout(egui::Layout::right_to_left(egui::Align::Center)));
+    row.spacing_mut().item_spacing.x = 0.0;
+    // Windows 11: the system takes the maximize button for its own (snap layouts) and says so through the state.
+    let snap = ui.ctx().data(|d| d.get_temp::<std::sync::Arc<versekit_core::snap_layouts::MaxButton>>(egui::Id::unique(SNAP_BUTTON_ID)));
+    let close = widgets::caption_button(&mut row, scheme, "x", &t("s_fk_schliessen"), true, false);
+    if close.clicked() {
+        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+    }
+    let (icon, word) = if maximized { ("copy", "s_fk_wieder") } else { ("square", "s_fk_gross") };
+    let bigger = widgets::caption_button(&mut row, scheme, icon, &t(word), false, snap.as_ref().is_some_and(|s| s.hot()));
+    let toggled = snap.as_ref().is_some_and(|s| s.take_toggle());
+    if bigger.clicked() || toggled {
+        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
+    }
+    if let Some(snap) = &snap {
+        // The system asks where the button is in pixels of the client area.
+        let scale = ui.ctx().pixels_per_point();
+        let px = |value: f32| (value * scale).round() as i32;
+        snap.set_rect(px(bigger.rect.left()), px(bigger.rect.top()), px(bigger.rect.right()), px(bigger.rect.bottom()));
+    }
+    let smaller = widgets::caption_button(&mut row, scheme, "minus", &t("s_fk_klein"), false, false);
+    if smaller.clicked() {
+        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+    }
+    let rects = vec![smaller.rect, bigger.rect, close.rect];
+    ui.ctx().data_mut(|d| d.insert_temp(egui::Id::unique(FRAME_BUTTONS_ID), rects));
+    buttons.left()
+}
+
+/// How wide the edge of the window is where it can be dragged to resize it, and how far along the edge a corner
+/// reaches (points).
+const EDGE: f32 = 4.0;
+const CORNER: f32 = 10.0;
+
+/// The edge or corner of `window` at `pos`, if `pos` lies within [`EDGE`] of it.
+pub fn edge_at(pos: egui::Pos2, window: egui::Rect) -> Option<egui::viewport::ResizeDirection> {
+    use egui::viewport::ResizeDirection as D;
+    let (left, right) = (pos.x - window.left(), window.right() - pos.x);
+    let (top, bottom) = (pos.y - window.top(), window.bottom() - pos.y);
+    if left < 0.0 || right < 0.0 || top < 0.0 || bottom < 0.0 {
+        return None;
+    }
+    let corner = |side: f32, other: f32| (side < EDGE && other < CORNER) || (other < EDGE && side < CORNER);
+    Some(if corner(top, left) {
+        D::NorthWest
+    } else if corner(top, right) {
+        D::NorthEast
+    } else if corner(bottom, left) {
+        D::SouthWest
+    } else if corner(bottom, right) {
+        D::SouthEast
+    } else if top < EDGE {
+        D::North
+    } else if bottom < EDGE {
+        D::South
+    } else if left < EDGE {
+        D::West
+    } else if right < EDGE {
+        D::East
+    } else {
+        return None;
+    })
+}
+
+/// The edges of a window without a frame of the system: the mouse pointer shows the way to resize and a press
+/// there lets the system resize. Not while the window is maximized or fills the screen.
+fn resize_edges(ctx: &egui::Context) {
+    use egui::viewport::ResizeDirection as D;
+    let (pos, pressed, fixed) = ctx.input(|i| {
+        let v = i.viewport();
+        (i.pointer.latest_pos(), i.pointer.primary_pressed(), v.maximized == Some(true) || v.fullscreen == Some(true))
+    });
+    let Some(direction) = pos.filter(|_| !fixed).and_then(|pos| edge_at(pos, ctx.content_rect())) else { return };
+    ctx.set_cursor_icon(match direction {
+        D::North => egui::CursorIcon::ResizeNorth,
+        D::South => egui::CursorIcon::ResizeSouth,
+        D::East => egui::CursorIcon::ResizeEast,
+        D::West => egui::CursorIcon::ResizeWest,
+        D::NorthEast => egui::CursorIcon::ResizeNorthEast,
+        D::NorthWest => egui::CursorIcon::ResizeNorthWest,
+        D::SouthEast => egui::CursorIcon::ResizeSouthEast,
+        D::SouthWest => egui::CursorIcon::ResizeSouthWest,
+    });
+    if pressed {
+        ctx.send_viewport_cmd(egui::ViewportCommand::BeginResize(direction));
+    }
+}
+
+/// Brings a window whose top edge lies off its screen back onto it (a position that was stored wrongly, a screen that
+/// went away, a window larger than the screen). Not while it is maximized, full screen or minimized, and not while a
+/// mouse button is held (the player may be moving it). Asks at most twice a second.
+fn keep_on_screen(ctx: &egui::Context) {
+    let (outer, off, scale, now, held) = ctx.input(|i| {
+        let v = i.viewport();
+        let off = v.maximized == Some(true) || v.fullscreen == Some(true) || v.minimized == Some(true);
+        (v.outer_rect, off, i.pixels_per_point, i.time, i.pointer.any_down())
+    });
+    let Some(outer) = outer else { return };
+    if off || held || scale <= 0.0 {
+        return;
+    }
+    let id = egui::Id::unique("fenster-auf-schirm");
+    if ctx.data(|d| d.get_temp::<f64>(id)).is_some_and(|at| now - at < 0.5) {
+        return;
+    }
+    let px = |v: f32| (v * scale).round() as i32;
+    let (x, y, w, h) = (px(outer.min.x), px(outer.min.y), px(outer.width()), px(outer.height()));
+    let Some(work) = versekit_core::screen::monitor_area(x + w / 2, y + 20.min(h), true) else { return };
+    if let Some((new_x, new_y)) = top_correction((x, y, w, h), work) {
+        ctx.data_mut(|d| d.insert_temp(id, now));
+        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
+            new_x as f32 / scale,
+            new_y as f32 / scale,
+        )));
+    }
+}
 
 /// The settings written in a thread of its own: on a network share a write
 /// can take long, and the window stood still meanwhile. The overlay is told
@@ -916,6 +1088,10 @@ struct SettingsWriter {
     sent: u64,
     done: std::sync::Arc<std::sync::atomic::AtomicU64>,
     failed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Under test: how long each write of this thread takes in addition. Per writer, not for the whole program:
+    /// the tests run side by side, and a slow writer of one must not slow down the others.
+    #[cfg(test)]
+    delay_ms: std::sync::Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl SettingsWriter {
@@ -925,6 +1101,10 @@ impl SettingsWriter {
         let done = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
         let failed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let (done_here, failed_here) = (done.clone(), failed.clone());
+        #[cfg(test)]
+        let delay_ms = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        #[cfg(test)]
+        let delay_here = delay_ms.clone();
         // The thread writes under the same lock as the window.
         let guard = versekit_core::writeguard::state();
         std::thread::Builder::new()
@@ -933,7 +1113,7 @@ impl SettingsWriter {
                 versekit_core::writeguard::adopt(&guard);
                 while let Ok(batch) = batches.recv() {
                     #[cfg(test)]
-                    std::thread::sleep(std::time::Duration::from_millis(WRITE_DELAY_MS.load(Ordering::Relaxed)));
+                    std::thread::sleep(std::time::Duration::from_millis(delay_here.load(Ordering::Relaxed)));
                     if batch.into_iter().any(|(key, value)| !paths.set_setting(key, value)) {
                         failed_here.store(true, Ordering::Relaxed);
                     }
@@ -943,7 +1123,14 @@ impl SettingsWriter {
                 }
             })
             .expect("settings thread");
-        SettingsWriter { jobs, sent: 0, done, failed }
+        SettingsWriter {
+            jobs,
+            sent: 0,
+            done,
+            failed,
+            #[cfg(test)]
+            delay_ms,
+        }
     }
 
     fn pending(&self) -> bool {
@@ -1103,6 +1290,7 @@ impl SamplePage {
             restart_later: false,
             mangohud: false,
             streamer: false,
+            usage_on: true,
             shader:shader_page::ShaderState::default(),
             grafik: grafik_page::GrafikState::default(),
             fov: blickwinkel_page::FovState::default(),
@@ -1142,6 +1330,7 @@ impl SamplePage {
             shown_page: String::new(),
             usage: None,
             usage_route: None,
+            search_counted: (false, false),
             usage_started: false,
             selling: selling_page::SellingState::default(),
             routes: routes_page::RoutesState::default(),
@@ -1279,7 +1468,14 @@ impl SamplePage {
             real_basetool: None,
             folder_refused: None,
             folder_search: None,
+            own_frame: false,
         }
+    }
+
+    /// The window has no frame of the system: the head bar takes its place (title bar with the buttons to minimize,
+    /// maximize and close, a place to drag the window by) and the edges resize it.
+    pub fn use_own_frame(&mut self, on: bool) {
+        self.own_frame = on;
     }
 
     /// Only the window model with sample contents, to pass on: people try
@@ -1478,6 +1674,9 @@ impl SamplePage {
     /// Draws the page; returns how far anything sticks out to the right
     /// (0 = nothing cut off).
     pub fn show(&mut self, ui: &mut egui::Ui) -> f32 {
+        if self.own_frame {
+            resize_edges(ui.ctx());
+        }
         // The window closes: the page open last counts (`page_usage.window_closed`), and a size or place that has
         // not settled yet counts too.
         let closing = ui.input(|i| i.viewport().close_requested());
@@ -1680,6 +1879,7 @@ impl SamplePage {
         }
         if self.store.is_some() {
             self.follow_window(ui.ctx());
+            keep_on_screen(ui.ctx());
         }
         if let Some(store) = &self.store {
             trade::start_background(&store.paths, ui.ctx());
@@ -2003,6 +2203,7 @@ impl SamplePage {
         self.mangohud = paths.setting_bool("mangohud", false);
         self.streamer = versekit_core::streamer::load(paths);
         self.apply_streamer(paths);
+        self.usage_on = versekit_core::usage::enabled(paths);
         self.start_command = paths.setting(game_start::STARTER_SETTING).unwrap_or_default();
         self.overlay_clickable = paths.setting_bool("durchklickbar", false);
         self.overlay_rows = paths.setting_int(
@@ -2095,7 +2296,7 @@ impl SamplePage {
         }
     }
 
-    /// The folder chosen for the channel of row `k` (1: PTU, 2: TECH-PREVIEW), if any.
+    /// The folder chosen for the channel of row `k` (`CHANNEL_ROWS[k]`, 1 and up), if any.
     fn chosen_channel(&self, k: usize) -> Option<String> {
         let (_, folder) = self.channels_saved.iter().find(|(name, _)| name == CHANNEL_ROWS[k])?;
         folder.as_str().map(|f| f.trim().to_string()).filter(|f| !f.is_empty())
@@ -2120,6 +2321,7 @@ impl SamplePage {
             ("signalton", Value::Bool(self.sounds[0])),
             ("mangohud", Value::Bool(self.mangohud)),
             (versekit_core::streamer::SETTING, Value::Bool(self.streamer)),
+            (versekit_core::usage::SETTING, Value::Bool(self.usage_on)),
             ("durchklickbar", Value::Bool(self.overlay_clickable)),
             ("max_zeilen", Value::int(self.overlay_rows)),
             ("durchklick_auto", Value::Bool(self.overlay_auto)),
@@ -2266,6 +2468,21 @@ impl SamplePage {
         {
             store.writer = Some(SettingsWriter::start(Paths::new(store.paths.host.clone())));
         }
+    }
+
+    /// Under test: every write of this window's settings thread takes `ms` longer (only this window's).
+    #[cfg(test)]
+    fn slow_writes(&self, ms: u64) {
+        if let Some(writer) = self.store.as_ref().and_then(|s| s.writer.as_ref()) {
+            writer.delay_ms.store(ms, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    /// Under test: the extra time of every write of this window's settings thread.
+    #[cfg(test)]
+    fn write_delay(&self) -> Option<u64> {
+        let writer = self.store.as_ref().and_then(|s| s.writer.as_ref())?;
+        Some(writer.delay_ms.load(std::sync::atomic::Ordering::Relaxed))
     }
 
     /// Settings sent to the settings thread and not written yet.
@@ -2560,7 +2777,10 @@ impl SamplePage {
         if let Some(line) = head_line(rect, scheme) {
             ui.painter().rect_filled(line, 0.0, color(scheme.accent));
         }
-        let inner = rect.shrink2(egui::vec2(10.0, 0.0));
+        let mut inner = rect.shrink2(egui::vec2(10.0, 0.0));
+        if self.own_frame {
+            inner.max.x = frame_buttons(ui, scheme, rect) - 6.0;
+        }
         let mut right = ui
             .new_child(egui::UiBuilder::new().max_rect(inner).layout(egui::Layout::right_to_left(egui::Align::Center)));
         // The update button at the far right like 4.12: always the way to the update page;
@@ -2593,7 +2813,8 @@ impl SamplePage {
             None => Some(("412 h 30 min  (+1 h 05 min)".to_string(), t("hf_zeit_h").replace("{0}", "04.08.2026"))),
         };
         if let Some((time, hover)) = played {
-            right.label(RichText::new(time).small().color(color(scheme.sub))).on_hover_text(hover);
+            let label = egui::Label::new(RichText::new(time).small().color(color(scheme.sub))).selectable(false);
+            right.add(label).on_hover_text(hover);
             if let Some(image) = crate::icons::image("clock", scheme.sub, 14.0) {
                 right.add(image);
             }
@@ -2606,7 +2827,10 @@ impl SamplePage {
         let icon = crate::window_look::program_texture(left.ctx());
         let side = left.text_style_height(&egui::TextStyle::Body).max(16.0);
         left.add(egui::Image::new((icon.id(), egui::vec2(side, side))));
-        left.label(RichText::new(t("hf_titel")).strong());
+        // The name one step larger than the text of the bar, for the room the title bar gives; it is no text to select,
+        // so a drag on it moves the window.
+        let name_size = egui::TextStyle::Body.resolve(left.style()).size + 2.0;
+        left.add(egui::Label::new(RichText::new(t("hf_titel")).strong().size(name_size)).selectable(false));
         let test_word = t("s_ul_testversion");
         let (version, word) = if self.real() {
             (env!("CARGO_PKG_VERSION"), self.test_build.then_some(test_word.as_str()))
@@ -2647,6 +2871,45 @@ impl SamplePage {
                 self.page = page;
             }
         }
+    }
+
+    /// The short notes above a page that read the game data: that a reading waits for the game to close, and that
+    /// the data of a test channel are preliminary.
+    fn archive_notes(&self, page: &mut egui::Ui, scheme: &Scheme) {
+        use versekit_core::language::t;
+        let note = |page: &mut egui::Ui, text: String| {
+            page.add(egui::Label::new(RichText::new(text).small().color(color(scheme.sub))).wrap());
+            page.add_space(4.0);
+        };
+        // Only the page whose data the waiting reading is for says it: data are missing or old there.
+        let waits = TOPIC_PAGES
+            .iter()
+            .any(|(topic, pages)| pages.contains(&self.page.as_str()) && versekit_core::archive_lock::waiting_for(topic));
+        if waits {
+            note(page, t("s_ak_wartet"));
+            page.ctx().request_repaint_after(std::time::Duration::from_secs(2));
+        }
+        if self.store.is_some() && ARCHIVE_PAGES.contains(&self.page.as_str()) && self.test_archive(page.ctx()) {
+            note(page, t("s_ak_testkanal"));
+        }
+    }
+
+    /// Whether the archive in use lies in a channel of test builds; looked at every few seconds, not every frame.
+    fn test_archive(&self, ctx: &egui::Context) -> bool {
+        let Some(store) = &self.store else { return false };
+        let id = egui::Id::unique("archiv-testkanal");
+        let now = ctx.input(|i| i.time);
+        if let Some((at, answer)) = ctx.data(|d| d.get_temp::<(f64, bool)>(id))
+            && now - at < 5.0
+        {
+            return answer;
+        }
+        let answer = store
+            .paths
+            .archive_file()
+            .is_some_and(|archive| versekit_core::archive_lock::is_test_archive(std::path::Path::new(&archive)));
+        ctx.data_mut(|d| d.insert_temp(id, (now, answer)));
+        answer
     }
 
     /// Whether real data are open (not the sample page).
@@ -2843,8 +3106,18 @@ impl SamplePage {
         let foot = 2.0 * button_height + mark_height + 24.0;
         let filter = self.nav_filter.clone();
         let filtering = !filter.trim().is_empty();
+        // A search is counted once when a word comes into the empty filter, never the word; emptied, the next
+        // word is a new search.
+        if !filtering {
+            self.search_counted = (false, false);
+        } else if !self.search_counted.0 {
+            self.search_counted.0 = true;
+            self.count_action("suche_benutzt");
+        }
+        // The way of a page opened from the menu: the search while the filter holds a word.
+        let menu_route = if filtering { "suche" } else { "seitenleiste" };
         // A page that is no more (a stored last page, a pinned tile): its successor takes its place.
-        self.follow_removed_page();
+        self.follow_removed_page(ui.input(|i| i.time));
         // The mark goes once the area was open, whichever way it was reached.
         if self.new_pages.contains(&self.page.as_str()) {
             let page = self.page.clone();
@@ -2955,7 +3228,7 @@ impl SamplePage {
                     if self.nav_enter && filtering {
                         self.nav_enter = false;
                         self.page = hits[0].0.to_string();
-                        self.usage_route = Some("seitenleiste");
+                        self.usage_route = Some(menu_route);
                     }
                     let holds_page = hits.iter().any(|(page, ..)| self.page == *page);
                     // What the open page shows in this group: of several hits only one lights up.
@@ -2971,7 +3244,7 @@ impl SamplePage {
                             let lit = self.page == page && nav_lit(&shown, &open_hits, &self.nav_hit);
                             if widgets::nav_entry(nav, scheme, icon, &shown, lit, new).clicked() {
                                 self.page = page.to_string();
-                                self.usage_route = Some("seitenleiste");
+                                self.usage_route = Some(menu_route);
                                 self.nav_hit = shown.clone();
                                 // A setting found by the filter lights up on its page.
                                 if let Some((_, setting)) = shown.split_once(" › ") {
@@ -2982,7 +3255,7 @@ impl SamplePage {
                                         self.hangar.point_to_pairing();
                                     }
                                     // A section of a page found by the filter: the page scrolls to it.
-                                    if is_section_hit(page, setting) {
+                                    if page == "hf_hangar" && is_section_hit(page, setting) {
                                         self.hangar.show_planned();
                                     }
                                 }
@@ -3034,6 +3307,11 @@ impl SamplePage {
                 }
                 if !found {
                     nav.label(RichText::new(t("hf_menue_leer")).color(color(scheme.sub)));
+                    // Nothing left in the menu: once per search.
+                    if filtering && !self.search_counted.1 {
+                        self.search_counted.1 = true;
+                        self.count_action("suche_ohne_treffer");
+                    }
                 }
             });
             nav.add_space(4.0);
@@ -3186,6 +3464,7 @@ impl SamplePage {
                 }
                 page.add_space(4.0);
             }
+            self.archive_notes(&mut page, scheme);
             let texts = widgets::HistoryTexts {
                 back: &t("hf_seite_zurueck"),
                 forward: &t("hf_seite_vor"),
@@ -3311,8 +3590,10 @@ impl SamplePage {
             if self.page.is_empty() {
                 page.label(RichText::new(t("s_ke_hinweis")).color(color(scheme.sub)));
             }
+            // The page Achsen & Kurven keeps its foot ("write", "discard") below the scrolling area, always in reach.
+            let foot = if self.page == "hf_achsen" && self.real() { self.axes.foot_height() } else { 0.0 };
             // Every page scrolls on its own below its heading.
-            let rest = (page.available_height() - 4.0).max(60.0);
+            let rest = (page.available_height() - 4.0 - foot).max(60.0);
             let area = egui::ScrollArea::vertical()
                 .id_salt(("seite", self.page.as_str()))
                 .max_height(rest)
@@ -3558,6 +3839,7 @@ impl SamplePage {
                         let language_auto = &mut self.language_auto;
                         let (gpu, later, mangohud) = (&mut self.gpu, &mut self.restart_later, &mut self.mangohud);
                         let streamer = &mut self.streamer;
+                        let usage_on = &mut self.usage_on;
                         let mut streamer_changed = false;
                         let play_head = &mut self.play_head;
                         let mut play_head_changed = false;
@@ -3571,7 +3853,13 @@ impl SamplePage {
                             let name =
                                 label(if name == "autostart_win" && !cfg!(windows) { "autostart_linux" } else { name });
                             // Without an icon next to the clock (off Windows) closing ends the window: the hint says so.
-                            let hint = label(if hint == "s_tray_h" && !cfg!(windows) { "s_tray_h_ohne" } else { hint });
+                            let hint = match hint {
+                                "s_tray_h" if !cfg!(windows) => "s_tray_h_ohne",
+                                // The message of the system is a Windows message on Windows, a desktop one elsewhere.
+                                "s_systemmeldung_h" if !cfg!(windows) => "s_systemmeldung_h_linux",
+                                other => other,
+                            };
+                            let hint = label(hint);
                             let choices: Vec<String> = choices.iter().map(|c| label(c)).collect();
                             settings::setting_row(ui, scheme, &name, &hint, false, |row| {
                                 match (g, r) {
@@ -3687,6 +3975,10 @@ impl SamplePage {
                                     }
                                     // Errors are always written down: no switch, only the line that says so.
                                     (3, 0) => {}
+                                    // The daily usage report: stored at the end of the frame with the other settings.
+                                    (3, 3) => {
+                                        row.add(widgets::Toggle::new(usage_on, scheme));
+                                    }
                                     // Streamer mode: takes effect at once, in the whole program.
                                     (3, 1) => {
                                         if row.add(widgets::Toggle::new(streamer, scheme)).changed() {
@@ -3873,152 +4165,126 @@ impl SamplePage {
                             scheme,
                             "overlay",
                             &group_refs(&groups),
-                            &[2, 3, 4, 5, 6],
+                            // Cards of rows in the columns of cards; the signature window, an editor on pictures of
+                            // the game, over the whole width under them.
+                            &[8],
                             &mut |ui, g, r| {
                                 let (name, hint, choices) = rows[g].1[r];
                                 let name = label(name);
                                 // The opacity of an overlay drawn without transparency says why it has no effect.
-                                let hint = if (g, r, opaque) == (0, 6, true) { "ov_s_deck_ohne_h" } else { hint };
+                                let hint = if (g, r, opaque) == (0, 5, true) { "ov_s_deck_ohne_h" } else { hint };
                                 let hint = label(hint);
                                 let hint = hint.as_str();
-                                if g == 0 && r == 1 {
-                                    // Whether the overlay shows without the game too.
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        row.add(widgets::Toggle::new(overlay_always, scheme));
-                                    });
+                                if (g, r) == (0, 0) {
+                                    // Comes and folds with the game, no switch: a small heading over the two switches
+                                    // that change it, its hint on hover.
+                                    subheading(ui, scheme, &name, hint);
                                 } else if g == 0 {
-                                    // The rows after that switch keep the numbers they had before it.
-                                    let r = if r > 1 { r - 1 } else { r };
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        match r {
-                                            // Comes and folds with the game, no switch.
-                                            0 => {}
-                                            1 => {
-                                                row.add(widgets::Toggle::new(clickable, scheme));
-                                            }
-                                            4 => {
-                                                row.add(widgets::Toggle::new(auto, scheme));
-                                            }
-                                            5 => {
-                                                settings::slider_with_value(row, scheme, &name, opacity, (30, 100), false, |n| {
-                                                    format!("{n} %")
-                                                });
-                                            }
-                                            6 => window_size_slider(row, scheme, &name, overlay_size),
-                                            7 => {
-                                                if widgets::radio(row, scheme, !*popup, &label(choices[0])).clicked() {
-                                                    *popup = false;
-                                                }
-                                                if widgets::radio(row, scheme, *popup, &label(choices[1])).clicked() {
-                                                    *popup = true;
-                                                }
-                                            }
-                                            8 => {
-                                                widgets::number_field(
-                                                    row,
-                                                    scheme,
-                                                    "overlay-sekunden",
-                                                    seconds,
-                                                    2..=60,
-                                                    &label(choices[0]),
-                                                );
-                                            }
-                                            // A number: − field + with its unit.
-                                            2 => {
-                                                widgets::number_field(
-                                                    row,
-                                                    scheme,
-                                                    "overlay-zeilen",
-                                                    lines,
-                                                    OVERLAY_ROWS.0..=OVERLAY_ROWS.1,
-                                                    &label(choices[0]),
-                                                );
-                                            }
-                                            // The hotkey of the refinery scan: on or off, its picker below the row.
-                                            9 if scan_possible => {
-                                                row.add(widgets::Toggle::new(scan_on, scheme));
-                                            }
-                                            9 => {
-                                                let reason = language::t("s_nicht_moegl");
-                                                row.label(RichText::new(reason).color(color(scheme.sub)));
-                                            }
-                                            // The hotkey of the handle search: on or off, its picker below the row.
-                                            10 => {
-                                                row.add(widgets::Toggle::new(search_on, scheme));
-                                            }
-                                            // The hotkey: its picker below the row.
-                                            _ => {}
+                                    // What the overlay shows and how: one line each, the hint on hover.
+                                    settings::setting_line(ui, scheme, &name, hint, false, |row| match r {
+                                        1 => {
+                                            row.add(widgets::Toggle::new(overlay_always, scheme));
+                                        }
+                                        2 => {
+                                            row.add(widgets::Toggle::new(clickable, scheme));
+                                        }
+                                        3 => {
+                                            row.add(widgets::Toggle::new(auto, scheme));
+                                        }
+                                        // A number: − field + with its unit.
+                                        4 => {
+                                            widgets::number_field(
+                                                row,
+                                                scheme,
+                                                "overlay-zeilen",
+                                                lines,
+                                                OVERLAY_ROWS.0..=OVERLAY_ROWS.1,
+                                                &label(choices[0]),
+                                            );
+                                        }
+                                        5 => {
+                                            settings::slider_with_value(row, scheme, &name, opacity, (30, 100), false, |n| {
+                                                format!("{n} %")
+                                            });
+                                        }
+                                        _ => window_size_slider(row, scheme, &name, overlay_size),
+                                    });
+                                } else if g == 2 && r == 0 {
+                                    // Always, or only on news.
+                                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
+                                        if widgets::radio(row, scheme, !*popup, &label(choices[0])).clicked() {
+                                            *popup = false;
+                                        }
+                                        if widgets::radio(row, scheme, *popup, &label(choices[1])).clicked() {
+                                            *popup = true;
                                         }
                                     });
-                                    if r == 9 && scan_possible && *scan_on {
-                                        let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
-                                        let mut words: Vec<(&str, bool)> = names
-                                            .iter()
-                                            .zip(scan_modifiers.iter())
-                                            .map(|(w, on)| (w.as_str(), *on))
-                                            .collect();
-                                        let before = (*scan_modifiers, *scan_key);
-                                        let keys = hotkey_names();
-                                        let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
-                                        widgets::hotkey_picker(ui, scheme, "overlay-scan", &mut words, &keys, scan_key, &name);
-                                        for (on, (_, pressed)) in scan_modifiers.iter_mut().zip(words) {
+                                } else if g == 2 {
+                                    // The seconds belong to „only on news“: grey while the overlay is always there.
+                                    let on_news = *popup;
+                                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
+                                        row.add_enabled_ui(on_news, |row| {
+                                            widgets::number_field(
+                                                row,
+                                                scheme,
+                                                "overlay-sekunden",
+                                                seconds,
+                                                2..=60,
+                                                &label(choices[0]),
+                                            );
+                                        });
+                                    });
+                                } else if g == 3 {
+                                    // A shortcut in one line: its switch (the overlay's own is always on, its switch
+                                    // stands on and grey), its name, the modifier keys and the key.
+                                    let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
+                                    let keys = hotkey_names();
+                                    let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
+                                    let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
+                                        match r {
+                                            0 => (None, &mut *modifiers, &mut *key, "overlay"),
+                                            1 => (Some(&mut *scan_on), &mut *scan_modifiers, &mut *scan_key, "overlay-scan"),
+                                            _ => (Some(&mut *search_on), &mut *search_modifiers, &mut *search_key, "overlay-suche"),
+                                        };
+                                    // The refinery scan reads the screen: only where that works.
+                                    let possible = r != 1 || scan_possible;
+                                    let before = (*held, *chosen);
+                                    // The keys only while the shortcut is on.
+                                    let switch = possible.then_some(switch).flatten();
+                                    shortcut_line(ui, scheme, &name, hint, switch, r == 0, |line| {
+                                        if !possible {
+                                            let reason = language::t("s_nicht_moegl");
+                                            line.label(RichText::new(reason).color(color(scheme.sub)));
+                                            return;
+                                        }
+                                        let mut words: Vec<(&str, bool)> =
+                                            names.iter().zip(held.iter()).map(|(w, on)| (w.as_str(), *on)).collect();
+                                        widgets::hotkey_picker(line, scheme, id, &mut words, &keys, chosen, &name);
+                                        for (on, (_, pressed)) in held.iter_mut().zip(words) {
                                             *on = pressed;
                                         }
-                                        // A letter or a digit without Strg, Alt or Umschalt is no hotkey: the saved
-                                        // one stays.
-                                        scan_refused |= keep_hotkey(scan_modifiers, scan_key, before);
+                                    });
+                                    // A letter or a digit without Strg, Alt or Umschalt is no hotkey: the saved one
+                                    // stays, and the reason is said below the page. F13 by itself is one (Kuehlwagen).
+                                    let refused = keep_hotkey(held, chosen, before);
+                                    match r {
+                                        0 => hotkey_refused |= refused,
+                                        1 => scan_refused |= refused,
+                                        _ => search_refused |= refused,
                                     }
-                                    if r == 10 && *search_on {
-                                        let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
-                                        let mut words: Vec<(&str, bool)> = names
-                                            .iter()
-                                            .zip(search_modifiers.iter())
-                                            .map(|(w, on)| (w.as_str(), *on))
-                                            .collect();
-                                        let before = (*search_modifiers, *search_key);
-                                        let keys = hotkey_names();
-                                        let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
-                                        widgets::hotkey_picker(
-                                            ui,
-                                            scheme,
-                                            "overlay-suche",
-                                            &mut words,
-                                            &keys,
-                                            search_key,
-                                            &name,
-                                        );
-                                        for (on, (_, pressed)) in search_modifiers.iter_mut().zip(words) {
-                                            *on = pressed;
-                                        }
-                                        // A letter or a digit without Strg, Alt or Umschalt is no hotkey: the saved
-                                        // one stays. F13 by itself is one (Kuehlwagen).
-                                        search_refused |= keep_hotkey(search_modifiers, search_key, before);
-                                    }
-                                    if r == 3 {
-                                        // Modifier keys as buttons that stay pressed, the key from a list.
-                                        let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
-                                        let mut words: Vec<(&str, bool)> = names
-                                            .iter()
-                                            .zip(modifiers.iter())
-                                            .map(|(w, on)| (w.as_str(), *on))
-                                            .collect();
-                                        let before = (*modifiers, *key);
-                                        let keys = hotkey_names();
-                                        let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
-                                        widgets::hotkey_picker(ui, scheme, "overlay", &mut words, &keys, key, &name);
-                                        for (on, (_, pressed)) in modifiers.iter_mut().zip(words) {
-                                            *on = pressed;
-                                        }
-                                        // A letter or a digit without Strg, Alt or Umschalt is not kept: the picker
-                                        // stays at the one saved, and the reason is said.
-                                        hotkey_refused |= keep_hotkey(modifiers, key, before);
+                                    if r == 0 {
                                         // Under Wayland: the way through a shortcut of the desktop.
                                         shortcut_copied |= desktop.shortcut_hint(ui, scheme);
                                     }
-                                } else if g == 5 {
+                                } else if g == 7 {
+                                    // The settings of the handle search, which shows in the bar: what they are for
+                                    // as the small heading, then their rows.
+                                    subheading(ui, scheme, hint, "");
+                                    crate::handle_page::show_settings(ui, scheme, handles);
+                                } else if g == 8 {
                                     // The window with the scanned material: its place and the search frame on two
-                                    // models one below the other (the frame has no row of its own), its size and the
-                                    // extra line in the overlay.
+                                    // models side by side or one below the other (the frame has no row of its own), its
+                                    // size and the extra line in the overlay.
                                     if r == 0 {
                                         let frame_row = rows[g].1[3];
                                         let (frame_name, frame_hint) = (label(frame_row.0), label(frame_row.1));
@@ -4063,7 +4329,7 @@ impl SamplePage {
                                             _ => {}
                                         });
                                     }
-                                } else if g == 2 {
+                                } else if g == 4 {
                                     // The events that open the overlay: one switch each.
                                     settings::setting_row(ui, scheme, &name, hint, false, |row| {
                                         let event = versekit_core::overlay::Event::ALL[r];
@@ -4072,14 +4338,14 @@ impl SamplePage {
                                             *events = events.with(event, on);
                                         }
                                     });
-                                } else if g == 3 && r == versekit_core::overlay::Section::ALL.len() {
+                                } else if g == 5 && r == versekit_core::overlay::Section::ALL.len() {
                                     // After the switches: the most contracts the game allows, for the head of the bar.
                                     settings::setting_row(ui, scheme, &name, hint, false, |row| {
                                         let range = versekit_core::overlay::CONTRACTS_MAX_RANGE;
                                         let id = "auftraege-hoechstzahl";
                                         widgets::number_field(row, scheme, id, contracts_max, range.0..=range.1, "");
                                     });
-                                } else if g == 3 {
+                                } else if g == 5 {
                                     // What the open overlay shows: one switch each.
                                     settings::setting_row(ui, scheme, &name, hint, false, |row| {
                                         let section = versekit_core::overlay::Section::ALL[r];
@@ -4088,16 +4354,12 @@ impl SamplePage {
                                             *sections = sections.with(section, on);
                                         }
                                     });
-                                } else if g == 4 && r == 7 {
-                                    // The settings of the handle search, which shows in the bar.
-                                    settings::setting_row(ui, scheme, &name, hint, false, |_| {});
-                                    crate::handle_page::show_settings(ui, scheme, handles);
-                                } else if g == 4 && r == 3 {
+                                } else if g == 6 && r == 3 {
                                     // The size of the bar with its card and lines, apart from the overlay's.
                                     settings::setting_row(ui, scheme, &name, hint, false, |row| {
                                         window_size_slider(row, scheme, &name, info_bar_size);
                                     });
-                                } else if g == 4 && r == 2 {
+                                } else if g == 6 && r == 2 {
                                     // Where the bar starts: top left, middle or right.
                                     settings::setting_row(ui, scheme, &name, hint, false, |row| {
                                         let corners = versekit_core::info_bar::Corner::ALL;
@@ -4109,7 +4371,7 @@ impl SamplePage {
                                             }
                                         }
                                     });
-                                } else if g == 4 {
+                                } else if g == 6 {
                                     // The bar itself, whether it shows without the game too, and the frame rates
                                     // (in the bar while it is on, else beside the shard in the overlay).
                                     let switch = match r {
@@ -4123,11 +4385,16 @@ impl SamplePage {
                                         row.add(widgets::Toggle::new(switch, scheme));
                                     });
                                 } else if r == 0 {
-                                    settings::setting_row(ui, scheme, &name, hint, false, |_| {});
+                                    // The place: its name as the small heading (a row without a control is one), under
+                                    // it the field of the four corners with free movement in the middle row and the bar
+                                    // beside it.
+                                    subheading(ui, scheme, &name, hint);
+                                    // The field right under its heading, at the left of the card: no space before it.
                                     settings::overlay_place(ui, scheme, place, bar, &texts);
+                                    ui.add_space(6.0);
                                 } else {
                                     // Forget the place: back to the middle, free, bar on top.
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
                                         if row
                                             .add(widgets::Button::new(&label(choices[0]), ButtonKind::Normal, scheme))
                                             .clicked()
@@ -4212,12 +4479,21 @@ impl SamplePage {
                             let name = label(name);
                             let choices: Vec<String> = choices.iter().map(|c| label(c)).collect();
                             let hint = label(hint);
+                            if (g, r) == (0, 0) {
+                                // The scheme: its name as the small heading over its cards (a row without a control
+                                // is one).
+                                subheading(ui, scheme, &name, &hint);
+                                // A small picture of the window per scheme, in its colors (like 4.12).
+                                // The names in the order of `theme::schemes()` (a test keeps them alike).
+                                if let Some(id) = widgets::scheme_cards(ui, scheme, theme::schemes(), &choices) {
+                                    theme::set_current(id);
+                                }
+                                return;
+                            }
                             settings::setting_row(ui, scheme, &name, &hint, false, |row| {
                                 match (g, r) {
                                     // The size: slider in the column of controls, the quick choices below the row.
-                                    (0, 1) => size_slider(row, scheme, size),
-                                    // The scheme: its cards below the row.
-                                    (0, _) => {}
+                                    (0, _) => size_slider(row, scheme, size),
                                     (1, _) => {
                                         let button = widgets::Button::new(&choices[0], ButtonKind::Normal, scheme);
                                         if row.add(button.blocked(already)).clicked() {
@@ -4242,13 +4518,6 @@ impl SamplePage {
                                     }
                                 }
                             });
-                            if (g, r) == (0, 0) {
-                                // A small picture of the window per scheme, in its colors (like 4.12).
-                                // The names in the order of `theme::schemes()` (a test keeps them alike).
-                                if let Some(id) = widgets::scheme_cards(ui, scheme, theme::schemes(), &choices) {
-                                    theme::set_current(id);
-                                }
-                            }
                             if (g, r) == (0, 1) {
                                 size_presets(ui, scheme, size);
                             }
@@ -4390,7 +4659,9 @@ impl SamplePage {
                                 ui.horizontal(|ui| {
                                     let field = widgets::text_field(start_command, &t("s_pl_startbefehl"), scheme)
                                         .id_salt("startbefehl")
-                                        .desired_width((ui.available_width() - 130.0).max(120.0));
+                                        .desired_width(
+                                            (ui.available_width() - 130.0).clamp(120.0, widgets::FIELD_MAX_WIDTH),
+                                        );
                                     ui.add(field);
                                     let word = label(words[0]);
                                     let take = widgets::Button::new(&word, ButtonKind::Normal, scheme);
@@ -4404,7 +4675,12 @@ impl SamplePage {
                             }
                             // Real data: what the folder is, not what the sample says.
                             let hint = if real {
-                                language::t(if folder_there(&folders[r]) { "s_pf_kanal_da" } else { "s_pf_kanal_weg" })
+                                language::t(match (folder_there(&folders[r]), r) {
+                                    (true, _) => "s_pf_kanal_da",
+                                    // The main installation missing is a fault; another channel is not installed.
+                                    (false, 0) => "s_pf_kanal_weg",
+                                    (false, _) => "s_ei_ordner_nicht",
+                                })
                             } else {
                                 label(hint)
                             };
@@ -4535,20 +4811,15 @@ impl SamplePage {
                     "hf_uebersetzung" if self.real() => {
                         game_texts_page::show_translation(page, scheme, &mut self.game_texts);
                     }
-                    "hf_shader" if self.real() => {
-                        if let Some(store) = &self.store {
-                            shader_page::show_page(page, scheme, &mut self.shader, &store.paths);
-                        }
-                        if let Some(said) = self.shader.take_notice() {
-                            self.pin_fault = said.fault.then(|| said.text.clone());
-                            self.pin_notice = Some((page.input(|i| i.time), said.text));
-                        }
-                    }
+                    // The shader cache is the last card of the graphics page (its own page until 5.1.3).
                     "hf_grafik" if self.real() => {
                         if let Some(store) = &self.store {
-                            grafik_page::show_page(page, scheme, &mut self.grafik, &store.paths);
+                            let shader = &mut self.shader;
+                            let mut card =
+                                |ui: &mut egui::Ui| shader_page::show_body(ui, scheme, shader, &store.paths);
+                            grafik_page::show_page(page, scheme, &mut self.grafik, &store.paths, &mut card);
                         }
-                        if let Some(said) = self.grafik.take_notice() {
+                        for said in [self.grafik.take_notice(), self.shader.take_notice()].into_iter().flatten() {
                             self.pin_fault = said.fault.then(|| said.text.clone());
                             self.pin_notice = Some((page.input(|i| i.time), said.text));
                         }
@@ -4742,6 +5013,7 @@ impl SamplePage {
                     }
                     "hf_danke" => thanks_page::show(page, scheme, &mut self.thanks),
                     "hf_diagnose" if self.real() => {
+                        self.mark_errors_seen();
                         if let Some(state) = &mut self.diagnose {
                             state.set_basetool(self.connection.wire().map(|wire| wire.sync.clone()));
                             diagnose_page::show(page, scheme, state);
@@ -4810,6 +5082,16 @@ impl SamplePage {
                     }
                 }
             });
+            if self.page == "hf_achsen"
+                && self.real()
+                && let Some(store) = &self.store
+            {
+                axes_page::show_foot(&mut page, scheme, &mut self.axes, &store.paths);
+                if let Some(said) = self.axes.take_notice() {
+                    self.pin_fault = said.fault.then(|| said.text.clone());
+                    self.pin_notice = Some((page.input(|i| i.time), said.text));
+                }
+            }
             // The page scrolls on its own and clips: what sticks out to the right
             // would be cut off unseen, so it counts for the edge check.
             self.frame_overflow = (shown.content_size.x - shown.inner_rect.width()).max(0.0);
@@ -5185,6 +5467,28 @@ const GROUP_SETTINGS: [(&str, &str); 10] = [
     ("hf_gruppe_info", "gruppe_zu_info"),
 ];
 
+/// The pages that show what a reading of the game archive is for (`archive_lock::reading_for`): a reading that waits
+/// for the game to close is told on these pages.
+const TOPIC_PAGES: [(&str, &[&str]); 5] = [
+    ("texts", &["hf_uebersetzung"]),
+    ("catalog", &["hf_liste", "hf_fortschritt", "hf_herstellung", "hf_farmliste"]),
+    ("signatures", &["hf_bergbau", "hf_erkennung"]),
+    ("values", &["hf_hangar"]),
+    ("controls", &["hf_joysticks"]),
+];
+
+/// The pages whose data come out of the game archive: where the data of a test channel are marked as preliminary.
+const ARCHIVE_PAGES: [&str; 8] = [
+    "hf_liste",
+    "hf_fortschritt",
+    "hf_herstellung",
+    "hf_farmliste",
+    "hf_bergbau",
+    "hf_uebersetzung",
+    "hf_joysticks",
+    "hf_erkennung",
+];
+
 const NAV: [(&str, &[(&str, &str)]); 10] = [
     (
         "hf_gruppe_bp",
@@ -5232,7 +5536,6 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
             ("hf_blickwinkel", "eye"),
             ("hf_joysticks", "gamepad-2"),
             ("hf_achsen", "chart-spline"),
-            ("hf_shader", "eraser"),
         ],
     ),
     (
@@ -5285,73 +5588,21 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
             ),
         ],
     ),
-    (
-        "hf_allgemein",
-        &[
-            (
-                "s_ei_start",
-                &[
-                    ("autostart_win", "s_ei_autostart_h", &[]),
-                    // No "look for updates": v5 always looks quietly and installs on a click or
-                    // once the game has ended, so nobody runs an old version.
-                    ("s_ei_gpu", "s_ei_gpu_h", &[]),
-                    // From here on the rows of `desktop_rows` (`desktop_rows::FIRST_ROW`).
-                    ("s_tray", "s_tray_h", &[]),
-                    ("s_systemmeldung", "s_systemmeldung_h", &[]),
-                    ("s_menue", "s_menue_h", &[]),
-                ],
-            ),
-            (
-                "sprache",
-                // The names of the languages are written in their own language.
-                &[
-                    ("sprache", "s_ei_sofort_h", &["English", "Deutsch"]),
-                    ("s_ei_uhr24", "s_ei_uhr24_h", &[]),
-                    ("s_zeit", "s_zeit_h_2", &[]),
-                ],
-            ),
-            (
-                "s_ei_toene",
-                &[
-                    ("s_ei_ton_bp", "s_ei_ton_bp_h", &[]),
-                    ("s_ei_ton_raff", "s_ei_ton_raff_h", &[]),
-                    ("s_ei_lautstaerke", "s_ei_lautstaerke_h", &[]),
-                ],
-            ),
-            // The usage is always reported, so the page has no entry for it; listed are the errors, the streamer
-            // mode and what goes to scmdb.net (`desktop_rows::SCMDB_ROW`).
-            (
-                "s_ei_datenschutz",
-                &[
-                    ("s_ei_fehler", "s_ei_fehler_h", &[]),
-                    ("s_ei_streamer", "s_ei_streamer_h", &[]),
-                    ("s_scmdb", "s_scmdb_h", &[]),
-                ],
-            ),
-            (
-                "s_ei_im_spiel",
-                &[("s_ei_mango", "s_ei_mango_h", &["s_ei_nur_linux"]), ("s_takt", "s_takt_h", &["s_sek"])],
-            ),
-        ],
-    ),
+    ("hf_allgemein", GENERAL),
     (
         "hf_overlay",
         &[
+            // What the overlay shows and how: one line each, the hint on hover.
             (
-                "hf_overlay",
+                "s_ov_gruppe_anzeige",
                 &[
                     ("s_ei_ov_spiel", "s_ei_ov_spiel_h", &[]),
                     ("s_ov_ohne_spiel", "s_ov_ohne_spiel_h", &[]),
                     ("s_ei_ov_durch", "s_ei_ov_durch_h", &[]),
-                    ("s_zeilen", "s_ei_ov_zeilen_h", &["s_ei_zeilen_einheit"]),
-                    ("s_ei_ov_taste", "s_ei_ov_taste_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_ov_durch_auto", "ov_s_durch_auto_h", &[]),
+                    ("s_zeilen", "s_ei_ov_zeilen_h", &["s_ei_zeilen_einheit"]),
                     ("e_deckkraft", "ov_s_deck_h", &[]),
                     ("s_ov_groesse", "s_ov_groesse_h", &[]),
-                    ("s_ov_modus", "ov_s_modus_h", &["s_ov_immer", "s_ov_popup"]),
-                    ("s_ov_dauer", "ov_s_dauer_h", &["s"]),
-                    ("s_hk_scan", "s_hk_scan_h_2", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_suche", "s_hk_suche_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             (
@@ -5371,6 +5622,23 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                         ],
                     ),
                     ("ov_s_mitte", "ov_s_mitte_h_2", &["ov_s_mitte_knopf"]),
+                ],
+            ),
+            // Always or only on news, with the seconds, in one line (the seconds row is drawn in it).
+            (
+                "s_ov_gruppe_wann",
+                &[
+                    ("s_ov_modus", "ov_s_modus_h", &["s_ov_immer", "s_ov_popup"]),
+                    ("s_ov_dauer", "ov_s_dauer_h", &["s_ov_sek_sichtbar"]),
+                ],
+            ),
+            // The three shortcuts, one line each: switch, name, modifier keys, key.
+            (
+                "s_ov_gruppe_kuerzel",
+                &[
+                    ("s_ei_ov_taste", "s_ei_ov_taste_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_scan", "s_hk_scan_h_2", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_suche", "s_hk_suche_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             // The events that open the folded or waiting overlay, one switch each (the order of
@@ -5414,9 +5682,10 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_fps", "s_ov_fps_h", &[]),
                     ("s_ov_server_fps", "s_ov_server_fps_h", &[]),
                     ("s_ov_spieler", "s_ov_spieler_h", &[]),
-                    ("s_hqs_einstellungen", "s_hqs_einstellungen_h", &[]),
                 ],
             ),
+            // The settings of the handle search, which shows in the bar: a card of its own.
+            ("s_hqs_einstellungen", &[("s_hqs_einstellungen", "s_hqs_einstellungen_h", &[])]),
             // The window of the signature scanner, the part for mining, after the overlay itself.
             (
                 "s_sg_titel",
@@ -5469,9 +5738,11 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
             (
                 "s_ei_spielordner",
                 &[
-                    // The names of the channels are the game's own.
+                    // The names of the channels are the game's own, in the order of `paths::CHANNELS`.
                     ("LIVE", "s_pf_kanal_da", &["s_durchsuchen", "s_oeffnen"]),
+                    ("HOTFIX", "s_ei_ordner_nicht", &["s_durchsuchen", "s_oeffnen"]),
                     ("PTU", "s_pf_kanal_da", &["s_durchsuchen", "s_oeffnen"]),
+                    ("EPTU", "s_ei_ordner_nicht", &["s_durchsuchen", "s_oeffnen"]),
                     ("TECH-PREVIEW", "s_ei_ordner_nicht", &["s_durchsuchen", "s_oeffnen"]),
                 ],
             ),
@@ -5490,13 +5761,16 @@ fn folder_there(folder: &str) -> bool {
     !folder.is_empty() && std::path::Path::new(folder).is_dir()
 }
 
-/// The channels of the rows of game folders.
-const CHANNEL_ROWS: [&str; 3] = ["LIVE", "PTU", "TECH-PREVIEW"];
+/// The channels of the rows of game folders: the one list of the program (LIVE, HOTFIX, PTU, EPTU, TECH-PREVIEW).
+const CHANNEL_ROWS: [&str; CHANNEL_COUNT] = versekit_core::paths::CHANNELS;
+const CHANNEL_COUNT: usize = versekit_core::paths::CHANNELS.len();
 
 /// The game folders of the sample, per channel.
-const FOLDERS: [&str; 3] = [
+const FOLDERS: [&str; CHANNEL_COUNT] = [
     "C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE",
+    "",
     "C:\\Program Files\\Roberts Space Industries\\StarCitizen\\PTU",
+    "",
     "",
 ];
 
@@ -5529,6 +5803,83 @@ const HOTKEY_WORDS: [(&str, &str); 7] = [
 const HOTKEY_MODIFIERS: [&str; 3] = ["Strg", "Alt", "Umschalt"];
 /// Fewest and most rows of the overlay, as the overlay reads them.
 const OVERLAY_ROWS: (i64, i64) = versekit_core::overlay::ROWS_RANGE;
+
+/// About the width of the keys of a shortcut (three modifier keys, „+“ and the key), for the column of names before
+/// them.
+const HOTKEY_PICKER_WIDTH: f32 = 340.0;
+
+use crate::settings::subheading;
+
+/// A shortcut in one line: its switch (`None`: a grey switch, on when the shortcut is `always` on, else off: it
+/// cannot be had here), its name with the hint on hover behind the symbol `info`, then `keys` while it is on. The
+/// names and the keys stand in line in every row. Framed after a jump from the menu filter to its name or hint.
+fn shortcut_line(
+    ui: &mut egui::Ui,
+    scheme: &Scheme,
+    name: &str,
+    hint: &str,
+    switch: Option<&mut bool>,
+    always: bool,
+    keys: impl FnOnce(&mut egui::Ui),
+) {
+    let spacing = ui.spacing().item_spacing.x;
+    // Too narrow for the name and the keys side by side: the keys stand in a line of their own under the name.
+    let stacked = ui.available_width() < widgets::TOGGLE_SIZE.x + spacing + 200.0 + HOTKEY_PICKER_WIDTH;
+    let block = ui.vertical(|ui| {
+        let mut show_keys = false;
+        let mut keys = Some(keys);
+        ui.horizontal(|line| {
+            line.set_min_height(widgets::TOGGLE_SIZE.y);
+            // (shown on, cannot be had here)
+            let (on, impossible) = match switch {
+                Some(on) => {
+                    line.add(widgets::Toggle::new(on, scheme));
+                    (*on, false)
+                }
+                None => {
+                    let mut fixed = always;
+                    line.add_enabled(false, widgets::Toggle::new(&mut fixed, scheme));
+                    (always, !always)
+                }
+            };
+            // Where it cannot be had, the keys say why.
+            show_keys = on || impossible;
+            // The keys begin at the same place in every line, after a name column as in the other rows.
+            let names = if stacked {
+                line.available_width()
+            } else {
+                widgets::name_column(line.available_width() + widgets::TOGGLE_SIZE.x, HOTKEY_PICKER_WIDTH)
+                    - widgets::TOGGLE_SIZE.x
+                    - spacing
+            };
+            let size = egui::vec2(names, widgets::TOGGLE_SIZE.y);
+            let left = egui::Layout::left_to_right(egui::Align::Center);
+            line.allocate_ui_with_layout(size, left, |cell| {
+                if !stacked {
+                    cell.set_min_width(names);
+                }
+                cell.add(egui::Label::new(name).truncate());
+                let icon = cell.text_style_height(&egui::TextStyle::Small);
+                if let Some(image) = crate::icons::themed("info", scheme, versekit_core::theme::IconTint::Normal, icon) {
+                    cell.add(image);
+                }
+            })
+            .response
+            .on_hover_text(hint);
+            if show_keys && !stacked && let Some(keys) = keys.take() {
+                keys(line);
+            }
+        });
+        if show_keys && let Some(keys) = keys.take() {
+            ui.horizontal(|line| {
+                line.add_space(widgets::TOGGLE_SIZE.x + spacing);
+                keys(line);
+            });
+        }
+    });
+    crate::highlight::mark(ui, scheme, block.response.rect, &[name, hint]);
+    ui.add_space(6.0);
+}
 
 /// The language key of the word for a key as stored, `None` for a letter, a digit or F1 … F24 (they read the same in
 /// every language).
@@ -5592,8 +5943,65 @@ fn corner_name(place: settings::OverlayPlace) -> &'static str {
 
 /// The settings of a page, empty for a page without any.
 fn settings_of(page: &str) -> Groups {
+    // Where the system has no application menu, the page General has no row for an entry in it.
+    if page == "hf_allgemein" && !versekit_core::desktop_entry::available() {
+        return GENERAL_WITHOUT_MENU;
+    }
     PAGE_SETTINGS.iter().find(|(p, _)| *p == page).map_or(&[], |(_, groups)| *groups)
 }
+
+/// The group "Start" of the page General. From the third row on the rows of `desktop_rows`
+/// (`desktop_rows::FIRST_ROW`); the entry in the application menu is the last one.
+const GENERAL_START: &[Row] = &[
+    ("autostart_win", "s_ei_autostart_h", &[]),
+    // No "look for updates": v5 always looks quietly and installs on a click or
+    // once the game has ended, so nobody runs an old version.
+    ("s_ei_gpu", "s_ei_gpu_h", &[]),
+    ("s_tray", "s_tray_h", &[]),
+    ("s_systemmeldung", "s_systemmeldung_h", &[]),
+    ("s_menue", "s_menue_h", &[]),
+];
+
+/// The groups of the page General after "Start".
+const GENERAL_LANGUAGE: &[Row] = &[
+    // The names of the languages are written in their own language.
+    ("sprache", "s_ei_sofort_h", &["English", "Deutsch"]),
+    ("s_ei_uhr24", "s_ei_uhr24_h", &[]),
+    ("s_zeit", "s_zeit_h_2", &[]),
+];
+const GENERAL_SOUNDS: &[Row] = &[
+    ("s_ei_ton_bp", "s_ei_ton_bp_h", &[]),
+    ("s_ei_ton_raff", "s_ei_ton_raff_h", &[]),
+    ("s_ei_lautstaerke", "s_ei_lautstaerke_h", &[]),
+];
+// The errors, the streamer mode, what goes to scmdb.net (`desktop_rows::SCMDB_ROW`) and the switch of the daily
+// usage report (`usage::SETTING`, as in 4.12).
+const GENERAL_PRIVACY: &[Row] = &[
+    ("s_ei_fehler", "s_ei_fehler_h", &[]),
+    ("s_ei_streamer", "s_ei_streamer_h", &[]),
+    ("s_scmdb", "s_scmdb_h", &[]),
+    ("s_nutzung", "s_nutzung_h", &[]),
+];
+const GENERAL_IN_GAME: &[Row] =
+    &[("s_ei_mango", "s_ei_mango_h", &["s_ei_nur_linux"]), ("s_takt", "s_takt_h", &["s_sek"])];
+
+/// The page General.
+const GENERAL: Groups = &[
+    ("s_ei_start", GENERAL_START),
+    ("sprache", GENERAL_LANGUAGE),
+    ("s_ei_toene", GENERAL_SOUNDS),
+    ("s_ei_datenschutz", GENERAL_PRIVACY),
+    ("s_ei_im_spiel", GENERAL_IN_GAME),
+];
+
+/// [`GENERAL`] without the row of the entry in the application menu.
+const GENERAL_WITHOUT_MENU: Groups = &[
+    ("s_ei_start", GENERAL_START.split_at(GENERAL_START.len() - 1).0),
+    ("sprache", GENERAL_LANGUAGE),
+    ("s_ei_toene", GENERAL_SOUNDS),
+    ("s_ei_datenschutz", GENERAL_PRIVACY),
+    ("s_ei_im_spiel", GENERAL_IN_GAME),
+];
 
 /// What the real page Grafik shows as settings, for the menu filter: the same names, hints and choices as
 /// `grafik_page` draws (the sample page has its one made-up row, which the real page does not have).
@@ -5834,9 +6242,12 @@ fn search_infos(page: &str, sample: bool) -> Vec<String> {
             .collect(),
         // The switch of the real page Startprogramme and the button of the real page Shader.
         "hf_startprogramme" => ["s_pg_aktiv", "s_pg_aktiv_h"].iter().map(|key| t(key)).collect(),
-        "hf_shader" => ["s_sc_titel", "s_sc_knopf"].iter().map(|key| t(key)).collect(),
-        // The box with the computer and the buttons of the bar on the real page Grafik.
+        // The box with the computer and the buttons of the bar on the real page Grafik, and its card of the shader
+        // cache.
         "hf_grafik" => [
+            "s_sc_titel",
+            "s_sc_knopf",
+            "s_sc_knopf_alt",
             "s_gr_rechner",
             "s_gr_cpu",
             "s_gr_gpu",
@@ -5849,6 +6260,12 @@ fn search_infos(page: &str, sample: bool) -> Vec<String> {
         .iter()
         .map(|key| t(key))
         .collect(),
+        // The rows of each card of a channel on the real page Übersetzung.
+        "hf_uebersetzung" => base_infos(page)
+            .into_iter()
+            .chain(["s_tq_sprache", "s_tq_quelle"].iter().map(|key| t(key)))
+            .chain(std::iter::once(tf("s_tq_wie", &[("0", Arg::from("LIVE"))])))
+            .collect(),
         _ => base_infos(page),
     };
     found.into_iter().chain(language_infos(page)).collect()
@@ -6026,14 +6443,19 @@ fn search_words(page: &str) -> &'static [&'static str] {
             "lohnt das zerlegen",
             "worth dismantling",
         ],
+        // The page that took the shader cache in.
+        "hf_grafik" => &["shader"],
         _ => &[],
     }
 }
 
 /// Parts of a page the menu filter leads to by their name, each found by more names than its own:
 /// (page, text key of the hit, text keys of the words that find it). The section "Planned" of the hangar
-/// page is also found by the name of the page it replaced.
-const SECTION_HITS: [(&str, &str, &[&str]); 1] = [("hf_hangar", "s_hg_geplant_titel", &["hf_wunschliste"])];
+/// page is also found by the name of the page it replaced, and so is the card of the shader cache on the graphics page.
+const SECTION_HITS: [(&str, &str, &[&str]); 2] = [
+    ("hf_hangar", "s_hg_geplant_titel", &["hf_wunschliste"]),
+    ("hf_grafik", "s_sc_titel", &["hf_shader", "s_sc_knopf", "s_sc_knopf_alt"]),
+];
 
 /// The section of `page` whose hit text is `setting`, when there is one.
 fn is_section_hit(page: &str, setting: &str) -> bool {
@@ -6042,7 +6464,20 @@ fn is_section_hit(page: &str, setting: &str) -> bool {
 
 /// Settings a page draws from a module of its own, not from [`PAGE_SETTINGS`], that the menu filter finds on real
 /// data (only there they stand): (page, text key of the name, of the hint, of more words that find it; empty: none).
-const MODULE_SETTINGS: [(&str, &str, &str, &str); 8] = [
+const MODULE_SETTINGS: [(&str, &str, &str, &str); 20] = [
+    // The settings of the handle search, on its page and in the card of the info bar of the overlay page.
+    ("hf_overlay", "s_hq_einst_tage", "s_hq_einst_tage_h", ""),
+    ("hf_overlay", "s_hq_einst_aff", "s_hq_einst_aff_h", ""),
+    ("hf_overlay", "s_hq_einst_verborgen", "s_hq_einst_verborgen_h", ""),
+    ("hf_overlay", "s_hq_einst_leeren", "s_hq_einst_leeren_h", ""),
+    ("hf_overlay", "s_hq_einst_log", "s_hq_einst_log_h", ""),
+    ("hf_overlay", "s_hq_einst_log_sek", "s_hq_einst_log_sek_h", ""),
+    ("hf_handlesuche", "s_hq_einst_tage", "s_hq_einst_tage_h", ""),
+    ("hf_handlesuche", "s_hq_einst_aff", "s_hq_einst_aff_h", ""),
+    ("hf_handlesuche", "s_hq_einst_verborgen", "s_hq_einst_verborgen_h", ""),
+    ("hf_handlesuche", "s_hq_einst_leeren", "s_hq_einst_leeren_h", ""),
+    ("hf_handlesuche", "s_hq_einst_log", "s_hq_einst_log_h", ""),
+    ("hf_handlesuche", "s_hq_einst_log_sek", "s_hq_einst_log_sek_h", ""),
     ("hf_allgemein", "s_er_acc", "s_er_acc_h", "s_er_acc_suche"),
     ("hf_allgemein", "s_er_fremd", "s_er_fremd_h", "s_er_acc_suche"),
     ("hf_erkennung", "s_er_satz", "s_er_satz_h", ""),
@@ -6602,6 +7037,15 @@ mod tests {
         assert_eq!(page.page, "hf_hangar", "a name that is no page changes nothing");
     }
 
+    /// The rows of game folders are every channel of the one list, in its order: LIVE, HOTFIX, PTU, EPTU,
+    /// TECH-PREVIEW.
+    #[test]
+    fn the_rows_of_game_folders_are_the_channels_of_the_one_list() {
+        let rows: Vec<&str> = settings_of("hf_ordner")[0].1.iter().map(|(name, ..)| *name).collect();
+        assert_eq!(rows, versekit_core::paths::CHANNELS);
+        assert_eq!(CHANNEL_ROWS, versekit_core::paths::CHANNELS);
+    }
+
     /// The usage counters name the pages by the ids of 4.12, also those without an entry there.
     #[test]
     fn the_usage_counters_name_pages_as_4_12() {
@@ -6611,15 +7055,9 @@ mod tests {
         assert_eq!(usage_page_id("hf_diagnose"), Some("diagnose"));
         assert_eq!(usage_page_id("hf_meinlager"), Some("meinlager"));
         assert_eq!(usage_page_id("eigene_seite"), None);
-        // Every page of the side bar has an id the receiver takes, but the pages new in v5 that the receiver
-        // does not know yet: those are not counted.
-        let unknown_to_the_receiver = ["hf_handlesuche"];
+        // Every page of the side bar has an id the receiver takes, the handle search included.
         for (_, pages) in NAV {
             for (page, _) in pages.iter() {
-                if unknown_to_the_receiver.contains(page) {
-                    assert_eq!(usage_page_id(page), None, "{page}");
-                    continue;
-                }
                 let id = usage_page_id(page).unwrap_or_else(|| panic!("{page} has no id"));
                 assert!(versekit_core::usage::PAGES.contains(&id), "{page} → {id}");
             }
@@ -6744,6 +7182,295 @@ mod tests {
             "{text}"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_window_whose_top_edge_is_off_its_screen_is_brought_back() {
+        let work = (0, 0, 1920, 1040);
+        // Above the screen (the title bar is out of reach): down to the top of the work area, sideways as it was.
+        assert_eq!(top_correction((100, -70, 1400, 900), work), Some((100, 0)));
+        assert_eq!(top_correction((100, -600, 1400, 1200), work), Some((100, 0)));
+        // On the screen: left alone, also when it is taller than the screen or sticks out below.
+        assert_eq!(top_correction((100, 0, 1400, 900), work), None);
+        assert_eq!(top_correction((100, 40, 1400, 1200), work), None);
+        // Below the screen only a bar of the title stays in reach: up to it.
+        assert_eq!(top_correction((100, 1500, 1400, 900), work), Some((100, 1000)));
+        // Far to the side: at least a bar of 40 pixels stays on the screen.
+        assert_eq!(top_correction((-1500, 50, 1400, 900), work), Some((-1360, 50)));
+        assert_eq!(top_correction((2500, 50, 1400, 900), work), Some((1880, 50)));
+        // A screen left of the main one, with negative places.
+        assert_eq!(top_correction((-1800, -20, 1400, 900), (-1920, 0, 1920, 1040)), Some((-1800, 0)));
+        assert_eq!(top_correction((-1800, 10, 1400, 900), (-1920, 0, 1920, 1040)), None);
+        // No work area known: nothing is moved.
+        assert_eq!(top_correction((100, -70, 1400, 900), (0, 0, 0, 0)), None);
+    }
+
+    /// Storing the place and opening there again, over and over, does not move the window: it comes back where it
+    /// was, and one that was stored above the screen is on it after the first start and stays.
+    #[test]
+    fn the_place_of_the_window_does_not_wander_when_stored_and_opened_again_and_again() {
+        let work = (0, 0, 1920, 1040);
+        for scale in [1.0_f32, 1.25, 1.5, 2.0] {
+            for stored in [(100, 100), (0, 0), (-8, -31), (300, -70), (1500, 900)] {
+                let mut place = WindowPlace { size: (1400, 900), position: Some(stored), maximized: false };
+                let mut seen = Vec::new();
+                for _ in 0..5 {
+                    let open = opening(&place, scale, (800.0, 600.0), |_, _, _| true);
+                    let open = fit_to_work_area(open, Some(work), scale);
+                    let [x, y] = open.position.expect("a place");
+                    // The window stands there; its frame is stored as `follow_window` does.
+                    place.position = Some(((x * scale).round() as i64, (y * scale).round() as i64));
+                    seen.push(place.position);
+                }
+                assert!(seen.iter().all(|p| *p == seen[0]), "scale {scale}, stored {stored:?}: {seen:?}");
+                let (_, y) = seen[0].expect("a place");
+                assert!(y >= 0, "scale {scale}, stored {stored:?}: the top edge is on the screen: {seen:?}");
+            }
+        }
+    }
+
+    /// One frame of the preview page at `time` with `events` and the window maximized or not: the commands it gives
+    /// the window.
+    fn frame_commands(
+        ctx: &egui::Context,
+        page: &mut SamplePage,
+        time: f64,
+        maximized: bool,
+        events: Vec<egui::Event>,
+    ) -> Vec<egui::ViewportCommand> {
+        let mut input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1300.0, 800.0))),
+            time: Some(time),
+            events,
+            ..Default::default()
+        };
+        input.viewports.entry(egui::ViewportId::ROOT).or_default().maximized = Some(maximized);
+        let mut output = ctx.run_ui(input, |ui| {
+            page.show(ui);
+        });
+        output.textures_delta.clear();
+        output.viewport_output.get(&egui::ViewportId::ROOT).map(|v| v.commands.clone()).unwrap_or_default()
+    }
+
+    fn press(at: egui::Pos2, pressed: bool) -> egui::Event {
+        egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        }
+    }
+
+    /// A page with the frame of its own after two quiet frames, and the rectangles of the buttons it drew
+    /// (minimize, maximize, close).
+    fn framed_page() -> (egui::Context, SamplePage, Vec<egui::Rect>) {
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut page = SamplePage::preview();
+        page.use_own_frame(true);
+        frame_commands(&ctx, &mut page, 0.0, false, Vec::new());
+        frame_commands(&ctx, &mut page, 0.1, false, Vec::new());
+        let rects = ctx.data(|d| d.get_temp::<Vec<egui::Rect>>(egui::Id::unique(FRAME_BUTTONS_ID))).unwrap_or_default();
+        (ctx, page, rects)
+    }
+
+    /// A click at `at`: the commands of the frame of the release.
+    fn click_at(
+        ctx: &egui::Context,
+        page: &mut SamplePage,
+        at: egui::Pos2,
+        time: f64,
+        maximized: bool,
+    ) -> Vec<egui::ViewportCommand> {
+        frame_commands(ctx, page, time, maximized, vec![egui::Event::PointerMoved(at), press(at, true)]);
+        frame_commands(ctx, page, time + 0.05, maximized, vec![press(at, false)])
+    }
+
+    #[test]
+    fn the_head_bar_is_the_title_bar_with_three_buttons_that_do_what_they_say() {
+        use egui::ViewportCommand as C;
+        let _language = crate::language_lock();
+        language::set_language(language::Choice::De);
+        let (ctx, mut page, rects) = framed_page();
+        assert_eq!(rects.len(), 3, "minimize, maximize, close");
+        // As wide as asked and as high as the bar, side by side to the right edge of the window.
+        for rect in &rects {
+            assert!((rect.width() - widgets::CAPTION_WIDTH).abs() < 0.5 && (rect.height() - widgets::BAR_HEIGHT).abs() < 0.5);
+        }
+        assert!(rects[0].right() <= rects[1].left() + 0.5 && rects[1].right() <= rects[2].left() + 0.5);
+        // The bar stands in the frame of the page, a few points from the edge.
+        assert!((1300.0 - rects[2].right()).abs() < 8.0, "the close button ends at the edge: {:?}", rects[2]);
+        // Each click gives its own command.
+        assert_eq!(click_at(&ctx, &mut page, rects[0].center(), 1.0, false), vec![C::Minimized(true)]);
+        assert_eq!(click_at(&ctx, &mut page, rects[1].center(), 2.0, false), vec![C::Maximized(true)]);
+        assert_eq!(click_at(&ctx, &mut page, rects[2].center(), 3.0, false), vec![C::Close]);
+        // Maximized, the same button restores.
+        assert_eq!(click_at(&ctx, &mut page, rects[1].center(), 4.0, true), vec![C::Maximized(false)]);
+    }
+
+    /// Windows 11 asks the window where its maximize button is (snap layouts): the frame tells it in pixels of the
+    /// client area at every frame, a click that arrives as a click on the title bar maximizes and restores like
+    /// the click on the button, and the hover said by the system lights the button up.
+    #[test]
+    fn the_maximize_button_tells_the_system_where_it_is_and_takes_its_click() {
+        use egui::ViewportCommand as C;
+        let _language = crate::language_lock();
+        language::set_language(language::Choice::De);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let button = versekit_core::snap_layouts::MaxButton::new();
+        ctx.data_mut(|d| d.insert_temp(egui::Id::unique(SNAP_BUTTON_ID), button.clone()));
+        let mut page = SamplePage::preview();
+        page.use_own_frame(true);
+        frame_commands(&ctx, &mut page, 0.0, false, Vec::new());
+        frame_commands(&ctx, &mut page, 0.1, false, Vec::new());
+        let rects = ctx.data(|d| d.get_temp::<Vec<egui::Rect>>(egui::Id::unique(FRAME_BUTTONS_ID))).unwrap_or_default();
+        let (maximize, close) = (rects[1], rects[2]);
+        let scale = ctx.pixels_per_point();
+        let at = |p: egui::Pos2| ((p.x * scale).round() as i32, (p.y * scale).round() as i32);
+        let (x, y) = at(maximize.center());
+        assert!(button.contains(x, y), "the middle of the maximize button is the button");
+        let (x, y) = at(close.center());
+        assert!(!button.contains(x, y), "the close button is not");
+        let (x, y) = at(rects[0].center());
+        assert!(!button.contains(x, y), "the minimize button is not");
+        // A click the system took for the title bar: the frame maximizes, and restores when it is maximized.
+        button.request_toggle();
+        assert_eq!(frame_commands(&ctx, &mut page, 0.2, false, Vec::new()), vec![C::Maximized(true)]);
+        assert!(frame_commands(&ctx, &mut page, 0.3, false, Vec::new()).is_empty(), "once");
+        button.request_toggle();
+        assert_eq!(frame_commands(&ctx, &mut page, 0.4, true, Vec::new()), vec![C::Maximized(false)]);
+    }
+
+    #[test]
+    fn a_drag_on_the_free_bar_moves_the_window_and_one_on_a_button_does_not() {
+        use egui::ViewportCommand as C;
+        let _language = crate::language_lock();
+        language::set_language(language::Choice::De);
+        let (ctx, mut page, rects) = framed_page();
+        let y = rects[0].center().y;
+        let drag = |ctx: &egui::Context, page: &mut SamplePage, from: egui::Pos2, time: f64| {
+            frame_commands(ctx, page, time, false, vec![egui::Event::PointerMoved(from), press(from, true)]);
+            let mut commands = frame_commands(ctx, page, time + 0.05, false, vec![egui::Event::PointerMoved(from + egui::vec2(25.0, 0.0))]);
+            commands.extend(frame_commands(ctx, page, time + 0.1, false, vec![press(from + egui::vec2(25.0, 0.0), false)]));
+            commands
+        };
+        // The free part between the name and the buttons on the right.
+        let free = egui::pos2(rects[0].left() - 250.0, y);
+        assert!(drag(&ctx, &mut page, free, 1.0).contains(&C::StartDrag), "the free bar moves the window");
+        // Not from a button: the maximize button is no handle.
+        let on_button = rects[1].center();
+        assert!(!drag(&ctx, &mut page, on_button, 2.0).contains(&C::StartDrag), "a button is no handle");
+        // A double click on the free bar maximizes, restores when it is maximized; on a button it does not.
+        let double = |ctx: &egui::Context, page: &mut SamplePage, at: egui::Pos2, time: f64, maximized: bool| {
+            let mut commands = click_at(ctx, page, at, time, maximized);
+            commands.extend(click_at(ctx, page, at, time + 0.12, maximized));
+            commands
+        };
+        assert!(double(&ctx, &mut page, free, 3.0, false).contains(&C::Maximized(true)));
+        assert!(double(&ctx, &mut page, free, 4.0, true).contains(&C::Maximized(false)));
+        assert!(!double(&ctx, &mut page, rects[0].center(), 5.0, false).iter().any(|c| matches!(c, C::Maximized(_))));
+    }
+
+    #[test]
+    fn the_edges_of_the_window_resize_it_unless_it_is_maximized_or_has_a_frame_of_the_system() {
+        use egui::ViewportCommand as C;
+        use egui::viewport::ResizeDirection as D;
+        let window = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1300.0, 800.0));
+        for (at, direction) in [
+            (egui::pos2(650.0, 1.0), Some(D::North)),
+            (egui::pos2(650.0, 798.0), Some(D::South)),
+            (egui::pos2(1.0, 400.0), Some(D::West)),
+            (egui::pos2(1298.0, 400.0), Some(D::East)),
+            (egui::pos2(1.0, 1.0), Some(D::NorthWest)),
+            (egui::pos2(1298.0, 2.0), Some(D::NorthEast)),
+            (egui::pos2(2.0, 798.0), Some(D::SouthWest)),
+            (egui::pos2(1298.0, 798.0), Some(D::SouthEast)),
+            (egui::pos2(8.0, 1.0), Some(D::NorthWest)),
+            (egui::pos2(650.0, 400.0), None),
+            (egui::pos2(6.0, 400.0), None),
+            (egui::pos2(-3.0, 400.0), None),
+        ] {
+            assert_eq!(edge_at(at, window), direction, "{at:?}");
+        }
+        let (ctx, mut page, _) = framed_page();
+        let west = egui::pos2(1.0, 400.0);
+        let commands = frame_commands(&ctx, &mut page, 1.0, false, vec![egui::Event::PointerMoved(west), press(west, true)]);
+        assert!(commands.contains(&C::BeginResize(D::West)), "{commands:?}");
+        // Maximized: nothing to resize.
+        let commands = frame_commands(&ctx, &mut page, 2.0, true, vec![egui::Event::PointerMoved(west), press(west, true)]);
+        assert!(!commands.iter().any(|c| matches!(c, C::BeginResize(_))), "{commands:?}");
+        // The frame of the system stays where the page does not draw its own.
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut system = SamplePage::preview();
+        let commands = frame_commands(&ctx, &mut system, 1.0, false, vec![egui::Event::PointerMoved(west), press(west, true)]);
+        assert!(!commands.iter().any(|c| matches!(c, C::BeginResize(_) | C::StartDrag)));
+        assert!(ctx.data(|d| d.get_temp::<Vec<egui::Rect>>(egui::Id::unique(FRAME_BUTTONS_ID))).is_none(), "no buttons");
+    }
+
+    /// The texts one frame of the preview page draws.
+    fn preview_texts(page: &mut SamplePage, ctx: &egui::Context) -> Vec<String> {
+        fn walk(shape: &egui::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::Shape::Text(text) => out.push(text.galley.text().to_string()),
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| walk(s, out)),
+                _ => {}
+            }
+        }
+        let mut texts = Vec::new();
+        for _ in 0..2 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1300.0, 800.0))),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                page.show(ui);
+            });
+            output.textures_delta.clear();
+            texts.clear();
+            output.shapes.iter().for_each(|clipped| walk(&clipped.shape, &mut texts));
+        }
+        texts
+    }
+
+    /// While a reading of the game archive waits for the game to close, the page says so, and not otherwise.
+    #[test]
+    fn a_page_says_that_the_reading_waits_for_the_game_to_close() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::Duration;
+
+        let _language = crate::language_lock();
+        language::set_language(language::Choice::De);
+        let mut page = SamplePage::preview();
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let said = t("s_ak_wartet");
+        page.page = "hf_uebersetzung".to_string();
+        assert!(!preview_texts(&mut page, &ctx).contains(&said), "nothing waits");
+        let closed = Arc::new(AtomicBool::new(false));
+        let reader = {
+            let closed = Arc::clone(&closed);
+            std::thread::spawn(move || {
+                let _topic = versekit_core::archive_lock::reading_for("texts");
+                versekit_core::archive_lock::wait_with(&|| closed.load(Ordering::SeqCst), Duration::from_millis(5));
+            })
+        };
+        let started = std::time::Instant::now();
+        while !versekit_core::archive_lock::waiting_for("texts") && started.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(preview_texts(&mut page, &ctx).contains(&said), "a reading for this page waits");
+        // The page of another reading, and a page that reads nothing, stay quiet.
+        for other in ["hf_joysticks", "hf_liste", "hf_notizen"] {
+            page.page = other.to_string();
+            assert!(!preview_texts(&mut page, &ctx).contains(&said), "{other}");
+        }
+        page.page = "hf_uebersetzung".to_string();
+        closed.store(true, Ordering::SeqCst);
+        reader.join().expect("the reading ended");
+        assert!(!preview_texts(&mut page, &ctx).contains(&said), "the reading went on");
     }
 
     /// The head bar shows the icon of the program before its name.
@@ -7095,7 +7822,6 @@ mod tests {
     /// asked for meanwhile waits for it.
     #[test]
     fn a_slow_settings_file_does_not_hold_the_window() {
-        use std::sync::atomic::Ordering;
         use versekit_core::legacy::ENV_HOME;
         use versekit_core::paths::Host;
         use versekit_core::pypath::Flavor;
@@ -7111,7 +7837,7 @@ mod tests {
         let mut page = SamplePage::with_settings(Paths::new(host));
         page.write_in_background();
         page.save_changes();
-        WRITE_DELAY_MS.store(400, Ordering::Relaxed);
+        page.slow_writes(400);
         page.overlay_rows = 9;
         let started = std::time::Instant::now();
         page.save_changes();
@@ -7127,10 +7853,35 @@ mod tests {
                 break;
             }
         }
-        WRITE_DELAY_MS.store(0, Ordering::Relaxed);
+        page.slow_writes(0);
         assert!(took < std::time::Duration::from_millis(100), "the frame waited {took:?}");
         assert!(written, "the file follows");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The tests run side by side: a window made slow on purpose must not slow down the settings writing of another
+    /// window (that made tests of other pages wait for it and fail now and then).
+    #[test]
+    fn a_slow_writer_of_one_window_leaves_the_writer_of_another_alone() {
+        use versekit_core::legacy::ENV_HOME;
+        use versekit_core::paths::Host;
+        use versekit_core::pypath::Flavor;
+
+        let make = |name: &str| {
+            let dir = std::env::temp_dir().join(format!("versekit-schreiber-{name}-{}", versekit_core::testdir::run_tag()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            let text = dir.to_string_lossy().into_owned();
+            let host = Host::new(Flavor::native(), &[(ENV_HOME, &text)], &text);
+            let mut page = SamplePage::with_settings(Paths::new(host));
+            page.write_in_background();
+            (page, dir)
+        };
+        let ((slow, dir_a), (quick, dir_b)) = (make("langsam"), make("schnell"));
+        slow.slow_writes(400);
+        assert_eq!(slow.write_delay(), Some(400));
+        assert_eq!(quick.write_delay(), Some(0), "the other window writes without a delay");
+        let _ = (std::fs::remove_dir_all(dir_a), std::fs::remove_dir_all(dir_b));
     }
 
     /// The overlay was moved by hand and wrote "frei": the window takes it
@@ -7782,7 +8533,7 @@ mod tests {
         assert_eq!(quality_error("1200"), Some("s_rf_qualitaet"));
         assert_eq!(quality_error("abc"), Some("s_mu_q_zahl"));
         let german = language::Lang::De;
-        assert_eq!(language::t_in(german, "s_rf_qualitaet"), "Qualität geht nur von 0 bis 1000.");
+        assert_eq!(language::t_in(german, "s_rf_qualitaet"), "Qualität: 0 bis 1000.");
         assert_eq!(language::t_in(german, "s_mu_q_zahl"), "Qualität muss eine Zahl sein.");
     }
 

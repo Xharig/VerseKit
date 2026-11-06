@@ -291,7 +291,7 @@ fn show_preview(ui: &mut Ui, scheme: &Scheme, state: &mut ImportState, host: &Ho
                 (v.unknown.len(), t("s_be_nicht_kat"), scheme.gold),
             ] {
                 row.vertical(|cell| {
-                    cell.label(RichText::new(count.to_string()).size(22.0).color(color(tone)));
+                    cell.label(RichText::new(count.to_string()).heading().color(color(tone)));
                     cell.label(RichText::new(what).small().color(color(scheme.sub)));
                 });
                 row.add_space(24.0);

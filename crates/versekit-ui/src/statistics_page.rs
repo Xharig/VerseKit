@@ -612,23 +612,17 @@ fn tile(title: impl Into<String>, value: impl Into<String>, below: impl Into<Str
     Tile { title: title.into(), value: value.into(), below: below.into() }
 }
 
-/// Figures as tiles of equal width and, in a row, equal height, `columns`
-/// side by side; under each other when the page is too narrow.
-fn tiles(ui: &mut Ui, scheme: &Scheme, id: &str, items: &[Tile], columns: usize) {
+/// Figures without a frame, each of equal width, `columns` side by side; under each other when the page is too
+/// narrow. The line of the next [`section`] (or [`rule`]) parts them from what follows.
+fn tiles(ui: &mut Ui, scheme: &Scheme, items: &[Tile], columns: usize) {
     for (row, chunk) in items.chunks(columns).enumerate() {
         if row > 0 {
             ui.add_space(GAP);
         }
-        let key = ui.make_persistent_id((id, "tile-row", row));
-        let side_by_side = ui.available_width() >= columns as f32 * TILE_MIN + (columns - 1) as f32 * GAP;
-        let tallest: f32 = if side_by_side { ui.ctx().data(|d| d.get_temp(key)).unwrap_or(0.0) } else { 0.0 };
-        let mut measured: f32 = 0.0;
         layout::columns_or_stack(ui, TILE_MIN, columns, |ui, i| {
             let Some(item) = chunk.get(i) else { return };
-            let shown = widgets::card(ui, scheme, |ui| {
+            ui.vertical(|ui| {
                 ui.set_min_width(ui.available_width());
-                ui.set_min_height(tallest);
-                let top = ui.cursor().min.y;
                 small(ui, scheme, &item.title);
                 let size = TextStyle::Heading.resolve(ui.style()).size;
                 ui.add(
@@ -640,23 +634,23 @@ fn tiles(ui: &mut Ui, scheme: &Scheme, id: &str, items: &[Tile], columns: usize)
                 if !item.below.is_empty() {
                     small(ui, scheme, &item.below);
                 }
-                measured = measured.max(ui.cursor().min.y - top);
             });
-            let _ = shown;
         });
-        if side_by_side && (measured - tallest).abs() > 0.5 {
-            ui.ctx().data_mut(|d| d.insert_temp(key, measured));
-            ui.ctx().request_repaint();
-        }
     }
 }
 
-/// The head of a section: a line, the title, at the right a sum.
-fn section(ui: &mut Ui, scheme: &Scheme, title: &str, right: &str) {
+/// The line that parts two blocks of a page: the one above the head of a [`section`], and below figures that no
+/// section follows.
+fn rule(ui: &mut Ui, scheme: &Scheme) {
     ui.add_space(14.0);
     let (line, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
     ui.painter().rect_filled(line, 0.0, color(scheme.line));
     ui.add_space(8.0);
+}
+
+/// The head of a section: a line, the title, at the right a sum.
+fn section(ui: &mut Ui, scheme: &Scheme, title: &str, right: &str) {
+    rule(ui, scheme);
     ui.horizontal(|ui| {
         ui.add(egui::Label::new(RichText::new(title).strong()).wrap());
         if !right.is_empty() {
@@ -833,8 +827,8 @@ fn evaluation(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState) {
     ui.add_space(4.0);
     small(ui, scheme, &t("s_sa_knoepfe_h"));
     ui.add_space(GAP);
-    // The evaluation always runs: a row that tells, without a switch.
-    crate::settings::setting_row(ui, scheme, &t("s_sa_auto"), &t("s_sa_auto_h"), false, |_| {});
+    // The evaluation always runs: it is said as a small heading, without a switch.
+    crate::settings::subheading(ui, scheme, &t("s_sa_auto"), &t("s_sa_auto_h"));
     let export_name = t("s_sx_export");
     let mut export = false;
     crate::settings::setting_row(
@@ -852,7 +846,7 @@ fn evaluation(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState) {
     }
 }
 
-/// The overview: the state of the evaluation and the figures of the play time as cards of one width, the
+/// The overview: the state of the evaluation and the figures of the play time as figures of one width, the
 /// heat map, then the buttons that read the logs. With no session recorded yet the figures give way to a line
 /// that says so; the state of the evaluation and the buttons stay.
 fn overview(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, report: &Report, lang: Lang) {
@@ -900,9 +894,9 @@ fn overview(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, report: &Repor
             tile(t("s_sx_verloren"), count(data.lost), most_lost),
         ]);
     }
-    // Ten cards stand five and five or two and two; never a row that is half empty.
+    // Ten figures stand five and five or two and two; never a row that is half empty.
     let wide = cards.len() > 4 && ui.available_width() >= 5.0 * TILE_MIN + 4.0 * GAP;
-    tiles(ui, scheme, "uebersicht", &cards, if wide { 5 } else { 2 });
+    tiles(ui, scheme, &cards, if wide { 5 } else { 2 });
     if recorded {
         let title = t("s_sx_wann");
         section(ui, scheme, &title, "");
@@ -925,7 +919,7 @@ fn overview(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, report: &Repor
             Some(&widgets::HeatTips { title: &title, cell: &cell }),
         );
     } else {
-        ui.add_space(GAP);
+        rule(ui, scheme);
         widgets::empty_state(ui, scheme, "chart-no-axes-combined", &t("s_sx_leer"));
     }
     shop_spending(ui, scheme, &report.spending, lang);
@@ -958,7 +952,7 @@ fn shop_spending(ui: &mut Ui, scheme: &Scheme, spending: &Spending, lang: Lang) 
         ),
     ];
     let wide = ui.available_width() >= 4.0 * TILE_MIN + 3.0 * GAP;
-    tiles(ui, scheme, "laden", &cards, if wide { 4 } else { 2 });
+    tiles(ui, scheme, &cards, if wide { 4 } else { 2 });
 }
 
 fn ships(ui: &mut Ui, scheme: &Scheme, report: &Report) {
@@ -972,7 +966,6 @@ fn ships(ui: &mut Ui, scheme: &Scheme, report: &Report) {
         tiles(
             ui,
             scheme,
-            "schiffe",
             &[
                 tile(t("s_ss_meist"), vehicle(class), ""),
                 tile(t("s_ss_sitzungen_mit"), count(*sessions), ""),
@@ -1008,7 +1001,6 @@ fn missions(ui: &mut Ui, scheme: &Scheme, report: &Report, lang: Lang) {
     tiles(
         ui,
         scheme,
-        "auftraege",
         &[
             tile(t("s_sm_fertig"), count(data.completed), quote(data.completed)),
             tile(t("s_sm_fehl"), count(data.failed), quote(data.failed)),
@@ -1060,7 +1052,6 @@ fn quantum(ui: &mut Ui, scheme: &Scheme, report: &Report) {
     tiles(
         ui,
         scheme,
-        "quantum",
         &[
             tile(t("s_sq_angekommen"), count(data.jumps), t("s_sq_angekommen_u")),
             tile(t("s_sq_wahl"), count(data.selections), t("s_sq_wahl_u")),
@@ -1091,7 +1082,6 @@ fn stability(ui: &mut Ui, scheme: &Scheme, report: &Report, lang: Lang) {
     tiles(
         ui,
         scheme,
-        "stabil",
         &[
             tile(t("s_sb_sauber"), count(data.clean), share(data.clean)),
             tile(t("s_sb_absturz"), count(data.crashed), share(data.crashed)),
@@ -1423,7 +1413,7 @@ mod tests {
         assert_eq!(tile("Letzte Sitzung"), "1.000 aUEC");
         assert_eq!(tile("Gesamt"), "1.270 aUEC");
         assert!(has(&shown, "Käufe: 3"), "{shown:?}");
-        assert!(has(&shown, "Verkäufe zählen hier nicht mit"), "no income is claimed: {shown:?}");
+        assert!(has(&shown, "ohne Verkäufe"), "no income is claimed: {shown:?}");
         // The switch off: the section is gone, the journal stays on disk.
         assert!(stock_journal::set_enabled(&paths, false));
         let mut state = StatsState::of(&paths);
@@ -1612,7 +1602,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
-    /// The texts of the ten cards of the merged page, in the order they stand in: first the state of the
+    /// The titles of the ten figures of the merged page, in the order they stand in: first the state of the
     /// evaluation, then the figures of the play time.
     const CARD_KEYS: [&str; 10] = [
         "s_sa_zuletzt",
@@ -1675,7 +1665,7 @@ mod tests {
         set_thread_language(Choice::Auto);
     }
 
-    /// How many of the cards stand on each line of the page, from the top.
+    /// How many of the figures stand on each line of the page, from the top.
     fn card_rows(shown: &[(String, Pos2)]) -> Vec<Vec<f32>> {
         let mut rows: Vec<Vec<f32>> = Vec::new();
         let mut row_y = f32::MIN;
@@ -1691,15 +1681,19 @@ mod tests {
     }
 
     #[test]
-    fn the_ten_cards_stand_five_and_five_or_two_by_two_all_of_one_width_and_never_stick_out() {
+    fn the_ten_figures_stand_five_and_five_or_two_by_two_all_of_one_width_without_a_card_and_never_stick_out() {
         let (root, _, mut state) = real("karten");
         for choice in [Choice::De, Choice::En] {
             set_thread_language(choice);
             // Width of the page, columns: five side by side from 5 × 170 + 4 × 8, two from 2 × 170 + 8, else one.
             for (width, columns) in [(1500.0, 5), (1000.0, 5), (700.0, 2), (420.0, 2), (330.0, 1)] {
+                crate::widgets::drawn_cards::take();
                 let (shown, overflow) = draw_placed(&mut state, Page::Overview, width, "original");
                 let rows = card_rows(&shown);
                 let what = format!("{choice:?} {width}");
+                // The figures and the sections are parted by lines, not framed as cards.
+                let cards = crate::widgets::drawn_cards::take_clipped();
+                assert!(cards.is_empty(), "{what}: no card on the overview: {cards:?}");
                 assert_eq!(rows.len(), 10 / columns, "{what}: {rows:?}");
                 for row in &rows {
                     assert_eq!(row.len(), columns, "{what}: a row is never half empty: {rows:?}");
@@ -1764,7 +1758,7 @@ mod tests {
         assert_eq!(total.get("spielzeit"), Some(&Value::int(3 * 3600 + 1800)));
         // An unwritable target says so.
         state.write_export(root.join("gibt-es-nicht").join("x.json").to_str().unwrap());
-        assert_eq!(state.take_notice().as_deref(), Some("Die Statistik ließ sich nicht speichern."));
+        assert_eq!(state.take_notice().as_deref(), Some("Statistik nicht gespeichert."));
         let _ = std::fs::remove_dir_all(root);
     }
 

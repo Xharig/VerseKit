@@ -449,7 +449,7 @@ impl Engine {
                         if area.forget_after(error.action()) {
                             area.forget();
                         }
-                        crate::errors::record(&format!("basetool_sync.{}", area.name()), &error);
+                        error.record(&format!("basetool_sync.{}", area.name()));
                         let failed = vec![("error".into(), Value::str(&error.code))];
                         map_set(&mut counts, area.name(), Value::Object(failed));
                     }
@@ -548,9 +548,7 @@ impl Engine {
             // Into the error log: the page shows only the code, and nobody
             // could tell which request it was. The lock of the test mode is
             // no error.
-            if error.code != crate::testmode::BASETOOL_LOCKED {
-                crate::errors::record("basetool.sync", error);
-            }
+            error.record("basetool.sync");
             self.set_status(|s| {
                 s.phase = Phase::Error;
                 s.code = error.code.clone();
@@ -975,9 +973,7 @@ impl SyncHandle {
         let mut device: DeviceLogin = match conn.start_login(wanted) {
             Ok(device) => device,
             Err(error) => {
-                if error.code != crate::testmode::BASETOOL_LOCKED {
-                    crate::errors::record("basetool_page.login", &error);
-                }
+                error.record("basetool_page.login");
                 return finish(Login::Failed(error.code));
             }
         };
@@ -1004,7 +1000,7 @@ impl SyncHandle {
                 Ok(Poll::Denied) => finish(Login::Denied),
                 Ok(Poll::Expired) => finish(Login::Expired),
                 Err(error) => {
-                    crate::errors::record("basetool_page.poll", &error);
+                    error.record("basetool_page.poll");
                     finish(Login::Failed(error.code));
                 }
             }

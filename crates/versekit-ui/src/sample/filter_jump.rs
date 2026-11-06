@@ -108,7 +108,8 @@ impl Window {
 fn text_rect(shapes: &[ClippedShape], text: &str, left: f32) -> Option<Rect> {
     probe::texts(shapes)
         .into_iter()
-        .find(|(shown, rect)| rect.min.x >= left && shown.to_lowercase() == text.to_lowercase())
+        // A long hint stands in one line: its first sentence or its beginning with „…“.
+        .find(|(shown, rect)| rect.min.x >= left && crate::widgets::shown_as_hint(&shown.to_lowercase(), &text.to_lowercase()))
         .map(|(_, rect)| rect)
 }
 
@@ -133,6 +134,9 @@ struct Case {
     inside: Vec<String>,
     /// Whether the element lies below the fold: the page has to scroll to it.
     below_fold: bool,
+    /// The text of the element that stands on the page: the one found, or the name of its row when the filter
+    /// found a hint (a hint stands on hover behind the symbol `info`).
+    seen: String,
 }
 
 impl Case {
@@ -145,7 +149,16 @@ impl Case {
             neighbours: Vec::new(),
             inside: vec![found.to_string()],
             below_fold: false,
+            seen: found.to_string(),
         }
+    }
+
+    /// The text found stands on hover only: `name`, the name of its row, stands on the page and in the frame.
+    fn on_hover_of(mut self, name: &str) -> Case {
+        self.inside.retain(|text| *text != self.found);
+        self.inside.push(name.to_string());
+        self.seen = name.to_string();
+        self
     }
 
     fn typing(mut self, filter: &str) -> Case {
@@ -190,7 +203,7 @@ fn check(case: &Case, name: &str) {
     window.page.go_to(case.page);
     let plain = window.frames(6);
     assert!(probe::frames(&plain, scheme).is_empty(), "{name}: nothing is framed before a jump");
-    let seen_before = text_rect(&plain, &case.found, PAGE_LEFT).is_some_and(|rect| rect.max.y <= SIZE.1);
+    let seen_before = text_rect(&plain, &case.seen, PAGE_LEFT).is_some_and(|rect| rect.max.y <= SIZE.1);
     assert_eq!(
         seen_before,
         !case.below_fold,
@@ -236,11 +249,9 @@ fn check(case: &Case, name: &str) {
 #[test]
 fn a_jump_to_a_switch_frames_the_switch_with_its_help_and_nothing_else() {
     let _language = crate::language_lock();
-    let case = Case::new(true, "hf_spiel", &t("aafk_titel"))
-        .typing("afk")
-        .with(&[t("aafk_h")])
-        .beside(&[t("aafk_warten"), t("aafk_hinweis")])
-        .below();
+    // Its help on hover: the frame holds the switch with its state line.
+    let case =
+        Case::new(true, "hf_spiel", &t("aafk_titel")).typing("afk").beside(&[t("aafk_warten"), t("aafk_hinweis")]).below();
     check(&case, "filter-jump-switch");
 }
 
@@ -249,7 +260,7 @@ fn a_jump_to_the_help_of_a_switch_frames_the_same_switch() {
     let _language = crate::language_lock();
     let case = Case::new(true, "hf_spiel", &t("aafk_h"))
         .typing(&start_of(&t("aafk_h")))
-        .with(&[t("aafk_titel")])
+        .on_hover_of(&t("aafk_titel"))
         .beside(&[t("aafk_warten"), t("aafk_hinweis")])
         .below();
     check(&case, "filter-jump-switch-help");
@@ -297,15 +308,16 @@ fn a_jump_to_a_setting_on_the_overlay_page_frames_its_row() {
     let rows = super::settings_of("hf_overlay");
     let name = super::label(rows[0].1[1].0);
     let other = super::label(rows[0].1[0].0);
-    let hint = super::label(rows[0].1[1].1);
-    let case = Case::new(false, "hf_overlay", &name).with(&[hint]).beside(&[other]);
+    // One line each on this card: the hint stands on hover, not in the frame.
+    let case = Case::new(false, "hf_overlay", &name).beside(&[other]);
     check(&case, "filter-jump-overlay-row");
 }
 
 #[test]
 fn the_own_account_is_found_by_its_words_and_the_jump_frames_its_row_on_the_general_page() {
     let _language = crate::language_lock();
-    let case = Case::new(true, "hf_allgemein", &t("s_er_acc")).typing("handl").with(&[t("s_er_acc_h")]);
+    // Its hint on hover: the frame holds the row by its name.
+    let case = Case::new(true, "hf_allgemein", &t("s_er_acc")).typing("handl");
     check(&case, "filter-jump-account");
 }
 

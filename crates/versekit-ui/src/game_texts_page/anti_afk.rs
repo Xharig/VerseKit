@@ -253,16 +253,16 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
         let tone = Tone::of_anti_afk(look).tint(scheme, scheme.sub);
         let mut on = block.shown_on(now);
         let (title, help) = (t("aafk_titel"), t("aafk_h"));
-        let (switch, row) = widgets::switch_line(ui, scheme, &title, &mut on, Some(tone));
+        // The help on hover behind the symbol `info`, as in every row.
+        let (switch, row) = widgets::switch_line_with(ui, scheme, &title, &help, &mut on, Some(tone));
         if switch.on_hover_text(t(look.hint_key())).changed() {
             block.clicked(on, now);
         }
         let (text, fault) = block.status(now, wall);
         let shade = if fault { scheme.red } else { tone };
-        ui.add(egui::Label::new(egui::RichText::new(text).color(crate::color(shade))).wrap());
-        // A jump from the menu filter to the switch or to its help frames both together.
-        let note = widgets::hint_label(ui, scheme, &help);
-        crate::highlight::mark(ui, scheme, row.union(note.rect), &[title.as_str(), help.as_str()]);
+        let state_line = ui.add(egui::Label::new(egui::RichText::new(text).color(crate::color(shade))).wrap());
+        // A jump from the menu filter to the switch or to its help frames it with its state.
+        crate::highlight::mark(ui, scheme, row.union(state_line.rect), &[title.as_str(), help.as_str()]);
         ui.add_space(8.0);
         // The wait: the overlay reads the setting at its next beat.
         let mut seconds = block.seconds;

@@ -133,6 +133,30 @@ impl ApiError {
         }
     }
 
+    /// The fault lies with the server or the net (maintenance, a busy relay, no connection, an answer of the
+    /// 500s): the sync tries again on its own and nothing is wrong with VerseKit.
+    pub fn is_server_side(&self) -> bool {
+        self.status >= 500
+            || self.code.starts_with("HTTP_5")
+            || matches!(
+                self.code.as_str(),
+                "NETWORK"
+                    | "SERVICE_UNAVAILABLE"
+                    | "EXCHANGE_DISABLED"
+                    | "REGISTRY_UNAVAILABLE"
+                    | "RELAY_BUSY"
+                    | "BACKEND_RELAY_FAILED"
+            )
+    }
+
+    /// Into the error log under `label`, except what is no error of VerseKit: the lock of the test mode and what
+    /// the server side caused ([`is_server_side`](Self::is_server_side)).
+    pub fn record(&self, label: &str) {
+        if self.code != crate::testmode::BASETOOL_LOCKED && !self.is_server_side() {
+            crate::errors::record(label, self);
+        }
+    }
+
     /// A text value of the problem document, or `None`.
     pub fn problem_text(&self, key: &str) -> Option<&str> {
         self.problem.iter().find(|(k, _)| k == key).and_then(|(_, v)| v.as_str())
@@ -303,6 +327,21 @@ mod tests {
         assert_eq!(ApiError::new(crate::testmode::BASETOOL_LOCKED, 0).action(), Action::Stop);
         assert_eq!(ApiError::new(crate::testmode::WRITE_GUARD, 0).action(), Action::Stop, "no retries either");
         assert_eq!(ApiError::new("", 400).code, "UNKNOWN");
+    }
+
+    /// Maintenance, a busy relay, no net and answers of the 500s are no error of VerseKit and stay out of the
+    /// error log; a refusal does not.
+    #[test]
+    fn what_the_server_side_caused_is_no_error_of_the_log() {
+        for server in ["NETWORK", "SERVICE_UNAVAILABLE", "EXCHANGE_DISABLED", "REGISTRY_UNAVAILABLE", "RELAY_BUSY"] {
+            assert!(ApiError::new(server, 503).is_server_side(), "{server}");
+        }
+        assert!(ApiError::network("kein Netz").is_server_side());
+        assert!(ApiError::new("BACKEND_RELAY_FAILED", 200).is_server_side());
+        assert!(ApiError::new("ANYTHING", 502).is_server_side());
+        for ours in ["NOT_PERMITTED", "AMBIGUOUS", "RATE_LIMITED", "CLIENT_REVOKED"] {
+            assert!(!ApiError::new(ours, 403).is_server_side(), "{ours}");
+        }
     }
 
     #[test]

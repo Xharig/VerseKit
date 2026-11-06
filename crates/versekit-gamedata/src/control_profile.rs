@@ -133,6 +133,7 @@ pub fn profile(paths: &Paths) -> Profile {
     {
         return kept;
     }
+    let _topic = versekit_core::archive_lock::reading_for("controls");
     let loaded = GameData::open_file(&archive).and_then(|game| profile_xml(&game));
     let xml = match loaded {
         Ok(xml) => xml,

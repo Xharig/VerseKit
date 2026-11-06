@@ -540,8 +540,8 @@ pub fn run_state_with(paths: &Paths, process: Option<bool>) -> RunState {
     }
 }
 
-/// The channels of the game that are test builds: what they hold is confidential by the terms of service.
-const TEST_CHANNELS: [&str; 3] = ["PTU", "EPTU", "TECH-PREVIEW"];
+// The channels of the game that are test builds: what they hold is confidential by the terms of service.
+use crate::paths::TEST_CHANNELS;
 
 /// The name of the test channel (`PTU`, `EPTU`, `TECH-PREVIEW`) the game folder is, or `None` for LIVE,
 /// HOTFIX and everything else. The folder is named like its channel.

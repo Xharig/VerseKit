@@ -688,8 +688,17 @@ fn ships(ui: &mut Ui, scheme: &Scheme, lines: &[Line], ticks: &mut Vec<(Line, bo
 /// What the cart costs, split by the way and with what is not counted.
 pub(crate) fn total_block(ui: &mut Ui, scheme: &Scheme, total: &cart::Total) {
     ui.add_space(10.0);
-    let sum = tf("s_wk_summe", &[("preis", Arg::from(plain(total.total)))]);
-    ui.label(widgets::bold(ui, sum, egui::TextStyle::Body).color(color(scheme.accent)));
+    ui.label(widgets::bold(ui, total_sum(total), egui::TextStyle::Body).color(color(scheme.accent)));
+    total_parts(ui, scheme, total);
+}
+
+/// The sum of the cart in words: the head of [`total_block`] and the title of the card of the sum.
+fn total_sum(total: &cart::Total) -> String {
+    tf("s_wk_summe", &[("preis", Arg::from(plain(total.total)))])
+}
+
+/// What [`total_block`] says under the sum: the split by the way, the time to build and what is not counted.
+fn total_parts(ui: &mut Ui, scheme: &Scheme, total: &cart::Total) {
     if total.buy > 0.0 && total.craft > 0.0 {
         let split =
             tf("s_wk_summe_teil", &[("kaufen", Arg::from(plain(total.buy))), ("bauen", Arg::from(plain(total.craft)))]);
@@ -922,11 +931,24 @@ pub(crate) fn route_block(
     paths: Option<&Paths>,
     lines: &[Line],
     sources: &dyn Sources,
+    marks: Option<&mut StopMarks>,
+) {
+    ui.add_space(12.0);
+    ui.label(widgets::bold(ui, t("s_wk_route"), egui::TextStyle::Body));
+    route_body(ui, scheme, order, paths, lines, sources, marks);
+}
+
+/// What [`route_block`] shows under its head: the stops, their ticks and the parts no shop carries.
+fn route_body(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    order: &mut Vec<String>,
+    paths: Option<&Paths>,
+    lines: &[Line],
+    sources: &dyn Sources,
     mut marks: Option<&mut StopMarks>,
 ) {
     let (stops, without) = cart::route(lines, sources);
-    ui.add_space(12.0);
-    ui.label(widgets::bold(ui, t("s_wk_route"), egui::TextStyle::Body));
     if stops.is_empty() {
         // No stop is not "everything is built": perhaps no shop carries the parts.
         if without.is_empty() {
@@ -990,6 +1012,17 @@ pub(crate) fn route_block(
     without_block(ui, scheme, lines, sources, without.len());
 }
 
+/// What could not be saved (the fleet file, the file of the parts from the shops), said once: the first card that
+/// calls it shows it, the later ones find it taken.
+fn failures(ui: &mut Ui, scheme: &Scheme, failed: &mut [bool; 2]) {
+    if std::mem::take(&mut failed[0]) {
+        ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red)));
+    }
+    if std::mem::take(&mut failed[1]) {
+        ui.label(RichText::new(t("s_ld_korb_fehler")).color(color(scheme.red)));
+    }
+}
+
 /// The page with the sources it computes from.
 fn page(
     ui: &mut Ui,
@@ -1001,20 +1034,20 @@ fn page(
 ) {
     ui.label(sub(scheme, t("s_ek_lead")));
     ui.add_space(6.0);
-    if view.save_failed {
-        ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red)));
-    }
-    if view.basket_failed {
-        ui.label(RichText::new(t("s_ld_korb_fehler")).color(color(scheme.red)));
-    }
+    // The failures stand in the first card drawn below.
+    let mut failed = [view.save_failed, view.basket_failed];
     let has = |key: &str| matches!(view.fleet.iter().find(|(k, _)| k == key), Some((_, Value::Array(items))) if !items.is_empty());
     let has_ships = has("schiffe") || has("wunsch");
     let from_shops = !view.basket.items.is_empty();
     // Three situations, three sentences: nothing entered, nothing to get, and no data look the same in the code.
     if !has_ships && !from_shops {
-        widgets::empty_state(ui, scheme, "receipt", &t("s_ek_kein_schiff"));
-        ui.label(sub(scheme, t("s_ek_korb_leer")));
-        templates_block(ui, scheme, view, paths, sources, parts);
+        widgets::card(ui, scheme, |ui| {
+            widgets::card_title(ui, scheme, &t("hf_gruppe_schiffe"));
+            failures(ui, scheme, &mut failed);
+            widgets::empty_state(ui, scheme, "receipt", &t("s_ek_kein_schiff"));
+            ui.label(sub(scheme, t("s_ek_korb_leer")));
+        });
+        templates_block(ui, scheme, view, paths, sources, parts, &mut failed);
         return;
     }
     let mut ticks = Vec::new();
@@ -1024,54 +1057,71 @@ fn page(
         let mut all: Vec<Line> = bill.lines.iter().filter(|l| l.origin != Origin::Notepad).cloned().collect();
         cart::bill_order(&mut all);
         let (done, still): (Vec<Line>, Vec<Line>) = all.iter().cloned().partition(|l| l.done);
-        if all.is_empty() {
-            // Ships whose slots are unknown are no ships "as the factory built them": then only the note stands.
-            if bill.without_slot_data.is_empty() {
-                if from_shops {
-                    ui.label(sub(scheme, t("s_ek_nichts_offen")));
-                } else {
-                    widgets::empty_state(ui, scheme, "circle-check", &t("s_ek_nichts_offen"));
-                }
-            }
-        } else if still.is_empty() {
-            let said = if done.len() == 1 {
-                t("s_p9_ek_alles_erledigt_eins")
-            } else {
-                tf("s_ek_alles_erledigt", &[("n", Arg::from(done.len()))])
-            };
-            ui.label(RichText::new(said).color(color(scheme.accent)));
-            done_block(ui, scheme, &done, &mut ticks);
+        // The head counts what is still to do, not what was once planned; without anything open the card is
+        // called after the ships.
+        let head = if still.is_empty() {
+            t("hf_gruppe_schiffe")
         } else {
-            // The head counts what is still to do, not what was once planned.
             let ship_count = still.iter().map(|l| l.ship.as_str()).collect::<HashSet<_>>().len();
-            let head = match (still.len(), ship_count) {
+            match (still.len(), ship_count) {
                 (1, _) => t("s_p9_ek_kopf_1_1"),
                 (n, 1) => tf("s_p9_ek_kopf_n_1", &[("n", Arg::from(n))]),
                 (n, m) => tf("s_ek_kopf", &[("n", Arg::from(n)), ("schiffe", Arg::from(m))]),
-            };
-            widgets::heading(ui, scheme, &head);
-            ships(ui, scheme, &cart::group_items(&still), &mut ticks);
-            if !done.is_empty() {
-                ui.add_space(6.0);
-                done_block(ui, scheme, &done, &mut ticks);
             }
-        }
-        no_data_note(ui, scheme, &bill.without_slot_data);
+        };
+        widgets::card(ui, scheme, |ui| {
+            widgets::card_title(ui, scheme, &head);
+            failures(ui, scheme, &mut failed);
+            if all.is_empty() {
+                // Ships whose slots are unknown are no ships "as the factory built them": then only the note stands.
+                if bill.without_slot_data.is_empty() {
+                    if from_shops {
+                        ui.label(sub(scheme, t("s_ek_nichts_offen")));
+                    } else {
+                        widgets::empty_state(ui, scheme, "circle-check", &t("s_ek_nichts_offen"));
+                    }
+                }
+            } else if still.is_empty() {
+                let said = if done.len() == 1 {
+                    t("s_p9_ek_alles_erledigt_eins")
+                } else {
+                    tf("s_ek_alles_erledigt", &[("n", Arg::from(done.len()))])
+                };
+                ui.label(RichText::new(said).color(color(scheme.accent)));
+                done_block(ui, scheme, &done, &mut ticks);
+            } else {
+                ships(ui, scheme, &cart::group_items(&still), &mut ticks);
+                if !done.is_empty() {
+                    ui.add_space(6.0);
+                    done_block(ui, scheme, &done, &mut ticks);
+                }
+            }
+            no_data_note(ui, scheme, &bill.without_slot_data);
+        });
         open = still;
     }
     let basket_lines = basket::lines(&view.basket, sources);
     if from_shops {
-        basket_block(ui, scheme, view, paths, sources, &basket_lines);
+        basket_block(ui, scheme, view, paths, sources, &basket_lines, &mut failed);
     }
-    templates_block(ui, scheme, view, paths, sources, parts);
+    templates_block(ui, scheme, view, paths, sources, parts, &mut failed);
     // The sum and the route take the parts of the ships and of the shops together.
     open.extend(basket_lines.into_iter().filter(|l| !l.done));
     if !open.is_empty() {
         view.lookup.look_up(ui, paths, &open);
-        total_block(ui, scheme, &cart::total(&open));
+        let total = cart::total(&open);
+        ui.add_space(10.0);
+        widgets::card(ui, scheme, |ui| {
+            widgets::card_title(ui, scheme, &total_sum(&total));
+            total_parts(ui, scheme, &total);
+        });
         let done_stops = view.basket.stops_done.clone();
         let mut marks = StopMarks { done: &done_stops, toggled: None, clear: false };
-        route_block(ui, scheme, &mut view.order, paths, &open, sources, Some(&mut marks));
+        ui.add_space(12.0);
+        widgets::card(ui, scheme, |ui| {
+            widgets::card_title(ui, scheme, &t("s_wk_route"));
+            route_body(ui, scheme, &mut view.order, paths, &open, sources, Some(&mut marks));
+        });
         if let Some((key, on)) = marks.toggled {
             view.edit_basket(paths, |b| b.set_stop_done(&key, on));
             ui.ctx().request_repaint();
@@ -1093,28 +1143,32 @@ fn basket_block(
     paths: Option<&Paths>,
     sources: &dyn Sources,
     lines: &[Line],
+    failed: &mut [bool; 2],
 ) {
     let (done, open): (Vec<&Line>, Vec<&Line>) = lines.iter().partition(|l| l.done);
     ui.add_space(10.0);
-    widgets::heading(ui, scheme, &tf("s_ek_korb", &[("0", Arg::from(lines.len()))]));
     // One change per frame: the count, the tick or taking a part out.
     let mut count: Option<(String, i64)> = None;
     let mut tick: Option<(String, bool)> = None;
     let mut out: Option<String> = None;
-    widgets::list_frame(ui, scheme, |list| {
-        list.set_width(list.available_width());
-        for (k, line) in open.iter().enumerate() {
-            basket_row(list, scheme, k, line, sources, &mut count, &mut tick, &mut out);
-        }
-    });
-    if !done.is_empty() {
-        let title = tf("s_ek_korb_gekauft", &[("0", Arg::from(done.len()))]);
-        widgets::collapsing(&title).id_salt("basket-done").show(ui, |inner| {
-            for (k, line) in done.iter().enumerate() {
-                basket_row(inner, scheme, k, line, sources, &mut count, &mut tick, &mut out);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &tf("s_ek_korb", &[("0", Arg::from(lines.len()))]));
+        failures(ui, scheme, failed);
+        widgets::list_frame(ui, scheme, |list| {
+            list.set_width(list.available_width());
+            for (k, line) in open.iter().enumerate() {
+                basket_row(list, scheme, k, line, sources, &mut count, &mut tick, &mut out);
             }
         });
-    }
+        if !done.is_empty() {
+            let title = tf("s_ek_korb_gekauft", &[("0", Arg::from(done.len()))]);
+            widgets::collapsing(&title).id_salt("basket-done").show(ui, |inner| {
+                for (k, line) in done.iter().enumerate() {
+                    basket_row(inner, scheme, k, line, sources, &mut count, &mut tick, &mut out);
+                }
+            });
+        }
+    });
     if let Some((reference, n)) = count {
         view.edit_basket(paths, |b| b.set_count(&reference, n));
     }
@@ -1246,9 +1300,25 @@ fn templates_block(
     paths: Option<&Paths>,
     sources: &dyn Sources,
     parts: &[CatalogItem],
+    failed: &mut [bool; 2],
 ) {
     ui.add_space(10.0);
-    ui.label(widgets::bold(ui, t("s_ek_vorlagen"), egui::TextStyle::Body));
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_ek_vorlagen"));
+        failures(ui, scheme, failed);
+        templates_body(ui, scheme, view, paths, sources, parts);
+    });
+}
+
+/// What the card of the templates holds under its title.
+fn templates_body(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    view: &mut View,
+    paths: Option<&Paths>,
+    sources: &dyn Sources,
+    parts: &[CatalogItem],
+) {
     ui.label(sub(scheme, t("s_ek_vorlage_lead")));
     let can_keep = !view.basket.items.is_empty();
     let mut action: Option<SetAction> = None;

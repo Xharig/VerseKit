@@ -497,7 +497,7 @@ impl ConnectionState {
 // ---------------------------------------------------------------- drawing
 
 fn small(ui: &mut Ui, text: &str, tone: Color) {
-    ui.add(egui::Label::new(RichText::new(text).small().color(color(tone))).wrap());
+    widgets::reading(ui, RichText::new(text).small().color(color(tone)));
 }
 
 fn button<'a>(text: &'a str, kind: ButtonKind, scheme: &'a Scheme) -> widgets::Button<'a> {
@@ -556,14 +556,6 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState) {
     let Some(wire) = page.wire.clone() else { return };
     wire.remember(&ctx);
     small(ui, &t("s_btv_lead"), scheme.sub);
-    if wire.demo.is_some() {
-        ui.horizontal_wrapped(|row| {
-            if let Some(image) = icons::themed("info", scheme, versekit_core::theme::IconTint::Highlight, 14.0) {
-                row.add(image);
-            }
-            small(row, &t("s_btv_beispiel"), scheme.sub);
-        });
-    }
     ui.add_space(GAP);
 
     // A job whose thread broke off lets go, too: "Disconnect" must not stay blocked.
@@ -596,9 +588,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState) {
     connection_card(ui, scheme, page, &wire, &frame, &mut acts);
     ui.add_space(GAP);
     // The areas stand in two columns when there is room, one below the other
-    // in the order of the list when not.
+    // in the order of the list when not. Five cards: each as tall as its content, none stretched beside the fifth.
     if ui.available_width() >= 2.0 * crate::settings::SETTINGS_COLUMN_MIN + GAP {
-        crate::layout::columns_or_stack(ui, crate::settings::SETTINGS_COLUMN_MIN, 2, |ui, column| {
+        crate::layout::columns_or_stack_loose(ui, crate::settings::SETTINGS_COLUMN_MIN, 2, |ui, column| {
             for card in CARDS.iter().skip(column).step_by(2) {
                 area_card(ui, scheme, &wire, &frame, state, card, &mut acts);
                 ui.add_space(GAP);
@@ -624,7 +616,12 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState) {
             ui.add_space(GAP);
         }
     }
-    small(ui, &t("s_btv_datenschutz"), scheme.sub);
+    // What is sent, in a card of its own at the end.
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_ei_datenschutz"));
+        ui.add_space(4.0);
+        small(ui, &t("s_btv_datenschutz"), scheme.sub);
+    });
     ui.add_space(GAP);
 
     // A new code is scrolled to: it stands at the top.
@@ -671,6 +668,15 @@ fn connection_card(
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
         widgets::card_title(ui, scheme, &t("s_btv_verbindung"));
+        // The preview with a made-up Basetool says so first.
+        if wire.demo.is_some() {
+            ui.horizontal_wrapped(|row| {
+                if let Some(image) = icons::themed("info", scheme, versekit_core::theme::IconTint::Highlight, 14.0) {
+                    row.add(image);
+                }
+                small(row, &t("s_btv_beispiel"), scheme.sub);
+            });
+        }
         let config = wire.sync.connection().config();
         if config.sandbox {
             small(ui, &t("s_btv_sandbox"), scheme.yellow);

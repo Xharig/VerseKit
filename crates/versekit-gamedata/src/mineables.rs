@@ -309,6 +309,7 @@ pub fn keep_current_with(
 
 /// Keeps `file` current for the archive at `archive`: reads the archive (seconds) only when it changed.
 pub fn keep_current(archive: &Path, file: &str) -> Keep {
+    let _topic = versekit_core::archive_lock::reading_for("signatures");
     keep_current_with(archive, file, || {
         let game = crate::GameData::open_file(archive)?;
         let texts = game.localization(crate::Language::English)?;

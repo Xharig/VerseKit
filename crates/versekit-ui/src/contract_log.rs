@@ -454,7 +454,7 @@ pub fn show(
     // Nothing recorded at all is something else than a search finding nothing.
     if data.entries.is_empty() {
         state.drawn = (Vec::new(), Vec::new());
-        widgets::list_frame(ui, scheme, |list| {
+        widgets::list_frame_marked(ui, scheme, |list| {
             list.set_width(list.available_width());
             widgets::empty_state(list, scheme, "notebook-pen", &t("s_al_leer"));
         });
@@ -484,7 +484,7 @@ pub fn show(
     state.drawn = (counts, shown.clone());
 
     if shown.is_empty() {
-        widgets::list_frame(ui, scheme, |list| {
+        widgets::list_frame_marked(ui, scheme, |list| {
             list.set_width(list.available_width());
             widgets::empty_state(list, scheme, "scan-search", &t("s_al_nichts"));
         });
@@ -526,7 +526,7 @@ pub fn show(
     let mut clicked: Option<(usize, RowClick)> = None;
     let mut measured = None;
     let mut row_overflow: f32 = 0.0;
-    widgets::list_frame(ui, scheme, |list| {
+    widgets::list_frame_marked(ui, scheme, |list| {
         list.set_width(list.available_width());
         let mut area = egui::ScrollArea::vertical()
             .id_salt("auftragslog")

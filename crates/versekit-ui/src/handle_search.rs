@@ -1346,47 +1346,43 @@ impl HandleSearch {
     pub fn settings(&mut self, ui: &mut Ui, scheme: &Scheme) {
         self.tick();
         let mut written: Vec<(&'static str, Value)> = Vec::new();
+        // One line each, the hint on hover behind the symbol `info`, as every settings row.
         let mut days = self.settings.days;
-        ui.horizontal(|ui| {
-            ui.label(t("s_hq_einst_tage"));
-            if widgets::number_field(ui, scheme, "handle-tage", &mut days, 0..=cache::DAYS_MAX, "") {
+        crate::settings::setting_row(ui, scheme, &t("s_hq_einst_tage"), &t("s_hq_einst_tage_h"), false, |row| {
+            if widgets::number_field(row, scheme, "handle-tage", &mut days, 0..=cache::DAYS_MAX, "") {
                 written.push((KEY_DAYS, Value::int(days)));
             }
         });
-        widgets::hint(ui, scheme, &t("s_hq_einst_tage_h"));
         // The main organization counts: one organization shown is no affiliation.
         let mut count = self.settings.affiliations as i64;
-        ui.horizontal_wrapped(|ui| {
-            ui.label(t("s_hq_einst_aff"));
+        crate::settings::setting_row(ui, scheme, &t("s_hq_einst_aff"), &t("s_hq_einst_aff_h"), false, |row| {
             for affiliations in 0..=cache::AFFILIATIONS_MAX {
                 let shown = (affiliations + 1).to_string();
-                if widgets::radio(ui, scheme, count == affiliations, &shown).clicked() && count != affiliations {
+                if widgets::radio(row, scheme, count == affiliations, &shown).clicked() && count != affiliations {
                     count = affiliations;
                     written.push((KEY_AFFILIATIONS, Value::int(count)));
                 }
             }
         });
+        // The switches as switch rows: in the same column, and named for screen readers.
         let mut hide = self.settings.hide_hidden;
-        if widgets::switch_row(ui, scheme, &t("s_hq_einst_verborgen"), &mut hide).changed() {
+        if widgets::switch_row_help(ui, scheme, &t("s_hq_einst_verborgen"), &t("s_hq_einst_verborgen_h"), &mut hide).changed() {
             written.push((KEY_HIDE_HIDDEN, Value::Bool(hide)));
         }
         let mut clear_after = self.settings.clear_after;
-        ui.horizontal(|ui| {
-            ui.label(t("s_hq_einst_leeren"));
-            if widgets::number_field(ui, scheme, "handle-leeren", &mut clear_after, 0..=cache::CLEAR_AFTER_MAX, "s") {
+        crate::settings::setting_row(ui, scheme, &t("s_hq_einst_leeren"), &t("s_hq_einst_leeren_h"), false, |row| {
+            if widgets::number_field(row, scheme, "handle-leeren", &mut clear_after, 0..=cache::CLEAR_AFTER_MAX, "s") {
                 written.push((KEY_CLEAR_AFTER, Value::int(clear_after)));
             }
         });
-        widgets::hint(ui, scheme, &t("s_hq_einst_leeren_h"));
         let mut on = self.log.on;
-        if widgets::switch_row(ui, scheme, &t("s_hq_einst_log"), &mut on).changed() {
+        if widgets::switch_row_help(ui, scheme, &t("s_hq_einst_log"), &t("s_hq_einst_log_h"), &mut on).changed() {
             written.push((log_monitor::KEY_ON, Value::Bool(on)));
         }
         let mut seconds = self.log.seconds;
-        ui.horizontal(|ui| {
-            ui.label(t("s_hq_einst_log_sek"));
+        crate::settings::setting_row(ui, scheme, &t("s_hq_einst_log_sek"), &t("s_hq_einst_log_sek_h"), false, |row| {
             let range = log_monitor::SECONDS_MIN..=log_monitor::SECONDS_MAX;
-            if widgets::number_field(ui, scheme, "logmonitor-sek", &mut seconds, range, "s") {
+            if widgets::number_field(row, scheme, "logmonitor-sek", &mut seconds, range, "s") {
                 written.push((log_monitor::KEY_SECONDS, Value::int(seconds)));
             }
         });

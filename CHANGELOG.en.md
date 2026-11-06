@@ -6,6 +6,50 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.4 - 2026-11-06
+
+> One consistent look on every page, an own title bar, new pages for
+> translation and axes, plus a fix for the mining HUD.
+
+### New
+
+- **Own title bar** — VerseKit draws the bar at the top itself, with a
+  larger name and buttons of its own. On Windows 11 the snap layouts appear
+  at the maximize button.
+- **Translation reworked** — One card per channel with a language list and
+  sources. Test channels and HOTFIX can follow “Same as LIVE”, the own
+  address is a button.
+- **Axes & curves reworked** — Devices as tabs, the axis list on the left,
+  the chosen axis with a large curve on the right. “Write to the bindings
+  file” stays at the bottom.
+- **Shader cache on the Graphics page** — The card shows the size, when it
+  was last cleared and whether it was cleared since the last patch.
+- **“Count usage” can be switched off again** — The switch is under
+  Settings › General › Privacy. Off means nothing is sent.
+
+### Improved
+
+- **Every page of one piece** — Cards in a grid, shorter texts, consistent
+  text sizes, nothing cut off. Overlay, handle search and the signature
+  window are laid out anew.
+- **My inventory** — The sync needs a place, the last place stays, new
+  items go out at once, and skipped ones are named.
+- **“Report a problem”** counts only new errors of this version.
+- **Star Citizen 5.0** — Places and the game log are prepared, a contract
+  after a disconnect no longer counts as open.
+- **Game data** is not read while the game is running.
+
+### Fixed
+
+- **Mining HUD unreadable** — For three mining modules the blueprint notes
+  went into the name line the game shows in the cockpit. They now go into
+  the description. Reported by greluc
+- **Main window off the top of the screen** — With screens of different
+  scaling the window could lie partly outside. It now stays visible.
+  Reported by greluc
+- **“No translation”** now takes VerseKit's notes out of the channel first.
+- **HOTFIX and EPTU** were missing from some channel lists.
+
 ## v5.1.3 - 2026-11-06
 
 > Hotkeys now work on a single key like F13, plus small fixes around the

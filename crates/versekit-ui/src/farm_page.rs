@@ -259,64 +259,85 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
     let planned = posts(state, crafting);
     let list = farm::farm_list(values, book, &planned, &state.stock, data);
     let mut action = None;
-    if state.save_failed {
-        ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red)));
-    }
-    // The note struck last can be taken back for a few seconds.
-    let now = ui.input(|i| i.time);
-    if state.struck.as_ref().is_some_and(|(_, at)| now - at > UNDO_SECONDS) {
-        state.struck = None;
-    }
-    if let Some((note, _)) = state.struck.clone() {
-        ui.ctx().request_repaint_after(std::time::Duration::from_millis(500));
-        ui.horizontal_wrapped(|row| {
-            row.label(sub(scheme, tf("s_p9_gestrichen", &[("0", Arg::from(note.name.as_str()))])));
-            if row.add(egui::Link::new(RichText::new(t("s_p9_rueckgaengig")).small())).clicked() {
-                state.edit(|data| {
-                    notepad::restore(data, &note);
-                });
-                state.struck = None;
+    // The places of the missing materials, for their rows and for the card of the gathering places.
+    let found = (list.posts > 0 && !list.missing.is_empty()).then(|| {
+        let names: Vec<String> = list.missing.iter().map(|n| n.material.clone()).collect();
+        farm::locations(&names, &state.mining)
+    });
+    let head = match list.posts {
+        0 => t("s_fl_bedarf_kopf"),
+        1 => t("s_p9_kopf_eins"),
+        posts => tf("s_fl_kopf", &[("n", Arg::from(posts))]),
+    };
+    // The first card: what is missing for the plan, with the notices of the page above it.
+    let empty = widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &head);
+        if state.save_failed {
+            ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red)));
+        }
+        // The note struck last can be taken back for a few seconds.
+        let now = ui.input(|i| i.time);
+        if state.struck.as_ref().is_some_and(|(_, at)| now - at > UNDO_SECONDS) {
+            state.struck = None;
+        }
+        if let Some((note, _)) = state.struck.clone() {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(500));
+            ui.horizontal_wrapped(|row| {
+                row.label(sub(scheme, tf("s_p9_gestrichen", &[("0", Arg::from(note.name.as_str()))])));
+                if row.add(egui::Link::new(RichText::new(t("s_p9_rueckgaengig")).small())).clicked() {
+                    state.edit(|data| {
+                        notepad::restore(data, &note);
+                    });
+                    state.struck = None;
+                }
+            });
+        }
+        if notes.is_empty() && planned.is_empty() {
+            // One empty page with one way: the button of the crafting page.
+            widgets::empty_state(ui, scheme, "diamond", &t("s_fl_nichts_geplant"));
+            return true;
+        }
+        if list.posts == 0 {
+            // Notes are there, but none is to be crafted (bought, ticked off) or has a recipe.
+            if list.without_recipe.is_empty() {
+                ui.label(sub(scheme, t("s_p9_alles_gekauft")));
             }
-        });
-    }
-    if notes.is_empty() && planned.is_empty() {
-        // One empty page with one way: the button of the crafting page.
-        widgets::empty_state(ui, scheme, "diamond", &t("s_fl_nichts_geplant"));
+        } else {
+            ui.add_space(4.0);
+            match &found {
+                Some(found) => missing(ui, scheme, &list, found, data, &mut action),
+                None => {
+                    ui.label(RichText::new(t("s_fl_alles_da")).color(color(scheme.accent)));
+                }
+            }
+        }
+        if !list.without_recipe.is_empty() {
+            let names = list.without_recipe.join(", ");
+            let key = if list.without_recipe.len() == 1 { "s_p9_ohne_rezept_eins" } else { "s_fl_ohne_rezept" };
+            let said = tf(key, &[("n", Arg::from(list.without_recipe.len())), ("teile", Arg::from(names))]);
+            ui.label(RichText::new(said).small().color(color(scheme.gold)));
+        }
+        false
+    })
+    .inner;
+    if empty {
         return None;
     }
-    if list.posts == 0 {
-        // Notes are there, but none is to be crafted (bought, ticked off) or has a recipe.
-        if list.without_recipe.is_empty() {
-            ui.label(sub(scheme, t("s_p9_alles_gekauft")));
-        }
-    } else {
-        let head = if list.posts == 1 { t("s_p9_kopf_eins") } else { tf("s_fl_kopf", &[("n", Arg::from(list.posts))]) };
-        ui.label(RichText::new(head).heading());
-        ui.add_space(4.0);
-        if list.missing.is_empty() {
-            ui.label(RichText::new(t("s_fl_alles_da")).color(color(scheme.accent)));
-        } else {
-            action = missing(ui, scheme, &list, &state.mining, data);
-        }
-        if !list.complete.is_empty() {
-            ui.add_space(8.0);
-            ui.label(widgets::bold(
-                ui,
-                tf("s_fl_reicht_kopf", &[("n", Arg::from(list.complete.len()))]),
-                egui::TextStyle::Body,
-            ));
+    ui.add_space(crate::layout::GAP);
+    if let Some(found) = found.as_ref().filter(|found| !found.gathering.is_empty()) {
+        widgets::card(ui, scheme, |ui| gathering(ui, scheme, found, &mut action));
+        ui.add_space(crate::layout::GAP);
+    }
+    if list.posts > 0 && !list.complete.is_empty() {
+        widgets::card(ui, scheme, |ui| {
+            widgets::card_title(ui, scheme, &tf("s_fl_reicht_kopf", &[("n", Arg::from(list.complete.len()))]));
             for (k, need) in list.complete.iter().enumerate() {
                 need_row(ui, scheme, need, k, false, data, &mut action);
             }
-        }
+        });
+        ui.add_space(crate::layout::GAP);
     }
-    if !list.without_recipe.is_empty() {
-        let names = list.without_recipe.join(", ");
-        let key = if list.without_recipe.len() == 1 { "s_p9_ohne_rezept_eins" } else { "s_fl_ohne_rezept" };
-        let said = tf(key, &[("n", Arg::from(list.without_recipe.len())), ("teile", Arg::from(names))]);
-        ui.label(RichText::new(said).small().color(color(scheme.gold)));
-    }
-    if let Some(a) = notes_block(ui, scheme, state, crafting, &notes, &list) {
+    if let Some(a) = widgets::card(ui, scheme, |ui| notes_block(ui, scheme, state, crafting, &notes, &list)).inner {
         action = Some(a);
     }
     action
@@ -327,38 +348,41 @@ fn link(ui: &mut Ui, text: RichText, hover: &str) -> egui::Response {
     ui.add(egui::Link::new(text)).on_hover_text(hover)
 }
 
-fn missing(ui: &mut Ui, scheme: &Scheme, list: &FarmList, mining: &MiningData, data: &StockData) -> Option<Action> {
-    let mut action = None;
-    let names: Vec<String> = list.missing.iter().map(|n| n.material.clone()).collect();
-    let found = farm::locations(&names, mining);
+/// The rows of the missing materials, each with the places where it is found.
+fn missing(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    list: &FarmList,
+    found: &farm::Locations,
+    data: &StockData,
+    action: &mut Option<Action>,
+) {
     for (k, need) in list.missing.iter().enumerate() {
-        need_row(ui, scheme, need, k, true, data, &mut action);
+        need_row(ui, scheme, need, k, true, data, action);
         if let Some(spots) = found.per_ore.get(&need.material).filter(|s| !s.is_empty()) {
             let line = tf("s_fl_fundorte", &[("0", Arg::from(spots_text(spots)))]);
             ui.horizontal_wrapped(|row| {
                 row.add_space(12.0);
                 if link(row, RichText::new(line).small(), &t("s_fl_zum_bergbau")).clicked() {
-                    action = Some(Action::ToMining(need.material.clone()));
+                    *action = Some(Action::ToMining(need.material.clone()));
                 }
             });
         }
     }
-    if !found.gathering.is_empty() {
-        ui.add_space(10.0);
-        ui.label(widgets::bold(ui, t("s_fl_sammel_kopf"), egui::TextStyle::Body)).on_hover_text(t("s_fl_sammel_hilfe"));
-        for place in &found.gathering {
-            let title =
-                if place.system.is_empty() { place.name.clone() } else { format!("{} ({})", place.name, place.system) };
-            let text = tf(
-                "s_fl_sammel_zeile",
-                &[("n", Arg::from(place.ores.len())), ("erze", Arg::from(place.ores.join(", ")))],
-            );
-            if link(ui, RichText::new(format!("{title}   {text}")).small(), &t("s_fl_zum_bergbau")).clicked() {
-                action = Some(Action::ToMining(place.name.clone()));
-            }
+}
+
+/// The card of the places that hold several of the missing materials.
+fn gathering(ui: &mut Ui, scheme: &Scheme, found: &farm::Locations, action: &mut Option<Action>) {
+    widgets::card_title(ui, scheme, &t("s_fl_sammel_kopf")).on_hover_text(t("s_fl_sammel_hilfe"));
+    for place in &found.gathering {
+        let title =
+            if place.system.is_empty() { place.name.clone() } else { format!("{} ({})", place.name, place.system) };
+        let text =
+            tf("s_fl_sammel_zeile", &[("n", Arg::from(place.ores.len())), ("erze", Arg::from(place.ores.join(", ")))]);
+        if link(ui, RichText::new(format!("{title}   {text}")).small(), &t("s_fl_zum_bergbau")).clicked() {
+            *action = Some(Action::ToMining(place.name.clone()));
         }
     }
-    action
 }
 
 /// An amount with its unit after it: SCU, or pieces for goods counted in pieces.
@@ -479,8 +503,7 @@ fn notes_block(
     list: &FarmList,
 ) -> Option<Action> {
     let mut action = None;
-    ui.add_space(18.0);
-    ui.label(widgets::bold(ui, t("s_mz_titel"), egui::TextStyle::Body));
+    widgets::card_title(ui, scheme, &t("s_mz_titel"));
     if notes.is_empty() {
         // Only parts of the ships are planned: the sentence says where the button for the notes is.
         ui.add(egui::Label::new(sub(scheme, t("s_mz_leer"))).wrap());

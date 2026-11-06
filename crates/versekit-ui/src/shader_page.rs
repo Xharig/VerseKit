@@ -34,6 +34,7 @@ use std::sync::mpsc::{self, Receiver};
 
 use egui::{RichText, Role, Ui, WidgetInfo};
 use versekit_core::game_start::{self, RunState};
+use versekit_core::jsonio::Value;
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::paths::Paths;
 use versekit_core::shader_cache::{self, Age, Branches, Cleared, Place, PlaceKind};
@@ -99,9 +100,110 @@ pub struct ShaderState {
     result: Option<String>,
     /// The line for the foot of the window (a notice).
     notice: Option<Said>,
+    /// The size of all caches found, in bytes, as last measured.
+    size: Option<u64>,
+    /// The measuring under way.
+    size_job: Option<Receiver<u64>>,
+    /// When the size was last measured (the time of the frame); `None`: due.
+    measured_at: Option<f64>,
+    /// Why nothing may be emptied now (the game runs, or nobody can say), as last looked, and when.
+    quiet: Option<String>,
+    quiet_at: Option<f64>,
+}
+
+/// How often the page looks whether the game runs, in seconds (not in every frame: it reads the process list).
+const QUIET_LOOK: f64 = 2.0;
+
+/// Why the two ways to start are grey now: the game runs (say to quit it), or nobody can say.
+fn start_blocked(paths: &Paths) -> Option<String> {
+    match game_start::run_state(paths) {
+        RunState::Idle => None,
+        RunState::Running => Some(t("s_gf_spiel")),
+        RunState::Unknown => Some(t("s_sc_unklar")),
+    }
+}
+
+/// The setting with the moment the caches were last emptied through VerseKit (seconds since 1970).
+pub const SETTING_CLEARED: &str = "shader_zuletzt_geleert";
+/// The size is measured again after this long on the page, in seconds.
+const MEASURE_AGAIN: f64 = 60.0;
+
+/// When the caches were last emptied through VerseKit.
+fn cleared_at(paths: &Paths) -> Option<i64> {
+    match paths.settings().into_iter().find(|(k, _)| k == SETTING_CLEARED).map(|(_, v)| v)? {
+        Value::Int(n) => n.parse().ok(),
+        _ => None,
+    }
+}
+
+/// When the game was last patched: the time its archive `Data.p4k` was last written.
+fn patched_at(paths: &Paths) -> Option<i64> {
+    let archive = std::path::Path::new(&paths.game_folder()?).join("Data.p4k");
+    let written = std::fs::metadata(archive).ok()?.modified().ok()?;
+    Some(i64::try_from(written.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs()).unwrap_or(i64::MAX))
+}
+
+/// The line under the lead: the size of the caches and when they were last emptied; and, where they were emptied
+/// before the last patch of the game, a sentence that says so.
+fn state_lines(ui: &mut Ui, scheme: &Scheme, state: &ShaderState, paths: &Paths) {
+    let size = match state.size {
+        Some(bytes) => tf("s_sc_groesse", &[("0", Arg::from(size_text(bytes).as_str()))]),
+        None => t("s_sc_misst"),
+    };
+    let cleared = cleared_at(paths);
+    let when = match cleared {
+        Some(seconds) => {
+            let day = versekit_core::stats_report::local_day(versekit_core::language::current(), seconds);
+            tf("s_sc_geleert_am", &[("0", Arg::from(day.as_str()))])
+        }
+        None => t("s_sc_nie_geleert"),
+    };
+    ui.label(format!("{size} · {when}"));
+    if let (Some(cleared), Some(patched)) = (cleared, patched_at(paths))
+        && cleared < patched
+    {
+        ui.label(RichText::new(t("s_sc_seit_patch")).color(color(scheme.gold)));
+    }
+    ui.add_space(8.0);
 }
 
 impl ShaderState {
+    /// Measures the size of the caches in a thread of its own: when the card is first drawn, a while later again,
+    /// and after emptying. Never while a search or an emptying runs.
+    fn measure(&mut self, ui: &Ui, paths: &Paths) {
+        if let Some(job) = &self.size_job {
+            match job.try_recv() {
+                Ok(bytes) => {
+                    self.size = Some(bytes);
+                    self.size_job = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+                }
+                Err(mpsc::TryRecvError::Disconnected) => self.size_job = None,
+            }
+            return;
+        }
+        let now = ui.input(|i| i.time);
+        let due = self.measured_at.is_none_or(|at| !(0.0..MEASURE_AGAIN).contains(&(now - at)));
+        if !due || self.busy() {
+            return;
+        }
+        self.measured_at = Some(now);
+        let (sender, receiver) = mpsc::channel();
+        let copy = paths.working_copy();
+        std::thread::spawn(move || {
+            let branches = Branches::read(&copy);
+            let places = shader_cache::find_places(
+                &shader_cache::sc_cache_roots(&copy),
+                &shader_cache::gpu_cache_dirs(&copy),
+                &branches,
+            );
+            let _ = sender.send(places.iter().map(|place| place.bytes).sum());
+        });
+        self.size_job = Some(receiver);
+    }
+
     /// The line for the foot, once.
     pub fn take_notice(&mut self) -> Option<Said> {
         self.notice.take()
@@ -247,19 +349,32 @@ fn place_row(ui: &mut Ui, scheme: &Scheme, place: &Place, scope: Scope, on: &mut
         None => size,
     };
     let can = switchable(place, scope);
-    crate::settings::setting_row(ui, scheme, &name, &hint, false, |row| {
+    // The size (and whether it stays) is what the row is about: it stands in the line, after the switch.
+    crate::settings::setting_row(ui, scheme, &name, "", false, |row| {
         if can {
             let response = row.add(widgets::Toggle::new(on, scheme));
             let (enabled, now) = (response.enabled(), *on);
             response.widget_info(|| WidgetInfo::selected(Role::CheckBox, enabled, now, &name));
         }
+        row.label(egui::RichText::new(&hint).small().color(crate::color(scheme.sub)));
     });
 }
 
-/// Draws the page and moves the jobs on.
+/// The card on its own, with its title (its tests draw it so; the window draws it as the last card of "Grafik").
 pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ShaderState, paths: &Paths) {
-    ui.label(RichText::new(t("s_sc_lead")).small().color(color(scheme.sub)));
-    ui.add_space(8.0);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_sc_titel"));
+        show_body(ui, scheme, state, paths);
+    });
+}
+
+/// What the card of the shader cache holds below its title, and moves the jobs on: what it is for, the two ways to
+/// start, the question with the places found, the answer.
+pub fn show_body(ui: &mut Ui, scheme: &Scheme, state: &mut ShaderState, paths: &Paths) {
+    widgets::reading(ui, RichText::new(t("s_sc_lead")).small().color(color(scheme.sub)));
+    ui.add_space(4.0);
+    state.measure(ui, paths);
+    state_lines(ui, scheme, state, paths);
     // A job that finished.
     match std::mem::take(&mut state.phase) {
         Phase::Searching(scope, receiver) => match receiver.try_recv() {
@@ -275,7 +390,12 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ShaderState, paths: &
             Err(mpsc::TryRecvError::Disconnected) => state.notice = Some(Said::fault(t("s_hl_fehler"))),
         },
         Phase::Clearing(places, receiver) => match receiver.try_recv() {
-            Ok(done) => state.result = Some(result_text(&places, &done)),
+            Ok(done) => {
+                state.result = Some(result_text(&places, &done));
+                // Emptied now: the moment is kept, the size measured anew.
+                paths.set_setting(SETTING_CLEARED, Value::int(versekit_core::export::now_unix()));
+                state.measured_at = None;
+            }
             Err(mpsc::TryRecvError::Empty) => {
                 state.phase = Phase::Clearing(places, receiver);
                 ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
@@ -287,8 +407,17 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ShaderState, paths: &
 
     let mut start: Option<Scope> = None;
     let (mut cancelled, mut confirmed) = (false, false);
-    let busy_reason = state.busy().then(|| t("s_sc_laeuft_schon"));
-    widgets::card(ui, scheme, |ui| {
+    // Whether the game runs, looked at every few seconds: while it runs the two ways to start are grey.
+    let now = ui.input(|i| i.time);
+    if state.quiet_at.is_none_or(|at| !(0.0..QUIET_LOOK).contains(&(now - at))) {
+        state.quiet = start_blocked(paths);
+        state.quiet_at = Some(now);
+    }
+    if state.quiet.is_some() {
+        ui.ctx().request_repaint_after(std::time::Duration::from_secs_f64(QUIET_LOOK));
+    }
+    let busy_reason = state.busy().then(|| t("s_sc_laeuft_schon")).or_else(|| state.quiet.clone());
+    {
         // The two ways side by side in a grid of equal cells, under each other when the window is narrow.
         layout::columns_or_stack(ui, START_CELL, 2, |ui, cell| {
             let (scope, name, hint, kind) = if cell == 0 {
@@ -344,7 +473,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ShaderState, paths: &
             }
             Phase::Idle => {}
         }
-    });
+    }
     if let Some(scope) = start
         && !state.busy()
     {

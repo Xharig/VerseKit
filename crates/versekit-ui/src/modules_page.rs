@@ -63,31 +63,40 @@ pub(crate) fn pages_of(group: &str) -> String {
 pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ModulesState, paths: &Paths) {
     ui.label(RichText::new(t("s_mo_lead")).small().color(color(scheme.sub)));
     ui.add_space(8.0);
-    for (group, _) in modules::SWITCHABLE {
-        let title = t(modules::label(group));
-        let mut on = modules::enabled(paths, group);
-        let mut flipped = false;
-        widgets::card(ui, scheme, |ui| {
-            let hint = tf("s_mo_enthaelt", &[("0", Arg::from(pages_of(group).as_str()))]);
-            settings::setting_row(ui, scheme, &title, &hint, false, |row| {
-                let switch = row.add(widgets::Toggle::new(&mut on, scheme));
-                let (enabled, now) = (switch.enabled(), on);
-                switch.widget_info(|| WidgetInfo::selected(egui::Role::CheckBox, enabled, now, &title));
-                flipped = switch.changed();
-            });
+    // One card: the title, a row with a switch for each module, the hint at the end.
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_mo_kopf"));
+        ui.add_space(4.0);
+        // In a wide window the rows stand in two to four columns, read from top to bottom, instead of one row over
+        // the whole width.
+        let count = modules::SWITCHABLE.len();
+        let columns = crate::layout::columns_that_fit(ui.available_width(), crate::layout::ROW_CELL, 4);
+        let per_column = count.div_ceil(columns);
+        crate::layout::columns_or_stack(ui, crate::layout::ROW_CELL, columns, |ui, column| {
+            for (group, _) in modules::SWITCHABLE.iter().skip(column * per_column).take(per_column) {
+                let title = t(modules::label(group));
+                let mut on = modules::enabled(paths, group);
+                let mut flipped = false;
+                let hint = tf("s_mo_enthaelt", &[("0", Arg::from(pages_of(group).as_str()))]);
+                settings::setting_row(ui, scheme, &title, &hint, false, |row| {
+                    let switch = row.add(widgets::Toggle::new(&mut on, scheme));
+                    let (enabled, now) = (switch.enabled(), on);
+                    switch.widget_info(|| WidgetInfo::selected(egui::Role::CheckBox, enabled, now, &title));
+                    flipped = switch.changed();
+                });
+                if flipped {
+                    state.notice = Some(if modules::set_enabled(paths, group, on) {
+                        state.changed = true;
+                        Said::note(format!("{title}: {}", if on { t("e_an") } else { t("e_aus") }))
+                    } else {
+                        Said::fault(t("s_hl_fehler"))
+                    });
+                }
+            }
         });
-        ui.add_space(8.0);
-        if flipped {
-            state.notice = Some(if modules::set_enabled(paths, group, on) {
-                state.changed = true;
-                Said::note(format!("{title}: {}", if on { t("e_an") } else { t("e_aus") }))
-            } else {
-                Said::fault(t("s_hl_fehler"))
-            });
-        }
-    }
-    ui.add_space(4.0);
-    ui.label(RichText::new(t("s_mo_hinweis")).small().color(color(scheme.sub)));
+        ui.add_space(4.0);
+        ui.label(RichText::new(t("s_mo_hinweis")).small().color(color(scheme.sub)));
+    });
 }
 
 #[cfg(test)]
@@ -208,8 +217,9 @@ mod tests {
         for (group, _) in modules::SWITCHABLE {
             assert!(texts.contains(&t(modules::label(group))), "{group}: {texts:?}");
         }
+        // What a module holds stands on hover over its row, behind the symbol `info`.
         let contains = tf("s_mo_enthaelt", &[("0", Arg::from(pages_of("handel").as_str()))]);
-        assert!(texts.contains(&contains), "`{contains}` is not shown: {texts:?}");
+        assert!(!texts.contains(&contains), "`{contains}` on hover, not as a line: {texts:?}");
         assert!(contains.contains("Shops") && contains.contains("Routen"), "{contains}");
         let basetool = pages_of("basetool");
         assert!(basetool.contains(&t("hf_staffellager")), "the unit storage is named with the Basetool: {basetool}");

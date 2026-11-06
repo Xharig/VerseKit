@@ -59,6 +59,17 @@ use crate::text::{decode_replace, lines_universal};
 /// open. Spawn alone is not enough: short failed starts do not always name
 /// the contract. One honest dead entry is better than a contract closed wrongly.
 pub const SESSION_COUNTS_SEC: i64 = 90 * 60;
+/// Star Citizen 5.0: a contract can be gone without an end in the log, after a lost connection (30000) and a restart
+/// the server does not know it any more. A contract that goes on is reported as accepted again right after the
+/// arrival of the player. A session in which the player arrived and which has gone on this long since then, without
+/// naming a contract, proves that it is not open any more.
+pub const AFTER_SPAWN_COUNTS_SEC: i64 = 20 * 60;
+
+/// Whether the silence of a session proves that no contract of an earlier one is open: it is a long, complete one
+/// ([`SESSION_COUNTS_SEC`]) or the player arrived and it went on long enough since ([`AFTER_SPAWN_COUNTS_SEC`]).
+fn silence_counts(facts: &Facts) -> bool {
+    facts.spawn && (facts.duration() >= SESSION_COUNTS_SEC || facts.after_spawn() >= AFTER_SPAWN_COUNTS_SEC)
+}
 /// How long after handing in a blueprint still belongs to the contract: the
 /// reward falls after the end, not before it.
 pub const BP_GRACE_SEC: i64 = 300;
@@ -288,7 +299,8 @@ impl Arena for Stored<'_> {
 /// does not name cannot have been open there.
 ///
 /// ⚠ A silent session proves nothing, except a long, complete one
-/// (`SESSION_COUNTS_SEC`). ⚠ The state is `verfallen`, not `abgebrochen`:
+/// (`SESSION_COUNTS_SEC`) or one that went on long enough after the arrival of the player
+/// (`AFTER_SPAWN_COUNTS_SEC`). ⚠ The state is `verfallen`, not `abgebrochen`:
 /// whether it was handed in or given up stands in no log.
 fn close_expired(
     arena: &mut dyn Arena,
@@ -420,7 +432,7 @@ impl Book {
                 run.goals_done = real.iter().filter(|v| v.to_uppercase().ends_with("COMPLETED")).count() as i64;
             }
         }
-        (reported, scan.facts.spawn && scan.facts.duration() >= SESSION_COUNTS_SEC)
+        (reported, silence_counts(&scan.facts))
     }
 
     fn event(
@@ -656,7 +668,7 @@ impl<'s, 'p> MissionScan<'s, 'p> {
             }
         }
         let facts = Facts::of(&text);
-        let result = (reported, facts.spawn && facts.duration() >= SESSION_COUNTS_SEC);
+        let result = (reported, silence_counts(&facts));
         if let Some(key) = key {
             let mut cache = self.reported.lock().unwrap_or_else(|e| e.into_inner());
             if cache.len() > 1000 {
@@ -1104,13 +1116,38 @@ mod tests {
     #[test]
     fn a_silent_session_proves_something_only_when_long_and_complete() {
         let first = session(&accept(1, "Alt", "m1"));
-        let short = "<2026-10-02T09:00:00.000Z> start OnClientSpawned\n<2026-10-02T09:30:00.000Z> ende\n".to_string();
+        let short = "<2026-10-02T09:00:00.000Z> start OnClientSpawned\n<2026-10-02T09:10:00.000Z> ende\n".to_string();
         let long = "<2026-10-02T09:00:00.000Z> start OnClientSpawned\n<2026-10-02T10:30:00.000Z> ende\n".to_string();
         let no_spawn = "<2026-10-02T09:00:00.000Z> start\n<2026-10-02T11:30:00.000Z> ende\n".to_string();
         assert_eq!(state_of(&history(&[first.clone(), short])[0]), RUNNING);
         assert_eq!(state_of(&history(&[first.clone(), no_spawn])[0]), RUNNING);
         // Exactly 90 minutes counts.
         assert_eq!(state_of(&history(&[first, long])[0]), EXPIRED);
+    }
+
+    /// Star Citizen 5.0: a contract vanished with a lost connection (30000) and a restart, without an end in the
+    /// log. The next session does not report it after the arrival of the player; once it has gone on 20 minutes
+    /// since then, the contract counts as no longer open. The lines are made up in the shape of the real ones.
+    #[test]
+    fn a_contract_that_vanished_after_a_lost_connection_does_not_stay_open() {
+        let first = format!(
+            "<2026-10-01T10:00:00.000Z> start OnClientSpawned\n{}<2026-10-01T10:04:25.000Z> [Notice] <Channel Process Disconnection> cause=30000 reason=\"CNetChannel::InactivityTimerCallback connection has timed out\"\n<2026-10-01T10:05:00.000Z> ende\n",
+            accept(1, "Verschwunden", "m1")
+        );
+        let after = |spawn: &str, last: &str| {
+            format!("<{spawn}:00.000Z> [CSessionManager::OnClientSpawned] Spawned!\n<{last}:00.000Z> ende\n")
+        };
+        let state = |second: String| state_of(&history(&[first.clone(), second])[0]).to_string();
+        // Spawned 11:00, last line 11:25: 25 minutes since the arrival, the contract was not reported.
+        assert_eq!(state(after("2026-10-02T11:00", "2026-10-02T11:25")), EXPIRED);
+        // Only 10 minutes since the arrival: too early to say.
+        assert_eq!(state(after("2026-10-02T11:00", "2026-10-02T11:10")), RUNNING);
+        // No arrival at all (a failed start): nothing proven, however long.
+        let no_spawn = "<2026-10-02T11:00:00.000Z> start\n<2026-10-02T11:40:00.000Z> ende\n".to_string();
+        assert_eq!(state(no_spawn), RUNNING);
+        // A contract that goes on is reported again after the arrival and stays open.
+        let named = "<2026-10-02T11:00:00.000Z> [CSessionManager::OnClientSpawned] Spawned!\n<2026-10-02T11:00:30.000Z> [Notice] <SHUDEvent_OnNotification> Added notification \"Auftrag angenommen: Verschwunden: \" [1] MissionId: [m1], ObjectiveId: []\n<2026-10-02T11:40:00.000Z> ende\n".to_string();
+        assert_eq!(state(named), RUNNING);
     }
 
     #[test]

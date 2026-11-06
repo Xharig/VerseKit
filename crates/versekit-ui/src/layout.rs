@@ -31,9 +31,28 @@ use crate::widgets;
 /// Gap between sections.
 pub const GAP: f32 = 8.0;
 
+/// How many columns of at least `min_width` fit in `width` (with [`GAP`] between them): one at least, `most` at most.
+/// For cards or rows of one kind that stand side by side in a wide window instead of stretching over it.
+pub fn columns_that_fit(width: f32, min_width: f32, most: usize) -> usize {
+    (((width + GAP) / (min_width + GAP)).floor() as usize).clamp(1, most.max(1))
+}
+
+/// The width of a column of setting rows: the names, the gap and the column of controls, with a little room.
+pub const ROW_CELL: f32 = crate::widgets::NAME_WIDTH + GAP + crate::settings::CONTROL_WIDTH + 2.0 * GAP;
+
 /// `count` sections side by side when each gets at least `min_width`,
 /// otherwise under each other.
-pub fn columns_or_stack(ui: &mut Ui, min_width: f32, count: usize, mut add: impl FnMut(&mut Ui, usize)) {
+pub fn columns_or_stack(ui: &mut Ui, min_width: f32, count: usize, add: impl FnMut(&mut Ui, usize)) {
+    split(ui, min_width, count, true, add);
+}
+
+/// Like [`columns_or_stack`], but every card stays as tall as its content: for columns with a different number of
+/// cards, where padding the last one would stretch a small card over an empty area.
+pub fn columns_or_stack_loose(ui: &mut Ui, min_width: f32, count: usize, add: impl FnMut(&mut Ui, usize)) {
+    split(ui, min_width, count, false, add);
+}
+
+fn split(ui: &mut Ui, min_width: f32, count: usize, equal: bool, mut add: impl FnMut(&mut Ui, usize)) {
     let gaps = count.saturating_sub(1) as f32 * GAP;
     let needed = count as f32 * min_width + gaps;
     if count > 1 && ui.available_width() >= needed {
@@ -44,12 +63,12 @@ pub fn columns_or_stack(ui: &mut Ui, min_width: f32, count: usize, mut add: impl
         // of its content without the padding of its last card) says by how much each pads its last card.
         let key = ui.auto_id_with("columns-height");
         let before: Vec<(usize, f32)> = ui.data(|d| d.get_temp(key)).unwrap_or_default();
-        let tallest = before.iter().map(|(_, height)| *height).fold(0.0, f32::max);
+        let tallest = if equal { before.iter().map(|(_, height)| *height).fold(0.0, f32::max) } else { 0.0 };
         let mut now = Vec::with_capacity(count);
         ui.horizontal_top(|ui| {
             ui.spacing_mut().item_spacing.x = GAP;
             for i in 0..count {
-                let (cards, own) = before.get(i).copied().unwrap_or((0, tallest));
+                let (cards, own) = if equal { before.get(i).copied().unwrap_or((0, tallest)) } else { (0, 0.0) };
                 ui.allocate_ui_with_layout(egui::vec2(width, 0.0), egui::Layout::top_down(egui::Align::Min), |ui| {
                     ui.set_width(width);
                     widgets::row_cards::enter(cards, (tallest - own).max(0.0));

@@ -71,6 +71,34 @@ struct MainWindow {
     hwnd: isize,
     /// The player closed the window and it went out of sight; the overlay that could bring it back is watched.
     hidden: bool,
+    /// Where the window is still to be put in the first frames.
+    placing: Option<Placing>,
+}
+
+/// The exact place of the window in the pixels of the whole desktop, set in the first frames: first the place alone
+/// (the window may change its scaling when it moves to another screen, and then takes another size), then the whole
+/// rectangle.
+struct Placing {
+    area: screen::Area,
+    frames: u8,
+}
+
+/// A window that is put at its place by pixels is not centered by the options: the middle of the main screen would
+/// overrule the place.
+fn keep_place(options: &mut eframe::NativeOptions, placed: bool) {
+    options.centered &= !placed;
+}
+
+/// The place the window opens at (x, y, width, height in desktop pixels), if it is placed by pixels: it has a frame of
+/// its own, is not maximized, and the screens can be asked. The screen is the one that holds the remembered place, so
+/// every screen counts with its own scaling; the whole window lies in its work area.
+fn planned_place(place: &versekit_ui::sample::WindowPlace, own: bool) -> Option<screen::Area> {
+    if !own || place.maximized {
+        return None;
+    }
+    let at = place.position.map(|(x, y)| (x as i32, y as i32));
+    let size = (place.size.0 as i32, place.size.1 as i32);
+    screen::plan_window(at, size, &|x, y| screen::monitor_area(x, y, true), screen::primary_area(true))
 }
 
 /// What the closing of the window (its button, Alt+F4) comes to.
@@ -159,6 +187,20 @@ impl eframe::App for MainWindow {
         versekit_ui::file_dialog::remember_parent(frame);
         if !std::mem::replace(&mut self.running, true) {
             trail::step(trail::BOUNDARY);
+        }
+        if let Some(placing) = &mut self.placing {
+            placing.frames += 1;
+            match placing.frames {
+                1 => {
+                    screen::place_window(self.hwnd, placing.area, false);
+                }
+                3 => {
+                    screen::place_window(self.hwnd, placing.area, true);
+                    self.placing = None;
+                }
+                _ => {}
+            }
+            ui.ctx().request_repaint();
         }
         self.title_bar.follow(ui.ctx(), theme::current());
         self.signals.apply(ui.ctx(), &mut self.page);
@@ -349,8 +391,15 @@ fn shown_title(copy: bool, host: &Host) -> String {
 
 /// The window as it opens before the remembered place is applied: title, the class every window of the program
 /// carries (the desktop entry on Linux is matched against it), first and least size.
+/// Whether the main window draws its own frame (the head bar as title bar, buttons of its own, edges to drag): not on
+/// the Mac, where the frame of the system stays.
+pub(crate) fn own_frame() -> bool {
+    !cfg!(target_os = "macos")
+}
+
 fn base_viewport(copy: bool, (width, height): (f32, f32)) -> egui::ViewportBuilder {
     egui::ViewportBuilder::default()
+        .with_decorations(!own_frame())
         .with_title(shown_title(copy, &versekit_core::paths::global().host))
         .with_app_id(versekit_core::paths::WM_CLASS)
         .with_inner_size([width.max(1280.0), height.max(820.0)])
@@ -399,6 +448,7 @@ pub fn run(args: &[String]) -> eframe::Result {
     page.use_report_target(wiring.report);
     // After a restored backup the program starts itself anew (see `restart`).
     page.offer_restart(true);
+    page.use_own_frame(own_frame());
     // The settings file may lie on a network share: written in a thread of its own.
     page.write_in_background();
     // The start of a program that is not set up: the assistant is the first thing the player sees. Nothing opens
@@ -422,6 +472,7 @@ pub fn run(args: &[String]) -> eframe::Result {
     page.open_first_backup_hint();
     let (width, height) = font_size::BASE_MIN_SIZE;
     let mut viewport = base_viewport(copy, (width, height));
+    let mut placing: Option<Placing> = None;
     // Where the window was: size and place in points of the system scaling, the place only when it still lies
     // on a screen.
     if let Some(place) = page.window_place() {
@@ -434,11 +485,17 @@ pub fn run(args: &[String]) -> eframe::Result {
         };
         let opening = versekit_ui::sample::fit_to_work_area(opening, work, screen::system_scale());
         viewport = viewport.with_inner_size(opening.size).with_maximized(opening.maximized);
-        if let Some(position) = opening.position {
+        placing = planned_place(&place, own_frame() && cfg!(windows)).map(|area| Placing { area, frames: 0 });
+        // Where the window is placed by pixels, no place in points comes along: one scale for all screens is exactly
+        // what that avoids.
+        if placing.is_none()
+            && let Some(position) = opening.position
+        {
             viewport = viewport.with_position(position);
         }
     }
-    let options = native_options(viewport);
+    let mut options = native_options(viewport);
+    keep_place(&mut options, placing.is_some());
     let language = page.start_language();
     trail::step("Hauptfenster wird gebaut");
     versekit_ui::renderer::run_native(
@@ -453,6 +510,8 @@ pub fn run(args: &[String]) -> eframe::Result {
             // The overlay finds this window as the main window.
             let signals = MainSignals::serve(cc, &cc.egui_ctx);
             let hwnd = versekit_ui::sample::system_handle(cc);
+            // Without a handle the window can not be placed by pixels.
+            let placing = placing.filter(|_| hwnd != 0);
             trail::step("Hauptfenster steht");
             Ok(Box::new(MainWindow {
                 page,
@@ -465,6 +524,7 @@ pub fn run(args: &[String]) -> eframe::Result {
                 ending: false,
                 hwnd,
                 hidden: false,
+                placing,
                 title_bar: versekit_ui::window_look::TitleBar::default(),
             }))
         }),
@@ -545,6 +605,64 @@ mod tests {
         }
         // The class of 4.12: the entries it wrote in the start menu find the window by it.
         assert_eq!(versekit_core::paths::WM_CLASS, "Versekit");
+    }
+
+    /// The main window has no frame of the system where it draws its own (the head bar is its title bar); the other
+    /// windows of the program keep theirs.
+    #[test]
+    fn only_the_main_window_has_no_frame_of_the_system() {
+        let main = base_viewport(false, (880.0, 380.0));
+        assert_eq!(main.decorations, Some(!own_frame()));
+        assert_eq!(own_frame(), !cfg!(target_os = "macos"));
+        for (name, viewport) in
+            [("learn", crate::learn_window::viewport()), ("first backup", crate::first_backup_window::viewport())]
+        {
+            assert_ne!(viewport.decorations, Some(false), "{name} keeps the frame of the system");
+        }
+    }
+
+    /// Three screens side by side: a small one upright at 100 % on the left that reaches far above the middle one,
+    /// the middle one and the main screen on the right, each of these at 150 %.
+    fn three_screens() -> screen::Setup {
+        screen::Setup {
+            scale: 1.5,
+            primary: 2,
+            monitors: vec![
+                screen::Monitor { area: (-3640, -520, 1080, 1920), work: (-3640, -520, 1080, 1880) },
+                screen::Monitor { area: (-2560, 0, 2560, 1440), work: (-2560, 0, 2560, 1400) },
+                screen::Monitor { area: (0, 0, 2560, 1440), work: (0, 0, 2560, 1400) },
+            ],
+        }
+    }
+
+    #[test]
+    fn the_window_opens_on_the_screen_of_its_place_in_the_pixels_of_the_desktop_with_its_top_edge_in_reach() {
+        use versekit_ui::sample::WindowPlace;
+        let _screens = screen::fixed(three_screens());
+        let place = |position: Option<(i64, i64)>| WindowPlace { size: (1920, 1230), position, maximized: false };
+        // On the middle screen: it stays there.
+        assert_eq!(planned_place(&place(Some((-2000, 100))), true), Some((-2000, 100, 1920, 1230)));
+        // Above the middle screen, where no screen is: on the middle screen, at the top of its work area.
+        assert_eq!(planned_place(&place(Some((-2000, -300))), true), Some((-2000, 0, 1920, 1230)));
+        // On the left screen, narrower than the window: it shrinks to it.
+        assert_eq!(planned_place(&place(Some((-3600, -500))), true), Some((-3640, -500, 1080, 1230)));
+        // No place stored: the middle of the main screen.
+        assert_eq!(planned_place(&place(None), true), Some((320, 85, 1920, 1230)));
+        // The frame of the system, or a maximized window, is not placed by pixels.
+        assert_eq!(planned_place(&place(Some((-2000, 100))), false), None);
+        let maximized = WindowPlace { maximized: true, ..place(Some((-2000, 100))) };
+        assert_eq!(planned_place(&maximized, true), None);
+    }
+
+    #[test]
+    fn a_window_placed_by_pixels_is_not_centered_over_its_place() {
+        let mut options = native_options(base_viewport(false, (880.0, 380.0)));
+        assert!(options.centered, "a window with no place is centered");
+        keep_place(&mut options, true);
+        assert!(!options.centered, "the centering would overrule the place");
+        let mut other = native_options(base_viewport(false, (880.0, 380.0)));
+        keep_place(&mut other, false);
+        assert!(other.centered);
     }
 
     #[test]

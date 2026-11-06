@@ -206,7 +206,8 @@ fn the_bar_of_the_graphics_page_stays_in_sight_when_the_page_is_scrolled_to_the_
     // A window high enough for the bar and not for the page.
     let (end, start) = super::docking::tests::draw_scrolled_to_end(&mut page, width, height);
     let button = language::t("s_gr_schreiben");
-    let last_row = language::t("s_gr_info");
+    // The page ends with the card of the shader cache (since 5.1.4).
+    let last_row = language::t("s_sc_knopf_h");
     assert!(shows(&start, &button) && shows(&start, &language::t("s_gr_lead")), "at the start: {start:?}");
     assert!(!shows(&start, &last_row), "the last row is below the window at the start: {start:?}");
     assert!(shows(&end, &last_row), "scrolled to the end the last row is in sight: {end:?}");
@@ -530,18 +531,15 @@ fn the_axes_page_holds_long_names_at_every_size_scheme_and_language() {
                             language::t("s_ac_zeigt").split("{0}").next().unwrap_or_default().to_string(),
                         ),
                         ("the choice of the function", language::t("s_ac_zeigt_mehrere")),
+                        // The ticks and the sets stand in menus behind these buttons (each tested on the page).
                         ("copying to other axes", language::t("s_ac_kopf_uebertragen")),
-                        ("all axes", language::t("s_ac_alle_achsen")),
-                        ("the button to copy", language::t("s_ac_uebertragen")),
+                        ("the menu of the device", language::t("s_ac_menue_geraet")),
+                        ("the menu of the sets", language::t("s_ac_menue_satz")),
                         ("the axis", "slider1".to_string()),
                         ("the old entries", language::t("s_ac_befund")),
                         ("the clearing", language::t("s_ac_aufraeumen")),
                         ("the carrying over", language::t("s_ac_uebernehmen")),
-                        ("the sets", language::t("s_gs_titel")),
-                        ("the name of a set", set.clone()),
-                        ("applying a set", language::t("s_gs_anwenden")),
-                        ("deleting a set", language::t("s_gs_loeschen")),
-                        ("saving a set", language::t("s_gs_speichern")),
+                        ("writing", language::t("s_ac_speichern")),
                     ] {
                         // A button of the scheme KRT is in capitals.
                         let drawn = shows(&texts, &text) || shows(&texts, &text.to_uppercase());
@@ -596,7 +594,7 @@ fn the_pages_of_the_game_settings_hold_long_texts_at_every_size_scheme_and_langu
             let (width, height) = font_size::min_window(points);
             for english in [false, true] {
                 language::set_language(if english { language::Choice::En } else { language::Choice::De });
-                for key in ["hf_shader", "hf_startprogramme", "hf_module", "hf_erkennung", "hf_grafik"] {
+                for key in ["hf_startprogramme", "hf_module", "hf_erkennung", "hf_grafik"] {
                     page.go_to(key);
                     let (overflow, texts) = draw(&mut page, width, height);
                     if overflow > 0.5 {
@@ -607,7 +605,6 @@ fn the_pages_of_the_game_settings_hold_long_texts_at_every_size_scheme_and_langu
                     }
                     // The page is drawn (not the placeholder of a page that is not built): its own first line.
                     let lead = match key {
-                        "hf_shader" => "s_sc_lead",
                         "hf_startprogramme" => "s_pg_lead",
                         "hf_erkennung" => "s_er_lead",
                         "hf_grafik" => "s_gr_lead",
@@ -622,6 +619,35 @@ fn the_pages_of_the_game_settings_hold_long_texts_at_every_size_scheme_and_langu
     language::set_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
+}
+
+/// The shader cache is the last card of the graphics page since 5.1.4: the old page (a stored name, a pinned card, a
+/// link) opens Grafik with the card framed, the menu filter finds the card, and the side bar has no row of its own.
+#[test]
+fn the_old_shader_page_and_the_filter_lead_to_the_card_on_the_graphics_page() {
+    let _language = crate::language_lock();
+    let (mut page, dir) = real_page("shader-karte", "", &[]);
+    let needed = [language::t("s_sc_titel"), language::t("s_sc_knopf")];
+    page.go_to("hf_shader");
+    assert!(wait_until_drawn(&mut page, 1280.0, 4000.0, &needed), "the card stands on the page");
+    assert_eq!(page.page_key(), "hf_grafik");
+    assert_eq!(page.highlight.as_ref().map(|(text, _)| text.clone()), Some(language::t("s_sc_titel")), "framed");
+    // Counter-check: Grafik opened on its own frames nothing, and still has the card.
+    page.highlight = None;
+    page.go_to("hf_allgemein");
+    draw(&mut page, 1280.0, 4000.0);
+    page.go_to("hf_grafik");
+    assert!(wait_until_drawn(&mut page, 1280.0, 4000.0, &needed));
+    assert!(page.highlight.is_none());
+    assert!(!super::NAV.iter().flat_map(|(_, pages)| pages.iter()).any(|(key, _)| *key == "hf_shader"));
+    // The menu filter finds the card by its name, by a button and by the old name of the page.
+    let hit = format!("{} › {}", language::t("hf_grafik"), language::t("s_sc_titel"));
+    for word in [language::t("s_sc_titel"), language::t("s_sc_knopf"), "Shader".to_string()] {
+        let hits = super::nav_hits_in(&word, "hf_gruppe_spiel", "hf_grafik", false);
+        assert!(hits.contains(&hit), "{word}: {hits:?}");
+    }
+    assert!(super::nav_hits_in("zzz", "hf_gruppe_spiel", "hf_grafik", false).is_empty());
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 /// The block Signatur-Fenster of the page Overlay with its two models in a card each: at every size, scheme and
@@ -642,7 +668,8 @@ fn the_two_models_of_the_signature_window_hold_at_every_size_scheme_and_language
                     page.go_to("hf_overlay");
                     let (overflow, texts) = draw(&mut page, width, min_height);
                     if overflow > 0.5 {
-                        findings.push(format!("{} Größe {points} englisch {english}: {overflow:.0} zu breit", scheme.id));
+                        findings
+                            .push(format!("{} Größe {points} englisch {english}: {overflow:.0} zu breit", scheme.id));
                     }
                     // Labels below the fold are not painted; the models paint their caption wherever they stand.
                     let captions = texts.iter().filter(|text| text.0 == language::t("s_sg_modell_spiel")).count();
@@ -959,7 +986,9 @@ fn real_data_read_and_write_the_settings_of_allgemein_like_4_12() {
     // What cannot work yet says so; a switch that does nothing is not there.
     // Graphics card, second sound, volume and clock (the use count has no row any more; the start with the
     // system is a switch that writes its entry); on Linux MangoHud is a switch.
-    let texts = look(&mut page, "hf_allgemein");
+    // A window tall enough for the whole page: rows below the window are not drawn.
+    page.go_to("hf_allgemein");
+    let texts = draw(&mut page, 1280.0, 1600.0).1;
     assert_eq!(not_yet_count(&texts), 4, "{texts:?}");
     let reason = shows(&texts, "nur unter Linux");
     assert_eq!(reason, !cfg!(target_os = "linux"), "MangoHud: the reason where the system cannot");
@@ -1061,8 +1090,10 @@ fn real_data_show_the_game_folder_that_is_there_and_say_when_it_is_not() {
     assert!(shows(&texts, &language::t("s_sc_da")), "found: it says so");
     assert!(texts.iter().any(|(text, _)| same(text, &live_text)), "the real path stands in the box");
     assert!(!shows(&texts, "Program Files"), "no made-up path");
-    let count = |key: &str| texts.iter().filter(|(text, _)| text == &language::t(key)).count();
-    assert_eq!((count("s_pf_kanal_da"), count("s_pf_kanal_weg")), (2, 1), "LIVE and PTU there, TECH-PREVIEW not");
+    // Whether a channel is there stands on hover over its row now; the field of a channel found holds its folder.
+    let ptu = dir.join("StarCitizen").join("PTU").to_string_lossy().into_owned();
+    assert!(texts.iter().any(|(text, _)| same(text, &ptu)), "PTU found next to LIVE: {texts:?}");
+    assert!(!shows(&texts, &language::t("s_pf_kanal_da")), "the state stands on hover, not as a line");
     let _ = std::fs::remove_dir_all(home);
 
     // What is not found depends on the computer: a folder without a Game.log, or nothing set, makes
@@ -1104,7 +1135,8 @@ fn real_data_show_the_game_folder_that_is_there_and_say_when_it_is_not() {
     let mut sample = SamplePage { preview: true, ..SamplePage::new() };
     let texts = look(&mut sample, "hf_ordner");
     assert!(shows(&texts, "Spielordner gefunden") && shows(&texts, "Program Files"));
-    assert!(shows(&texts, "Nicht installiert"));
+    // Every channel has its row; that one is not installed stands on hover over it.
+    assert!(shows(&texts, "HOTFIX") && shows(&texts, "EPTU") && !shows(&texts, "Nicht installiert"));
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -1229,4 +1261,31 @@ fn the_sync_button_and_its_line_fit_in_the_head_of_the_three_pages() {
     language::set_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "Kopf mit Abgleich:\n{}", findings.join("\n"));
+}
+
+/// The pages that show the placeholder of the sample page ("Hier steht die Seite.") instead of themselves.
+fn placeholder_pages(page: &mut SamplePage) -> Vec<&'static str> {
+    let placeholder = language::t("s_mu_seite");
+    let mut found = Vec::new();
+    for key in SamplePage::page_keys() {
+        page.go_to(key);
+        if draw(page, 1280.0, 820.0).1.iter().any(|(text, _)| *text == placeholder) {
+            found.push(key);
+        }
+    }
+    found
+}
+
+/// On real data every page draws itself: none shows the placeholder of the sample page, so a picture of a page
+/// on real data is a picture of that page.
+#[test]
+fn on_real_data_no_page_shows_the_placeholder_of_the_sample() {
+    let _language = crate::language_lock();
+    language::set_language(language::Choice::De);
+    let (mut page, dir) = real_page("kein-platzhalter", "", &[]);
+    assert_eq!(placeholder_pages(&mut page), Vec::<&str>::new(), "pages on real data with the placeholder");
+    let _ = std::fs::remove_dir_all(dir);
+    // Counter-check: the sample page shows it for the pages only real data draw, Erkennung among them.
+    let mut sample = SamplePage::preview();
+    assert!(placeholder_pages(&mut sample).contains(&"hf_erkennung"), "the check sees the placeholder");
 }

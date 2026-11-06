@@ -57,6 +57,7 @@ fn cases(input: &Json, home: &Path, gegenprobe: bool) -> Result<Done, String> {
     for case in input["payload"].as_array().ok_or("payload fehlt")? {
         let paths = paths_in(home, case["settings"].as_str().ok_or("settings fehlt")?)?;
         let mut facts = usage::facts(&paths, case["ui"].as_str().unwrap_or_default());
+        facts.age = None;
         facts.game = usage::game_code(case["game"].as_str());
         facts.autostart = case["autostart"].as_bool().unwrap_or(false);
         facts.os = if case["os"] == "linux" { "linux" } else { "windows" };

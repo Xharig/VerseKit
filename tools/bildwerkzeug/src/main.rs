@@ -528,6 +528,59 @@ fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>,
     }
 }
 
+/// The pictures for checking the work of 5.1.4 by eye, without a window on any screen and at the full pixel size
+/// (`pruefbild-<name>.png`): the own title bar at rest and with the pointer on the maximize button, the page General
+/// with the group Privacy, the notes page and the stock page.
+fn review_pictures(dir: &str) {
+    let window = vec2(1226.0, 548.0);
+    // The title bar of its own.
+    let mut page = SamplePage::preview_still();
+    page.use_own_frame(true);
+    let mut s = Shots { dir: dir.to_string(), harness: harness(page, window) };
+    s.steps(10);
+    let bar = Rect::from_min_size(pos2(0.0, 0.0), vec2(window.x, 64.0));
+    s.snap("pruefbild-titelleiste", Some(bar));
+    let big = s.first_named(&versekit_core::language::t("s_fk_gross"));
+    s.hover(big.center());
+    let image = s.harness.render().expect("render");
+    image::imageops::crop_imm(&image, 0, 0, (window.x * SCALE) as u32, (64.0 * SCALE) as u32)
+        .to_image()
+        .save(format!("{dir}/pruefbild-titelleiste-maximieren.png"))
+        .expect("Bild speichern");
+    println!("gespeichert: pruefbild-titelleiste-maximieren");
+    // Pages that are shown tall enough to see all of them.
+    for (name, key) in
+        [("allgemein", "hf_allgemein"), ("notizen", "hf_notizen"), ("meinlager", "hf_meinlager")]
+    {
+        let mut page = SamplePage::preview_still();
+        let mut opened = false;
+        let mut installed = false;
+        let harness = Harness::builder()
+            .with_size(vec2(1300.0, 1500.0))
+            .with_pixels_per_point(SCALE)
+            .with_max_steps(50)
+            .with_accessibility_check(false)
+            .wgpu()
+            .build_ui(move |ui| {
+                if !installed {
+                    versekit_ui::install(ui.ctx());
+                    installed = true;
+                    ui.ctx().request_repaint();
+                    return;
+                }
+                if !opened {
+                    let group = versekit_ui::sample::group_of_page(key).unwrap_or("");
+                    page.open_page(ui.ctx(), key, group);
+                    opened = true;
+                }
+                page.show(ui);
+            });
+        let mut s = Shots { dir: dir.to_string(), harness };
+        s.steps(14);
+        s.snap(&format!("pruefbild-{name}"), None);
+    }
+}
+
 /// The pictures of the pages that read the game folder and the data folder, on a made-up installation
 /// (`install.rs`): the window model on real data, with nothing of the computer touched. Named as the website takes
 /// them, like [`website_pictures`].
@@ -612,7 +665,7 @@ fn overlay_picture(dir: &str, english: bool) {
     use versekit_core::blueprints::kind_readable;
     use versekit_core::language::{Arg, Phrase, t, tf};
     use versekit_core::live_contracts::Line as ContractLine;
-    use versekit_core::overlay::{BarSide, DEFAULT_WIDTH, Message, Mode, Row, Rows, Shown};
+    use versekit_core::overlay::{BarSide, DEFAULT_WIDTH, Message, Row, Rows, Shown};
     use versekit_ui::overlay::{self, Action, Extra, Tone, View};
     // Ground around the window, in points: the corner marks of the window stand on it.
     const MARGIN: f32 = 12.0;
@@ -704,8 +757,6 @@ fn overlay_picture(dir: &str, english: bool) {
                 signature: None,
                 demand: None,
                 update: None,
-                peek: None,
-                mode: Mode::Always,
                 game: true,
                 locked: false,
                 bar: BarSide::Top,
@@ -786,6 +837,11 @@ fn main() {
 
     if what == "echt" {
         real_pictures(&dir, english, arg(4).as_deref(), market.as_deref());
+        return;
+    }
+
+    if what == "pruefung" {
+        review_pictures(&dir);
         return;
     }
 

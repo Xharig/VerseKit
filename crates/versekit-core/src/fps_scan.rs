@@ -193,6 +193,15 @@ static OWN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)(?:^|[^a-z])fps\s*:?\s*([0-9OoIl]{1,4}(?:[.,][0-9OoIl]{1,2})?)").expect("pattern")
 });
 
+/// The most frames per second a server is taken to run at; a bigger number is something else.
+const SERVER_FPS_MAX: f64 = 120.0;
+
+/// Whether the line is the one that names the server (`Server: ptu-use1b-sc-alpha-500-…, pop. [shard …]`), not the
+/// one with its frame rate. `lower` is the line in lower case.
+fn names_server(lower: &str) -> bool {
+    lower.contains("pop.") || lower.contains("alpha-")
+}
+
 /// A number the recognition read, with the letters it mistakes for digits put right; `None` without a real digit.
 fn number(text: &str) -> Option<f64> {
     if !text.chars().any(|c| c.is_ascii_digit()) {
@@ -234,8 +243,13 @@ pub fn parse(lines: &[String]) -> Option<Reading> {
     for line in lines {
         let lower = line.to_lowercase();
         if lower.contains("server") {
-            if server.is_none() {
-                server = SERVER.captures(line).and_then(|c| number(&c[1])).filter(|v| *v > 0.0 && *v < 1000.0);
+            // The line with the name of the server and the players has no rate: its numbers are the build of the
+            // server and the shards.
+            if server.is_none() && !names_server(&lower) {
+                server = SERVER
+                    .captures(line)
+                    .and_then(|c| number(&c[1]))
+                    .filter(|v| *v > 0.0 && *v <= SERVER_FPS_MAX);
             }
         } else if fps.is_none() {
             fps = OWN.captures(line).and_then(|c| number(&c[1])).filter(|v| *v >= 1.0 && *v < 1000.0);

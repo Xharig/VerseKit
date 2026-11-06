@@ -512,7 +512,7 @@ fn the_english_check_reads_a_drawn_page() {
 /// few that read the same in both languages: a bare German text would be shown in English as it is.
 #[test]
 fn the_settings_table_holds_only_keys() {
-    let reads_the_same = ["English", "Deutsch", "LIVE", "PTU", "TECH-PREVIEW", "Alt", "s", "UHD 125 %", "UHD 150 %"];
+    let reads_the_same = ["English", "Deutsch", "LIVE", "HOTFIX", "PTU", "EPTU", "TECH-PREVIEW", "Alt", "s", "UHD 125 %", "UHD 150 %"];
     let mut bare = Vec::new();
     for (page, groups) in super::PAGE_SETTINGS {
         for (title, rows) in groups {

@@ -88,6 +88,27 @@ fn the_frame_rates_are_read_from_the_lines_of_the_block() {
     assert_eq!(parse(&lines_of(&["nothing here"])), None);
 }
 
+#[test]
+fn the_line_that_names_the_server_never_gives_its_frame_rate() {
+    let rate = "Server FPS 16.4 [11.8..18.0] - 60.9ms [50.8..65.2], Hitches: 0";
+    let name = "Server: ptu-use1b-sc-alpha-500-13119881-13121230-game-46, restarts 0, pop. [shard 432, srv 78]";
+    let own = "FPS 17.2 [10..21] - 58.1ms";
+    // Both lines: the rate is the one of its line, the players come from the other.
+    let both = parse(&lines_of(&[own, rate, name])).expect("a reading");
+    assert_eq!((both.fps, both.server), (17.2, Some(16.4)));
+    assert_eq!(both.players, Some(Players { shard: 432, server: Some(78) }));
+    // The line of the rate missed by the recognition, the name read as a rate (`Server 500`): no rate.
+    for misread in ["Server 500 alpha-500 pop. [shard 432, srv 78]", "Server: alpha-500, restarts 0", "Server 500,0 pop."] {
+        let reading = parse(&lines_of(&[own, misread])).expect("a reading");
+        assert_eq!(reading.server, None, "{misread:?}");
+    }
+    // A rate no server reaches does not count; a line with `Server` and no `FPS` still does.
+    assert_eq!(parse(&lines_of(&[own, "Server FPS 500,0"])).expect("a reading").server, None);
+    assert_eq!(parse(&lines_of(&[own, "Server FPS 120"])).expect("a reading").server, Some(120.0));
+    assert_eq!(parse(&lines_of(&[own, "Server 17.4"])).expect("a reading").server, Some(17.4));
+    assert_eq!(parse(&lines_of(&[own, "Server: 17.4 [10..20]"])).expect("a reading").server, Some(17.4));
+}
+
 /// The players stand at the end of the line `Server: …` of level 3 (the lines of a picture of 1 November 2026);
 /// the part read starts left of the yellow lines, so the line comes cut at its start.
 #[test]

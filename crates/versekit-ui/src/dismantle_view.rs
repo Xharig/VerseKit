@@ -69,16 +69,20 @@ pub fn rules(ui: &mut Ui, scheme: &Scheme, values: &GameValues) {
     ui.add(egui::Label::new(sub(scheme, rule)).wrap());
 }
 
-/// The calculation for a part: the rules, then the raw materials with what is inside and what comes back,
-/// and the line that sums it up. While the game values are not there, what stands in their place.
+/// The calculation for a part in a card under its name: the rules, then the raw materials with what is inside
+/// and what comes back, and the line that sums it up. While the game values are not there, what stands in their
+/// place.
 pub fn show(ui: &mut Ui, scheme: &Scheme, crafting: &mut CraftingState, chosen: &str) {
-    if crafting.values_or_wait(ui, scheme).is_none() {
-        return;
-    }
-    let Some((values, book, _)) = crafting.parts() else { return };
-    rules(ui, scheme, values);
-    ui.add_space(8.0);
-    result(ui, scheme, values, book, chosen);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, chosen);
+        if crafting.values_or_wait(ui, scheme).is_none() {
+            return;
+        }
+        let Some((values, book, _)) = crafting.parts() else { return };
+        rules(ui, scheme, values);
+        ui.add_space(8.0);
+        result(ui, scheme, values, book, chosen);
+    });
 }
 
 fn result(ui: &mut Ui, scheme: &Scheme, values: &GameValues, book: &CraftBook, chosen: &str) {
@@ -98,7 +102,6 @@ fn result(ui: &mut Ui, scheme: &Scheme, values: &GameValues, book: &CraftBook, c
         );
         return;
     }
-    ui.label(widgets::bold(ui, chosen.to_string(), egui::TextStyle::Body));
     ui.label(sub(scheme, tf("s_zl_dauer", &[("dauer", Arg::from(seconds))])));
     ui.add_space(4.0);
     widgets::list_frame(ui, scheme, |list| {
