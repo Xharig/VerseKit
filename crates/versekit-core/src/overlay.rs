@@ -61,7 +61,7 @@ pub const DEFAULT_HOTKEY: &str = "Alt+Umschalt+V";
 /// The hotkey that reads the refinery terminal, without a setting (R for refinery), in the same way.
 pub const DEFAULT_SCAN_HOTKEY: &str = "Alt+Umschalt+R";
 /// The hotkey that puts the cursor into the handle search of the info bar, without a setting (H for handle). It is
-/// off until switched on ([`keys::HOTKEY_SEARCH_ON`]).
+/// on until switched off ([`keys::HOTKEY_SEARCH_ON`]).
 pub const DEFAULT_SEARCH_HOTKEY: &str = "Alt+Umschalt+H";
 /// The info bar stands over the running game while its setting is missing; a stored setting wins.
 pub const INFO_BAR_DEFAULT: bool = true;
@@ -83,8 +83,12 @@ pub mod keys {
     /// The hotkey of the refinery scan is registered (only a literal `false` switches it off).
     pub const HOTKEY_SCAN_ON: &str = "hotkey_scan_an";
     pub const HOTKEY_SCAN: &str = "hotkey_scan";
-    /// The hotkey of the handle search in the info bar is registered (only a literal `true` switches it on).
-    pub const HOTKEY_SEARCH_ON: &str = "hotkey_suche_an";
+    /// The hotkey of the handle search in the info bar is registered (only a literal `false` switches it off).
+    /// [`HOTKEY_SEARCH_ON_OLD`] is not read: it held `false` wherever the settings were saved while off was the
+    /// default.
+    pub const HOTKEY_SEARCH_ON: &str = "hotkey_suche_ein";
+    /// The earlier switch of the hotkey of the handle search, left unread.
+    pub const HOTKEY_SEARCH_ON_OLD: &str = "hotkey_suche_an";
     pub const HOTKEY_SEARCH: &str = "hotkey_suche";
     pub const CORNER: &str = "overlay_ecke";
     pub const BAR: &str = "overlay_leiste";
@@ -685,23 +689,66 @@ impl ScanHits {
     }
 }
 
-/// A hotkey: modifier keys and one key, as 4.12 accepts it.
+/// A hotkey: modifier keys and one key, as 4.12 accepts it, or one key of [`Hotkey::stands_alone`] by itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Hotkey {
     pub ctrl: bool,
     pub alt: bool,
     pub shift: bool,
-    /// The Windows key code: `A`–`Z`, `0`–`9`, `F1` = 0x70 … `F24` = 0x87.
+    /// The Windows key code: `A`–`Z`, `0`–`9`, `F1` = 0x70 … `F24` = 0x87, or one of [`NAMED_KEYS`].
     pub key: u16,
 }
 
 /// The highest function key a hotkey can use.
 pub const LAST_F_KEY: u16 = 24;
 
+/// The keys with a name of their own: (the name the settings store, the Windows key code, other names read too,
+/// lower case and without spaces). None of them is typed in a chat or a text field, so each can stand without a
+/// modifier ([`Hotkey::stands_alone`]). The keys of the number block keep their code with Num Lock on or off; `+`
+/// and `-` part a combination, so those two are written as words.
+pub const NAMED_KEYS: [(&str, u16, &[&str]); 7] = [
+    ("Pause", 0x13, &[]),
+    ("Rollen", 0x91, &["scrolllock", "scroll", "rollen"]),
+    ("Einfg", 0x2d, &["insert", "ins", "einfügen"]),
+    ("NumGeteilt", 0x6f, &["numdivide", "num/"]),
+    ("NumMal", 0x6a, &["nummultiply", "num*"]),
+    ("NumMinus", 0x6d, &["numsubtract"]),
+    ("NumPlus", 0x6b, &["numadd"]),
+];
+
+/// The Windows key code of a key as the settings write it (`B`, `7`, `F13`, `Einfg`); case and spaces do not
+/// matter. `None` for a key a hotkey cannot use.
+pub fn key_code(name: &str) -> Option<u16> {
+    let upper = name.to_uppercase();
+    match upper.as_bytes() {
+        [c] if c.is_ascii_alphanumeric() => return Some(u16::from(*c)),
+        [b'F', rest @ ..] if !rest.is_empty() && rest.iter().all(u8::is_ascii_digit) => {
+            return match std::str::from_utf8(rest).ok()?.parse::<u16>().ok()? {
+                n @ 1..=LAST_F_KEY => Some(0x70 + n - 1),
+                _ => None,
+            };
+        }
+        _ => {}
+    }
+    let word: String = name.chars().filter(|c| !c.is_whitespace()).collect::<String>().to_lowercase();
+    NAMED_KEYS
+        .iter()
+        .find(|(stored, _, other)| stored.to_lowercase() == word || other.contains(&word.as_str()))
+        .map(|(_, code, _)| *code)
+}
+
 impl Hotkey {
+    /// Whether `key` makes a hotkey by itself, without Strg, Alt or Umschalt: F1–F24 and the [`NAMED_KEYS`]
+    /// (Pause, Rollen, Einfg, the arithmetic keys of the number block). A letter or a digit by itself is not taken:
+    /// the system-wide hotkey would catch every time it is typed in the game, in the chat as anywhere.
+    pub fn stands_alone(key: u16) -> bool {
+        (0x70..=0x87).contains(&key) || NAMED_KEYS.iter().any(|(_, code, _)| *code == key)
+    }
+
     /// `Strg+Alt+B`; case, spaces and `-` instead of `+` do not matter. At
-    /// least one modifier and exactly one key, a letter, a digit or F1–F24
-    /// (4.12 `hotkey.parse`, which took F1–F12). Letters beyond A–Z are not taken.
+    /// least one modifier and exactly one key, a letter, a digit, F1–F24 or one of [`NAMED_KEYS`]
+    /// (4.12 `hotkey.parse`, which took F1–F12); without a modifier only a key of [`Hotkey::stands_alone`],
+    /// such as `F13`. Letters beyond A–Z are not taken.
     pub fn parse(text: &str) -> Option<Hotkey> {
         let mut hotkey = Hotkey { ctrl: false, alt: false, shift: false, key: 0 };
         let mut key = None;
@@ -715,19 +762,11 @@ impl Hotkey {
                 "alt" => hotkey.alt = true,
                 "umschalt" | "shift" => hotkey.shift = true,
                 _ if key.is_some() => return None,
-                _ => key = Some(part.to_uppercase()),
+                _ => key = Some(part.to_string()),
             }
         }
-        let key = key?;
-        hotkey.key = match key.as_bytes() {
-            [c] if c.is_ascii_alphanumeric() => u16::from(*c),
-            [b'F', rest @ ..] => match std::str::from_utf8(rest).ok()?.parse::<u16>().ok()? {
-                n @ 1..=LAST_F_KEY if rest.iter().all(u8::is_ascii_digit) => 0x70 + n - 1,
-                _ => return None,
-            },
-            _ => return None,
-        };
-        (hotkey.ctrl || hotkey.alt || hotkey.shift).then_some(hotkey)
+        hotkey.key = key_code(&key?)?;
+        (hotkey.ctrl || hotkey.alt || hotkey.shift || Hotkey::stands_alone(hotkey.key)).then_some(hotkey)
     }
 
     /// The hotkey as the settings store it (`Strg+Alt+B`).
@@ -740,7 +779,10 @@ impl Hotkey {
         }
         parts.push(match self.key {
             0x70..=0x87 => format!("F{}", self.key - 0x70 + 1),
-            key => char::from_u32(u32::from(key)).map_or_else(String::new, String::from),
+            key => match NAMED_KEYS.iter().find(|(_, code, _)| *code == key) {
+                Some((name, _, _)) => (*name).to_string(),
+                None => char::from_u32(u32::from(key)).map_or_else(String::new, String::from),
+            },
         });
         parts.join("+")
     }
@@ -756,8 +798,8 @@ fn literal_false(paths: &Paths, key: &str) -> bool {
 pub enum HotkeyChoice {
     /// `hotkey_an` is a literal `false`.
     Off,
-    /// The setting holds a combination 4.12 would not take (no modifier, two keys, a key it does not know): the
-    /// text as it stands.
+    /// The setting holds a combination [`Hotkey::parse`] does not take (a letter or a digit without a modifier,
+    /// two keys, a key it does not know): the text as it stands.
     Wrong(String),
     Combination(Hotkey),
 }
@@ -804,9 +846,9 @@ pub fn scan_hotkey_on(paths: &Paths) -> bool {
     !literal_false(paths, keys::HOTKEY_SCAN_ON)
 }
 
-/// Whether the hotkey of the handle search is to be registered: on only by a literal `true` (`hotkey_suche_an`).
+/// Whether the hotkey of the handle search is to be registered: off only by a literal `false` (`hotkey_suche_ein`).
 pub fn search_hotkey_on(paths: &Paths) -> bool {
-    paths.settings().iter().any(|(k, v)| k == keys::HOTKEY_SEARCH_ON && *v == Value::Bool(true))
+    !literal_false(paths, keys::HOTKEY_SEARCH_ON)
 }
 
 /// One line of the start trail about a hotkey: its name and what came of its registration.
@@ -1621,9 +1663,56 @@ mod tests {
         assert_eq!((b.ctrl, b.alt, b.shift, b.key), (true, true, false, u16::from(b'B')));
         assert_eq!(Hotkey::parse("ctrl - shift - f12").unwrap().key, 0x7b);
         assert_eq!(Hotkey::parse("Alt+7").unwrap().key, u16::from(b'7'));
-        for wrong in ["", "B", "F13", "Strg+Alt", "Strg+A+B", "Strg+F25", "Strg+F0", "Strg+Ä", "Strg+Tab", "Strg+F1x"]
-        {
+        for wrong in ["", "B", "7", "Strg+Alt", "Strg+A+B", "Strg+F25", "Strg+F0", "Strg+Ä", "Strg+Tab", "Strg+F1x"] {
             assert_eq!(Hotkey::parse(wrong), None, "{wrong}");
+        }
+    }
+
+    /// One key by itself, as Kuehlwagen asked for (F13 for the handle search): F1–F24, Pause, Rollen, Einfg and the
+    /// arithmetic keys of the number block. A letter or a digit by itself would catch what is typed in the game, and
+    /// keys the parser does not know (Space, Enter, Esc, Tab, the arrows) stay out with a modifier as without.
+    #[test]
+    fn a_key_that_is_never_typed_is_a_hotkey_by_itself() {
+        let f13 = Hotkey::parse("F13").expect("F13 by itself");
+        assert_eq!(f13, Hotkey { ctrl: false, alt: false, shift: false, key: 0x7c });
+        assert_eq!(f13.text(), "F13", "written as read");
+        for (text, code) in [
+            ("F1", 0x70),
+            ("f24", 0x87),
+            ("Pause", 0x13),
+            ("Rollen", 0x91),
+            ("Scroll Lock", 0x91),
+            ("Einfg", 0x2d),
+            ("Insert", 0x2d),
+            ("NumGeteilt", 0x6f),
+            ("Num/", 0x6f),
+            ("NumMal", 0x6a),
+            ("NumMinus", 0x6d),
+            ("numplus", 0x6b),
+        ] {
+            let hotkey = Hotkey::parse(text).unwrap_or_else(|| panic!("{text}"));
+            assert_eq!((hotkey.ctrl, hotkey.alt, hotkey.shift, hotkey.key), (false, false, false, code), "{text}");
+            assert!(Hotkey::stands_alone(code), "{text}");
+        }
+        // The named keys are written by their names, with a modifier as without, and read back the same.
+        for (name, code, _) in NAMED_KEYS {
+            for text in [name.to_string(), format!("Strg+Umschalt+{name}")] {
+                let hotkey = Hotkey::parse(&text).unwrap_or_else(|| panic!("{text}"));
+                assert_eq!((hotkey.key, hotkey.text()), (code, text.clone()), "{text}");
+            }
+        }
+        // Letters and digits only with a modifier.
+        for text in ["A", "a", "Z", "0", "9", " q "] {
+            assert_eq!(Hotkey::parse(text), None, "{text}");
+            assert!(Hotkey::parse(&format!("Alt+{text}")).is_some(), "Alt+{text}");
+        }
+        for code in (u16::from(b'A')..=u16::from(b'Z')).chain(u16::from(b'0')..=u16::from(b'9')) {
+            assert!(!Hotkey::stands_alone(code), "{code:#x}");
+        }
+        // Keys of typing are no hotkey at all.
+        for text in ["Space", "Leertaste", "Enter", "Esc", "Tab", "Links", "Left", "Up", "Entf", "Num", "Num+", "Num-"] {
+            assert_eq!(Hotkey::parse(text), None, "{text}");
+            assert_eq!(Hotkey::parse(&format!("Strg+{text}")), None, "Strg+{text}");
         }
     }
 
@@ -1892,16 +1981,20 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// The hotkey of the handle search is off until a literal `true` switches it on; then it is the default or the
-    /// one saved, and the start trail says what came of it.
+    /// The hotkey of the handle search is on until a literal `false` switches it off, the earlier switch is not
+    /// read; on, it is the default or the one saved, and the start trail says what came of it.
     #[test]
-    fn the_hotkey_of_the_handle_search_is_off_until_switched_on() {
+    fn the_hotkey_of_the_handle_search_is_on_until_switched_off() {
         let (paths, dir) = events_paths("suchtaste");
+        assert!(search_hotkey_on(&paths), "on without a setting");
+        paths.set_setting(keys::HOTKEY_SEARCH_ON_OLD, Value::Bool(false));
+        assert!(search_hotkey_on(&paths), "the earlier switch does not turn it off");
+        paths.set_setting(keys::HOTKEY_SEARCH_ON, Value::Bool(false));
         assert!(!search_hotkey_on(&paths));
         assert_eq!(HotkeyChoice::read_search(&paths), HotkeyChoice::Off);
         assert_eq!(Settings::read(&paths).search_hotkey, None);
         assert_eq!(search_hotkey_trail(&HotkeyChoice::read_search(&paths), Ok(())), "Such-Hotkey: ausgeschaltet");
-        for (value, on) in [(Value::str("true"), false), (Value::int(1), false), (Value::Bool(true), true)] {
+        for (value, on) in [(Value::str("false"), true), (Value::int(0), true), (Value::Bool(true), true)] {
             paths.set_setting(keys::HOTKEY_SEARCH_ON, value.clone());
             assert_eq!(search_hotkey_on(&paths), on, "{value:?}");
         }
@@ -1912,6 +2005,12 @@ mod tests {
         assert_eq!(trail, "Such-Hotkey: Alt+Umschalt+H angemeldet (ok)");
         paths.set_setting(keys::HOTKEY_SEARCH, Value::str("Strg+F13"));
         assert_eq!(Settings::read(&paths).search_hotkey.map(Hotkey::text).as_deref(), Some("Strg+F13"));
+        // F13 by itself (Kuehlwagen): taken, registered and said in the trail.
+        paths.set_setting(keys::HOTKEY_SEARCH, Value::str("F13"));
+        let f13 = HotkeyChoice::read_search(&paths);
+        assert_eq!(f13, HotkeyChoice::Combination(Hotkey { ctrl: false, alt: false, shift: false, key: 0x7c }));
+        assert_eq!(Settings::read(&paths).search_hotkey.map(Hotkey::text).as_deref(), Some("F13"));
+        assert_eq!(search_hotkey_trail(&f13, Ok(())), "Such-Hotkey: F13 angemeldet (ok)");
         paths.set_setting(keys::HOTKEY_SEARCH, Value::str("H"));
         assert_eq!(HotkeyChoice::read_search(&paths), HotkeyChoice::Wrong("H".into()));
         assert_eq!(Settings::read(&paths).search_hotkey, None);
@@ -1920,7 +2019,7 @@ mod tests {
 
     #[test]
     fn a_hotkey_is_written_back_as_it_is_read() {
-        for text in ["Strg+Alt+B", "Alt+7", "Strg+Umschalt+F12", "Umschalt+F1"] {
+        for text in ["Strg+Alt+B", "Alt+7", "Strg+Umschalt+F12", "Umschalt+F1", "F13", "Pause", "Alt+NumPlus"] {
             assert_eq!(Hotkey::parse(text).map(Hotkey::text).as_deref(), Some(text));
         }
     }

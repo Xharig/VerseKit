@@ -90,6 +90,7 @@ pub mod language;
 pub mod legacy;
 pub mod live_contracts;
 pub mod location;
+pub mod logread;
 pub mod logscan;
 pub mod logsource;
 pub mod logtime;

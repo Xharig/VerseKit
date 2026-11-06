@@ -872,8 +872,10 @@ fn the_fetch_keeps_the_picture_in_the_folder_intern_says_the_countdown_and_says_
     let ctx = context();
     let mut state = ScannerState::with_files(&paths);
     let wait = std::time::Duration::from_secs(5);
+    // Waits for the end of the fetch, which runs in a thread of its own: on a busy machine that takes seconds.
     let settle = |state: &mut ScannerState| {
-        for _ in 0..400 {
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while std::time::Instant::now() < end {
             state.poll_fetch(&ctx);
             if state.fetch.is_none() {
                 return;

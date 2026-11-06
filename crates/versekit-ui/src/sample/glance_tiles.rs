@@ -87,8 +87,14 @@ pub(super) fn played_spans(paths: &Paths) -> Vec<(i64, i64)> {
     playtime::merge_spans(&spans)
 }
 
-/// What a tile reads from the game log in a thread of its own (it may read many megabytes): again
-/// whenever the log changed, the last answer in between.
+/// The least time between two readings of the game log by one tile.
+const LOOK_EVERY: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// What a tile reads from the game log in a thread of its own (it may read many megabytes): again when the
+/// log changed and [`LOOK_EVERY`] has passed since the last reading, the last answer in between.
+///
+/// ⚠ While the game runs its log changes all the time; without the pause the next reading would start as soon
+/// as the last one ended.
 #[derive(Clone)]
 pub(super) struct LogLook<T> {
     /// The last answer: `None` before the first.
@@ -96,11 +102,13 @@ pub(super) struct LogLook<T> {
     busy: Arc<AtomicBool>,
     /// Size and time of the log when it was read last.
     stamp: Arc<Mutex<Option<(u64, std::time::SystemTime)>>>,
+    /// When the last reading started.
+    started: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
 impl<T> Default for LogLook<T> {
     fn default() -> Self {
-        LogLook { found: Arc::default(), busy: Arc::default(), stamp: Arc::default() }
+        LogLook { found: Arc::default(), busy: Arc::default(), stamp: Arc::default(), started: Arc::default() }
     }
 }
 
@@ -110,22 +118,31 @@ pub(super) type PlaceLook = LogLook<Option<location::Place>>;
 pub(super) type MachineLook = LogLook<Option<machine_info::Info>>;
 
 impl<T: Clone + Send + 'static> LogLook<T> {
-    /// The last answer, and a new reading by `read` started when the log changed since. The reading works
-    /// on a copy of `paths` with the folders given from outside (a game folder of the command line).
+    /// The last answer, and a new reading by `read` started when the log changed since and the pause is over.
+    /// The reading works on a copy of `paths` with the folders given from outside (a game folder of the
+    /// command line).
     fn poll(&self, paths: &Paths, read: fn(&Paths) -> T) -> Option<T> {
+        self.poll_every(paths, read, LOOK_EVERY)
+    }
+
+    fn poll_every(&self, paths: &Paths, read: fn(&Paths) -> T, pause: std::time::Duration) -> Option<T> {
         let stamp = paths
             .game_log(None)
             .and_then(|log| std::fs::metadata(log).ok())
             .and_then(|m| Some((m.len(), m.modified().ok()?)));
-        let changed = {
+        let due = {
             let mut seen = self.stamp.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut started = self.started.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let changed = *seen != stamp || stamp.is_none();
-            if changed && !self.busy.load(Ordering::Acquire) {
+            let rested = started.is_none_or(|at| at.elapsed() >= pause);
+            let due = changed && rested && !self.busy.load(Ordering::Acquire);
+            if due {
                 *seen = stamp;
+                *started = Some(std::time::Instant::now());
             }
-            changed
+            due
         };
-        if changed && !self.busy.swap(true, Ordering::AcqRel) {
+        if due && !self.busy.swap(true, Ordering::AcqRel) {
             let (found, busy, own) = (self.found.clone(), self.busy.clone(), paths.working_copy());
             let started = std::thread::Builder::new().name("uebersicht-spielprotokoll".into()).spawn(move || {
                 let answer = read(&own);
@@ -348,7 +365,7 @@ pub(super) fn hotkey_in(lang: Lang, text: &str) -> String {
         .map(|part| match part {
             "Strg" => t_in(lang, "s_ei_taste_strg"),
             "Umschalt" => t_in(lang, "s_ei_taste_umschalt"),
-            other => other.to_string(),
+            other => super::hotkey_word(other).map_or_else(|| other.to_string(), |word| t_in(lang, word)),
         })
         .collect::<Vec<_>>()
         .join("+")
@@ -985,6 +1002,44 @@ mod tests {
         }
         let place = found.flatten().expect("read from the given folder");
         assert_eq!((place.number.as_deref(), place.since), (Some("4711"), Some(1_792_577_100)));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_log_that_keeps_changing_is_read_again_only_after_the_pause() {
+        use std::sync::atomic::AtomicUsize;
+        static READS: AtomicUsize = AtomicUsize::new(0);
+        let dir =
+            std::env::temp_dir().join(format!("versekit-spielprotokoll-pause-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let paths = Paths::new(super::super::real_data::host_apart(&dir));
+        let given = dir.join("GIVEN");
+        std::fs::create_dir_all(&given).unwrap();
+        let log = given.join("Game.log");
+        std::fs::write(&log, "<2026-10-21T10:05:00.000Z> a line\n").unwrap();
+        paths.set_given_game(&given.to_string_lossy(), versekit_core::given::GivenBy::CommandLine);
+        let look: LogLook<usize> = LogLook::default();
+        let read: fn(&Paths) -> usize = |_| READS.fetch_add(1, Ordering::SeqCst) + 1;
+        let settled = |look: &LogLook<usize>, pause, want: usize| {
+            for _ in 0..200 {
+                if look.poll_every(&paths, read, pause) == Some(want) && !look.busy.load(Ordering::Acquire) {
+                    return true;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            false
+        };
+        assert!(settled(&look, LOOK_EVERY, 1), "the first reading starts at once");
+        // The game writes on: within the pause nothing is read again.
+        for n in 0..20 {
+            std::fs::write(&log, format!("<2026-10-21T10:05:00.000Z> a line\n{}", "more\n".repeat(n + 1))).unwrap();
+            look.poll(&paths, read);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert_eq!(READS.load(Ordering::SeqCst), 1, "read again within the pause");
+        // Once the pause is over, the change is read.
+        assert!(settled(&look, std::time::Duration::ZERO, 2), "read again after the pause");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

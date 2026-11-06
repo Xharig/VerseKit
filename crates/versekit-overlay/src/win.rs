@@ -944,6 +944,35 @@ mod tests {
         assert!(k.press(0x87));
     }
 
+    /// F13 by itself (Kuehlwagen's handle search): it fires without a modifier, and with one held it is another
+    /// combination, as `Alt+F13` does not fire on F13 alone.
+    #[test]
+    fn a_key_by_itself_fires_only_without_a_modifier() {
+        let mut k = Board::new("F13");
+        assert!(k.hotkey.is_some(), "F13 by itself is a hotkey");
+        assert!(k.press(0x7c));
+        assert!(!k.press(0x7c), "a held key does not repeat");
+        k.release(0x7c);
+        assert!(!k.press(0x7b), "F12 is another key");
+        k.release(0x7b);
+        for modifier in [VK_CONTROL, VK_MENU, VK_SHIFT] {
+            k.press(modifier);
+            assert!(!k.press(0x7c), "{modifier:#x} held: another combination");
+            k.release(0x7c);
+            k.release(modifier);
+        }
+        assert!(k.press(0x7c), "by itself again");
+        k.release(0x7c);
+        // The keys of the number block by their own codes.
+        k.hotkey = combo("NumPlus");
+        assert!(!k.press(0x6d), "the minus is another key");
+        assert!(k.press(0x6b));
+        // A letter by itself is no hotkey: B typed in the chat fires nothing.
+        let mut k = Board::new("B");
+        assert_eq!(k.hotkey, None);
+        assert!(!k.press(B));
+    }
+
     /// After Ctrl+Alt+Del the releases of Ctrl and Alt never arrive: a plain
     /// B typed in the chat must not fire.
     #[test]

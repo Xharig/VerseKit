@@ -6,6 +6,40 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.3 - 2026-11-06
+
+> Hotkeys now work on a single key like F13, plus small fixes around the
+> overlay and the hotkeys.
+
+### New
+
+- **Hotkeys without a modifier** — A shortcut now also works without Ctrl,
+  Alt or Shift when the key is never typed: F1 to F24, Pause, Scroll Lock,
+  Insert and Num / * - +, for example F13 on its own for the handle
+  search. Letters and digits still need a modifier, so typing in the game
+  is not caught. Suggested by Kuehlwagen
+- **Handle search hotkey on out of the box** — Alt+Shift+H jumps straight
+  into the handle search of the info bar, also during the game. Change or
+  switch it off under Overlay › "Keyboard shortcut: handle search".
+
+### Fixed
+
+- **Memory with a flooded game log** — When the game flooded its log with
+  messages (millions of “monitored space down” lines, for example),
+  VerseKit grew to many gigabytes. It now reads only what is new and stays
+  small.
+- **“Move to the middle” without the game** — With “Show without the game
+  running too” switched off, the button brought the overlay back, but
+  nothing could be seen. Now it says why and how to show it anyway.
+  Reported by Morkhan
+- **Handle search hotkey after a click into the game** — If you clicked
+  back into the game with the mouse instead of pressing Esc, the hotkey
+  stopped working. Now it works again. Reported by Kuehlwagen
+- **Main window larger than the screen** — If the window was last
+  remembered larger than the screen has room for now (another scaling,
+  another interface size), its title bar lay out of reach. Now it opens
+  at most as large as the screen and fully on it. Reported by greluc
+
 ## v5.1.2 - 2026-11-05
 
 > The overlay shows again without the game running, by default.

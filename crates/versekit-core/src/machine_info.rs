@@ -40,7 +40,6 @@
 pub mod history;
 
 use std::collections::HashMap;
-use std::io::Read;
 use std::sync::{Mutex, OnceLock};
 use std::time::UNIX_EPOCH;
 
@@ -48,6 +47,7 @@ use regex::Regex;
 
 use crate::errors;
 use crate::jsonio::{self, Value};
+use crate::logread;
 use crate::paths::Paths;
 
 /// The classes there are.
@@ -226,31 +226,55 @@ fn stamp(path: &str) -> std::io::Result<Stamp> {
     Ok((path.to_string(), nanos, meta.len()))
 }
 
-/// What was read of the running log, and the classes of the kept ones, by the state of the file: a changed
-/// file is read again. (The page reads in threads of its own; whole logs are searched rarely.)
+/// The classes of the kept logs by the state of the file: a changed file is searched again. (The page reads in
+/// threads of its own; whole logs are searched rarely.)
 struct Memo {
-    log: Option<(Stamp, Info)>,
     classes: HashMap<Stamp, Option<Rating>>,
 }
 
 fn memo() -> &'static Mutex<Memo> {
     static MEMO: OnceLock<Mutex<Memo>> = OnceLock::new();
-    MEMO.get_or_init(|| Mutex::new(Memo { log: None, classes: HashMap::new() }))
+    MEMO.get_or_init(|| Mutex::new(Memo { classes: HashMap::new() }))
 }
 
 fn lock() -> std::sync::MutexGuard<'static, Memo> {
     memo().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-fn text_of(path: &str, limit: Option<usize>) -> std::io::Result<String> {
-    let mut file = std::fs::File::open(path)?;
-    let mut bytes = Vec::new();
-    match limit {
-        Some(limit) => file.take(limit as u64).read_to_end(&mut bytes)?,
-        None => file.read_to_end(&mut bytes)?,
-    };
-    Ok(String::from_utf8_lossy(&bytes).into_owned())
+/// What [`read`] keeps of the running log: the values of the start block (read again while the log is shorter
+/// than it) and the last rating of the lines searched so far (`Some(None)`: the last one is no valid class).
+#[derive(Clone, Default)]
+struct LogWatch {
+    head: Info,
+    head_done: bool,
+    last: Option<Option<Rating>>,
 }
+
+impl LogWatch {
+    /// The ratings in a piece of the log; only lines with [`RATING_WORDS`] are looked at closer.
+    fn piece(&mut self, bytes: &[u8]) {
+        static WORDS: OnceLock<regex::bytes::Regex> = OnceLock::new();
+        let words = WORDS.get_or_init(|| {
+            regex::bytes::Regex::new(&regex::escape(&String::from_utf8_lossy(RATING_WORDS))).expect("pattern")
+        });
+        let mut end_of_last = 0;
+        for hit in words.find_iter(bytes) {
+            if hit.start() < end_of_last {
+                continue;
+            }
+            let start = bytes[..hit.start()].iter().rposition(|&b| b == b'\n').map_or(0, |i| i + 1);
+            let end = bytes[hit.start()..].iter().position(|&b| b == b'\n').map_or(bytes.len(), |i| hit.start() + i);
+            end_of_last = end;
+            let line = String::from_utf8_lossy(&bytes[start..end]);
+            if let Some(caps) = patterns().class.captures_iter(&line).last() {
+                self.last = Some(rating_of(&caps));
+            }
+        }
+    }
+}
+
+/// The running logs [`read`] follows.
+static WATCHED: logread::Kept<LogWatch> = logread::Kept::new();
 
 /// The last valid rating in a kept log, `None` where there is none or it cannot be read. A line without a
 /// time takes the time of change of the file.
@@ -384,25 +408,37 @@ fn settle(paths: &Paths, info: &mut Info) {
 
 /// The values from the running `Game.log` (the hardware from the start block, the class from the whole log or
 /// the kept ones). `None` without a log.
+///
+/// ⚠ The whole log is searched for the class a piece at a time, and only once per session: afterwards only what
+/// was added since.
 pub fn read(paths: &Paths, folder: Option<&str>) -> Option<Info> {
     let log = paths.game_log(folder)?;
     let result = (|| -> std::io::Result<Info> {
         let key = stamp(&log)?;
-        if let Some((seen, info)) = &lock().log
-            && *seen == key
-        {
-            return Ok(info.clone());
+        let mut opened = logread::open(&log)?;
+        let (mut watch, start) = match WATCHED.take(&opened) {
+            Some(followed) => (followed.state, followed.next),
+            None => (LogWatch::default(), 0),
+        };
+        if !watch.head_done {
+            watch.head = parse(&String::from_utf8_lossy(&logread::read_start(&mut opened.file, HEAD_BYTES)?));
+            watch.head_done = opened.size >= HEAD_BYTES as u64;
         }
-        let mut info = parse(&text_of(&log, Some(HEAD_BYTES))?);
-        if info.machine_class.is_none() && key.2 > HEAD_BYTES as u64 {
-            let whole = parse(&text_of(&log, None)?);
-            info.machine_class = whole.machine_class;
-            info.class_at = whole.class_at;
+        let mut info = watch.head.clone();
+        let mut next = start;
+        if info.machine_class.is_none() && opened.size > HEAD_BYTES as u64 {
+            next = logread::read_lines(&mut opened.file, start, opened.size, false, |b| watch.piece(b))?;
+            // The last line, not yet ended, counts for now but is searched again with its end.
+            let mut now = watch.clone();
+            now.piece(&logread::read_rest(&mut opened.file, next, opened.size)?);
+            let last = now.last.flatten();
+            info.machine_class = last.map(|rating| rating.class);
+            info.class_at = last.and_then(|rating| rating.at);
         }
         if info.machine_class.is_some() && info.class_at.is_none() {
             info.class_at = seconds_of(key.1);
         }
-        lock().log = Some((key, info.clone()));
+        WATCHED.put(logread::Followed { session: opened.session, next, state: watch });
         Ok(info)
     })();
     let mut info = match result {

@@ -3430,7 +3430,14 @@ pub fn hotkey_picker(
         }
         ui.label("+");
         let picked = keys.get(*key).copied().unwrap_or_default();
-        let combo = egui::ComboBox::from_id_salt(("tastenkuerzel", id_salt)).selected_text(picked).width(80.0).show_ui(
+        // As wide as the longest key (`Scroll Lock`), at least 80 points, so that no word is cut.
+        let font = egui::TextStyle::Button.resolve(ui.style());
+        let widest = keys
+            .iter()
+            .map(|k| ui.painter().layout_no_wrap((*k).to_string(), font.clone(), color(scheme.fg)).size().x)
+            .fold(0.0_f32, f32::max);
+        let width = (widest + ui.spacing().icon_width + 3.0 * ui.spacing().button_padding.x).max(80.0);
+        let combo = egui::ComboBox::from_id_salt(("tastenkuerzel", id_salt)).selected_text(picked).width(width).show_ui(
             ui,
             |list| {
                 for (k, name) in keys.iter().enumerate() {

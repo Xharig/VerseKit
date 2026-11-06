@@ -88,6 +88,9 @@ pub struct InfoWindow {
     /// Clicks pass through the bar: the lock of the overlay is closed (read by the checks).
     #[cfg_attr(not(test), allow(dead_code))]
     passing: bool,
+    /// How often the bar asked the system for the keyboard (read by the checks).
+    #[cfg_attr(not(test), allow(dead_code))]
+    keyboard_asked: u32,
 }
 
 impl InfoWindow {
@@ -112,6 +115,7 @@ impl InfoWindow {
             last_topmost: Instant::now(),
             shown: false,
             passing: false,
+            keyboard_asked: 0,
         }
     }
 
@@ -152,6 +156,12 @@ impl InfoWindow {
         self.typing
     }
 
+    /// How often the bar asked the system for the keyboard (read by the checks).
+    #[cfg(test)]
+    pub fn keyboard_asked(&self) -> u32 {
+        self.keyboard_asked
+    }
+
     /// Waits a press of the hotkey of the search for the next frame?
     #[cfg(test)]
     pub fn key_asked(&self) -> bool {
@@ -168,6 +178,7 @@ impl InfoWindow {
     fn allow_typing(&mut self, on: bool) {
         if on != self.typing {
             self.typing = on;
+            self.keyboard_asked += u32::from(on);
             // The field wants the keyboard but does not get it: a line in the error log, so that a report shows it.
             if self.native != 0 {
                 let done = os::allow_typing(self.native, on);
@@ -292,11 +303,17 @@ impl InfoWindow {
                 trail(&format!("press {down} focused {focused} cursor {typing} embedded {embedded}"));
             }
             let mut drawn = view::show_with(ui, content, search.as_deref_mut());
+            // The window lost the focus (a click into the game): egui keeps the cursor in the field, but the
+            // keyboard is gone, so the cursor goes as with Escape and the next hotkey asks for the keyboard anew.
+            let focus_lost = ui.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::WindowFocused(false))));
+            if focus_lost {
+                trail(&format!("focus lost, cursor {}", drawn.typing));
+            }
             // The lock closed while the field had the cursor, or the bar comes back with the cursor it had when it
             // went: the cursor goes (the focus is kept per window, also while the window is gone). The cursor the
             // hotkey put there stays.
             if drawn.typing
-                && (!content.movable && !by_key || fresh)
+                && (!content.movable && !by_key || fresh || focus_lost)
                 && let Some(search) = search.as_deref()
             {
                 search.stop_typing(ui.ctx());
@@ -703,6 +720,56 @@ mod tests {
         });
         output.textures_delta.clear();
         assert!(!info.key_asked && !info.by_key);
+    }
+
+    /// The hotkey gave the field the cursor, and a click into the game takes the focus from the bar's window: the
+    /// cursor leaves the field and the keyboard goes back as with Escape, so that the next press of the hotkey asks
+    /// the system for the keyboard again and the bar comes to the front.
+    #[test]
+    fn a_click_into_the_game_ends_the_typing_like_escape_and_the_hotkey_works_again() {
+        let _screens = screen::fixed(one_screen());
+        let ctx = egui::Context::default();
+        versekit_ui::install(&ctx);
+        let mut info = InfoWindow::new(Places::default());
+        let mut search = HandleSearch::empty();
+        let content = view::View {
+            scheme: theme::by_id("original").expect("scheme"),
+            fps: None,
+            players: None,
+            shard: None,
+            mining: None,
+            opacity: 1.0,
+            movable: false,
+        };
+        let run = |info: &mut InfoWindow, search: &mut HandleSearch, input: egui::RawInput| {
+            let mut output = ctx.run_ui(input, |ui| {
+                info.step(ui.ctx(), true, &content, pointer(0, 0), Some(search));
+            });
+            output.textures_delta.clear();
+        };
+        let quiet = || egui::RawInput::default();
+        run(&mut info, &mut search, quiet());
+        info.type_by_key();
+        run(&mut info, &mut search, quiet());
+        run(&mut info, &mut search, quiet());
+        assert!(info.typing() && search.typing(&ctx), "the hotkey: cursor and keyboard");
+        assert_eq!(info.keyboard_asked(), 1);
+        // The click into the game: the window loses the focus, and the frames after it run without it.
+        let lost = egui::RawInput { focused: false, events: vec![egui::Event::WindowFocused(false)], ..quiet() };
+        run(&mut info, &mut search, lost);
+        let unfocused = || egui::RawInput { focused: false, ..quiet() };
+        run(&mut info, &mut search, unfocused());
+        assert!(!search.typing(&ctx), "the click into the game: the cursor left the field");
+        assert!(!info.typing(), "and the keyboard went back");
+        // The next press of the hotkey asks for the keyboard anew.
+        info.type_by_key();
+        run(&mut info, &mut search, unfocused());
+        run(&mut info, &mut search, unfocused());
+        assert!(info.typing() && search.typing(&ctx), "the hotkey again: cursor and keyboard");
+        assert_eq!(info.keyboard_asked(), 2, "the system was asked for the keyboard a second time");
+        // Counter-check: frames without the focus but without its loss leave the cursor the hotkey put there.
+        run(&mut info, &mut search, unfocused());
+        assert!(info.typing() && search.typing(&ctx), "no loss of the focus: the cursor stays");
     }
 
     /// The bar hidden while the field has the cursor and shown again: it comes back without the cursor, and a

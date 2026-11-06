@@ -1506,6 +1506,8 @@ mod tests {
     /// The strip says what it does on hover, in a hint and as the name for screen readers.
     #[test]
     fn the_eye_of_the_strip_says_what_it_does_on_hover() {
+        // The hint and the text it is compared with in one language, whatever other tests switch meanwhile.
+        language::set_thread_language(language::Choice::De);
         let rows = rows();
         let status = Message::Plain("2 Baupläne".into());
         let scheme = theme::by_id("original").expect("original");
@@ -1521,7 +1523,9 @@ mod tests {
                 time: Some(f64::from(second)),
                 ..Default::default()
             };
-            let _ = ctx.run_ui(input, |ui| last = show(ui, &v));
+            let mut output = ctx.run_ui(input, |ui| last = show(ui, &v));
+            // Headless: no renderer takes the textures.
+            output.textures_delta.clear();
         }
         assert_eq!(last.hint, Some(t("ov_streifen_h")), "the hint of the eye");
         assert!(last.drawn.is_empty());
@@ -1712,6 +1716,8 @@ mod tests {
     /// each; and it takes no room when nothing runs.
     #[test]
     fn the_bar_of_running_contracts_shows_what_runs_and_nothing_else() {
+        // The lines and the texts they are compared with in one language, whatever other tests switch meanwhile.
+        language::set_thread_language(language::Choice::De);
         let rows = rows();
         let status = Message::Plain("x".into());
         let lines = contract_lines();

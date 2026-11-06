@@ -2820,6 +2820,8 @@ mod tests {
         let ctx = egui::Context::default();
         let app = &mut bench.app;
         app.hwnd = hwnd;
+        // Shown without the game is the default: the player switched it off here.
+        app.settings.overlay_always = false;
         let open = Rect::new(100, 100, 400, 300);
         crate::win::set_rect(hwnd, open);
         (app.canvas, app.current) = (open, open);

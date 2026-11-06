@@ -427,6 +427,12 @@ pub fn run(args: &[String]) -> eframe::Result {
     if let Some(place) = page.window_place() {
         let opening =
             versekit_ui::sample::opening(&place, screen::system_scale(), (width, height), screen::on_a_screen);
+        // Never larger than the screen it opens on: otherwise its title bar can lie out of reach.
+        let work = match place.position {
+            Some((x, y)) => screen::monitor_area(x as i32, y as i32, true),
+            None => screen::primary_area(true),
+        };
+        let opening = versekit_ui::sample::fit_to_work_area(opening, work, screen::system_scale());
         viewport = viewport.with_inner_size(opening.size).with_maximized(opening.maximized);
         if let Some(position) = opening.position {
             viewport = viewport.with_position(position);

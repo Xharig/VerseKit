@@ -53,8 +53,9 @@ pub mod suggestions;
 
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::location;
+use crate::logread;
 use crate::logsource::{LogSource, counts_own};
-use crate::logtime::{Facts, candidate_lines, seconds, time_of};
+use crate::logtime::{Facts, candidate_lines, first_stamp, last_stamp, seconds, time_of};
 use crate::mission_log::get;
 use crate::ordered::parallel_map;
 use crate::paths::Paths;
@@ -512,8 +513,16 @@ pub fn session_entry(text: &str, events: &[Event]) -> Option<Map> {
         return None;
     }
     let facts = Facts::of(text);
-    let start = seconds(facts.first.as_deref().unwrap_or("")).filter(|s| *s != 0)?;
-    let end = seconds(facts.last.as_deref().unwrap_or("")).filter(|s| *s != 0)?;
+    entry_between(facts.first.as_deref(), facts.last.as_deref(), events)
+}
+
+/// The session entry of the events of a log with its first and its last stamp.
+fn entry_between(first: Option<&str>, last: Option<&str>, events: &[Event]) -> Option<Map> {
+    if events.is_empty() {
+        return None;
+    }
+    let start = seconds(first.unwrap_or("")).filter(|s| *s != 0)?;
+    let end = seconds(last.unwrap_or("")).filter(|s| *s != 0)?;
     if end < start {
         return None;
     }
@@ -541,10 +550,63 @@ pub fn read_log_text(text: &str, account: Option<&str>) -> Option<Map> {
     session_entry(text, &parse_text(text, account))
 }
 
+/// What [`read_log`] keeps of a log it read: the lines worth a look so far, each ended by `\n`, and the first
+/// and the last stamp.
+#[derive(Default)]
+struct Journaled {
+    lines: String,
+    first: Option<String>,
+    last: Option<String>,
+}
+
+impl Journaled {
+    fn piece(&mut self, text: &str) {
+        if self.first.is_none() {
+            self.first = first_stamp(text).map(str::to_string);
+        }
+        if let Some(last) = last_stamp(text) {
+            self.last = Some(last.to_string());
+        }
+        for line in candidate_lines(text, &MARKERS) {
+            self.lines.push_str(line);
+            self.lines.push('\n');
+        }
+    }
+
+    /// The session entry of what was read, with `rest` (the last line, not yet ended) after it.
+    fn entry(&self, rest: &str, account: Option<&str>) -> Option<Map> {
+        let first = self.first.as_deref().or_else(|| first_stamp(rest));
+        // Like `Facts::of`: a log without a first stamp has no last one either.
+        let last = first.and(last_stamp(rest).or(self.last.as_deref()));
+        let mut lines = std::borrow::Cow::Borrowed(self.lines.as_str());
+        for line in candidate_lines(rest, &MARKERS) {
+            let all = lines.to_mut();
+            all.push_str(line);
+            all.push('\n');
+        }
+        entry_between(first, last, &parse_text(&lines, account))
+    }
+}
+
+/// The logs [`read_log`] read last.
+static JOURNALED: logread::Kept<Journaled> = logread::Kept::new();
+
 /// [`read_log_text`] of a log file; an unreadable one has none.
+///
+/// ⚠ The file is read a piece at a time and only the lines worth a look are kept; a log read before in the
+/// same session is read on from where the last reading stopped.
 pub fn read_log(path: &str, account: Option<&str>) -> Option<Map> {
-    let bytes = fs::read(path).ok()?;
-    read_log_text(&decode_replace(&bytes), account)
+    let mut opened = logread::open(path).ok()?;
+    let (mut seen, start) = match JOURNALED.take(&opened) {
+        Some(followed) => (followed.state, followed.next),
+        None => (Journaled::default(), 0),
+    };
+    let next =
+        logread::read_lines(&mut opened.file, start, opened.size, false, |b| seen.piece(&decode_replace(b))).ok()?;
+    let rest = logread::read_rest(&mut opened.file, next, opened.size).ok()?;
+    let entry = seen.entry(&decode_replace(&rest), account);
+    JOURNALED.put(logread::Followed { session: opened.session, next, state: seen });
+    entry
 }
 
 /// One session of the journal.
@@ -784,13 +846,17 @@ mod tests {
     #[test]
     fn a_sale_at_the_kiosk_is_read_with_its_answer_and_its_place() {
         let landing = "[Notice] <Update Inventory Location> Player [Spieler] is changing location. Landing [0] -> [1105]. Location [0] -> [1105]. Pending [0]";
-        let text = [at(1, landing), at(2, &sell_line("62.000000", "nvtc_ubarrel_lasr_s1", 1)), at(3, ANSWER_SOLD)].concat();
+        let text =
+            [at(1, landing), at(2, &sell_line("62.000000", "nvtc_ubarrel_lasr_s1", 1)), at(3, ANSWER_SOLD)].concat();
         let events = parse_text(&text, Some(WHO));
         assert!(purchases(&events).is_empty(), "a sale is no purchase");
         let sold = sales(&events);
         assert_eq!(sold.len(), 1);
         let sale = sold[0];
-        assert_eq!((sale.class.as_str(), sale.quantity, sale.place.as_deref()), ("nvtc_ubarrel_lasr_s1", 1, Some("1105")));
+        assert_eq!(
+            (sale.class.as_str(), sale.quantity, sale.place.as_deref()),
+            ("nvtc_ubarrel_lasr_s1", 1, Some("1105"))
+        );
         assert!((sale.price_total - 62.0).abs() < f64::EPSILON);
         assert_eq!(sale.shop, "SCShop_Pharmacy");
         assert_eq!(sale.guid, "0b6c7d2e-1f3a-4c5b-9d8e-7a6b5c4d3e2f");
@@ -838,8 +904,9 @@ mod tests {
 
     #[test]
     fn a_sale_of_goods_at_a_terminal_is_not_read() {
-        let text = [at(1, COMMODITY_SOLD), at(2, ANSWER_SOLD), at(3, &sell_line("5.000000", "kiosk", 1)), at(4, ANSWER_SOLD)]
-            .concat();
+        let text =
+            [at(1, COMMODITY_SOLD), at(2, ANSWER_SOLD), at(3, &sell_line("5.000000", "kiosk", 1)), at(4, ANSWER_SOLD)]
+                .concat();
         let events = parse_text(&text, Some(WHO));
         let sold: Vec<&str> = sales(&events).iter().map(|s| s.class.as_str()).collect();
         assert_eq!(sold, ["kiosk"], "the terminal line waits for no answer and takes none");

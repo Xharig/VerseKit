@@ -978,9 +978,10 @@ mod tests {
         output
     }
 
-    /// Frames until the report is there.
+    /// Frames until the report is there. It is made in a thread of its own: on a busy machine that takes seconds.
     fn wait_for_report(ctx: &egui::Context, state: &mut DiagnoseState) {
-        for _ in 0..200 {
+        let end = std::time::Instant::now() + Duration::from_secs(60);
+        while std::time::Instant::now() < end {
             run_frame(ctx, state, Vec::new());
             if state.shown_text().is_some() && state.job.is_none() {
                 return;

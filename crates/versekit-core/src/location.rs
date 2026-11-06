@@ -29,14 +29,13 @@
 //! `Landing [0]` means: at no landing place, in flight or out in the open.
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
 use std::sync::{LazyLock, Mutex};
 
 use regex::Regex;
 
 use crate::jsonio::{self, Value};
 use crate::language::{Phrase, t};
+use crate::logread;
 use crate::ordered::parallel_map;
 use crate::paths::Paths;
 
@@ -83,48 +82,75 @@ fn py_lines(text: &str) -> impl Iterator<Item = &str> {
     text.split(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\u{85}', '\u{2028}', '\u{2029}'])
 }
 
-/// The pairs of log lines: a name line names every place number that stands in an inventory line within the
-/// next [`NAME_WINDOW`] lines, and an `ATC Location` line names its own number.
-pub fn pairs_in<'a>(lines: impl IntoIterator<Item = &'a str>) -> Pairs {
-    let mut found = Pairs::new();
-    // The key of the last name line and how many lines after it still count.
-    let mut pending: Option<(String, usize)> = None;
-    for line in lines {
+/// The pairs of log lines read so far, and the name line whose window is still open.
+#[derive(Clone, Debug, Default)]
+struct PairReader {
+    found: Pairs,
+    /// The key of the last name line and how many lines after it still count.
+    pending: Option<(String, usize)>,
+}
+
+impl PairReader {
+    fn line(&mut self, line: &str) {
         if line.contains("<RequestLocationInventory>") {
-            pending = REQUEST.captures(line).map(|c| (c[1].to_string(), NAME_WINDOW));
-            continue;
+            self.pending = REQUEST.captures(line).map(|c| (c[1].to_string(), NAME_WINDOW));
+            return;
         }
-        if let Some((key, left)) = pending.as_mut() {
+        if let Some((key, left)) = self.pending.as_mut() {
             if *left == 0 {
-                pending = None;
+                self.pending = None;
             } else {
                 *left -= 1;
                 if INVENTORY_MARKS.iter().any(|mark| line.contains(mark))
                     && let Some(c) = PLACE_ID.captures(line)
                 {
-                    put(&mut found, c[1].to_string(), key.clone());
+                    put(&mut self.found, c[1].to_string(), key.clone());
                 }
             }
         }
         if line.contains("ATC Location:")
             && let Some(c) = ATC.captures(line)
         {
-            put(&mut found, c[2].to_string(), c[1].to_string());
+            put(&mut self.found, c[2].to_string(), c[1].to_string());
         }
     }
-    found
+
+    /// The lines of a piece of the log; a piece ends with its line end, which starts no line of its own. A piece
+    /// without a name line is not read line by line while no window is open.
+    fn piece(&mut self, text: &str) {
+        if self.pending.is_none() && !text.contains("<RequestLocationInventory>") && !text.contains("ATC Location:") {
+            return;
+        }
+        for line in py_lines(text.strip_suffix('\n').unwrap_or(text)) {
+            self.line(line);
+        }
+    }
 }
 
-/// The pairs of whole log files, read in the order given; a later name for the same number wins. A file
-/// without a name line is not read line by line.
+/// The pairs of log lines: a name line names every place number that stands in an inventory line within the
+/// next [`NAME_WINDOW`] lines, and an `ATC Location` line names its own number.
+pub fn pairs_in<'a>(lines: impl IntoIterator<Item = &'a str>) -> Pairs {
+    let mut reader = PairReader::default();
+    for line in lines {
+        reader.line(line);
+    }
+    reader.found
+}
+
+/// The pairs of whole log files, read in the order given; a later name for the same number wins. Each file is
+/// read a piece at a time; a piece without a name line is not read line by line.
 pub fn learn_pairs(files: &[String]) -> Pairs {
     let per_file = parallel_map(files, |path| {
-        let Ok(bytes) = std::fs::read(path) else { return Pairs::new() };
-        let text = String::from_utf8_lossy(&bytes);
-        if !text.contains("<RequestLocationInventory>") && !text.contains("ATC Location:") {
+        let Ok(mut opened) = logread::open(path) else { return Pairs::new() };
+        let mut reader = PairReader::default();
+        let piece = |reader: &mut PairReader, bytes: &[u8]| reader.piece(&String::from_utf8_lossy(bytes));
+        let Ok(next) = logread::read_lines(&mut opened.file, 0, opened.size, false, |b| piece(&mut reader, b)) else {
             return Pairs::new();
+        };
+        if let Ok(rest) = logread::read_rest(&mut opened.file, next, opened.size) {
+            piece(&mut reader, &rest);
         }
-        pairs_in(py_lines(&text))
+        reader.found
     });
     let mut found = Pairs::new();
     for pairs in per_file {
@@ -251,31 +277,54 @@ fn store(paths: &Paths, pairs: &Pairs, marks: &[(String, i64)]) -> usize {
     added
 }
 
-/// The last change of place `(before, now)`, the pairs found in the read end of the file and the seconds of
-/// the stamp on the line of the change (UTC; `None` without one). Read from the back in growing pieces: the
-/// last change is nearly always within the last megabyte.
-pub fn last_change(log_path: &str) -> Option<((String, String), Pairs, Option<i64>)> {
-    let mut file = File::open(log_path).ok()?;
-    let size = file.metadata().ok()?.len();
-    let mut chunk: u64 = 1 << 20;
-    loop {
-        let start = size.saturating_sub(chunk);
-        file.seek(SeekFrom::Start(start)).ok()?;
-        let mut bytes = Vec::new();
-        file.by_ref().take(size - start).read_to_end(&mut bytes).ok()?;
-        let text = String::from_utf8_lossy(&bytes);
-        if let Some(found) = CHANGE.captures_iter(&text).last() {
-            let pairs = pairs_in(py_lines(&text));
+/// A change of place `(before, now)` and the seconds of the stamp on its line.
+type Change = ((String, String), Option<i64>);
+
+/// What [`last_change`] keeps of a log it read: the pairs and the open name window so far, and the last change.
+#[derive(Clone, Default)]
+struct Watch {
+    pairs: PairReader,
+    change: Option<Change>,
+}
+
+impl Watch {
+    fn piece(&mut self, text: &str) {
+        if let Some(found) = CHANGE.captures_iter(text).last() {
             let at = found.get(0).map_or(0, |m| m.start());
             let line_start = text[..at].rfind(['\n', '\r']).map_or(0, |i| i + 1);
             let since = crate::logtime::seconds(crate::logtime::time_of(&text[line_start..at]));
-            return Some(((found[1].to_string(), found[2].to_string()), pairs, since));
+            self.change = Some(((found[1].to_string(), found[2].to_string()), since));
         }
-        if start == 0 {
-            return None;
-        }
-        chunk = chunk.saturating_mul(4);
+        self.pairs.piece(text);
     }
+}
+
+/// The logs [`last_change`] follows.
+static WATCHED: logread::Kept<Watch> = logread::Kept::new();
+
+/// The last change of place `(before, now)`, the pairs found in the read part of the file and the seconds of
+/// the stamp on the line of the change (UTC; `None` without one).
+///
+/// ⚠ The first reading of a log takes at most [`logread::BACK_LIMIT`] from its end; afterwards only what was
+/// added since is read. A change further back than that is not found.
+pub fn last_change(log_path: &str) -> Option<((String, String), Pairs, Option<i64>)> {
+    let mut opened = logread::open(log_path).ok()?;
+    let (mut watch, start, cut) = match WATCHED.take(&opened) {
+        Some(followed) => (followed.state, followed.next, false),
+        None => {
+            let start = opened.size.saturating_sub(logread::BACK_LIMIT);
+            (Watch::default(), start, start > 0)
+        }
+    };
+    let piece = |watch: &mut Watch, bytes: &[u8]| watch.piece(&String::from_utf8_lossy(bytes));
+    let next = logread::read_lines(&mut opened.file, start, opened.size, cut, |b| piece(&mut watch, b)).ok()?;
+    // The last line, not yet ended, counts for now but is read again with its end.
+    let rest = logread::read_rest(&mut opened.file, next, opened.size).ok()?;
+    let mut now = watch.clone();
+    piece(&mut now, &rest);
+    WATCHED.put(logread::Followed { session: opened.session, next, state: watch });
+    let (change, since) = now.change?;
+    Some((change, now.pairs.found, since))
 }
 
 /// The current place.
@@ -294,7 +343,7 @@ pub struct Place {
 }
 
 /// Where the player is, from the running Game.log (or `log_path`); `None`
-/// without a log. A missing name is looked for in the read end of the file
+/// without a log. A missing name is looked for in the read part of the file
 /// and remembered.
 pub fn place(paths: &Paths, log_path: Option<&str>) -> Option<Place> {
     let log = match log_path {

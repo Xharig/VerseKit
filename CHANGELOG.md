@@ -6,6 +6,41 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.1.3 - 2026-11-06
+
+> Kürzel gehen jetzt auch mit einer einzelnen Taste wie F13, dazu kleine
+> Korrekturen rund um Overlay und Tastenkürzel.
+
+### Neu
+
+- **Kürzel ohne Zusatztaste** — Ein Kürzel geht jetzt auch ohne Strg, Alt
+  oder Umschalt, wenn die Taste nie getippt wird: F1 bis F24, Pause,
+  Rollen, Einfg und Num / * - +, etwa F13 allein für die Handle-Suche.
+  Buchstaben und Ziffern brauchen weiter eine Zusatztaste, damit das
+  Tippen im Spiel nicht abgefangen wird. Angeregt von Kuehlwagen
+- **Kürzel der Handle-Suche ab Werk an** — Alt+Umschalt+H springt direkt
+  in die Handle-Suche der Info-Leiste, auch im laufenden Spiel. Ändern
+  oder ausschalten unter Overlay › „Tastenkombination: Handle-Suche“.
+
+### Behoben
+
+- **Speicher bei vollem Spielprotokoll** — Schreibt das Spiel sein Log mit
+  Meldungen voll (etwa Millionen Zeilen „Überwachter Raum ausgefallen“),
+  wuchs VerseKit auf viele Gigabyte. Jetzt liest es nur noch das Neue und
+  bleibt klein.
+- **„In die Mitte holen“ ohne Spiel** — Hast du „Auch ohne laufendes
+  Spiel zeigen“ ausgeschaltet, holte der Knopf das Overlay zurück, man sah
+  aber nichts. Jetzt sagt er, warum, und wie du es trotzdem einblendest.
+  Gemeldet von Morkhan
+- **Tastenkürzel der Handle-Suche nach Klick ins Spiel** — Wer mit der Maus
+  zurück ins Spiel klickte statt Esc zu drücken, konnte das Kürzel danach
+  nicht mehr nutzen. Jetzt greift es wieder. Gemeldet von Kuehlwagen
+- **Hauptfenster größer als der Bildschirm** — War das Fenster zuletzt
+  größer gemerkt, als der Bildschirm jetzt Platz hat (andere Skalierung,
+  andere Oberflächengröße), lag die Titelleiste außer Reichweite. Jetzt
+  öffnet es höchstens so groß wie der Bildschirm und ganz darauf.
+  Gemeldet von greluc
+
 ## v5.1.2 - 2026-11-05
 
 > Das Overlay ist ohne laufendes Spiel wieder ab Werk sichtbar.

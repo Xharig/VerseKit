@@ -93,13 +93,20 @@ pub struct Facts {
     pub last: Option<String>,
 }
 
+/// The first stamp in a text.
+pub fn first_stamp(text: &str) -> Option<&str> {
+    TIME.find(text).map(|m| &m.as_str()[1..])
+}
+
+/// The stamp of the last line that carries one: backwards line by line until one does.
+pub fn last_stamp(text: &str) -> Option<&str> {
+    text.rsplit(['\n', '\r']).find_map(|line| TIME.find(line).map(|m| &m.as_str()[1..]))
+}
+
 impl Facts {
     pub fn of(text: &str) -> Facts {
-        let first = TIME.find(text).map(|m| m.as_str()[1..].to_string());
-        // Backwards line by line until one carries a stamp.
-        let last = first.as_ref().and_then(|_| {
-            text.rsplit(['\n', '\r']).find_map(|line| TIME.find(line).map(|m| m.as_str()[1..].to_string()))
-        });
+        let first = first_stamp(text).map(str::to_string);
+        let last = first.as_ref().and_then(|_| last_stamp(text).map(str::to_string));
         Facts { spawn: text.contains(SPAWN_MARKER), first, last }
     }
 

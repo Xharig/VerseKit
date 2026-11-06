@@ -263,26 +263,42 @@ mod tests {
     /// The switch of the bridge says off, ready, or that another watcher holds the port.
     #[test]
     fn the_switch_of_the_bridge_says_whether_the_port_is_taken_by_another_watcher() {
-        let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        // The texts of this thread only: other tests switch the language of the whole program meanwhile.
+        language::set_thread_language(language::Choice::De);
         let mut rows = DesktopRows::default();
         let said = |rows: &mut DesktopRows, on, host| rows.apply(Wish::Scmdb(on), host).unwrap();
         assert_eq!(said(&mut rows, false, None), format!("{}: {}", t("s_scmdb"), t("e_aus")));
         assert_eq!(said(&mut rows, true, None), format!("{}: {}", t("s_scmdb"), t("s_scmdb_bereit")));
-        // Another watcher on the port: it answers /ping without our name.
+        // Another watcher on the port: it answers every /ping without our name, until the test is done.
         let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port().to_string();
-        let other = std::thread::spawn(move || {
-            use std::io::{Read, Write};
-            let (mut stream, _) = listener.accept().unwrap();
-            let mut buffer = [0u8; 1024];
-            let _ = stream.read(&mut buffer);
-            let body = "{\"status\":\"ok\",\"version\":\"0.1.9\",\"channel\":\"LIVE\"}";
-            let answer = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}", body.len());
-            let _ = stream.write_all(answer.as_bytes());
+        let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let other = std::thread::spawn({
+            let done = done.clone();
+            move || {
+                use std::io::{Read, Write};
+                for stream in listener.incoming() {
+                    if done.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
+                    let Ok(mut stream) = stream else { continue };
+                    let mut buffer = [0u8; 1024];
+                    let _ = stream.read(&mut buffer);
+                    let body = "{\"status\":\"ok\",\"version\":\"0.1.9\",\"channel\":\"LIVE\"}";
+                    let answer = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}", body.len());
+                    let _ = stream.write_all(answer.as_bytes());
+                }
+            }
         });
         let host = Host::new(Flavor::native(), &[(scmdb_bridge::ENV_PORT, port.as_str())], ".");
-        assert_eq!(said(&mut rows, true, Some(&host)), format!("{}: {}", t("s_scmdb"), t("s_scmdb_belegt")));
+        // The page waits a moment only for the answer; on a busy machine the watcher of the test may come too
+        // late now and then: asked again, it is there.
+        let taken = format!("{}: {}", t("s_scmdb"), t("s_scmdb_belegt"));
+        let answers: Vec<String> = (0..10).map(|_| said(&mut rows, true, Some(&host))).take_while(|s| *s != taken).collect();
+        assert!(answers.len() < 10, "another watcher on the port is never told: {answers:?}");
+        done.store(true, std::sync::atomic::Ordering::SeqCst);
+        // One more call ends the wait of the watcher for the next request.
+        let _ = std::net::TcpStream::connect(("127.0.0.1", port.parse::<u16>().unwrap()));
         other.join().unwrap();
     }
 

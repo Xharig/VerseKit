@@ -1174,6 +1174,9 @@ mod tests {
     /// A page on a made-up Basetool that answers at once; the sync has no
     /// worker, a pass runs when the test says so.
     fn page(name: &str) -> (ConnectionState, String) {
+        // The texts drawn are compared with the language file: the language of this thread only, as other tests
+        // switch the language of the whole program meanwhile.
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let dir = folder(name);
         let wire = Wire::in_folder(&dir, false);
         wire.demo.as_ref().expect("demo").script_login(DemoLogin::Approve, 1);
@@ -2053,7 +2056,7 @@ mod tests {
     /// program, only when it is valid; an empty one is the default name again.
     #[test]
     fn the_name_of_the_connection_goes_into_the_settings_only_when_it_is_valid() {
-        let (mut page, dir) = page("name");
+        let (mut page, dir) = page("name-einstellung");
         let wire = wire_of(&page);
         let ctx = egui::Context::default();
         let saved = || wire.sync.paths().setting(SETTING_LABEL);

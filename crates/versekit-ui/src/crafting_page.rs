@@ -2474,7 +2474,7 @@ mod tests {
                 screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(800.0, 400.0))),
                 ..Default::default()
             };
-            let _ = ctx.run_ui(input, |ui| {
+            let mut output = ctx.run_ui(input, |ui| {
                 let shown = ui.scope(|ui| {
                     list::menu_entries(ui, scheme, |menu| {
                         for n in 0..60 {
@@ -2484,6 +2484,8 @@ mod tests {
                 });
                 height = shown.response.rect.height();
             });
+            // Headless: no renderer takes the font texture.
+            output.textures_delta.clear();
         }
         assert!(height > 200.0 && height <= 400.0 - 2.0 * list::MENU_MARGIN, "60 ships in a 400 high window: {height}");
     }

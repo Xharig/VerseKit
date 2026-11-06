@@ -246,7 +246,7 @@ pub const PEOPLE: [Person; 35] = [
         &["s_dkv_shockwaffel_idee", "s_dkv_shockwaffel_idee2"],
         &["s_dkv_shockwaffel_bugs", "s_dkv_shockwaffel_bugs2"],
     ),
-    person("Kuehlwagen", "KRT", &["s_dkv_kuehlwagen_idee", "s_dkv_kuehlwagen_idee2"], &[]),
+    person("Kuehlwagen", "KRT", &["s_dkv_kuehlwagen_idee", "s_dkv_kuehlwagen_idee2"], &["s_dkv_kuehlwagen_bugs"]),
     person("George_Rotfuchs", "", &[], &["s_dkv_george_bugs"]),
     person("TomLov", "", &["s_dkv_tomlov_idee"], &[]),
     person("LunaticSmile", "KRT", &["s_dkv_lunaticsmile_idee"], &[]),

@@ -965,15 +965,15 @@ pub(in crate::sample) mod tests {
         bench.settle();
         assert_eq!(hotkey_text(bench.page.scan_modifiers, bench.page.scan_key).as_deref(), Some("Alt+R"), "the last one stays");
         let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
-        assert_eq!(said, Some(language::t("s_hk_falsch")));
+        assert_eq!(said, Some(language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from("Alt+R"))])));
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// The hotkey of the handle search on the overlay page: off at first and without a picker; switched on, its picker
-    /// shows the default, a change is said while the overlay runs and kept in `hotkey_suche`, and without a modifier
-    /// key the saved one stays.
+    /// The hotkey of the handle search on the overlay page: on at first with its picker showing the default; switched
+    /// off, the picker goes and `hotkey_suche_ein` keeps `false`; on again, a change is said while the overlay runs and
+    /// kept in `hotkey_suche`, and without a modifier key the saved one stays.
     #[test]
-    fn the_hotkey_of_the_handle_search_is_switched_on_changed_and_refused_without_a_modifier() {
+    fn the_hotkey_of_the_handle_search_is_on_at_first_changed_and_refused_without_a_modifier() {
         let _language = crate::language_lock();
         let (page, dir) = real_page("such-taste", "", &[]);
         let mut bench = Bench::new(page);
@@ -992,15 +992,21 @@ pub(in crate::sample) mod tests {
         let strg = language::t("s_ei_taste_strg");
         let pickers = |texts: &[(String, Pos2)]| texts.iter().filter(|(t, _)| *t == strg).count();
         assert!(texts.iter().any(|(t, _)| *t == language::t("s_hk_suche")), "the row: {texts:?}");
-        assert!(!bench.page.search_hotkey_on, "off at first");
-        let off = pickers(&texts);
+        assert!(bench.page.search_hotkey_on, "on at first");
+        let on = pickers(&texts);
         let current = |page: &SamplePage| hotkey_text(page.search_modifiers, page.search_key);
         assert_eq!(current(&bench.page).as_deref(), Some("Alt+Umschalt+H"));
+        bench.page.search_hotkey_on = false;
+        let texts = bench.settle();
+        let off = pickers(&texts);
+        assert_eq!(off + 1, on, "switched off: its picker, the last on the page, goes");
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_suche_ein\": false"), "{stored}");
         bench.page.search_hotkey_on = true;
         let texts = bench.settle();
-        assert_eq!(pickers(&texts), off + 1, "switched on: its picker, the last on the page");
+        assert_eq!(pickers(&texts), on, "on again: its picker is back");
         let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
-        assert!(stored.contains("\"hotkey_suche_an\": true"), "{stored}");
+        assert!(stored.contains("\"hotkey_suche_ein\": true"), "{stored}");
         bench.click_nth(&strg, off);
         bench.settle();
         assert_eq!(current(&bench.page).as_deref(), Some("Strg+Alt+Umschalt+H"));
@@ -1014,7 +1020,7 @@ pub(in crate::sample) mod tests {
         }
         assert_eq!(current(&bench.page).as_deref(), Some("Umschalt+H"), "the last one stays");
         let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
-        assert_eq!(said, Some(language::t("s_hk_falsch")));
+        assert_eq!(said, Some(language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from("Umschalt+H"))])));
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -1939,6 +1945,30 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// F13 needs no modifier (Kuehlwagen): the last one switched off leaves F13 by itself, which is kept, saved and
+    /// said as registered; switched on again, it is a combination as before.
+    #[test]
+    fn a_function_key_by_itself_is_kept_saved_and_registered() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("kuerzel-allein", "{\n  \"hotkey\": \"Alt+F13\"\n}\n", &[]);
+        let mut bench = Bench::new(page);
+        bench.page.overlay_runs = || true;
+        bench.page.go_to("hf_overlay");
+        assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Alt+F13"));
+        bench.click("Alt");
+        bench.settle();
+        assert_eq!(bench.page.hotkey_modifiers, [false; 3], "nothing pressed, and it stays so");
+        assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("F13"));
+        let said = bench.notice();
+        assert_eq!(said, Some(language::tf("s_hk_ok", &[("0", language::Arg::from("F13"))])), "registered, not refused");
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey\": \"F13\""), "{stored}");
+        bench.click(&language::t("s_ei_taste_strg"));
+        bench.settle();
+        assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Strg+F13"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn the_parts_shown_in_the_overlay_stand_on_the_page_are_saved_and_reach_the_overlay() {
         use versekit_core::overlay::{Section, Sections};
@@ -2618,6 +2648,32 @@ pub(in crate::sample) mod tests {
         assert_eq!(paths.setting("overlay_ecke").as_deref(), Some("frei"));
         assert_eq!(paths.setting("overlay_leiste").as_deref(), Some("oben"));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Without the game the overlay waits hidden: „In die Mitte holen“ then says why it still cannot be seen and
+    /// how to show it; with the game running, or with the overlay shown without the game, it says nothing of it.
+    #[test]
+    fn bringing_the_overlay_back_without_the_game_says_it_waits_hidden() {
+        let _language = crate::language_lock();
+        let said = |settings: &str, running: bool| {
+            let (mut page, dir) = real_page("mitte-wartet", settings, &[]);
+            page.game_process = if running { |_| Some(true) } else { |_| Some(false) };
+            let mut bench = Bench::new(page);
+            bench.page.go_to("hf_overlay");
+            // The game state is given: a real game on this machine writes its log and would count as running.
+            bench.time = Some(1.0);
+            bench.settle();
+            bench.page.game_seen = Some((1.0, running));
+            bench.click(&language::t("ov_s_mitte_knopf"));
+            // The state, not the drawn text: another test may switch the global language meanwhile.
+            let says = bench.page.place_reset_at.is_some() && bench.page.place_reset_waits;
+            let _ = std::fs::remove_dir_all(dir);
+            says
+        };
+        let hidden = "{\n  \"overlay_ohne_spiel\": false\n}\n";
+        assert!(said(hidden, false), "without the game the button says the overlay waits hidden");
+        assert!(!said(hidden, true), "with the game running it says nothing of it");
+        assert!(!said("{}\n", false), "shown without the game (the default): nothing to say");
     }
 
     /// A note typed just before the window closes is written before it goes (the pause after typing is not over).

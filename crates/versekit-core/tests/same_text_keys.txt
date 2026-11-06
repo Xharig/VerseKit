@@ -199,3 +199,10 @@ s_sb_shard_nr
 
 # The server of the session in the overlay settings: the loanword, the same in both languages.
 s_ov_zeige_server
+
+# Keys of a shortcut as the keyboard labels them: Pause and the keys of the number pad (Num /, Num *, Num -, Num +), the same in both languages.
+s_ei_taste_pause
+s_ei_taste_num_geteilt
+s_ei_taste_num_mal
+s_ei_taste_num_minus
+s_ei_taste_num_plus

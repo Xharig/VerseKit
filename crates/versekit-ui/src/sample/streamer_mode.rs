@@ -144,10 +144,22 @@ fn no_page_shows_a_private_value_while_the_streamer_mode_is_on() {
         language::set_thread_language(choice);
 
         streamer::set_thread_active(Some(false));
-        let open = drawn(&mut world.page);
-        let shown: Vec<String> =
-            show_of(&open, &world.private).into_iter().map(|line| line.split("  <-  ").next().unwrap().to_string()).collect();
-        for must in [HANDLE, DEMO_PRIVATE[0], &world.dir.file_name().unwrap().to_string_lossy()] {
+        // The reads of the pages run in threads of their own: drawn again until what they read is on the pages
+        // (on a busy machine that takes long), at most a minute.
+        let folder = world.dir.file_name().unwrap().to_string_lossy().into_owned();
+        let musts = [HANDLE, DEMO_PRIVATE[0], folder.as_str()];
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        let shown: Vec<String> = loop {
+            let open = drawn(&mut world.page);
+            let shown: Vec<String> = show_of(&open, &world.private)
+                .into_iter()
+                .map(|line| line.split("  <-  ").next().unwrap().to_string())
+                .collect();
+            if musts.iter().all(|must| shown.iter().any(|value| value == must)) || std::time::Instant::now() > end {
+                break shown;
+            }
+        };
+        for must in musts {
             assert!(shown.iter().any(|value| value == must), "{choice:?}: without the mode {must} is not on a page: the check proves nothing\n{shown:?}");
         }
 

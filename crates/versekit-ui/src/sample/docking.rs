@@ -358,6 +358,13 @@ pub(crate) mod tests {
         }
     }
 
+    /// Pins this test thread to the plain scheme and German: other tests switch the scheme and the language of
+    /// the whole program meanwhile, and the texts drawn are compared with the language file afterwards.
+    fn steady() {
+        theme::set_thread_current("original");
+        language::set_thread_language(language::Choice::De);
+    }
+
     fn window(extension: bool) -> (SamplePage, Rc<RefCell<Log>>) {
         let log = Rc::new(RefCell::new(Log::default()));
         let mut page = SamplePage::preview();
@@ -508,7 +515,7 @@ pub(crate) mod tests {
 
     #[test]
     fn the_entry_sits_under_the_overview_and_above_the_menu_filter() {
-        theme::set_current("original");
+        steady();
         let (mut page, _) = window(true);
         let (width, height) = font_size::BASE_MIN_SIZE;
         let (_, texts) = draw(&mut page, width.max(1280.0), height.max(820.0));
@@ -527,7 +534,7 @@ pub(crate) mod tests {
 
     #[test]
     fn the_filter_never_hides_the_entry_but_narrows_its_pages() {
-        theme::set_current("original");
+        steady();
         let (mut page, _) = window(true);
         let (width, height) = font_size::BASE_MIN_SIZE;
         let (width, height) = (width.max(1280.0), height.max(820.0));
@@ -551,7 +558,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_page_of_the_extension_is_drawn_and_opens_its_list() {
-        theme::set_current("original");
+        steady();
         let (mut page, log) = window(true);
         let (width, height) = font_size::BASE_MIN_SIZE;
         let (width, height) = (width.max(1280.0), height.max(820.0));
@@ -674,6 +681,7 @@ pub(crate) mod tests {
         use versekit_core::pypath::Flavor;
         static IN_LIST: AtomicBool = AtomicBool::new(true);
 
+        steady();
         let dir = std::env::temp_dir().join(format!("versekit-fuss-ende-{}", versekit_core::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
         let game = dir.join("LIVE");
@@ -721,7 +729,7 @@ pub(crate) mod tests {
         use versekit_core::paths::Host;
         use versekit_core::pypath::Flavor;
 
-        theme::set_current("original");
+        steady();
         let dir = std::env::temp_dir().join(format!("versekit-fuss-{}", versekit_core::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
         let game = dir.join("LIVE");
@@ -847,7 +855,7 @@ pub(crate) mod tests {
 
     #[test]
     fn enter_in_the_menu_filter_opens_the_first_hit_and_empties_the_field() {
-        theme::set_current("original");
+        steady();
         let mut page = SamplePage::preview();
         page.go_to("");
         // The name of the first page of the first group: it is the first hit.
@@ -858,7 +866,7 @@ pub(crate) mod tests {
 
     #[test]
     fn escape_in_the_menu_filter_empties_the_field_and_opens_nothing() {
-        theme::set_current("original");
+        steady();
         let mut page = SamplePage::preview();
         page.go_to("");
         filter_and_press(&mut page, &language::t("hf_liste"), egui::Key::Escape);
@@ -868,7 +876,7 @@ pub(crate) mod tests {
 
     #[test]
     fn what_a_page_asks_for_during_the_frame_is_done_at_its_end() {
-        theme::set_current("original");
+        steady();
         let (mut page, log) = window(true);
         log.borrow_mut().commands.push(Command::SetSize(5));
         let (width, height) = font_size::BASE_MIN_SIZE;
@@ -879,7 +887,7 @@ pub(crate) mod tests {
 
     #[test]
     fn many_pages_scroll_in_their_list_and_push_nothing_out() {
-        theme::set_current("original");
+        steady();
         let (width, height) = font_size::BASE_MIN_SIZE;
         for points in [font_size::POINTS_RANGE.0, font_size::POINTS_RANGE.1] {
             let mut page = SamplePage::preview();

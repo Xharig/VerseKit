@@ -44,12 +44,21 @@ pub const MOD2: u16 = 1 << 4;
 const NUM_LOCK: u32 = 0xff7f;
 
 /// The X11 key symbol of a Windows key code as [`Hotkey`] holds it: the small letter for `A`–`Z`, the
-/// digit for `0`–`9`, `F1`–`F24` (X11 counts them on from `F1` = 0xffbe, as Windows does from 0x70).
+/// digit for `0`–`9`, `F1`–`F24` (X11 counts them on from `F1` = 0xffbe, as Windows does from 0x70) and the
+/// named keys (`overlay::NAMED_KEYS`): Pause, Scroll Lock, Insert and the arithmetic keys of the number block.
+/// Insert is `XK_Insert`, not `XK_KP_Insert`: the 0 of the number block with Num Lock off is another symbol.
 pub fn keysym(vkey: u16) -> Option<u32> {
     match vkey {
         0x41..=0x5a => Some(u32::from(vkey) + 0x20),
         0x30..=0x39 => Some(u32::from(vkey)),
         0x70..=0x87 => Some(0xffbe + u32::from(vkey - 0x70)),
+        0x13 => Some(0xff13),
+        0x91 => Some(0xff14),
+        0x2d => Some(0xff63),
+        0x6f => Some(0xffaf),
+        0x6a => Some(0xffaa),
+        0x6d => Some(0xffad),
+        0x6b => Some(0xffab),
         _ => None,
     }
 }
@@ -301,9 +310,23 @@ mod tests {
         assert_eq!(keysym(0x88), None, "past F24");
         assert_eq!(keysym(0x20), None);
         // Every key the settings accept has a symbol.
-        for text in ["Strg+Alt+B", "Alt+F8", "Umschalt+7", "Ctrl+Shift+F12", "Alt+F13", "Strg+F24"] {
+        for text in ["Strg+Alt+B", "Alt+F8", "Umschalt+7", "Ctrl+Shift+F12", "Alt+F13", "Strg+F24", "F13"] {
             assert!(keysym(combo(text).key).is_some(), "{text}");
         }
+        // The named keys: XK_Pause, XK_Scroll_Lock, XK_Insert and XK_KP_Divide, _Multiply, _Subtract, _Add.
+        let named: Vec<Option<u32>> =
+            versekit_core::overlay::NAMED_KEYS.iter().map(|(name, _, _)| keysym(combo(name).key)).collect();
+        let symbols = [0xff13, 0xff14, 0xff63, 0xffaf, 0xffaa, 0xffad, 0xffab];
+        assert_eq!(named, symbols.map(Some));
+    }
+
+    /// A key by itself is grabbed without a modifier, in every lock state like the others.
+    #[test]
+    fn a_key_by_itself_is_grabbed_without_a_modifier() {
+        let f13 = combo("F13");
+        assert_eq!(modifiers(f13), 0);
+        assert_eq!(variants(modifiers(f13), MOD2), vec![0, LOCK, MOD2, LOCK | MOD2]);
+        assert_eq!(stored_text(f13), "F13");
     }
 
     #[test]

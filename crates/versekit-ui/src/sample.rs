@@ -470,7 +470,7 @@ pub struct SamplePage {
     scan_modifiers: [bool; 3],
     scan_key: usize,
     scan_hotkey_on: bool,
-    /// The hotkey of the handle search in the info bar (`hotkey_suche`) and whether it is used (`hotkey_suche_an`).
+    /// The hotkey of the handle search in the info bar (`hotkey_suche`) and whether it is used (`hotkey_suche_ein`).
     search_modifiers: [bool; 3],
     search_key: usize,
     search_hotkey_on: bool,
@@ -601,6 +601,8 @@ pub struct SamplePage {
     overlay_info_bar_size: i64,
     /// The overlay place was reset, and when.
     place_reset_at: Option<f64>,
+    /// The overlay brought back waits hidden without the game: the notice of `place_reset_at` says so.
+    place_reset_waits: bool,
     sounds: [bool; 3],
     volume: i64,
     saved_at: Option<f64>,
@@ -882,6 +884,25 @@ pub fn opening(
     Opening { size, position, maximized: place.maximized }
 }
 
+/// The opening limited to `work`, the work area of its screen in pixels (`x`, `y`, width, height): a window
+/// remembered larger than the screen (another scaling, another interface size) shrinks to it, and its place moves
+/// so that the whole window, the title bar first, lies on it. Unknown work area: unchanged.
+pub fn fit_to_work_area(mut open: Opening, work: Option<(i32, i32, i32, i32)>, scale: f32) -> Opening {
+    let Some((x, y, w, h)) = work else { return open };
+    let scale = if scale > 0.0 { scale } else { 1.0 };
+    let (left, top, width, height) = (x as f32 / scale, y as f32 / scale, w as f32 / scale, h as f32 / scale);
+    if width <= 0.0 || height <= 0.0 {
+        return open;
+    }
+    open.size = [open.size[0].min(width), open.size[1].min(height)];
+    if let Some([px, py]) = open.position {
+        let px = px.min(left + width - open.size[0]).max(left);
+        let py = py.min(top + height - open.size[1]).max(top);
+        open.position = Some([px, py]);
+    }
+    open
+}
+
 /// Under test: how long each write of the settings thread takes in addition.
 #[cfg(test)]
 static WRITE_DELAY_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -1153,7 +1174,7 @@ impl SamplePage {
             search_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_SEARCH_HOTKEY)
                 .map_or([false, true, true], |h| h.0),
             search_key: parse_hotkey(versekit_core::overlay::DEFAULT_SEARCH_HOTKEY).map_or(7, |h| h.1),
-            search_hotkey_on: false,
+            search_hotkey_on: true,
             overlay_runs: || versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some(),
             test_build: false,
             news_index: 0,
@@ -1234,6 +1255,7 @@ impl SamplePage {
             overlay_info_bar_corner: versekit_core::info_bar::Corner::default(),
             overlay_info_bar_size: versekit_core::overlay::SIZE_STEPS[0],
             place_reset_at: None,
+            place_reset_waits: false,
             sounds: [true, true, false],
             volume: 70,
             saved_at: None,
@@ -1638,8 +1660,10 @@ impl SamplePage {
                 self.notice_at = None;
             }
         }
+        // Brought back while it waits hidden without the game: the notice says why nothing shows.
+        let reset_text = language::t(if self.place_reset_waits { "ov_s_mitte_wartet" } else { "ov_lage_weg_2" });
         if let Some(since) = self.place_reset_at
-            && !widgets::notice(ui.ctx(), scheme, since, "check", &language::t("ov_lage_weg_2"), None).shown
+            && !widgets::notice(ui.ctx(), scheme, since, "check", &reset_text, None).shown
         {
             self.place_reset_at = None;
         }
@@ -3933,16 +3957,16 @@ impl SamplePage {
                                             .zip(scan_modifiers.iter())
                                             .map(|(w, on)| (w.as_str(), *on))
                                             .collect();
-                                        let before = *scan_modifiers;
-                                        widgets::hotkey_picker(ui, scheme, "overlay-scan", &mut words, &HOTKEYS, scan_key, &name);
+                                        let before = (*scan_modifiers, *scan_key);
+                                        let keys = hotkey_names();
+                                        let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
+                                        widgets::hotkey_picker(ui, scheme, "overlay-scan", &mut words, &keys, scan_key, &name);
                                         for (on, (_, pressed)) in scan_modifiers.iter_mut().zip(words) {
                                             *on = pressed;
                                         }
-                                        // Without Strg, Alt or Umschalt it is no hotkey: the saved one stays.
-                                        if scan_modifiers.iter().all(|on| !on) && before.iter().any(|on| *on) {
-                                            *scan_modifiers = before;
-                                            scan_refused = true;
-                                        }
+                                        // A letter or a digit without Strg, Alt or Umschalt is no hotkey: the saved
+                                        // one stays.
+                                        scan_refused |= keep_hotkey(scan_modifiers, scan_key, before);
                                     }
                                     if r == 10 && *search_on {
                                         let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
@@ -3951,24 +3975,24 @@ impl SamplePage {
                                             .zip(search_modifiers.iter())
                                             .map(|(w, on)| (w.as_str(), *on))
                                             .collect();
-                                        let before = *search_modifiers;
+                                        let before = (*search_modifiers, *search_key);
+                                        let keys = hotkey_names();
+                                        let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
                                         widgets::hotkey_picker(
                                             ui,
                                             scheme,
                                             "overlay-suche",
                                             &mut words,
-                                            &HOTKEYS,
+                                            &keys,
                                             search_key,
                                             &name,
                                         );
                                         for (on, (_, pressed)) in search_modifiers.iter_mut().zip(words) {
                                             *on = pressed;
                                         }
-                                        // Without Strg, Alt or Umschalt it is no hotkey: the saved one stays.
-                                        if search_modifiers.iter().all(|on| !on) && before.iter().any(|on| *on) {
-                                            *search_modifiers = before;
-                                            search_refused = true;
-                                        }
+                                        // A letter or a digit without Strg, Alt or Umschalt is no hotkey: the saved
+                                        // one stays. F13 by itself is one (Kuehlwagen).
+                                        search_refused |= keep_hotkey(search_modifiers, search_key, before);
                                     }
                                     if r == 3 {
                                         // Modifier keys as buttons that stay pressed, the key from a list.
@@ -3978,17 +4002,16 @@ impl SamplePage {
                                             .zip(modifiers.iter())
                                             .map(|(w, on)| (w.as_str(), *on))
                                             .collect();
-                                        let before = *modifiers;
-                                        widgets::hotkey_picker(ui, scheme, "overlay", &mut words, &HOTKEYS, key, &name);
+                                        let before = (*modifiers, *key);
+                                        let keys = hotkey_names();
+                                        let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
+                                        widgets::hotkey_picker(ui, scheme, "overlay", &mut words, &keys, key, &name);
                                         for (on, (_, pressed)) in modifiers.iter_mut().zip(words) {
                                             *on = pressed;
                                         }
-                                        // A shortcut without Strg, Alt or Umschalt is not kept (4.12 would not take
-                                        // it): the picker stays at the one saved, and the reason is said.
-                                        if modifiers.iter().all(|on| !on) && before.iter().any(|on| *on) {
-                                            *modifiers = before;
-                                            hotkey_refused = true;
-                                        }
+                                        // A letter or a digit without Strg, Alt or Umschalt is not kept: the picker
+                                        // stays at the one saved, and the reason is said.
+                                        hotkey_refused |= keep_hotkey(modifiers, key, before);
                                         // Under Wayland: the way through a shortcut of the desktop.
                                         shortcut_copied |= desktop.shortcut_hint(ui, scheme);
                                     }
@@ -4118,13 +4141,17 @@ impl SamplePage {
                         if shortcut_copied {
                             self.copied_at = Some(page.input(|i| i.time));
                         }
-                        if hotkey_refused {
-                            let saved = hotkey_text(self.hotkey_modifiers, self.hotkey_key).unwrap_or_default();
-                            let text = language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from(saved))]);
-                            self.pin_notice = Some((page.input(|i| i.time), text));
-                        }
-                        if scan_refused || search_refused {
-                            self.pin_notice = Some((page.input(|i| i.time), language::t("s_hk_falsch")));
+                        // A letter or a digit left without a modifier: why, and which combination stays.
+                        for (refused, modifiers, key) in [
+                            (hotkey_refused, self.hotkey_modifiers, self.hotkey_key),
+                            (scan_refused, self.scan_modifiers, self.scan_key),
+                            (search_refused, self.search_modifiers, self.search_key),
+                        ] {
+                            if refused {
+                                let saved = hotkey_text(modifiers, key).unwrap_or_default();
+                                let text = language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from(saved))]);
+                                self.pin_notice = Some((page.input(|i| i.time), text));
+                            }
                         }
                         // A new hotkey: the running overlay takes it with the settings (it registers all of them). The
                         // one of the handle search counts only while it is on, so switching it on says it too.
@@ -4151,10 +4178,21 @@ impl SamplePage {
                         if reset {
                             self.overlay_place = settings::OverlayPlace::Free;
                             self.bar_side = settings::BarSide::Top;
+                            let mut waits_hidden = false;
                             if let Some(store) = &self.store {
                                 versekit_core::overlay::forget_place(&store.paths);
+                                // Without the game the overlay waits hidden: brought back, it still cannot be
+                                // seen, so the button says why and how to show it.
+                                // The game state the foot bar looked at last, while it is fresh; else asked anew.
+                                let now = page.input(|i| i.time);
+                                let running = match self.game_seen {
+                                    Some((at, running)) if now - at < GAME_LOOK_SECONDS => running,
+                                    _ => game_running_for_foot(&store.paths, (self.game_process)(&store.paths)),
+                                };
+                                waits_hidden = !self.overlay_always && !running;
                             }
                             self.place_reset_at = Some(page.ctx().input(|i| i.time));
+                            self.place_reset_waits = waits_hidden;
                         }
                     }
                     "hf_darstellung" => {
@@ -5469,39 +5507,70 @@ const HISTORY: [(&str, &str, &[&str]); 3] = [
     ("5.0.1", "26.10.2026", &["s_mu_hist_overlay", "s_mu_hist_pfade"]),
     ("5.0", "20.10.2026", &["s_mu_hist_rust", "s_mu_hist_schemata", "s_mu_hist_halb"]),
 ];
-/// Keys a hotkey can use: a letter, a digit or F1 … F24 (`overlay::Hotkey::parse`).
-const HOTKEYS: [&str; 60] = [
+/// Keys a hotkey can use, as stored: a letter, a digit, F1 … F24 and the named keys of
+/// `overlay::NAMED_KEYS` (`overlay::Hotkey::parse`).
+const HOTKEYS: [&str; 67] = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W",
     "X", "Y", "Z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8",
     "F9", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "F24",
+    "Pause", "Rollen", "Einfg", "NumGeteilt", "NumMal", "NumMinus", "NumPlus",
+];
+/// The words the picker and the texts show for the named keys of `HOTKEYS` (`Rollen` is `Scroll Lock` in English).
+const HOTKEY_WORDS: [(&str, &str); 7] = [
+    ("Pause", "s_ei_taste_pause"),
+    ("Rollen", "s_ei_taste_rollen"),
+    ("Einfg", "s_ei_taste_einfg"),
+    ("NumGeteilt", "s_ei_taste_num_geteilt"),
+    ("NumMal", "s_ei_taste_num_mal"),
+    ("NumMinus", "s_ei_taste_num_minus"),
+    ("NumPlus", "s_ei_taste_num_plus"),
 ];
 /// The modifier keys of a hotkey as stored, in the order of the picker.
 const HOTKEY_MODIFIERS: [&str; 3] = ["Strg", "Alt", "Umschalt"];
 /// Fewest and most rows of the overlay, as the overlay reads them.
 const OVERLAY_ROWS: (i64, i64) = versekit_core::overlay::ROWS_RANGE;
 
+/// The language key of the word for a key as stored, `None` for a letter, a digit or F1 … F24 (they read the same in
+/// every language).
+fn hotkey_word(stored: &str) -> Option<&'static str> {
+    HOTKEY_WORDS.iter().find(|(name, _)| *name == stored).map(|(_, word)| *word)
+}
+
+/// The keys of `HOTKEYS` as the picker shows them, in the language of the window.
+fn hotkey_names() -> Vec<String> {
+    HOTKEYS.iter().map(|name| hotkey_word(name).map_or_else(|| (*name).to_string(), language::t)).collect()
+}
+
 /// A stored hotkey such as `Strg+Alt+B`: which modifiers, which key (index
 /// into `HOTKEYS`). Read by the same parser as the overlay
-/// (`overlay::Hotkey::parse`); `None` for anything 4.12 would not take.
+/// (`overlay::Hotkey::parse`); `None` for anything it would not take.
 fn parse_hotkey(text: &str) -> Option<([bool; 3], usize)> {
     let hotkey = versekit_core::overlay::Hotkey::parse(text)?;
-    let code = |name: &str| match name.as_bytes() {
-        [c] => Some(u16::from(*c)),
-        [b'F', rest @ ..] => std::str::from_utf8(rest).ok()?.parse::<u16>().ok().map(|n| 0x70 + n - 1),
-        _ => None,
-    };
-    let key = HOTKEYS.iter().position(|name| code(name) == Some(hotkey.key))?;
+    let key = HOTKEYS.iter().position(|name| versekit_core::overlay::key_code(name) == Some(hotkey.key))?;
     Some(([hotkey.ctrl, hotkey.alt, hotkey.shift], key))
 }
 
-/// The hotkey as stored, `Strg+Alt+B`; `None` without a modifier key.
+/// The hotkey as stored, `Strg+Alt+B`; `None` without a modifier key, unless the key stands alone (F1 … F24 and
+/// the named keys, `overlay::Hotkey::stands_alone`): a letter or a digit by itself would catch the typing in the game.
 fn hotkey_text(modifiers: [bool; 3], key: usize) -> Option<String> {
     let mut parts: Vec<&str> = HOTKEY_MODIFIERS.iter().zip(modifiers).filter(|(_, on)| *on).map(|(m, _)| *m).collect();
-    if parts.is_empty() {
+    let name = HOTKEYS.get(key)?;
+    let alone = versekit_core::overlay::key_code(name).is_some_and(versekit_core::overlay::Hotkey::stands_alone);
+    if parts.is_empty() && !alone {
         return None;
     }
-    parts.push(HOTKEYS.get(key)?);
+    parts.push(name);
     Some(parts.join("+"))
+}
+
+/// After a change in a hotkey picker: a combination [`hotkey_text`] would not take (a letter or a digit left without
+/// a modifier) goes back to the one `before`, which stays saved. Returns whether it went back.
+fn keep_hotkey(modifiers: &mut [bool; 3], key: &mut usize, before: ([bool; 3], usize)) -> bool {
+    let refused = hotkey_text(*modifiers, *key).is_none() && hotkey_text(before.0, before.1).is_some();
+    if refused {
+        (*modifiers, *key) = before;
+    }
+    refused
 }
 
 /// The overlay corners as stored.
@@ -6576,6 +6645,23 @@ mod tests {
         assert_eq!(two_numbers("breit", 'x'), None);
     }
 
+    /// A window remembered larger than its screen opens at most as large as the work area, with the whole window
+    /// and its title bar on it; one that fits stays as it was.
+    #[test]
+    fn a_window_larger_than_its_screen_opens_inside_the_work_area() {
+        // The screen of the report: 3844 × 2221 pixels at 150 %, the task bar below.
+        let work = Some((0, 0, 3844, 2161));
+        let big = Opening { size: [2800.0, 1600.0], position: Some([-10.0, -40.0]), maximized: false };
+        let fit = fit_to_work_area(big, work, 1.5);
+        assert!(fit.size[0] <= 3844.0 / 1.5 && fit.size[1] <= 2161.0 / 1.5, "{fit:?}");
+        let [x, y] = fit.position.expect("a place");
+        assert!(x >= 0.0 && y >= 0.0, "the title bar on the screen: {fit:?}");
+        assert!(x + fit.size[0] <= 3844.0 / 1.5 + 0.01 && y + fit.size[1] <= 2161.0 / 1.5 + 0.01, "{fit:?}");
+        let small = Opening { size: [1200.0, 800.0], position: Some([100.0, 80.0]), maximized: false };
+        assert_eq!(fit_to_work_area(small, work, 1.5), small, "a window that fits stays as it was");
+        assert_eq!(fit_to_work_area(big, None, 1.5), big, "no screen known: unchanged");
+    }
+
     /// A place from another machine on a Retina screen (scale 2.0): kept where its title bar
     /// lies on the screen, centered where it lies on none (a monitor that is not there).
     #[test]
@@ -6885,7 +6971,8 @@ mod tests {
         assert_eq!(parse_hotkey("Ctrl-Shift-F12"), Some(([true, false, true], f12)));
         // F13 to F24 stand in the list after F12 and are read back to the same place.
         assert_eq!(parse_hotkey("Alt+F13"), Some(([false, true, false], f12 + 1)));
-        assert_eq!(parse_hotkey("Strg+F24"), Some(([true, false, false], HOTKEYS.len() - 1)));
+        let f24 = HOTKEYS.iter().position(|k| *k == "F24").unwrap();
+        assert_eq!(parse_hotkey("Strg+F24"), Some(([true, false, false], f24)));
         for key in f12 + 1..HOTKEYS.len() {
             let text = hotkey_text([false, true, true], key).unwrap();
             assert_eq!(parse_hotkey(&text), Some(([false, true, true], key)), "{text}");
@@ -6895,6 +6982,13 @@ mod tests {
         }
         assert_eq!(hotkey_text([true, true, false], b).as_deref(), Some("Strg+Alt+B"));
         assert_eq!(hotkey_text([false; 3], b), None);
+        // Every key of the list is one the overlay reads; the named keys stand after F24.
+        for (i, name) in HOTKEYS.iter().enumerate() {
+            assert!(versekit_core::overlay::key_code(name).is_some(), "{name}");
+            assert_eq!(hotkey_word(name).is_some(), i > f24, "{name}");
+        }
+        let stored: Vec<&str> = versekit_core::overlay::NAMED_KEYS.iter().map(|(name, _, _)| *name).collect();
+        assert_eq!(HOTKEYS[f24 + 1..], stored[..]);
         for (modifiers, key) in [([true, false, false], 0), ([false, true, true], 40)] {
             assert_eq!(parse_hotkey(&hotkey_text(modifiers, key).unwrap()), Some((modifiers, key)));
         }
@@ -6905,6 +6999,42 @@ mod tests {
         let scan = hotkey_text(fresh.scan_modifiers, fresh.scan_key);
         assert_eq!(scan.as_deref(), Some(versekit_core::overlay::DEFAULT_SCAN_HOTKEY));
         assert_eq!((shown.as_deref(), scan.as_deref()), (Some("Alt+Umschalt+V"), Some("Alt+Umschalt+R")));
+    }
+
+    /// One key by itself (Kuehlwagen): F1 … F24 and the named keys need no modifier, a letter or a digit does. A
+    /// letter picked while nothing is pressed goes back to the key before.
+    #[test]
+    fn a_key_that_is_never_typed_needs_no_modifier() {
+        let at = |name: &str| HOTKEYS.iter().position(|k| *k == name).unwrap();
+        assert_eq!(hotkey_text([false; 3], at("F13")).as_deref(), Some("F13"));
+        assert_eq!(parse_hotkey("F13"), Some(([false; 3], at("F13"))));
+        for (i, name) in HOTKEYS.iter().enumerate() {
+            let alone = hotkey_text([false; 3], i);
+            let letter_or_digit = name.len() == 1;
+            assert_eq!(alone.is_none(), letter_or_digit, "{name}");
+            if let Some(text) = alone {
+                assert_eq!(parse_hotkey(&text), Some(([false; 3], i)), "{text}");
+            }
+        }
+        // F13 by itself, and A picked from the list: back to F13, refused.
+        let (mut modifiers, mut key) = ([false; 3], at("A"));
+        assert!(keep_hotkey(&mut modifiers, &mut key, ([false; 3], at("F13"))));
+        assert_eq!((modifiers, key), ([false; 3], at("F13")));
+        // Alt let go of with B: refused; with F8: kept.
+        let (mut modifiers, mut key) = ([false; 3], at("B"));
+        assert!(keep_hotkey(&mut modifiers, &mut key, ([false, true, false], at("B"))));
+        assert_eq!((modifiers, key), ([false, true, false], at("B")));
+        let (mut modifiers, mut key) = ([false; 3], at("F8"));
+        assert!(!keep_hotkey(&mut modifiers, &mut key, ([false, true, false], at("F8"))));
+        assert_eq!((modifiers, key), ([false; 3], at("F8")));
+        // Unchanged combinations with a modifier stay as they are.
+        let (mut modifiers, mut key) = ([true, true, false], at("B"));
+        assert!(!keep_hotkey(&mut modifiers, &mut key, ([true, true, false], at("B"))));
+        // The words of the named keys come in the language of the window.
+        let _language = crate::language_lock();
+        let names = hotkey_names();
+        assert_eq!(names[at("Einfg")], language::t("s_ei_taste_einfg"));
+        assert_eq!(names[at("F13")], "F13");
     }
 
     /// The window reads the settings file of 4.12, writes only what changed,
@@ -7146,10 +7276,12 @@ mod tests {
         assert!(wire.sync.set_setting(SETTING_DEMAND, Value::Bool(true)));
         assert!(page.page_hidden("hf_bedarf"), "switched on, but not connected");
         wire.sync.connect();
-        let end = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        // The login runs in a thread of its own: waits for it, on a busy machine that takes long.
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(90);
         while !wire.sync.connection().connected() && std::time::Instant::now() < end {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
+        assert!(wire.sync.connection().connected(), "the login did not end");
         wire.sync.pass_now().expect("pass");
         assert!(!page.page_hidden("hf_bedarf"));
         assert!(page.page_hidden("hf_staffellager"), "the unit storage has its own switch");
@@ -8068,8 +8200,9 @@ mod tests {
         new.blueprints.pop();
         let (go, wait) = mpsc::channel::<()>();
         let copy = new.clone();
+        // Builds when the test says so; a test that ends before drops `go`, and the build ends with it.
         let building = versekit_gamedata::list::Pending::spawn(move || {
-            wait.recv_timeout(Duration::from_secs(5)).ok()?;
+            wait.recv().ok()?;
             Some(copy)
         });
         let mut page = SamplePage::preview();

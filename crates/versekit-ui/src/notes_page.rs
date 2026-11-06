@@ -593,7 +593,7 @@ mod tests {
         state.memos.set_text(0, "Titanium holen\nLorville\nArea18", 1);
         state.epoch += 1;
         let scheme = versekit_core::theme::current();
-        let output = ctx.run_ui(
+        let mut output = ctx.run_ui(
             egui::RawInput {
                 screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
                 ..Default::default()
@@ -602,6 +602,7 @@ mod tests {
                 layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, &mut state));
             },
         );
+        output.textures_delta.clear();
         fn find(shape: &egui::epaint::Shape) -> Option<std::sync::Arc<egui::Galley>> {
             match shape {
                 egui::epaint::Shape::Text(text) if text.galley.text().contains("Lorville") => Some(text.galley.clone()),
@@ -850,7 +851,7 @@ mod tests {
     /// The sections of the drawn field: (text, bold, italics, underlined, struck through).
     fn field_sections(ctx: &egui::Context, state: &mut NotesState, needle: &str) -> Vec<(String, bool, bool, bool, bool)> {
         let scheme = versekit_core::theme::current();
-        let output = ctx.run_ui(
+        let mut output = ctx.run_ui(
             egui::RawInput {
                 time: Some(50.0),
                 screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
@@ -860,6 +861,7 @@ mod tests {
                 layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
             },
         );
+        output.textures_delta.clear();
         fn find(shape: &egui::epaint::Shape, needle: &str) -> Option<std::sync::Arc<egui::Galley>> {
             match shape {
                 egui::epaint::Shape::Text(text) if text.galley.text().contains(needle) => Some(text.galley.clone()),
@@ -914,8 +916,10 @@ mod tests {
         set_language(Choice::De);
         let (ctx, mut state) = page_with("Einkauf\nTitanium und Gold");
         for (button, style) in [(0, BOLD), (1, ITALIC), (2, UNDERLINE), (3, STRIKE)] {
-            mark(&ctx, &mut state, 8..16, 1.0);
-            click_button(&ctx, &mut state, button, 1.1);
+            // The time of the frames only goes forward.
+            let at = 1.0 + button as f64;
+            mark(&ctx, &mut state, 8..16, at);
+            click_button(&ctx, &mut state, button, at + 0.1);
             let look = &state.memos().items[0].look;
             assert!(look.all_have(8..16, style), "button {button} gives \"Titanium\" its style");
             assert_eq!(look.style_at(7) & style, 0, "the line break before is not touched");
@@ -925,16 +929,16 @@ mod tests {
         let sections = field_sections(&ctx, &mut state, "Titanium");
         assert!(sections.contains(&("Titanium".to_string(), true, true, true, true)), "{sections:?}");
         assert!(sections.iter().any(|s| s.0 == " und Gold" && !s.1 && !s.2 && !s.3 && !s.4), "{sections:?}");
-        // A second click takes the style away again.
-        mark(&ctx, &mut state, 8..16, 2.0);
-        click_button(&ctx, &mut state, 0, 2.1);
+        // A second click takes the style away again (after the frame of `field_sections`).
+        mark(&ctx, &mut state, 8..16, 51.0);
+        click_button(&ctx, &mut state, 0, 51.1);
         assert_eq!(state.memos().items[0].look.style_at(8) & BOLD, 0);
         assert_eq!(state.memos().items[0].text, "Einkauf\nTitanium und Gold", "the text has no signs in it");
         // After a click on the bar the field keeps the cursor: what is typed next goes in, in the new style.
-        mark(&ctx, &mut state, 25..25, 3.0);
-        click_button(&ctx, &mut state, 0, 3.1);
-        frame(&ctx, &mut state, 900.0, 3.2, Vec::new());
-        frame(&ctx, &mut state, 900.0, 3.3, type_text(" Erz"));
+        mark(&ctx, &mut state, 25..25, 52.0);
+        click_button(&ctx, &mut state, 0, 52.1);
+        frame(&ctx, &mut state, 900.0, 52.2, Vec::new());
+        frame(&ctx, &mut state, 900.0, 52.3, type_text(" Erz"));
         let memo = &state.memos().items[0];
         assert_eq!(memo.text, "Einkauf\nTitanium und Gold Erz");
         assert!(memo.look.all_have(25..29, BOLD), "typed bold after the click");
@@ -1031,31 +1035,33 @@ mod tests {
             LineKind::Plain
         ]);
         let scheme = versekit_core::theme::current();
-        let shapes = |ctx: &egui::Context, state: &mut NotesState| {
-            ctx.run_ui(
+        // The time of the frames only goes forward.
+        let shapes = |ctx: &egui::Context, state: &mut NotesState, time: f64| {
+            let mut output = ctx.run_ui(
                 egui::RawInput {
-                    time: Some(9.0),
+                    time: Some(time),
                     screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
                     ..Default::default()
                 },
                 |ui| {
                     layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
                 },
-            )
-            .shapes
+            );
+            output.textures_delta.clear();
+            output.shapes
         };
-        let before = circles(&shapes(&ctx, &mut state));
+        let before = circles(&shapes(&ctx, &mut state, 1.5));
         assert!(before >= 2, "a bullet in front of each point: {before}");
         // The numbered list takes the same lines over and counts them.
         mark(&ctx, &mut state, 8..30, 2.0);
         click_button(&ctx, &mut state, 5, 2.1);
         let look = state.memos().items[0].look.clone();
         assert_eq!((1..4).map(|l| look.number_of(l)).collect::<Vec<_>>(), [Some(1), Some(2), Some(3)]);
-        let shown = texts(&shapes(&ctx, &mut state));
+        let shown = texts(&shapes(&ctx, &mut state, 2.5));
         for number in ["1.", "2.", "3."] {
             assert!(shown.contains(&number.to_string()), "{number} in front of its point: {shown:?}");
         }
-        assert_eq!(circles(&shapes(&ctx, &mut state)), before - 2, "no bullets left");
+        assert_eq!(circles(&shapes(&ctx, &mut state, 2.6)), before - 2, "no bullets left");
         let text = &state.memos().items[0].text;
         assert_eq!(text, "Einkauf\nTitanium\nGold\nQuantanium");
         assert!(!text.contains(['•', '-', '*', '|', '#']), "{text:?}");
@@ -1172,7 +1178,7 @@ mod tests {
     /// The field as drawn: its galley.
     fn field_galley(ctx: &egui::Context, state: &mut NotesState, needle: &str) -> std::sync::Arc<egui::Galley> {
         let scheme = versekit_core::theme::current();
-        let output = ctx.run_ui(
+        let mut output = ctx.run_ui(
             egui::RawInput {
                 time: Some(40.0),
                 screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
@@ -1182,6 +1188,7 @@ mod tests {
                 layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
             },
         );
+        output.textures_delta.clear();
         fn find(shape: &egui::epaint::Shape, needle: &str) -> Option<std::sync::Arc<egui::Galley>> {
             match shape {
                 egui::epaint::Shape::Text(text) if text.galley.text().contains(needle) => Some(text.galley.clone()),
@@ -1201,18 +1208,18 @@ mod tests {
     /// The straight lines drawn on the page (the lines of a table and the frames of other boxes).
     fn segments(ctx: &egui::Context, state: &mut NotesState) -> usize {
         let scheme = versekit_core::theme::current();
-        let shapes = ctx
-            .run_ui(
-                egui::RawInput {
-                    time: Some(41.0),
-                    screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
-                    ..Default::default()
-                },
-                |ui| {
-                    layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
-                },
-            )
-            .shapes;
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                time: Some(41.0),
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
+                ..Default::default()
+            },
+            |ui| {
+                layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, state));
+            },
+        );
+        output.textures_delta.clear();
+        let shapes = output.shapes;
         fn count(shape: &egui::epaint::Shape) -> usize {
             match shape {
                 egui::epaint::Shape::LineSegment { .. } => 1,
@@ -1257,7 +1264,7 @@ mod tests {
         assert_eq!(state.memos().items[0].text, "Erze\nErz\tMenge\nGold\t12\n\t");
         // In the very frame Tab is pressed the field keeps the cursor: it does not go on to the next control.
         let scheme = versekit_core::theme::current();
-        let _ = ctx.run_ui(
+        let mut output = ctx.run_ui(
             egui::RawInput {
                 time: Some(time),
                 events: vec![tab.clone()],
@@ -1268,6 +1275,7 @@ mod tests {
                 layout::page(ui, scheme, "notes-test", |ui| show_page(ui, scheme, &mut state));
             },
         );
+        output.textures_delta.clear();
         assert_eq!(ctx.memory(|m| m.focused()), Some(text_id(state.epoch)), "Tab stays in the table");
         assert_eq!(state.caret.selection, 24..24, "the cursor in the next cell");
         let look = &state.memos().items[0].look;
