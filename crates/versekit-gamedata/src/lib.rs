@@ -47,6 +47,7 @@ pub mod quality_goods;
 mod recipes;
 pub mod scmdb;
 pub mod scmdb_catalog;
+pub mod ship_slots;
 mod sources;
 pub mod value_source;
 pub mod values;
@@ -234,6 +235,36 @@ impl GameData {
             return Err(Error::Encrypted { entry: entry.path().to_string() });
         }
         contract_facts::catalog_json(&self.archive).map_err(|source| Error::Contracts { source: Box::new(source) })
+    }
+
+    /// The slots of the player ships and the parts with slots of the archive, in the form of the stored erkul
+    /// files ([`ship_slots::SHIPS_FILE`], [`ship_slots::PARTS_FILE`]): p4kx builds its catalog once per filter of
+    /// [`ship_slots::FILTERS`].
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Encrypted`] for an encrypted DataForge, [`Error::Slots`] when p4kx cannot build a catalog or its
+    /// JSON cannot be read.
+    pub fn ship_slots(&self) -> Result<(versekit_core::jsonio::Value, versekit_core::jsonio::Value), Error> {
+        if let Some(entry) = DATAFORGE_ENTRIES.iter().find_map(|path| self.find_entry(path))
+            && entry.is_encrypted()
+        {
+            return Err(Error::Encrypted { entry: entry.path().to_string() });
+        }
+        let mut catalogs = ship_slots::Catalogs::default();
+        for text in ship_slots::FILTERS {
+            let filter = p4kx_export::Filter::new(text);
+            let options = p4kx_export::CatalogOptions {
+                filter: Some(&filter),
+                ..p4kx_export::CatalogOptions::new(std::time::SystemTime::UNIX_EPOCH)
+            };
+            let built =
+                p4kx_export::build_catalog(&self.archive, &options).map_err(|source| Error::Slots { source: Box::new(source) })?;
+            let catalog: serde_json::Value =
+                serde_json::from_slice(&built.into_parts().0).map_err(|source| Error::Slots { source: Box::new(source) })?;
+            catalogs.add(&catalog);
+        }
+        Ok((ship_slots::ships_file(&catalogs), ship_slots::parts_file(&catalogs)))
     }
 
     /// The game values of the archive: every recipe with the quality

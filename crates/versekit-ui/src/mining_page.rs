@@ -803,24 +803,36 @@ fn ore_places(ui: &mut Ui, scheme: &Scheme, ore: &Ore, tool: Option<&str>) {
     }
     egui::Frame::new().inner_margin(egui::Margin { left: 18, right: 8, top: 2, bottom: 4 }).show(ui, |inner| {
         inner.set_width(inner.available_width());
-        for place in places {
+        for (n, place) in places.into_iter().enumerate() {
             let (share, level, alone) = share_at(place, tool);
             let words = share_words(share, level, alone);
-            sides(
-                inner,
-                |left| {
-                    left.label(&place.name);
-                    left.label(sub(scheme, place.system.clone()));
-                },
-                |right| {
-                    right.label(sub(scheme, kinds_text(&place.kinds)));
-                    if let Some((words, level)) = words {
-                        right.label(RichText::new(words).color(color(level_color(scheme, level))));
-                    }
-                },
-            );
+            striped_line(inner, scheme, n % 2 == 1, |line| {
+                sides(
+                    line,
+                    |left| {
+                        left.label(&place.name);
+                        left.label(sub(scheme, place.system.clone()));
+                    },
+                    |right| {
+                        right.label(sub(scheme, kinds_text(&place.kinds)));
+                        if let Some((words, level)) = words {
+                            right.label(RichText::new(words).color(color(level_color(scheme, level))));
+                        }
+                    },
+                );
+            });
         }
     });
+}
+
+/// A line of an opened list, every second one on a stripe: the value at the right edge is read with the name at
+/// the left of its own line.
+fn striped_line(ui: &mut Ui, scheme: &Scheme, stripe: bool, add: impl FnOnce(&mut Ui)) {
+    let background = ui.painter().add(egui::Shape::Noop);
+    let rect = ui.scope(add).response.rect;
+    if stripe {
+        ui.painter().set(background, egui::Shape::rect_filled(rect.expand2(egui::vec2(4.0, 1.0)), 0.0, color(scheme.bar)));
+    }
 }
 
 /// The ores of an open place, per tool, the most first.
@@ -839,19 +851,21 @@ fn place_ores(ui: &mut Ui, scheme: &Scheme, place: &Place, tool: Option<&str>) {
             let mut ores = block.ores.clone();
             ores.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| lower(&a.0).cmp(&lower(&b.0))));
             let alone = ores.len() <= 1;
-            for (name, share, level) in &ores {
+            for (n, (name, share, level)) in ores.iter().enumerate() {
                 let words = share_words(*share, *level, alone);
-                sides(
-                    inner,
-                    |left| {
-                        left.label(name);
-                    },
-                    |right| {
-                        if let Some((words, level)) = words {
-                            right.label(RichText::new(words).color(color(level_color(scheme, level))));
-                        }
-                    },
-                );
+                striped_line(inner, scheme, n % 2 == 1, |line| {
+                    sides(
+                        line,
+                        |left| {
+                            left.label(name);
+                        },
+                        |right| {
+                            if let Some((words, level)) = words {
+                                right.label(RichText::new(words).color(color(level_color(scheme, level))));
+                            }
+                        },
+                    );
+                });
             }
         }
     });

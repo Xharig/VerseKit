@@ -180,7 +180,7 @@ impl SalvageState {
     /// With own data: the ships of UEX, the shop prices and the wrecks of the data folder.
     pub fn with_files(paths: &Paths) -> SalvageState {
         let ships = UexShips::load(&paths.app_file(versekit_core::ships::UEX_FILE));
-        let entries = ships.all_names();
+        let entries = ships.choice_names();
         SalvageState {
             paths: Some(Paths::new(paths.host.clone())),
             shops: Shops::load(paths),
@@ -1231,6 +1231,25 @@ mod tests {
         state.open_part("Nothing");
         let drawn = frames.settle(&mut state, &mut crafting);
         assert!(drawn.has(&tf("s_zl_kein_rezept", &[("name", Arg::from("Nothing"))])), "{:?}", drawn.texts);
+    }
+
+    #[test]
+    fn a_ship_that_uex_lists_twice_is_offered_once() {
+        use versekit_core::paths::Host;
+        use versekit_core::pypath::Flavor;
+        let dir = std::env::temp_dir().join(format!("versekit-bergung-doppelt-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("folder");
+        let home = dir.to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &home)], &home));
+        // UEX gives the Sabre Raven EX under two ids with one name.
+        let ships = r#"{"format": 5, "schiffe": {"290": {"name": "Aegis Sabre Raven EX"},
+                        "291": {"name": "Aegis Sabre Raven EX"}, "3": {"name": "Aegis Sabre"}}}"#;
+        std::fs::write(paths.app_file(versekit_core::ships::UEX_FILE), ships).expect("ships");
+        let state = SalvageState::with_files(&paths);
+        assert_eq!(state.entries, ["Aegis Sabre", "Aegis Sabre Raven EX"]);
+        assert_eq!(state.ship_count, 2);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -6,6 +6,49 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.0 - 2026-11-07
+
+> The loadout in the hangar now comes from the game data, every slot on
+> its own, and can be shared. And the refinery scan reads the German
+> terminal and long lists.
+
+### New
+
+- **Slots from the game data** — Every ship shows its slots all the way
+  down: turret and guns, rack and missiles, mining head and modules. They
+  are read only while Star Citizen is closed.
+- **Every slot on its own** — Alike slots stand in one line, the arrow at
+  its end opens each slot by itself. Every list ends with “Leave empty”.
+- **Share a loadout** — As a code for Discord or as a file. When pasting
+  you see first what arrives. The loadout of another ship of the same type
+  can be taken over.
+- **Move ships** — Between Planned and My hangar, with loadout, name and
+  note.
+- **Built-in parts** — Slots that cannot be refitted in the game show their
+  part with “built in”, without a choice and without a cart.
+- **Refinery: long lists** — Scan, scroll in the terminal, scan again: both
+  scans become one job, lines read twice count once.
+
+### Improved
+
+- **Loadout split by turret** — The guns of the nose and the ball turret of
+  the F7C-M stand in lines of their own.
+- **Mining** — The opened places are striped, the shares at the right stay
+  with their place.
+
+### Fixed
+
+- **Meteor without its wing racks** — Missile racks that Erkul does not list
+  as swappable were missing from the loadout (reported by Aeternitas26
+  [KRT]).
+- **Raven EX twice** — A ship UEX lists twice stands in the list once (reported
+  by Aeternitas26 [KRT]).
+- **Refinery scan read nothing in the German game** — VerseKit now finds the
+  shortened head “AUSBEU” and the closely set column heads, and the “ANZ.”
+  column while setting up no longer slips into the yield.
+- **Crafting** — Clicking a material did not lead to mining in a wide
+  window.
+
 ## v5.1.4 - 2026-11-06
 
 > One consistent look on every page, an own title bar, new pages for

@@ -227,7 +227,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
  "wl-clipboard-rs",
  "x11rb",
 ]
@@ -1285,7 +1285,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2792,7 +2792,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2806,8 +2806,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-archive"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "aes",
  "cbc",
@@ -2824,8 +2824,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-assembly"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "p4kx-archive",
  "p4kx-audio",
@@ -2845,8 +2845,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-audio"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "lewton",
  "opus-pure",
@@ -2857,8 +2857,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-channels"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "dirs",
  "p4kx-archive",
@@ -2867,8 +2867,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-character"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "crc32c",
  "crc32fast",
@@ -2881,8 +2881,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-chunks"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "p4kx-foundation",
  "thiserror 2.0.21",
@@ -2890,8 +2890,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-cryxml"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "p4kx-foundation",
  "thiserror 2.0.21",
@@ -2899,8 +2899,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-dataforge"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "p4kx-foundation",
  "rayon",
@@ -2909,8 +2909,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-export"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "crc32c",
  "p4kx-assembly",
@@ -2929,8 +2929,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-extraction"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "crc32c",
  "p4kx-archive",
@@ -2953,16 +2953,16 @@ dependencies = [
 
 [[package]]
 name = "p4kx-foundation"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "p4kx-gfx"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "base64 0.23.1",
  "flate2",
@@ -2979,8 +2979,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-gltf"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "gltf-json",
  "p4kx-model",
@@ -2992,8 +2992,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-guard"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "p4kx-channels",
  "same-file",
@@ -3002,16 +3002,16 @@ dependencies = [
 
 [[package]]
 name = "p4kx-localization"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "p4kx-model"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "half",
  "p4kx-chunks",
@@ -3024,8 +3024,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-testkit"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "aes",
  "assert_cmd",
@@ -3046,8 +3046,8 @@ dependencies = [
 
 [[package]]
 name = "p4kx-texture"
-version = "0.4.1"
-source = "git+https://github.com/p4kx-org/p4kx.git?rev=2055700dd4604a92111d1caa67637f772d8c9e40#2055700dd4604a92111d1caa67637f772d8c9e40"
+version = "0.4.2"
+source = "git+https://github.com/p4kx-org/p4kx.git?tag=v0.4.2#4dc2c5de56a18dc25c6b4f9ce6f1e1bd2628ce9a"
 dependencies = [
  "flate2",
  "p4kx-foundation",
@@ -3742,7 +3742,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3799,7 +3799,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4279,10 +4279,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.5",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4718,7 +4718,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-app"
-version = "5.1.4"
+version = "5.2.0"
 dependencies = [
  "eframe",
  "egui",
@@ -4731,7 +4731,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-core"
-version = "5.1.4"
+version = "5.2.0"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.3.4",
@@ -4752,7 +4752,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-gamedata"
-version = "5.1.4"
+version = "5.2.0"
 dependencies = [
  "p4kx-archive",
  "p4kx-cryxml",
@@ -4767,7 +4767,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-overlay"
-version = "5.1.4"
+version = "5.2.0"
 dependencies = [
  "eframe",
  "egui",
@@ -4783,7 +4783,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-overlay-proto"
-version = "5.1.4"
+version = "5.2.0"
 dependencies = [
  "eframe",
  "egui",
@@ -4794,7 +4794,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-parity"
-version = "5.1.4"
+version = "5.2.0"
 dependencies = [
  "p4kx-dataforge",
  "regex",
@@ -4806,7 +4806,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-ui"
-version = "5.1.4"
+version = "5.2.0"
 dependencies = [
  "eframe",
  "egui",
@@ -5292,7 +5292,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

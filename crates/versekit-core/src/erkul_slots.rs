@@ -38,6 +38,11 @@ use crate::ships::{ErkulShips, ShipId, stored};
 
 pub const PARTS_FILE: &str = "erkul-teile.json";
 pub const PARTS_FORMAT: i64 = 2;
+/// The slots of the player ships from the game data, in the form of [`crate::ships::ERKUL_FILE`]; written by
+/// `versekit-gamedata` (`ship_slots`) and read before erkul's.
+pub const GAME_SHIPS_FILE: &str = "spiel-schiffe.json";
+/// The parts with slots of the game data, in the form of [`PARTS_FILE`].
+pub const GAME_PARTS_FILE: &str = "spiel-teile.json";
 
 /// The kinds of slot a player can change (`erkul.SWAPPABLE`): the ones a
 /// blueprint can fill plus battery, avionics and gravity generator.
@@ -96,6 +101,8 @@ pub struct SlotInfo {
     pub fit: Option<Fit>,
     /// The part fitted at the factory: `(identifier, name)`.
     pub factory: Option<(String, String)>,
+    /// Built in for good (`fest`): it shows its factory part and takes no other.
+    pub fixed: bool,
 }
 
 /// One port of a part that holds other parts (a rack).
@@ -170,6 +177,7 @@ impl SlotInfo {
             size: py_int(get(map, "groesse")),
             fit: fit_of(get(map, "passt")),
             factory: pair_of(get(map, "werk")),
+            fixed: crate::hangar::truthy(get(map, "fest")),
         }
     }
 }
@@ -212,6 +220,17 @@ impl ErkulParts {
                 });
             }
         }
+        ErkulParts::from_parts(parts)
+    }
+
+    /// The parts of the game data, and of erkul's those the game data do not have (by identifier).
+    pub fn merged(game: ErkulParts, erkul: ErkulParts) -> ErkulParts {
+        if game.is_empty() {
+            return erkul;
+        }
+        let mut parts = game.parts;
+        let known: std::collections::HashSet<String> = parts.iter().map(|p| p.reference.clone()).collect();
+        parts.extend(erkul.parts.into_iter().filter(|p| !known.contains(&p.reference)));
         ErkulParts::from_parts(parts)
     }
 
@@ -272,7 +291,7 @@ pub fn fits_slot(fit: &Fit, part: &Part) -> bool {
 /// the slots below it are replaced by those of the chosen rack with its factory fitting.
 /// `chosen` is the equipment of the ship, path → `{ref, …}`.
 pub fn with_choices(slots: Vec<SlotInfo>, chosen: &Map, parts: &ErkulParts) -> Vec<SlotInfo> {
-    if parts.is_empty() {
+    if parts.is_empty() && !chosen.iter().any(|(_, v)| v.as_object().is_some_and(crate::cart::is_emptied)) {
         return slots;
     }
     let pick_of = |path: &str| -> Option<String> {
@@ -300,8 +319,14 @@ pub fn with_choices(slots: Vec<SlotInfo>, chosen: &Map, parts: &ErkulParts) -> V
             slot.fit = Some(port.fit.clone());
         }
         let stock = slot.factory.as_ref().map(|(reference, _)| reference.clone()).filter(|r| !r.is_empty());
+        let fixed = slot.fixed;
         out.push(slot);
-        let pick = pick_of(&path);
+        // A slot left empty holds no rack, so nothing hangs below it; a fixed slot is never left empty.
+        if !fixed && get(chosen, &path).and_then(Value::as_object).is_some_and(crate::cart::is_emptied) {
+            gone.push(format!("{path}/"));
+            continue;
+        }
+        let pick = if fixed { None } else { pick_of(&path) };
         let Some(rack) = pick.as_ref().or(stock.as_ref()).and_then(|reference| parts.get(reference)) else {
             continue;
         };
@@ -322,6 +347,7 @@ pub fn with_choices(slots: Vec<SlotInfo>, chosen: &Map, parts: &ErkulParts) -> V
                 size: port.fit.max,
                 fit: Some(port.fit.clone()),
                 factory: rack.factory.iter().find(|(name, _)| *name == port.name).map(|(_, pair)| pair.clone()),
+                fixed: false,
             });
         }
     }
@@ -357,14 +383,25 @@ pub struct ErkulData {
 }
 
 impl ErkulData {
-    /// The two files in the data folder.
-    pub fn files(paths: &Paths) -> [String; 2] {
-        [paths.app_file(crate::ships::ERKUL_FILE), paths.app_file(PARTS_FILE)]
+    /// The four files in the data folder: the slots and parts of the game data first, then those of erkul.
+    pub fn files(paths: &Paths) -> [String; 4] {
+        [
+            paths.app_file(GAME_SHIPS_FILE),
+            paths.app_file(GAME_PARTS_FILE),
+            paths.app_file(crate::ships::ERKUL_FILE),
+            paths.app_file(PARTS_FILE),
+        ]
     }
 
+    /// The slots of the game data ([`GAME_SHIPS_FILE`], built from the `Data.p4k` with p4kx), and erkul's only
+    /// for the ships the game data lack or where they leave a slot without what fits (see
+    /// [`ErkulShips::merged`]); the parts the same way.
     pub fn load(paths: &Paths) -> ErkulData {
-        let [ships, parts] = ErkulData::files(paths);
-        ErkulData { ships: ErkulShips::load(&ships), parts: ErkulParts::load(&parts) }
+        let [game_ships, game_parts, ships, parts] = ErkulData::files(paths);
+        ErkulData {
+            ships: ErkulShips::merged(ErkulShips::load(&game_ships), ErkulShips::load(&ships)),
+            parts: ErkulParts::merged(ErkulParts::load(&game_parts), ErkulParts::load(&parts)),
+        }
     }
 
     /// The name of a part for the plan (the identifier where erkul does not know it).
@@ -372,9 +409,9 @@ impl ErkulData {
         self.parts.get(reference).map_or_else(|| reference.to_string(), |p| p.name.clone())
     }
 
-    /// The paths of all slots of a ship, as erkul spells them.
+    /// The paths of all slots of a ship that take a part of the player, as erkul spells them.
     pub fn slot_paths(&self, ship: &Map) -> Vec<String> {
-        hardpoints(&self.ships, &self.parts, ship_id(ship), &Map::new()).into_iter().map(|s| s.path).collect()
+        hardpoints(&self.ships, &self.parts, ship_id(ship), &Map::new()).into_iter().filter(|s| !s.fixed).map(|s| s.path).collect()
     }
 
     /// What is fitted at the factory, port by port: `(path, identifier of the part)`, for the stored equipment
@@ -387,10 +424,12 @@ impl ErkulData {
     }
 
     /// The slots of a hangar entry for the equipment chosen so far, as the shopping list wants them
-    /// (`cart.line_items` reads `erkul.hardpoints(name, maker, short, maker short, chosen)`).
+    /// (`cart.line_items` reads `erkul.hardpoints(name, maker, short, maker short, chosen)`). A fixed slot is
+    /// none: nothing in it is bought or built.
     pub fn cart_slots(&self, ship: &Map, chosen: &Map) -> Vec<crate::cart::Slot> {
         hardpoints(&self.ships, &self.parts, ship_id(ship), chosen)
             .into_iter()
+            .filter(|slot| !slot.fixed)
             .map(|slot| {
                 let (factory_ref, factory_name) = slot.factory.unwrap_or_default();
                 crate::cart::Slot { path: slot.path, kind: slot.kind, size: slot.size, factory_ref, factory_name }
@@ -443,7 +482,8 @@ fn slot_counts(entry: &Map) -> Vec<(String, i64, i64)> {
     if let Some(Value::Array(slots)) = get(entry, "slots") {
         for slot in slots.iter().filter_map(Value::as_object) {
             let (kind, size) = (text(slot, "art"), py_int(get(slot, "groesse")).unwrap_or(-1));
-            if kind.is_empty() {
+            // A fixed slot takes no blueprint part.
+            if kind.is_empty() || crate::hangar::truthy(get(slot, "fest")) {
                 continue;
             }
             match fitted.iter_mut().find(|(k, s, _)| k == kind && *s == size) {
@@ -623,6 +663,18 @@ impl SlotTable {
 mod tests {
     use super::*;
 
+    #[test]
+    fn the_parts_of_the_game_data_come_first_and_erkul_adds_the_ones_they_lack() {
+        let part = |reference: &str, name: &str| Part { reference: reference.into(), name: name.into(), ..Part::default() };
+        let game = ErkulParts::from_parts(vec![part("tmsb", "TMSB-5 (game)")]);
+        let erkul = ErkulParts::from_parts(vec![part("tmsb", "TMSB-5 (erkul)"), part("rack", "Rack")]);
+        let merged = ErkulParts::merged(game, erkul);
+        assert_eq!(merged.get("tmsb").map(|p| p.name.as_str()), Some("TMSB-5 (game)"));
+        assert_eq!(merged.get("rack").map(|p| p.name.as_str()), Some("Rack"), "what the game data lack comes from erkul");
+        assert_eq!(merged.all().len(), 2);
+        assert_eq!(ErkulParts::merged(ErkulParts::default(), ErkulParts::from_parts(vec![part("a", "A")])).all().len(), 1);
+    }
+
     fn fit(kind: &str, low: i64, high: i64, offers: &[&str], needs: &[&str]) -> Fit {
         Fit {
             types: vec![(kind.to_string(), Vec::new())],
@@ -652,6 +704,7 @@ mod tests {
             size: Some(3),
             fit,
             factory: factory.map(|r| (r.to_string(), r.to_string())),
+            fixed: false,
         }
     }
 

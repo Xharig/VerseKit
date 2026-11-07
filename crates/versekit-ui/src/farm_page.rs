@@ -69,7 +69,7 @@ pub struct FarmState {
     mining_seen: Option<SystemTime>,
     /// The slots of the ships, for the parts of the hangar and the wish list.
     erkul: ErkulData,
-    erkul_seen: [Option<SystemTime>; 2],
+    erkul_seen: [Option<SystemTime>; 4],
     /// The whole fleet file: the ships, the wish list and the farm notes.
     notes: Map,
     notes_seen: Option<SystemTime>,
@@ -100,7 +100,7 @@ impl Default for FarmState {
             mining: MiningData::default(),
             mining_seen: None,
             erkul: ErkulData::default(),
-            erkul_seen: [None; 2],
+            erkul_seen: [None; 4],
             notes,
             notes_seen: None,
             stock,

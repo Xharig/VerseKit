@@ -85,6 +85,12 @@ pub trait Supply: Send + Sync {
     fn reads_archive(&self) -> bool {
         true
     }
+
+    /// Whether the game is certainly closed, so that the slots of the ships may be read from the archive: that
+    /// reading waits while the game runs, as p4kx asks. A supply made for tests says yes.
+    fn game_closed(&self) -> bool {
+        true
+    }
 }
 
 /// The supply at run time: scmdb's mirror, then scmdb.net (`SC_BP_NO_NET`
@@ -94,13 +100,15 @@ pub struct Runtime {
     user_agent: String,
     /// The network is switched off; fixed when the supply is made.
     off: bool,
+    /// The computer whose game is asked whether it runs; `None` for the one of this process.
+    host: Option<versekit_core::paths::Host>,
 }
 
 impl Runtime {
     /// A supply that names VerseKit in its requests, switched off by
     /// `SC_BP_NO_NET` of the running process.
     pub fn new(user_agent: impl Into<String>) -> Self {
-        Self { user_agent: user_agent.into(), off: versekit_core::net::offline() }
+        Self { user_agent: user_agent.into(), off: versekit_core::net::offline(), host: None }
     }
 
     /// The supply for `host`: switched off by `SC_BP_NO_NET` of the environment
@@ -108,7 +116,7 @@ impl Runtime {
     /// themselves still pass the door of the process (`scmdb`), which refuses
     /// them when the process has the switch.
     pub fn for_host(host: &versekit_core::paths::Host) -> Self {
-        Self { off: versekit_core::net::offline_in(host), ..Self::default() }
+        Self { off: versekit_core::net::offline_in(host), host: Some(host.clone()), ..Self::default() }
     }
 }
 
@@ -143,6 +151,17 @@ impl Supply for Runtime {
 
     fn is_off(&self) -> bool {
         self.off
+    }
+
+    /// Asks the process list and the logs of every channel (`game_start::run_state`); what cannot be told
+    /// counts as running.
+    fn game_closed(&self) -> bool {
+        use versekit_core::game_start::run_state;
+        let state = match &self.host {
+            Some(host) => run_state(&versekit_core::paths::Paths::new(host.clone())),
+            None => run_state(versekit_core::paths::global()),
+        };
+        !state.blocks_writing()
     }
 }
 
@@ -254,7 +273,13 @@ pub fn start(channel_folder: Option<&Path>, cache_file: &str, supply: Arc<dyn Su
             let archive_changed = stamp.archive != archive || stamp.size != size || stamp.modified != modified;
             let scmdb_missing =
                 !stamp.filled && !supply.is_off() && now().saturating_sub(stamp.attempt) > RETRY_SECONDS;
-            archive_changed || scmdb_missing
+            // The slots of the ships came with 5.2.0: a cache from before has none beside it yet.
+            // Only an archive gives them, and only while the game is closed.
+            let slots_missing = stamp.source == "archive"
+                && !archive.is_empty()
+                && supply.game_closed()
+                && Path::new(cache_file).parent().is_some_and(|folder| !folder.join(crate::ship_slots::SHIPS_FILE).exists());
+            archive_changed || scmdb_missing || slots_missing
         }
     };
     let source = stored.as_ref().map(|s| s.stamp.source.clone()).unwrap_or_default();
@@ -298,6 +323,7 @@ impl Rebuild {
                 let texts = game.localization(Language::English)?;
                 let values = game.values(&texts)?;
                 self.keep_signatures(&game, &texts, build.as_deref());
+                self.keep_slots(&game);
                 Ok(values)
             }),
             None => Err(Error::NoGameFolder),
@@ -377,6 +403,32 @@ impl Rebuild {
                 }
             }
             Err(error) => versekit_core::errors::record("values.signatures", &error),
+        }
+    }
+
+    /// Keeps the slots of the ships and the parts with slots of the archive beside the cache, where the hangar
+    /// finds them before erkul's ([`crate::ship_slots`]). A reading or a write that fails leaves the files as they
+    /// were: the hangar then reads erkul's.
+    fn keep_slots(&self, game: &GameData) {
+        let Some(folder) = Path::new(&self.cache_file).parent() else { return };
+        // While the game runs the slots wait for the next start with the game closed: the files stay missing
+        // or as they were, and the hangar reads what it has.
+        if !self.supply.game_closed() {
+            return;
+        }
+        match game.ship_slots() {
+            Ok((ships, parts)) => {
+                for (name, value) in [(crate::ship_slots::SHIPS_FILE, ships), (crate::ship_slots::PARTS_FILE, parts)] {
+                    let file = folder.join(name).to_string_lossy().into_owned();
+                    let text = jsonio::dumps(&value, None, false);
+                    if let Err(error) = jsonio::write_text_atomic(&file, &text, Newline::Native)
+                        && !writeguard::refused(&error)
+                    {
+                        versekit_core::errors::record("values.slots_write", &error);
+                    }
+                }
+            }
+            Err(error) => versekit_core::errors::record("values.slots", &error),
         }
     }
 
@@ -489,13 +541,51 @@ mod tests {
             source: "archive".into(),
         };
         write_cache(&file, &Stored { stamp, values: GameValues::default() }).unwrap();
+        // A cache from before 5.2.0 has no slots of the ships beside it: they are read once.
+        assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the slots of the ships are missing");
+        fs::write(dir.join(crate::ship_slots::SHIPS_FILE), b"{}").unwrap();
         let current = start(Some(&dir), &file, Arc::new(Offline));
         assert!(current.values.is_some());
-        assert!(current.rebuild.is_none(), "same archive, scmdb filled");
+        assert!(current.rebuild.is_none(), "same archive, scmdb filled, slots there");
         fs::write(&archive, b"archive of a new patch").unwrap();
         let changed = start(Some(&dir), &file, Arc::new(Offline));
         assert!(changed.values.is_some(), "the old values are shown while the new ones are read");
         assert!(changed.rebuild.is_some());
+    }
+
+    /// A supply without network whose game runs.
+    struct Playing;
+
+    impl Supply for Playing {
+        fn scmdb_values(&self, _build: &str) -> Result<GameValues, String> {
+            Err("offline".into())
+        }
+        fn current_build(&self) -> Result<String, String> {
+            Err("offline".into())
+        }
+        fn corrections(&self, _build: Option<&str>) -> (Vec<Correction>, Option<String>) {
+            (Vec::new(), None)
+        }
+        fn is_off(&self) -> bool {
+            true
+        }
+        fn game_closed(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn the_slots_of_the_ships_wait_while_the_game_runs() {
+        let dir = folder("playing");
+        let file = dir.join(CACHE_FILE).to_string_lossy().into_owned();
+        fs::write(dir.join(ARCHIVE_NAME), b"archive").unwrap();
+        let (path, size, modified) = archive_stamp(Some(&dir));
+        let stamp = Stamp { format: CACHE_FORMAT, archive: path, size, modified, filled: true, attempt: 1, source: "archive".into() };
+        write_cache(&file, &Stored { stamp, values: GameValues::default() }).unwrap();
+        // The slot file is missing, but the game runs: nothing is read now.
+        assert!(start(Some(&dir), &file, Arc::new(Playing)).rebuild.is_none(), "the game runs");
+        // Counter-check: with the game closed the same cache is due.
+        assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the game is closed");
     }
 
     #[test]

@@ -362,6 +362,109 @@ fn two_cards_side_by_side_are_two_tables_with_their_own_sums() {
     assert_eq!(find_tables(&wide_screen(true), 5120, 1440).len(), 1);
 }
 
+/// The card as the German terminal shows it: the head of the yield cut to `AUSBEU`; with `amount` the head `ANZ.`
+/// between quality and yield, as while setting a job up, with a number of its own in each row.
+fn cut_heads(amount: bool) -> Vec<Word> {
+    let mut words: Vec<Word> = wide_screen(true)
+        .into_iter()
+        .map(|w| if w.t == "AUSBEUTE" && w.x > 2200.0 { Word { t: "AUSBEU".into(), ..w } } else { w })
+        .collect();
+    if amount {
+        for w in &mut words {
+            if w.x >= 2280.0 && w.y < 900.0 {
+                w.x += 60.0;
+            }
+        }
+        words.push(sized("ANZ.", 2280.0, 560.0, 25.0, 9.0));
+        words.push(sized("1212", 2280.0, 602.0, 24.0, 9.0));
+        words.push(sized("424", 2280.0, 652.0, 18.0, 9.0));
+    }
+    words
+}
+
+#[test]
+fn the_german_head_cut_to_ausbeu_still_finds_the_table_and_its_lines() {
+    let index = index_of(&["Gold", "Tungsten", "Iron", "Torite"]);
+    for amount in [false, true] {
+        let words = cut_heads(amount);
+        assert_eq!(find_tables(&words, 5120, 1440).len(), 1, "amount column: {amount}");
+        let mut ocr = FakeOcr { words, calls: 0 };
+        let (jobs, _) = read_image((5120, 1440), None, &mut ocr, &index, &Digits::default(), None).expect("read");
+        // The number below `ANZ.` slips neither into the quality nor into the yield.
+        assert_eq!(jobs.iter().map(|j| j.text.as_str()).collect::<Vec<_>>(), ["Gold 553 122 cSCU\nTungsten 531 234 cSCU"]);
+    }
+}
+
+#[test]
+fn the_symbol_and_raw_in_front_of_a_name_and_a_doubled_label_are_no_hindrance() {
+    let index = index_of(&["Ouratite", "Iron"]);
+    assert_eq!(match_material("e RAW OURATITE", &index).as_deref(), Some("Ouratite"));
+    assert_eq!(match_material("e IRON", &index).as_deref(), Some("Iron"));
+    let words = [
+        sized("VERBLEIBENDE", 100.0, 500.0, 90.0, 12.0),
+        sized("LEIBENDE", 150.0, 500.0, 60.0, 12.0),
+        sized("ZEIT", 200.0, 500.0, 30.0, 12.0),
+        sized("3h", 300.0, 500.0, 20.0, 12.0),
+        sized("Om", 330.0, 500.0, 20.0, 12.0),
+    ];
+    assert_eq!(remaining_seconds(&words, (90, 0, 300, 600)), Some(3 * 3600));
+}
+
+#[test]
+fn a_head_missed_in_one_reading_leaves_its_numbers_in_their_own_column() {
+    // A running job: QUALITÄT, AUSBEU, ZU, FERTIG; this reading missed the head ZU and the yield of the first row.
+    let index = index_of(&["Iron"]);
+    let table = rows(&[
+        sized("(CSCQßALlTäAUSBEU", 1210.0, 100.0, 152.0, 12.0),
+        sized("FERTIG", 1430.0, 100.0, 36.0, 12.0),
+        sized("IRON", 1080.0, 140.0, 30.0, 12.0),
+        sized("664", 1265.0, 140.0, 18.0, 12.0),
+        sized("301", 1381.0, 140.0, 18.0, 12.0),
+        sized("251", 1439.0, 140.0, 18.0, 12.0),
+        sized("IRON", 1080.0, 180.0, 30.0, 12.0),
+        sized("907", 1265.0, 180.0, 18.0, 12.0),
+        sized("192", 1323.0, 180.0, 18.0, 12.0),
+        sized("105", 1381.0, 180.0, 18.0, 12.0),
+        sized("87", 1442.0, 180.0, 12.0, 12.0),
+    ]);
+    let parsed = parse_rows(&table, &index);
+    assert_eq!(parsed.iter().map(|r| (r.quality, r.amount)).collect::<Vec<_>>(), [(Some(664), None), (Some(907), Some(192))]);
+}
+
+#[test]
+fn heads_read_into_one_word_are_cut_apart_and_the_table_is_found() {
+    // As the recognition read the German terminal: `(CSCU)`, `QUALITÄT` and `AUSBEU` in one word, Q as W, I as l.
+    let words: Vec<Word> = wide_screen(true)
+        .into_iter()
+        .filter(|w| !(w.t == "(CSCU)" || w.t == "OUAUTiT" || (w.t == "AUSBEUTE" && w.x > 2200.0 && w.y < 900.0)))
+        .chain([sized("(CSCWALlTäAUSBEU", 2140.0, 560.0, 200.0, 9.0)])
+        .collect();
+    let split = split_heads(&[sized("(CSCWALlTäAUSBEU", 2140.0, 560.0, 200.0, 9.0), sized("AUSBEUTE", 0.0, 0.0, 50.0, 9.0)]);
+    assert_eq!(split.iter().map(|w| w.t.as_str()).collect::<Vec<_>>(), ["(CSCWALlTä", "AUSBEU", "AUSBEUTE"]);
+    assert_eq!(find_tables(&words, 5120, 1440).len(), 1);
+    let index = index_of(&["Gold", "Tungsten", "Iron", "Torite"]);
+    let mut ocr = FakeOcr { words, calls: 0 };
+    let (jobs, _) = read_image((5120, 1440), None, &mut ocr, &index, &Digits::default(), None).expect("read");
+    assert_eq!(jobs.iter().map(|j| j.text.as_str()).collect::<Vec<_>>(), ["Gold 553 122 cSCU\nTungsten 531 234 cSCU"]);
+}
+
+#[test]
+fn a_job_read_before_and_after_scrolling_is_one_list_and_another_job_is_none() {
+    let first = "Iron 664 551 cSCU\nIron 710 98 cSCU\nQuantainium 344 70 cSCU\nLaranite 698 106 cSCU";
+    let second = "Iron 710 98 cSCU\nQuantainium 344 70 cSCU\nLaranite 698 106 cSCU\nTungsten 530 35 cSCU";
+    let (joined, added) = join_scrolled(first, second).expect("the same job");
+    assert_eq!(joined, format!("{first}\nTungsten 530 35 cSCU"));
+    assert_eq!(added, 1);
+    // Read twice without scrolling: nothing comes twice.
+    assert_eq!(join_scrolled(first, first), Some((first.to_string(), 0)));
+    // Two equal lines in the new reading stay two.
+    let (twice, _) = join_scrolled("Iron 664 551 cSCU", "Iron 664 551 cSCU\nIron 664 551 cSCU").expect("same");
+    assert_eq!(twice, "Iron 664 551 cSCU\nIron 664 551 cSCU");
+    // No line in common, or an empty field: another job, it replaces.
+    assert_eq!(join_scrolled(first, "Gold 553 122 cSCU"), None);
+    assert_eq!(join_scrolled("", second), None);
+}
+
 /// The text recognition of the tests: the words of `words` that lie wholly in the part of each job.
 struct FakeOcr {
     words: Vec<Word>,

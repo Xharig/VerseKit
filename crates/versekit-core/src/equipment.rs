@@ -297,6 +297,10 @@ pub fn from_loadout(entry: &Map, name: &str, stock: &[(String, String)]) -> Equi
         let Some(part) = value.as_object() else { continue };
         let reference = text(part, "ref");
         if reference.is_empty() {
+            // A slot left empty is a deviation where the stock has a part there: the port is emptied.
+            if crate::cart::is_emptied(part) && stock.contains_key(&port_path(path)) {
+                slots.push(Slot::new(path, "", Acquisition::Unknown));
+            }
             continue;
         }
         let slot = Slot::new(path, reference, Acquisition::from_way(text(part, "weg")));
@@ -320,7 +324,10 @@ pub fn to_loadout(equipment: &Equipment, name_of: &dyn Fn(&str) -> String, previ
     };
     let mut plan = Map::new();
     for slot in &equipment.slots {
+        let key = exact.iter().find(|p| port_path(p) == slot.port_path).unwrap_or(&slot.port_path);
         if slot.item_guid.is_empty() {
+            // An emptied port stays empty in the plan: without the mark the stock part would come back.
+            plan.push((key.clone(), crate::cart::emptied_part()));
             continue;
         }
         let old = before(&slot.port_path);
@@ -337,7 +344,6 @@ pub fn to_loadout(equipment: &Equipment, name_of: &dyn Fn(&str) -> String, previ
         if old.is_some_and(|o| text(o, "ref") == slot.item_guid && truthy(get(o, "erledigt"))) {
             part.push(("erledigt".to_string(), Value::Bool(true)));
         }
-        let key = exact.iter().find(|p| port_path(p) == slot.port_path).unwrap_or(&slot.port_path);
         plan.push((key.clone(), Value::Object(part)));
     }
     plan
@@ -833,6 +839,70 @@ pub fn undo_delete(
         crate::jsonio::map_set(entry, KEY, Value::Array(items));
     }
     true
+}
+
+/// The name a further equipment gets: `wanted` where no other one has it, else `wanted (2)`, `wanted (3)`, …;
+/// an empty name stands for the default name.
+pub fn unique_name(taken: &[String], wanted: &str) -> String {
+    let wanted = wanted.trim();
+    let base = if wanted.is_empty() { DEFAULT_NAME } else { wanted };
+    if !taken.iter().any(|name| name == base) {
+        return base.to_string();
+    }
+    (2..).map(|n| format!("{base} ({n})")).find(|name| !taken.contains(name)).unwrap_or_default()
+}
+
+/// Puts `equipment` in as a further equipment of the ship, under a name no other one has, and makes it the
+/// active one: its plan becomes the plan of the pages, the plan as it was stays with the one active before.
+/// The name it got.
+pub fn add_as_active(
+    entry: &mut Map,
+    equipment: &Equipment,
+    stock: &[(String, String)],
+    name_of: &dyn Fn(&str) -> String,
+    exact: &[String],
+) -> String {
+    ensure_stored(entry, stock);
+    let mut items = stored(entry);
+    let taken: Vec<String> = items.iter().map(item_name).collect();
+    let name = unique_name(&taken, &equipment.name);
+    let copy = Equipment { name: name.clone(), active: false, ..equipment.clone() };
+    items.push(as_value(&to_json(&copy)));
+    crate::jsonio::map_set(entry, KEY, Value::Array(items));
+    switch(entry, &name, stock, name_of, exact);
+    name
+}
+
+/// Takes the equipments of another entry of the same ship in as further ones of `target`: inactive, under names
+/// no other one has, with the ticks of the plan they had. The plan of `source` counts as its active equipment.
+/// The active equipment and the plan of `target` stay. The number taken in.
+pub fn take_in(target: &mut Map, source: &Map, stock: &[(String, String)]) -> usize {
+    if read_all(source, stock).0.is_empty() {
+        return 0;
+    }
+    let mut source = source.clone();
+    ensure_stored(&mut source, stock);
+    let mut brought = stored(&source);
+    if let Some(at) = active_index(&brought) {
+        keep_fitted(&source, &mut brought, at);
+    }
+    ensure_stored(target, stock);
+    let mut items = stored(target);
+    let mut count = 0;
+    for item in brought {
+        let Value::Object(mut fields) = item else { continue };
+        if from_json(&as_json(&Value::Object(fields.clone()))).is_err() {
+            continue;
+        }
+        let taken: Vec<String> = items.iter().map(item_name).collect();
+        let name = unique_name(&taken, text(&fields, "name"));
+        crate::jsonio::map_set(&mut fields, "name", Value::str(name));
+        crate::jsonio::map_set(&mut fields, "active", Value::Bool(false));
+        items.push(Value::Object(fields));
+        count += 1;
+    }
+    crate::jsonio::map_set(target, KEY, Value::Array(items));
+    count
 }
 
 /// Changes the slots of the active equipment at these paths; true when `edit` changed one.
@@ -1387,6 +1457,30 @@ mod tests {
                 .map_or(String::new(), |part| text(part, "ref").to_string()),
             _ => String::new(),
         }
+    }
+
+    #[test]
+    fn an_equipment_from_outside_is_added_under_a_free_name_and_becomes_the_active_one() {
+        let mut ship = entry_of(
+            r#"{"name": "T", "belegung": {"c": {"ref": "c1", "name": "C1", "weg": "kaufen", "erledigt": true}}}"#,
+        );
+        let mut came = Equipment { name: DEFAULT_NAME.into(), ..Equipment::default() };
+        came.put(Slot::new("c", "c2", Acquisition::Unknown));
+        came.put(Slot::new("w", "", Acquisition::Unknown));
+        let name = add_as_active(&mut ship, &came, &[], &upper, &["C".to_string()]);
+        assert_eq!(name, "Standard (2)", "the own one keeps its name");
+        assert_eq!(names(&ship, &[]), (vec![DEFAULT_NAME.to_string(), name.clone()], Some(1)));
+        assert_eq!(plan_ref(&ship, "C"), "c2", "the plan is the new one's, under the spelling of the slot data");
+        assert!(plan_ref(&ship, "w").is_empty(), "an emptied port has no part in the plan");
+        // Back to the own one: its tick is still there.
+        assert!(switch(&mut ship, DEFAULT_NAME, &[], &upper, &[]));
+        let ticked = match get(&ship, "belegung") {
+            Some(Value::Object(plan)) => plan.iter().any(|(_, p)| truthy(p.as_object().and_then(|p| get(p, "erledigt")))),
+            _ => false,
+        };
+        assert!(ticked);
+        assert_eq!(unique_name(&["A".into(), "A (2)".into()], " A "), "A (3)");
+        assert_eq!(unique_name(&[], ""), DEFAULT_NAME);
     }
 
     #[test]

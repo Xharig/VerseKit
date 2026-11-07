@@ -174,13 +174,22 @@ pub(super) fn show_jobs(state: &mut StockState, jobs: Vec<ScannedJob>, kept: boo
 /// `lese_ergebnis`: what was read goes into the field; nothing is booked here.
 fn result(state: &mut StockState, text: &str, unsure: &[String], kept: bool, cells: Vec<Cell>) {
     state.scan.reading = false;
-    state.scan.cells = cells;
     let mut parts = Vec::new();
-    if !text.is_empty() {
-        state.refinery_text = text.to_string();
-        parts.push(tf("s_rf_lesen_fertig", &[("0", Arg::Int(text.lines().count() as i64))]));
-    } else if unsure.is_empty() {
-        parts.push(t("s_rf_lesen_nichts"));
+    // The same job read again after scrolling: its lines join those waiting in the field.
+    let joined = (!text.is_empty()).then(|| versekit_core::refinery_scan::join_scrolled(&state.refinery_text, text)).flatten();
+    if let Some((all, added)) = joined {
+        let total = all.lines().count() as i64;
+        state.refinery_text = all;
+        state.scan.cells.extend(cells);
+        parts.push(tf("s_rf_lesen_dazu", &[("0", Arg::Int(added as i64)), ("1", Arg::Int(total))]));
+    } else {
+        state.scan.cells = cells;
+        if !text.is_empty() {
+            state.refinery_text = text.to_string();
+            parts.push(tf("s_rf_lesen_fertig", &[("0", Arg::Int(text.lines().count() as i64))]));
+        } else if unsure.is_empty() {
+            parts.push(t("s_rf_lesen_nichts"));
+        }
     }
     if !unsure.is_empty() {
         parts.push(tf("s_rf_lesen_unsicher", &[("0", Arg::from(unsure.join(", ")))]));
@@ -345,6 +354,22 @@ mod tests {
         assert_eq!(state.refinery_text, "Gold ? 122 cSCU");
         assert_eq!(state.scan.message.as_ref().map(|m| m.0.as_str()), Some(t("s_rf_lesen_nichts").as_str()));
         assert!(state.counted.is_empty(), "showing counts nothing; the reading does");
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
+    #[test]
+    fn a_job_read_again_after_scrolling_adds_its_new_lines_to_the_field() {
+        let (mut state, _paths, folder) = page("lager-scan-gescrollt");
+        let first = "Iron 664 551 cSCU\nIron 710 98 cSCU\nLaranite 698 106 cSCU";
+        show_jobs(&mut state, vec![job(first, &[], &["Iron", "Laranite"], "3.63")], false);
+        let second = "Iron 710 98 cSCU\nLaranite 698 106 cSCU\nTungsten 530 35 cSCU";
+        show_jobs(&mut state, vec![job(second, &[], &["Iron", "Laranite", "Tungsten"], "4.96")], false);
+        assert_eq!(state.refinery_text, format!("{first}\nTungsten 530 35 cSCU"));
+        let (text, _) = state.scan.message.clone().expect("message");
+        assert!(text.contains("1 neu, zusammen 4 Zeilen"), "{text}");
+        // Another job with no line in common takes the field over.
+        show_jobs(&mut state, vec![job("Gold 553 122 cSCU", &[], &["Gold"], "1.22")], false);
+        assert_eq!(state.refinery_text, "Gold 553 122 cSCU");
         let _ = std::fs::remove_dir_all(folder);
     }
 

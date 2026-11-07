@@ -85,6 +85,10 @@ fn truthy(value: Option<&Value>) -> bool {
 /// Done jobs fall out of the list after this many seconds.
 pub const KEEP_DONE_SEC: f64 = 24.0 * 3600.0;
 
+/// Two readings whose ends lie at most this far apart and that share two materials are one job, read before and
+/// after scrolling its list (the terminal gives the time left in minutes).
+pub const SAME_JOB_SEC: f64 = 120.0;
+
 /// `_key`: a job is known by its materials (without case) and its sum.
 fn key_of(materials: Option<&Value>, total: Option<&Value>) -> (Vec<String>, Value) {
     let materials = match materials {
@@ -127,14 +131,34 @@ pub fn merge(stored: &[Map], scanned: &[crate::refinery_scan::ScannedJob], now: 
         }
         match (job.remaining, job.state) {
             (Some(remaining), state) if state != State::Done => {
+                let ends = now + remaining as f64;
+                // The same job read again after scrolling: it ends at the same time and shares at least two
+                // materials (a list long enough to scroll holds several). Its materials are joined, its sum is the
+                // newer one.
+                let scrolled = slot(&by_key, &key).is_none().then(|| {
+                    by_key.iter().position(|(k, known)| {
+                        let shared = k.0.iter().filter(|m| key.0.contains(m)).count();
+                        (ends_of(known) - ends).abs() <= SAME_JOB_SEC && shared >= 2
+                    })
+                });
+                let mut all = job.materials.clone();
+                if let Some(Some(i)) = scrolled
+                    && let Some(Value::Array(known)) = get(&by_key[i].1, "materials")
+                {
+                    let before: Vec<String> = known.iter().filter_map(Value::as_str).map(str::to_string).collect();
+                    all = before.clone();
+                    all.extend(job.materials.iter().filter(|m| !before.iter().any(|b| b.eq_ignore_ascii_case(m))).cloned());
+                }
+                let materials = Value::Array(all.iter().map(|m| Value::str(m.clone())).collect());
                 let entry = vec![
-                    ("materials".to_string(), materials),
+                    ("materials".to_string(), materials.clone()),
                     ("total".to_string(), Value::str(job.total.clone())),
-                    ("ends".to_string(), Value::Float(now + remaining as f64)),
+                    ("ends".to_string(), Value::Float(ends)),
                 ];
-                match slot(&by_key, &key) {
-                    Some(i) => by_key[i].1 = entry,
-                    None => by_key.push((key, entry)),
+                let key = key_of(Some(&materials), Some(&Value::str(job.total.clone())));
+                match (slot(&by_key, &key), scrolled.flatten()) {
+                    (Some(i), _) | (None, Some(i)) => by_key[i] = (key, entry),
+                    (None, None) => by_key.push((key, entry)),
                 }
             }
             (_, State::Done) => {
@@ -270,6 +294,28 @@ mod tests {
 
     fn ends(job: &Map) -> f64 {
         super::ends_of(job)
+    }
+
+    #[test]
+    fn a_job_read_before_and_after_scrolling_is_one_job_and_two_jobs_stay_two() {
+        use crate::refinery_scan::State;
+        let now = 1_000_000.0;
+        let first = merge(&[], &[scanned(&["Iron", "Quantainium", "Laranite"], "3.63", State::Running, Some(19_800))], now);
+        // Scrolled a minute later: one more material, a newer sum, the time left a minute less.
+        let both = merge(
+            &first,
+            &[scanned(&["Iron", "Quantainium", "Laranite", "Tungsten"], "4.96", State::Running, Some(19_740))],
+            now + 30.0,
+        );
+        assert_eq!(both.len(), 1, "{both:?}");
+        let materials = both[0].iter().find(|(k, _)| k == "materials").map(|(_, v)| v.clone());
+        assert_eq!(
+            materials,
+            Some(Value::Array(["Iron", "Quantainium", "Laranite", "Tungsten"].map(Value::str).to_vec()))
+        );
+        // A second job that ends at the same time with one material in common stays a job of its own.
+        let other = merge(&both, &[scanned(&["Iron", "Gold"], "2.00", State::Running, Some(19_740))], now + 30.0);
+        assert_eq!(other.len(), 2);
     }
 
     #[test]

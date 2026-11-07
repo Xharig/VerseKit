@@ -213,7 +213,16 @@ pub fn match_material(text: &str, index: &Index) -> Option<String> {
     let form = norm_material(&kept);
     let form = py_strip(&form);
     let mut wanted = String::new();
-    for part in form.split(py_isspace).filter(|p| !p.is_empty()) {
+    // The symbol in front of a material is read as a single letter (`e IRON`), and the set-up card writes raw
+    // materials as `RAW OURATITE`: neither is part of the name.
+    let mut parts = form.split(py_isspace).filter(|p| !p.is_empty()).peekable();
+    while parts.peek().is_some_and(|first| first.chars().count() == 1) {
+        parts.next();
+    }
+    if parts.peek().is_some_and(|first| first.eq_ignore_ascii_case("raw")) {
+        parts.next();
+    }
+    for part in parts {
         if !wanted.is_empty() {
             wanted.push(' ');
         }
@@ -316,14 +325,18 @@ pub fn columns(found: &[MaterialRow]) -> Vec<f64> {
 }
 
 /// Heads of the columns, German and English, in capitals; parts of words, so misread letters still hit.
-const QUALITY_HEADS: [&str; 2] = ["UALIT", "QUALI"];
-const YIELD_HEADS: [&str; 4] = ["AUSBEUTE", "ERTRAG", "YIELD", "BEUTE"];
+/// The same parts as the search for the table takes ([`HEAD_QUALITY`]): a head misread as `OUAUTiT` still marks
+/// the column, else the numbers of `ANZ.` would be taken for the yield.
+const QUALITY_HEADS: [&str; 7] = HEAD_QUALITY;
+/// The German head is cut to `AUSBEU` on the terminal.
+const YIELD_HEADS: [&str; 4] = ["AUSBEU", "ERTRAG", "YIELD", "BEUTE"];
 
 /// `header_columns`: the middles of the columns from the row of heads, or `None`: quality first, then the yield,
-/// then every further head right of it (`ZU`, `FERTIG`, `TO-DO` …), so that their numbers do not slip into the
-/// yield.
+/// then every further head right of the quality (`ANZ.` between them while setting a job up, `ZU`, `FERTIG`,
+/// `TO-DO` … right of the yield), so that their numbers slip neither into the quality nor into the yield.
 pub fn header_columns(table: &[Vec<Word>]) -> Option<Vec<f64>> {
     for words in table {
+        let words = &split_heads(words);
         let (mut quality, mut yield_) = (None, None);
         for word in words {
             let text = word.t.to_uppercase();
@@ -338,11 +351,29 @@ pub fn header_columns(table: &[Vec<Word>]) -> Option<Vec<f64>> {
             && yield_ > quality
         {
             let mut out = vec![quality, yield_];
-            out.extend(words.iter().map(Word::middle_x).filter(|middle| *middle > yield_ + 1.0));
+            out.extend(
+                words.iter().map(Word::middle_x).filter(|middle| *middle > quality + 1.0 && (middle - yield_).abs() > 1.0),
+            );
             return Some(out);
         }
     }
     None
+}
+
+/// The columns of a table: those of the heads ([`header_columns`], quality first, then the yield), and a column of
+/// numbers right of the yield that stands far from every head as one more. A head the recognition missed in one
+/// reading (`ZU` of a running job) then leaves no gap that its numbers would slip into the yield through. Without
+/// heads the columns of the numbers ([`columns`]).
+pub fn table_columns(table: &[Vec<Word>], found: &[MaterialRow]) -> Vec<f64> {
+    let Some(mut heads) = header_columns(table) else { return columns(found) };
+    let (quality, yield_) = (heads[0], heads[1]);
+    let tolerance = 0.35 * (yield_ - quality);
+    for x in columns(found) {
+        if x > yield_ + tolerance && heads.iter().all(|head| (head - x).abs() > tolerance) {
+            heads.push(x);
+        }
+    }
+    heads
 }
 
 /// One row of a reading: the material with quality and amount (cSCU), each `None` when not readable.
@@ -362,7 +393,7 @@ pub struct ParsedRow {
 /// numbers themselves); the first column is the quality (0 to 1000), the second the yield (above 0).
 pub fn parse_rows(table: &[Vec<Word>], index: &Index) -> Vec<ParsedRow> {
     let found = material_rows(table, index);
-    let centers = header_columns(table).unwrap_or_else(|| columns(&found));
+    let centers = table_columns(table, &found);
     let slots = |pairs: &[(f64, Int)]| -> (Option<Int>, Option<Int>) {
         if centers.is_empty() {
             return (None, None);
@@ -709,9 +740,37 @@ pub fn merge_words(passes: &[Vec<Word>]) -> Vec<Word> {
 }
 
 /// Heads of the yield table (`refinery_ui_JobCard_Table_*` of the `global.ini`, German and English), capitals
-/// only; parts of words, so misread letters still hit (`QUALITÄT` as `OUAUTiT`).
-const HEAD_QUALITY: [&str; 6] = ["UALI", "UAUT", "QUAL", "QUAU", "ALIT", "AUTY"];
-const HEAD_YIELD: [&str; 4] = ["AUSBEUT", "USBEUT", "YIELD", "ERTRAG"];
+/// only; parts of words, so misread letters still hit (`QUALITÄT` as `OUAUTiT`). The terminal cuts the German head
+/// of the yield to `AUSBEU`.
+const HEAD_QUALITY: [&str; 7] = ["UALI", "UAUT", "QUAL", "QUAU", "ALIT", "ALLT", "AUTY"];
+
+/// A head of the yield read into one word with the head left of it: the terminal sets `(CSCU)`, `QUALITÄT` and
+/// `AUSBEU` so close that the recognition reads `(CSCWALlTäAUSBEU`. Such a word is cut where the yield begins,
+/// each part with its share of the width; every other word stays as it is.
+pub fn split_heads(words: &[Word]) -> Vec<Word> {
+    let mut out = Vec::with_capacity(words.len());
+    for word in words {
+        let chars: Vec<char> = word.t.chars().collect();
+        let upper: Vec<char> = chars.iter().map(|c| c.to_uppercase().next().unwrap_or(*c)).collect();
+        let starts = |at: usize| {
+            HEAD_YIELD.iter().any(|head| {
+                let head: Vec<char> = head.chars().collect();
+                upper.get(at..at + head.len()).is_some_and(|part| part == head.as_slice())
+            })
+        };
+        let cut = (2..chars.len()).find(|&at| starts(at) && !starts(at - 1));
+        match cut {
+            Some(at) => {
+                let left_w = word.w * at as f64 / chars.len() as f64;
+                out.push(Word { t: chars[..at].iter().collect(), w: left_w, ..word.clone() });
+                out.push(Word { t: chars[at..].iter().collect(), x: word.x + left_w, w: word.w - left_w, ..word.clone() });
+            }
+            None => out.push(word.clone()),
+        }
+    }
+    out
+}
+const HEAD_YIELD: [&str; 4] = ["AUSBEU", "USBEU", "YIELD", "ERTRAG"];
 /// The heads of the column of materials left of it.
 const HEAD_MATERIAL: [&str; 7] = ["WONNEN", "GEWONN", "MATERIA", "ATERIAL", "CSCU", "YIELDED", "IELDED"];
 
@@ -740,6 +799,8 @@ pub fn find_tables(words: &[Word], width: i64, height: i64) -> Vec<Table> {
         heads: Vec<&'a Word>,
         rights: Vec<&'a Word>,
     }
+    let split = split_heads(words);
+    let words = split.as_slice();
     let lines = rows(words);
     let mut candidates: Vec<Candidate> = Vec::new();
     for line in &lines {
@@ -891,7 +952,8 @@ pub fn job_state(words: &[Word], area: Area) -> State {
 }
 
 /// Parts of the label beside the time left (`VERBLEIBENDE ZEIT`, `TIME REMAINING`).
-const TIME_LABEL_WORDS: [&str; 4] = ["VERBLEIB", "ZEIT", "TIME", "REMAIN"];
+/// Also the parts a doubled reading leaves of the label (`LEIBENDE` of `VERBLEIBENDE`).
+const TIME_LABEL_WORDS: [&str; 6] = ["VERBLEIB", "EIBEND", "ZEIT", "TIME", "REMAIN", "AINING"];
 
 /// `_time_digits`: a word of time with mistaken digits put right (`Ih` becomes `1h`); only the part before the
 /// unit is swapped, the unit stays.
@@ -1043,7 +1105,7 @@ fn centers(passes: &[Vec<Word>], index: &Index) -> Vec<f64> {
         let found = material_rows(&table, index);
         let count: usize = found.iter().map(|r| r.numbers.len() + r.loose_numbers.len()).sum();
         if count as i64 > most {
-            best = header_columns(&table).unwrap_or_else(|| columns(&found));
+            best = table_columns(&table, &found);
             most = count as i64;
         }
     }
@@ -1177,6 +1239,30 @@ pub struct ScannedJob {
     pub remaining: Option<i64>,
     /// The cells of the unsure rows, for learning.
     pub cells: Vec<digits::Cell>,
+}
+
+/// The lines of a reading joined to the lines that wait in the refinery field, when both show the same job
+/// scrolled: a list longer than the card shows seven lines, the next reading after scrolling the rest. They are
+/// the same job when they share a line. Each line stays as often as the one of the two that has it more often,
+/// the field's lines first, the new ones after. `(text, lines added)`, or `None` when they share no line.
+pub fn join_scrolled(before: &str, read: &str) -> Option<(String, usize)> {
+    let lines = |text: &str| -> Vec<String> {
+        text.lines().map(|l| py_strip(l).to_string()).filter(|l| !l.is_empty()).collect()
+    };
+    let (mut joined, new) = (lines(before), lines(read));
+    if joined.is_empty() || !new.iter().any(|line| joined.contains(line)) {
+        return None;
+    }
+    let mut added = 0;
+    for line in new.iter() {
+        let have = joined.iter().filter(|l| *l == line).count();
+        let want = new.iter().filter(|l| *l == line).count();
+        if have < want {
+            joined.push(line.clone());
+            added += 1;
+        }
+    }
+    Some((joined.join("\n"), added))
 }
 
 /// `read_image`: a picture read, `(jobs, kept)` for the refinery field. First the search for the tables over the

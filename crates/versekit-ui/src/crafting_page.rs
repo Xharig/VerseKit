@@ -1041,7 +1041,8 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, shared
                 row.spacing_mut().item_spacing.x = layout::GAP;
                 column(row, list_width, |ui| list::show(ui, scheme, state, &marks, height));
                 column(row, side, |ui| {
-                    side_scroll(ui, scheme, state, "herstellung-rezept", height, |ui, state| {
+                    // The material links of the recipe lead to mining.
+                    action = side_scroll(ui, scheme, state, "herstellung-rezept", height, |ui, state| {
                         recipe_side(ui, scheme, state, &values)
                     });
                 });
@@ -2590,6 +2591,8 @@ mod tests {
         time: f64,
         texts: Vec<(String, Rect)>,
         nodes: Vec<(egui::accesskit::Role, String, Rect)>,
+        /// The last jump the page asked for.
+        asked: Option<Action>,
     }
 
     impl Bench {
@@ -2605,6 +2608,7 @@ mod tests {
                 time: 10.0,
                 texts: Vec::new(),
                 nodes: Vec::new(),
+                asked: None,
             }
         }
 
@@ -2617,9 +2621,11 @@ mod tests {
                 ..Default::default()
             };
             let scheme = versekit_core::theme::current();
-            let (page, have, catalog) = (&mut self.page, &self.have, &self.catalog);
+            let (page, have, catalog, asked) = (&mut self.page, &self.have, &self.catalog, &mut self.asked);
             let mut output = self.ctx.run_ui(input, |ui| {
-                show_page(ui, scheme, page, &Shared { have, catalog });
+                if let Some(action) = show_page(ui, scheme, page, &Shared { have, catalog }) {
+                    *asked = Some(action);
+                }
             });
             output.textures_delta.clear();
             self.texts = texts(&output.shapes);
@@ -2989,6 +2995,18 @@ mod tests {
         assert_ne!(made_700, made_1000, "the value must change with the quality");
         assert!(has(&shown, &made_1000) && has(&shown, &change_1000), "{made_1000} {change_1000}: {shown:?}");
         assert!(!has(&shown, &made_700), "the old value is gone: {shown:?}");
+    }
+
+    #[test]
+    fn a_material_of_the_recipe_leads_to_mining_in_two_and_in_three_columns() {
+        let _language = crate::language_lock();
+        set_language(Choice::De);
+        for width in [1300.0, 2600.0] {
+            let mut bench = Bench::new("material-link", STOCK, width);
+            bench.click_text("Frostline");
+            bench.click_node(egui::accesskit::Role::Link, "Iron");
+            assert_eq!(bench.asked, Some(Action::ToMining("Iron".into())), "width {width}");
+        }
     }
 
     #[test]

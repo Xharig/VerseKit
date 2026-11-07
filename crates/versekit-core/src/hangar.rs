@@ -1054,6 +1054,147 @@ pub fn owns_wished(data: &Map, name: &str, maker: &str) -> bool {
         })
 }
 
+// ------------------------------------------------------------ between the hangar and the wish list
+
+/// Why a ship was not moved between the own ships and the wish list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MoveRefused {
+    /// The entry is not there (any more).
+    Gone,
+    /// A vehicle that comes with a package follows its carrier: it does not move on its own.
+    Included,
+}
+
+/// How a ship came to its new list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Moved {
+    /// As an entry of its own.
+    New,
+    /// The list held the same ship already: its equipments joined that entry.
+    Joined,
+}
+
+/// The own ship that a wish of this name and maker stands for, as [`owns_wished`] decides it.
+fn owned_index(ships: &[Map], name: &str, maker: &str) -> Option<usize> {
+    if let Some(at) = find(ships, name, maker, "", "") {
+        return Some(at);
+    }
+    let (wanted, maker) = (slim(name), slim(maker));
+    if wanted.is_empty() {
+        return None;
+    }
+    ships.iter().position(|entry| {
+        let e_maker = slim_of(entry, "hersteller");
+        slim_of(entry, "name") == wanted
+            && (e_maker.is_empty() || maker.is_empty() || e_maker.starts_with(&maker) || maker.starts_with(&e_maker))
+    })
+}
+
+/// `source` joins `target`, an entry of the same ship. A target without any plan and without equipments takes the
+/// plan and the equipments as they are; else the equipments of the source come in as further ones
+/// ([`crate::equipment::take_in`]). A key the target lacks comes along.
+fn join(target: &mut Map, source: &Map, stock: &[(String, String)]) {
+    let bare = !truthy(get(target, "belegung"))
+        && !matches!(get(target, crate::equipment::KEY), Some(Value::Array(items)) if !items.is_empty());
+    if bare {
+        for key in ["belegung", crate::equipment::KEY] {
+            if let Some(value) = get(source, key) {
+                map_set(target, key, value.clone());
+            }
+        }
+    } else {
+        crate::equipment::take_in(target, source, stock);
+    }
+    for (key, value) in source {
+        if get(target, key).is_none() {
+            map_set(target, key, value.clone());
+        }
+    }
+}
+
+/// A planned ship was bought: the whole entry goes into the own ships, with its plan, its equipments and whatever
+/// else it holds; it counts as bought in the game where it says nothing else. Where the hangar holds the ship
+/// already, the wish joins that entry. `stock` is the factory fitting of the ship (only deviations are stored).
+pub fn wish_to_hangar(data: &mut Map, name: &str, stock: &[(String, String)]) -> Result<Moved, MoveRefused> {
+    let wanted = slim(name);
+    if wanted.is_empty() {
+        return Err(MoveRefused::Gone);
+    }
+    let wish = match data.iter_mut().find(|(k, _)| k == "wunsch") {
+        Some((_, Value::Array(items))) => {
+            let at = items
+                .iter()
+                .position(|w| w.as_object().is_some_and(|w| slim_of(w, "name") == wanted))
+                .ok_or(MoveRefused::Gone)?;
+            match items.remove(at) {
+                Value::Object(wish) => wish,
+                _ => return Err(MoveRefused::Gone),
+            }
+        }
+        _ => return Err(MoveRefused::Gone),
+    };
+    let mut ships = take_ships(data);
+    let moved = match owned_index(&ships, text(&wish, "name"), text(&wish, "hersteller")) {
+        Some(at) => {
+            join(&mut ships[at], &wish, stock);
+            Moved::Joined
+        }
+        None => {
+            let mut entry = wish;
+            if py_strip(text(&entry, "herkunft")).is_empty() {
+                map_set(&mut entry, "herkunft", Value::str(INGAME));
+            }
+            if get(&entry, "belegung").is_none() {
+                map_set(&mut entry, "belegung", Value::Object(Map::new()));
+            }
+            ships.push(entry);
+            Moved::New
+        }
+    };
+    put_ships(data, ships);
+    Ok(moved)
+}
+
+/// An own ship is gone (a wipe): the entry at `index` of [`ships`] goes back onto the wish list, with its plan, its
+/// equipments and whatever else it holds, so a move back brings all of it again. The vehicles of its package leave
+/// the hangar with it, as when it is removed. Where the wish list holds the ship already, it joins that wish.
+pub fn hangar_to_wish(data: &mut Map, index: usize, stock: &[(String, String)]) -> Result<Moved, MoveRefused> {
+    let mut ships = take_ships(data);
+    let refused = match ships.get(index) {
+        None => Some(MoveRefused::Gone),
+        Some(entry) if text(entry, "herkunft") == CATALOG => Some(MoveRefused::Included),
+        Some(_) => None,
+    };
+    if let Some(refused) = refused {
+        put_ships(data, ships);
+        return Err(refused);
+    }
+    let entry = ships.remove(index);
+    prune(&mut ships, catalog_entries());
+    put_ships(data, ships);
+    let wanted = slim_of(&entry, "name");
+    if !matches!(get(data, "wunsch"), Some(Value::Array(_))) {
+        map_set(data, "wunsch", Value::Array(Vec::new()));
+    }
+    let Some((_, Value::Array(wishes))) = data.iter_mut().find(|(k, _)| k == "wunsch") else {
+        return Err(MoveRefused::Gone);
+    };
+    let same = wishes.iter_mut().find_map(|w| match w {
+        Value::Object(w) if slim_of(w, "name") == wanted => Some(w),
+        _ => None,
+    });
+    match same {
+        Some(wish) => {
+            join(wish, &entry, stock);
+            Ok(Moved::Joined)
+        }
+        None => {
+            wishes.push(Value::Object(entry));
+            Ok(Moved::New)
+        }
+    }
+}
+
 // ------------------------------------------------------------ included vehicles
 
 const BUNDLED_VEHICLES: &str = include_str!("../../../daten/beiboote.json");
@@ -2050,6 +2191,106 @@ mod tests {
         ships_.remove(0);
         prune(&mut ships_, catalog);
         assert!(ships_.is_empty());
+    }
+
+    /// A wish with a plan, two equipments and a note of its own.
+    const PLANNED: &str = r#"{"format": 1, "schiffe": [], "wunsch": [
+        {"name": "Gladius", "hersteller": "Aegis Dynamics", "notiz": "für Rennen",
+         "belegung": {"hardpoint_weapon_left": {"ref": "laser-3", "name": "Laser 3", "weg": "bauen", "erledigt": true}},
+         "ausstattungen": [
+            {"name": "PvP", "active": true, "slots": [{"portPath": "hardpoint_weapon_left", "itemGuid": "laser-3",
+             "acquisition": "crafted", "blueprintGuid": "bp-laser-3", "quality": {"Frame": 800}}]},
+            {"name": "Rennen", "active": false, "slots": [{"portPath": "hardpoint_cooler", "itemGuid": "cooler-2",
+             "acquisition": "purchased"}]}]}]}"#;
+
+    fn kept(entry: &Map) -> Vec<String> {
+        ["belegung", crate::equipment::KEY, "notiz"].iter().map(|k| crate::jsonio::dumps(get(entry, k).unwrap_or(&Value::Null), None, false)).collect()
+    }
+
+    #[test]
+    fn a_ship_moves_between_planned_and_the_hangar_both_ways_with_all_it_holds() {
+        let stock = vec![("hardpoint_weapon_left".to_string(), "laser-1".to_string())];
+        let mut data = parse(PLANNED);
+        let before = kept(wishlist(&data)[0]);
+        assert_eq!(wish_to_hangar(&mut data, " gladius ", &stock), Ok(Moved::New));
+        assert!(wishlist(&data).is_empty(), "the wish is gone");
+        let ship = ships(&data)[0].clone();
+        assert_eq!(kept(&ship), before, "plan, equipments and note come along unchanged");
+        assert_eq!(text(&ship, "herkunft"), INGAME, "bought in the game");
+        assert_eq!(text(&ship, "hersteller"), "Aegis Dynamics");
+        // A wipe: back onto the wish list, with all of it.
+        map_set(ship_mut(&mut data, 0).expect("ship"), "einsatzbereit", Value::Bool(true));
+        assert_eq!(hangar_to_wish(&mut data, 0, &stock), Ok(Moved::New));
+        assert!(ships(&data).is_empty());
+        let wish = wishlist(&data)[0].clone();
+        assert_eq!(kept(&wish), before);
+        assert!(truthy(get(&wish, "einsatzbereit")), "what the hangar knew waits for the way back");
+        // And bought again: the origin it had stays.
+        map_set(wish_mut(&mut data), "herkunft", Value::str(PLEDGE));
+        assert_eq!(wish_to_hangar(&mut data, "Gladius", &stock), Ok(Moved::New));
+        assert_eq!(text(ships(&data)[0], "herkunft"), PLEDGE);
+        assert_eq!(kept(ships(&data)[0]), before);
+    }
+
+    fn wish_mut(data: &mut Map) -> &mut Map {
+        match data.iter_mut().find(|(k, _)| k == "wunsch") {
+            Some((_, Value::Array(items))) => match &mut items[0] {
+                Value::Object(wish) => wish,
+                _ => panic!("no wish"),
+            },
+            _ => panic!("no wish list"),
+        }
+    }
+
+    #[test]
+    fn a_move_onto_the_same_ship_adds_its_equipments_and_keeps_the_ones_there() {
+        let stock: Vec<(String, String)> = Vec::new();
+        // The hangar holds the Gladius with a plan of its own.
+        let mut data = parse(PLANNED);
+        let own = parse(
+            r#"{"name": "Gladius", "hersteller": "Aegis", "herkunft": "pledge",
+                "belegung": {"hardpoint_weapon_right": {"ref": "laser-9", "name": "Laser 9", "weg": "kaufen"}}}"#,
+        );
+        edit_ships(&mut data, |ships| ships.push(own));
+        assert_eq!(wish_to_hangar(&mut data, "Gladius", &stock), Ok(Moved::Joined));
+        assert_eq!(ships(&data).len(), 1, "no second entry");
+        let ship = ships(&data)[0];
+        let (names, active) = crate::equipment::names(ship, &stock);
+        assert_eq!(names, ["Standard", "PvP", "Rennen"], "the own one first, the planned ones after it");
+        assert_eq!(active, Some(0), "the own plan stays the active one");
+        assert!(get(ship, "belegung").and_then(|b| b.get("hardpoint_weapon_right")).is_some());
+        assert_eq!(text(ship, "notiz"), "für Rennen", "a key the ship lacked comes along");
+        let pvp = crate::equipment::read_all(ship, &stock).0.into_iter().find(|e| e.name == "PvP").expect("PvP");
+        assert_eq!(pvp.slot("hardpoint_weapon_left").map(|s| s.quality_at("Frame")), Some(800), "quality comes along");
+        // An own entry without any plan takes the plan as it was planned.
+        let mut data = parse(PLANNED);
+        edit_ships(&mut data, |ships| ships.push(parse(r#"{"name": "Gladius", "hersteller": "Aegis", "belegung": {}}"#)));
+        let before = kept(wishlist(&data)[0]);
+        assert_eq!(wish_to_hangar(&mut data, "Gladius", &stock), Ok(Moved::Joined));
+        assert_eq!(kept(ships(&data)[0]), before);
+        // The other way: onto a wish of the same ship.
+        let mut data = parse(PLANNED);
+        edit_ships(&mut data, |ships| ships.push(parse(r#"{"name": "Gladius", "hersteller": "Aegis", "herkunft": "ingame",
+            "belegung": {"hardpoint_weapon_right": {"ref": "laser-9", "name": "Laser 9", "weg": "kaufen"}}}"#)));
+        assert_eq!(hangar_to_wish(&mut data, 0, &stock), Ok(Moved::Joined));
+        assert_eq!(wishlist(&data).len(), 1);
+        assert_eq!(crate::equipment::names(wishlist(&data)[0], &stock).0, ["PvP", "Rennen", "Standard"]);
+    }
+
+    #[test]
+    fn a_move_that_cannot_be_done_changes_nothing() {
+        let mut data = parse(TWO);
+        let catalog_ship = parse(r#"{"name": "C8 Pisces", "hersteller": "Anvil", "herkunft": "katalog", "paket": "Carrack"}"#);
+        edit_ships(&mut data, |ships| ships.push(catalog_ship));
+        let before = data.clone();
+        assert_eq!(hangar_to_wish(&mut data, 2, &[]), Err(MoveRefused::Included), "a vehicle of a package");
+        assert_eq!(hangar_to_wish(&mut data, 9, &[]), Err(MoveRefused::Gone));
+        assert_eq!(wish_to_hangar(&mut data, "Polaris", &[]), Err(MoveRefused::Gone));
+        assert_eq!(wish_to_hangar(&mut data, "  ", &[]), Err(MoveRefused::Gone));
+        assert!(py_eq_value(&Value::Object(data.clone()), &Value::Object(before)), "nothing changed");
+        // Counter-check: the Gladius of the same file does move.
+        assert_eq!(hangar_to_wish(&mut data, 1, &[]), Ok(Moved::New));
+        assert!(wishlist_contains(&data, "Gladius"));
     }
 
     #[test]

@@ -336,6 +336,38 @@ pub fn set_part(entry: &mut Map, path: &str, reference: &str, name: &str, way: &
     true
 }
 
+/// The key that marks a slot of the plan as left empty: no part at all, not even the factory one. The entry has
+/// no identifier, so the bill and the shopping list pass it by as they pass the factory part.
+pub const EMPTIED: &str = "leer";
+
+/// Is this part of the plan a slot left empty?
+pub fn is_emptied(part: &Map) -> bool {
+    text(part, "ref").is_empty() && truthy(get(part, EMPTIED))
+}
+
+/// Leaves a slot empty; true when something changed. What hung below the part that was there goes with it.
+pub fn set_empty(entry: &mut Map, path: &str) -> bool {
+    if path.is_empty() || slot_of(entry, path).is_some_and(is_emptied) {
+        return false;
+    }
+    if !matches!(get(entry, "belegung"), Some(Value::Object(_))) {
+        map_set(entry, "belegung", Value::Object(Map::new()));
+    }
+    let Some(plan) = loadout_mut(entry) else { return false };
+    clear_below(plan, path);
+    map_set(plan, path, emptied_part());
+    true
+}
+
+/// The entry of the plan for a slot left empty.
+pub fn emptied_part() -> Value {
+    Value::Object(vec![
+        ("ref".to_string(), Value::str("")),
+        ("name".to_string(), Value::str("")),
+        (EMPTIED.to_string(), Value::Bool(true)),
+    ])
+}
+
 /// Puts a slot back to the factory part; true when something changed.
 pub fn clear_part(entry: &mut Map, path: &str) -> bool {
     let Some(plan) = loadout_mut(entry) else { return false };
@@ -1450,6 +1482,51 @@ mod tests {
         ship.kind = Kind::Ship;
         bill.lines.push(ship);
         assert_eq!(missing_prices(&bill.lines), vec![("not-looked".to_string(), "Other".to_string())]);
+    }
+
+    #[test]
+    fn a_slot_left_empty_stays_empty_through_the_equipment_and_holds_nothing_below() {
+        use crate::equipment::{self, Acquisition};
+        use crate::erkul_slots::{ErkulParts, SlotInfo, with_choices};
+        let mut entry = data(
+            r#"{"name": "Mole", "belegung": {"rack": {"ref": "r2", "name": "R2", "weg": "kaufen"},
+            "rack/missile_01": {"ref": "m1", "name": "M1", "weg": "kaufen"}}}"#,
+        );
+        assert!(set_empty(&mut entry, "rack"));
+        assert!(!set_empty(&mut entry, "rack"), "empty again changes nothing");
+        let plan = match get(&entry, "belegung") {
+            Some(Value::Object(plan)) => plan.clone(),
+            _ => panic!("no plan"),
+        };
+        assert_eq!(plan.len(), 1, "what hung in the rack went with it: {plan:?}");
+        assert!(plan[0].1.as_object().is_some_and(is_emptied));
+        // Nothing to buy for it.
+        let fake = Fake { slots: HashMap::from([("Mole".to_string(), vec![slot("rack", "MissileLauncher", 2, "r1")])]), ..Fake::default() };
+        let (state, lines) = line_items(&entry, &fake);
+        assert!(state != State::NoData && lines.is_empty(), "{lines:?}");
+        // The equipment says "emptied port" where the stock has a part, and the plan comes back from it the same.
+        let stock = vec![("rack".to_string(), "r1".to_string()), ("pod".to_string(), "p1".to_string())];
+        let made = equipment::from_loadout(&entry, "Standard", &stock);
+        assert_eq!(made.slots, [equipment::Slot::new("rack", "", Acquisition::Unknown)]);
+        let back = equipment::to_loadout(&made, &|r| r.to_uppercase(), &Map::new(), &["rack".to_string()]);
+        assert!(back.iter().any(|(path, part)| path == "rack" && part.as_object().is_some_and(is_emptied)), "{back:?}");
+        // Where the stock fits nothing, empty is no deviation.
+        assert!(equipment::from_loadout(&entry, "Standard", &[]).slots.is_empty());
+        // The slots below an emptied rack are gone, also those of the stock rack.
+        let info = |path: &str, factory: Option<(&str, &str)>| SlotInfo {
+            path: path.into(),
+            kind: "MissileLauncher".into(),
+            size: Some(2),
+            fit: None,
+            factory: factory.map(|(r, n)| (r.to_string(), n.to_string())),
+            fixed: false,
+        };
+        let slots = vec![info("rack", Some(("r1", "R1"))), info("rack/missile_01", Some(("m1", "M1"))), info("pod", None)];
+        let left: Vec<String> = with_choices(slots.clone(), &plan, &ErkulParts::default()).into_iter().map(|s| s.path).collect();
+        assert_eq!(left, ["rack", "pod"]);
+        // Counter-check: without the mark the stock rack keeps its missile.
+        let kept: Vec<String> = with_choices(slots, &Map::new(), &ErkulParts::default()).into_iter().map(|s| s.path).collect();
+        assert_eq!(kept, ["rack", "rack/missile_01", "pod"]);
     }
 
     #[test]

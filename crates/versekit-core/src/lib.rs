@@ -54,6 +54,7 @@ pub mod device_hub;
 pub mod device_sets;
 pub mod diagnostics;
 pub mod equipment;
+pub mod equipment_share;
 pub mod erkul_fetch;
 pub mod erkul_slots;
 pub mod error_log;

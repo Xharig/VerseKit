@@ -87,12 +87,12 @@ pub(crate) struct Stores {
     pub(crate) catalog: Vec<ShopPart>,
     /// The same parts as the shops page lists them, for the search inside a template.
     pub(crate) parts: Vec<CatalogItem>,
-    seen: [Option<SystemTime>; 6],
+    seen: [Option<SystemTime>; 8],
 }
 
 impl Stores {
-    fn files(paths: &Paths) -> [String; 6] {
-        let [ships, parts] = ErkulData::files(paths);
+    fn files(paths: &Paths) -> [String; 8] {
+        let [game_ships, game_parts, ships, parts] = ErkulData::files(paths);
         [
             paths.app_file(shops::CACHE),
             paths.app_file(stock_fetch::PRICES_FILE),
@@ -100,6 +100,8 @@ impl Stores {
             ships,
             parts,
             paths.app_file(shops::CATALOG_CACHE),
+            game_ships,
+            game_parts,
         ]
     }
 
@@ -112,7 +114,7 @@ impl Stores {
             erkul: ErkulData::default(),
             catalog: Vec::new(),
             parts: Vec::new(),
-            seen: [None; 6],
+            seen: [None; 8],
         }
     }
 
@@ -144,7 +146,7 @@ impl Stores {
 
     pub(crate) fn changed(&self, paths: &Paths) -> bool {
         let files = Stores::files(paths);
-        (0..6).any(|k| file_time(&files[k]) != self.seen[k])
+        (0..files.len()).any(|k| file_time(&files[k]) != self.seen[k])
     }
 }
 

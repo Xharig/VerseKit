@@ -92,7 +92,7 @@ pub struct HangarState {
     held: Held,
     uex: UexShips,
     erkul: ErkulShips,
-    /// `UexShips::all_names`, for the field to enter a ship.
+    /// `UexShips::choice_names`, for the field to enter a ship: each name once.
     all_names: Vec<String>,
     pub search: String,
     seen: (u64, Option<SystemTime>),
@@ -146,7 +146,22 @@ pub struct HangarState {
     last_frame: Option<u64>,
     /// The ship whose parts the crafting page is to show, until the window takes it.
     craft_jump: Option<String>,
+    /// The dialog to save or open a file of share codes, while it is open.
+    share_dialog: Option<ShareDialog>,
+    /// The notice after a ship changed between the own ships and the wish list: text, icon, since when.
+    moved: Option<(String, &'static str, Option<f64>)>,
 }
+
+/// A dialog of the share codes and the box it belongs to.
+enum ShareDialog {
+    /// Where to save these codes.
+    Save { key: String, text: String, pending: file_dialog::Pending },
+    /// Which file to read.
+    Open { key: String, pending: file_dialog::Pending },
+}
+
+/// The most a file of share codes is read of.
+const SHARE_FILE_LIMIT: u64 = 1024 * 1024;
 
 const SAMPLE: &str = r#"{"format": 1, "schiffe": [
  {"name": "Carrack", "hersteller": "Anvil Aerospace", "herkunft": "pledge", "hkurz": "ANVL", "kurz": "ANVL_Carrack", "lti": true, "belegung": {}, "schmelzbar": false},
@@ -209,6 +224,8 @@ impl Default for HangarState {
             sync: crate::slot_sync::global().clone(),
             last_frame: None,
             craft_jump: None,
+            share_dialog: None,
+            moved: None,
         }
     }
 }
@@ -256,7 +273,7 @@ impl HangarState {
         let file = paths.app_file(hangar::FILE);
         let uex = UexShips::load(&paths.app_file(ships::UEX_FILE));
         let erkul = ErkulShips::load(&paths.app_file(ships::ERKUL_FILE));
-        let all_names = uex.all_names();
+        let all_names = uex.choice_names();
         let names = ShipNames::with_paths(paths);
         let mut state = HangarState {
             file: Some(file),
@@ -986,6 +1003,8 @@ enum RowAction {
     Equip(equipment_box::Action),
     /// The parts that can be crafted for the ship of this name.
     Craft(String),
+    /// The ship is gone (a wipe): back onto the wish list.
+    ToPlanned,
 }
 
 /// One ship: name and remove button; origin, insurance, package, slots and
@@ -1091,9 +1110,20 @@ fn ship_row(
     let word = t("s_hg_herstellbar");
     let spoken = tf("s_hg_herstellbar_fuer", &[("schiff", Arg::from(name))]);
     let craft = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("zap").spoken(&spoken);
-    if ui.add(craft).on_hover_text(t("s_hg_herstellbar_tip")).clicked() {
-        action = Some(RowAction::Craft(name.trim().to_string()));
-    }
+    ui.horizontal_wrapped(|row| {
+        if row.add(craft).on_hover_text(t("s_hg_herstellbar_tip")).clicked() {
+            action = Some(RowAction::Craft(name.trim().to_string()));
+        }
+        // A vehicle of a package follows its carrier and does not move on its own.
+        if hangar::field_text(entry, "herkunft") != CATALOG {
+            let word = t("s_hg_nach_geplant");
+            let spoken = tf("s_hg_nach_geplant_fuer", &[("schiff", Arg::from(name))]);
+            let back = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("star").spoken(&spoken);
+            if row.add(back).on_hover_text(t("s_hg_nach_geplant_tip")).clicked() {
+                action = Some(RowAction::ToPlanned);
+            }
+        }
+    });
     names.card(ui, scheme, name, &key);
     action
 }
@@ -1303,6 +1333,192 @@ impl HangarState {
     pub fn planned_pending(&self) -> bool {
         self.scroll_to_planned
     }
+
+    /// The sentence after a move, with the note when the ship joined an entry of the same ship.
+    fn moved_text(key: &str, name: &str, moved: hangar::Moved) -> String {
+        let mut text = tf(key, &[("name", Arg::from(name))]);
+        if moved == hangar::Moved::Joined {
+            text.push(' ');
+            text.push_str(&t("s_hg_verschoben_dazu"));
+        }
+        text
+    }
+
+    /// The sentence for a move that was refused.
+    fn move_refusal(refused: hangar::MoveRefused) -> String {
+        t(match refused {
+            hangar::MoveRefused::Gone => "s_hg_verschieben_weg",
+            hangar::MoveRefused::Included => "s_hg_verschieben_paket",
+        })
+    }
+
+    /// A planned ship was bought: it goes into the own ships with all it holds, after a copy of the file.
+    fn move_to_hangar(&mut self, name: &str) {
+        if !self.backup() {
+            self.wish_message = self.message.clone();
+            return;
+        }
+        let stock = hangar::wishlist(&self.held.data)
+            .into_iter()
+            .find(|w| hangar::field_text(w, "name") == name)
+            .map(|wish| self.stores.erkul.stock_ports(wish))
+            .unwrap_or_default();
+        match hangar::wish_to_hangar(&mut self.held.data, name, &stock) {
+            Ok(moved) => {
+                self.wish_message = None;
+                self.heights.clear();
+                if self.save_wish() {
+                    self.moved = Some((Self::moved_text("s_hg_verschoben_meine", name, moved), "plane-landing", None));
+                }
+                self.ask_slots(Trigger::ByHand);
+            }
+            Err(refused) => self.wish_message = Some((Self::move_refusal(refused), Tone::Bad)),
+        }
+    }
+
+    /// An own ship is gone (a wipe): the ship at `index` goes back onto the wish list with all it holds, after a
+    /// copy of the file.
+    fn move_to_planned(&mut self, index: usize) {
+        if !self.backup() {
+            return;
+        }
+        let Some(entry) = hangar::ships(&self.held.data).get(index).map(|e| (*e).clone()) else { return };
+        let name = hangar::field_text(&entry, "name").to_string();
+        let stock = self.stores.erkul.stock_ports(&entry);
+        match hangar::hangar_to_wish(&mut self.held.data, index, &stock) {
+            Ok(moved) => {
+                self.message = None;
+                self.heights.clear();
+                if self.save().ok() {
+                    self.moved = Some((Self::moved_text("s_hg_verschoben_geplant", &name, moved), "star", None));
+                }
+            }
+            Err(refused) => self.message = Some((Self::move_refusal(refused), Tone::Bad)),
+        }
+    }
+
+    /// Share, save and open of a box: they change no entry. True when the action was one of them.
+    fn share_action(&mut self, ui: &Ui, entry: &Map, action: &equipment_box::Action) -> bool {
+        use equipment_box::Action;
+        use versekit_core::equipment_share as share;
+        let (ship, maker) = (hangar::field_text(entry, "name"), hangar::field_text(entry, "hersteller"));
+        let stock = self.stores.erkul.stock_ports(entry);
+        let all = equipment::read_all(entry, &stock);
+        let code_of =
+            |e: &equipment::Equipment| share::encode(&share::share(ship, maker, e, &self.extra.ids));
+        match action {
+            Action::Share { key } => {
+                let fallback = equipment::Equipment { name: equipment::DEFAULT_NAME.into(), ..Default::default() };
+                let code = code_of(all.active().unwrap_or(&fallback));
+                ui.ctx().copy_text(code.clone());
+                let n = Arg::from(code.chars().count());
+                let said = if code.len() > share::CHAT_LIMIT {
+                    (tf("s_wk_teilen_zu_lang", &[("n", n)]), true)
+                } else {
+                    (tf("s_wk_teilen_kopiert", &[("n", n)]), false)
+                };
+                self.equipment.said = Some((key.clone(), said.0, said.1));
+            }
+            Action::SaveFile { key } => {
+                if self.share_dialog.is_none() {
+                    let codes: Vec<String> = if all.0.is_empty() {
+                        vec![code_of(&equipment::Equipment { name: equipment::DEFAULT_NAME.into(), ..Default::default() })]
+                    } else {
+                        all.0.iter().map(code_of).collect()
+                    };
+                    let title = t("s_wk_datei_speichern");
+                    let name = file_name(&tf("s_wk_datei_name", &[("schiff", Arg::from(ship))]));
+                    let filters: file_dialog::Filters = &[("Text", &[share::FILE_ENDING])];
+                    let pending = file_dialog::save_file(ui.ctx(), &title, filters, None, &name);
+                    self.share_dialog = Some(ShareDialog::Save { key: key.clone(), text: share::file_text(&codes), pending });
+                }
+            }
+            Action::OpenFile { key } => {
+                if self.share_dialog.is_none() {
+                    let title = t("s_wk_datei_oeffnen");
+                    let filters: file_dialog::Filters = &[("Text", &[share::FILE_ENDING])];
+                    let pending = file_dialog::open_file(ui.ctx(), &title, filters, None);
+                    self.share_dialog = Some(ShareDialog::Open { key: key.clone(), pending });
+                }
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// The answer of the dialog of the share codes, once it was closed: the file is written, or read into the field
+    /// of its box. A cancel says nothing.
+    fn take_share_dialog(&mut self) {
+        let answer = match &self.share_dialog {
+            Some(ShareDialog::Save { pending, .. } | ShareDialog::Open { pending, .. }) => pending.take(),
+            None => return,
+        };
+        let Some(answer) = answer else { return };
+        let Some(dialog) = self.share_dialog.take() else { return };
+        let Some(path) = answer else { return };
+        match dialog {
+            ShareDialog::Save { key, text, .. } => {
+                let said = match jsonio::write_text_atomic(&path, &text, jsonio::Newline::Native) {
+                    Ok(()) => (tf("s_wk_datei_gespeichert", &[("datei", Arg::from(path.as_str()))]), false),
+                    Err(e) => (tf("s_wk_datei_fehler", &[("grund", Arg::from(e.to_string()))]), true),
+                };
+                self.equipment.said = Some((key, said.0, said.1));
+            }
+            ShareDialog::Open { key, .. } => match read_share_file(&path) {
+                Ok(text) => {
+                    self.equipment.said = None;
+                    self.equipment.pasting = Some(equipment_box::Pasting { key, text });
+                }
+                Err(reason) => {
+                    let said = tf("s_wk_datei_lesefehler", &[("grund", Arg::from(reason))]);
+                    self.equipment.said = Some((key, said, true));
+                }
+            },
+        }
+    }
+}
+
+/// The equipments of the other entries of the same ship as `entry`, own ships first, then planned ones, each with the
+/// line that names where it stands. The entry itself is left out.
+fn same_type_loadouts(data: &Map, stores: &Stores, entry: &Map) -> Vec<(String, equipment::Equipment)> {
+    let (ship, maker) = (hangar::field_text(entry, "name"), hangar::field_text(entry, "hersteller"));
+    let mut found = Vec::new();
+    for (list, entries) in [(t("s_wk_aus_meine"), hangar::ships(data)), (t("s_hg_geplant_titel"), hangar::wishlist(data))] {
+        for other in entries {
+            if other == entry || !equipment_box::same_type(other, ship, maker, stores) {
+                continue;
+            }
+            let stock = stores.erkul.stock_ports(other);
+            for loadout in equipment::read_all(other, &stock).0 {
+                let line = tf(
+                    "s_wk_uebernehmen_eintrag",
+                    &[
+                        ("liste", Arg::from(list.as_str())),
+                        ("schiff", Arg::from(hangar::field_text(other, "name"))),
+                        ("name", Arg::from(loadout.name.as_str())),
+                    ],
+                );
+                found.push((line, loadout));
+            }
+        }
+    }
+    found
+}
+
+/// A file name from a ship name: the characters a file system does not take become spaces.
+fn file_name(stem: &str) -> String {
+    let clean: String = stem.chars().map(|c| if "<>:\"/\\|?*".contains(c) || c.is_control() { ' ' } else { c }).collect();
+    format!("{}.{}", clean.trim(), versekit_core::equipment_share::FILE_ENDING)
+}
+
+/// The text of a file of share codes; a file too big for codes is not read.
+fn read_share_file(path: &str) -> Result<String, String> {
+    let size = std::fs::metadata(path).map_err(|e| e.to_string())?.len();
+    if size > SHARE_FILE_LIMIT {
+        return Err(t("s_wk_datei_zu_gross"));
+    }
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// What putting a ship on the list of planned ships came to.
@@ -1409,6 +1625,8 @@ fn show_planned(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: 
     }
     let mut equipment = std::mem::take(&mut state.equipment);
     let (stores, extra) = (state.stores.clone(), state.extra.clone());
+    let data = &state.held.data;
+    let others = |entry: &Map| same_type_loadouts(data, &stores, entry);
     let mut asked: Option<(String, WishAction)> = None;
     for name in &names {
         let entry: Map = hangar::wishlist(&state.held.data)
@@ -1431,6 +1649,12 @@ fn show_planned(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: 
                 });
             });
             cell.add(egui::Label::new(RichText::new(price).small().color(color(tone))).wrap());
+            let word = t("s_hg_nach_meine");
+            let spoken = tf("s_hg_nach_meine_fuer", &[("schiff", Arg::from(name.as_str()))]);
+            let bought = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("plane-landing").spoken(&spoken);
+            if cell.add(bought).on_hover_text(t("s_hg_nach_meine_tip")).clicked() {
+                action = Some(WishAction::ToHangar);
+            }
             let open = hangar::open_count(&entry);
             if open > 0 {
                 small(cell, &tf("s_hg_offen", &[("n", Arg::from(open))]), scheme.accent);
@@ -1440,6 +1664,7 @@ fn show_planned(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: 
                 extra: &extra,
                 sources,
                 paths: state.paths.as_ref(),
+                others: Some(&others),
             });
             if let Some(ctx) = &ctx
                 && let Some(done) =
@@ -1465,7 +1690,16 @@ fn show_planned(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: 
                 state.save_wish();
             }
         }
+        WishAction::ToHangar => state.move_to_hangar(&name),
         WishAction::Equip(done) => {
+            let entry = hangar::wishlist(&state.held.data)
+                .into_iter()
+                .find(|w| hangar::field_text(w, "name") == name)
+                .cloned()
+                .unwrap_or_default();
+            if state.share_action(ui, &entry, &done) {
+                return;
+            }
             let (stores, extra) = (state.stores.clone(), state.extra.clone());
             if let Some(entry) = wish_mut(&mut state.held.data, &name)
                 && change_plan(entry, &done, &stores, &extra, &mut state.equipment)
@@ -1528,6 +1762,13 @@ fn change_plan(
             equipment::set_acquisition(entry, paths, *acquisition, blueprint.as_deref(), &stock)
         }
         Action::Quality { paths, slot, value } => equipment::set_quality(entry, paths, slot, *value, &stock),
+        Action::AddShared { equipments, key } => {
+            let names: Vec<String> =
+                equipments.iter().map(|e| equipment::add_as_active(entry, e, &stock, &name_of, &exact)).collect();
+            let said = tf("s_wk_code_angelegt", &[("namen", Arg::from(names.join(", ")))]);
+            box_state.said = Some((key.clone(), said, false));
+            !names.is_empty()
+        }
         // "Buy" or "build" in the cart is how the part is got: a pledge before does not stick.
         Action::Method { paths, way } => {
             let acquisition = equipment::Acquisition::from_way(way);
@@ -1545,7 +1786,7 @@ fn change_plan(
             applied
         }
     };
-    if changed && matches!(action, Action::Switch { .. } | Action::Delete { .. } | Action::Undo) {
+    if changed && matches!(action, Action::Switch { .. } | Action::Delete { .. } | Action::Undo | Action::AddShared { .. }) {
         respell_plan(entry, stores);
     }
     // A change closes the way back to what was deleted before.
@@ -1595,6 +1836,8 @@ fn plan_part(entry: &Map, path: &str) -> Option<(String, String)> {
 /// What a row of the wish list asks.
 enum WishAction {
     Remove,
+    /// The ship was bought: into the own ships.
+    ToHangar,
     Equip(equipment_box::Action),
 }
 
@@ -1617,6 +1860,15 @@ pub fn show_page_with(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sou
     state.names.follow();
     state.take_dropped(ui);
     state.take_dialog();
+    state.take_share_dialog();
+    // A ship that changed lists is said at the top right for a few seconds: its card is gone from where it was.
+    if let Some((text, icon, since)) = state.moved.as_mut() {
+        let now = ui.input(|i| i.time);
+        let since = *since.get_or_insert(now);
+        if !widgets::notice(ui.ctx(), scheme, since, icon, text, None).shown {
+            state.moved = None;
+        }
+    }
     state.unit_menu = state.unit_choices();
     ui.label(RichText::new(t("s_hgl_lead")).small().color(color(scheme.sub)));
     if let Some((line, fine)) = state.receiver.as_ref().and_then(last_event_line) {
@@ -1763,11 +2015,13 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
             }
             let card = widgets::card(list, scheme, |cell| {
                 cell.set_width(cell.available_width());
+                let others = |entry: &Map| same_type_loadouts(&state.held.data, &stores, entry);
                 let ctx = sources.map(|sources| equipment_box::Ctx {
                     stores: &stores,
                     extra: &extra,
                     sources,
                     paths: state.paths.as_ref(),
+                    others: Some(&others),
                 });
                 let equip = ctx.as_ref().map(|ctx| (ctx, &mut equipment));
                 ship_row(cell, scheme, state, &mut names, &ships, i, equip)
@@ -1805,7 +2059,12 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
         }
         RowAction::Unit(pick) => state.set_unit(i, pick),
         RowAction::Craft(name) => state.craft_jump = Some(name),
+        RowAction::ToPlanned => state.move_to_planned(i),
         RowAction::Equip(asked) => {
+            let entry = hangar::ships(&state.held.data).get(i).map(|e| (*e).clone()).unwrap_or_default();
+            if state.share_action(ui, &entry, &asked) {
+                return;
+            }
             let (stores, extra) = (state.stores.clone(), state.extra.clone());
             if let Some(entry) = hangar::ship_mut(&mut state.held.data, i)
                 && change_plan(entry, &asked, &stores, &extra, &mut state.equipment)
@@ -1882,9 +2141,27 @@ mod tests {
         let list = r#"{"format": 5, "schiffe": {"1": {"name": "Aegis Avenger Titan"}, "2": {"name": "Anvil Arrow"}}}"#;
         std::fs::write(&uex_file, list).expect("UEX");
         let uex = UexShips::load(&uex_file.to_string_lossy());
-        let mut state = HangarState { file: Some(file), all_names: uex.all_names(), uex, ..HangarState::default() };
+        let mut state = HangarState { file: Some(file), all_names: uex.choice_names(), uex, ..HangarState::default() };
         state.reload();
         (state, dir)
+    }
+
+    #[test]
+    fn a_ship_that_uex_lists_twice_is_offered_once_in_the_field_to_enter_a_ship() {
+        use versekit_core::paths::Host;
+        use versekit_core::pypath::Flavor;
+        let dir = std::env::temp_dir().join(format!("versekit-hangar-doppelt-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("folder");
+        let home = dir.to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &home)], &home));
+        // UEX gives the Sabre Raven EX under two ids with one name.
+        let list = r#"{"format": 5, "schiffe": {"290": {"name": "Aegis Sabre Raven EX"},
+                       "291": {"name": "Aegis Sabre Raven EX"}, "3": {"name": "Aegis Sabre"}}}"#;
+        std::fs::write(paths.app_file(ships::UEX_FILE), list).expect("UEX");
+        let state = HangarState::with_file(&paths);
+        assert_eq!(state.all_names, ["Aegis Sabre", "Aegis Sabre Raven EX"]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn ship_names(state: &HangarState) -> Vec<String> {
@@ -2425,7 +2702,7 @@ mod tests {
         let mut state = HangarState {
             held: Held::detached(hangar::read(&file(hangar::FILE)).unwrap_or_else(hangar::empty)),
             erkul: ErkulShips::load(&file(ships::ERKUL_FILE)),
-            all_names: uex.all_names(),
+            all_names: uex.choice_names(),
             uex,
             names: ShipNames::detached(table),
             ..HangarState::default()
@@ -3190,5 +3467,195 @@ mod tests {
             }
         }
         assert!(findings.is_empty(), "{}", findings.join("\n"));
+    }
+
+    /// The centre of the button with this name in a frame, from the screen reader's view.
+    fn button_at(nodes: &[(egui::accesskit::NodeId, egui::accesskit::Node)], name: &str) -> Option<egui::Pos2> {
+        nodes
+            .iter()
+            .find(|(_, n)| n.role() == Role::Button && n.label() == Some(name))
+            .and_then(|(_, n)| n.bounds())
+            .map(|b| egui::pos2(((b.x0 + b.x1) / 2.0) as f32, ((b.y0 + b.y1) / 2.0) as f32))
+    }
+
+    fn loadout_names(entry: &Map) -> Vec<String> {
+        equipment::read_all(entry, &[]).0.into_iter().map(|e| e.name).collect()
+    }
+
+    #[test]
+    fn a_ship_moves_to_planned_and_back_through_its_buttons_with_its_loadouts() {
+        steady();
+        let start = r#"{"format": 1, "schiffe": [{"name": "Arrow", "hersteller": "Anvil Aerospace", "herkunft": "ingame",
+            "notiz": "Mein Erster", "belegung": {"hp_a": {"ref": "laser-3", "name": "Laser 3", "weg": "kaufen"}},
+            "ausstattungen": [
+                {"name": "PvP", "active": true, "slots": [{"portPath": "hp_a", "itemGuid": "laser-3", "acquisition": "purchased"}]},
+                {"name": "Rennen", "active": false, "slots": [{"portPath": "hp_b", "itemGuid": "cooler-1", "acquisition": "looted"}]}]}]}"#;
+        let (mut state, dir) = page_on("verschieben", start);
+        let file = dir.join(hangar::FILE).to_string_lossy().into_owned();
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.enable_accesskit();
+        let scheme = versekit_core::theme::current();
+        let run = |state: &mut HangarState, events: Vec<egui::Event>| {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 4000.0))),
+                events,
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+            output.textures_delta.clear();
+            output.platform_output.accesskit_update.expect("accesskit is on").nodes
+        };
+        let before = loadout_names(hangar::ships(&state.held.data)[0]);
+        assert_eq!(before, ["PvP", "Rennen"]);
+        // Gone after a wipe: onto the wish list.
+        let to_planned = tf("s_hg_nach_geplant_fuer", &[("schiff", Arg::from("Arrow"))]);
+        let at = button_at(&run(&mut state, Vec::new()), &to_planned).expect("every own ship has the button");
+        run(&mut state, click(at));
+        assert!(hangar::ships(&state.held.data).is_empty());
+        let on_disk = hangar::read(&file).expect("file");
+        assert!(hangar::ships(&on_disk).is_empty() && hangar::wishlist_contains(&on_disk, "Arrow"), "stored at once");
+        let wish = hangar::wishlist(&on_disk)[0];
+        assert_eq!(loadout_names(wish), before, "the loadouts come along");
+        assert_eq!(hangar::field_text(wish, "notiz"), "Mein Erster", "and what else was entered");
+        assert!(state.moved.as_ref().is_some_and(|(text, _, _)| text.contains("Arrow")), "the move is said");
+        // Bought again: back into the own ships.
+        let to_hangar = tf("s_hg_nach_meine_fuer", &[("schiff", Arg::from("Arrow"))]);
+        let at = button_at(&run(&mut state, Vec::new()), &to_hangar).expect("every planned ship has the button");
+        run(&mut state, click(at));
+        let on_disk = hangar::read(&file).expect("file");
+        assert!(hangar::wishlist(&on_disk).is_empty());
+        let ship = hangar::ships(&on_disk)[0];
+        assert_eq!(loadout_names(ship), before);
+        assert_eq!(hangar::field_text(ship, "herkunft"), hangar::INGAME);
+        assert_eq!(equipment::read_all(ship, &[]).active().map(|e| e.name.clone()).as_deref(), Some("PvP"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_loadouts_of_the_other_ships_of_the_same_type_are_offered_in_both_lists() {
+        steady();
+        let data = match jsonio::loads(
+            r#"{"format": 1, "schiffe": [
+                {"name": "Gladius", "hersteller": "Aegis Dynamics", "belegung": {},
+                 "ausstattungen": [{"name": "PvP", "active": true, "slots": [{"portPath": "a", "itemGuid": "g1", "acquisition": "crafted"}]}]},
+                {"name": "Arrow", "hersteller": "Anvil Aerospace", "belegung": {},
+                 "ausstattungen": [{"name": "Schnell", "active": true, "slots": [{"portPath": "a", "itemGuid": "g2", "acquisition": "purchased"}]}]}],
+             "wunsch": [{"name": "Gladius", "hersteller": "Aegis Dynamics", "belegung": {}}]}"#,
+        ) {
+            Ok(Value::Object(map)) => map,
+            other => panic!("{other:?}"),
+        };
+        let stores = Stores::empty();
+        let wish = hangar::wishlist(&data)[0].clone();
+        let offered = same_type_loadouts(&data, &stores, &wish);
+        let lines: Vec<&str> = offered.iter().map(|(line, _)| line.as_str()).collect();
+        let want = tf(
+            "s_wk_uebernehmen_eintrag",
+            &[("liste", Arg::from(t("s_wk_aus_meine"))), ("schiff", Arg::from("Gladius")), ("name", Arg::from("PvP"))],
+        );
+        assert_eq!(lines, [want.as_str()], "the own Gladius, not the Arrow");
+        assert_eq!(offered[0].1.slot("a").map(|s| s.acquisition), Some(equipment::Acquisition::Crafted), "as it is");
+        // The other way round, the planned Gladius has nothing yet; the own one is never offered to itself.
+        let own = hangar::ships(&data)[0].clone();
+        assert!(same_type_loadouts(&data, &stores, &own).is_empty());
+        // Taken over, it is a loadout of the wish.
+        let mut wish = wish;
+        let mut box_state = EquipmentState::default();
+        let take = equipment_box::Action::AddShared { equipments: vec![offered[0].1.clone()], key: "k".into() };
+        assert!(change_plan(&mut wish, &take, &stores, &Extra::default(), &mut box_state));
+        assert_eq!(loadout_names(&wish), ["Standard", "PvP"]);
+        assert_eq!(equipment::read_all(&wish, &[]).active().map(|e| e.name.clone()).as_deref(), Some("PvP"));
+        // Now the planned Gladius has one of its own, and that is offered to the own Gladius from Planned.
+        let mut data = data;
+        if let Some((_, Value::Array(wishes))) = data.iter_mut().find(|(k, _)| k == "wunsch") {
+            wishes[0] = Value::Object(wish);
+        }
+        let from_planned = tf(
+            "s_wk_uebernehmen_eintrag",
+            &[("liste", Arg::from(t("s_hg_geplant_titel"))), ("schiff", Arg::from("Gladius")), ("name", Arg::from("PvP"))],
+        );
+        let offered = same_type_loadouts(&data, &stores, &own);
+        assert!(offered.iter().any(|(line, _)| *line == from_planned), "{:?}", offered.iter().map(|(l, _)| l).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn a_vehicle_of_a_package_has_no_button_to_move_it() {
+        steady();
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.enable_accesskit();
+        let mut state = HangarState::default();
+        let labels = labels_of(&ctx, &mut state);
+        let has = |ship: &str| {
+            let name = tf("s_hg_nach_geplant_fuer", &[("schiff", Arg::from(ship))]);
+            labels.iter().any(|(role, label)| *role == Role::Button && *label == name)
+        };
+        assert!(!has("C8 Pisces"), "it follows the Carrack: {labels:?}");
+        assert!(has("Carrack") && has("Gladius"), "{labels:?}");
+    }
+
+    #[test]
+    fn a_loadout_goes_out_as_a_code_and_comes_back_as_the_same_loadout_on_another_card() {
+        use equipment_box::Action;
+        use versekit_core::equipment_share::{self as share, PartIds};
+        steady();
+        const LASER: &str = "bbbbbbbb-0000-4000-8000-000000000001";
+        const COOLER: &str = "bbbbbbbb-0000-4000-8000-000000000002";
+        let mut state = HangarState {
+            extra: Arc::new(Extra { ids: PartIds::new([(LASER.into(), "KLWE_Laser_S3".into())]), ..Extra::default() }),
+            ..HangarState::default()
+        };
+        let sender = match jsonio::loads(&format!(
+            r#"{{"name": "Gladius", "hersteller": "Aegis Dynamics",
+                "belegung": {{"hp_a": {{"ref": "{LASER}", "name": "Laser", "weg": "bauen"}}, "hp_b": {{"ref": "{COOLER}", "name": "Cooler", "weg": "kaufen"}}}},
+                "ausstattungen": [{{"name": "PvP", "active": true, "slots": [
+                    {{"portPath": "hp_a", "itemGuid": "{LASER}", "acquisition": "crafted", "quality": {{"Frame": 900}}}},
+                    {{"portPath": "hp_b", "itemGuid": "{COOLER}", "acquisition": "purchased"}}]}}]}}"#
+        )) {
+            Ok(Value::Object(map)) => map,
+            other => panic!("{other:?}"),
+        };
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            assert!(state.share_action(ui, &sender, &Action::Share { key: "k".into() }));
+            assert!(!state.share_action(ui, &sender, &Action::Undo), "the other actions are the plan's");
+        });
+        output.textures_delta.clear();
+        let code = output
+            .platform_output
+            .commands
+            .iter()
+            .find_map(|c| match c {
+                egui::OutputCommand::CopyText(text) => Some(text.clone()),
+                _ => None,
+            })
+            .expect("the code is copied");
+        assert!(code.starts_with(share::PREFIX) && code.len() < share::CHAT_LIMIT, "{code}");
+        let said = state.equipment.said.clone().expect("said");
+        assert_eq!((said.0.as_str(), said.2), ("k", false));
+        assert!(said.1.contains(&code.chars().count().to_string()), "{said:?}");
+        // The receiver's planned Gladius, without a loadout yet.
+        let shared = share::decode(&code).expect("own code");
+        let came = share::equipment_of(&shared, &state.extra.ids, &|guid: &str| guid == COOLER);
+        let mut receiver = match jsonio::loads(r#"{"name": "Gladius", "hersteller": "Aegis Dynamics", "belegung": {}}"#) {
+            Ok(Value::Object(map)) => map,
+            other => panic!("{other:?}"),
+        };
+        let stores = Stores::empty();
+        let mut box_state = EquipmentState::default();
+        let added = Action::AddShared { equipments: vec![came], key: "k".into() };
+        assert!(change_plan(&mut receiver, &added, &stores, &state.extra, &mut box_state));
+        let got = equipment::read_all(&receiver, &[]).active().cloned().expect("an active one");
+        let want = equipment::read_all(&sender, &[]).active().cloned().expect("the sent one");
+        let parts = |e: &equipment::Equipment| {
+            let mut all: Vec<(String, String)> = e.slots.iter().map(|s| (s.port_path.clone(), s.item_guid.clone())).collect();
+            all.sort();
+            all
+        };
+        assert_eq!(got.name, "PvP");
+        assert_eq!(parts(&got), parts(&want), "the same parts in the same slots");
+        assert_eq!(plan_part(&receiver, "hp_a").map(|(r, _)| r).as_deref(), Some(LASER), "the plan of the pages follows");
+        assert!(box_state.said.as_ref().is_some_and(|(_, text, bad)| text.contains("PvP") && !bad), "{:?}", box_state.said);
     }
 }

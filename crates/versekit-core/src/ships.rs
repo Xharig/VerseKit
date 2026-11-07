@@ -96,6 +96,14 @@ impl UexShips {
         names
     }
 
+    /// The names for a field to pick a ship from: `all_names` with each name once, without regard to case or
+    /// outer spaces. UEX lists a few ships twice under one name (the Sabre Raven EX under two ids); a list to
+    /// choose from shows such a name only once.
+    pub fn choice_names(&self) -> Vec<String> {
+        let mut seen = std::collections::HashSet::new();
+        self.all_names().into_iter().filter(|n| seen.insert(n.trim().to_lowercase())).collect()
+    }
+
     fn find(&self, name: &str) -> Option<&UexShip> {
         self.names.position(name).map(|i| &self.ships[i])
     }
@@ -311,6 +319,45 @@ impl ErkulShips {
         ErkulShips::from_parts(version, ships, makers)
     }
 
+    /// The slots of the game data, with erkul's where the game data have nothing: a ship the game data lack comes
+    /// from erkul whole; a slot of the game data without what fits (`passt`) or without a size takes them from
+    /// erkul's slot of the same path, where erkul knows the ship. The ports right on a ship are such slots:
+    /// p4kx gives them no kind and size yet.
+    pub fn merged(game: ErkulShips, erkul: ErkulShips) -> ErkulShips {
+        if game.is_empty() {
+            return erkul;
+        }
+        let ErkulShips { version, ships: mut own, makers: mut own_makers, .. } = game;
+        for (key, entry) in &mut own {
+            let Some(&at) = erkul.keys.get(key) else { continue };
+            let theirs: Vec<&Map> = match get(&erkul.ships[at].1, "slots") {
+                Some(Value::Array(items)) => items.iter().filter_map(Value::as_object).collect(),
+                _ => Vec::new(),
+            };
+            let Some((_, Value::Array(slots))) = entry.iter_mut().find(|(k, _)| k == "slots") else { continue };
+            for slot in slots.iter_mut() {
+                let Value::Object(fields) = slot else { continue };
+                let path = text(fields, "pfad").to_lowercase();
+                let Some(other) = theirs.iter().find(|s| text(s, "pfad").to_lowercase() == path) else { continue };
+                for field in ["passt", "groesse"] {
+                    let missing = !matches!(get(fields, field), Some(v) if !matches!(v, Value::Null));
+                    if missing && let Some(value) = get(other, field).filter(|v| !matches!(v, Value::Null)) {
+                        jsonio::map_set(fields, field, value.clone());
+                    }
+                }
+            }
+        }
+        let known: std::collections::HashSet<String> = own.iter().map(|(k, _)| k.clone()).collect();
+        own.extend(erkul.ships.into_iter().filter(|(k, _)| !known.contains(k)));
+        for (name, code) in erkul.makers {
+            if !own_makers.iter().any(|(k, _)| *k == name) {
+                own_makers.push((name, code));
+            }
+        }
+        let version = if version.is_empty() { erkul.version } else { version };
+        ErkulShips::from_parts(version, own, own_makers)
+    }
+
     fn from_parts(version: String, ships: Vec<(String, Map)>, makers: Vec<(String, String)>) -> ErkulShips {
         let mut keys = HashMap::new();
         for (i, (key, _)) in ships.iter().enumerate() {
@@ -507,5 +554,75 @@ mod tests {
         assert!(ships.is_concept("Galaxy"));
         assert!(ships.knows("gladius"));
         assert_eq!(ships.all_names(), vec!["aegis Gladius".to_string(), "RSI Galaxy".to_string()]);
+    }
+
+    #[test]
+    fn the_slots_of_the_game_data_come_first_and_erkul_fills_only_what_they_lack() {
+        let ships = |text: &str| -> Vec<(String, Map)> {
+            match jsonio::loads(text) {
+                Ok(Value::Object(root)) => {
+                    root.into_iter().filter_map(|(k, v)| v.as_object().cloned().map(|m| (k, m))).collect()
+                }
+                _ => panic!("ships"),
+            }
+        };
+        let game = ErkulShips::from_parts(
+            "game".into(),
+            ships(
+                r#"{"anvlarrow": {"name": "Anvil Arrow", "slots": [
+                    {"pfad": "hardpoint_power_plant", "art": "PowerPlant", "groesse": null, "werk": {"ref": "pp", "name": "PP"}},
+                    {"pfad": "hardpoint_weapon_left/hardpoint_class_2", "art": "WeaponGun", "groesse": 3,
+                     "passt": {"typen": [["WeaponGun", []]], "min": 3, "max": 3, "porttags": [], "verlangt": []}}]}}"#,
+            ),
+            vec![("anvilaerospace".into(), "anvl".into())],
+        );
+        let erkul = ErkulShips::from_parts(
+            "erkul".into(),
+            ships(
+                r#"{"anvlarrow": {"name": "Anvil Arrow", "slots": [
+                    {"pfad": "HARDPOINT_POWER_PLANT", "art": "PowerPlant", "groesse": 1,
+                     "passt": {"typen": [["PowerPlant", []]], "min": 1, "max": 1, "porttags": [], "verlangt": []}},
+                    {"pfad": "hardpoint_weapon_left/hardpoint_class_2", "art": "WeaponGun", "groesse": 2,
+                     "passt": {"typen": [["WeaponGun", []]], "min": 2, "max": 2, "porttags": [], "verlangt": []}},
+                    {"pfad": "hardpoint_only_erkul", "art": "Cooler", "groesse": 1}]},
+                   "aegsgladius": {"name": "Aegis Gladius", "slots": [{"pfad": "hardpoint_cooler", "art": "Cooler", "groesse": 1}]}}"#,
+            ),
+            vec![("aegisdynamics".into(), "aegs".into())],
+        );
+        let merged = ErkulShips::merged(game, erkul);
+        assert_eq!(merged.game_version(), "game");
+        let id = |name, short| ShipId { name, maker: "", short, maker_short: "" };
+        let arrow = merged.entry(id("Arrow", "ANVL_Arrow")).expect("the game data's Arrow");
+        let slots = match get(arrow, "slots") {
+            Some(Value::Array(items)) => items.iter().filter_map(Value::as_object).cloned().collect::<Vec<_>>(),
+            _ => panic!("slots"),
+        };
+        assert_eq!(slots.len(), 2, "a slot erkul alone has does not come in: the game data hold");
+        // The top port without kind and size takes erkul's of the same path (case does not matter).
+        assert_eq!(get(&slots[0], "groesse"), Some(&Value::int(1)));
+        assert!(get(&slots[0], "passt").is_some());
+        // What the game data say stays theirs.
+        assert_eq!(get(&slots[1], "groesse"), Some(&Value::int(3)));
+        // A ship only erkul knows comes from erkul, and erkul's makers come along.
+        assert!(merged.knows(id("Gladius", "AEGS_Gladius")));
+        assert!(merged.knows(ShipId { name: "Gladius", maker: "Aegis Dynamics", short: "", maker_short: "" }));
+        // Counter-check: without game data it is erkul alone.
+        let erkul_only = ErkulShips::merged(ErkulShips::default(), ErkulShips::from_parts("e".into(), ships(r#"{"x": {"slots": []}}"#), vec![]));
+        assert_eq!(erkul_only.game_version(), "e");
+    }
+
+    #[test]
+    fn a_ship_that_uex_lists_twice_under_one_name_is_offered_once() {
+        let named = |names: &[&str]| UexShips {
+            ships: names.iter().map(|n| UexShip { name: n.to_string(), addon: false, concept: false }).collect(),
+            names: ShipNames(names.iter().map(|n| n.to_string()).collect()),
+        };
+        let ships = named(&["Aegis Sabre Raven EX", "Aegis Sabre", "aegis sabre raven ex ", "Aegis Sabre Raven EX"]);
+        // The list as UEX gives it keeps every entry: the comparison with Python reads it like that.
+        assert_eq!(ships.all_names().len(), 4);
+        assert_eq!(ships.choice_names(), vec!["Aegis Sabre".to_string(), "Aegis Sabre Raven EX".to_string()]);
+        // Names that only start alike stay apart.
+        let ships = named(&["Aegis Sabre", "Aegis Sabre Comet", "Aegis Sabre Firebird"]);
+        assert_eq!(ships.choice_names().len(), 3);
     }
 }

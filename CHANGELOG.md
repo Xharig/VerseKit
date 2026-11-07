@@ -6,6 +6,50 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.0 - 2026-11-07
+
+> Die Ausstattung im Hangar kommt jetzt aus den Spieldaten, mit jedem
+> Steckplatz einzeln, und lässt sich teilen. Dazu liest der
+> Raffinerie-Scan das deutsche Terminal und lange Listen.
+
+### Neu
+
+- **Steckplätze aus den Spieldaten** — Jedes Schiff zeigt seine Plätze bis
+  ganz unten: Turm und Waffen, Gestell und Raketen, Bergbaukopf und Module.
+  Gelesen wird nur, wenn Star Citizen geschlossen ist.
+- **Jeder Platz einzeln** — Gleiche Plätze stehen in einer Zeile, der Pfeil
+  am Ende öffnet jeden Platz für sich. Jede Liste endet mit „Leer lassen“.
+- **Ausstattung teilen** — Als Code für Discord oder als Datei. Beim
+  Einfügen siehst du vorher, was ankommt. Die Ausstattung eines anderen
+  Schiffs desselben Typs lässt sich übernehmen.
+- **Schiffe verschieben** — Zwischen Geplant und Mein Hangar, samt
+  Ausstattung, Name und Notiz.
+- **Fest verbaute Teile** — Plätze, die man im Spiel nicht umrüsten kann,
+  stehen mit ihrem Teil und „fest verbaut“ da, ohne Auswahl und ohne
+  Warenkorb.
+- **Raffinerie: lange Listen** — Scannen, im Terminal scrollen, noch einmal
+  scannen: Beide Scans werden ein Auftrag, doppelte Zeilen zählen einmal.
+
+### Verbessert
+
+- **Ausstattung nach Turm getrennt** — Die Waffen von Nasen- und Kugelturm
+  der F7C-M stehen in eigenen Zeilen.
+- **Bergbau** — Die aufgeklappten Fundorte haben Streifen, die Anteile
+  rechts bleiben bei ihrem Ort.
+
+### Behoben
+
+- **Meteor ohne Flügelgestelle** — Raketengestelle, die Erkul nicht als
+  tauschbar führt, fehlten in der Ausstattung (gemeldet von Aeternitas26
+  [KRT]).
+- **Raven EX doppelt** — Ein Schiff, das UEX zweimal führt, steht nur noch
+  einmal in der Liste (gemeldet von Aeternitas26 [KRT]).
+- **Raffinerie-Scan las im deutschen Spiel nichts** — Den gekürzten Kopf
+  „AUSBEU“ und die eng gesetzten Spaltenköpfe erkennt VerseKit jetzt, die
+  Spalte „ANZ.“ beim Einrichten rutscht nicht mehr in die Ausbeute.
+- **Herstellung** — Der Klick auf ein Material führte bei breitem Fenster
+  nicht zum Bergbau.
+
 ## v5.1.4 - 2026-11-06
 
 > Ein einheitliches Bild auf allen Seiten, eine eigene Titelleiste, neue

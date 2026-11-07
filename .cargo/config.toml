@@ -1,6 +1,5 @@
-# Cargo fetches git dependencies with the git command line, so the system
-# credentials (locally) and an SSH agent with a deploy key (release builds)
-# reach the private p4kx repository.
+# Cargo fetches git dependencies (p4kx, a public repository) with the git
+# command line, so the git settings of the system apply.
 [net]
 git-fetch-with-cli = true
 

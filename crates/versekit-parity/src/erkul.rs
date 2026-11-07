@@ -20,6 +20,15 @@
 //! swap, the rule which part fits a slot, the factory fitting, the count of
 //! slots of a kind and size and the ships a part goes into, from the same
 //! two stored files.
+//!
+//! ⚠ Wanted deviation from 4.12 (since 5.2.0): the program takes the slots of
+//! the ships from the game data first (`spiel-schiffe.json`, `spiel-teile.json`,
+//! built with p4kx from the `Data.p4k`: every player ship, turret → guns, mining
+//! head → modules, rack → missiles) and erkul's only where those have nothing
+//! (`ErkulData::load`, `ErkulShips::merged`). 4.12 knows only erkul. This check
+//! compares the reading of erkul's two files alone, which stays as 4.12's; the
+//! game data are checked by `ship_slots` in versekit-gamedata and the checks
+//! over all ships (`jeder_platz_aller_schiffe`, `rundlauf_alle_schiffe`).
 
 use std::fs;
 

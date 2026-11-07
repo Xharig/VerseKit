@@ -100,7 +100,7 @@ use crate::{
 
 const SYSTEMS: [&str; 4] = ["Stanton", "Pyro", "Nyx", "Castra"];
 /// The made-up version the update bar of the sample page names: newer than the program itself.
-const SAMPLE_UPDATE: &str = "5.2";
+const SAMPLE_UPDATE: &str = "9.9";
 /// How often the foot bar looks at the process list and the game log on real data (seconds).
 const GAME_LOOK_SECONDS: f64 = 2.0;
 
@@ -1207,7 +1207,10 @@ impl SamplePage {
                     )
                 })
                 .collect();
-            self.hangar.set_extra(equipment_box::Extra { craft, traits, recipes });
+            let ids = versekit_core::equipment_share::PartIds::new(
+                values.items.values().map(|item| (item.guid.clone(), item.class_name.clone())),
+            );
+            self.hangar.set_extra(equipment_box::Extra { craft, traits, recipes, ids });
         }
         match self.crafting.parts() {
             Some((values, book, _)) => {

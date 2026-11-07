@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "5.1.4"
+version = "5.2.0"
 edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0-only"
@@ -28,17 +28,15 @@ miniz_oxide = "0.9"
 # Screens and pointer on macOS (NSScreen, NSEvent): the versions eframe and winit already bring in.
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSEvent", "NSScreen", "objc2-core-foundation"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry"] }
-# p4kx, main at the merge of p4kx-org/p4kx#927: the Basetool catalog with `offeredAt`, `giverFaction` and
-# `blueprintRewards` per contract entry.
-# v0.4.2 is 278 commits further on; moving to it is an update of its own, with a check of the catalog.
-# The repository is private: locally the git credentials fetch it, release builds use a read-only
-# deploy key over SSH (`.cargo/config.toml` lets cargo use the git command line for that).
-p4kx-archive = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
-p4kx-cryxml = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
-p4kx-dataforge = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
-p4kx-export = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
-p4kx-localization = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
-p4kx-testkit = { git = "https://github.com/p4kx-org/p4kx.git", rev = "2055700dd4604a92111d1caa67637f772d8c9e40" }
+# p4kx at its release v0.4.2: the Basetool catalog with the contracts (`offeredAt`, `giverFaction`,
+# `blueprintRewards`) and the loadouts of the ships and parts (#445), from which the slots of the ships come.
+# The repository is public; cargo fetches it with the git command line (`.cargo/config.toml`).
+p4kx-archive = { git = "https://github.com/p4kx-org/p4kx.git", tag = "v0.4.2" }
+p4kx-cryxml = { git = "https://github.com/p4kx-org/p4kx.git", tag = "v0.4.2" }
+p4kx-dataforge = { git = "https://github.com/p4kx-org/p4kx.git", tag = "v0.4.2" }
+p4kx-export = { git = "https://github.com/p4kx-org/p4kx.git", tag = "v0.4.2" }
+p4kx-localization = { git = "https://github.com/p4kx-org/p4kx.git", tag = "v0.4.2" }
+p4kx-testkit = { git = "https://github.com/p4kx-org/p4kx.git", tag = "v0.4.2" }
 raw-window-handle = "0.6"
 regex = "1"
 # ES256 keys and signatures (DPoP) and the crypto of the TLS connection.
