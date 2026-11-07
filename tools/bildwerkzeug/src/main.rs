@@ -31,7 +31,8 @@
 //! webseite (one picture of the whole window per page of the website, 1400 × 860; a fourth word names a
 //! single picture, e.g. `beziehungen`), overlay (the overlay window on made-up finds, for the website and
 //! the README), echt (the pages that read the game folder and the data folder, on a made-up installation in a
-//! throwaway folder; a fourth word names a single picture), verbunden (the pages that need a connection to the
+//! throwaway folder, the hangar with the slots of the game data among them; `--markt=<folder>` gives the price
+//! lists and the slot files to copy; a fourth word names a single picture), verbunden (the pages that need a connection to the
 //! Basetool, on the demonstration Basetool of the program), farbschemata (the page "Darstellung" in each colour
 //! scheme).
 //! `--en` draws in English (default German).
@@ -363,13 +364,14 @@ fn gallery_pictures(dir: &str, english: bool) {
 /// twice the size and shrunk to 1400 × 860 pixels. Named as the website takes them: `screenshot-<name>.png`, in
 /// English `screenshot-<name>-en.png`. A page key of `None` is the start page the window opens on.
 fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
-    // The pictures of the start page and of every stop of the tour (`assets/seite.js`).
-    let pages: [(&str, Option<&str>); 45] = [
+    // The pictures of the start page and of every stop of the tour (`assets/seite.js`). The hangar is drawn by
+    // `echt`: its slots come from the game data of the made-up installation.
+    let pages: [(&str, Option<&str>); 46] = [
         ("uebersicht", None),
+        ("notizen", Some("hf_notizen")),
         ("liste", Some("hf_liste")),
         ("fortschritt", Some("hf_fortschritt")),
         ("auftragslog", Some("hf_auftragslog")),
-        ("hangar", Some("hf_hangar")),
         ("meinlager", Some("hf_meinlager")),
         ("staffellager", Some("hf_staffellager")),
         ("herstellung", Some("hf_herstellung")),
@@ -403,7 +405,10 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
         ("blickwinkel", Some("hf_blickwinkel")),
         ("joysticks", Some("hf_joysticks")),
         ("achsen", Some("hf_achsen")),
+        // Pages that left the menu: the window opens the page that took over, at the place of the old one (the
+        // card of the shader cache on the page Grafik, the tab "Beziehungen" of the handle search).
         ("shader", Some("hf_shader")),
+        ("ueber", Some("hf_ueber")),
         ("handlesuche", Some("hf_handlesuche")),
         ("beziehungen", Some("hf_beziehungen")),
         // The picture of the README: the stock filtered to what lies there to sell.
@@ -421,7 +426,7 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
 }
 
 /// What a page gets done before its picture, so that it shows what it is for: a search typed into its field.
-fn touch(name: &str, s: &mut Shots) {
+fn touch(name: &str, english: bool, s: &mut Shots) {
     if name == "meinlager-verkauf" {
         // The purpose filter of the stock: only what lies there to sell.
         let all = versekit_core::language::t("s_ml_alle_zwecke");
@@ -439,8 +444,84 @@ fn touch(name: &str, s: &mut Shots) {
         s.steps(8);
         return;
     }
+    if name == "grafik" || name == "shader" {
+        // The card of the shader cache below the graphics settings on the page Grafik, scrolled into view.
+        let title = versekit_core::language::t("s_sc_titel");
+        match s.texts(&title).into_iter().chain(s.named(&title)).next() {
+            Some(card) => {
+                s.hover(pos2(800.0, 500.0));
+                s.harness.event(egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: vec2(0.0, -(card.min.y - 470.0)),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Unknown,
+                    modifiers: egui::Modifiers::NONE,
+                });
+            }
+            None => println!("{name}: Karte „{title}“ nicht gefunden"),
+        }
+        s.steps(12);
+        return;
+    }
+    if name == "notizen" {
+        // Two made-up notes, the second one open: the page of the sample keeps none.
+        let notes = if english {
+            [
+                "Hornet loadout\nTwo size 3 guns for the nose turret\nCheck the shield generator price in Area18",
+                "Mining evening on Saturday\nMeet at Port Tressler, 8 pm\nFill up the Prospector\nCompare the refineries in Pyro afterwards",
+            ]
+        } else {
+            [
+                "Ausstattung Hornet\nZwei Waffen Größe 3 für den Nasenturm\nPreis des Schildgenerators in Area18 prüfen",
+                "Mining-Abend am Samstag\nTreffpunkt Port Tressler, 20 Uhr\nProspector volltanken\nDanach die Raffinerien in Pyro vergleichen",
+            ]
+        };
+        let new = versekit_core::language::t("s_nz_neu");
+        for text in notes {
+            match s.named(&new).into_iter().chain(s.texts(&new)).next() {
+                Some(button) => s.click(button.center()),
+                None => {
+                    println!("{name}: Knopf „{new}“ nicht gefunden");
+                    return;
+                }
+            }
+            // A new note takes the cursor: the text goes straight in.
+            s.steps(4);
+            s.type_text(text);
+        }
+        // A click on the lead line of the page takes the cursor out of the text.
+        let lead = versekit_core::language::t("s_nz_lead");
+        if let Some(line) = s.texts(&lead).first().copied() {
+            s.click(line.center());
+        }
+        s.steps(8);
+        return;
+    }
+    if name == "hangar" {
+        // The loadout of the first ship unfolded: its slots from the game data.
+        let title = versekit_core::language::t("s_wk_titel");
+        match s.texts(&title).into_iter().chain(s.named(&title)).next() {
+            Some(fold) => {
+                s.click(fold.center());
+                s.steps(8);
+                // The page scrolled so that the card of the ship stands near the top: the slots fill the picture.
+                s.hover(pos2(fold.center().x + 400.0, fold.center().y));
+                s.harness.event(egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: vec2(0.0, -(fold.min.y - 235.0).max(0.0)),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Unknown,
+                    modifiers: egui::Modifiers::NONE,
+                });
+            }
+            None => println!("{name}: Ausstattung „{title}“ nicht gefunden"),
+        }
+        s.steps(12);
+        return;
+    }
     let search = match name {
         "laeden" => "CF-337 Panther",
+        "bergung" => "Cutlass Black",
         "zerlegen" => "Aves Helmet",
         _ => return,
     };
@@ -453,6 +534,22 @@ fn touch(name: &str, s: &mut Shots) {
     s.click(field.center());
     s.type_text(search);
     s.steps(8);
+    if name == "bergung" {
+        // The salvage page looks up the first suggestion with Enter: what the ship carries and what it is worth.
+        s.harness.key_press(egui::Key::Enter);
+        // The look-up runs in the background: wait until the line "Schlage nach …" is gone.
+        let busy = versekit_core::language::t("s_wr_hole");
+        for _ in 0..100 {
+            s.steps(2);
+            let still = s.harness.query_all_by(|n| n.label().or_else(|| n.value()).is_some_and(|v| v.starts_with(&busy)));
+            if still.count() == 0 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+        s.steps(12);
+        return;
+    }
     // The first hit opens: where the part stands and what it costs.
     let hit = s
         .harness
@@ -470,6 +567,8 @@ fn touch(name: &str, s: &mut Shots) {
 /// pixels, saved as `screenshot-<name>.png` (`-en` in English).
 fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>, mut page: SamplePage) {
     const SIZE: egui::Vec2 = vec2(1400.0, 860.0);
+    // The window as the program draws it: with its own title bar.
+    page.use_own_frame(true);
     {
         let (mut installed, mut opened) = (false, false);
         let harness = Harness::builder()
@@ -497,7 +596,7 @@ fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>,
             });
         let mut s = Shots { dir: dir.to_string(), harness };
         s.steps(12);
-        touch(name, &mut s);
+        touch(name, english, &mut s);
         // A page that only lists shows more with the first entry open.
         if name == "herstellung" {
             let first = s
@@ -585,7 +684,8 @@ fn review_pictures(dir: &str) {
 /// (`install.rs`): the window model on real data, with nothing of the computer touched. Named as the website takes
 /// them, like [`website_pictures`].
 fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&std::path::Path>) {
-    let pages: [(&str, &str); 17] = [
+    let pages: [(&str, &str); 18] = [
+        ("hangar", "hf_hangar"),
         ("bergung", "hf_bergung"),
         ("zerlegen", "hf_bergung"),
         ("wasistneu", "hf_wasistneu"),
@@ -670,7 +770,7 @@ fn overlay_picture(dir: &str, english: bool) {
     // Ground around the window, in points: the corner marks of the window stand on it.
     const MARGIN: f32 = 12.0;
     // The window as tall as its content needs.
-    const HEIGHT: f32 = 232.0;
+    const HEIGHT: f32 = 272.0;
     let scheme = versekit_core::theme::current();
     let mut rows = Rows::default();
     for row in [

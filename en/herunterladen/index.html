@@ -21,7 +21,7 @@
 <meta property="og:url" content="https://versekit.xharig.com/en/herunterladen/">
 <meta property="og:title" content="Download VerseKit: free for Windows and Linux">
 <meta property="og:description" content="Installer for Windows, AppImage for Linux, ready in three steps.">
-<meta property="og:image" content="https://versekit.xharig.com/assets/social-preview-en.png?v=2">
+<meta property="og:image" content="https://versekit.xharig.com/assets/social-preview-en.png?v=3">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="VerseKit, your toolkit for Star Citizen, next to its crafting page">
@@ -130,8 +130,8 @@
       </li>
       <li>
         <h2 data-de="Spielen" data-en="Play">Play</h2>
-        <p data-de="Star Citizen wie gewohnt starten. VerseKit liest mit und meldet neue Baupläne sofort. Neue Versionen meldet das Programm selbst und spielt sie auf Knopfdruck ein."
-           data-en="Start Star Citizen as usual. VerseKit reads along and reports new blueprints at once. The program tells you about new versions itself and installs them at the push of a button.">Start Star Citizen as usual. VerseKit reads along and reports new blueprints at once. The program tells you about new versions itself and installs them at the push of a button.</p>
+        <p data-de="Star Citizen wie gewohnt starten. VerseKit liest mit und meldet neue Baupläne sofort. Neue Versionen holt das Programm selbst und spielt sie ein, sobald Star Citizen geschlossen ist."
+           data-en="Start Star Citizen as usual. VerseKit reads along and reports new blueprints at once. The program fetches new versions itself and installs them once Star Citizen is closed.">Start Star Citizen as usual. VerseKit reads along and reports new blueprints at once. The program fetches new versions itself and installs them once Star Citizen is closed.</p>
       </li>
     </ol>
 
@@ -164,7 +164,8 @@
      Bau durch GitHub Actions (release.yml), Updates nur mit passender
      Prüfsumme (SHA256SUMS.txt), Berichte nur auf Klick, VirusTotal je
      Version (release.yml, .github/scripts/virustotal.py), Tasten nur
-     über den Anti-AFK (scbp/anti_afk.py). -->
+     über den Anti-AFK (crates/versekit-core/src/anti_afk.rs, die Taste aus
+     anti_afk_key.rs). -->
 <section id="sicher">
   <div class="mitte">
     <h2 data-de="Ist das sicher?" data-en="Is it safe?">Is it safe?</h2>
@@ -174,8 +175,8 @@
     <ul class="vertrauen">
       <li>
         <h3 data-de="Kein Eingriff ins Spiel" data-en="No hooks into the game">No hooks into the game</h3>
-        <p data-de="Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. VerseKit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest. Einzige Ausnahme ist der Anti-AFK (nur Windows, standardmäßig aus): Eingeschaltet drückt er alle 5 Minuten Alt+X, wie du es selbst tun würdest."
-           data-en="No access to the game's memory, nothing is injected. VerseKit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand. The only exception is the anti-AFK (Windows only, off by default): when switched on, it presses Alt+X every 5 minutes, just as you would yourself.">No access to the game's memory, nothing is injected. VerseKit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand. The only exception is the anti-AFK (Windows only, off by default): when switched on, it presses Alt+X every 5 minutes, just as you would yourself.</p>
+        <p data-de="Kein Zugriff auf den Speicher des Spiels, nichts wird eingeschleust. VerseKit liest die Protokolle, die Star Citizen selbst schreibt, und ändert nur Dateien, die du auch von Hand bearbeiten könntest. Einzige Ausnahme ist der Anti-AFK (nur Windows, standardmäßig aus): Eingeschaltet drückt er nach 5 Minuten ohne Eingabe (einstellbar) deine Taste für „Visier abwischen“, wie du es selbst tun würdest. Hast du sie nicht umgelegt, ist das Alt+X."
+           data-en="No access to the game's memory, nothing is injected. VerseKit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand. The only exception is the anti-AFK (Windows only, off by default): when switched on, it presses your key for “Wipe visor” after 5 minutes without input (adjustable), just as you would yourself. Unless you rebound it, that is Alt+X.">No access to the game's memory, nothing is injected. VerseKit reads the logs Star Citizen writes itself, and only changes files you could also edit by hand. The only exception is the anti-AFK (Windows only, off by default): when switched on, it presses your key for “Wipe visor” after 5 minutes without input (adjustable), just as you would yourself. Unless you rebound it, that is Alt+X.</p>
       </li>
       <li>
         <h3 data-de="Offener Quellcode" data-en="Open source">Open source</h3>
@@ -256,7 +257,7 @@
   </div>
 </footer>
 
-<script src="../../assets/seite.js?v=6"></script>
+<script src="../../assets/seite.js?v=9"></script>
 
 </body>
 </html>

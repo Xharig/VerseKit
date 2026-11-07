@@ -2838,9 +2838,9 @@ impl SamplePage {
         let (version, word) = if self.real() {
             (env!("CARGO_PKG_VERSION"), self.test_build.then_some(test_word.as_str()))
         } else if self.test_build {
-            ("5.0.0-rc2", Some(test_word.as_str()))
+            (concat!(env!("CARGO_PKG_VERSION"), "-rc2"), Some(test_word.as_str()))
         } else {
-            ("5.0.0", None)
+            (env!("CARGO_PKG_VERSION"), None)
         };
         let mark = widgets::version_mark(&mut left, scheme, version, word);
         // Sample page only: a click on the version switches stable and test build.

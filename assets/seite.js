@@ -1,10 +1,12 @@
 /* Der Rundgang.
-   ⚠ Gruppen und Reihenfolge folgen dem Menü des Programms (`NAV` in
-   `crates/versekit-ui/src/sample.rs`). Wer dort eine Seite verschiebt oder
-   umbenennt, zieht diese Liste mit.
-   Aufgenommen sind nur Bereiche, von denen es ein Bild gibt.
-   Die englischen Bilder heissen wie die deutschen, nur mit "-en" vor der
-   Endung — so erzeugt sie tools/bildwerkzeug (Modus `webseite`). */
+   ⚠ Gruppen, Namen und Reihenfolge folgen dem Menü des Programms (`NAV` in
+   `crates/versekit-ui/src/sample.rs`, davor Übersicht und `TOP_PAGE`). Wer
+   dort eine Seite verschiebt oder umbenennt, zieht diese Liste mit.
+   Vorn steht das Overlay, das eigene Fenster über dem Spiel. Eine Gruppe ohne
+   Namen ist der Kopf des Menüs: ihre Einträge stehen ohne Überschrift.
+   Jede Station zeigt ihr Bild aus assets/. Die englischen Bilder heissen wie
+   die deutschen, nur mit "-en" vor der Endung; so erzeugt sie
+   tools/bildwerkzeug (Modus `webseite`). */
 // Site root, taken from this script's own address, so that "/" and "/en/"
 // load the same assets and files.
 var WURZEL = document.currentScript.src.replace(/assets\/[^\/]*$/, "");
@@ -12,13 +14,16 @@ var WURZEL = document.currentScript.src.replace(/assets\/[^\/]*$/, "");
 var GRUPPEN = [
   {de:"Overlay", en:"Overlay", eintraege:[
     {reiter:"overlay", bild:"screenshot-overlay.png", de:"Overlay", en:"Overlay",
-     bde:"Das kleine Fenster über dem Spiel: schmal, immer im Vordergrund, durchscheinend. Auf Wunsch lässt es Mausklicks durch.",
-     ben:"The small window over the game: narrow, always on top, see-through, and it can let mouse clicks pass through."}
+     bde:"Das kleine Fenster über dem Spiel: schmal, immer im Vordergrund, durchscheinend. Es zeigt deine laufenden Aufträge und Raffinerie-Aufträge mit Restzeit und lässt auf Wunsch Mausklicks durch.",
+     ben:"The small window over the game: narrow, always on top, see-through. It shows your running contracts and refinery jobs with the time left, and it can let mouse clicks pass through."}
   ]},
-  {de:"Übersicht", en:"Overview", eintraege:[
+  {de:"", en:"", eintraege:[
     {reiter:"uebersicht", bild:"screenshot-uebersicht.png", de:"Übersicht", en:"Overview",
-     bde:"Das Wichtigste auf einen Blick: Baupläne, Übersetzung je Kanal, dein Rechner, Server-Lage. Kacheln ein- und ausblenden und verschieben.",
-     ben:"The essentials at a glance: blueprints, translation per channel, your PC, server status. Show, hide and move the tiles."}
+     bde:"Das Wichtigste auf einen Blick: Baupläne, Übersetzung je Kanal, dein Rechner, Server-Lage. Kacheln ein- und ausblenden und verschieben, Seiten mit der Nadel anheften.",
+     ben:"The essentials at a glance: blueprints, translation per channel, your PC, server status. Show, hide and move the tiles, pin pages with the pin."},
+    {reiter:"notizen", bild:"screenshot-notizen.png", de:"Notizen", en:"Notes",
+     bde:"Dein Notizblock im Programm. Fett, Kursiv, Aufzählung und kleine Tabellen per Knopf oder mit Strg+B, Strg+I und Strg+U. Die erste Zeile ist der Name der Notiz.",
+     ben:"Your notepad inside the program. Bold, italic, lists and small tables with a button or with Ctrl+B, Ctrl+I and Ctrl+U. The first line is the name of the note."}
   ]},
   {de:"Baupläne", en:"Blueprints", eintraege:[
     {reiter:"liste", bild:"screenshot-liste.png", de:"Bauplan-Liste", en:"Blueprint list",
@@ -33,27 +38,27 @@ var GRUPPEN = [
   ]},
   {de:"Flotte & Logistik", en:"Fleet & Logistics", eintraege:[
     {reiter:"hangar", bild:"screenshot-hangar.png", de:"Mein Hangar", en:"My hangar",
-     bde:"Deine Flotte, in einem Zug aus dem Pledge-Store geholt. Danach weiß das Werkzeug, was in welches Schiff passt. An jedem Schiff vergibst du auch seinen Namen im Abrufterminal.",
-     ben:"Your fleet, pulled in from the pledge store in one go. After that the tool knows what fits into which ship. Each ship also gets its name for the retrieval terminal right there."},
+     bde:"Deine Flotte, in einem Zug aus dem Pledge-Store geholt. Jedes Schiff zeigt seine Steckplätze aus den Spieldaten, jeden Platz einzeln. Eine Ausstattung teilst du als Code oder Datei, Schiffe schiebst du zwischen Geplant und Mein Hangar.",
+     ben:"Your fleet, pulled in from the pledge store in one go. Every ship shows its slots from the game data, each slot on its own. Share a loadout as a code or a file, and move ships between Planned and My hangar."},
     {reiter:"meinlager", bild:"screenshot-meinlager.png", de:"Mein Lager", en:"My Inventory",
-     bde:"Rohstoffe, Verkaufsware und Items an einer Stelle: mit Art, Ort, Güte und Menge, gefiltert nach Material oder Items und zum Herstellen oder Verkaufen.",
-     ben:"Materials, goods for sale and items in one place: with type, location, quality and amount, filtered by material or items and for crafting or selling."},
+     bde:"Rohstoffe, Verkaufsware und Items an einer Stelle, mit Art, Ort, Güte und Menge. Käufe und Verkäufe im Laden schlägt VerseKit aus dem Log vor. Nach einem Patch bringt „Umziehen“ alles an deinen neuen Heimatort.",
+     ben:"Materials, goods for sale and items in one place, with type, location, quality and amount. VerseKit suggests your purchases and sales in shops from the log. After a patch, “Move home” takes everything to your new home location."},
     {reiter:"staffellager", bild:"screenshot-staffellager.png", de:"Lager der Einheit", en:"Unit storage",
      bde:"Mit dem KRT Profit Basetool verbunden: was im gemeinsamen Lager deiner Einheit liegt. Logistiker sehen, wem was gehört, und buchen direkt.",
      ben:"Connected to the KRT Profit Basetool: what is in your unit's shared storage. Logisticians see who owns what and book directly."}
   ]},
   {de:"Herstellung", en:"Crafting", eintraege:[
     {reiter:"herstellung", bild:"screenshot-herstellung.png", de:"Herstellung", en:"Crafting",
-     bde:"Zutaten, Mengen und Herstellzeit zu jedem Gegenstand, und ob du den Bauplan dafür hast.",
-     ben:"Ingredients, amounts and crafting time for every item, and whether you have the blueprint."},
+     bde:"Zutaten, Mengen und Herstellzeit zu jedem Gegenstand, und ob du den Bauplan dafür hast. Unter „Für Schiff“ stehen nur Teile, die in eines deiner Schiffe passen.",
+     ben:"Ingredients, amounts and crafting time for every item, and whether you have the blueprint. “For ship” shows only parts that fit one of your ships."},
     {reiter:"farmliste", bild:"screenshot-farmliste.png", de:"Was ich farmen muss", en:"What to farm",
      bde:"Dein Lager gegen alles gerechnet, was du bauen willst, über alle Posten zusammen.",
      ben:"Your storage measured against everything you want to build, across all items at once."}
   ]},
   {de:"Abbau & Bergung", en:"Mining & Salvage", eintraege:[
     {reiter:"bergbau", bild:"screenshot-bergbau.png", de:"Bergbau", en:"Mining",
-     bde:"Rohstoff eintippen und die Fundorte sehen, oder den Ort eintippen und sehen, was es dort gibt.",
-     ben:"Type a material to see where it is found, or type a location to see what is there."},
+     bde:"Rohstoff eintippen und die Fundorte sehen, oder den Ort eintippen und sehen, was es dort gibt. Darunter deine Raffinerie-Aufträge, je Erz einklappbar.",
+     ben:"Type a material to see where it is found, or type a location to see what is there. Below it your refinery jobs, each ore folds away."},
     {reiter:"raffinerien", bild:"screenshot-raffinerien.png", de:"Raffinerien", en:"Refineries",
      bde:"Was jede Raffinerie aus deinem Erz macht: Aufschlag und Abschlag je Material, der beste Ort grün.",
      ben:"What every refinery makes of your ore: bonus and penalty per material, the best place in green."},
@@ -102,11 +107,11 @@ var GRUPPEN = [
   ]},
   {de:"Einstellungen", en:"Settings", eintraege:[
     {reiter:"allgemein", bild:"screenshot-allgemein.png", de:"Allgemein", en:"General",
-     bde:"Start mit Windows, Signalton, Symbol in der Ablage: wie sich VerseKit im Hintergrund verhält.",
-     ben:"Start with Windows, alert sound, tray icon: how VerseKit behaves in the background."},
+     bde:"Start mit Windows, Signalton, Symbol in der Ablage, dazu der Datenschutz: wie sich VerseKit im Hintergrund verhält.",
+     ben:"Start with Windows, alert sound, tray icon, plus privacy: how VerseKit behaves in the background."},
     {reiter:"anzeige", bild:"screenshot-anzeige.png", de:"Overlay", en:"Overlay",
-     bde:"Alles zum kleinen Fenster über dem Spiel: wann und wo es erscheint, wie durchsichtig es ist, ob Klicks durchgehen.",
-     ben:"Everything about the small window above the game: when and where it shows, how transparent it is, whether clicks pass through."},
+     bde:"Alles zum kleinen Fenster über dem Spiel: wann und wo es erscheint, was es zeigt, wie durchsichtig es ist, ob Klicks durchgehen. Dazu Info-Leiste, Signatur-Fenster und die Tastenkürzel.",
+     ben:"Everything about the small window above the game: when and where it shows, what it shows, how transparent it is, whether clicks pass through. Plus the info bar, the signature window and the shortcuts."},
     {reiter:"darstellung", bild:"screenshot-darstellung.png", de:"Darstellung", en:"Appearance",
      bde:"Sechs Farbschemata, Schriftgröße stufenlos: So sieht VerseKit aus, wie du es magst.",
      ben:"Six colour schemes, text size without steps: VerseKit looks the way you like it."},
@@ -114,31 +119,31 @@ var GRUPPEN = [
      bde:"Wo Star Citizen liegt und wohin VerseKit deine Daten schreibt. Beim Umziehen kommt alles mit.",
      ben:"Where Star Citizen lives and where VerseKit keeps your data. Moving it takes everything along."},
     {reiter:"module", bild:"screenshot-module.png", de:"Module", en:"Modules",
-     bde:"Blende Seiten aus, die du nicht brauchst, je Modul. Eine leere Gruppe verschwindet. Gelöscht wird nichts.",
-     ben:"Hide pages you do not need, per module. An empty group disappears. Nothing gets deleted."},
-    {reiter:"basetool", bild:"screenshot-basetool.png", de:"Verbindung & Abgleich", en:"Connection & sync",
-     bde:"Baupläne, Lager und Hangar mit dem KRT Profit Basetool abgleichen: in beide Richtungen, nur wenn du es verbindest.",
-     ben:"Sync blueprints, storage and hangar with the KRT Profit Basetool: both ways, only if you connect it."},
-    {reiter:"bestand", bild:"screenshot-bestand.png", de:"Sichern & Zurücksetzen", en:"Backup & reset",
-     bde:"Alles sichern und zurückholen, deinen Bestand austauschen, auch ohne fremde Werkzeuge.",
-     ben:"Back up and restore everything, exchange your inventory, without any other tool."},
+     bde:"Blende aus, was du nicht brauchst: Herstellung, Bergbau & Raffinerien, Beschaffung, Handel und mehr, jedes für sich. Eine leere Gruppe verschwindet. Gelöscht wird nichts.",
+     ben:"Hide what you do not need: crafting, mining & refineries, procurement, trade and more, each on its own. An empty group disappears. Nothing gets deleted."},
     {reiter:"erkennung", bild:"screenshot-erkennung.png", de:"Erkennung", en:"Detection",
      bde:"Wie VerseKit einen neuen Bauplan erkennt und welcher Account zählt, wenn mehrere auf einem Rechner spielen.",
      ben:"How VerseKit spots a new blueprint and which account counts when several play on one PC."},
     {reiter:"startprogramme", bild:"screenshot-startprogramme.png", de:"Startprogramme", en:"Startup programs",
      bde:"Startet weitere Programme mit Star Citizen, etwa ein Sprachprogramm oder ein Werkzeug für die Steuerung.",
-     ben:"Starts other programs along with Star Citizen, such as a voice tool or a controls utility."}
+     ben:"Starts other programs along with Star Citizen, such as a voice tool or a controls utility."},
+    {reiter:"basetool", bild:"screenshot-basetool.png", de:"Verbindung & Abgleich", en:"Connection & sync",
+     bde:"Baupläne, Lager und Hangar mit dem KRT Profit Basetool abgleichen: in beide Richtungen, nur wenn du es verbindest.",
+     ben:"Sync blueprints, storage and hangar with the KRT Profit Basetool: both ways, only if you connect it."},
+    {reiter:"bestand", bild:"screenshot-bestand.png", de:"Sichern & Zurücksetzen", en:"Backup & reset",
+     bde:"Alles sichern und zurückholen, deinen Bestand austauschen, auch ohne fremde Werkzeuge.",
+     ben:"Back up and restore everything, exchange your inventory, without any other tool."}
   ]},
   {de:"Spiel-Einstellungen", en:"Game settings", eintraege:[
     {reiter:"spiel", bild:"screenshot-auftragstexte.png", de:"Spiel", en:"Game",
      bde:"VerseKit schreibt in die Auftragstexte, welche Baupläne dabei sind und welche dir fehlen. Dazu zeigt es dir deine user.cfg.",
      ben:"VerseKit writes into the contract texts which blueprints are included and which you lack. It also shows you your user.cfg."},
     {reiter:"uebersetzung", bild:"screenshot-uebersetzung.png", de:"Übersetzung", en:"Translation",
-     bde:"Deutsch, Englisch, Français, Italiano, Español, Português, Türkçe oder eine eigene Adresse. Je Kanal, also LIVE und PTU getrennt.",
-     ben:"German, English, French, Italian, Spanish, Portuguese, Turkish or an address of your own. Per channel, so LIVE and PTU separately."},
+     bde:"Deutsch, Englisch, Français, Italiano, Español, Português, Türkçe, Bayrisch und Nederlands von Luftwerft und Dymerz, StarStrings von MrKraken oder eine eigene Adresse. Je Kanal eine Karte: LIVE, HOTFIX, PTU, EPTU und Tech-Preview, auf Wunsch „Wie LIVE“.",
+     ben:"German, English, French, Italian, Spanish, Portuguese, Turkish, Bavarian and Dutch from Luftwerft and Dymerz, StarStrings from MrKraken or an address of your own. One card per channel: LIVE, HOTFIX, PTU, EPTU and Tech Preview, or “Same as LIVE”."},
     {reiter:"grafik", bild:"screenshot-grafik.png", de:"Grafik", en:"Graphics",
-     bde:"Fenstermodus, Upscaling, Bewegungsunschärfe, Schärfen: die wichtigsten Grafik-Schalter, ohne ins Spiel zu müssen. Vorher wird gesichert.",
-     ben:"Window mode, upscaling, motion blur, sharpening: the most important graphics switches without starting the game. Backed up first."},
+     bde:"Fenstermodus, Upscaling, Bewegungsunschärfe, Schärfen: die wichtigsten Grafik-Schalter, ohne ins Spiel zu müssen. VerseKit sichert vorher die Datei. Die Karte Shader-Cache leert die Shader-Speicher nach einem Patch.",
+     ben:"Window mode, upscaling, motion blur, sharpening: the most important graphics switches without starting the game. VerseKit backs up the file first. The Shader cache card empties the shader caches after a patch."},
     {reiter:"blickwinkel", bild:"screenshot-blickwinkel.png", de:"FOV", en:"Field of view",
      bde:"Sitzt du richtig vor deinem Bildschirm? Breite mit einer Bankkarte messen, Abstand angeben, fertig.",
      ben:"Are you sitting right in front of your screen? Measure the width with a bank card, enter the distance, done."},
@@ -146,25 +151,22 @@ var GRUPPEN = [
      bde:"Welcher Stick welche Nummer hat, ob alle verbunden sind, und was auf welcher Taste liegt.",
      ben:"Which stick has which number, whether all are connected, and what is bound to which button."},
     {reiter:"achsen", bild:"screenshot-achsen.png", de:"Achsen & Kurven", en:"Axes & curves",
-     bde:"Totzone, Sättigung und Kurve je Achse, mit Vorschau, was davon im Spiel wirklich ankommt.",
-     ben:"Dead zone, saturation and curve per axis, with a preview of what actually reaches the game."},
-    {reiter:"shader", bild:"screenshot-shader.png", de:"Shader-Cache", en:"Shader cache",
-     bde:"Grafikfehler oder Ruckler nach einem Patch? Ein Knopf leert die Shader-Speicher von Star Citizen und dem Grafiktreiber.",
-     ben:"Graphics glitches or stutter after a patch? One button empties the shader caches of Star Citizen and the graphics driver."}
+     bde:"Je Gerät ein Reiter, links die Achsen, rechts die gewählte Achse mit großer Kurve. Totzone, Sättigung und Kurve stellst du je Achse ein und siehst, was im Spiel ankommt.",
+     ben:"One tab per device, the axes on the left, the chosen axis with a large curve on the right. Set dead zone, saturation and curve per axis and see what reaches the game."}
   ]},
   {de:"Info", en:"Info", eintraege:[
-    {reiter:"handlesuche", bild:"screenshot-handlesuche.png", de:"Handle-Suche", en:"Handle search",
-     bde:"Neu in 5.0: Wer steckt hinter einem Handle? Name, Organisationen, Rang und Mitglieder, freundlich, neutral oder feindlich markiert, mit Verlauf.",
-     ben:"New in 5.0: who is behind a handle? Name, organizations, rank and members, marked friendly, neutral or hostile, with a history."},
-    {reiter:"beziehungen", bild:"screenshot-beziehungen.png", de:"Beziehungen", en:"Relations",
-     bde:"Neu in 5.0: Alle markierten Handles und Organisationen an einem Ort, nach Haltung und Art filterbar, mit Export und Import.",
-     ben:"New in 5.0: every handle and organization you marked in one place, filtered by stance and type, with export and import."},
+    {reiter:"ueber", bild:"screenshot-ueber.png", de:"Update & Über", en:"Update & About",
+     bde:"Welche Version du hast und was neu ist. Updates holt VerseKit selbst und spielt sie ein, sobald Star Citizen geschlossen ist. Testversionen kommen nur, wenn du sie wählst.",
+     ben:"Which version you have and what is new. VerseKit fetches updates itself and installs them once Star Citizen is closed. Test versions only come if you choose them."},
     {reiter:"patchaenderungen", bild:"screenshot-patchaenderungen.png", de:"Geänderte Spielwerte", en:"Changed game values",
      bde:"Was ein Spiel-Patch an Werten geändert hat: Schiffe, Waffen, Komponenten, Lackierungen.",
      ben:"What a game patch changed in the numbers: ships, weapons, components, paints."},
     {reiter:"serverstatus", bild:"screenshot-serverstatus.png", de:"Serverstatus", en:"Server status",
      bde:"Läuft Star Citizen gerade? Was CIG meldet, frischt sich jede Minute selbst auf.",
      ben:"Is Star Citizen up? What CIG reports, refreshing itself every minute."},
+    {reiter:"handlesuche", bild:"screenshot-handlesuche.png", de:"Handle-Suche", en:"Handle search",
+     bde:"Wer steckt hinter einem Handle oder einer Org? Name, Organisationen, Rang und Mitglieder, freundlich, neutral oder feindlich markiert. Der Reiter Beziehungen zeigt alle Markierungen, mit Export und Import.",
+     ben:"Who is behind a handle or an org? Name, organizations, rank and members, marked friendly, neutral or hostile. The Relations tab shows every mark, with export and import."},
     {reiter:"danke", bild:"screenshot-danke.png", de:"Danke & Lizenzen", en:"Thanks & Licenses",
      bde:"Wer geholfen hat, steht im Programm. Wer einen Fehler meldet, wird namentlich genannt.",
      ben:"Everyone who helped is named in the program. Whoever reports a bug is named."}
@@ -195,9 +197,11 @@ function bauen(){
   flach = [];
   var nr = 0;
   for (var g = 0; g < GRUPPEN.length; g++){
+    // A group without a name keeps the gap above its entries, without a heading.
     var kopf = document.createElement("div");
     kopf.className = "gruppe";
     kopf.textContent = GRUPPEN[g][sprLage];
+    if (!GRUPPEN[g][sprLage]) kopf.setAttribute("aria-hidden", "true");
     ziel.appendChild(kopf);
     for (var e = 0; e < GRUPPEN[g].eintraege.length; e++){
       var eintrag = GRUPPEN[g].eintraege[e];
@@ -323,7 +327,7 @@ function anderesZeigen(){
 /* Das Video in der Sprache der Seite. Es startet nie von selbst: Vorschaubild,
    abgespielt wird erst auf Klick über die Bedienleiste des Browsers. */
 var film = document.getElementById("film");
-var FILM_STAND = "?v=2";
+var FILM_STAND = "?v=3";
 
 function filmSprache(){
   if (!film) return;       // the video is on the start page only
@@ -333,7 +337,7 @@ function filmSprache(){
   film.setAttribute("poster", WURZEL + "assets/video/versekit-" + sprLage + ".jpg" + FILM_STAND);
   film.setAttribute("src", ziel);
   film.setAttribute("aria-label", sprLage === "de"
-    ? "VerseKit in 41 Sekunden" : "VerseKit in 41 seconds");
+    ? "VerseKit in 37 Sekunden" : "VerseKit in 37 seconds");
 }
 knopfRichten();
 

@@ -38,9 +38,44 @@ const DEVICES: [(u32, &str, &str); 3] = [
 /// The handle of the made-up player.
 const PLAYER: &str = "Beispielspieler";
 
-/// The price lists of the market that are copied from the folder given: public data, no data of the player.
-const MARKET_FILES: [&str; 6] =
-    ["laeden-katalog.json", "laeden.json", "schiffe.json", "verkauf.json", "preise.json", "bergung.json"];
+/// The price lists of the market and the slots and parts of the ships (read from the game data and from erkul)
+/// that are copied from the folder given: public data, no data of the player.
+const MARKET_FILES: [&str; 11] = [
+    "laeden-katalog.json",
+    "laeden.json",
+    "schiffe.json",
+    "verkauf.json",
+    "preise.json",
+    "bergung.json",
+    "spiel-schiffe.json",
+    "spiel-teile.json",
+    "erkul-schiffe.json",
+    "erkul-teile.json",
+    "werte-spieldaten.json",
+];
+
+/// The texts of the game (`global.ini`): a contract title with the blueprint mark of this tool and the names of the
+/// ships of the made-up fleet.
+const GLOBAL_INI: &str = "mission_title_retake=Retake the Outpost <EM4>[BP 2/3]</EM4>\n\
+vehicle_NameANVL_Hornet_F7C_M_Mk2=F7C-M Super Hornet Mk II\n\
+vehicle_NameRSI_Meteor=Meteor\n\
+vehicle_NameDRAK_Cutlass_Black=Cutlass Black\n\
+vehicle_NameMISC_Prospector=Prospector\n\
+vehicle_NameAEGS_Avenger_Titan=Avenger Titan\n";
+
+/// The own names of the made-up fleet (`asop.json`): the Super Hornet named and starred, so it stands first.
+const SHIP_NAMES: &str =
+    r#"{"format": 1, "namen": {"vehicle_NameANVL_Hornet_F7C_M_Mk2": {"name": "Nachtfalke", "stern": true}}}
+"#;
+
+/// The fleet of the made-up player (`hangar.json`): ships with slots in the game data, nothing equipped yet.
+const HANGAR: &str = r#"{"format": 1, "schiffe": [
+ {"name": "F7C-M Super Hornet Mk II", "hersteller": "Anvil Aerospace", "hkurz": "ANVL", "kurz": "ANVL_Hornet_F7CM_Mk2", "herkunft": "pledge", "lti": true, "einsatzbereit": true, "belegung": {}},
+ {"name": "Meteor", "hersteller": "Roberts Space Industries", "hkurz": "RSI", "kurz": "RSI_Meteor", "herkunft": "pledge", "lti": true, "belegung": {}},
+ {"name": "Cutlass Black", "hersteller": "Drake Interplanetary", "hkurz": "DRAK", "kurz": "DRAK_Cutlass_Black", "herkunft": "pledge", "versicherung": 120, "einsatzbereit": true, "belegung": {}},
+ {"name": "Prospector", "hersteller": "Musashi Industrial & Starflight Concern", "hkurz": "MISC", "kurz": "MISC_Prospector", "herkunft": "pledge", "versicherung": 6, "belegung": {}},
+ {"name": "Avenger Titan", "hersteller": "Aegis Dynamics", "hkurz": "AEGS", "kurz": "AEGS_Avenger_Titan", "herkunft": "ingame", "belegung": {}}]}
+"#;
 
 /// What the log of the game says at its start: the account, the computer, the graphics card, the class of
 /// the game and the connected devices.
@@ -208,12 +243,10 @@ pub fn build(settings: &str, market: Option<&Path>) -> (PathBuf, Host) {
     );
     write(&game.join("USER/Client/0/Profiles/default/actionmaps.xml"), &actionmaps());
     write(&game.join("USER/Client/0/Profiles/default/attributes.xml"), ATTRIBUTES);
-    // The texts of the game with one contract title that carries the blueprint mark of this tool.
+    // The texts of the game with one contract title that carries the blueprint mark of this tool, and the names
+    // of the ships of the made-up fleet.
     for lang in ["english", "german_(germany)"] {
-        write(
-            &game.join("data/Localization").join(lang).join("global.ini"),
-            "mission_title_retake=Retake the Outpost <EM4>[BP 2/3]</EM4>\n",
-        );
+        write(&game.join("data/Localization").join(lang).join("global.ini"), GLOBAL_INI);
     }
     // Two kept logs of the same player: the accounts the page of the detection counts.
     for name in ["Game Build(9876543) 30 Oct 26 (20 11 02).log", "Game Build(9876543) 31 Oct 26 (19 40 17).log"] {
@@ -232,6 +265,8 @@ pub fn build(settings: &str, market: Option<&Path>) -> (PathBuf, Host) {
     let base = settings.replace("\"inj_quelle\": \"deutsch\"", "\"inj_quelle\": \"luftwerft_de\"");
     let base = base.trim_end().trim_end_matches('}').trim_end();
     write(&data.join("einstellungen.json"), &format!("{base}{}\n}}\n", extra_settings(&tools)));
+    write(&data.join("hangar.json"), HANGAR);
+    write(&data.join("asop.json"), SHIP_NAMES);
     let today = versekit_core::translation::today();
     write(
         &data.join(versekit_core::translation::NOTE_FILE),
