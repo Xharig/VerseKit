@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Verse-Kit — companion for Star Citizen.
+# VerseKit — companion for Star Citizen.
 # Copyright (C) 2026 Xharig
 # SPDX-License-Identifier: GPL-3.0-only
 #

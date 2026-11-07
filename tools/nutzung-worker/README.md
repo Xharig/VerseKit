@@ -3,7 +3,7 @@
 Verse-Kit meldet sich höchstens einmal am Tag hier — ohne Kennung. Der Worker
 zählt je Tag, wie viele Installationen sich gemeldet haben, und zeigt das in
 einer privaten Übersicht. Was genau gemeldet wird, steht in `PRIVACY.md`
-(Abschnitt *Nutzung zählen*) und in `scbp/usage_ping.py`.
+(Abschnitt *Nutzung zählen*) und in `crates/versekit-core/src/usage.rs`.
 
 | Adresse | Wofür | Wer kommt ran |
 |---|---|---|
@@ -51,7 +51,7 @@ Vorwoche (aktive je Tag, Neue, Bleiben, Downloads). Die Rechnungen stehen in
 `erfolg.js` und sind in `worker.test.mjs` geprüft; alles für die Entwicklung
 liegt darunter zugeklappt.
 
-Was „Klick", „Ziel" und „Fehlgriff" heißen, steht in `scbp/page_usage.py`.
+Was „Klick", „Ziel" und „Fehlgriff" heißen, steht in `crates/versekit-core/src/usage.rs`.
 Kommt eine neue Seite ins Programm, gehört sie in `pages.js` — der Selbsttest
 (Prüfung 315) meldet jede Abweichung. Dasselbe gilt für `ACTIONS` gegen
 `page_usage.ACTIONS` (Prüfung 349).

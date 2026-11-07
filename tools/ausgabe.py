@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# SC BP Watcher — zeigt live neue Star-Citizen-Baupläne an.
+# VerseKit — companion for Star Citizen.
 # Copyright (C) 2026 Xharig
 #
 # SPDX-License-Identifier: GPL-3.0-only

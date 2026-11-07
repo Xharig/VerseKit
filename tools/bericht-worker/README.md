@@ -59,7 +59,7 @@ Schreibweisen an.
    Beim dritten Befehl die Webhook-Adresse einfügen. Sie landet nur bei
    Cloudflare, in keiner Datei.
 4. Die Adresse des Workers (`https://versekit-bericht.<subdomain>.workers.dev/bericht`)
-   in `scbp/report_target.py` eintragen.
+   als `RELAY` in `crates/versekit-core/src/redact.rs` eintragen.
 
 ## Webhook tauschen (bei Missbrauch)
 

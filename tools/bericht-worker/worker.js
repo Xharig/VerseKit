@@ -25,7 +25,7 @@ const EMBED_TITLE = 'Fehlerbericht';
 const EMBED_FOOTER = 'VerseKit';
 const ALLOWED_TYPES = ['text/plain', 'image/png', 'image/jpeg', 'application/zip'];
 const WEBHOOK_RE = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
-const MAX_IMAGES = 4;                // wie IMAGE_LIMIT in scbp/report.py
+const MAX_IMAGES = 4;                // wie IMAGE_LIMIT in crates/versekit-core/src/report_send.rs
 // Die ersten Bytes je Dateityp — der angegebene Typ allein beweist nichts.
 const MAGIC = {
   'image/png': [[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],

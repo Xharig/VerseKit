@@ -88,8 +88,8 @@ STRICH = 2.0
 #        zur Leiste.
 KNOPF = {'klein': 18, 'normal': 22, 'gross': 26, 'sehrgross': 30}
 ZEILE = {'klein': 12, 'normal': 14, 'gross': 16, 'sehrgross': 18}
-# Muss zu `scbp/icons.py` passen — sonst fehlt die 22er-Version und das
-# Zeichen verschwindet bei „sehr gross" stillschweigend (`bild()` gibt `None`).
+# README und MANUAL binden die 16er- und 22er-Version ein; fehlt eine,
+# zeigt GitHub dort ein kaputtes Bild.
 ANTIPPBAR = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
 
 # ⚠ **Kein 2×-Satz für hochauflösende Bildschirme.** Retina-Macs und Windows mit
@@ -103,13 +103,13 @@ ANTIPPBAR = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
 # Wer mehr Schärfe will, muss also die Symbole **größer** machen (die Zahlen
 # oben), nicht feiner auflösen.
 
-# Die Farben stammen aus `scbp/main_window.py`. Bleibt eine Farbe dort nicht
-# gleich, muss sie hier mitgezogen und das Skript neu gestartet werden.
+# Die Farben sind die der Farbschemata von VerseKit. Ändert sich dort eine,
+# muss sie hier mitgezogen und das Skript neu gestartet werden.
 FARBEN = {
     'grau':  '#8b98a5',      # SUB    — der Normalzustand
     'gruen': '#9ce430',      # ACCENT — Update da, Schalter an, Reiter gewählt
     'orange': '#e77e23',     # ACCENT im Schema „KRT" — Hausfarbe (v3.58.0-rc5)
-    # Die Akzente der vier Schemata aus v3.58.0-rc8 (`scbp/theme.py`).
+    # Die Akzente der Farbschemata Eis, Nebel, Glut und Kontrast.
     'cyan':     '#38d6f5',   # „Eis"
     'violett':  '#a78bfa',   # „Nebel"
     'glut':     '#ff5a4f',   # „Glut"

@@ -4,8 +4,8 @@
 // Reihenfolge der Seitenleiste. Der Worker nimmt in den Seitenzählern nur
 // diese Kennungen an; die Übersicht zeigt sie mit diesen Namen, auch mit 0.
 //
-// ⚠ Muss zu `scbp/pages.py` (`page_ids()`) und den Reitern in
-// `scbp/main_window.py` passen — der Selbsttest vergleicht beides.
+// ⚠ Muss zu den gezählten Seiten in `crates/versekit-core/src/usage.rs`
+// passen — der Selbsttest vergleicht beides.
 
 export const PAGES = {
   uebersicht: ['Start', 'Übersicht'],

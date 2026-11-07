@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# SC BP Watcher — zeigt live neue Star-Citizen-Baupläne an.
+# VerseKit — companion for Star Citizen.
 # Copyright (C) 2026 Xharig
 #
 # SPDX-License-Identifier: GPL-3.0-only
@@ -40,7 +40,7 @@ Rechner- und Freigabenamen — alles, was schon durch seine bloße Nennung
 verrät, wonach gesucht wird.
 
     Datei `.sperrliste` im Wurzelverzeichnis (per `.gitignore` ausgenommen)
-    oder der Pfad in der Umgebungsvariablen `SC_BP_SPERRLISTE`.
+    oder der Pfad in der Umgebungsvariablen `VERSEKIT_SPERRLISTE`.
     Eine Zeile je Begriff, `#` leitet einen Kommentar ein.
 
 ⛔⛔ **Der Inhalt eines Fundes wird NIE ausgegeben.** Ausgegeben werden Datei,
@@ -76,7 +76,7 @@ import ausgabe                                                 # noqa: E402
 ausgabe.utf8()
 
 WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SPERRLISTE = os.environ.get('SC_BP_SPERRLISTE') or os.path.join(WURZEL,
+SPERRLISTE = os.environ.get('VERSEKIT_SPERRLISTE') or os.environ.get('SC_BP_SPERRLISTE') or os.path.join(WURZEL,
                                                                 '.sperrliste')
 
 # Dateien, die nicht durchsucht werden.

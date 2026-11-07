@@ -1,4 +1,4 @@
-// Verse-Kit — companion for Star Citizen.
+// VerseKit — companion for Star Citizen.
 // Copyright (C) 2026 Xharig
 //
 // SPDX-License-Identifier: GPL-3.0-only
@@ -21,7 +21,7 @@
 //! worked out on the same copy (never the live data):
 //!
 //! ```text
-//! python3 -I tools/stats_reference.py <repo> <py.json> <flat copy of the data>
+//! python3 -I stats_reference.py <repo of 4.12> <py.json> <flat copy of the data>
 //! STATS_PARITY_DATA=<flat copy> STATS_PARITY_PY=<py.json> \
 //!     cargo test -p versekit-core --test stats_parity -- --ignored
 //! ```

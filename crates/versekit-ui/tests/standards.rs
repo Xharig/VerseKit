@@ -1,4 +1,4 @@
-// Verse-Kit — companion for Star Citizen.
+// VerseKit — companion for Star Citizen.
 // Copyright (C) 2026 Xharig
 //
 // SPDX-License-Identifier: GPL-3.0-only
@@ -381,7 +381,7 @@ fn the_channel_scan_finds_a_second_list() {
 }
 
 /// The first line of every file's licence header keeps its dash.
-const HEADER: &str = "// Verse-Kit — companion for Star Citizen.";
+const HEADER: &str = "// VerseKit — companion for Star Citizen.";
 
 /// The files of `sources` that do not begin with the licence head (GPL-3.0-only, the whole text).
 fn without_licence_head(sources: &[(String, String)]) -> Vec<String> {
@@ -407,7 +407,7 @@ fn every_source_file_begins_with_the_licence_head() {
 
 #[test]
 fn the_licence_scan_finds_a_file_without_the_head() {
-    let head = "// Verse-Kit — companion for Star Citizen.\n// Copyright (C) 2026 Xharig\n//\n// SPDX-License-Identifier: GPL-3.0-only\n//\n// This program is free software: you can redistribute it and/or modify\n// it under the terms of the GNU General Public License as published by\n";
+    let head = "// VerseKit — companion for Star Citizen.\n// Copyright (C) 2026 Xharig\n//\n// SPDX-License-Identifier: GPL-3.0-only\n//\n// This program is free software: you can redistribute it and/or modify\n// it under the terms of the GNU General Public License as published by\n";
     let files = vec![
         ("ok.rs".to_string(), format!("{head}use x;")),
         ("none.rs".to_string(), "use super::*;\n".to_string()),
