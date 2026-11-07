@@ -25,8 +25,8 @@
 //!   factory, so that a turret or a rack of the player's choosing brings its slots; and the racks, missiles,
 //!   bombs and paints the rule of a slot chooses from.
 //!
-//! ⚠ The ports right on a ship come without kind and size (p4kx reads the item ports of the vehicle
-//! implementation not yet): kind and size are then those of the factory part, and a port empty at the factory gets
+//! ⚠ The ports right on a ship come without kind and size (they sit in the encrypted vehicle implementation, and
+//! the archive is read without a key): kind and size are then those of the factory part, and a port empty at the factory gets
 //! its kind from its name and no size. A port the game marks `uneditable` is no slot; the ports below it are.
 
 use std::collections::{BTreeMap, HashMap};
