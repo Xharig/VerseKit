@@ -166,6 +166,36 @@ fn lock_free(c: &Case) -> bool {
     !update_run::lock_held(&c.paths, updater::now())
 }
 
+#[cfg(windows)]
+#[test]
+fn under_windows_no_update_starts_while_a_backup_is_at_work() {
+    let c = case("flow-sicherung");
+    let installer = "VerseKit-Setup.exe";
+    let assets = format!(
+        r#"{{"name":"{installer}","browser_download_url":"{BASE}/{installer}"}},{{"name":"SHA256SUMS.txt","browser_download_url":"{BASE}/SHA256SUMS.txt"}}"#
+    );
+    let net = Fake::default()
+        .with(updater::API, api("2026-11-20T09:00:00Z", &assets).into_bytes())
+        .with(&format!("{BASE}/SHA256SUMS.txt"), format!("{}  {installer}\n", sha(b"neu")).into_bytes())
+        .with(&format!("{BASE}/{installer}"), b"neu".to_vec());
+    let release = release_of(&net, &c.paths);
+    let program = c.dir.path().join("SC-BP-Watcher.exe");
+    let mut windows_job = job(&c, &net, &never, &no_game);
+    windows_job.appimage = None;
+    windows_job.program = &program;
+    let asked = net.asked().len();
+    let mark = crate::backup::RunningMark::begin(&c.paths, updater::now());
+    // A click is told, nothing is fetched, the lock stays free.
+    let (done, _) = run_quiet(&windows_job, &release);
+    assert_eq!(done, Done::Stopped(Some(t("up_sicherung_laeuft"))));
+    // The automatic update looks again in a moment.
+    windows_job.automatic = true;
+    assert_eq!(run_quiet(&windows_job, &release).0, Done::Postponed);
+    assert_eq!(net.asked().len(), asked, "nothing fetched while the backup works");
+    assert!(lock_free(&c));
+    drop(mark);
+}
+
 #[test]
 fn the_percentage_rises_without_repeating_and_ends_at_a_hundred() {
     let c = case("flow-prozent");

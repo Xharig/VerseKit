@@ -218,6 +218,8 @@ impl SamplePage {
         let ctx = ctx.clone();
         let started = std::thread::Builder::new().name("sicherung".into()).spawn_with_language(move || {
             writeguard::adopt(&guard);
+            // An update waits while this mark lies there: the installer would end the program in the middle.
+            let _mark = versekit_core::backup::RunningMark::begin(&paths, versekit_core::updater::now());
             let _ = tx.send(done(work(&paths)));
             ctx.request_repaint();
         });

@@ -213,8 +213,8 @@ impl eframe::App for MainWindow {
         for line in self.trail.after(drawing.elapsed()) {
             trail::step(&line);
         }
-        // An update was handed over: the helper waits for every process of the program file, so the overlay goes
-        // first (it takes its main window with it) and this window follows.
+        // An update was handed over: the installer waits for every process of the program file, so the overlay
+        // goes first (it takes its main window with it) and this window follows.
         let handed_over = self.page.take_update_quit();
         let find = || window_signal::find(Role::Overlay);
         if end_for_update(handed_over, find, |hwnd| {
@@ -288,8 +288,8 @@ impl eframe::App for MainWindow {
 }
 
 /// The end of the window after an update was handed over (`handed_over`): a running overlay is asked to close as
-/// the player would close it, then the window closes (the result). ⚠ The helper waits for every process of the
-/// program file, so one that stays makes it wait its whole minute.
+/// the player would close it, then the window closes (the result). ⚠ The installer waits for every process of
+/// the program file, so one that stays makes it wait its whole minute before it closes that process by force.
 fn end_for_update(handed_over: bool, find: impl Fn() -> Option<isize>, close: impl Fn(isize)) -> bool {
     if !handed_over {
         return false;

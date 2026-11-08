@@ -20,8 +20,8 @@
 //!
 //! This file decides **whether**: every [`CHECK_INTERVAL`] a look at GitHub; a fresh release only once it is
 //! [`FRESH_WAIT`] old (right after publishing the download is slow); while Star Citizen runs it waits and looks
-//! every [`GAME_POLL`] whether the game has ended. **How** is [`install`]: a small backup first, then the helper
-//! under Windows or the exchange of the AppImage under Linux.
+//! every [`GAME_POLL`] whether the game has ended. **How** is [`install`]: a small backup first, then the
+//! installer started directly under Windows or the exchange of the AppImage under Linux.
 
 use std::path::Path;
 use std::time::Duration;
@@ -100,7 +100,7 @@ pub fn next_step(offer: Option<&Release>, now: f64, game_running: bool, failed_r
 /// What installing set going.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Installed {
-    /// The helper (its process number) takes over: every process of the program has to end now.
+    /// The installer (its process number) takes over: every process of the program has to end now.
     HandedOver(u32),
     /// The AppImage is exchanged: the new version is to be started ([`update_swap::restart`]).
     Swapped,
@@ -118,6 +118,7 @@ pub struct Request<'a> {
     pub target_version: &'a str,
     pub automatic: bool,
     pub show_window: bool,
+    /// The temporary folder: the second place of the installer's log.
     pub temp: &'a Path,
     /// The environment of the running program.
     pub env: Vec<(String, String)>,
@@ -168,7 +169,7 @@ pub fn install(request: Request<'_>) -> Result<Installed, String> {
             Ok(Installed::Swapped)
         }
         _ => {
-            let job = update_run::job_for(paths, downloaded, program, temp);
+            let job = update_run::setup_job(paths, downloaded, program, temp);
             let mark = RunMark {
                 target: target_version.to_string(),
                 previous: own_version.to_string(),
@@ -178,7 +179,7 @@ pub fn install(request: Request<'_>) -> Result<Installed, String> {
                 automatic,
                 show_window,
             };
-            update_run::start_helper(paths, &job, &mark, temp, env)
+            update_run::start_setup(paths, &job, &mark, env, update_run::LIFE_SIGN_WAIT)
                 .map(Installed::HandedOver)
                 .map_err(|e| e.to_string())
         }

@@ -16,22 +16,25 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! One update run (4.12 `update_run`): the lock against two runs at once, the run mark the next start reads,
-//! the result the helper writes, and handing over to the helper under Windows.
+//! the result the installer writes, and starting the installer under Windows.
 //!
 //! The file names and fields are those of 4.12: the next start of this version reads what the helper of 4.12
-//! left behind after the jump to it.
+//! (and of 5.2.2 and earlier) left behind after the jump to it.
 //!
 //! * **Run mark** (`update-lauf.json`), written before the program steps down. The next start says what became
 //!   of the update; ⚠ the version of the started program decides, not the exit code of the installer.
 //! * **Lock** (`update-sperre.json`), created only if it is not there. ⚠ Failing to create it does not stop the
 //!   update: the lock guards against a double run, the checksum against a foreign file.
-//! * **Helper**: a copy of this program file in the temporary folder, started with [`HELPER_SWITCH`]. It waits
-//!   until every process of the program file has ended, compares the checksum once more, runs the installer
-//!   and starts the program again (`update_helper`).
+//! * **Installer**: started directly by the program, with [`UPDATE_SWITCH`] and the files it reports to
+//!   ([`setup_arguments`]); no copy of the program file is made and nothing is started from the temporary
+//!   folder. The installer (`packaging/installer.iss`) waits until the processes named to it have ended, closes
+//!   what is left, installs, writes its log lines and the exit code, removes the lock and starts the program
+//!   again, also after a cancelled or failed installation.
 
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
@@ -46,23 +49,20 @@ pub const LOCK_FILE: &str = "update-sperre.json";
 pub const LOG_FILE: &str = "update-helfer.txt";
 pub const LOG_FILE_OLD: &str = "update-helfer.1.txt";
 pub const SETUP_LOG: &str = "update-setup.txt";
-/// The copy of the program file that runs as the helper, in the temporary folder.
+/// The copy of the program file that ran as the helper of 5.2.2 and earlier, in the temporary folder; only
+/// removed ([`remove_leftovers`]).
 pub const HELPER_NAME: &str = "versekit-update-helfer.exe";
-/// The switch that makes the program the helper.
-pub const HELPER_SWITCH: &str = "--update-helfer";
-/// The beginning of the variables the helper gets its job through. ⚠ Through the environment, not a file:
-/// a file in the temporary folder could be replaced together with the installer, the checksum with it.
+/// The beginning of the variables the helper of 5.2.2 and earlier got its job through; they never reach a
+/// program started after an update (`updater::clean_environment`).
 pub const ENV_PREFIX: &str = "VERSEKIT_UPDATE_";
-
-/// After these exit codes of the installer the helper starts the program again: 0 installed, 2 cancelled before
-/// anything changed, 3 failed before installing, 5 cancelled while installing (Inno rolls back). Any other
-/// code starts nothing; the next start by hand tells it from the run mark.
-pub const RESTART_AFTER: [i32; 4] = [0, 2, 3, 5];
-/// The helper's own exit codes, far from those of the installer.
-pub const RC_CHECKSUM_BAD: i32 = 90;
-pub const RC_OLD_STUCK: i32 = 91;
-/// How long the helper waits for the old program to end, in seconds.
-pub const WAIT_SECONDS: u64 = 60;
+/// The switch that tells the installer it runs for an update of the program (`packaging/installer.iss`).
+pub const UPDATE_SWITCH: &str = "/VKUPDATE";
+/// The line the installer writes into the update log as soon as its own process runs (`InitializeSetup` in
+/// `packaging/installer.iss`). ⚠ Only that process installs and starts the program again; the loader the
+/// program starts unpacks it into the temporary folder, where a virus scanner can still stop it.
+pub const LIFE_SIGN: &str = "Installer started";
+/// How long the program waits for [`LIFE_SIGN`] before it gives up and stays.
+pub const LIFE_SIGN_WAIT: Duration = Duration::from_secs(30);
 /// A lock older than this is orphaned, even if its process number lives (Windows hands numbers out again).
 pub const LOCK_MAX_AGE: f64 = 15.0 * 60.0;
 /// A run mark older than this goes without a word.
@@ -183,7 +183,7 @@ pub fn take_lock(paths: &Paths, pid: u32, now: f64) -> bool {
     false
 }
 
-/// The lock belongs to the helper from now on: the program steps down in a moment.
+/// The lock belongs to the installer from now on: the program steps down in a moment.
 pub fn hand_lock_to(paths: &Paths, pid: u32, now: f64) {
     if let Err(error) = json_write(&paths.app_file(LOCK_FILE), &json!({"pid": pid, "zeit": now})) {
         errors::record("update_run.hand_lock_to", &error);
@@ -255,13 +255,13 @@ pub fn read_run(paths: &Paths) -> Option<RunMark> {
     })
 }
 
-/// The exit code the helper wrote down, or `None`.
+/// The exit code the installer (or the helper of 5.2.2 and earlier) wrote down, or `None`.
 pub fn read_result(paths: &Paths) -> Option<i32> {
     let bytes = fs::read(paths.app_file(RESULT_FILE)).ok()?;
     String::from_utf8_lossy(&bytes).split_whitespace().next()?.parse().ok()
 }
 
-/// Write the exit code down (the helper does).
+/// Write the exit code down (as the installer does).
 ///
 /// # Errors
 ///
@@ -329,7 +329,7 @@ impl Outcome {
 }
 
 /// At the start: what became of the last update? `None` when there is nothing to say. Cleans up afterwards.
-/// ⚠ While the helper holds the lock the update runs right now: no word, and the mark stays.
+/// ⚠ While the installer holds the lock the update runs right now: no word, and the mark stays.
 pub fn evaluate(paths: &Paths, own_version: &str, now: f64) -> Option<Outcome> {
     let run = read_run(paths)?;
     if lock_held(paths, now) {
@@ -405,9 +405,9 @@ pub fn should_open_window(outcome: Option<&Outcome>) -> bool {
     outcome.is_some_and(|o| !o.automatic || o.show_window || o.kind != Kind::Done)
 }
 
-/// What an update of 4.12 or of this version left in the temporary folder: the helper script of 4.12, the
-/// copy of the program file that ran as the helper, and the second place of the setup log of 4.12. Run at the
-/// start, after [`evaluate`]; a file that is still in use stays until the next start.
+/// What an update of 4.12 or of 5.2.2 and earlier left in the temporary folder: the helper script of 4.12 and
+/// the copy of the program file that ran as the helper. Run at the start, after [`evaluate`]; a file that is
+/// still in use stays until the next start.
 pub fn remove_leftovers(temp: &Path) {
     for name in [legacy::UPDATE_HELPER_SCRIPT, HELPER_NAME] {
         let path = temp.join(name);
@@ -417,7 +417,7 @@ pub fn remove_leftovers(temp: &Path) {
     }
 }
 
-// ------------------------------------------------------------ the helper's log
+// ------------------------------------------------------------ the update log (`update-helfer.txt`)
 
 /// Keep the last log as the one before. ⚠ Overwriting would delete exactly the failure somebody asks about.
 pub fn rotate_log(paths: &Paths) {
@@ -429,7 +429,8 @@ pub fn rotate_log(paths: &Paths) {
     }
 }
 
-/// One line in the helper's log: the time and the entry, in English like the installer's log next to it.
+/// One line in the update log: the time and the entry, in English like the installer's log next to it. The
+/// installer appends its lines in the same form.
 pub fn log_line(log: &Path, entry: &str) {
     use std::io::Write;
     let (year, month, day, hour, minute, second) = jsonio::local_time();
@@ -438,91 +439,44 @@ pub fn log_line(log: &Path, entry: &str) {
     }
 }
 
-// ------------------------------------------------------------ handing over
+// ------------------------------------------------------------ starting the installer
 
-/// What the helper needs to know. It travels through the environment ([`ENV_PREFIX`]).
+/// What the installer of an update is told on its command line ([`setup_arguments`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct HelperJob {
-    /// The installer to run.
+pub struct SetupJob {
+    /// The installer to start, where it was fetched to.
     pub setup: PathBuf,
     /// The published checksum of the installer.
     pub checksum: String,
     /// The folder the program is installed in (`/DIR`).
     pub target_dir: PathBuf,
-    /// The installer's log (`/LOG`).
+    /// The installer's own log (`/LOG`).
     pub setup_log: PathBuf,
-    /// The helper's own log.
+    /// The update log the program and the installer write lines to (`/VKPROTOKOLL`).
     pub log: PathBuf,
-    /// Where the exit code goes.
+    /// Where the installer writes its exit code (`/VKERGEBNIS`).
     pub result: PathBuf,
-    /// The lock the helper releases.
+    /// The lock the installer removes before it starts the program again (`/VKSPERRE`).
     pub lock: PathBuf,
-    /// The program file that ran; every process of it has to end, and it is started again.
-    pub program: PathBuf,
-    /// The process that handed over.
-    pub pid: u32,
-    /// The key under the current user where the installer names its program file (it can change its name); the
-    /// helper starts that one when it exists. Empty: always [`HelperJob::program`].
-    pub program_key: String,
-    /// How long to wait for the old program, in seconds.
-    pub wait: u64,
+    /// The processes of the program the installer waits for before it installs (`/VKPIDS`), this one first.
+    pub wait_for: Vec<u32>,
 }
 
-const FIELDS: [&str; 11] = [
-    "SETUP",
-    "SHA256",
-    "ZIEL",
-    "SETUPLOG",
-    "LOG",
-    "ERGEBNIS",
-    "SPERRE",
-    "PROGRAMM",
-    "PID",
-    "PROGRAMM_SCHLUESSEL",
-    "WARTEN",
-];
-
-impl HelperJob {
-    /// The job as variables of the environment.
-    pub fn to_env(&self) -> Vec<(String, String)> {
-        let path = |p: &Path| p.to_string_lossy().into_owned();
-        let values = [
-            path(&self.setup),
-            self.checksum.to_lowercase(),
-            path(&self.target_dir),
-            path(&self.setup_log),
-            path(&self.log),
-            path(&self.result),
-            path(&self.lock),
-            path(&self.program),
-            self.pid.to_string(),
-            self.program_key.clone(),
-            self.wait.to_string(),
-        ];
-        FIELDS.iter().zip(values).map(|(field, value)| (format!("{ENV_PREFIX}{field}"), value)).collect()
-    }
-
-    /// The job from the environment; `None` if a part of it is missing.
-    pub fn from_env(vars: &[(String, String)]) -> Option<HelperJob> {
-        let get = |field: &str| {
-            let name = format!("{ENV_PREFIX}{field}");
-            vars.iter().find(|(k, _)| k.eq_ignore_ascii_case(&name)).map(|(_, v)| v.clone())
-        };
-        let path = |field: &str| get(field).filter(|v| !v.is_empty()).map(PathBuf::from);
-        Some(HelperJob {
-            setup: path("SETUP")?,
-            checksum: get("SHA256").filter(|c| c.len() == 64)?,
-            target_dir: path("ZIEL")?,
-            setup_log: path("SETUPLOG")?,
-            log: path("LOG")?,
-            result: path("ERGEBNIS")?,
-            lock: path("SPERRE")?,
-            program: path("PROGRAMM")?,
-            pid: get("PID")?.parse().ok()?,
-            program_key: get("PROGRAMM_SCHLUESSEL").unwrap_or_default(),
-            wait: get("WARTEN").and_then(|w| w.parse().ok()).unwrap_or(WAIT_SECONDS),
-        })
-    }
+/// The command line of the installer: silent with its progress window, no message boxes, no restart of the
+/// computer, running programs closed, into the folder of the running program (⚠ else a second copy), with its
+/// log; then [`UPDATE_SWITCH`] and what the update run needs. ⚠ Every path in quotes: the installer reads
+/// `/NAME="a b"` as one value.
+pub fn setup_arguments(job: &SetupJob) -> String {
+    let pids = job.wait_for.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+    format!(
+        "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR=\"{}\" /LOG=\"{}\" {UPDATE_SWITCH} \
+         /VKPIDS={pids} /VKSPERRE=\"{}\" /VKERGEBNIS=\"{}\" /VKPROTOKOLL=\"{}\"",
+        job.target_dir.display(),
+        job.setup_log.display(),
+        job.lock.display(),
+        job.result.display(),
+        job.log.display()
+    )
 }
 
 /// The place for the installer's log. ⚠ If the installer cannot create its log it ends at once with exit code
@@ -543,10 +497,13 @@ pub fn free_setup_log(path: &Path, temp: &Path) -> PathBuf {
     temp.join(format!("versekit-update-setup-{}.txt", updater::now() as i64))
 }
 
-/// The job for the helper of this run: the installer in `downloaded`, the program file `program` and its
-/// folder.
-pub fn job_for(paths: &Paths, downloaded: &updater::Downloaded, program: &Path, temp: &Path) -> HelperJob {
-    HelperJob {
+/// The job for the installer of this run: the installer in `downloaded`, the program file `program` and its
+/// folder. The installer waits for this process and every other process running `program`.
+pub fn setup_job(paths: &Paths, downloaded: &updater::Downloaded, program: &Path, temp: &Path) -> SetupJob {
+    let own = std::process::id();
+    let mut wait_for = vec![own];
+    wait_for.extend(processes_of(program).unwrap_or_default().into_iter().filter(|pid| *pid != own));
+    SetupJob {
         setup: downloaded.path.clone(),
         checksum: downloaded.checksum.clone(),
         target_dir: program.parent().map(Path::to_path_buf).unwrap_or_default(),
@@ -554,67 +511,296 @@ pub fn job_for(paths: &Paths, downloaded: &updater::Downloaded, program: &Path, 
         log: PathBuf::from(paths.app_file(LOG_FILE)),
         result: PathBuf::from(paths.app_file(RESULT_FILE)),
         lock: PathBuf::from(paths.app_file(LOCK_FILE)),
-        program: program.to_path_buf(),
-        pid: std::process::id(),
-        program_key: PROGRAM_KEY.to_string(),
-        wait: WAIT_SECONDS,
+        wait_for,
     }
 }
 
-/// The key under the current user where the installer names the program file (`Programm`).
-pub const PROGRAM_KEY: &str = r"Software\Xharig\VerseKit";
-/// The value in [`PROGRAM_KEY`].
-pub const PROGRAM_VALUE: &str = "Programm";
-
-/// Start the helper: a copy of `program` in `temp` with [`HELPER_SWITCH`] and the job in its environment, after
-/// writing the run mark. The lock goes over to the helper. Returns the process number of the helper.
+/// Start the installer of `job` directly, after writing the run mark, and hand the lock over to it once its own
+/// process has written [`LIFE_SIGN`] (at most `wait`). ⚠ The checksum is compared right before the start,
+/// through a handle that keeps others from changing or deleting the file until that sign has come; only a file
+/// that no longer matches is deleted. Returns the process number of the installer.
 ///
 /// # Errors
 ///
-/// When the copy or the start fails; then nothing is handed over.
-pub fn start_helper(
+/// When the file no longer matches or cannot be read, the installer does not start, ends before its sign, or
+/// gives no sign within `wait` (then it is ended). The run mark is gone again, the installer file is deleted
+/// (not when it could only not be read), and the update log says why: the program stays.
+pub fn start_setup(
     paths: &Paths,
-    job: &HelperJob,
+    job: &SetupJob,
     mark: &RunMark,
-    temp: &Path,
     base_env: Vec<(String, String)>,
+    wait: Duration,
 ) -> io::Result<u32> {
-    let helper = temp.join(HELPER_NAME);
-    let _ = fs::remove_file(&helper);
-    fs::copy(&job.program, &helper)?;
-    begin_run(paths, mark)?;
+    launch(paths, job, mark, base_env, wait, &setup_arguments(job))
+}
+
+/// [`start_setup`] with the command line `arguments`.
+fn launch(
+    paths: &Paths,
+    job: &SetupJob,
+    mark: &RunMark,
+    base_env: Vec<(String, String)>,
+    wait: Duration,
+    arguments: &str,
+) -> io::Result<u32> {
     rotate_log(paths);
-    log_line(
-        &job.log,
-        &format!(
-            "Program hands over: waiting for {} (PID {}), installer {}",
-            job.program.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
-            job.pid,
-            job.setup.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
-        ),
-    );
-    let mut command = std::process::Command::new(&helper);
-    command
-        .arg(HELPER_SWITCH)
-        .current_dir(temp)
-        .env_clear()
-        .envs(updater::clean_environment(base_env))
-        .envs(job.to_env());
+    let name = job.setup.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let held = match hold_checked_retrying(&job.setup, &job.checksum) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::InvalidData => {
+            log_line(&job.log, &format!("Checksum mismatch in {name} - file discarded, nothing installed: {error}"));
+            log_line(&job.log, &format!("Expected {}", job.checksum));
+            updater::discard(&job.setup);
+            return Err(error);
+        }
+        Err(error) => {
+            log_line(&job.log, &format!("Installer {name} could not be read - nothing installed: {error}"));
+            return Err(error);
+        }
+    };
+    begin_run(paths, mark)?;
+    let pids = job.wait_for.iter().map(u32::to_string).collect::<Vec<_>>().join(", ");
+    log_line(&job.log, &format!("Checksum matches, program starts the installer {name}, which waits for PID {pids}"));
+    let offset = fs::metadata(&job.log).map_or(0, |m| m.len());
+    let mut command = std::process::Command::new(&job.setup);
+    command.env_clear().envs(updater::clean_environment(base_env));
+    if let Some(folder) = job.setup.parent() {
+        command.current_dir(folder);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        command.creation_flags(HELPER_FLAGS);
+        command.raw_arg(arguments).creation_flags(DETACHED_FLAGS);
     }
-    let child = command.spawn()?;
+    #[cfg(not(windows))]
+    {
+        command.args(arguments.split(' '));
+    }
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(error) => {
+            drop(held);
+            give_up(paths, job, &format!("Installer did not start: {error}"));
+            return Err(error);
+        }
+    };
+    match await_life_sign(&mut child, &job.log, offset, wait) {
+        Sign::Started => {}
+        Sign::Ended(code) => {
+            drop(held);
+            give_up(paths, job, &format!("Installer ended before it ran, exit code {code} - nothing installed"));
+            return Err(io::Error::other(format!("the installer ended at once with exit code {code}")));
+        }
+        Sign::Silent => {
+            let _ = child.kill();
+            let _ = child.wait();
+            drop(held);
+            let seconds = wait.as_secs();
+            give_up(paths, job, &format!("Installer gave no sign within {seconds} s - stopped, nothing installed"));
+            return Err(io::Error::other(format!("the installer gave no sign within {seconds} s")));
+        }
+    }
     hand_lock_to(paths, child.id(), updater::now());
+    log_line(&job.log, &format!("Installer runs (PID {}), the program exits", child.id()));
+    drop(held);
     Ok(child.id())
 }
 
-/// How the helper and the programs it starts are started: without a console window of their own, in a
-/// process group of their own, apart from the program that steps down.
+/// What became of the installer while the program waited for [`LIFE_SIGN`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Sign {
+    /// Its sign is in the log and the loader still runs.
+    Started,
+    /// The loader ended (with this exit code); its installer cannot take over any more.
+    Ended(i32),
+    /// No sign within the time.
+    Silent,
+}
+
+/// Waits at most `wait` for [`LIFE_SIGN`] in `log` after `offset`, while `child` (the loader) runs.
+fn await_life_sign(child: &mut std::process::Child, log: &Path, offset: u64, wait: Duration) -> Sign {
+    let started = Instant::now();
+    loop {
+        if let Ok(Some(status)) = child.try_wait() {
+            return Sign::Ended(status.code().unwrap_or(-1));
+        }
+        if signed(log, offset) {
+            return Sign::Started;
+        }
+        if started.elapsed() >= wait {
+            return Sign::Silent;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// Is there a line ending in [`LIFE_SIGN`] in `log` after `offset`?
+fn signed(log: &Path, offset: u64) -> bool {
+    let Ok(bytes) = fs::read(log) else { return false };
+    let tail = bytes.get(usize::try_from(offset).unwrap_or(usize::MAX)..).unwrap_or_default();
+    let sign = format!(" {LIFE_SIGN}");
+    String::from_utf8_lossy(tail).lines().any(|line| line.trim_end().ends_with(&sign))
+}
+
+/// [`hold_checked`], tried again a few times when the file cannot be opened or read (a scanner looking at it);
+/// never again after a checksum that does not match or a file that is gone.
+fn hold_checked_retrying(path: &Path, checksum: &str) -> io::Result<fs::File> {
+    let mut tries = 0;
+    loop {
+        match hold_checked(path, checksum) {
+            Err(error)
+                if tries < 5
+                    && !matches!(error.kind(), io::ErrorKind::InvalidData | io::ErrorKind::NotFound) =>
+            {
+                tries += 1;
+                std::thread::sleep(Duration::from_millis(200));
+            }
+            other => return other,
+        }
+    }
+}
+
+/// The file at `path` opened for reading, with its checksum compared through that handle. Under Windows nobody
+/// else may write to it or delete it while the handle lives.
+fn hold_checked(path: &Path, checksum: &str) -> io::Result<fs::File> {
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options.share_mode(FILE_SHARE_READ);
+    }
+    let mut file = options.open(path)?;
+    let actual = updater::checksum_of_reader(&mut file)?;
+    if checksum.is_empty() || actual != checksum.to_lowercase() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("checksum {actual}")));
+    }
+    Ok(file)
+}
+
+/// Others may only read a file opened with this sharing mode (`FILE_SHARE_READ`).
 #[cfg(windows)]
-pub const HELPER_FLAGS: u32 = windows_sys::Win32::System::Threading::CREATE_NO_WINDOW
+const FILE_SHARE_READ: u32 = 1;
+
+/// The installer did not take over: the line in the update log, the run mark and the installer file go. The file
+/// gets a few more tries: a loader that has just ended may still hold it for a moment; what stays goes at the
+/// next start ([`remove_fetched`]).
+fn give_up(paths: &Paths, job: &SetupJob, why: &str) {
+    log_line(&job.log, why);
+    remove(&paths.app_file(RUN_FILE));
+    for _ in 0..20 {
+        match fs::remove_file(&job.setup) {
+            Err(error) if error.kind() != io::ErrorKind::NotFound => std::thread::sleep(Duration::from_millis(100)),
+            _ => return,
+        }
+    }
+    updater::discard(&job.setup);
+}
+
+/// Removes what earlier updates fetched into `folder` ([`updater::installer_folder`]): every file but `keep`
+/// (the installer of a run under way) and those changed within [`LOCK_MAX_AGE`] (a download of another run may
+/// be coming in). A file still in use stays for the next start.
+pub fn remove_fetched(folder: &Path, keep: Option<&Path>, now: f64) {
+    let Ok(entries) = fs::read_dir(folder) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() || keep.is_some_and(|keep| same_path(keep, &path)) {
+            continue;
+        }
+        let age = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(f64::INFINITY, |m| now - m.as_secs_f64());
+        if age > LOCK_MAX_AGE {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
+/// How the installer is started: without a console window of its own, in a process group of its own, apart
+/// from the program that steps down.
+#[cfg(windows)]
+pub const DETACHED_FLAGS: u32 = windows_sys::Win32::System::Threading::CREATE_NO_WINDOW
     | windows_sys::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP;
+
+// ------------------------------------------------------------ processes of the program file
+
+/// The processes running exactly this program file, without this one; `None` when the list cannot be read
+/// (and outside Windows).
+pub fn processes_of(program: &Path) -> Option<Vec<u32>> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+        use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
+        };
+        let wanted = program.file_name()?.to_string_lossy().to_lowercase();
+        let own = std::process::id();
+        // SAFETY: a snapshot handle that is closed below.
+        let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+        if snapshot == INVALID_HANDLE_VALUE {
+            return None;
+        }
+        // SAFETY: an all-zero entry is a valid empty one; its size is set as the call wants.
+        let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+        entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+        let mut found = Vec::new();
+        // SAFETY: `entry` carries its size; the snapshot is valid until closed.
+        let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+        while more {
+            let end = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
+            let name = String::from_utf16_lossy(&entry.szExeFile[..end]).to_lowercase();
+            if name == wanted
+                && entry.th32ProcessID != own
+                && image_of(entry.th32ProcessID).is_none_or(|image| same_path(&image, program))
+            {
+                found.push(entry.th32ProcessID);
+            }
+            // SAFETY: as above.
+            more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+        }
+        // SAFETY: the handle from above, closed once.
+        unsafe { CloseHandle(snapshot) };
+        Some(found)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = program;
+        None
+    }
+}
+
+/// The program file of a process (Windows); `None` when it cannot be asked (then a process of the same name
+/// counts as ours: the installer waiting once too long is better than one that finds the file in use).
+#[cfg(windows)]
+fn image_of(pid: u32) -> Option<PathBuf> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{
+        OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
+    };
+    // SAFETY: a handle that is closed below.
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return None;
+    }
+    let mut buffer = vec![0u16; 32_768];
+    let mut size = buffer.len() as u32;
+    // SAFETY: the buffer and its size in characters.
+    let read = unsafe { QueryFullProcessImageNameW(handle, 0, buffer.as_mut_ptr(), &raw mut size) } != 0;
+    // SAFETY: the handle from above, closed once.
+    unsafe { CloseHandle(handle) };
+    read.then(|| PathBuf::from(String::from_utf16_lossy(&buffer[..size as usize])))
+}
+
+/// Are two paths the same place (without regard to case under Windows)?
+pub fn same_path(a: &Path, b: &Path) -> bool {
+    let full = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let (a, b) = (full(a), full(b));
+    if cfg!(windows) { a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase() } else { a == b }
+}
 
 #[cfg(test)]
 mod tests;

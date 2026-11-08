@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.3 - 2026-11-08
+
+> Das Windows-Update löst keinen Virenalarm mehr aus: VerseKit startet
+> das geprüfte Setup direkt, ohne Kopie von sich im Temp-Ordner.
+
+### Behoben
+
+- **Virenscanner hält das Update für Schadsoftware.** Bitdefender und
+  andere Wächter stoppten das Windows-Update und stuften danach VerseKit
+  selbst als Schädling ein, weil das Programm eine Kopie von sich im
+  Temp-Ordner anlegte und startete. Jetzt startet VerseKit das geprüfte
+  Setup direkt aus seinem Ordner unter `%LOCALAPPDATA%\VerseKit\Update`.
+  VerseKit schließt sich erst, wenn das Setup wirklich läuft. Das Setup
+  wartet, bis VerseKit zu ist, spielt das Update ein und startet VerseKit
+  wieder, auch wenn das Update abbricht. Stoppt ein Scanner das Setup,
+  bleibt VerseKit offen, meldet den Fehler und versucht das automatische
+  Update erst nach einem Tag erneut. Läuft gerade eine Sicherung, wartet
+  das Update, bis sie fertig ist. Meldung von KillingJoke271 [KRT]
+
 ## v5.2.2 - 2026-11-08
 
 > Zwei schnelle Korrekturen zu 5.2.1: kein falscher Absturz-Hinweis nach

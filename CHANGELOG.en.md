@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.3 - 2026-11-08
+
+> The Windows update no longer sets off virus alarms: VerseKit starts the
+> checked setup directly, without a copy of itself in the temp folder.
+
+### Fixed
+
+- **Virus scanner takes the update for malware.** Bitdefender and other
+  guards stopped the Windows update and then flagged VerseKit itself as
+  malware, because the program put a copy of itself in the temp folder
+  and started it. Now VerseKit starts the checked setup directly from its
+  folder under `%LOCALAPPDATA%\VerseKit\Update`. VerseKit closes only once
+  the setup really runs. The setup waits until VerseKit has closed,
+  installs the update and starts VerseKit again, also when the update is
+  cancelled. If a scanner stops the setup, VerseKit stays open, reports
+  the error and tries the automatic update again only after a day. While
+  a backup is running, the update waits until it is done. Reported by
+  KillingJoke271 [KRT]
+
 ## v5.2.2 - 2026-11-08
 
 > Two quick fixes for 5.2.1: no false crash note after the update, and no

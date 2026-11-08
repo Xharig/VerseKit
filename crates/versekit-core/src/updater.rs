@@ -20,7 +20,7 @@
 //! Three steps: ask GitHub which releases there are (remembered in `versionen.json`), pick the one to offer,
 //! and fetch the file that fits this packaging. ⚠ A file is fetched only from a release of this project on
 //! `github.com`, and only with the checksum the release publishes in `SHA256SUMS.txt`: no checksum, no update.
-//! What happens with the file afterwards is the business of `update_run` (the helper under Windows) and
+//! What happens with the file afterwards is the business of `update_run` (the installer under Windows) and
 //! `update_swap` (replacing the AppImage under Linux).
 
 use std::collections::BTreeMap;
@@ -430,11 +430,19 @@ pub fn safe_filename(name: &str) -> Option<String> {
 ///
 /// When the file cannot be read.
 pub fn checksum_of(path: &Path) -> io::Result<String> {
-    let mut file = fs::File::open(path)?;
+    checksum_of_reader(&mut fs::File::open(path)?)
+}
+
+/// The SHA-256 of what `reader` holds from where it stands, in lower-case hex.
+///
+/// # Errors
+///
+/// When it cannot be read.
+pub fn checksum_of_reader(reader: &mut dyn Read) -> io::Result<String> {
     let mut context = digest::Context::new(&digest::SHA256);
     let mut block = vec![0u8; 1024 * 1024];
     loop {
-        let count = file.read(&mut block)?;
+        let count = reader.read(&mut block)?;
         if count == 0 {
             break;
         }
@@ -535,15 +543,39 @@ pub struct Downloaded {
     pub checksum: String,
 }
 
-/// Where the new version is fetched to. Windows: the temporary folder (an installer, started once). Linux:
-/// next to the running AppImage as `.<name>.neu`, so that replacing it stays within one file system and is
-/// atomic; the temporary folder only if that folder cannot be written.
-pub fn download_target(clean_name: &str, kind: Packaging, appimage: Option<&Path>, temp: &Path) -> PathBuf {
+/// The folder under `%LOCALAPPDATA%` the installer of an update is fetched to and started from.
+pub const INSTALLER_FOLDER: [&str; 2] = ["VerseKit", "Update"];
+/// The folder in the data folder that takes its place where `%LOCALAPPDATA%` is not set.
+pub const INSTALLER_FOLDER_IN_DATA: &str = "Update";
+
+/// The folder the installer of an update is fetched to and started from: [`INSTALLER_FOLDER`] under
+/// `%LOCALAPPDATA%`, else [`INSTALLER_FOLDER_IN_DATA`] in the data folder. ⚠ Never the temporary folder: a
+/// program file started from there is what virus scanners stop as malware.
+pub fn installer_folder(paths: &Paths) -> PathBuf {
+    match paths.host.var("LOCALAPPDATA").filter(|v| !v.is_empty()) {
+        Some(local) => INSTALLER_FOLDER.iter().fold(PathBuf::from(local), |path, part| path.join(part)),
+        None => Path::new(&paths.app_folder()).join(INSTALLER_FOLDER_IN_DATA),
+    }
+}
+
+/// Where the new version is fetched to. Windows: in `installers` ([`installer_folder`]). Linux: next to the
+/// running AppImage as `.<name>.neu`, so that replacing it stays within one file system and is atomic; the
+/// temporary folder only if that folder cannot be written.
+pub fn download_target(
+    clean_name: &str,
+    kind: Packaging,
+    appimage: Option<&Path>,
+    temp: &Path,
+    installers: &Path,
+) -> PathBuf {
     if kind == Packaging::AppImage
         && let Some(folder) = appimage.and_then(Path::parent)
         && writable(folder)
     {
         return folder.join(format!(".{clean_name}.neu"));
+    }
+    if kind == Packaging::Exe {
+        return installers.join(clean_name);
     }
     temp.join(clean_name)
 }
@@ -598,6 +630,9 @@ fn fetch_and_verify(
     progress: &mut dyn FnMut(u8),
 ) -> Result<(), UpdateError> {
     {
+        if let Some(folder) = target.parent() {
+            fs::create_dir_all(folder).map_err(|e| UpdateError::Disk(e.to_string()))?;
+        }
         let mut file = fs::File::create(target).map_err(|e| UpdateError::Disk(e.to_string()))?;
         let mut shown = None;
         // ⚠ The display must not end the download: a percentage is a side matter.
@@ -636,8 +671,8 @@ pub fn still_matches(path: &Path, checksum: &str) -> bool {
 /// The environment for programs this one starts after an update: without the library paths of a running
 /// AppImage (an `*_ORIG` value takes its place, as AppImage keeps the value of before there; without one, under
 /// Linux the value of the user stays, less its folders inside the mount of the AppImage, and under Windows it
-/// goes), without the variables of the AppImage itself and without the switches of the update helper and of the
-/// replacing start.
+/// goes), without the variables of the AppImage itself and without the switches of the update helper of 5.2.2
+/// and earlier and of the replacing start.
 pub fn clean_environment(vars: impl IntoIterator<Item = (String, String)>) -> Vec<(String, String)> {
     clean_environment_with(vars, cfg!(unix))
 }

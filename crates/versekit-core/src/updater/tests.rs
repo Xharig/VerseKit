@@ -275,7 +275,8 @@ fn a_download_with_the_published_checksum_is_kept_with_it() {
     let content = b"ein Installer".to_vec();
     let (r, net) = published(&content, &format!("{}  VerseKit-Setup.exe\n", sha(&content)));
     let dir = Dir::new("updater-laden");
-    let target = dir.path().join("VerseKit-Setup.exe");
+    // The folder under %LOCALAPPDATA% is made on the way.
+    let target = dir.path().join("VerseKit").join("Update").join("VerseKit-Setup.exe");
     let mut seen = Vec::new();
     let got = download(&net, &r, &r.assets[0], &target, &mut |p| seen.push(p)).expect("fetched");
     assert_eq!(got, Downloaded { path: target.clone(), checksum: sha(&content) });
@@ -349,17 +350,27 @@ fn without_a_valid_checksum_nothing_is_fetched_and_each_reason_has_its_sentence(
 }
 
 #[test]
-fn the_file_goes_next_to_the_appimage_and_else_to_the_temporary_folder() {
+fn the_file_goes_next_to_the_appimage_the_installer_to_its_own_folder_never_to_the_temporary_one() {
     let dir = Dir::new("updater-ziel");
     let temp = Path::new("/tmp-ersatz");
+    let installers = Path::new("/lokal-ersatz/VerseKit/Update");
     let appimage = dir.path().join("VerseKit-x86_64.AppImage");
     assert_eq!(
-        download_target("VerseKit-x86_64.AppImage", Packaging::AppImage, Some(&appimage), temp),
+        download_target("VerseKit-x86_64.AppImage", Packaging::AppImage, Some(&appimage), temp, installers),
         dir.path().join(".VerseKit-x86_64.AppImage.neu")
     );
-    assert_eq!(download_target("VerseKit-Setup.exe", Packaging::Exe, None, temp), temp.join("VerseKit-Setup.exe"));
+    assert_eq!(
+        download_target("VerseKit-Setup.exe", Packaging::Exe, None, temp, installers),
+        installers.join("VerseKit-Setup.exe")
+    );
     let gone = dir.path().join("fehlt").join("VerseKit-x86_64.AppImage");
-    assert_eq!(download_target("x.AppImage", Packaging::AppImage, Some(&gone), temp), temp.join("x.AppImage"));
+    assert_eq!(download_target("x.AppImage", Packaging::AppImage, Some(&gone), temp, installers), temp.join("x.AppImage"));
+    // The folder of the installer: under %LOCALAPPDATA%, without it in the data folder, never the temporary one.
+    let local = dir.path().join("lokal").to_string_lossy().into_owned();
+    let (_home, with) = paths_in("updater-ziel-lokal", &[("LOCALAPPDATA", &local)]);
+    assert_eq!(installer_folder(&with), Path::new(&local).join("VerseKit").join("Update"));
+    let (_home, without) = paths_in("updater-ziel-ohne", &[]);
+    assert_eq!(installer_folder(&without), Path::new(&without.app_folder()).join("Update"));
 }
 
 #[test]

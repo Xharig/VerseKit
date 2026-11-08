@@ -36,13 +36,30 @@ struct LearnWindow {
     taught_at: Option<f64>,
     /// The title bar of the system, dark or light with the scheme.
     title_bar: versekit_ui::window_look::TitleBar,
+    /// An overlay of this run was seen while the window was open.
+    overlay_seen: bool,
 }
 
 impl eframe::App for LearnWindow {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.title_bar.follow(ui.ctx(), theme::current());
         self.show(ui);
+        let overlay = versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some();
+        if overlay_gone(&mut self.overlay_seen, overlay) {
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+        }
     }
+}
+
+/// Does the window close because the overlay it was opened by has ended (as before an update, whose installer
+/// waits for every process of the program file)? `there`: an overlay of this run is there now. A window opened
+/// without an overlay stays.
+fn overlay_gone(seen: &mut bool, there: bool) -> bool {
+    if there {
+        *seen = true;
+        return false;
+    }
+    *seen
 }
 
 impl LearnWindow {
@@ -104,7 +121,13 @@ pub fn run(args: &[String]) -> eframe::Result {
             versekit_ui::install(&cc.egui_ctx);
             versekit_ui::apply(&cc.egui_ctx, theme::current());
             versekit_ui::apply_size(&cc.egui_ctx, points);
-            Ok(Box::new(LearnWindow { state, mining, taught_at: None, title_bar: Default::default() }))
+            Ok(Box::new(LearnWindow {
+                state,
+                mining,
+                taught_at: None,
+                title_bar: Default::default(),
+                overlay_seen: false,
+            }))
         }),
     )
 }
@@ -122,6 +145,15 @@ mod tests {
     }
 
     #[test]
+    fn the_window_ends_with_the_overlay_it_came_with_and_stays_without_one() {
+        let mut seen = false;
+        assert!(!overlay_gone(&mut seen, false), "opened without an overlay: it stays");
+        assert!(!overlay_gone(&mut seen, true));
+        assert!(!overlay_gone(&mut seen, true));
+        assert!(overlay_gone(&mut seen, false), "the overlay ended (before an update): the window goes too");
+    }
+
+    #[test]
     fn the_window_closes_a_few_seconds_after_the_number_was_taught_and_not_before() {
         let ctx = egui::Context::default();
         versekit_ui::install(&ctx);
@@ -130,6 +162,7 @@ mod tests {
             mining: MiningData::default(),
             taught_at: None,
             title_bar: Default::default(),
+            overlay_seen: false,
         };
         let closed_at = |window: &mut LearnWindow, time: f64| -> bool {
             let mut out = ctx.run_ui(

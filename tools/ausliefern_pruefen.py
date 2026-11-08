@@ -19,10 +19,14 @@ Checks the Windows delivery end to end, on an invisible desktop of its own:
 
   1. installs the first check setup silently into a throwaway folder with awkward characters,
   2. starts the installed program on a throwaway data folder (SC_BP_HOME),
-  3. hands over to the update helper (a copy of the installed program file, as the program does it) with the
-     second check setup; the program is ended as it ends itself before an update,
-  4. checks: exit code 0, the lock released, the version in "Apps & Features" is the second one, the program
-     was started again from the file the setup names,
+  3. starts the second check setup as the program starts an update: the setup itself, from the folder of
+     VerseKit under %LOCALAPPDATA%, with the switches of the update run (/VKUPDATE and the files it reports
+     to, in a data folder with a space and an umlaut); no copy of the program file, nothing started from the
+     temporary folder. Once the setup has written its sign of life the program is ended as it ends itself
+     before an update. Checks: the setup waited for the program, exit code 0 written, the lock removed, the
+     version in "Apps & Features" is the second one, the setup started the program again exactly once,
+  4. runs the setup as the update helper of 5.2.2 and earlier does (without /VKUPDATE): the setup starts
+     nothing, the file named under its key is started and runs once,
   5. uninstalls and checks that the entries are gone.
 
 Only check setups (built with /DTestRun=1 and their own id, program name, start value and key; see
@@ -33,7 +37,6 @@ program are never touched.
 
 Prints one line per check and `ERGEBNIS gruen` or `ERGEBNIS rot`.
 """
-import hashlib
 import json
 import os
 import shutil
@@ -54,6 +57,13 @@ PROGRAM_KEY = r'Software\Xharig\VerseKit-Pruefung'
 UNINSTALL_KEY = r'Software\Microsoft\Windows\CurrentVersion\Uninstall\{%s}_is1' % GUID
 RUN_KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
 NO_WINDOW = 0x08000000 | 0x00000200
+# The command line of an update as `update_run::setup_arguments` writes it, and the sign of life of the setup
+# (`update_run::LIFE_SIGN`). ⚠ Both sides change together: the Rust test
+# `the_check_of_the_delivery_starts_the_setup_as_the_program_does` compares these lines with the program.
+UPDATE_ARGUMENTS = ('/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR="{ziel}" /LOG="{setuplog}" '
+                    '/VKUPDATE /VKPIDS={pids} /VKSPERRE="{sperre}" /VKERGEBNIS="{ergebnis}" '
+                    '/VKPROTOKOLL="{protokoll}"')
+LIFE_SIGN = 'Installer started'
 
 RESULTS = []
 
@@ -101,18 +111,11 @@ def end_program():
     subprocess.run(['taskkill', '/F', '/IM', PROGRAM], capture_output=True, creationflags=NO_WINDOW)
 
 
-def sha256(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for block in iter(lambda: f.read(1 << 20), b''):
-            h.update(block)
-    return h.hexdigest()
-
-
 def inside(setup1, setup2):
     work = tempfile.mkdtemp(prefix='versekit-ausliefern-')
     target = os.path.join(work, "Programme & ^ % ! ( ) ' Ümlaut")
-    data = os.path.join(work, 'daten')
+    # A data folder with a space and an umlaut: the setup reads the files of the update from its command line.
+    data = os.path.join(work, 'Dokumente', 'Verse-Kit Ü')
     temp = os.path.join(work, 'temp')
     appdata = os.path.join(work, 'appdata')
     local = os.path.join(work, 'localappdata')
@@ -140,7 +143,7 @@ def inside(setup1, setup2):
               'the Hangar-Exporter with licence, copyright and source lies in erweiterung')
         check(value(UNINSTALL_KEY, 'DisplayVersion') == '5.0.0-pruefung1', '"Apps & Features" shows the first version')
         check(value(UNINSTALL_KEY, 'DisplayName') == 'VerseKit Pruefung', 'and the name')
-        check(value(PROGRAM_KEY, 'Programm') == program, 'the setup names its program file for the helper')
+        check(value(PROGRAM_KEY, 'Programm') == program, 'the setup names its program file for the helper of 5.2.2 and earlier')
         check(value(RUN_KEY, RUN_VALUE) is None, 'no start with Windows without the task')
 
         # 2. The installed program runs (as it does when an update is handed over).
@@ -148,44 +151,70 @@ def inside(setup1, setup2):
         time.sleep(6)
         check(running.poll() is None, 'the installed program runs (on its own data folder)')
 
-        # 3. Hand over: the helper is a copy of the program file in the temporary folder.
-        setup = os.path.join(temp, 'VerseKit-Setup.exe')
+        # 3. The update as the program starts it (`update_run::setup_arguments`): the setup itself, from the
+        #    folder of VerseKit under %LOCALAPPDATA%.
+        fetched = os.path.join(local, 'VerseKit', 'Update')
+        os.makedirs(fetched)
+        setup = os.path.join(fetched, 'VerseKit-Setup.exe')
         shutil.copy(setup2, setup)
-        helper = os.path.join(temp, 'versekit-update-helfer.exe')
-        shutil.copy(program, helper)
         lock = os.path.join(data, 'update-sperre.json')
         with open(lock, 'w', encoding='utf-8') as f:
             json.dump({'pid': 0, 'zeit': time.time()}, f)
-        job = {
-            'SETUP': setup, 'SHA256': sha256(setup2), 'ZIEL': target,
-            'SETUPLOG': os.path.join(data, 'update-setup.txt'), 'LOG': os.path.join(data, 'update-helfer.txt'),
-            'ERGEBNIS': os.path.join(data, 'update-ergebnis.txt'), 'SPERRE': lock, 'PROGRAMM': program,
-            'PID': str(running.pid), 'PROGRAMM_SCHLUESSEL': PROGRAM_KEY, 'WARTEN': '60',
-        }
-        helper_env = dict(env, **{'VERSEKIT_UPDATE_' + k: v for k, v in job.items()})
+        log_file = os.path.join(data, 'update-helfer.txt')
+        result_file = os.path.join(data, 'update-ergebnis.txt')
+        arguments = UPDATE_ARGUMENTS.format(
+            ziel=target, setuplog=os.path.join(data, 'update-setup.txt'), pids=running.pid, sperre=lock,
+            ergebnis=result_file, protokoll=log_file)
         started = time.time()
-        helping = subprocess.Popen([helper, '--update-helfer'], env=helper_env, cwd=temp, creationflags=NO_WINDOW)
-        time.sleep(3)
-        check(helping.poll() is None, 'the helper waits while the program runs')
+        updating = subprocess.Popen('"%s" %s' % (setup, arguments), env=env, cwd=fetched, creationflags=NO_WINDOW)
+        # The program steps down only once the setup's own process has written its sign (`update_run::LIFE_SIGN`).
+        signed = False
+        while not signed and time.time() - started < 30 and updating.poll() is None:
+            time.sleep(0.25)
+            signed = os.path.exists(log_file) and LIFE_SIGN in open(log_file, encoding='utf-8', errors='replace').read()
+        check(signed, 'the setup wrote its sign of life (after %.1f s)' % (time.time() - started))
+        time.sleep(2)
+        check(updating.poll() is None, 'the setup waits while the program runs')
+        check(running.poll() is None, 'and does not close it before its time')
         # The program ends itself before an update; here it is ended.
         end_program()
-        rc = helping.wait(timeout=300)
-        log = open(job['LOG'], encoding='utf-8', errors='replace').read() if os.path.exists(job['LOG']) else ''
-        print('     helper log:\n' + '\n'.join('       ' + line for line in log.splitlines()))
-        result = open(job['ERGEBNIS'], encoding='ascii').read().strip() if os.path.exists(job['ERGEBNIS']) else ''
-        check(result == '0', 'the installer of the update ended with 0 (written: %r, after %.0f s)'
-              % (result, time.time() - started))
-        check(not os.path.exists(lock), 'the lock is released')
+        rc = updating.wait(timeout=300)
+        check(rc == 0, 'the setup of the update ends with 0 (exit code %s, after %.0f s)' % (rc, time.time() - started))
+        log = open(log_file, encoding='utf-8', errors='replace').read() if os.path.exists(log_file) else ''
+        print('     update log:\n' + '\n'.join('       ' + line for line in log.splitlines()))
+        check('Old version has exited' in log, 'the setup waited for the program to exit')
+        result = open(result_file, encoding='ascii').read().strip() if os.path.exists(result_file) else ''
+        check(result == '0', 'the setup wrote the exit code 0 (written: %r)' % result)
+        check(not os.path.exists(lock), 'the lock is removed')
         check(value(UNINSTALL_KEY, 'DisplayVersion') == '5.0.0-pruefung2', '"Apps & Features" shows the second version')
-        check(not os.path.exists(setup) or sha256(setup) == sha256(setup2), 'the installer was the checked one')
+        check(not any(name.lower().startswith('versekit') and name.lower().endswith('.exe') for name in os.listdir(temp)),
+              'no program file of VerseKit in the temporary folder')
         time.sleep(4)
         again = processes(target)
-        check(len(again) >= 1, 'the program was started again from the installation folder (%s)' % again)
-        check('Starting the program %s' % program in log, 'from the file the setup names')
+        check(len(again) == 1, 'the setup started the program again from the installation folder, once (%s)' % again)
+        check('Starting the program %s' % program in log, 'from the installation folder')
+
+        # 4. The way of the helper of 5.2.2 and earlier: it waits until the program has ended, runs the setup
+        #    without /VKUPDATE, then starts the file the setup names under its key. The setup itself starts nothing.
+        end_program()
+        time.sleep(1)
+        rc = subprocess.run('"%s" /SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR="%s" /LOG="%s"'
+                            % (setup2, target, os.path.join(work, 'setup-alt.txt')),
+                            env=env, cwd=work, creationflags=NO_WINDOW).returncode
+        check(rc == 0, 'the setup run as the old helper runs it ends with 0 (exit code %s)' % rc)
+        time.sleep(4)
+        check(processes(target) == [], 'without /VKUPDATE the setup starts no program')
+        named = value(PROGRAM_KEY, 'Programm')
+        check(named == program, 'the setup names its program file for the old helper (%s)' % named)
+        if named:
+            subprocess.Popen([named], env=env, cwd=target)
+        time.sleep(4)
+        again = processes(target)
+        check(len(again) == 1, 'the old helper starts it, and it runs once (%s)' % again)
         end_program()
         time.sleep(1)
 
-        # 5. Uninstall.
+        # 5. Uninstall (the second setup is still installed).
         uninstaller = os.path.join(target, 'unins000.exe')
         rc = subprocess.run([uninstaller, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'], env=env).returncode
         check(rc == 0, 'uninstalling runs silently (exit code %s)' % rc)

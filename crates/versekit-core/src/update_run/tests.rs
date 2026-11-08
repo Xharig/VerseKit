@@ -38,7 +38,7 @@ fn dead_pid() -> u32 {
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            c.creation_flags(HELPER_FLAGS);
+            c.creation_flags(DETACHED_FLAGS);
         }
         c
     } else {
@@ -182,34 +182,385 @@ fn a_failed_automatic_update_waits_a_day_and_opens_the_window() {
 }
 
 #[test]
-fn the_job_travels_through_the_environment_and_back() {
-    let job = HelperJob {
-        setup: PathBuf::from(r"C:\Temp\VerseKit-Setup.exe"),
-        checksum: "A".repeat(64),
+fn the_installer_is_told_the_update_run_on_its_command_line() {
+    let job = SetupJob {
+        setup: PathBuf::from(r"C:\Users\x\AppData\Local\VerseKit\Update\VerseKit-Setup.exe"),
+        checksum: "a".repeat(64),
         target_dir: PathBuf::from(r"C:\Pfad mit & ^ % ! ( ) ' Ümlaut"),
         setup_log: PathBuf::from(r"C:\d\update-setup.txt"),
-        log: PathBuf::from(r"C:\d\update-helfer.txt"),
-        result: PathBuf::from(r"C:\d\update-ergebnis.txt"),
-        lock: PathBuf::from(r"C:\d\update-sperre.json"),
-        program: PathBuf::from(r"C:\Pfad mit & ^ % ! ( ) ' Ümlaut\SC-BP-Watcher.exe"),
-        pid: 4242,
-        program_key: PROGRAM_KEY.into(),
-        wait: 60,
+        log: PathBuf::from(r"C:\d\Diagnose\update-helfer.txt"),
+        result: PathBuf::from(r"C:\d\Intern\update-ergebnis.txt"),
+        lock: PathBuf::from(r"C:\d\Intern\update-sperre.json"),
+        wait_for: vec![4242, 77],
     };
-    let env = job.to_env();
-    assert!(env.iter().all(|(k, _)| k.starts_with(ENV_PREFIX)));
-    let back = HelperJob::from_env(&env).expect("complete");
-    assert_eq!(back, HelperJob { checksum: "a".repeat(64), ..job.clone() });
-    // A missing part or a checksum of the wrong length: no job.
-    let without: Vec<_> = env.iter().filter(|(k, _)| !k.ends_with("_SETUP")).cloned().collect();
-    assert_eq!(HelperJob::from_env(&without), None);
-    let short: Vec<_> = env
-        .iter()
-        .map(|(k, v)| if k.ends_with("_SHA256") { (k.clone(), "ab".into()) } else { (k.clone(), v.clone()) })
-        .collect();
-    assert_eq!(HelperJob::from_env(&short), None);
-    // The job never reaches the programs the helper starts.
-    assert!(updater::clean_environment(env).is_empty());
+    assert_eq!(
+        setup_arguments(&job),
+        concat!(
+            r#"/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR="C:\Pfad mit & ^ % ! ( ) ' Ümlaut" "#,
+            r#"/LOG="C:\d\update-setup.txt" /VKUPDATE /VKPIDS=4242,77 /VKSPERRE="C:\d\Intern\update-sperre.json" "#,
+            r#"/VKERGEBNIS="C:\d\Intern\update-ergebnis.txt" /VKPROTOKOLL="C:\d\Diagnose\update-helfer.txt""#
+        )
+    );
+}
+
+/// A file of the repository, from the folder of this crate.
+fn repository_file(path: &str) -> String {
+    fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").join(path)).unwrap().replace("\r\n", "\n")
+}
+
+#[test]
+fn the_check_of_the_delivery_starts_the_setup_as_the_program_does() {
+    let script = repository_file("tools/ausliefern_pruefen.py");
+    let start = script.find("UPDATE_ARGUMENTS = (").expect("the command line in the check");
+    let block = &script[start..start + script[start..].find(")\n").expect("its end")];
+    let template: String = block.split('\'').skip(1).step_by(2).collect();
+    let job = SetupJob {
+        target_dir: PathBuf::from(r"C:\Programme & ^ % ! ( ) ' Ümlaut"),
+        setup_log: PathBuf::from(r"C:\Dokumente\Verse-Kit Ü\update-setup.txt"),
+        lock: PathBuf::from(r"C:\Dokumente\Verse-Kit Ü\update-sperre.json"),
+        result: PathBuf::from(r"C:\Dokumente\Verse-Kit Ü\update-ergebnis.txt"),
+        log: PathBuf::from(r"C:\Dokumente\Verse-Kit Ü\update-helfer.txt"),
+        wait_for: vec![4242],
+        ..SetupJob::default()
+    };
+    let filled = [
+        ("{ziel}", &job.target_dir),
+        ("{setuplog}", &job.setup_log),
+        ("{sperre}", &job.lock),
+        ("{ergebnis}", &job.result),
+        ("{protokoll}", &job.log),
+    ]
+    .iter()
+    .fold(template.replace("{pids}", "4242"), |text, (field, path)| text.replace(field, &path.to_string_lossy()));
+    assert_eq!(filled, setup_arguments(&job));
+    assert!(script.contains(&format!("\nLIFE_SIGN = '{LIFE_SIGN}'\n")), "the sign of life in the check");
+    // The installer: the same sign and the same names of the files it writes to or removes.
+    let setup = repository_file("packaging/installer.iss");
+    for (name, value) in
+        [("LIFE_SIGN", LIFE_SIGN), ("LOCK_NAME", LOCK_FILE), ("RESULT_NAME", RESULT_FILE), ("LOG_NAME", LOG_FILE)]
+    {
+        assert!(setup.contains(&format!("\n  {name} = '{value}';\n")), "{name} in installer.iss");
+    }
+    assert!(setup.contains(&format!("'{UPDATE_SWITCH}'")), "the switch in installer.iss");
+}
+
+#[test]
+fn the_installer_waits_for_this_process_and_reports_to_the_files_of_the_data_folder() {
+    let (dir, paths) = paths_in("lauf-setupjob");
+    let setup = dir.path().join("VerseKit-Setup.exe");
+    fs::write(&setup, b"der Installer").unwrap();
+    let downloaded = updater::Downloaded { checksum: updater::checksum_of(&setup).unwrap(), path: setup.clone() };
+    let folder = dir.path().join("Programm");
+    let job = setup_job(&paths, &downloaded, &folder.join("SC-BP-Watcher.exe"), dir.path());
+    assert_eq!(job.wait_for.first(), Some(&std::process::id()), "this process first");
+    assert_eq!((job.setup, job.target_dir), (setup, folder));
+    assert_eq!(job.log, PathBuf::from(paths.app_file(LOG_FILE)));
+    assert_eq!(job.result, PathBuf::from(paths.app_file(RESULT_FILE)));
+    assert_eq!(job.lock, PathBuf::from(paths.app_file(LOCK_FILE)));
+    // The installer checks these names before it writes or removes anything.
+    let names = [&job.log, &job.result, &job.lock].map(|p| p.file_name().unwrap().to_string_lossy().into_owned());
+    assert_eq!(names, ["update-helfer.txt", "update-ergebnis.txt", "update-sperre.json"]);
+}
+
+/// A throwaway data folder, an installer `content` under `lokal\VerseKit\Update`, a program folder and the job.
+fn setup_case(name: &str, content: &[u8]) -> (Dir, Paths, SetupJob) {
+    let (dir, paths) = paths_in(name);
+    let folder = dir.path().join("lokal").join("VerseKit").join("Update");
+    fs::create_dir_all(&folder).unwrap();
+    let setup = folder.join("VerseKit-Setup.exe");
+    fs::write(&setup, content).unwrap();
+    let program = dir.path().join("Programm & ^ % ! ( ) ' Ümlaut").join("SC-BP-Watcher.exe");
+    fs::create_dir_all(program.parent().unwrap()).unwrap();
+    fs::write(&program, b"alt").unwrap();
+    let downloaded = updater::Downloaded { checksum: updater::checksum_of(&setup).unwrap(), path: setup };
+    let job = setup_job(&paths, &downloaded, &program, dir.path());
+    (dir, paths, job)
+}
+
+/// The contents of a copy of a program of the system, which opens no window.
+#[cfg(windows)]
+fn system_program(name: &str) -> Vec<u8> {
+    let root = PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()));
+    fs::read(root.join("System32").join(name)).unwrap()
+}
+
+fn log_of(job: &SetupJob) -> String {
+    fs::read_to_string(&job.log).unwrap_or_default()
+}
+
+/// Every program file below `folder`.
+fn program_files(folder: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    for entry in fs::read_dir(folder).unwrap().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            out.extend(program_files(&path));
+        } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("exe")) {
+            out.push(path);
+        }
+    }
+    out
+}
+
+/// Arguments on which a copy of `ping` lives for about `seconds`, without a window: the stand-in for a loader
+/// whose installer runs.
+#[cfg(windows)]
+fn living(seconds: u32) -> String {
+    format!("-n {} 127.0.0.1", seconds + 1)
+}
+
+/// Writes [`LIFE_SIGN`] into the update log of `job` as the installer does, once the run mark lies there and a
+/// moment has passed. Before that it tries to rename the installer file: true when that worked (the file was not
+/// held).
+#[cfg(windows)]
+fn sign_later(paths: &Paths, job: &SetupJob) -> std::thread::JoinHandle<bool> {
+    let run = PathBuf::from(paths.app_file(RUN_FILE));
+    let (setup, log) = (job.setup.clone(), job.log.clone());
+    std::thread::spawn(move || {
+        let started = Instant::now();
+        while !run.exists() && started.elapsed() < Duration::from_secs(10) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        std::thread::sleep(Duration::from_millis(300));
+        let renamed = fs::rename(&setup, setup.with_extension("weg")).is_ok();
+        log_line(&log, LIFE_SIGN);
+        renamed
+    })
+}
+
+#[cfg(windows)]
+#[test]
+fn the_installer_is_started_directly_and_the_program_steps_down_only_after_its_sign() {
+    let (dir, paths, job) = setup_case("lauf-start", &system_program("PING.EXE"));
+    let now = updater::now();
+    assert!(take_lock(&paths, std::process::id(), now));
+    let signer = sign_later(&paths, &job);
+    let pid = launch(&paths, &job, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(10), &living(3))
+        .expect("started");
+    assert!(!signer.join().unwrap(), "the installer file is held until its sign has come");
+    let run = read_run(&paths).expect("the run mark");
+    assert_eq!((run.target.as_str(), run.previous.as_str()), ("v5.0.1", "5.0.0"));
+    let lock = fs::read_to_string(paths.app_file(LOCK_FILE)).unwrap();
+    assert!(lock.contains(&format!("\"pid\":{pid}")), "the lock belongs to the installer: {lock}");
+    let log = log_of(&job);
+    assert!(
+        log.contains(&format!(
+            "Checksum matches, program starts the installer VerseKit-Setup.exe, which waits for PID {}",
+            std::process::id()
+        )),
+        "{log}"
+    );
+    let (sign, runs) = (log.find(LIFE_SIGN).unwrap(), log.find(&format!("Installer runs (PID {pid})")).unwrap());
+    assert!(sign < runs, "the program steps down after the sign: {log}");
+    // No copy of a program file anywhere: only the installer and the program.
+    let mut found = program_files(dir.path());
+    found.sort();
+    let mut expected = vec![job.setup.clone(), job.target_dir.join("SC-BP-Watcher.exe")];
+    expected.sort();
+    assert_eq!(found, expected);
+}
+
+#[cfg(windows)]
+#[test]
+fn an_installer_that_ends_before_its_sign_hands_nothing_over_and_the_program_stays() {
+    // On the arguments of an update `ping` ends at once with an error.
+    let (_dir, paths, job) = setup_case("lauf-sofort", &system_program("PING.EXE"));
+    let now = updater::now();
+    assert!(take_lock(&paths, std::process::id(), now));
+    let error = start_setup(&paths, &job, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(10))
+        .expect_err("ended at once");
+    assert!(error.to_string().contains("ended at once with exit code 1"), "{error}");
+    assert!(read_run(&paths).is_none(), "no run mark: the program runs on");
+    let lock = fs::read_to_string(paths.app_file(LOCK_FILE)).unwrap();
+    assert!(lock.contains(&format!("\"pid\":{}", std::process::id())), "the lock stays with the program: {lock}");
+    let log = log_of(&job);
+    assert!(log.contains("Installer ended before it ran, exit code 1 - nothing installed"), "{log}");
+    assert!(!job.setup.exists(), "the installer goes");
+}
+
+#[cfg(windows)]
+#[test]
+fn an_installer_without_a_sign_is_ended_and_the_program_stays() {
+    let (_dir, paths, job) = setup_case("lauf-stumm", &system_program("PING.EXE"));
+    let now = updater::now();
+    assert!(take_lock(&paths, std::process::id(), now));
+    let started = Instant::now();
+    let error = launch(&paths, &job, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(1), &living(8))
+        .expect_err("no sign");
+    let took = started.elapsed();
+    assert!(error.to_string().contains("gave no sign within 1 s"), "{error}");
+    assert!(took >= Duration::from_secs(1) && took < Duration::from_secs(6), "waited its time: {took:?}");
+    assert!(read_run(&paths).is_none(), "no run mark");
+    assert!(log_of(&job).contains("Installer gave no sign within 1 s - stopped, nothing installed"), "{}", log_of(&job));
+    // A program file that still runs cannot be deleted: the loader was ended.
+    assert!(!job.setup.exists(), "the loader is ended and its file goes");
+}
+
+#[cfg(windows)]
+#[test]
+fn the_wait_for_the_sign_watches_the_loader_and_the_log_for_its_whole_time() {
+    use std::os::windows::process::CommandExt;
+    let dir = Dir::new("lauf-zeichen");
+    let log = dir.path().join("update-helfer.txt");
+    // The sign of an earlier run lies before the offset and does not count.
+    log_line(&log, LIFE_SIGN);
+    log_line(&log, "Program starts the installer");
+    let offset = fs::metadata(&log).unwrap().len();
+    let ping = |seconds: u32| {
+        let root = PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()));
+        std::process::Command::new(root.join(r"System32\PING.EXE"))
+            .raw_arg(living(seconds))
+            .creation_flags(DETACHED_FLAGS)
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+    // No sign: the whole time, not less.
+    let mut child = ping(4);
+    let started = Instant::now();
+    assert_eq!(await_life_sign(&mut child, &log, offset, Duration::from_millis(700)), Sign::Silent);
+    let took = started.elapsed();
+    assert!(took >= Duration::from_millis(700) && took < Duration::from_secs(3), "{took:?}");
+    // A sign after the offset counts as soon as it comes.
+    let writer = {
+        let log = log.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            log_line(&log, LIFE_SIGN);
+        })
+    };
+    let started = Instant::now();
+    assert_eq!(await_life_sign(&mut child, &log, offset, Duration::from_secs(10)), Sign::Started);
+    assert!(started.elapsed() < Duration::from_secs(3));
+    writer.join().unwrap();
+    assert!(!signed(&log, fs::metadata(&log).unwrap().len()), "nothing after the end");
+    let _ = child.kill();
+    let _ = child.wait();
+    // A loader that has ended counts as ended, even with its sign in the log.
+    let mut ended = std::process::Command::new("cmd")
+        .args(["/c", "exit", "3"])
+        .creation_flags(DETACHED_FLAGS)
+        .spawn()
+        .unwrap();
+    let _ = ended.wait();
+    assert_eq!(await_life_sign(&mut ended, &log, offset, Duration::from_secs(5)), Sign::Ended(3));
+}
+
+#[test]
+fn an_installer_that_does_not_start_hands_nothing_over() {
+    // Matches its checksum, but is no program file.
+    let (_dir, paths, job) = setup_case("lauf-startet-nicht", b"kein Programm");
+    let error = start_setup(&paths, &job, &mark("v5.0.1", "5.0.0", updater::now()), Vec::new(), Duration::ZERO)
+        .expect_err("no start");
+    assert!(read_run(&paths).is_none());
+    assert!(log_of(&job).contains(&format!("Installer did not start: {error}")), "{}", log_of(&job));
+    assert!(!job.setup.exists());
+}
+
+#[test]
+fn the_checksum_is_compared_right_before_the_start() {
+    let (_dir, paths, job) = setup_case("lauf-summe", b"der Installer");
+    // Changed after the download and after the check before the backup.
+    fs::write(&job.setup, b"ausgetauscht").unwrap();
+    let error = start_setup(&paths, &job, &mark("v5.0.1", "5.0.0", updater::now()), Vec::new(), Duration::ZERO)
+        .expect_err("refused");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    assert!(read_run(&paths).is_none(), "no run mark");
+    assert!(!job.setup.exists(), "the changed file goes");
+    let log = log_of(&job);
+    assert!(log.contains("Checksum mismatch in VerseKit-Setup.exe - file discarded, nothing installed"), "{log}");
+    assert!(!log.contains("starts the installer"), "{log}");
+}
+
+#[cfg(windows)]
+#[test]
+fn an_installer_that_cannot_be_read_for_a_moment_is_tried_again_and_never_deleted() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let (_dir, paths, job) = setup_case("lauf-gesperrt", b"der Installer");
+    // Somebody holds the file longer than the tries last: nobody else may read it, but deleting it would work.
+    const FILE_SHARE_DELETE: u32 = 4;
+    let blocked = fs::OpenOptions::new().read(true).share_mode(FILE_SHARE_DELETE).open(&job.setup).unwrap();
+    let started = Instant::now();
+    let error = start_setup(&paths, &job, &mark("v5.0.1", "5.0.0", updater::now()), Vec::new(), Duration::ZERO)
+        .expect_err("cannot be read");
+    assert!(started.elapsed() >= Duration::from_millis(800), "tried again: {:?}", started.elapsed());
+    drop(blocked);
+    assert_ne!(error.kind(), io::ErrorKind::InvalidData);
+    assert!(job.setup.exists(), "a file that could only not be read stays");
+    assert!(read_run(&paths).is_none());
+    assert!(log_of(&job).contains("could not be read - nothing installed"), "{}", log_of(&job));
+    // Free again within the tries: it starts its check as usual.
+    let blocked = fs::OpenOptions::new().read(true).share_mode(0).open(&job.setup).unwrap();
+    let freed = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        drop(blocked);
+    });
+    assert!(hold_checked_retrying(&job.setup, &job.checksum).is_ok());
+    freed.join().unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn the_installer_waits_for_every_other_process_of_the_program_file_too() {
+    use std::os::windows::process::CommandExt;
+    let (dir, paths) = paths_in("lauf-andere");
+    let program = dir.path().join("Programm").join("SC-BP-Watcher.exe");
+    fs::create_dir_all(program.parent().unwrap()).unwrap();
+    fs::write(&program, system_program("PING.EXE")).unwrap();
+    let mut other = std::process::Command::new(&program)
+        .raw_arg(living(30))
+        .creation_flags(DETACHED_FLAGS)
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let setup = dir.path().join("VerseKit-Setup.exe");
+    fs::write(&setup, b"der Installer").unwrap();
+    let downloaded = updater::Downloaded { checksum: updater::checksum_of(&setup).unwrap(), path: setup };
+    let job = setup_job(&paths, &downloaded, &program, dir.path());
+    let _ = other.kill();
+    let _ = other.wait();
+    assert_eq!(job.wait_for, [std::process::id(), other.id()]);
+    // The own process stands once, also when the program file is the running one.
+    let own = setup_job(&paths, &downloaded, &std::env::current_exe().unwrap(), dir.path());
+    assert_eq!(own.wait_for, [std::process::id()]);
+}
+
+#[test]
+fn what_earlier_updates_fetched_goes_at_the_start_but_not_a_run_under_way_or_a_fresh_download() {
+    let dir = Dir::new("lauf-geholt");
+    let folder = dir.path().join("VerseKit").join("Update");
+    fs::create_dir_all(&folder).unwrap();
+    let now = updater::now();
+    let aged = |name: &str| {
+        let path = folder.join(name);
+        fs::write(&path, b"x").unwrap();
+        let old = std::time::SystemTime::now() - Duration::from_secs(3600);
+        fs::OpenOptions::new().write(true).open(&path).unwrap().set_modified(old).unwrap();
+        path
+    };
+    let left = aged("VerseKit-Setup.exe");
+    let other = aged("alt.exe");
+    let running = aged("VerseKit-Setup (2).exe");
+    let fresh = folder.join("frisch.exe");
+    fs::write(&fresh, b"x").unwrap();
+    remove_fetched(&folder, Some(&running), now);
+    assert!(!left.exists() && !other.exists(), "what is left over goes");
+    assert!(running.exists(), "the installer of a run under way stays");
+    assert!(fresh.exists(), "a download that may be coming in stays");
+    remove_fetched(&dir.path().join("fehlt"), None, now);
+}
+
+#[cfg(windows)]
+#[test]
+fn nobody_changes_or_deletes_the_installer_while_it_is_held_for_its_start() {
+    let (_dir, _paths, job) = setup_case("lauf-gehalten", b"der Installer");
+    let held = hold_checked(&job.setup, &job.checksum).expect("matches");
+    assert!(fs::write(&job.setup, b"ausgetauscht").is_err(), "not changed");
+    assert!(fs::remove_file(&job.setup).is_err(), "not deleted");
+    assert!(fs::read(&job.setup).is_ok(), "but read");
+    drop(held);
+    assert!(fs::write(&job.setup, b"danach").is_ok());
+    assert!(hold_checked(&job.setup, &job.checksum).is_err(), "another content does not match");
 }
 
 #[test]
@@ -235,6 +586,38 @@ fn the_leftovers_of_an_update_in_the_temporary_folder_go() {
     assert!(!dir.path().join(legacy::UPDATE_HELPER_SCRIPT).exists() && !dir.path().join(HELPER_NAME).exists());
     assert!(dir.path().join("fremd.cmd").exists(), "nothing foreign");
     assert!(dir.path().join("VerseKit-Setup.exe").exists(), "the installer goes only through the run mark");
+}
+
+#[cfg(windows)]
+#[test]
+fn the_process_list_finds_the_running_test_program_by_its_file() {
+    let own = std::env::current_exe().unwrap();
+    // This very test runs from that file, and the own process does not count.
+    assert_eq!(processes_of(&own), Some(Vec::new()));
+    assert_eq!(processes_of(&own.with_file_name("gibt-es-nicht.exe")), Some(Vec::new()));
+    // A process of another file is found by that file, and only of that file: a copy of `ping` that waits a
+    // few seconds, without a window.
+    let dir = Dir::new("lauf-liste");
+    let copy = dir.path().join("versekit-liste-test.exe");
+    fs::write(&copy, system_program("PING.EXE")).unwrap();
+    let mut child = {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new(&copy)
+            .args(["-n", "30", "127.0.0.1"])
+            .creation_flags(DETACHED_FLAGS)
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+    let found = processes_of(&copy).unwrap();
+    let other_copy = dir.path().join("andere").join("versekit-liste-test.exe");
+    fs::create_dir_all(other_copy.parent().unwrap()).unwrap();
+    let elsewhere = processes_of(&other_copy).unwrap();
+    let _ = child.kill();
+    let _ = child.wait();
+    assert_eq!(found, [child.id()]);
+    assert!(elsewhere.is_empty(), "the same name in another folder is another program: {elsewhere:?}");
+    assert!(same_path(&copy, &dir.path().join("VERSEKIT-LISTE-TEST.EXE")));
 }
 
 #[test]

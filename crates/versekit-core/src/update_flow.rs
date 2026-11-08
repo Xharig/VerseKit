@@ -34,7 +34,7 @@ use crate::net::Net;
 use crate::paths::Paths;
 use crate::update_swap::{self, Started};
 use crate::updater::{self, Packaging, Release};
-use crate::{errors, update_run};
+use crate::{backup, errors, update_run};
 
 /// Starts the new AppImage with a cleaned environment.
 pub type StartFn = dyn Fn(&Path) -> io::Result<Box<dyn Started>> + Send + Sync;
@@ -77,13 +77,21 @@ pub enum Event {
 /// How the sequence ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Done {
-    /// The helper took over (Windows) or the new AppImage lives (Linux): every window of the program has to
+    /// The installer took over (Windows) or the new AppImage lives (Linux): every window of the program has to
     /// end now.
     Quit,
     /// Nothing was installed; the sentence for the player, if there is one.
     Stopped(Option<String>),
     /// The game started while the file came in; the automatic update waits for its end.
     GameStarted,
+    /// A backup is at work (Windows); the automatic update looks again in a moment.
+    Postponed,
+}
+
+/// The way out while a backup is at work under Windows: the installer would end the program in the middle of
+/// it. The automatic update waits, a click is told.
+fn backup_first(job: &Job<'_>) -> Done {
+    if job.automatic { Done::Postponed } else { Done::Stopped(Some(t("up_sicherung_laeuft"))) }
 }
 
 fn said(key: &str, argument: &str) -> String {
@@ -97,8 +105,8 @@ fn failed(why: &str) -> Done {
 /// Fetch and install `release`.
 ///
 /// ⚠ The lock comes before the download: two clicks in a row, or a click and the automatic update, would
-/// otherwise let two installers go. It is given back on every way out but the hand-over to the helper, which
-/// owns it from then on.
+/// otherwise let two installers go. It is given back on every way out but the hand-over to the installer,
+/// which owns it from then on.
 pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> Done {
     let kind = updater::packaging(job.appimage, job.own_version);
     if kind == Packaging::Source {
@@ -113,12 +121,17 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
     let Some(name) = updater::safe_filename(&asset.name) else {
         return Done::Stopped(Some(updater::UpdateError::ForeignFile(asset.name.clone()).message()));
     };
+    let backup_at_work = || kind == Packaging::Exe && backup::running(job.paths, updater::now());
+    if backup_at_work() {
+        return backup_first(job);
+    }
     if !update_run::take_lock(job.paths, std::process::id(), job.now) {
         return Done::Stopped(Some(t("up_laeuft_schon")));
     }
     let appimage = updater::own_appimage(job.appimage);
     let program = appimage.clone().unwrap_or_else(|| job.program.to_path_buf());
-    let target = updater::download_target(&name, kind, appimage.as_deref(), job.temp);
+    let installers = updater::installer_folder(job.paths);
+    let target = updater::download_target(&name, kind, appimage.as_deref(), job.temp, &installers);
     // ⚠ The display must not end the download: a progress call that fails is dropped, and not asked again.
     let mut display_broken = false;
     let mut progress = |percent: u8| {
@@ -138,6 +151,10 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
     if job.automatic && (job.game_running)() {
         update_run::release_lock(job.paths);
         return Done::GameStarted;
+    }
+    if backup_at_work() {
+        update_run::release_lock(job.paths);
+        return backup_first(job);
     }
     let installed = auto_update::install(Request {
         paths: job.paths,
@@ -175,6 +192,10 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
         Err(why) => {
             errors::record("updates.install", &why);
             update_run::release_lock(job.paths);
+            // ⚠ Without this an installer a virus scanner stops would be fetched and stopped again every round.
+            if job.automatic && kind == Packaging::Exe {
+                update_run::remember_failed_version(job.paths, &release.version, job.now);
+            }
             failed(&why)
         }
     }
@@ -283,7 +304,7 @@ impl Runner {
                 shared.said.extend(text);
                 State::Idle
             }
-            Done::GameStarted => State::Idle,
+            Done::GameStarted | Done::Postponed => State::Idle,
         });
     }
 }

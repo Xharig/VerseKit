@@ -58,10 +58,12 @@ pub const LAST_SETTING: &str = "letzte_sicherung";
 ///
 /// ⚠ In doubt something does NOT belong here. A backup too large costs seconds, one too small costs the
 /// inventory.
-pub const RELOADABLE: [&str; 16] = [
+pub const RELOADABLE: [&str; 17] = [
     // v5: what the overlay tells the main window about anti-AFK. A state of the running program, never a
     // setting: a backup that took it along would bring a "on" back to a program that has it off.
     "Intern/anti-afk.json",
+    // The mark of the backup at work ([`RUNNING_FILE`]): a state of the running program as well.
+    "Intern/sicherung-laeuft.json",
     // Unused contract data; may lie in old data folders and belongs in no backup.
     "Intern/bp-contracts-de.json",
     "Intern/bp-contracts-en.json",
@@ -281,6 +283,53 @@ pub fn write(paths: &Paths, target: &str, version: &str, bindings: &[Binding]) -
         Value::str(format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}")),
     );
     Ok(count)
+}
+
+/// The file in `Intern` that says a backup or a restore is at work right now (`{"pid": …, "zeit": …}`).
+pub const RUNNING_FILE: &str = "sicherung-laeuft.json";
+/// A mark older than this counts as left over, even if its process number lives (Windows hands numbers out
+/// again), in seconds.
+pub const RUNNING_MAX_AGE: f64 = 3600.0;
+
+/// While it lives, [`running`] says that a backup is at work; it removes its mark when it goes, also when the
+/// work panics.
+pub struct RunningMark {
+    file: String,
+}
+
+impl RunningMark {
+    /// Writes the mark with this process and the time `now`.
+    pub fn begin(paths: &Paths, now: f64) -> RunningMark {
+        let file = paths.app_file(RUNNING_FILE);
+        let text = serde_json::json!({"pid": std::process::id(), "zeit": now}).to_string();
+        if let Err(error) = jsonio::write_text_atomic(&file, &text, jsonio::Newline::Keep) {
+            errors::record("backup.running_mark", &error);
+        }
+        RunningMark { file }
+    }
+}
+
+impl Drop for RunningMark {
+    fn drop(&mut self) {
+        if let Err(error) = jsonio::remove_file(&self.file)
+            && !jsonio::is_not_found(&error)
+        {
+            errors::record("backup.running_mark", &error);
+        }
+    }
+}
+
+/// Is a backup or a restore at work right now, in any process of the program? Only a readable mark of a living
+/// process that is younger than [`RUNNING_MAX_AGE`] counts.
+pub fn running(paths: &Paths, now: f64) -> bool {
+    let Ok(text) = fs::read_to_string(paths.app_file(RUNNING_FILE)) else { return false };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else { return false };
+    let time = value.get("zeit").and_then(serde_json::Value::as_f64);
+    let pid = value.get("pid").and_then(serde_json::Value::as_i64);
+    match (time, pid) {
+        (Some(time), Some(pid)) => (0.0..RUNNING_MAX_AGE).contains(&(now - time)) && crate::update_run::pid_alive(pid),
+        _ => false,
+    }
 }
 
 /// The folder in `Intern` with the backups written before an update.
@@ -1786,6 +1835,26 @@ mod tests {
         }
         assert!(!local_path(&root, &root, &paths), "the data folder itself is no place for the game");
         assert!(!local_path(&format!("{root}{}x", paths.host.flavor.sep()), &root, &paths));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_backup_at_work_is_seen_by_every_process_until_its_mark_goes() {
+        let (paths, dir) = paths_in("laeuft");
+        let now = crate::updater::now();
+        assert!(!running(&paths, now));
+        let mark = RunningMark::begin(&paths, now);
+        assert!(running(&paths, now + 1.0));
+        assert!(!running(&paths, now + RUNNING_MAX_AGE + 1.0), "too old");
+        assert!(!include("Intern/sicherung-laeuft.json"), "never in a backup");
+        drop(mark);
+        assert!(!running(&paths, now + 1.0), "gone with its work");
+        // A mark of a process that has ended, or a broken one, does not count.
+        let file = paths.app_file(RUNNING_FILE);
+        fs::write(&file, format!(r#"{{"pid": {}, "zeit": {now}}}"#, u32::MAX - 1)).unwrap();
+        assert!(!running(&paths, now));
+        fs::write(&file, b"{kaputt").unwrap();
+        assert!(!running(&paths, now));
         let _ = fs::remove_dir_all(dir);
     }
 }

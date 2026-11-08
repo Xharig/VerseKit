@@ -86,12 +86,6 @@ fn take_in_older_files(data: Option<&str>) -> Option<String> {
 
 fn main() -> eframe::Result {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    // The update helper (a copy of this file in the temporary folder) is no start of the program: it does its
-    // job and ends, before the single instance or anything else is asked.
-    if args.first().map(String::as_str) == Some(versekit_core::update_run::HELPER_SWITCH) {
-        run_update_helper(std::env::vars().collect());
-        return Ok(());
-    }
     // ⚠ A `--daten` that does not arrive (misspelled, no value) must not turn into a run on the player's own
     // data: the start with the system and the real files would be touched by a test run.
     if refuses(&args) {
@@ -360,16 +354,8 @@ fn start_usage(host: versekit_core::paths::Host, version: &str) {
     spawn_ping(paths, usage);
 }
 
-/// The run of the update helper: the job from the environment `vars`, without which it does nothing.
-fn run_update_helper(vars: Vec<(String, String)>) -> Option<i32> {
-    use versekit_core::{update_helper, update_run, updater};
-    let job = update_run::HelperJob::from_env(&vars)?;
-    let system = update_helper::Real { env: updater::clean_environment(vars) };
-    Some(update_helper::run(&job, &system))
-}
-
-/// At the start on the player's own data: what became of the last update, and the leftovers of an update in
-/// the temporary folder `temp`. The outcome goes to the overlay as a message of the system; the main window
+/// At the start on the player's own data: what became of the last update, the leftovers of an update in the
+/// temporary folder `temp`, and the installers fetched before (`updater::installer_folder`). The outcome goes to the overlay as a message of the system; the main window
 /// opens after an update that asks for it. A failed automatic update is remembered, so that it is not tried
 /// again at once. ⚠ The jump from 4.12 is not told in this version (it comes with 5.1), only cleaned up.
 fn after_update(
@@ -382,6 +368,9 @@ fn after_update(
     let now = updater::now();
     let outcome = update_run::evaluate(paths, version, now);
     update_run::remove_leftovers(temp);
+    // The run mark is left only while an update runs: its installer stays.
+    let running = update_run::read_run(paths).map(|run| std::path::PathBuf::from(run.installer));
+    update_run::remove_fetched(&updater::installer_folder(paths), running.as_deref(), now);
     let Some(outcome) = outcome else { return };
     update_run::remember_failure(paths, &outcome, now);
     if outcome.from_previous_program() {
@@ -620,6 +609,13 @@ mod tests {
         std::fs::create_dir_all(&temp).unwrap();
         let leftover = temp.join(versekit_core::legacy::UPDATE_HELPER_SCRIPT);
         std::fs::write(&leftover, b"x").unwrap();
+        // An installer an earlier update fetched and left.
+        let fetched = versekit_core::updater::installer_folder(&paths);
+        std::fs::create_dir_all(&fetched).unwrap();
+        let old_installer = fetched.join("VerseKit-Setup.exe");
+        std::fs::write(&old_installer, b"x").unwrap();
+        let hour_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+        std::fs::OpenOptions::new().write(true).open(&old_installer).unwrap().set_modified(hour_ago).unwrap();
         let now = versekit_core::updater::now();
         let run = |target: &str, previous: &str, automatic: bool| RunMark {
             target: target.into(),
@@ -635,6 +631,7 @@ mod tests {
         assert!(overlay.notice.as_deref().is_some_and(|n| n.contains("v5.0.1")), "{:?}", overlay.notice);
         assert!(overlay.open_overview);
         assert!(!leftover.exists() && update_run::read_run(&paths).is_none());
+        assert!(!old_installer.exists(), "the installer left by an earlier update goes");
         // Automatic and failed: told, the window opens, and the version is not tried again at once.
         update_run::begin_run(&paths, &run("v5.0.2", "5.0.1", true)).unwrap();
         let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
@@ -651,8 +648,6 @@ mod tests {
         let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
         after_update(&mut overlay, &paths, "5.0.0", &temp);
         assert!(overlay.notice.is_none());
-        // The helper does nothing without its job.
-        assert_eq!(run_update_helper(vec![("PATH".into(), "x".into())]), None);
     }
 
     /// `--daten` on an empty folder is a first start on that folder: the assistant runs on its data, not on the

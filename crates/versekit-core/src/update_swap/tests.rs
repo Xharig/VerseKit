@@ -131,7 +131,7 @@ fn a_real_program_that_ends_at_once_is_seen() {
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            command.creation_flags(crate::update_run::HELPER_FLAGS);
+            command.creation_flags(crate::update_run::DETACHED_FLAGS);
         }
     }
     let mut child = command.env_clear().envs(env).stderr(output).spawn().unwrap();

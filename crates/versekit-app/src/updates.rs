@@ -18,7 +18,7 @@
 //! The updates of the running program, in a thread of the overlay process (the part that runs all the time).
 //!
 //! Every ten minutes a look at GitHub; a newer release is fetched with its checksum and installed once it is two
-//! minutes old and Star Citizen is closed. Under Windows the update helper takes over and the overlay ends;
+//! minutes old and Star Citizen is closed. Under Windows the installer takes over and the overlay ends;
 //! under Linux the AppImage is exchanged, the new version started, and the overlay ends only when the new one
 //! lives (else the old file goes back). A build of the source never replaces itself.
 
@@ -139,6 +139,7 @@ fn install(world: &World<'_>, release: &updater::Release) -> Round {
             told_once(world, release);
             Round::Sleep(auto_update::GAME_POLL)
         }
+        Done::Postponed => Round::Sleep(auto_update::GAME_POLL),
         Done::Stopped(_) => Round::Sleep(auto_update::CHECK_INTERVAL),
     }
 }

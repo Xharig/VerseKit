@@ -95,24 +95,33 @@ fn request<'a>(
 
 #[cfg(windows)]
 #[test]
-fn under_windows_a_backup_the_run_mark_and_the_helper_follow_in_this_order() {
-    let (dir, paths, temp, downloaded) = world("auto-windows");
+fn under_windows_a_backup_then_the_installer_itself_is_started_and_no_copy_of_the_program() {
+    let (dir, paths, temp, old_place) = world("auto-windows");
+    fs::remove_file(&old_place.path).unwrap();
     let folder = dir.path().join("Programme").join("Verse-Kit");
     fs::create_dir_all(&folder).unwrap();
-    // The program file is a copy of `ping`: started as the helper it only answers with an error, without a window.
-    let program = folder.join("SC-BP-Watcher.exe");
     let system = PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()));
+    let program = folder.join("SC-BP-Watcher.exe");
     fs::copy(system.join(r"System32\PING.EXE"), &program).unwrap();
-    let installed = install(request(&paths, &downloaded, &program, Packaging::Exe, &temp)).expect("handed over");
-    let Installed::HandedOver(helper) = installed else { panic!("{installed:?}") };
-    assert!(temp.join(update_run::HELPER_NAME).is_file(), "the helper is a copy of the program file");
-    let run = read_run(&paths).expect("the run mark");
-    assert_eq!((run.target.as_str(), run.previous.as_str(), run.automatic), ("v5.0.1", "5.0.0", true));
-    assert_eq!(run.checksum, downloaded.checksum);
-    let lock = fs::read_to_string(paths.app_file(update_run::LOCK_FILE)).unwrap();
-    assert!(lock.contains(&format!("\"pid\":{helper}")), "the lock belongs to the helper: {lock}");
+    // A copy of `where` stands in for the installer: on these arguments it ends at once, without a window.
+    let fetched = dir.path().join("lokal").join("VerseKit").join("Update");
+    fs::create_dir_all(&fetched).unwrap();
+    let setup = fetched.join("VerseKit-Setup.exe");
+    fs::copy(system.join(r"System32\where.exe"), &setup).unwrap();
+    let downloaded = Downloaded { checksum: checksum_of(&setup).unwrap(), path: setup.clone() };
+    let error = install(request(&paths, &downloaded, &program, Packaging::Exe, &temp)).expect_err("ended at once");
+    assert!(error.contains("ended at once"), "{error}");
     let backups = fs::read_dir(paths.app_file(backup::BEFORE_UPDATE_FOLDER)).unwrap().count();
     assert_eq!(backups, 1, "a backup before the update");
+    let log = fs::read_to_string(paths.app_file(update_run::LOG_FILE)).unwrap();
+    assert!(log.contains("program starts the installer VerseKit-Setup.exe"), "the installer itself: {log}");
+    assert!(log.contains("Installer ended before it ran"), "{log}");
+    assert!(read_run(&paths).is_none(), "no run mark: the program runs on");
+    let in_temp: Vec<_> = fs::read_dir(&temp).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert!(
+        in_temp.iter().all(|name| !name.to_string_lossy().to_lowercase().ends_with(".exe")),
+        "no program file in the temporary folder, no copy of the program: {in_temp:?}"
+    );
 }
 
 #[test]
