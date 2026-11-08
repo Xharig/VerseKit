@@ -555,6 +555,7 @@ impl Periodic {
             let text = Phrase::new("s_wb_fertig_hinweis").with("0", versekit_core::workbench_jobs::label(&job));
             run.tell(News::Row(Row::Hint { text: text.clone().into(), contract: None }));
             run.tell(News::System(Phrase::new("ov_a_werkbank_titel"), text));
+            run.tell(News::Opens(Event::Workbench));
         }
     }
 
@@ -1785,12 +1786,30 @@ mod tests {
             kinds.push(match item {
                 News::Row(_) => "hint",
                 News::System(..) => "system",
+                News::Opens(Event::Workbench) => "opens-workbench",
                 News::Opens(_) => "opens",
                 News::Beep => "beep",
                 _ => "other",
             });
         }
         kinds
+    }
+
+    /// A job of the fabricator that is done opens the overlay by its own event (not by the refinery's), once, and
+    /// makes no sound of the refinery.
+    #[test]
+    fn a_fabricator_job_that_is_done_opens_the_overlay_by_its_own_event() {
+        language::set_thread_language(language::Choice::De);
+        let (home, paths) = home("werkbank-fertig");
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+        // Entered an hour ago for a minute: done.
+        versekit_core::workbench_jobs::add(&paths, "Rüstung", 60, now - 3600.0).expect("entered");
+        assert_eq!(told_by_refinery(&paths), ["hint", "system", "opens-workbench"]);
+        assert!(told_by_refinery(&paths).is_empty(), "told once");
+        // A job still running opens nothing.
+        versekit_core::workbench_jobs::add(&paths, "Waffe", 3600, now).expect("entered");
+        assert!(told_by_refinery(&paths).is_empty(), "not done yet");
+        let _ = std::fs::remove_dir_all(home);
     }
 
     #[test]

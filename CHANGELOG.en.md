@@ -6,6 +6,45 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.4 - 2026-11-08
+
+> Changed game values now show whether a value got better or worse, with
+> a search and a jump to the blueprint. Also a larger smallest text, a
+> slimmer hangar head and an overlay that can open for the fabricator.
+
+### New
+
+- **Changed game values: better or worse.** Each change shows in blue
+  when the value got better and in yellow when it got worse, for example
+  more damage, range or shield points as better, more heat, mass or
+  signature as worse. What cannot be judged stays muted. A line above the
+  list explains the colours.
+- **Changed game values: search.** A search line above the list finds a
+  part by its name or area and a changed field by its name.
+- **Changed game values: jump to the blueprint.** A new or changed part
+  that is a blueprint carries a chip "Blueprint". A click opens the
+  blueprint list right on that blueprint.
+- **Overlay opens for the fabricator.** Under "The overlay opens at" there
+  is now "Fabricator done", like for the refinery. Off at first.
+
+### Improved
+
+- **Larger smallest text.** Hints and explanations under the settings grew
+  from 11.5 to 12.0 pt. Reported by fok
+- **Hangar: slim head.** The note about the hangar stands left in a slim
+  card, to its right two buttons open "Fetch or enter ships" and "Fleet
+  analysis".
+- **Mining reads the refining methods itself.** Whoever opened Mining
+  before Crafting saw the table written by hand. Now the page reads the
+  values from the game data when they are missing and the game is closed.
+- **HOTFIX without a test note.** HOTFIX is a build of LIVE, the pages no
+  longer warn there about confidential test data.
+
+### Fixed
+
+- On the shopping list a long line in the basket grew wider than the card,
+  now it wraps.
+
 ## v5.2.3 - 2026-11-08
 
 > The Windows update no longer sets off virus alarms: VerseKit starts the

@@ -122,7 +122,7 @@ pub fn install(ctx: &egui::Context) {
 pub const BODY_SIZE: f32 = 13.0;
 /// Size of hints, notes under a setting and other small text: close below the body text, so it stays readable
 /// at every size of the interface.
-pub const SMALL_SIZE: f32 = 11.5;
+pub const SMALL_SIZE: f32 = 12.0;
 /// Size of the title of a page and of big figures.
 pub const HEADING_SIZE: f32 = 17.0;
 

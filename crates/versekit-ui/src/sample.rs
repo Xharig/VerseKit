@@ -1648,6 +1648,14 @@ impl SamplePage {
         }
     }
 
+    /// Sets the blueprint list to the blueprint called `name`: it stands in the search and its row is open.
+    fn open_blueprint(&mut self, name: &str) {
+        self.blueprint_view.reset();
+        self.blueprint_view.search = name.to_string();
+        self.blueprint_view.open =
+            self.blueprints.catalog.blueprints.iter().position(|b| b.key == versekit_core::paths::name_key(name));
+    }
+
     /// Switches to the page `key` of the navigation group `group`, as a jump from another page does.
     pub fn open_page(&mut self, ctx: &egui::Context, key: &str, group: &str) {
         self.page = key.to_string();
@@ -1983,9 +1991,9 @@ impl SamplePage {
         #[cfg(not(test))]
         let values_supply: std::sync::Arc<dyn versekit_gamedata::values_store::Supply> =
             std::sync::Arc::new(versekit_gamedata::values_store::Runtime::for_host(&paths.host));
-        page.crafting = crafting_page::CraftingState::with_files(&paths, values_supply);
+        page.crafting = crafting_page::CraftingState::with_files(&paths, values_supply.clone());
         page.farm = farm_page::FarmState::with_files(&paths);
-        page.mining = mining_page::MiningState::with_files(&paths);
+        page.mining = mining_page::MiningState::with_files(&paths).with_supply(values_supply);
         page.salvage = salvage_page::SalvageState::with_files(&paths);
         page.shopping = shopping_page::ShoppingState::with_files(&paths);
         page.memo_page = notes_page::NotesState::with_files(&paths);
@@ -5118,7 +5126,14 @@ impl SamplePage {
                         crate::serverstatus_page::show_page(page, scheme, &mut self.server_status);
                     }
                     "hf_patchaenderungen" => {
-                        crate::patch_changes_page::show_page(page, scheme, &mut self.patch_changes);
+                        let catalog = &self.blueprints.catalog;
+                        // The part of the patch that has a blueprint leads to it in the blueprint list.
+                        if let Some(crate::patch_changes_page::Action::ToBlueprint(name)) =
+                            crate::patch_changes_page::show_page(page, scheme, &mut self.patch_changes, catalog)
+                        {
+                            self.open_blueprint(&name);
+                            jump = Some(("hf_liste".to_string(), "hf_gruppe_bp"));
+                        }
                     }
                     "hf_handlesuche" => crate::handle_page::show_page(page, scheme, &mut self.handles),
                     "hf_bergbau" => {
@@ -5136,14 +5151,7 @@ impl SamplePage {
                         match crafting_page::show_page(page, scheme, &mut self.crafting, &shared) {
                             // Where the blueprint comes from: the list, with the item as search and open.
                             Some(crafting_page::Action::ToBlueprint(name)) => {
-                                self.blueprint_view.reset();
-                                self.blueprint_view.search = name.clone();
-                                self.blueprint_view.open = self
-                                    .blueprints
-                                    .catalog
-                                    .blueprints
-                                    .iter()
-                                    .position(|b| b.key == versekit_core::paths::name_key(&name));
+                                self.open_blueprint(&name);
                                 jump = Some(("hf_liste".to_string(), "hf_gruppe_bp"));
                             }
                             Some(crafting_page::Action::ToMining(material)) => {
@@ -5839,6 +5847,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_bei_scanner", "s_ov_bei_scanner_h", &[]),
                     ("s_ov_bei_auftrag", "s_ov_bei_auftrag_h", &[]),
                     ("s_ov_bei_raffinerie", "s_ov_bei_raffinerie_h", &[]),
+                    ("s_ov_bei_werkbank", "s_ov_bei_werkbank_h", &[]),
                     ("s_ov_bei_katalog", "s_ov_bei_katalog_h", &[]),
                 ],
             ),

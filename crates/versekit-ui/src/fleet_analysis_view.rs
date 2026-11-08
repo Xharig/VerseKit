@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The fleet analysis over the list of the hangar: a fold, closed at
-//! first, that shows per archetype (combat, industry and supply, travel and
+//! The fleet analysis over the list of the hangar: a part, closed at
+//! first and opened by a button in the head card of the page, that shows per archetype (combat, industry and supply, travel and
 //! exploration) which gameplay loops the own ships cover. Loops without any
 //! ship stand in one line "Not covered"; secondary roles are folded; below
 //! come snubs without a mothership, the vehicles that come along with a ship,
@@ -269,18 +269,14 @@ fn body(ui: &mut Ui, scheme: &Scheme, analysis: &Analysis, entries: &[&Map], unf
     }
 }
 
-/// The fold "Fleet analysis" over the ship list: closed at first, built
-/// only while open.
+/// The fleet analysis over the ship list: closed at first (the button "Fleet analysis" in the head card of the page
+/// opens it), built only while open.
 pub fn show(ui: &mut Ui, scheme: &Scheme, view: &mut FleetView, entries: &[&Map]) {
-    let open = view.open;
-    let shown =
-        widgets::collapsing(&t("s_fa_titel")).id_salt("hangar-flottenanalyse").open(Some(open)).show(ui, |ui| {
-            let analysis = view.analysis(entries);
-            body(ui, scheme, &analysis, entries, &mut view.unfolded);
-        });
-    if shown.header_response.clicked() {
-        view.open = !open;
+    if !view.open {
+        return;
     }
+    let analysis = view.analysis(entries);
+    body(ui, scheme, &analysis, entries, &mut view.unfolded);
 }
 
 #[cfg(test)]
@@ -388,14 +384,13 @@ mod tests {
     }
 
     #[test]
-    fn closed_it_shows_only_its_head_and_builds_nothing() {
+    fn closed_it_shows_nothing_and_builds_nothing() {
         let _language = crate::language_lock();
         let ctx = context();
         let list = entries(HANGAR);
         let mut view = FleetView::default();
         let (texts, _) = settled(&ctx, &mut view, &list, 900.0);
-        assert!(texts.contains(&t("s_fa_titel")), "{texts:?}");
-        assert!(!texts.iter().any(|x| x.contains(&t("s_fav_gruppe_kampf"))), "{texts:?}");
+        assert!(texts.is_empty(), "the button that opens it stands in the head of the page: {texts:?}");
         assert!(view.cache.is_none(), "nothing is analysed while closed");
     }
 

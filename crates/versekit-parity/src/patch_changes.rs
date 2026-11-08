@@ -33,19 +33,27 @@ fn text(value: &Value, key: &str) -> String {
     get(value, key).and_then(Value::as_str).unwrap_or("").to_string()
 }
 
-fn tone(tone: &Tone) -> &'static str {
+/// The tone as 4.12 named it: it knew only the way a number went, not whether that is better (the new tones of
+/// better and worse are the same rise or fall seen through the table of the field).
+fn tone(tone: &Tone, change: &FieldChange) -> &'static str {
     match tone {
         Tone::Up => "up",
-        Tone::Down => "down",
         Tone::Gone => "gone",
         Tone::Same => "same",
-        Tone::Plain => "plain",
+        // A number of a field the table does not know, texts and nested values stay plain.
+        Tone::Better | Tone::Worse | Tone::Plain => {
+            match patch_changes::direction(change.old.as_ref(), change.new.as_ref()) {
+                1 => "up",
+                -1 => "down",
+                _ => "plain",
+            }
+        }
     }
 }
 
 fn row(change: &FieldChange) -> Value {
     let (written, shade) = patch_changes::field_text(change);
-    Value::Array(vec![Value::str(written), Value::str(tone(&shade))])
+    Value::Array(vec![Value::str(written), Value::str(tone(&shade, change))])
 }
 
 fn summary_value(summary: &Summary) -> Value {

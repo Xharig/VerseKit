@@ -2370,6 +2370,7 @@ pub(in crate::sample) mod tests {
                 "s_ov_bei_scanner",
                 "s_ov_bei_auftrag",
                 "s_ov_bei_raffinerie",
+                "s_ov_bei_werkbank",
                 "s_ov_bei_katalog",
             ] {
                 let text = language::t(key).to_lowercase();

@@ -1879,7 +1879,9 @@ mod tests {
     fn the_ranking_bar_text_is_readable_in_every_scheme() {
         let mut low = Vec::new();
         for scheme in theme::schemes() {
-            for tone in [RankTone::Accent, RankTone::Red, RankTone::Gold] {
+            for tone in
+                [RankTone::Accent, RankTone::Red, RankTone::Gold, RankTone::Better, RankTone::Worse, RankTone::Muted]
+            {
                 let ratio = scheme.fg.contrast(widgets::rank_bar(scheme, tone));
                 if ratio < 4.5 {
                     low.push(format!("{} {tone:?}: {ratio:.2}", scheme.id));

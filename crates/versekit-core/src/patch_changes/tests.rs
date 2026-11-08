@@ -183,7 +183,202 @@ fn nested_values_name_what_differs() {
     assert_eq!(field_text(&change(Some(Value::int(1090)), None)), ("1090 → fällt weg".to_string(), Tone::Gone));
     assert_eq!(field_text(&change(None, Some(Value::int(5)))), ("neu: 5".to_string(), Tone::Up));
     assert_eq!(field_text(&change(Some(Value::int(3)), Some(Value::int(3)))), ("3 → 3".to_string(), Tone::Same));
-    assert_eq!(field_text(&change(Some(Value::int(4)), Some(Value::int(2)))).1, Tone::Down);
+    // A field the table does not know: a rise and a fall claim no judgement.
+    assert_eq!(field_text(&change(Some(Value::int(4)), Some(Value::int(2)))).1, Tone::Plain);
+    let at = |path: &str, old: i64, new: i64| {
+        let change = FieldChange { path: path.into(), old: Some(Value::int(old)), new: Some(Value::int(new)) };
+        field_text(&change).1
+    };
+    assert_eq!(at("weapon.ammo.damage.energy", 4, 6), Tone::Better);
+    assert_eq!(at("weapon.ammo.damage.energy", 6, 4), Tone::Worse);
+    assert_eq!(at("qdrive.params.cooldownTime", 4, 6), Tone::Worse, "a longer cooldown is worse");
+    assert_eq!(at("qdrive.params.cooldownTime", 6, 4), Tone::Better);
+}
+
+#[test]
+fn the_table_says_per_field_whether_more_is_better() {
+    // More is better.
+    for path in [
+        "weapon.ammo.damage.physical",
+        "weapon.ammo.speed",
+        "weapon.ammo.penetration.base",
+        "shield.maxShieldHealth",
+        "shield.maxShieldRegen",
+        "precomputed.hp.total",
+        "precomputed.dps.burst",
+        "precomputed.quantum.rangeGm",
+        "precomputed.thrust.main",
+        "precomputed.fuel.hydrogenCapacity",
+        "qdrive.params.driveSpeed",
+        "qdrive.params.stageOneAccelRate",
+        "cooler.coolingRate",
+        "weapon.fireActions[0].fireRate",
+        "weapon.overheatTemperature",
+    ] {
+        assert_eq!(wish(path), Wish::More, "{path}");
+    }
+    // Less is better: the same words inside a longer one (`regen`, `rate`, `damage`) do not turn it around.
+    for path in [
+        "precomputed.fuel.burnRate.main",
+        "precomputed.fuel.usagePerSecond.maneuver",
+        "qdrive.params.cooldownTime",
+        "qdrive.params.spoolUpTime",
+        "qdrive.params.interdictionEffectTime",
+        "shield.damagedRegenDelay",
+        "shield.downedRegenDelay",
+        "resource.online.signatureParams.em.nominalSignature",
+        "weapon.heatPerShot",
+        "weapon.recoil.kick",
+        "weapon.spread.max",
+        "vehicle.mass",
+        "powerPlant.powerDraw",
+    ] {
+        assert_eq!(wish(path), Wish::Less, "{path}");
+    }
+    // Neutral: a resistance, the crew, the dimensions, a slot, and what the table does not know.
+    for path in [
+        "vehicle.crewSize",
+        "vehicle.dimensions.x",
+        "weapon.resistance.energy",
+        "mounts[0].slots",
+        "craftingBlueprint",
+        "i18n.name",
+        "something.unheard.of",
+        "",
+    ] {
+        assert_eq!(wish(path), Wish::Neutral, "{path}");
+    }
+    // The last name decides, the groups before it only when it says nothing.
+    assert_eq!(wish("armor.damageMultiplier.physical"), Wish::Neutral, "a multiplier reads both ways");
+    assert_eq!(wish("weapon.overheatFixTime"), Wish::Less, "the time to recover from overheating");
+    assert_eq!(wish("weapon.overheatCooldown"), Wish::Less);
+    assert_eq!(wish("weapon.overheatTemperature"), Wish::More, "the limit before overheating");
+    assert_eq!(wish("weapon.ammo.lifetime"), Wish::More);
+    assert_eq!(wish("shield.damagedRegenDelay"), Wish::Less, "`shield` in the group does not turn the delay around");
+    assert_eq!(wish("weapon.ammo.mystery"), Wish::More, "a field the table does not know takes its group");
+    // `hp` is a name or the start or end of one, never a piece inside a longer word.
+    for path in ["x.searchPath", "x.launchPower", "x.growthPerSecond", "x.lengthPerShot"] {
+        assert_eq!(wish(path), Wish::Neutral, "{path}");
+    }
+    for path in ["ship.hp", "ship.maxHp", "ship.hpTotal", "precomputed.hp.total"] {
+        assert_eq!(wish(path), Wish::More, "{path}");
+    }
+    // The indices of a path do not matter, nor the case.
+    assert_eq!(wish("weapon.fireActions[3].FIRERATE"), Wish::More);
+    assert_eq!(wish("a[1].cooldown[2]"), Wish::Less);
+}
+
+#[test]
+fn the_search_finds_a_part_by_name_key_area_or_changed_field_whatever_the_case() {
+    crate::language::set_thread_language(crate::language::Choice::De);
+    let change = Change {
+        kind: "ships".into(),
+        fate: Fate::Changed,
+        id: "DRAK_Cutter_01".into(),
+        name: "Drake Cutter".into(),
+        size: None,
+        fields: vec![FieldChange {
+            path: "precomputed.fuel.hydrogenCapacity".into(),
+            old: Some(Value::int(1)),
+            new: Some(Value::int(2)),
+        }],
+    };
+    for hit in ["", "  ", "cutter", "DRAKE", "drak_cutter", "Ships", "wasserstoff", "TANK", "hydrogencapacity"] {
+        assert!(matches(&change, hit), "should fit: {hit:?}");
+    }
+    for miss in ["avenger", "weapons", "schild", "cutterx"] {
+        assert!(!matches(&change, miss), "should not fit: {miss:?}");
+    }
+    // The readable name follows the language in use.
+    crate::language::set_thread_language(crate::language::Choice::En);
+    assert!(!matches(&change, "wasserstoff"), "the German name is not searched in English");
+    assert!(matches(&change, "Hydrogen TANK"));
+    crate::language::set_thread_language(crate::language::Choice::De);
+}
+
+#[test]
+fn the_fields_that_real_patches_changed_are_placed_by_hand() {
+    // The paths of the patches 4.9.0 to 4.10.2 (only the names of the fields), each placed by what it means.
+    let more = [
+        "precomputed.fuel.hydrogenCapacity",
+        "precomputed.fuel.quantumCapacity",
+        "precomputed.quantum.rangeGm",
+        "weapon.ammo.penetration.base",
+        "weapon.ammo.damage.physical",
+        "weapon.ammo.damage.energy",
+        "weapon.fireActions[0].fireRate",
+        "qdrive.params.driveSpeed",
+        "qdrive.params.stageOneAccelRate",
+        "qdrive.params.stageTwoAccelRate",
+        "fuelPod.capacity",
+        "precomputed.dps.burst",
+        "precomputed.dps.pilotBurst",
+        "precomputed.thrust.total",
+        "precomputed.thrust.main",
+        "precomputed.thrust.maneuver",
+        "precomputed.thrust.retro",
+        "precomputed.hp.total",
+        "precomputed.hp.vital",
+        "precomputed.hp.secondary",
+        "precomputed.hp.breakable",
+        "precomputed.flight.pitch",
+        "precomputed.flight.roll",
+        "precomputed.flight.yaw",
+        "precomputed.flight.boostedPitch",
+        "mining.beams[0].damagePerSecond.energy",
+    ];
+    let less = [
+        "precomputed.fuel.burnRate.main",
+        "precomputed.fuel.burnRate.maneuver",
+        "precomputed.fuel.burnRate.retro",
+        "precomputed.fuel.usagePerSecond.main",
+        "precomputed.fuel.usagePerSecond.retro",
+        "qdrive.params.cooldownTime",
+        "qdrive.params.spoolUpTime",
+        "qdrive.params.interdictionEffectTime",
+        "precomputed.signatureAtRest.em.nominal",
+        // What a quantum drive draws while it spools up: a rise is worse.
+        "resource.states[1].flows[1].consumes[0].units",
+    ];
+    let neutral = [
+        "weapon.ammo.penetration.nearRadius",
+        "weapon.ammo.penetration.farRadius",
+        "qdrive.params.engageSpeed",
+        "vehicle.crewSize",
+        "vehicle.dimensions",
+        "vehicle.dimensions.x",
+        "i18n.name",
+        "craftingBlueprint",
+        "resource.states[0].flows",
+        "params.positiveAngularScale.x",
+        "params.negativeAngularScale.z",
+        "params.positiveLinearScale.x",
+        "modifiers[0].weaponBuff.regenMaxAmmoLoadMultiplier",
+        "slots[3].item.armor.damageMultiplier.energy",
+    ];
+    for (paths, expected) in [(&more[..], Wish::More), (&less[..], Wish::Less), (&neutral[..], Wish::Neutral)] {
+        for path in paths {
+            assert_eq!(wish(path), expected, "{path}");
+        }
+    }
+    assert_eq!(wish("part.heatCapacity"), Wish::More, "the heat a part takes is not the heat it makes");
+    assert_eq!(wish("part.heatGeneration"), Wish::Less);
+}
+
+#[test]
+fn a_change_is_better_or_worse_by_the_field_and_the_way_it_went() {
+    let (i, f) = (Value::int, Value::Float);
+    let v = |path: &str, old: &Value, new: &Value| verdict(path, Some(old), Some(new));
+    assert_eq!(v("weapon.ammo.speed", &i(100), &i(120)), Verdict::Better);
+    assert_eq!(v("weapon.ammo.speed", &i(120), &i(100)), Verdict::Worse);
+    assert_eq!(v("qdrive.params.cooldownTime", &f(5.0), &f(3.5)), Verdict::Better);
+    assert_eq!(v("qdrive.params.cooldownTime", &f(3.5), &f(5.0)), Verdict::Worse);
+    assert_eq!(v("weapon.ammo.speed", &i(100), &i(100)), Verdict::Neutral, "the same");
+    assert_eq!(v("unknown.field", &i(1), &i(9)), Verdict::Neutral, "unknown");
+    assert_eq!(v("weapon.ammo.speed", &Value::Bool(false), &Value::Bool(true)), Verdict::Neutral, "truth");
+    assert_eq!(v("weapon.ammo.speed", &Value::str("a"), &Value::str("b")), Verdict::Neutral, "text");
+    assert_eq!(verdict("weapon.ammo.speed", None, Some(&i(5))), Verdict::Neutral, "a field that came");
+    assert_eq!(verdict("weapon.ammo.speed", Some(&i(5)), None), Verdict::Neutral, "a field that went");
 }
 
 #[test]

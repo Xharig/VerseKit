@@ -143,12 +143,12 @@ fn every_text_of_every_page_has_one_of_the_sizes_of_the_interface() {
     }
 }
 
-/// The scan sees a text of a size of its own: a label drawn at 12 points is none of the four.
+/// The scan sees a text of a size of its own: a label drawn at 12.5 points is none of the four (small is 12.0).
 #[test]
 fn the_size_scan_finds_a_size_of_its_own() {
     let mut harness = Harness::builder().with_accessibility_check(false).allow_missing_glyphs().build_ui(|ui| {
         versekit_ui::install(ui.ctx());
-        ui.label(egui::RichText::new("zwölf Punkte").size(12.0));
+        ui.label(egui::RichText::new("zwölfeinhalb Punkte").size(12.5));
         ui.label("normal");
     });
     harness.step();
@@ -158,5 +158,5 @@ fn the_size_scan_finds_a_size_of_its_own() {
     }
     let outside = outside_the_steps(&found);
     assert_eq!(outside.len(), 1, "{outside:?}");
-    assert!(outside[0].contains("12.0"), "{outside:?}");
+    assert!(outside[0].contains("12.5"), "{outside:?}");
 }

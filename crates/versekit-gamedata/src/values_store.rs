@@ -244,6 +244,32 @@ fn write_cache(file: &str, stored: &Stored) -> std::io::Result<()> {
     jsonio::write_text_atomic(file, &text, Newline::Native)
 }
 
+/// How many readings of the values run in this process right now (started with [`Rebuild::spawn`] or run by
+/// [`Rebuild::run`]).
+static READING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Whether some reading of the values runs in this process right now (also one that waits for the game to close):
+/// a page that wants the files of that reading does not start a second one.
+pub fn reading() -> bool {
+    READING.load(std::sync::atomic::Ordering::Relaxed) > 0
+}
+
+/// A reading, counted in [`reading`] while it lives.
+struct Counted;
+
+impl Counted {
+    fn new() -> Counted {
+        READING.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Counted
+    }
+}
+
+impl Drop for Counted {
+    fn drop(&mut self) {
+        READING.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 /// The values to show at once, and the rebuild still due.
 pub struct Start {
     /// The values kept; `None` when there are none.
@@ -340,6 +366,7 @@ impl Rebuild {
     /// the archive nor scmdb gives values. A refused or failed write only
     /// costs the next start the reading.
     pub fn run(&self) -> Option<Built> {
+        let _counted = Counted::new();
         let folder = self.channel_folder.as_deref();
         let topic = versekit_core::archive_lock::reading_for("values");
         let game = folder.map(GameData::open);
@@ -510,7 +537,13 @@ impl Rebuild {
 
     /// Runs the reading in a thread of its own: see [`Pending::spawn`].
     pub fn spawn(self) -> Option<Pending> {
-        let pending = Pending::spawn(move || self.run());
+        // Counted from here, not from the first line of the thread: a page that asks [`reading`] right after
+        // must not find the gap between the start and the thread.
+        let counted = Counted::new();
+        let pending = Pending::spawn(move || {
+            let _counted = counted;
+            self.run()
+        });
         if pending.is_none() {
             versekit_core::errors::record("values.thread", &"no thread for reading the game values");
         }

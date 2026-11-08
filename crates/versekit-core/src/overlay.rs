@@ -143,6 +143,7 @@ pub mod keys {
     pub const EVENT_SCANNER: &str = "overlay_bei_scanner";
     pub const EVENT_CONTRACT: &str = "overlay_bei_auftrag";
     pub const EVENT_REFINERY: &str = "overlay_bei_raffinerie";
+    pub const EVENT_WORKBENCH: &str = "overlay_bei_werkbank";
     pub const EVENT_CATALOG: &str = "overlay_bei_katalog";
     /// One switch for each part the open overlay shows (see [`super::Section`]).
     pub const SHOW_SHARD: &str = "overlay_zeige_server";
@@ -569,12 +570,15 @@ pub enum Event {
     Contract,
     /// A refinery job is over.
     Refinery,
+    /// A job of the fabricator is over.
+    Workbench,
     /// Something is newly craftable in the game.
     Catalog,
 }
 
 impl Event {
-    pub const ALL: [Event; 5] = [Event::Blueprint, Event::Scanner, Event::Contract, Event::Refinery, Event::Catalog];
+    pub const ALL: [Event; 6] =
+        [Event::Blueprint, Event::Scanner, Event::Contract, Event::Refinery, Event::Workbench, Event::Catalog];
 
     /// The settings key of the switch.
     pub fn key(self) -> &'static str {
@@ -583,6 +587,7 @@ impl Event {
             Event::Scanner => keys::EVENT_SCANNER,
             Event::Contract => keys::EVENT_CONTRACT,
             Event::Refinery => keys::EVENT_REFINERY,
+            Event::Workbench => keys::EVENT_WORKBENCH,
             Event::Catalog => keys::EVENT_CATALOG,
         }
     }
@@ -2286,7 +2291,9 @@ mod tests {
         paths.set_setting(keys::EVENT_BLUEPRINT, Value::Bool(false));
         paths.set_setting(keys::EVENT_CATALOG, Value::str("ja"));
         paths.set_setting(keys::EVENT_REFINERY, Value::str("unsinn"));
+        paths.set_setting(keys::EVENT_WORKBENCH, Value::Bool(true));
         let events = Settings::read(&paths).events;
+        assert!(events.contains(Event::Workbench), "the fabricator has its own switch");
         assert!(events.contains(Event::Scanner));
         assert!(!events.contains(Event::Blueprint), "ein falsch gesetzter Schalter gilt");
         assert!(events.contains(Event::Catalog), "\"ja\" gilt wie bei den anderen Schaltern");

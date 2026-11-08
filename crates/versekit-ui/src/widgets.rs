@@ -3462,6 +3462,12 @@ pub enum RankTone {
     Accent,
     Red,
     Gold,
+    /// A change for the better ([`change_color`]: blue).
+    Better,
+    /// A change for the worse ([`change_color`]: yellow).
+    Worse,
+    /// A change that is neither, or not known to be: the muted color.
+    Muted,
 }
 
 /// The bar color of a ranking line: dark enough for the text on top of it
@@ -3471,6 +3477,9 @@ pub fn rank_bar(scheme: &Scheme, tone: RankTone) -> Color {
         RankTone::Accent => scheme.accent_dark,
         RankTone::Red => scheme.danger_fill,
         RankTone::Gold => scheme.gold.mix(scheme.bg, 0.72),
+        RankTone::Better => change_color(scheme, true).mix(scheme.bg, 0.72),
+        RankTone::Worse => change_color(scheme, false).mix(scheme.bg, 0.72),
+        RankTone::Muted => scheme.sub.mix(scheme.bg, 0.72),
     }
 }
 
@@ -3481,6 +3490,9 @@ pub fn rank_edge(scheme: &Scheme, tone: RankTone) -> Color {
         RankTone::Accent => scheme.accent,
         RankTone::Red => scheme.red,
         RankTone::Gold => scheme.gold,
+        RankTone::Better => change_color(scheme, true),
+        RankTone::Worse => change_color(scheme, false),
+        RankTone::Muted => scheme.sub,
     }
 }
 

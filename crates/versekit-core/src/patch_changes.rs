@@ -413,6 +413,21 @@ pub fn categories(changes: &[Change]) -> Vec<(String, usize)> {
     out
 }
 
+/// Whether an item fits a search: the text, upper or lower case alike, stands in its name, its internal key, its
+/// area, or in a field it changed (the readable name of the field in the language in use, or its path). An empty
+/// search fits everything.
+pub fn matches(change: &Change, search: &str) -> bool {
+    let needle = search.trim().to_lowercase();
+    if needle.is_empty() {
+        return true;
+    }
+    let has = |text: &str| text.to_lowercase().contains(&needle);
+    has(&change.name)
+        || has(&change.id)
+        || has(&change.kind)
+        || change.fields.iter().any(|field| has(&crate::language::pa_field(&field.path)) || has(&field.path))
+}
+
 // ------------------------------------------------------------------ Writing a value
 
 /// Python's `%g`: six significant digits, the exponent from 1e6 up and below 1e-4.
@@ -587,13 +602,161 @@ pub fn struct_diff(old: &Value, new: &Value, at_most: usize) -> String {
     parts.join(", ")
 }
 
+/// Which way a field is better. erkul's changelog only says old and new; whether a rise is good depends on the
+/// field: more damage or shield is good, more heat or fuel burn is not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Wish {
+    /// A higher value is better (damage, shield points, range, speed, capacity).
+    More,
+    /// A lower value is better (heat, burn, signature, cooldown, delay, mass, recoil).
+    Less,
+    /// Not known, or not a matter of better or worse: no colour claims a judgement.
+    Neutral,
+}
+
+/// What a change of a number means for the player.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Verdict {
+    Better,
+    Worse,
+    Neutral,
+}
+
+/// Parts of a field path that are never a matter of better or worse, whatever else the path says. Looked up first:
+/// a resistance (a multiplier that can be read both ways), the crew or the dimensions of a ship say nothing about
+/// "more is better". The radius of the penetration and the speed a quantum drive engages at are no matter of better
+/// or worse that a name can tell.
+const NEUTRAL_PARTS: &[&str] =
+    &["resist", "dimension", "crew", "slot", "blueprint", "multiplier", "nearradius", "farradius", "engagespeed"];
+
+/// Parts of a field path where less is better. Looked up before [`MORE_PARTS`], so that `regenDelay` (less) wins
+/// over `regen` (more) and `burnRate` over `rate`.
+const LESS_PARTS: &[&str] = &[
+    "consume",
+    "cooldown",
+    "spoolup",
+    "spooltime",
+    "chargetime",
+    "reloadtime",
+    "delay",
+    "interdiction",
+    "burnrate",
+    "usagepersecond",
+    "consumption",
+    "powerdraw",
+    "heat",
+    "temperature",
+    "signature",
+    "emission",
+    "mass",
+    "weight",
+    "recoil",
+    "spread",
+    "dispersion",
+    "windup",
+    "penalty",
+    "drag",
+    "cost",
+    "idle",
+];
+
+/// Parts of a field path where more is better.
+const MORE_PARTS: &[&str] = &[
+    "pitch",
+    "roll",
+    "yaw",
+    "damage",
+    "dps",
+    "alpha",
+    "impact",
+    "penetration",
+    "health",
+    "shield",
+    "armor",
+    "regen",
+    "cooling",
+    "firerate",
+    "rateoffire",
+    "ammo",
+    "magazine",
+    "range",
+    "speed",
+    "lifetime",
+    "capacity",
+    "thrust",
+    "accel",
+    "output",
+    "generation",
+    "powersegment",
+    "efficiency",
+    "boost",
+    "storage",
+    "integrity",
+];
+
+/// Which way the field of an erkul path is better (the table of "better or worse" per field). The path is read in
+/// lower case without its indices. The last name of the path decides, then the whole path; in each, neutral parts
+/// decide first, then the limit before overheating, then the parts where less is better, then those where more is
+/// better. A field no table names is [`Wish::Neutral`].
+pub fn wish(path: &str) -> Wish {
+    let mut plain = String::with_capacity(path.len());
+    let mut inside = false;
+    for c in path.chars() {
+        match c {
+            '[' => inside = true,
+            ']' => inside = false,
+            c if !inside => plain.extend(c.to_lowercase()),
+            _ => {}
+        }
+    }
+    // The last name says what the field is; the groups before it (`weapon.ammo.`, `shield.`) only when it says
+    // nothing, else every field below `ammo` or `shield` would read "more is better".
+    let last = plain.rsplit('.').next().unwrap_or_default();
+    wish_of(last).or_else(|| wish_of(&plain)).unwrap_or(Wish::Neutral)
+}
+
+/// The wish a text names by the tables, `None` where it names none.
+fn wish_of(text: &str) -> Option<Wish> {
+    let has = |parts: &[&str]| parts.iter().any(|part| text.contains(part));
+    // `hp` is short: only as a name or the start or end of one (`hp`, `maxHp`, `hpTotal`), never inside a longer
+    // word (`searchPath`).
+    let hp = text.split('.').any(|name| name.starts_with("hp") || name.ends_with("hp"));
+    if has(NEUTRAL_PARTS) {
+        Some(Wish::Neutral)
+    } else if text.contains("overheat") {
+        // The limit before overheating is better when higher; the time to recover from it, when lower.
+        Some(if has(&["cooldown", "delay", "time", "recover", "fix"]) { Wish::Less } else { Wish::More })
+    } else if text.contains("heatcapacity") {
+        // How much heat a part takes before it is in trouble: the word `heat` of the less table would turn it around.
+        Some(Wish::More)
+    } else if has(LESS_PARTS) {
+        Some(Wish::Less)
+    } else if hp || has(MORE_PARTS) {
+        Some(Wish::More)
+    } else {
+        None
+    }
+}
+
+/// Whether a change of a number is for the better or the worse in a field; truth values, texts, nested values and an
+/// unchanged number are neutral.
+pub fn verdict(path: &str, old: Option<&Value>, new: Option<&Value>) -> Verdict {
+    match (wish(path), direction(old, new)) {
+        (Wish::More, 1) | (Wish::Less, -1) => Verdict::Better,
+        (Wish::More, -1) | (Wish::Less, 1) => Verdict::Worse,
+        _ => Verdict::Neutral,
+    }
+}
+
 /// How a changed field reads: the text and its tone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Tone {
-    /// Rose, or a field that came.
+    /// For the better (by [`wish`]).
+    Better,
+    /// For the worse.
+    Worse,
+    /// A field that came.
     Up,
-    /// Fell.
-    Down,
     /// A field that went.
     Gone,
     /// The value the same.
@@ -613,10 +776,10 @@ pub fn field_text(change: &FieldChange) -> (String, Tone) {
             if before == after {
                 return (format!("{before} → {after}"), Tone::Same);
             }
-            let tone = match direction(old, new) {
-                1 => Tone::Up,
-                -1 => Tone::Down,
-                _ => Tone::Plain,
+            let tone = match verdict(&change.path, old, new) {
+                Verdict::Better => Tone::Better,
+                Verdict::Worse => Tone::Worse,
+                Verdict::Neutral => Tone::Plain,
             };
             (format!("{before} → {after}{}", percent(old, new)), tone)
         }
@@ -651,6 +814,8 @@ pub struct Move {
     pub new: Value,
     /// `(new - old) / old * 100`, the old value above 0.
     pub share: f64,
+    /// For the better or the worse, by the table of [`wish`].
+    pub verdict: Verdict,
 }
 
 /// The numbers of the changed items that rose most and that fell most, each at most `at_most`, the largest first.
@@ -677,6 +842,7 @@ pub fn largest_moves(changes: &[Change], at_most: usize) -> (Vec<Move>, Vec<Move
                 old,
                 new,
                 share,
+                verdict: verdict(&field.path, field.old.as_ref(), field.new.as_ref()),
             });
         }
     }

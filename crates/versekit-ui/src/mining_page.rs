@@ -26,6 +26,7 @@
 use std::time::SystemTime;
 
 use egui::{RichText, Ui};
+use versekit_core::archive_lock;
 use versekit_core::jsonio::{self, Value};
 use versekit_core::language::{Arg, fill, t, tf};
 use versekit_core::mining_data::{self, MiningData, Ore, OrePlace, Place};
@@ -34,6 +35,7 @@ use versekit_core::refining;
 use versekit_core::stock_data::lower;
 use versekit_core::stock_fetch::{self, Outcome, Reason};
 use versekit_core::theme::{IconTint, Scheme};
+use versekit_gamedata::values_store;
 
 use crate::color;
 use crate::farm_page::share_text;
@@ -41,6 +43,8 @@ use crate::trade::{self, Job, Polled};
 use crate::widgets::{self, ButtonKind};
 
 const LOOK_SECONDS: f64 = 1.0;
+/// How often a page without the file of the processing methods looks whether it may ask for a reading.
+const ASK_SECONDS: f64 = 5.0;
 /// So many hits of the signature stand there; the count above names all.
 const SHOWN_HITS: usize = 10;
 /// The tools in the order of the page; the first choice of the filter means all.
@@ -77,6 +81,13 @@ pub struct MiningState {
     /// The levels of the processing methods: read from the game data where they were kept, else the table.
     methods: refining::Methods,
     methods_seen: Option<SystemTime>,
+    /// Where the reading of the game data comes from, to ask for the file of the methods when it is missing.
+    supply: Option<std::sync::Arc<dyn values_store::Supply>>,
+    /// The reading this page started for that file, and whether it was started (once for a page).
+    methods_reading: Option<values_store::Pending>,
+    methods_asked: bool,
+    /// When the wish for the file was last looked at ([`ASK_SECONDS`]).
+    methods_checked: f64,
     /// The fetch of the mining data that runs, and what the last one said (and whether it failed).
     fetch: Option<Job<Fetched>>,
     said: Option<(String, bool)>,
@@ -149,6 +160,10 @@ impl Default for MiningState {
             second: 0,
             methods: refining::Methods::table(),
             methods_seen: None,
+            supply: None,
+            methods_reading: None,
+            methods_asked: false,
+            methods_checked: f64::NEG_INFINITY,
             fetch: None,
             said: None,
             scanner: crate::scanner_ui::ScannerState::default(),
@@ -166,6 +181,37 @@ impl MiningState {
         };
         state.reload();
         state
+    }
+
+    /// The page asks for the levels of the processing methods itself when their file is missing: it starts the
+    /// reading of the game data with this `supply` ([`MiningState::ask_for_methods`]). Without a supply it never does.
+    pub fn with_supply(mut self, supply: std::sync::Arc<dyn values_store::Supply>) -> MiningState {
+        self.supply = Some(supply);
+        self
+    }
+
+    /// The file of the processing methods is missing: starts the reading of the game data that keeps it, once for
+    /// this page. Only with the archive free to read (the game is closed, [`archive_lock::may_read`]) and a supply
+    /// that reads it, and not while a reading of the values already runs (the page Herstellung starts one at the
+    /// start of the program): that one writes the file too.
+    fn ask_for_methods(&mut self, ctx: &egui::Context, now: f64) {
+        if self.methods_asked || self.methods_seen.is_some() || now - self.methods_checked < ASK_SECONDS {
+            return;
+        }
+        // Whether the game runs is looked up in the process list and the logs: not at every look of the page.
+        self.methods_checked = now;
+        let (Some(paths), Some(supply)) = (&self.paths, &self.supply) else { return };
+        if !supply.reads_archive() || values_store::reading() || !archive_lock::may_read(paths) {
+            return;
+        }
+        let folder = paths.game_folder().map(std::path::PathBuf::from);
+        let start = values_store::start(folder.as_deref(), &paths.app_file(values_store::CACHE_FILE), supply.clone());
+        self.methods_asked = true;
+        self.methods_reading = start.rebuild.and_then(values_store::Rebuild::spawn);
+        if let Some(reading) = &self.methods_reading {
+            let ctx = ctx.clone();
+            reading.set_wake(move || ctx.request_repaint());
+        }
     }
 
     fn reload(&mut self) {
@@ -198,6 +244,16 @@ impl MiningState {
         } else if file_time(&paths.app_file(refining::GAME_FILE)) != self.methods_seen {
             self.reload_methods();
         }
+        // A finished reading is let go; the file it wrote is found by its time above, at the next look.
+        let over = self.methods_reading.as_ref().is_some_and(|r| matches!(r.poll(), values_store::Progress::Done(_)));
+        if over {
+            self.methods_reading = None;
+        }
+        // The thread wakes the window when it is done; a reading that ended before the wake was set is found too.
+        if self.methods_reading.is_some() {
+            ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
+        }
+        self.ask_for_methods(ui.ctx(), now);
     }
 
     /// The mining data the page shows.

@@ -270,7 +270,7 @@ pub const PEOPLE: [Person; 36] = [
     person("LunaticSmile", "KRT", &["s_dkv_lunaticsmile_idee"], &[]),
     person("SirFrog", "KRT", &[], &["s_dkv_sirfrog_bugs"]),
     person("Shockwave", "TSA", &[], &["s_dkv_shockwave_bugs"]),
-    person("fok", "", &[], &["s_dkv_fok_bugs"]),
+    person("fok", "", &[], &["s_dkv_fok_bugs", "s_dkv_fok_bugs2"]),
     person("KillingJoke271", "KRT", &[], &["s_dkv_killingjoke_bugs"]),
 ];
 

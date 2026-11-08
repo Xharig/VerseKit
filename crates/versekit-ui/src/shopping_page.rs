@@ -1206,6 +1206,17 @@ fn basket_row(
     frame.show(ui, |ui| {
         ui.set_width(ui.available_width());
         let (amount, tone) = amount_of(scheme, line);
+        // Tick, count, name, amount and bin stand in one line where they certainly fit; else the amount and the
+        // bin go to a line of their own. (Left to the wrapping of the row alone, a line that is a point or two
+        // too long is not broken but widens the card.)
+        let gap = ui.spacing().item_spacing.x;
+        let wanted = 2.0 * widgets::ICON_BUTTON_SIZE
+            + BASKET_COUNT_WIDTH
+            + text_width(ui, &line.name, egui::TextStyle::Body, false)
+            + text_width(ui, &amount, egui::TextStyle::Small, false)
+            + 4.0 * gap
+            + 4.0;
+        let one_line = wanted <= ui.available_width();
         ui.horizontal_wrapped(|row| {
             let (icon, meaning) =
                 if line.done { ("circle-check", t("s_p9_ek_haken_weg")) } else { ("circle", t("s_ek_korb_abhaken")) };
@@ -1218,6 +1229,9 @@ fn basket_row(
             }
             let name_tone = if line.done { scheme.sub } else { scheme.fg };
             row.label(RichText::new(&line.name).color(color(name_tone)));
+            if !one_line {
+                row.end_row();
+            }
             row.label(RichText::new(amount).small().color(color(tone)));
             if row_button(row, scheme, "trash-2", &t("s_ek_korb_entfernen"), &line.name, true) {
                 *out = Some(line.reference.clone());
@@ -1251,6 +1265,9 @@ fn basket_row(
 
 /// The most parts a search inside a template lists; below them how many more fit.
 const SEARCH_SHOWN: usize = 8;
+/// The width of the count of a part with its − and + (`widgets::number_field`): two buttons, the field of 56
+/// points and the spaces between them.
+const BASKET_COUNT_WIDTH: f32 = 2.0 * widgets::ICON_BUTTON_SIZE + 56.0 + 10.0;
 /// What a field with the X needs besides its text: its margins and the X.
 const FIELD_MARGIN: f32 = 34.0;
 

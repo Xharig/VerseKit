@@ -16,6 +16,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use egui::Role;
+use versekit_core::catalog_cache::CatalogCache;
 use versekit_core::erkul_fetch::pack;
 use versekit_core::language::{Choice, set_thread_language};
 use versekit_core::paths::Host;
@@ -42,16 +43,27 @@ fn frame(
     state: &mut PatchChangesState,
     events: Vec<egui::Event>,
 ) -> Vec<(Role, String, egui::Pos2)> {
+    frame_with(ctx, state, &CatalogCache::default(), events).0
+}
+
+/// A frame of the page with a blueprint catalog: the nodes, and what the page asked of the window.
+fn frame_with(
+    ctx: &egui::Context,
+    state: &mut PatchChangesState,
+    catalog: &CatalogCache,
+    events: Vec<egui::Event>,
+) -> (Vec<(Role, String, egui::Pos2)>, Option<Action>) {
     let scheme = versekit_core::theme::current();
     let input = egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 6000.0))),
         events,
         ..Default::default()
     };
-    let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+    let mut action = None;
+    let mut output = ctx.run_ui(input, |ui| action = show_page(ui, scheme, state, catalog));
     output.textures_delta.clear();
-    let Some(update) = output.platform_output.accesskit_update else { return Vec::new() };
-    update
+    let Some(update) = output.platform_output.accesskit_update else { return (Vec::new(), action) };
+    let nodes = update
         .nodes
         .iter()
         .filter_map(|(_, n)| {
@@ -59,7 +71,8 @@ fn frame(
             let b = n.bounds()?;
             Some((n.role(), text, egui::pos2(((b.x0 + b.x1) / 2.0) as f32, ((b.y0 + b.y1) / 2.0) as f32)))
         })
-        .collect()
+        .collect();
+    (nodes, action)
 }
 
 /// A frame of another page: the page is left.
@@ -134,6 +147,129 @@ fn the_preview_shows_the_list_the_areas_and_the_fields() {
     let nodes = frame(&ctx, &mut state, Vec::new());
     assert!(entry(&nodes) && has(&nodes, &tf("s_pa_weggefallen", &[("alt", Arg::from("2.5"))])));
     assert!(has(&nodes, &tf("s_pa_groesse", &[("n", Arg::from("5"))])));
+}
+
+#[test]
+fn better_and_worse_are_blue_and_yellow_in_the_list_and_in_the_biggest_changes() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    let nodes = {
+        frame(&ctx, &mut state, Vec::new());
+        frame(&ctx, &mut state, Vec::new())
+    };
+    assert!(has(&nodes, &t("s_pag_farbe_besser")) && has(&nodes, &t("s_pag_farbe_schlechter")), "the legend");
+    let scheme = versekit_core::theme::current();
+    // Hydrogen tank up and fuel burn down are better; the speed of the cannon's ammunition down is worse.
+    let by_path = |path: &str| state.moves.0.iter().chain(state.moves.1.iter()).find(|m| m.path == path).expect(path);
+    assert_eq!(by_path("precomputed.fuel.hydrogenCapacity").verdict, Verdict::Better);
+    assert_eq!(by_path("precomputed.fuel.burnRate.main").verdict, Verdict::Better, "a fall that is better");
+    assert_eq!(by_path("weapon.ammo.speed").verdict, Verdict::Worse, "a fall that is worse");
+    assert_eq!(bar_tone(Verdict::Better), RankTone::Better);
+    assert_eq!(bar_tone(Verdict::Worse), RankTone::Worse);
+    assert_eq!(bar_tone(Verdict::Neutral), RankTone::Muted);
+    // Fixed colours, not the function under test: blue for better, yellow for worse, muted without a verdict.
+    assert_eq!(tone_colour(scheme, &Tone::Better), scheme.blue);
+    assert_eq!(tone_colour(scheme, &Tone::Worse), scheme.yellow);
+    assert_eq!(tone_colour(scheme, &Tone::Plain), scheme.sub);
+    assert_ne!(tone_colour(scheme, &Tone::Gone), scheme.yellow, "a field that went is not told from worse by gold");
+    assert_ne!(tone_colour(scheme, &Tone::Better), tone_colour(scheme, &Tone::Worse));
+    // Never the red of an error for a worse value: the colour-blind cannot tell it from green.
+    assert_ne!(tone_colour(scheme, &Tone::Worse), scheme.red_text());
+}
+
+#[test]
+fn the_search_narrows_the_items_of_the_area_by_part_or_field_whatever_the_case() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    let look = |state: &mut PatchChangesState, search: &str| {
+        state.search = search.to_string();
+        frame(&ctx, state, Vec::new());
+        frame(&ctx, state, Vec::new())
+    };
+    // The largest area (ships) stands chosen: both ships are listed.
+    let nodes = look(&mut state, "");
+    assert!(has(&nodes, "MISC Starlancer TAC") && has(&nodes, "30000 → 36000  (+20 %)"), "all of the area");
+    // By part, in any case.
+    let nodes = look(&mut state, "  starLANCER ");
+    assert!(has(&nodes, "MISC Starlancer TAC"));
+    // The fields of the other ship are gone (the card of the biggest changes writes its value without brackets).
+    assert!(!has(&nodes, "30000 → 36000  (+20 %)"), "the other ship is gone");
+    // By the readable name of a changed field.
+    let nodes = look(&mut state, "WASSERSTOFF-tank");
+    assert!(has(&nodes, "30000 → 36000  (+20 %)") && !has(&nodes, "MISC Starlancer TAC"));
+    // Nothing fits: the line says so and keeps the search.
+    let nodes = look(&mut state, "zzz");
+    assert!(has(&nodes, &tf("s_pag_suche_nichts", &[("suche", Arg::from("zzz"))])));
+    assert!(!has(&nodes, "MISC Starlancer TAC"));
+    // The search stays inside the area chosen: the cannon is in weapons.
+    let nodes = look(&mut state, "cannon");
+    assert!(has(&nodes, &tf("s_pag_suche_nichts", &[("suche", Arg::from("cannon"))])));
+}
+
+#[test]
+fn a_part_with_a_blueprint_in_the_catalog_has_a_chip_that_leads_to_the_list() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    // The catalog knows the cannon (its key as the catalog writes it) and a part the patch does not name.
+    let blueprint = |name: &str| versekit_core::catalog_cache::Blueprint {
+        key: versekit_core::paths::name_key(name),
+        name: name.to_string(),
+        ..Default::default()
+    };
+    let catalog = CatalogCache {
+        blueprints: vec![blueprint("other part"), blueprint("behring m5a CANNON")],
+        ..Default::default()
+    };
+    let chip = t("s_pag_bauplan");
+    let button = |nodes: &[(Role, String, egui::Pos2)]| {
+        nodes
+            .iter()
+            .filter(|(role, text, _)| *role == Role::Button && text.starts_with(&chip))
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    // Ships stand chosen: neither of them is in the catalog, so there is no chip.
+    frame_with(&ctx, &mut state, &catalog, Vec::new());
+    let (nodes, action) = frame_with(&ctx, &mut state, &catalog, Vec::new());
+    assert!(button(&nodes).is_empty() && action.is_none(), "no blueprint, no chip");
+    // Weapons: the cannon is changed and in the catalog, one chip.
+    let weapons = nodes.iter().find(|(role, text, _)| *role == Role::Button && text == "weapons 1").expect("area");
+    frame_with(&ctx, &mut state, &catalog, click(weapons.2));
+    let (nodes, action) = frame_with(&ctx, &mut state, &catalog, Vec::new());
+    assert!(action.is_none());
+    let chips = button(&nodes);
+    assert_eq!(chips.len(), 1, "{chips:?}");
+    // Without the catalog knowing the part, the same page has no chip.
+    let (bare, _) = frame_with(&ctx, &mut state, &CatalogCache::default(), Vec::new());
+    assert!(button(&bare).is_empty(), "an empty catalog gives no chip");
+    // A click asks for the blueprint by the name the catalog gives it (the chip was drawn in the frame before).
+    let (nodes, _) = frame_with(&ctx, &mut state, &catalog, Vec::new());
+    let chips = button(&nodes);
+    assert_eq!(chips.len(), 1);
+    let (_, action) = frame_with(&ctx, &mut state, &catalog, click(chips[0].2));
+    assert_eq!(action, Some(Action::ToBlueprint("behring m5a CANNON".to_string())));
+}
+
+#[test]
+fn a_part_that_is_gone_gets_no_chip_even_when_the_catalog_knows_it() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    // The older patch removed "Klaus & Werner Lumin V".
+    state.choose("4.9.0-LIVE.12232306");
+    let blueprint = versekit_core::catalog_cache::Blueprint {
+        key: versekit_core::paths::name_key("Klaus & Werner Lumin V"),
+        name: "Klaus & Werner Lumin V".into(),
+        ..Default::default()
+    };
+    let catalog = CatalogCache { blueprints: vec![blueprint], ..Default::default() };
+    frame_with(&ctx, &mut state, &catalog, Vec::new());
+    let (nodes, _) = frame_with(&ctx, &mut state, &catalog, Vec::new());
+    assert!(has(&nodes, "Klaus & Werner Lumin V"), "the item is listed");
+    assert!(!nodes.iter().any(|(role, text, _)| *role == Role::Button && text.starts_with(&t("s_pag_bauplan"))));
 }
 
 #[test]

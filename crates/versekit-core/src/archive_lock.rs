@@ -114,8 +114,8 @@ pub fn wait(paths: &Paths) {
     wait_with(&|| may_read(paths), POLL);
 }
 
-/// Whether `archive` lies in a channel of test builds (every channel of `paths::CHANNELS` but `LIVE`, `HOTFIX` included,
-/// whose archives are confidential), told by the name of the folder that holds it.
+/// Whether `archive` lies in a channel that follows LIVE (every channel of `paths::CHANNELS` but `LIVE`, `HOTFIX`
+/// included), told by the name of the folder that holds it.
 pub fn is_test_archive(archive: &Path) -> bool {
     test_channel_of(archive).is_some()
 }
@@ -129,13 +129,11 @@ pub fn test_channel_of(archive: &Path) -> Option<&'static str> {
 
 /// What the pages that read the game archive say of an archive in the channel `channel` ([`test_channel_of`]):
 /// the text keys, the first with the channel as `{0}`. A channel of test versions ([`TEST_CHANNELS`]) can still
-/// change before LIVE, one under the agreement of the Evocati ([`UNDER_AGREEMENT`]) says that besides; the
-/// other one that follows LIVE (the build of LIVE in HOTFIX) is confidential all the same. LIVE says nothing.
+/// change before LIVE, one under the agreement of the Evocati ([`UNDER_AGREEMENT`]) says that besides. LIVE says
+/// nothing, and HOTFIX (a build of LIVE, no test channel) says nothing either.
 pub fn test_channel_notes(channel: &str) -> &'static [&'static str] {
-    if !FOLLOWS_LIVE.contains(&channel) {
+    if !TEST_CHANNELS.contains(&channel) {
         &[]
-    } else if !TEST_CHANNELS.contains(&channel) {
-        &["s_ak_hotfix"]
     } else if UNDER_AGREEMENT.contains(&channel) {
         &["s_ak_testkanal", "s_ak_eptu"]
     } else {
@@ -209,16 +207,16 @@ mod tests {
         assert_eq!(test_channel_of(Path::new("D:/SC/LIVE/Data.p4k")), None);
     }
 
-    /// The test versions say that their data can still change before LIVE (EPTU also its agreement); HOTFIX only
-    /// that its data are confidential. Every text is there in both languages, without a leftover placeholder.
+    /// The test versions say that their data can still change before LIVE (EPTU also its agreement); HOTFIX says
+    /// nothing, it is a build of LIVE. Every text is there in both languages, without a leftover placeholder.
     #[test]
-    fn a_test_channel_says_its_data_can_change_before_live_and_hotfix_only_that_they_are_confidential() {
+    fn a_test_channel_says_its_data_can_change_before_live_and_hotfix_says_nothing() {
         use crate::language::{Arg, Lang, tf_in};
         use crate::paths::CHANNELS;
         assert_eq!(test_channel_notes("PTU"), ["s_ak_testkanal"]);
         assert_eq!(test_channel_notes("TECH-PREVIEW"), ["s_ak_testkanal"]);
         assert_eq!(test_channel_notes("EPTU"), ["s_ak_testkanal", "s_ak_eptu"]);
-        assert_eq!(test_channel_notes("HOTFIX"), ["s_ak_hotfix"]);
+        assert!(test_channel_notes("HOTFIX").is_empty(), "HOTFIX is a build of LIVE: no note at all");
         assert!(test_channel_notes("LIVE").is_empty() && test_channel_notes("Anything").is_empty(), "nothing to say");
         for channel in CHANNELS.iter().filter(|c| **c != "LIVE") {
             for key in test_channel_notes(channel) {

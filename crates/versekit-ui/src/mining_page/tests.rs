@@ -295,6 +295,13 @@ mod tests {
         state.reload_methods();
         let said = methods_origin(&state.methods);
         assert_eq!(said, [tf("s_rm_stand_spiel", &[("0", build)]), tf("s_ak_testkanal", &[("0", Arg::from("PTU"))])]);
+        // HOTFIX is a build of LIVE: it says nothing more either.
+        std::fs::write(paths.app_file(refining::GAME_FILE), GAME_4_10_2.replace("KANAL", "HOTFIX")).unwrap();
+        state.reload_methods();
+        assert_eq!(
+            methods_origin(&state.methods),
+            [tf("s_rm_stand_spiel", &[("0", Arg::from("4.10.2-LIVE.12913470"))])]
+        );
         // A file without a build says only where the levels come from.
         let without = GAME_4_10_2.replace("KANAL", "LIVE").replace("4.10.2-LIVE.12913470", "");
         std::fs::write(paths.app_file(refining::GAME_FILE), without).unwrap();
@@ -306,6 +313,157 @@ mod tests {
         assert_eq!(state.methods, refining::Methods::table());
         let table = tf("s_rm_stand", &[("0", Arg::from(refining::PATCH)), ("1", Arg::from(refining::READ_ON))]);
         assert_eq!(methods_origin(&state.methods), [table]);
+    }
+
+    /// A supply that counts the readings it is asked for (`current_build` is asked once by each reading that finds
+    /// no game folder) and can hold them back.
+    #[derive(Default)]
+    struct Counting {
+        asked: std::sync::atomic::AtomicUsize,
+        hold: std::sync::atomic::AtomicBool,
+    }
+
+    impl Counting {
+        fn asked(&self) -> usize {
+            self.asked.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    impl values_store::Supply for Counting {
+        fn scmdb_values(&self, _build: &str) -> Result<versekit_gamedata::values::GameValues, String> {
+            Err("test".into())
+        }
+
+        fn current_build(&self) -> Result<String, String> {
+            self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            while self.hold.load(std::sync::atomic::Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            Err("test".into())
+        }
+
+        fn corrections(
+            &self,
+            _build: Option<&str>,
+        ) -> (Vec<versekit_gamedata::corrections::Correction>, Option<String>) {
+            (Vec::new(), None)
+        }
+    }
+
+    /// A page on a throwaway data folder; `closed` makes the machine one where the archive may be read, else nobody
+    /// can say whether the game runs.
+    fn page_on_machine(name: &str, closed: bool) -> (MiningState, Paths, std::path::PathBuf) {
+        use versekit_core::paths::Host;
+        use versekit_core::pypath::Flavor;
+        let dir = std::env::temp_dir().join(format!("versekit-bergbau-{}-{name}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("folder");
+        let text = dir.to_string_lossy().into_owned();
+        // ⚠ A game folder is given that does not exist: else the made-up Windows machine looks at the drives of
+        // this computer and finds the real installation, and the reading would open its archive.
+        let no_game = format!("{text}/kein-spiel");
+        let mut vars = vec![
+            (versekit_core::legacy::ENV_HOME, text.as_str()),
+            (versekit_core::game_start::ENV_NO_PROCESS, "1"),
+            (versekit_core::paths::ENV_INSTALL_DIR, no_game.as_str()),
+        ];
+        if closed {
+            vars.push((versekit_core::paths::ENV_TEST_MACHINE, "x"));
+        }
+        let paths = Paths::new(Host::new(Flavor::native(), &vars, &text));
+        (MiningState::with_files(&paths), paths, dir)
+    }
+
+    /// The tests about readings of the values run one after the other: `values_store::reading` counts the whole
+    /// process, and a reading held back by one test would hide the wish of the other.
+    static READINGS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Draws the page again and again until `done` holds or ten seconds are over (then `false`).
+    fn draw_until(state: &mut MiningState, done: impl Fn() -> bool) -> bool {
+        draw_for(state, 10.0, done)
+    }
+
+    /// Draws the page again and again until `done` holds or `seconds` are over (then `false`).
+    fn draw_for(state: &mut MiningState, seconds: f64, done: impl Fn() -> bool) -> bool {
+        let ctx = context();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs_f64(seconds);
+        while std::time::Instant::now() < end {
+            state.looked_at = f64::NEG_INFINITY;
+            state.methods_checked = f64::NEG_INFINITY;
+            mining(&ctx, state, 900.0);
+            if done() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        false
+    }
+
+    /// The page asks for the reading of the game data by itself when the file of the processing methods is missing:
+    /// once, and not at all while the game may run, while a reading of the values runs, or when the file is there.
+    #[test]
+    fn the_page_starts_the_reading_of_the_methods_itself_once_when_their_file_is_missing() {
+        let _language = crate::language_lock();
+        let _readings = READINGS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        set_thread_language(Choice::De);
+        // The file is missing and the game is closed: one reading, and no second one however often the page looks.
+        let supply = std::sync::Arc::new(Counting::default());
+        let (state, _paths, dir) = page_on_machine("verfahren-fehlt", true);
+        let mut state = state.with_supply(supply.clone());
+        assert!(draw_until(&mut state, || supply.asked() == 1), "no reading started");
+        assert!(!draw_for(&mut state, 1.5, || supply.asked() > 1), "a second reading was started");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // Nobody can say whether the game runs: nothing is read.
+        let supply = std::sync::Arc::new(Counting::default());
+        let (state, _paths, dir) = page_on_machine("verfahren-spiel", false);
+        let mut state = state.with_supply(supply.clone());
+        assert!(!draw_for(&mut state, 1.5, || supply.asked() > 0), "read while the game may run");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // The file is there: nothing is read.
+        let supply = std::sync::Arc::new(Counting::default());
+        let (_, paths, dir) = page_on_machine("verfahren-da", true);
+        std::fs::write(paths.app_file(refining::GAME_FILE), "{}").unwrap();
+        let mut state = MiningState::with_files(&paths).with_supply(supply.clone());
+        assert!(!draw_for(&mut state, 1.5, || supply.asked() > 0), "read although the file is there");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // Without a supply the page never reads.
+        let (mut state, _paths, dir) = page_on_machine("verfahren-ohne", true);
+        assert!(!draw_for(&mut state, 1.5, || false) && !state.methods_asked, "read without a supply");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A reading of the values that runs already (the page Herstellung starts one at the start) is not doubled: the
+    /// page waits, and asks for its own only after that one is over without the file.
+    #[test]
+    fn the_page_does_not_read_twice_while_the_values_are_being_read() {
+        let _language = crate::language_lock();
+        let _readings = READINGS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        set_thread_language(Choice::De);
+        let supply = std::sync::Arc::new(Counting::default());
+        supply.hold.store(true, std::sync::atomic::Ordering::SeqCst);
+        let (state, paths, dir) = page_on_machine("verfahren-laeuft", true);
+        let mut state = state.with_supply(supply.clone());
+        // The reading of the other page, held back in its first question.
+        let cache = paths.app_file(values_store::CACHE_FILE);
+        let other = values_store::start(None, &cache, supply.clone()).rebuild.expect("due").spawn().expect("thread");
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while supply.asked() < 1 && std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(supply.asked(), 1, "the other reading runs");
+        assert!(!draw_for(&mut state, 1.5, || supply.asked() > 1), "a second reading started beside the first");
+        assert!(!state.methods_asked, "the page did not count its wish as met");
+        // The other one is over and left no file: the page asks once for its own.
+        supply.hold.store(false, std::sync::atomic::Ordering::SeqCst);
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !matches!(other.poll(), values_store::Progress::Done(_)) && std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(draw_until(&mut state, || supply.asked() == 2), "the page did not ask after the other one");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

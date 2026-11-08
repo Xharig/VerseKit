@@ -3761,7 +3761,7 @@ mod tests {
 
     #[test]
     fn a_chosen_event_opens_the_waiting_strip_and_one_not_chosen_does_not() {
-        for event in [Event::Scanner, Event::Contract, Event::Refinery, Event::Catalog] {
+        for event in [Event::Scanner, Event::Contract, Event::Refinery, Event::Workbench, Event::Catalog] {
             let mut on = popup_bench(only(event));
             on.news.send(News::Opens(event)).expect("sent");
             on.app.take_news();

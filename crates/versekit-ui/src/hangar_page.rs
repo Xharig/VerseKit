@@ -101,8 +101,8 @@ pub struct HangarState {
     copied_at: Option<f64>,
     /// Whether the pairing settings on the hangar page are unfolded.
     pairing_open: bool,
-    /// The fold with import and entering by hand, once clicked; until then
-    /// it is open only while the hangar is empty.
+    /// The part with import and entering by hand (the button "Schiffe holen oder eintragen" in the head card), once
+    /// clicked; until then it is open only while the hangar is empty.
     adding_open: Option<bool>,
     import_path: String,
     hand_name: String,
@@ -254,7 +254,7 @@ impl HangarState {
     /// Unfolds the pairing settings: the way from the menu filter to a setting that lies in
     /// the fold "Kopplung verwalten".
     pub fn point_to_pairing(&mut self) {
-        // The pairing sits in the fold "Schiffe holen oder eintragen", which is closed once the
+        // The pairing sits in the part "Schiffe holen oder eintragen", which is closed once the
         // hangar has ships.
         self.adding_open = Some(true);
         self.pairing_open = true;
@@ -1902,28 +1902,88 @@ pub fn show_page_with(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sou
         .auto_shrink([false, false]);
     widgets::scroll_area(ui, scheme, area, |ui| {
         ui.set_max_width(ui.available_width() - crate::layout::SAFETY);
-        small(ui, &t("s_hg_hinweis"), scheme.sub);
-        ui.add_space(GAP);
         let open = state.adding_open.unwrap_or_else(|| hangar::ships(&state.held.data).is_empty());
-        let shown = widgets::collapsing(&t("s_hgl_hinzufuegen")).id_salt("hangar-hinzufuegen").open(Some(open)).show(
-            ui,
-            |ui| {
-                import_part(ui, scheme, state);
-                ui.add_space(GAP);
-                hand_part(ui, scheme, state);
-            },
-        );
-        if shown.header_response.clicked() {
-            state.adding_open = Some(!open);
+        head_card(ui, scheme, state, open);
+        ui.add_space(GAP);
+        if open {
+            import_part(ui, scheme, state);
+            ui.add_space(GAP);
+            hand_part(ui, scheme, state);
+            ui.add_space(GAP);
         }
-        ui.add_space(GAP);
-        crate::fleet_analysis_view::show(ui, scheme, &mut state.fleet, &hangar::ships(&state.held.data));
-        ui.add_space(GAP);
+        if state.fleet.open {
+            crate::fleet_analysis_view::show(ui, scheme, &mut state.fleet, &hangar::ships(&state.held.data));
+            ui.add_space(GAP);
+        }
         ship_list(ui, scheme, state, sources);
         ui.add_space(GAP);
         show_planned(ui, scheme, state, sources);
     });
     state.names.finish_frame();
+}
+
+/// The slim card at the head of the page: the note that the game does not tell the hangar on the left, two buttons
+/// on the right that open the parts below it (getting or entering ships, the fleet analysis). `adding_open` is
+/// whether the first part is open now.
+fn head_card(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, adding_open: bool) {
+    /// The least width the note keeps beside the buttons; below that the buttons go under it.
+    const LEAST_NOTE: f32 = 240.0;
+    /// What a button adds to its label: the icon with its gap and the frame (as in `widgets::Button`).
+    const BUTTON_EXTRA: f32 = widgets::BUTTON_ICON_SIZE + 6.0 + 30.0;
+    let arrow = |open: bool| if open { "chevron-down" } else { "chevron-right" };
+    let (fleet_word, adding_word) = (t("s_fa_titel"), t("s_hgl_hinzufuegen"));
+    let (fleet_open, clicks) = (state.fleet.open, std::cell::Cell::new((false, false)));
+    // Made in the order they stand (note, "getting ships", "fleet analysis"), so that Tab goes the way the eye does.
+    let buttons = |ui: &mut Ui| {
+        let adding = |ui: &mut Ui| {
+            let button = widgets::Button::new(&adding_word, ButtonKind::Normal, scheme).icon(arrow(adding_open));
+            if ui.add(button).clicked() {
+                clicks.set((true, clicks.get().1));
+            }
+        };
+        let fleet = |ui: &mut Ui| {
+            let button = widgets::Button::new(&fleet_word, ButtonKind::Normal, scheme).icon(arrow(fleet_open));
+            if ui.add(button).clicked() {
+                clicks.set((clicks.get().0, true));
+            }
+        };
+        adding(ui);
+        fleet(ui);
+    };
+    widgets::card(ui, scheme, |card| {
+        let font = egui::TextStyle::Button.resolve(card.style());
+        let wide = |text: &str| {
+            let shown = widgets::button_label(scheme, ButtonKind::Normal, text);
+            card.painter().layout_no_wrap(shown, font.clone(), egui::Color32::WHITE).size().x + BUTTON_EXTRA
+        };
+        let spacing = card.spacing().item_spacing.x;
+        let buttons_width = spacing * 2.0 + wide(&fleet_word) + wide(&adding_word);
+        let note_width = card.available_width() - buttons_width;
+        if note_width >= LEAST_NOTE {
+            // The note takes what the buttons leave, so that they stand at the right edge. (A layout of its own
+            // straight in the card would take the whole height left and centre the row in it.)
+            card.horizontal(|line| {
+                let height = line.spacing().interact_size.y;
+                line.allocate_ui_with_layout(
+                    egui::vec2(note_width, height),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |hint| small(hint, &t("s_hg_hinweis"), scheme.sub),
+                );
+                buttons(line);
+            });
+        } else {
+            small(card, &t("s_hg_hinweis"), scheme.sub);
+            card.add_space(4.0);
+            card.horizontal_wrapped(buttons);
+        }
+    });
+    let (adding_clicked, fleet_clicked) = clicks.get();
+    if adding_clicked {
+        state.adding_open = Some(!adding_open);
+    }
+    if fleet_clicked {
+        state.fleet.open = !fleet_open;
+    }
 }
 
 /// The heading with the ship count and one striped row per ship.
@@ -2219,6 +2279,105 @@ mod tests {
     fn steady() {
         steady_scheme();
         versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+    }
+
+    /// The page drawn in a window of `width`; the texts with their places.
+    fn head_drawn(
+        ctx: &egui::Context,
+        state: &mut HangarState,
+        width: f32,
+        events: Vec<egui::Event>,
+    ) -> Vec<(String, egui::Pos2)> {
+        fn collect(shape: &egui::Shape, into: &mut Vec<(String, egui::Pos2)>) {
+            match shape {
+                egui::Shape::Text(text) => into.push((text.galley.text().to_string(), text.pos)),
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|shape| collect(shape, into)),
+                _ => {}
+            }
+        }
+        let scheme = versekit_core::theme::current();
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 2000.0))),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+        output.textures_delta.clear();
+        let mut texts = Vec::new();
+        output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut texts));
+        texts
+    }
+
+    /// Clicks the text `label` of the page and lets the page settle.
+    fn click_on(ctx: &egui::Context, state: &mut HangarState, label: &str) -> Vec<(String, egui::Pos2)> {
+        let mut texts = Vec::new();
+        for _ in 0..3 {
+            texts = head_drawn(ctx, state, 1100.0, Vec::new());
+        }
+        let at = texts
+            .iter()
+            .find(|(text, _)| text == label)
+            .map(|(_, at)| *at + egui::vec2(3.0, 3.0))
+            .unwrap_or_else(|| panic!("{label} is not on the page: {texts:?}"));
+        let button = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        head_drawn(ctx, state, 1100.0, vec![egui::Event::PointerMoved(at)]);
+        head_drawn(ctx, state, 1100.0, vec![button(true)]);
+        head_drawn(ctx, state, 1100.0, vec![button(false)]);
+        for _ in 0..3 {
+            texts = head_drawn(ctx, state, 1100.0, Vec::new());
+        }
+        texts
+    }
+
+    /// The head of the page is one slim card: the note on the left, the two buttons on the right; each button
+    /// opens its part below and closes it again, and neither part is built before.
+    #[test]
+    fn the_head_is_one_card_with_the_note_and_two_buttons_that_open_the_parts() {
+        let _language = crate::language_lock();
+        steady();
+        let (mut state, dir) = page_on("kopf", TWO);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let has = |texts: &[(String, egui::Pos2)], key: &str| texts.iter().any(|(text, _)| *text == t(key));
+        let at = |texts: &[(String, egui::Pos2)], key: &str| {
+            texts.iter().find(|(text, _)| *text == t(key)).map(|(_, at)| *at).unwrap_or_else(|| panic!("{key}"))
+        };
+        let mut texts = Vec::new();
+        for _ in 0..3 {
+            texts = head_drawn(&ctx, &mut state, 1100.0, Vec::new());
+        }
+        // Two ships: both parts are closed. The note left of the buttons, the buttons side by side.
+        let head = ["s_hg_hinweis", "s_hgl_hinzufuegen", "s_fa_titel"];
+        assert!(head.iter().all(|key| has(&texts, key)), "{texts:?}");
+        assert!(!has(&texts, "s_hg_import_titel") && !has(&texts, "s_fav_text"), "closed: nothing built");
+        let (note, adding, fleet) = (at(&texts, head[0]), at(&texts, head[1]), at(&texts, head[2]));
+        assert!(note.x < adding.x && adding.x < fleet.x, "{note:?} {adding:?} {fleet:?}");
+        assert!((adding.y - fleet.y).abs() < 2.0, "the buttons stand in one line: {adding:?} {fleet:?}");
+        // The fleet analysis opens by its button and closes by it, the other part stays shut.
+        let texts = click_on(&ctx, &mut state, &t("s_fa_titel"));
+        assert!(has(&texts, "s_fav_text") && !has(&texts, "s_hg_import_titel"), "{texts:?}");
+        let texts = click_on(&ctx, &mut state, &t("s_fa_titel"));
+        assert!(!has(&texts, "s_fav_text"), "closed again");
+        // Getting or entering ships opens by its button the same way.
+        let texts = click_on(&ctx, &mut state, &t("s_hgl_hinzufuegen"));
+        assert!(has(&texts, "s_hg_import_titel") && !has(&texts, "s_fav_text"), "{texts:?}");
+        let texts = click_on(&ctx, &mut state, &t("s_hgl_hinzufuegen"));
+        assert!(!has(&texts, "s_hg_import_titel"), "closed again");
+        // Too narrow for the note beside the buttons: the buttons stand under the note (the second one beside the
+        // first or, where the window has no room for both, under it).
+        let mut narrow = Vec::new();
+        for _ in 0..3 {
+            narrow = head_drawn(&ctx, &mut state, 380.0, Vec::new());
+        }
+        let (note, adding, fleet) = (at(&narrow, head[0]), at(&narrow, head[1]), at(&narrow, head[2]));
+        assert!(adding.y > note.y + 8.0, "the buttons stand under the note: {note:?} {adding:?}");
+        assert!(fleet.y > adding.y - 2.0, "the fleet button is not above the first: {adding:?} {fleet:?}");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// A page on `hangar.json` in a new folder, with a UEX list of two ships.
@@ -3535,6 +3694,8 @@ mod tests {
                     .collect();
                 let blocks: Vec<egui::Rect> =
                     rects.iter().filter(|(r, f, s)| *f == bar && *s == line && big(r)).map(|x| x.0).collect();
+                // The card of the head (note and buttons, as tall as two lines in a narrow window) is no ship card.
+                cards.retain(|card| blocks.iter().any(|b| card.contains_rect(*b)));
                 cards.sort_by(|a, b| a.min.y.total_cmp(&b.min.y));
                 let at = format!("{} width {width}", scheme.id);
                 if scheme.bar == scheme.surface {

@@ -4699,7 +4699,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-core"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.3.4",
@@ -4720,7 +4720,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-gamedata"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "p4kx-archive",
  "p4kx-cryxml",
@@ -4734,7 +4734,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-ui"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "eframe",
  "egui",

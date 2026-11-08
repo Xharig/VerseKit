@@ -28,11 +28,12 @@ use std::collections::BTreeSet;
 use std::sync::mpsc::{Receiver, TryRecvError};
 
 use egui::{RichText, ScrollArea, Ui};
+use versekit_core::catalog_cache::CatalogCache;
 use versekit_core::erkul_fetch::FnFeed;
 use versekit_core::language::{Arg, pa_field, t, tf};
 use versekit_core::net::{Net, Web};
 use versekit_core::patch_changes::{
-    self, Change, Fate, FieldChange, Move, Offered, Patch, SHOWN_AT_MOST, Summary, Tone, Unreachable,
+    self, Change, Fate, FieldChange, Move, Offered, Patch, SHOWN_AT_MOST, Summary, Tone, Unreachable, Verdict,
 };
 use versekit_core::paths::Paths;
 use versekit_core::theme::{Color, Scheme};
@@ -81,6 +82,8 @@ pub struct PatchChangesState {
     chosen: Option<String>,
     /// The changes of the patch chosen, and its areas, largest first.
     changes: Vec<Change>,
+    /// For each of `changes` the key its name has in the blueprint catalog.
+    keys: Vec<String>,
     areas: Vec<(String, usize)>,
     /// 0: all areas; else the area at that place of `areas` plus one.
     area: usize,
@@ -90,6 +93,8 @@ pub struct PatchChangesState {
     unchanged: Option<i64>,
     /// The patch chosen is kept here (its file read once per choice, not in every frame).
     chosen_kept: bool,
+    /// What is typed in the search of the changes.
+    search: String,
     /// The patches already looked at; `None` until the list was first seen with what the source offers.
     seen: Option<BTreeSet<String>>,
     said: Option<Said>,
@@ -124,11 +129,13 @@ impl PatchChangesState {
             stamp: Vec::new(),
             chosen: None,
             changes: Vec::new(),
+            keys: Vec::new(),
             areas: Vec::new(),
             area: 0,
             moves: (Vec::new(), Vec::new()),
             unchanged: None,
             chosen_kept: false,
+            search: String::new(),
             seen: None,
             said: None,
             sync_job: None,
@@ -245,6 +252,8 @@ impl PatchChangesState {
     /// Loads the changes of `version`, its areas, its biggest changes and what stayed the same.
     fn load_chosen(&mut self, version: &str) {
         self.changes = self.load_changes(version);
+        // The key a blueprint of the catalog has for each name, worked out once per choice, not in every frame.
+        self.keys = self.changes.iter().map(|c| versekit_core::paths::name_key(&c.name)).collect();
         self.areas = patch_changes::categories(&self.changes);
         self.moves = patch_changes::largest_moves(&self.changes, MOVES_SHOWN);
         self.unchanged = self.load_unchanged(version);
@@ -445,19 +454,58 @@ fn small(ui: &mut Ui, text: &str, tone: Color) {
     widgets::reading(ui, RichText::new(text).small().color(color(tone)));
 }
 
-/// The colour of a tone of a changed field: up in the accent, down in red, gone in gold, the same muted.
+/// The colour of a tone of a changed field: better and worse in the blue and yellow of [`widgets::change_color`]
+/// (apart for those who tell red from green badly, never red and green), a field that came in the accent, one that
+/// went, the same value and a change without a judgement muted (gold is too close to the yellow of worse in some
+/// schemes, so a field that went says so in words and muted; the legend calls the muted colour "no verdict").
 fn tone_colour(scheme: &Scheme, tone: &Tone) -> Color {
     match tone {
+        Tone::Better => widgets::change_color(scheme, true),
+        Tone::Worse => widgets::change_color(scheme, false),
         Tone::Up => scheme.accent,
-        Tone::Down => scheme.red_text(),
-        Tone::Gone => scheme.gold,
-        Tone::Same => scheme.sub,
-        Tone::Plain => scheme.fg,
+        Tone::Gone | Tone::Same | Tone::Plain => scheme.sub,
     }
 }
 
-/// Draws the page.
-pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
+/// The bar of a change in the card of the biggest changes: blue for the better, yellow for the worse, muted where
+/// the field has no judgement.
+fn bar_tone(verdict: Verdict) -> RankTone {
+    match verdict {
+        Verdict::Better => RankTone::Better,
+        Verdict::Worse => RankTone::Worse,
+        Verdict::Neutral => RankTone::Muted,
+    }
+}
+
+/// The line that says what the colours mean, in the two colours themselves.
+fn legend(ui: &mut Ui, scheme: &Scheme) {
+    ui.horizontal_wrapped(|row| {
+        row.spacing_mut().item_spacing.x = 4.0;
+        let part = |row: &mut Ui, text: String, tone: Color| {
+            row.add(egui::Label::new(RichText::new(text).small().color(color(tone))));
+        };
+        part(row, t("s_pag_farbe_besser"), widgets::change_color(scheme, true));
+        part(row, "·".to_string(), scheme.sub);
+        part(row, t("s_pag_farbe_schlechter"), widgets::change_color(scheme, false));
+        part(row, "·".to_string(), scheme.sub);
+        part(row, t("s_pag_farbe_offen"), scheme.sub);
+    });
+}
+
+/// What a click on the page asks of the window.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Action {
+    /// Open the blueprint list on the blueprint of the catalog with this name.
+    ToBlueprint(String),
+}
+
+/// Draws the page; `catalog` is the blueprint catalog, which tells the parts that have a blueprint.
+pub fn show_page(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    state: &mut PatchChangesState,
+    catalog: &CatalogCache,
+) -> Option<Action> {
     state.tick(ui.ctx());
     small(ui, &t("s_pav_lead"), scheme.sub);
     ui.add_space(GAP);
@@ -468,7 +516,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     }
     area_choice(ui, scheme, state);
     ui.add_space(GAP);
-    items(ui, scheme, state);
+    items(ui, scheme, state, catalog)
 }
 
 /// The card of the patches: the collection, the button for new patches with its line, the patches with changes in
@@ -592,8 +640,10 @@ fn biggest(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) -> bool {
             small(ui, &t("s_pag_keine_zahl"), scheme.sub);
             return;
         }
-        let groups = [("s_pag_gestiegen", rises, RankTone::Accent), ("s_pag_gefallen", falls, RankTone::Red)];
-        for (key, moves, tone) in groups {
+        ui.add_space(2.0);
+        legend(ui, scheme);
+        let groups = [("s_pag_gestiegen", rises), ("s_pag_gefallen", falls)];
+        for (key, moves) in groups {
             if moves.is_empty() {
                 continue;
             }
@@ -606,7 +656,8 @@ fn biggest(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) -> bool {
                 let (before, after) = patch_changes::pair(Some(&change.old), Some(&change.new));
                 let share = patch_changes::share_text(Some(&change.old), Some(&change.new));
                 let number = format!("{before} → {after}  {share}");
-                widgets::ranking_row_tone(ui, scheme, &name, &number, (change.share.abs() / largest) as f32, tone);
+                let share = (change.share.abs() / largest) as f32;
+                widgets::ranking_row_tone(ui, scheme, &name, &number, share, bar_tone(change.verdict));
                 ui.add_space(2.0);
             }
         }
@@ -638,7 +689,8 @@ fn area_choice(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
 
 /// The card of the changes: the items of the area chosen, at most [`SHOWN_AT_MOST`], the rest counted; or the line
 /// that says why there are none.
-fn items(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) {
+fn items(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState, catalog: &CatalogCache) -> Option<Action> {
+    let mut action = None;
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
         widgets::card_title(ui, scheme, &t("s_pa_aenderungen_kopf"));
@@ -671,18 +723,37 @@ fn items(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) {
             return;
         }
         let wanted = state.area.checked_sub(1).and_then(|i| state.areas.get(i)).map(|(kind, _)| kind.as_str());
-        let shown: Vec<&Change> = state.changes.iter().filter(|c| wanted.is_none_or(|w| c.kind == w)).collect();
-        if shown.is_empty() {
+        let in_area: Vec<(usize, &Change)> =
+            state.changes.iter().enumerate().filter(|(_, c)| wanted.is_none_or(|w| c.kind == w)).collect();
+        if in_area.is_empty() {
             small(ui, &t("s_pa_nichts_hier"), scheme.sub);
             return;
         }
+        // The search runs inside the area chosen, like the areas of the other pages narrow their search.
+        let width = ui.available_width();
+        widgets::search_field(ui, &mut state.search, &t("s_pag_suche_platz"), scheme, width);
+        ui.add_space(4.0);
+        let shown: Vec<(usize, &Change)> =
+            in_area.into_iter().filter(|(_, c)| patch_changes::matches(c, &state.search)).collect();
+        if shown.is_empty() {
+            small(ui, &tf("s_pag_suche_nichts", &[("suche", Arg::from(state.search.trim()))]), scheme.sub);
+            return;
+        }
+        legend(ui, scheme);
+        ui.add_space(4.0);
         widgets::list_frame(ui, scheme, |list| {
             list.set_width(list.available_width());
-            for (k, change) in shown.iter().take(SHOWN_AT_MOST).enumerate() {
+            for (k, (at, change)) in shown.iter().take(SHOWN_AT_MOST).enumerate() {
                 if k > 0 {
                     list.separator();
                 }
-                item(list, scheme, change);
+                // The chip only for what is new or changed: a part that is gone is no news for a blueprint.
+                let blueprint = (change.fate != Fate::Gone)
+                    .then(|| state.keys.get(*at).and_then(|key| catalog.blueprints.iter().find(|b| &b.key == key)))
+                    .flatten();
+                if item(list, scheme, change, blueprint.map(|b| b.name.as_str())) {
+                    action = blueprint.map(|b| Action::ToBlueprint(b.name.clone()));
+                }
             }
         });
         if shown.len() > SHOWN_AT_MOST {
@@ -690,11 +761,13 @@ fn items(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) {
             small(ui, &tf("s_pa_mehr", &[("n", Arg::from(shown.len() - SHOWN_AT_MOST))]), scheme.sub);
         }
     });
+    action
 }
 
-/// One item, an entry of the list in the card of the changes: what happened to it, its name and size, and each
-/// changed field.
-fn item(ui: &mut Ui, scheme: &Scheme, change: &Change) {
+/// One item, an entry of the list in the card of the changes: what happened to it, its name and size, the chip to
+/// its blueprint where `blueprint` names one of the catalog, and each changed field. Whether the chip was clicked.
+fn item(ui: &mut Ui, scheme: &Scheme, change: &Change, blueprint: Option<&str>) -> bool {
+    let mut jump = false;
     ui.vertical(|ui| {
         ui.set_width(ui.available_width());
         ui.horizontal_wrapped(|row| {
@@ -711,6 +784,12 @@ fn item(ui: &mut Ui, scheme: &Scheme, change: &Change) {
                     RichText::new(tf("s_pa_groesse", &[("n", Arg::from(size))])).small().color(color(scheme.sub)),
                 ));
             }
+            // The way to the blueprint list, with the blueprint as search and open.
+            if let Some(name) = blueprint {
+                let word = t("s_pag_bauplan");
+                let chip = row.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("clipboard-list"));
+                jump = chip.on_hover_text(tf("s_pag_bauplan_h", &[("name", Arg::from(name))])).clicked();
+            }
         });
         for field in &change.fields {
             let (text, tone) = patch_changes::field_text(field);
@@ -721,6 +800,7 @@ fn item(ui: &mut Ui, scheme: &Scheme, change: &Change) {
             });
         }
     });
+    jump
 }
 
 #[cfg(test)]

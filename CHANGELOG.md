@@ -6,6 +6,48 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.4 - 2026-11-08
+
+> Geänderte Spielwerte zeigen jetzt, ob ein Wert besser oder schlechter
+> wurde, mit Suche und Sprung zum Bauplan. Dazu eine größere kleinste
+> Schrift, ein schlankerer Hangar-Kopf und ein Overlay, das sich für den
+> Fabrikator öffnen kann.
+
+### Neu
+
+- **Geänderte Spielwerte: besser oder schlechter.** Jede Änderung zeigt
+  in Blau, ob der Wert besser wurde, und in Gelb, ob er schlechter wurde,
+  zum Beispiel mehr Schaden, Reichweite oder Schildpunkte als besser,
+  mehr Hitze, Masse oder Signatur als schlechter. Was sich nicht bewerten
+  lässt, bleibt gedämpft. Eine Zeile über der Liste erklärt die Farben.
+- **Geänderte Spielwerte: Suche.** Ein Suchfeld über der Liste findet ein
+  Teil nach Name oder Bereich und ein geändertes Feld nach seinem Namen.
+- **Geänderte Spielwerte: Sprung zum Bauplan.** Ist ein neues oder
+  geändertes Teil ein Bauplan, trägt es einen Chip „Bauplan“. Ein Klick
+  öffnet die Bauplan-Liste genau auf diesem Bauplan.
+- **Overlay öffnet sich für den Fabrikator.** Unter „Das Overlay öffnet
+  sich bei“ gibt es jetzt „Fabrikator fertig“, wie bei der Raffinerie.
+  Ab Werk aus.
+
+### Verbessert
+
+- **Größere kleinste Schrift.** Hinweise und Erklärungen unter den
+  Einstellungen sind von 11,5 auf 12,0 pt gewachsen. Meldung von fok
+- **Hangar: schlanker Kopf.** Der Hinweis zum Hangar steht links in einer
+  schmalen Karte, rechts daneben öffnen zwei Knöpfe „Schiffe holen oder
+  eintragen“ und „Flottenanalyse“.
+- **Bergbau liest die Raffinerie-Verfahren selbst.** Wer Bergbau vor
+  Herstellung öffnete, sah bisher die von Hand geschriebene Tabelle. Jetzt
+  liest die Seite die Werte aus den Spieldaten, wenn sie fehlen und das
+  Spiel zu ist.
+- **HOTFIX ohne Testhinweis.** HOTFIX ist eine Fassung von LIVE, die Seiten
+  warnen dort nicht mehr vor vertraulichen Testdaten.
+
+### Behoben
+
+- Auf der Einkaufsliste wurde eine lange Zeile im Korb breiter als die
+  Karte, jetzt bricht sie um.
+
 ## v5.2.3 - 2026-11-08
 
 > Das Windows-Update löst keinen Virenalarm mehr aus: VerseKit startet
