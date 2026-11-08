@@ -438,10 +438,88 @@ pub fn choices(sources: &Sources, kind: &str, size: Option<i64>, slot: Option<&S
     result
 }
 
+/// The parts that go into `slot`: those of its own kind ([`choices`]), and those of the other kinds it takes
+/// ([`crate::erkul_slots::other_kinds`]: a gimbal mount or a gun right away). A part of another kind goes in where
+/// the parts know it and it fits; a turret only as a gimbal mount, and only where the parts know it (whether a
+/// turret is one, only they tell). A part of the same name stands once.
+pub fn slot_choices(sources: &Sources, slot: &SlotInfo) -> Vec<Choice> {
+    let mut result = choices(sources, &slot.kind, slot.size, Some(slot));
+    for (kind, subs) in crate::erkul_slots::other_kinds(slot, sources.parts) {
+        for choice in choices(sources, &kind, slot.size, None) {
+            let fits = match sources.parts.get(&choice.reference) {
+                Some(part) => {
+                    part.kind == kind
+                        && (subs.is_empty() || subs.contains(&part.subkind))
+                        && (kind != "Turret" || crate::erkul_slots::is_gimbal(part))
+                        && slot.fit.as_ref().is_none_or(|fit| fits_slot(fit, part))
+                }
+                None => kind != "Turret",
+            };
+            let name = choice.name.trim().to_lowercase();
+            if fits && !result.iter().any(|c| c.reference == choice.reference || c.name.trim().to_lowercase() == name) {
+                result.push(choice);
+            }
+        }
+    }
+    result.sort_by_cached_key(|c| c.name.to_lowercase());
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::erkul_slots::Part;
+
+    /// The port of a gimbal mount offers the guns and the gimbal mounts of its size, not a turret of that size;
+    /// a wing slot holding a gimbal mount offers the gimbal mounts and the guns.
+    #[test]
+    fn a_gimbal_port_offers_gimbal_mounts_and_guns_of_its_size() {
+        let gimbal = |reference: &str, name: &str, size: i64, tags: &[&str]| Part {
+            reference: reference.into(),
+            name: name.into(),
+            kind: "Turret".into(),
+            subkind: "GunTurret".into(),
+            size: Some(size),
+            tags: tags.iter().map(|t| (*t).to_string()).collect(),
+            ..Part::default()
+        };
+        let parts = ErkulParts::from_parts(vec![
+            gimbal("vp3", "VariPuck S3 Gimbal Mount", 3, &["gimbalMount"]),
+            gimbal("vp3b", "VariPuck S3 Gimbal Mount", 3, &["gimbalMount"]),
+            gimbal("vp4", "VariPuck S4 Gimbal Mount", 4, &["gimbalMount"]),
+            gimbal("remote", "Remote Turret", 3, &["$GLSN_Shiv_Remote_Turret"]),
+        ]);
+        let shop = vec![
+            ShopPart { code: "m5a".into(), name: "M5A Cannon".into(), group: "Guns".into(), size: "3".into(), ..ShopPart::default() },
+            ShopPart { code: "big".into(), name: "Big Cannon".into(), group: "Guns".into(), size: "4".into(), ..ShopPart::default() },
+            ShopPart { code: "vp3".into(), name: "VariPuck S3 Gimbal Mount".into(), group: "Turrets".into(), size: "3".into(), ..ShopPart::default() },
+            ShopPart { code: "odd".into(), name: "Odd Turret".into(), group: "Turrets".into(), size: "3".into(), ..ShopPart::default() },
+        ];
+        let traits = HashMap::new();
+        let sources = Sources { craft: &[], traits: &traits, shop: &shop, parts: &parts };
+        let port = crate::erkul_slots::Fit {
+            types: vec![("WeaponGun".into(), vec!["Gun".into()]), ("Turret".into(), vec!["GunTurret".into()])],
+            min: Some(3),
+            max: Some(3),
+            ..crate::erkul_slots::Fit::default()
+        };
+        let mount = SlotInfo {
+            path: "hardpoint_turret/hardpoint_weapon_left".into(),
+            kind: "WeaponGun".into(),
+            size: Some(3),
+            fit: Some(port),
+            factory: Some(("vp3".into(), "VariPuck S3 Gimbal Mount".into())),
+            fixed: false,
+        };
+        assert_eq!(names(&slot_choices(&sources, &mount)), ["M5A Cannon", "VariPuck S3 Gimbal Mount"]);
+        // Counter-check: by its kind alone the gimbal mount does not stand there.
+        assert_eq!(names(&choices(&sources, "WeaponGun", Some(3), Some(&mount))), ["M5A Cannon"]);
+        let wing = SlotInfo { kind: "Turret".into(), fit: None, ..mount };
+        let found = slot_choices(&sources, &wing);
+        let offered = names(&found);
+        assert!(offered.contains(&"M5A Cannon") && offered.contains(&"VariPuck S3 Gimbal Mount"), "{offered:?}");
+        assert!(!offered.contains(&"Big Cannon"), "{offered:?}");
+    }
 
     fn blade(reference: &str, name: &str, class: &str, tags: &[&str]) -> Part {
         Part {

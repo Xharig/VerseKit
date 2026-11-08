@@ -6,6 +6,38 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.5 - 2026-11-08
+
+> Die Ausstattung im Hangar zeigt Gimbals mit ihren Waffen, getauschte
+> Türme samt Waffenplätzen und überall lesbare Namen.
+
+### Behoben
+
+- **Ausstattung: Gimbals und ihre Waffen.** Ein Gimbal ist jetzt ein Platz
+  mit seiner Waffe als Unterplatz darunter. Der Remote Turret der Shiv zeigt
+  „4 × Schiffswaffe S3“ mit den Gimbals und darunter je Gimbal seine Waffe
+  statt „8 × Waffe, gemischt“. Im Gimbal-Platz stehen Gimbals dieser Größe
+  und Waffen zur Wahl, wie im Spiel; eine Waffe direkt eingesetzt nimmt den
+  Unterplatz weg. Ein getauschter Turm bringt seine Gimbals samt Waffenplatz
+  mit, etwa der TMSB-5 in der F7C-M Super Hornet Mk II. Eine ältere
+  Ausstattung mit derselben Waffe auf Gimbal und Waffenplatz behält den
+  Gimbal, die Waffe sitzt darin. Meldung von Aeternitas26 [KRT]
+- **Ausstattung: eine Regel für alle Zeilen.** Gleiche Plätze in derselben
+  Halterung stehen in einer Zeile, der Pfeil öffnet jeden einzeln. Ein Platz,
+  in dem weitere Plätze hängen (Turm, Gimbal, Gestell, Bergbaukopf, Radar mit
+  Batterie), steht nie mit einem Platz ohne Unterplätze zusammen; seine
+  Unterplätze folgen direkt darunter. Ist darunter schon etwas gewählt, steht
+  er allein, damit ein Tausch der anderen nichts löscht. Meldung von
+  Aeternitas26 [KRT]
+- **Ausstattung: lesbare Namen.** Statt „WeaponGun“, „MiningModifier“ oder
+  „Turret“ steht die Art in Worten, statt „id:5566“ der Name des Teils
+  (SNS-R7X). Die Batterie unter dem Radar der MOLE steht bei ihrem Radar.
+  Meldung von Aeternitas26 [KRT]
+- **Hangar: nichts Verwaistes zählt.** Ein Eintrag der Ausstattung, zu dem
+  das Schiff keinen Platz (mehr) hat, bleibt gespeichert, zählt aber nicht
+  als offen und wird nicht mit abgehakt. Das Schiff wird wieder von selbst
+  einsatzbereit. Meldung von Aeternitas26 [KRT]
+
 ## v5.2.4 - 2026-11-08
 
 > Geänderte Spielwerte zeigen jetzt, ob ein Wert besser oder schlechter

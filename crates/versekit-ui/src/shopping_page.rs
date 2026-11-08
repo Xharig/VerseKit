@@ -76,6 +76,17 @@ fn file_time(file: &str) -> Option<SystemTime> {
     std::fs::metadata(file).and_then(|m| m.modified()).ok()
 }
 
+/// The slots and parts with the kind of every ware of the shops the parts lack (the guns, which the game data do
+/// not keep among the parts): so a gun chosen in place of a gimbal mount is known as one.
+fn with_ware_kinds(mut erkul: ErkulData, catalog: &[ShopPart]) -> ErkulData {
+    let kinds = catalog.iter().filter_map(|ware| {
+        let kind = versekit_core::part_choices::GROUP_TO_KIND.iter().find(|(group, _)| *group == ware.group)?.1;
+        Some((ware.code.clone(), kind.to_string()))
+    });
+    erkul.parts.add_kinds(kinds);
+    erkul
+}
+
 /// The stores the bill reads besides the game values.
 pub(crate) struct Stores {
     pub(crate) shops: Shops,
@@ -121,7 +132,7 @@ impl Stores {
     pub(crate) fn load(paths: &Paths) -> Stores {
         let files = Stores::files(paths);
         let parts = Catalog::load(paths).items();
-        let catalog = parts
+        let catalog: Vec<ShopPart> = parts
             .iter()
             .map(|p| ShopPart {
                 code: p.code.clone(),
@@ -137,7 +148,7 @@ impl Stores {
             shops: Shops::load(paths),
             raw: RawPrices::load(paths),
             market: Market::load(paths),
-            erkul: ErkulData::load(paths),
+            erkul: with_ware_kinds(ErkulData::load(paths), &catalog),
             catalog,
             parts,
             seen: std::array::from_fn(|k| file_time(&files[k])),

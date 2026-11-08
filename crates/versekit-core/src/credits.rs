@@ -210,7 +210,7 @@ pub const PEOPLE: [Person; 36] = [
             "s_dkv_aeternitas_idee4",
             "s_dkv_aeternitas_idee5",
         ],
-        &["s_dk_aeternitas_bugs", "s_dkv_aeternitas_bugs2"],
+        &["s_dk_aeternitas_bugs", "s_dkv_aeternitas_bugs2", "s_dkv_aeternitas_bugs3"],
     ),
     person("KynoTnis", "ADI", &["s_dkv_kynotnis_idee"], &["s_dkv_kynotnis_bugs"]),
     person("ryze", "KRT", &["s_dkv_ryze_idee"], &[]),

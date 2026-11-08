@@ -432,6 +432,8 @@ impl HangarState {
             let _lock = hangar::lock();
             hangar::load_held(file)
         };
+        // Entries of a plan without their slot are marked, not counted; the mark is saved with the next change.
+        self.stores.erkul.tidy_plans(&mut self.held.data);
         self.seen = (self.receiver.as_ref().map_or(0, |r| r.inbox.deliveries()), modified(file));
         self.heights.clear();
         self.names.reorder();
@@ -465,6 +467,7 @@ impl HangarState {
                 // Slots fetched in the background show on the cards too.
                 self.erkul = ErkulShips::load(&paths.app_file(ships::ERKUL_FILE));
                 self.slots.clear();
+                self.stores.erkul.tidy_plans(&mut self.held.data);
             }
             // The order of the stops is kept by the shopping list too: read again, so a move there shows here.
             self.equipment.order_loaded = false;
@@ -1726,9 +1729,9 @@ fn show_planned(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: 
 
 /// A file written elsewhere may hold the equipments and no plan: before the player changes a slot the plan is
 /// made from the active equipment, so that the change is made on what is stored and does not replace it.
-fn restore_plan(entry: &mut Map, stores: &Stores) {
+fn restore_plan(entry: &mut Map, stores: &Stores, extra: &Extra) {
     let exact = stores.erkul.slot_paths(entry);
-    if equipment::restore_loadout(entry, &|reference| stores.erkul.part_name(reference), &exact) {
+    if equipment::restore_loadout(entry, &|reference| equipment_box::part_name(stores, &extra.craft, reference), &exact) {
         respell_plan(entry, stores);
     }
 }
@@ -1748,10 +1751,10 @@ fn change_plan(
     box_state: &mut EquipmentState,
 ) -> bool {
     use equipment_box::Action;
-    restore_plan(entry, stores);
+    restore_plan(entry, stores, extra);
     let stock = stores.erkul.stock_ports(entry);
     let exact = stores.erkul.slot_paths(entry);
-    let name_of = |reference: &str| stores.erkul.part_name(reference);
+    let name_of = |reference: &str| equipment_box::part_name(stores, &extra.craft, reference);
     let changed = match action {
         Action::Switch { name } => equipment::switch(entry, name, &stock, &name_of, &exact),
         Action::Create { name } => equipment::create(entry, name, &stock),
@@ -1806,7 +1809,8 @@ fn change_plan(
     if changed && !matches!(action, Action::Delete { .. } | Action::Undo) {
         box_state.removed = None;
     }
-    changed
+    // The changed plan may leave an entry without its slot, or give one its slot back.
+    stores.erkul.tidy_plan(entry) || changed
 }
 
 /// A plan made from an equipment writes a path in lower case where the erkul data has no spelling for it

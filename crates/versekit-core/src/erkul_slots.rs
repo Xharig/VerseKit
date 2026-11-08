@@ -140,6 +140,9 @@ pub struct Part {
 pub struct ErkulParts {
     parts: Vec<Part>,
     index: HashMap<String, usize>,
+    /// The kind of parts the stored ones lack, by identifier: what the shops list (a gun has no slots of its own,
+    /// so the game data do not keep it among the parts).
+    kinds: HashMap<String, String>,
 }
 
 fn strings(value: Option<&Value>) -> Vec<String> {
@@ -258,7 +261,20 @@ impl ErkulParts {
         for (i, part) in parts.iter().enumerate() {
             index.insert(part.reference.clone(), i);
         }
-        ErkulParts { parts, index }
+        ErkulParts { parts, index, kinds: HashMap::new() }
+    }
+
+    /// Adds the kinds of parts by identifier, `(identifier, kind)`, as the shops list them.
+    pub fn add_kinds(&mut self, kinds: impl IntoIterator<Item = (String, String)>) {
+        self.kinds.extend(kinds.into_iter().filter(|(reference, kind)| !reference.is_empty() && !kind.is_empty()));
+    }
+
+    /// The kind of a part: the stored part's, else the one added by [`ErkulParts::add_kinds`].
+    pub fn kind_of(&self, reference: &str) -> Option<&str> {
+        match self.get(reference) {
+            Some(part) => Some(part.kind.as_str()),
+            None => self.kinds.get(reference).map(String::as_str),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -385,18 +401,93 @@ pub fn fits_slot(fit: &Fit, part: &Part) -> bool {
     fit.required.iter().all(|r| carried.contains(r))
 }
 
-/// `erkul.with_choices`: the slots after the own rack changes. A different rack brings different slots:
-/// the slots below it are replaced by those of the chosen rack with its factory fitting.
+/// How deep the slots a chosen part brings are followed (turret → gimbal mount → gun is three).
+const MAX_DEPTH: usize = 8;
+
+/// What the plan does to the slots below a slot.
+enum Below<'p> {
+    /// They stay as listed; `Some(part)` is the part they sit in, whose ports give them what fits.
+    Listed(Option<&'p Part>),
+    /// They go: the slot is left empty, or another part sits in it (whose own slots were added).
+    Replaced,
+}
+
+/// The own choice at a path of the plan.
+fn pick_of(chosen: &Map, path: &str) -> Option<String> {
+    let part = get(chosen, path)?.as_object()?;
+    let reference = text(part, "ref");
+    (!reference.is_empty()).then(|| reference.to_string())
+}
+
+/// Puts `slot` into `out` and says what the plan does to the slots below it. Another part than the stock one
+/// replaces them only where it is known what the chosen part holds: its own slots where the parts know it with
+/// slots, none where it is known as a part without slots (a gun in place of a gimbal mount, also a gun the parts
+/// do not know but the shops list as one). A gimbal mount the parts know without its gun port, or a part of
+/// which nothing is known (a ware of the shops without an identifier of the game, `id:5566`), leaves the slots
+/// below as listed. `trail` holds the parts the slot sits in, so that a part that holds itself ends there.
+fn fill<'p>(
+    slot: SlotInfo,
+    chosen: &Map,
+    parts: &'p ErkulParts,
+    out: &mut Vec<SlotInfo>,
+    trail: &mut Vec<String>,
+) -> Below<'p> {
+    let path = slot.path.clone();
+    let stock = slot.factory.as_ref().map(|(reference, _)| reference.clone()).filter(|r| !r.is_empty());
+    let fixed = slot.fixed;
+    out.push(slot);
+    // A slot left empty holds nothing, so nothing hangs below it; a fixed slot is never left empty.
+    if !fixed && get(chosen, &path).and_then(Value::as_object).is_some_and(crate::cart::is_emptied) {
+        return Below::Replaced;
+    }
+    let holder = stock.as_deref().and_then(|reference| parts.get(reference)).filter(|part| !part.ports.is_empty());
+    let pick = if fixed { None } else { pick_of(chosen, &path) };
+    let Some(pick) = pick.filter(|pick| Some(pick) != stock.as_ref()) else { return Below::Listed(holder) };
+    match parts.get(&pick) {
+        Some(part) if !part.ports.is_empty() => {
+            add_ports(part, &path, chosen, parts, out, trail);
+            Below::Replaced
+        }
+        Some(part) if !is_gimbal(part) => Below::Replaced,
+        None if parts.kind_of(&pick) == Some("WeaponGun") => Below::Replaced,
+        _ => Below::Listed(holder),
+    }
+}
+
+/// The slots `part` brings below `path`, each with what sits in it at the factory (or by the plan), and below
+/// those the slots their parts bring: a ball turret chosen brings its gimbal mounts, and each mount its gun. A part
+/// already in `trail` (one that holds itself) brings nothing more, nor does one deeper than [`MAX_DEPTH`].
+fn add_ports(part: &Part, path: &str, chosen: &Map, parts: &ErkulParts, out: &mut Vec<SlotInfo>, trail: &mut Vec<String>) {
+    if trail.len() >= MAX_DEPTH || trail.contains(&part.reference) {
+        return;
+    }
+    trail.push(part.reference.clone());
+    for port in &part.ports {
+        let kind = port.fit.types.iter().map(|(t, _)| t.as_str()).find(|t| SWAPPABLE.contains(t)).unwrap_or("");
+        let slot = SlotInfo {
+            path: format!("{path}/{}", port.name),
+            kind: kind.to_string(),
+            size: port.fit.max,
+            fit: Some(port.fit.clone()),
+            factory: part.factory.iter().find(|(name, _)| *name == port.name).map(|(_, pair)| pair.clone()),
+            fixed: false,
+        };
+        let below = slot.path.clone();
+        if let Below::Listed(Some(inner)) = fill(slot, chosen, parts, out, trail) {
+            add_ports(inner, &below, chosen, parts, out, trail);
+        }
+    }
+    trail.pop();
+}
+
+/// `erkul.with_choices`: the slots after the own choices. A different part brings different slots: the slots
+/// below it are replaced by those of the chosen part with its factory fitting, all the way down (the gimbal
+/// mounts of a turret and their guns), and a gun chosen in place of a gimbal mount has no slot below it.
 /// `chosen` is the equipment of the ship, path → `{ref, …}`.
 pub fn with_choices(slots: Vec<SlotInfo>, chosen: &Map, parts: &ErkulParts) -> Vec<SlotInfo> {
     if parts.is_empty() && !chosen.iter().any(|(_, v)| v.as_object().is_some_and(crate::cart::is_emptied)) {
         return slots;
     }
-    let pick_of = |path: &str| -> Option<String> {
-        let part = get(chosen, path)?.as_object()?;
-        let reference = text(part, "ref");
-        (!reference.is_empty()).then(|| reference.to_string())
-    };
     let mut out: Vec<SlotInfo> = Vec::new();
     let mut gone: Vec<String> = Vec::new();
     let mut racks: HashMap<String, &Part> = HashMap::new();
@@ -416,40 +507,31 @@ pub fn with_choices(slots: Vec<SlotInfo>, chosen: &Map, parts: &ErkulParts) -> V
         {
             slot.fit = Some(port.fit.clone());
         }
-        let stock = slot.factory.as_ref().map(|(reference, _)| reference.clone()).filter(|r| !r.is_empty());
-        let fixed = slot.fixed;
-        out.push(slot);
-        // A slot left empty holds no rack, so nothing hangs below it; a fixed slot is never left empty.
-        if !fixed && get(chosen, &path).and_then(Value::as_object).is_some_and(crate::cart::is_emptied) {
-            gone.push(format!("{path}/"));
-            continue;
-        }
-        let pick = if fixed { None } else { pick_of(&path) };
-        let Some(rack) = pick.as_ref().or(stock.as_ref()).and_then(|reference| parts.get(reference)) else {
-            continue;
-        };
-        if rack.ports.is_empty() {
-            continue;
-        }
-        racks.insert(path.clone(), rack);
-        if pick.is_none() || pick == stock {
-            continue;
-        }
-        let prefix = format!("{path}/");
-        gone.push(prefix.clone());
-        for port in &rack.ports {
-            let kind = port.fit.types.iter().map(|(t, _)| t.as_str()).find(|t| SWAPPABLE.contains(t)).unwrap_or("");
-            out.push(SlotInfo {
-                path: format!("{prefix}{}", port.name),
-                kind: kind.to_string(),
-                size: port.fit.max,
-                fit: Some(port.fit.clone()),
-                factory: rack.factory.iter().find(|(name, _)| *name == port.name).map(|(_, pair)| pair.clone()),
-                fixed: false,
-            });
+        match fill(slot, chosen, parts, &mut out, &mut Vec::new()) {
+            Below::Listed(Some(rack)) => {
+                racks.insert(path, rack);
+            }
+            Below::Listed(None) => {}
+            Below::Replaced => gone.push(format!("{path}/")),
         }
     }
     out
+}
+
+/// Whether a part is a gimbal mount: a turret that holds one gun and goes where a gun goes (`gimbalMount`).
+pub fn is_gimbal(part: &Part) -> bool {
+    part.kind == "Turret" && part.tags.iter().any(|tag| tag.eq_ignore_ascii_case("gimbalMount"))
+}
+
+/// The kinds a slot takes besides its own, `(kind, subkinds)`: those its rule names (the port of a gimbal mount
+/// takes a gimbal mount or a gun right away), and for a slot without a rule whose factory part is a gimbal mount,
+/// a gun right away.
+pub fn other_kinds(slot: &SlotInfo, parts: &ErkulParts) -> Vec<(String, Vec<String>)> {
+    if let Some(fit) = &slot.fit {
+        return fit.types.iter().filter(|(kind, _)| *kind != slot.kind && SWAPPABLE.contains(&kind.as_str())).cloned().collect();
+    }
+    let gimbal = slot.factory.as_ref().and_then(|(reference, _)| parts.get(reference)).is_some_and(is_gimbal);
+    if gimbal && slot.kind == "Turret" { vec![("WeaponGun".to_string(), vec!["Gun".to_string()])] } else { Vec::new() }
 }
 
 /// What the ship is called for the lookup: the fields of the hangar entry.
@@ -519,6 +601,86 @@ impl ErkulData {
             .into_iter()
             .filter_map(|slot| slot.factory.filter(|(r, _)| !r.is_empty()).map(|(r, _)| (slot.path, r)))
             .collect()
+    }
+
+    /// Puts the plan (`belegung`) of a hangar entry right against the slots of its ship. Where the slots of the
+    /// ship are not known nothing is changed. True when the plan changed.
+    ///
+    /// - One part planned in a gimbal mount and in the gun port below it (what one line of 5.2.x put into both)
+    ///   stays in the gun port only, in the plan and in the active equipment: the gimbal mount keeps its factory
+    ///   part.
+    /// - An entry whose slot the ship does not have, after the plan, is marked [`crate::cart::ORPHANED`] and kept;
+    ///   one whose slot is there again loses the mark.
+    pub fn tidy_plan(&self, entry: &mut Map) -> bool {
+        let stock = hardpoints(&self.ships, &self.parts, ship_id(entry), &Map::new());
+        if stock.is_empty() {
+            return false;
+        }
+        let Some(Value::Object(plan)) = get(entry, "belegung") else { return false };
+        let mut plan = plan.clone();
+        let listed = |path: &str| stock.iter().any(|slot| slot.path == path);
+        let reference_at = |plan: &Map, path: &str| pick_of(plan, path).unwrap_or_default();
+        let doubled: Vec<String> = plan
+            .iter()
+            .map(|(path, _)| path.clone())
+            .filter(|path| {
+                let reference = reference_at(&plan, path);
+                let gimbal = stock.iter().find(|slot| slot.path == *path).and_then(|slot| slot.factory.as_ref()).is_some_and(
+                    |(stock_ref, name)| self.parts.get(stock_ref).is_some_and(is_gimbal) || name.to_lowercase().contains("gimbal"),
+                );
+                let below = plan.iter().any(|(other, _)| {
+                    other.strip_prefix(path.as_str()).is_some_and(|rest| rest.starts_with('/'))
+                        && listed(other)
+                        && reference_at(&plan, other) == reference
+                });
+                !reference.is_empty() && gimbal && below
+            })
+            .collect();
+        let mut changed = !doubled.is_empty();
+        plan.retain(|(path, _)| !doubled.contains(path));
+        let slots: Vec<String> = hardpoints(&self.ships, &self.parts, ship_id(entry), &plan)
+            .into_iter()
+            .filter(|slot| !slot.fixed)
+            .map(|slot| slot.path)
+            .collect();
+        for (path, part) in &mut plan {
+            let Value::Object(fields) = part else { continue };
+            if text(fields, "ref").is_empty() {
+                continue;
+            }
+            let gone = !slots.contains(path);
+            let marked = crate::hangar::truthy(get(fields, crate::cart::ORPHANED));
+            if gone && !marked {
+                crate::jsonio::map_set(fields, crate::cart::ORPHANED, Value::Bool(true));
+                changed = true;
+            } else if !gone && marked {
+                fields.retain(|(key, _)| key != crate::cart::ORPHANED);
+                changed = true;
+            }
+        }
+        if changed {
+            crate::jsonio::map_set(entry, "belegung", Value::Object(plan));
+        }
+        // The active equipment follows the plan without the doubled entries.
+        if !doubled.is_empty() {
+            let stock_ports = self.stock_ports(entry);
+            crate::equipment::sync_entry(entry, &stock_ports);
+        }
+        changed
+    }
+
+    /// [`ErkulData::tidy_plan`] for every ship of the hangar and of the wish list in `data`; true when one changed.
+    pub fn tidy_plans(&self, data: &mut Map) -> bool {
+        let mut changed = false;
+        for key in ["schiffe", "wunsch"] {
+            let Some((_, Value::Array(items))) = data.iter_mut().find(|(k, _)| k == key) else { continue };
+            for item in items.iter_mut() {
+                if let Value::Object(entry) = item {
+                    changed |= self.tidy_plan(entry);
+                }
+            }
+        }
+        changed
     }
 
     /// The slots of a hangar entry for the equipment chosen so far, as the shopping list wants them
@@ -958,6 +1120,299 @@ mod tests {
         // Without any stored parts the list stays as it is.
         let bare = with_choices(vec![slot("rack", "Cooler", None, None)], &chosen, &ErkulParts::default());
         assert_eq!(bare.len(), 1);
+    }
+
+    /// A port of a gimbal mount as the game data give it: a gun or a gimbal mount of size `size`.
+    fn gimbal_port(size: i64) -> Fit {
+        Fit {
+            types: vec![("WeaponGun".into(), vec!["Gun".into()]), ("Turret".into(), vec!["GunTurret".into()])],
+            min: Some(size),
+            max: Some(size),
+            ..Fit::default()
+        }
+    }
+
+    /// A gimbal mount of the game data: one gun port of its size, empty at the factory.
+    fn gimbal(reference: &str, name: &str, size: i64) -> Part {
+        Part {
+            reference: reference.into(),
+            name: name.into(),
+            kind: "Turret".into(),
+            subkind: "GunTurret".into(),
+            size: Some(size),
+            tags: vec!["gimbalMount".into(), "flightReady".into()],
+            ports: vec![PartPort { name: "hardpoint_class_2".into(), fit: fit("WeaponGun", size, size, &[], &[]) }],
+            ..Part::default()
+        }
+    }
+
+    /// The remote turret of the Shiv as the game data give it: four gimbal mounts, each with one gun.
+    fn shiv_turret() -> Vec<SlotInfo> {
+        let mut slots = vec![SlotInfo { size: Some(3), ..slot("hardpoint_turret", "Turret", None, Some("remote")) }];
+        for side in ["right", "left", "top_right", "top_left"] {
+            let mount = format!("hardpoint_turret/hardpoint_weapon_{side}");
+            slots.push(SlotInfo { fit: Some(gimbal_port(3)), ..slot(&mount, "WeaponGun", None, Some("varipuck3")) });
+            let gun = format!("{mount}/hardpoint_class_2");
+            slots.push(slot(&gun, "WeaponGun", Some(fit("WeaponGun", 3, 3, &[], &[])), Some("tormenter")));
+        }
+        slots
+    }
+
+    fn plan(json: &str) -> Map {
+        crate::jsonio::loads(json).ok().and_then(|v| v.as_object().cloned()).expect("plan")
+    }
+
+    #[test]
+    fn a_gun_chosen_in_place_of_a_gimbal_mount_has_no_slot_below_it_and_another_mount_brings_its_own() {
+        let mut parts =
+            ErkulParts::from_parts(vec![gimbal("varipuck3", "VariPuck S3 Gimbal Mount", 3), gimbal("other3", "Other S3 Gimbal", 3)]);
+        // The shops list the M5A as a gun; the game data do not keep it among the parts.
+        parts.add_kinds([("m5a".to_string(), "WeaponGun".to_string()), ("odd".to_string(), "Turret".to_string())]);
+        let paths = |slots: &[SlotInfo]| slots.iter().map(|s| s.path.clone()).collect::<Vec<_>>();
+        let stock = with_choices(shiv_turret(), &Map::new(), &parts);
+        assert_eq!(stock.len(), 9, "the turret, four mounts and four guns: {:?}", paths(&stock));
+        // A gun right in the left mount: the gun that sat in the gimbal mount goes, the others stay.
+        let gun = plan(r#"{"hardpoint_turret/hardpoint_weapon_left": {"ref": "m5a", "name": "M5A Cannon"}}"#);
+        let after = paths(&with_choices(shiv_turret(), &gun, &parts));
+        assert!(after.contains(&"hardpoint_turret/hardpoint_weapon_left".to_string()), "{after:?}");
+        assert!(!after.contains(&"hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2".to_string()), "{after:?}");
+        assert!(after.contains(&"hardpoint_turret/hardpoint_weapon_right/hardpoint_class_2".to_string()), "{after:?}");
+        assert_eq!(after.len(), 8);
+        // A part the parts know without slots of its own (a gun of erkul's list) takes the gun slot away too.
+        let known = ErkulParts::from_parts(parts.all().iter().cloned().chain([part("cf337", "WeaponGun", 3, &[], &[])]).collect());
+        let cf = plan(r#"{"hardpoint_turret/hardpoint_weapon_left": {"ref": "cf337", "name": "CF-337"}}"#);
+        assert_eq!(with_choices(shiv_turret(), &cf, &known).len(), 8);
+        // Nothing says what an unknown part is, or it is no gun: the slots below stay.
+        let unknown_pick = plan(r#"{"hardpoint_turret/hardpoint_weapon_left": {"ref": "mystery", "name": "?"}}"#);
+        assert_eq!(with_choices(shiv_turret(), &unknown_pick, &parts).len(), 9, "unknown and of no known kind");
+        let odd = plan(r#"{"hardpoint_turret/hardpoint_weapon_left": {"ref": "odd", "name": "Odd Turret"}}"#);
+        assert_eq!(with_choices(shiv_turret(), &odd, &parts).len(), 9, "a turret the parts do not know");
+        // A gimbal mount the parts know without its gun port (erkul's list): the gun slot stays.
+        let bare = Part { ports: Vec::new(), ..gimbal("bare3", "Bare S3 Gimbal", 3) };
+        let with_bare = ErkulParts::from_parts(parts.all().iter().cloned().chain([bare]).collect());
+        let other_gimbal = plan(r#"{"hardpoint_turret/hardpoint_weapon_left": {"ref": "bare3", "name": "Bare S3 Gimbal"}}"#);
+        let kept = paths(&with_choices(shiv_turret(), &other_gimbal, &with_bare));
+        assert!(kept.contains(&"hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2".to_string()), "{kept:?}");
+        // Another gimbal mount brings its own gun slot, empty at the factory.
+        let other = plan(r#"{"hardpoint_turret/hardpoint_weapon_left": {"ref": "other3", "name": "Other S3 Gimbal"}}"#);
+        let slots = with_choices(shiv_turret(), &other, &parts);
+        let inner = slots.iter().find(|s| s.path == "hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2").expect("its gun slot");
+        assert_eq!((inner.kind.as_str(), inner.size, inner.factory.clone()), ("WeaponGun", Some(3), None));
+        // Neither part known (no game data): the slots below stay as listed.
+        let unknown = ErkulParts::from_parts(vec![part("cooler", "Cooler", 1, &[], &[])]);
+        assert_eq!(with_choices(shiv_turret(), &gun, &unknown).len(), 9);
+        // A ware of the shops without an identifier of the game can be anything: the slots below stay.
+        let ware = plan(r#"{"hardpoint_turret/hardpoint_weapon_left": {"ref": "id:5566", "name": "SNS-R7X"}}"#);
+        assert_eq!(with_choices(shiv_turret(), &ware, &parts).len(), 9);
+        // The port of the gimbal mount takes a gimbal mount besides a gun; a wing slot holding a gimbal mount a gun.
+        assert_eq!(other_kinds(&shiv_turret()[1], &parts), [("Turret".to_string(), vec!["GunTurret".to_string()])]);
+        let wing = SlotInfo { size: Some(3), ..slot("hardpoint_weapon_left_wing", "Turret", None, Some("varipuck3")) };
+        assert_eq!(other_kinds(&wing, &parts), [("WeaponGun".to_string(), vec!["Gun".to_string()])]);
+        assert!(other_kinds(&shiv_turret()[0], &parts).is_empty(), "the remote turret is no gimbal mount");
+    }
+
+    /// The slots of the Shiv's turret ([`shiv_turret`]) stored as the game data store them, with the parts.
+    fn shiv_data(name: &str) -> ErkulData {
+        let fit = |kinds: &str| format!(r#"{{"typen": {kinds}, "min": 3, "max": 3, "porttags": [], "verlangt": []}}"#);
+        let mut slots = vec![r#"{"pfad": "hardpoint_turret", "art": "Turret", "groesse": 3, "werk": {"ref": "remote", "name": "Remote Turret"}}"#.to_string()];
+        for side in ["right", "left", "top_right", "top_left"] {
+            let mount = format!("hardpoint_turret/hardpoint_weapon_{side}");
+            slots.push(format!(
+                r#"{{"pfad": "{mount}", "art": "WeaponGun", "groesse": 3, "passt": {}, "werk": {{"ref": "varipuck3", "name": "VariPuck S3 Gimbal Mount"}}}}"#,
+                fit(r#"[["WeaponGun", ["Gun"]], ["Turret", ["GunTurret"]]]"#)
+            ));
+            slots.push(format!(
+                r#"{{"pfad": "{mount}/hardpoint_class_2", "art": "WeaponGun", "groesse": 3, "passt": {}, "werk": {{"ref": "tormenter", "name": "Tormenter S3 Repeater"}}}}"#,
+                fit(r#"[["WeaponGun", ["Gun"]]]"#)
+            ));
+        }
+        let stored = format!(
+            r#"{{"format": 4, "spielversion": "4.1", "hersteller": {{}}, "schiffe": {{"glsnshiv": {{"id": "GLSN_Shiv", "name": "Shiv", "plaetze": [], "slots": [{}]}}}}}}"#,
+            slots.join(", ")
+        );
+        let file = std::env::temp_dir().join(format!("versekit-shiv-{name}-{}.json", crate::testdir::run_tag()));
+        std::fs::write(&file, stored).expect("written");
+        let ships = ErkulShips::load(&file.to_string_lossy());
+        let _ = std::fs::remove_file(&file);
+        let mut parts = ErkulParts::from_parts(vec![gimbal("varipuck3", "VariPuck S3 Gimbal Mount", 3)]);
+        parts.add_kinds([("m5a".to_string(), "WeaponGun".to_string()), ("cf337".to_string(), "WeaponGun".to_string())]);
+        ErkulData { ships, parts }
+    }
+
+    /// The bill of one ship over the stored slots, with nothing priced.
+    struct Bill<'a>(&'a ErkulData);
+
+    impl crate::cart::Sources for Bill<'_> {
+        fn shop_known(&self, _reference: &str) -> bool {
+            false
+        }
+        fn cheapest(&self, _reference: &str) -> Option<(f64, String, String)> {
+            None
+        }
+        fn shops_for(&self, _reference: &str) -> Vec<crate::cart::Offer> {
+            Vec::new()
+        }
+        fn raw_buy_price(&self, _material: &str) -> f64 {
+            0.0
+        }
+        fn recipe_for(&self, _reference: &str, _name: &str) -> Option<crate::cart::Recipe> {
+            None
+        }
+        fn ship_offers(&self, _name: &str) -> Vec<crate::cart::Offer> {
+            Vec::new()
+        }
+        fn slots(&self, ship: &Map, chosen: &Map) -> Vec<crate::cart::Slot> {
+            self.0.cart_slots(ship, chosen)
+        }
+    }
+
+    /// The paths of the plan of `entry`.
+    fn plan_paths(entry: &Map) -> Vec<String> {
+        match get(entry, "belegung") {
+            Some(Value::Object(plan)) => plan.iter().map(|(path, _)| path.clone()).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// A ship saved by 5.2.4 with one gun in all eight lines of the Shiv's turret (one line of 5.2.x put it into the
+    /// four gimbal mounts and the four gun ports below them): read against the slots, the gun stays in the gun ports
+    /// only, in the plan and in the equipment, and the gimbal mounts keep their factory part. The hangar counts four
+    /// parts to get, the bill has four, and all four ticked the ship is fitted. Without the slots nothing changes.
+    #[test]
+    fn a_plan_of_5_2_4_with_a_gun_in_the_mounts_and_below_them_keeps_the_gimbal_mounts_and_counts_four() {
+        let data = shiv_data("alt");
+        let mut planned = Vec::new();
+        let mut slots = Vec::new();
+        for side in ["right", "left", "top_right", "top_left"] {
+            for path in [format!("hardpoint_turret/hardpoint_weapon_{side}"), format!("hardpoint_turret/hardpoint_weapon_{side}/hardpoint_class_2")] {
+                planned.push(format!(r#""{path}": {{"ref": "m5a", "name": "M5A Cannon", "weg": "kaufen"}}"#));
+                slots.push(format!(r#"{{"portPath": "{path}", "itemGuid": "m5a", "acquisition": "purchased"}}"#));
+            }
+        }
+        let saved = format!(
+            r#"{{"name": "Shiv", "kurz": "GLSN_Shiv", "belegung": {{{}}}, "ausstattungen": [{{"name": "Standard", "active": true, "slots": [{}]}}]}}"#,
+            planned.join(", "),
+            slots.join(", ")
+        );
+        let mut entry = plan(&saved);
+        assert_eq!(crate::equipment::read_all(&entry, &[]).active().map(|e| e.slots.len()), Some(8), "it reads");
+        // Without the slots of the ship nothing is touched.
+        let mut untouched = entry.clone();
+        assert!(!ErkulData::default().tidy_plan(&mut untouched));
+        assert!(crate::jsonio::py_eq_value(&Value::Object(untouched), &Value::Object(entry.clone())));
+        assert!(data.tidy_plan(&mut entry));
+        let paths = plan_paths(&entry);
+        assert_eq!(paths.len(), 4);
+        assert!(paths.iter().all(|p| p.ends_with("/hardpoint_class_2")), "{paths:?}");
+        assert_eq!(crate::equipment::read_all(&entry, &[]).active().map(|e| e.slots.len()), Some(4), "the equipment follows");
+        // Shown: each gimbal mount with its factory part, the gun below it.
+        let chosen = match get(&entry, "belegung") {
+            Some(Value::Object(plan)) => plan.clone(),
+            _ => panic!("the plan"),
+        };
+        let shown = hardpoints(&data.ships, &data.parts, ship_id(&entry), &chosen);
+        assert_eq!(shown.len(), 9);
+        let mount = shown.iter().find(|s| s.path == "hardpoint_turret/hardpoint_weapon_left").expect("the mount");
+        assert_eq!(mount.factory.as_ref().map(|(_, n)| n.as_str()), Some("VariPuck S3 Gimbal Mount"));
+        assert!(pick_of(&chosen, &mount.path).is_none(), "the mount keeps its factory part");
+        assert_eq!(pick_of(&chosen, "hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2").as_deref(), Some("m5a"));
+        // Counted: four to get, four on the bill; all ticked, the ship is fitted.
+        assert_eq!(crate::hangar::open_count(&entry), 4);
+        assert!(!crate::hangar::fully_fitted(&entry));
+        assert_eq!(crate::cart::line_items(&entry, &Bill(&data)).1.len(), 4);
+        assert_eq!(crate::hangar::tick_all(&mut entry), 4);
+        assert!(crate::hangar::fully_fitted(&entry));
+        assert!(!data.tidy_plan(&mut entry), "read once more, nothing changes");
+    }
+
+    /// An entry of the plan whose slot the ship does not have (a gun in a gun port below a mount that now holds a
+    /// gun itself) is kept and marked: the hangar does not count it, nothing ticks it off, the bill passes it by.
+    /// Where the slot is there again, the mark goes.
+    #[test]
+    fn an_entry_without_its_slot_is_kept_but_never_counted_as_open() {
+        let data = shiv_data("verwaist");
+        let mut entry = plan(
+            r#"{"name": "Shiv", "kurz": "GLSN_Shiv", "belegung": {
+                "hardpoint_turret/hardpoint_weapon_left": {"ref": "m5a", "name": "M5A Cannon", "weg": "kaufen"},
+                "hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2": {"ref": "cf337", "name": "CF-337", "weg": "kaufen"}}}"#,
+        );
+        assert_eq!(crate::hangar::open_count(&entry), 2, "before the slots are read");
+        assert!(data.tidy_plan(&mut entry));
+        assert_eq!(plan_paths(&entry).len(), 2, "nothing thrown away");
+        assert_eq!(crate::hangar::open_count(&entry), 1);
+        assert_eq!(crate::cart::line_items(&entry, &Bill(&data)).1.len(), 1);
+        assert_eq!(crate::hangar::tick_all(&mut entry), 1, "the entry without its slot is not ticked");
+        assert!(crate::hangar::fully_fitted(&entry));
+        // The mount back at the factory: the gun port is there again and its entry counts again.
+        if let Some((_, Value::Object(plan))) = entry.iter_mut().find(|(k, _)| k == "belegung") {
+            plan.retain(|(path, _)| path != "hardpoint_turret/hardpoint_weapon_left");
+        }
+        assert!(data.tidy_plan(&mut entry));
+        assert_eq!(crate::hangar::open_count(&entry), 1);
+        assert!(!crate::hangar::fully_fitted(&entry));
+    }
+
+    /// A part whose port holds the part itself at the factory brings its slots once, not without end.
+    #[test]
+    fn a_part_that_holds_itself_brings_its_slots_once() {
+        let mut looped = part("loop", "Turret", 3, &[], &[]);
+        looped.ports = vec![
+            PartPort { name: "a".into(), fit: fit("Turret", 3, 3, &[], &[]) },
+            PartPort { name: "b".into(), fit: fit("Turret", 3, 3, &[], &[]) },
+        ];
+        looped.factory = vec![("a".into(), ("loop".into(), "Loop".into())), ("b".into(), ("loop".into(), "Loop".into()))];
+        let parts = ErkulParts::from_parts(vec![looped]);
+        let chosen = plan(r#"{"top": {"ref": "loop", "name": "Loop"}}"#);
+        let found = with_choices(vec![slot("top", "Turret", None, Some("stock"))], &chosen, &parts);
+        let paths: Vec<&str> = found.iter().map(|s| s.path.as_str()).collect();
+        assert_eq!(paths, ["top", "top/a", "top/b"]);
+    }
+
+    #[test]
+    fn a_turret_chosen_brings_its_gimbal_mounts_and_the_gun_slot_in_each() {
+        // The TMSB-5 of the game data: two S4 ports holding its own gimbal mount, which holds one S4 gun.
+        let mut tmsb = part("tmsb", "Turret", 5, &[], &[]);
+        tmsb.name = "TMSB-5 Ball Turret".into();
+        tmsb.ports = ["hardpoint_weapon_left", "hardpoint_weapon_right"]
+            .iter()
+            .map(|name| PartPort { name: (*name).into(), fit: gimbal_port(4) })
+            .collect();
+        tmsb.factory = ["hardpoint_weapon_left", "hardpoint_weapon_right"]
+            .iter()
+            .map(|name| ((*name).to_string(), ("tmsb-gimbal".to_string(), "TMSB-5 Gimbal Mount".to_string())))
+            .collect();
+        let mut parts = ErkulParts::from_parts(vec![tmsb, gimbal("tmsb-gimbal", "TMSB-5 Gimbal Mount", 4)]);
+        parts.add_kinds([("gun4".to_string(), "WeaponGun".to_string())]);
+        let ball = vec![
+            SlotInfo { size: Some(5), ..slot("hardpoint_weapon_center", "Turret", None, Some("ball")) },
+            SlotInfo { fit: Some(gimbal_port(3)), ..slot("hardpoint_weapon_center/hardpoint_weapon_left", "WeaponGun", None, Some("varipuck3")) },
+            slot("hardpoint_weapon_center/hardpoint_weapon_left/hardpoint_class_2", "WeaponGun", None, Some("cf337")),
+        ];
+        let chosen = plan(r#"{"hardpoint_weapon_center": {"ref": "tmsb", "name": "TMSB-5 Ball Turret"}}"#);
+        let found: Vec<(String, String, Option<i64>, Option<String>)> = with_choices(ball.clone(), &chosen, &parts)
+            .into_iter()
+            .map(|s| (s.path, s.kind, s.size, s.factory.map(|(_, name)| name)))
+            .collect();
+        let row = |path: &str, size: i64, factory: Option<&str>| {
+            (path.to_string(), "WeaponGun".to_string(), Some(size), factory.map(str::to_string))
+        };
+        assert_eq!(
+            found[1..],
+            [
+                row("hardpoint_weapon_center/hardpoint_weapon_left", 4, Some("TMSB-5 Gimbal Mount")),
+                row("hardpoint_weapon_center/hardpoint_weapon_left/hardpoint_class_2", 4, None),
+                row("hardpoint_weapon_center/hardpoint_weapon_right", 4, Some("TMSB-5 Gimbal Mount")),
+                row("hardpoint_weapon_center/hardpoint_weapon_right/hardpoint_class_2", 4, None),
+            ]
+        );
+        // A gun right in a mount of the chosen turret: no gun slot below it, the other mount keeps its own.
+        let deeper = plan(
+            r#"{"hardpoint_weapon_center": {"ref": "tmsb", "name": "TMSB-5 Ball Turret"},
+                "hardpoint_weapon_center/hardpoint_weapon_left": {"ref": "gun4", "name": "Gun S4"}}"#,
+        );
+        let paths: Vec<String> = with_choices(ball, &deeper, &parts).into_iter().map(|s| s.path).collect();
+        assert!(!paths.contains(&"hardpoint_weapon_center/hardpoint_weapon_left/hardpoint_class_2".to_string()), "{paths:?}");
+        assert!(paths.contains(&"hardpoint_weapon_center/hardpoint_weapon_right/hardpoint_class_2".to_string()), "{paths:?}");
     }
 
     /// [`fit_answer`] for a part without a maker.

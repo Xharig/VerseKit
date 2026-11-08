@@ -340,6 +340,11 @@ pub fn set_part(entry: &mut Map, path: &str, reference: &str, name: &str, way: &
 /// no identifier, so the bill and the shopping list pass it by as they pass the factory part.
 pub const EMPTIED: &str = "leer";
 
+/// The key that marks an entry of the plan whose slot the ship does not have (any more): a port gone after a
+/// patch, or the gun port of a gimbal mount a gun took the place of. The entry stays as it is, but nothing counts
+/// it as open, ticks it off or bills it (`erkul_slots::ErkulData::tidy_plan` sets and takes the mark).
+pub const ORPHANED: &str = "verwaist";
+
 /// Is this part of the plan a slot left empty?
 pub fn is_emptied(part: &Map) -> bool {
     text(part, "ref").is_empty() && truthy(get(part, EMPTIED))

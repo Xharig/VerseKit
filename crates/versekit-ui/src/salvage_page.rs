@@ -474,7 +474,7 @@ fn sub(scheme: &Scheme, text: impl Into<String>) -> RichText {
 }
 
 /// The kind of a part in words (`WeaponGun` is a ship weapon); a kind without a text stays as erkul writes it.
-fn kind_word(kind: &str) -> String {
+pub(crate) fn kind_word(kind: &str) -> String {
     let key = format!("s_wr_art_{}", kind.to_lowercase());
     if language::text_in(language::current(), &key).is_some() { t(&key) } else { kind.to_string() }
 }

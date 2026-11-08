@@ -6,6 +6,36 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.5 - 2026-11-08
+
+> The hangar loadout shows gimbals with their guns, swapped turrets with
+> their gun slots, and readable names everywhere.
+
+### Fixed
+
+- **Loadout: gimbals and their guns.** A gimbal mount is now a slot with its
+  gun as a slot below it. The Shiv's remote turret shows “4 × Ship weapon S3”
+  with the gimbals and below each its gun instead of “8 × weapon, mixed”. A
+  gimbal slot offers the gimbals of its size and guns, as in the game; a gun
+  put in directly takes the slot below away. A swapped turret brings its
+  gimbals with their gun slots, such as the TMSB-5 in the F7C-M Super Hornet
+  Mk II. An older loadout with the same gun on the gimbal and on its gun slot
+  keeps the gimbal, with the gun in it. Reported by Aeternitas26 [KRT]
+- **Loadout: one rule for every line.** Alike slots in the same mount share a
+  line, the arrow opens each one. A slot that holds further slots (turret,
+  gimbal, rack, mining head, radar with battery) never shares a line with a
+  slot that holds none; its slots follow right below it. With something
+  already chosen below it, it stands alone, so that swapping the others
+  deletes nothing. Reported by Aeternitas26 [KRT]
+- **Loadout: readable names.** The kind is written in words instead of
+  “WeaponGun”, “MiningModifier” or “Turret”, and a part shows its name
+  (SNS-R7X) instead of “id:5566”. The battery below the MOLE's radar stands
+  with its radar. Reported by Aeternitas26 [KRT]
+- **Hangar: nothing orphaned counts.** A loadout entry for a slot the ship
+  does not have (any more) stays saved but no longer counts as open and is not
+  ticked off with the rest. The ship goes ready by itself again. Reported by
+  Aeternitas26 [KRT]
+
 ## v5.2.4 - 2026-11-08
 
 > Changed game values now show whether a value got better or worse, with

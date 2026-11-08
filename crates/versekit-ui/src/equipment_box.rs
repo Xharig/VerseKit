@@ -330,19 +330,84 @@ fn fill_at(chosen: &Map, path: &str) -> Fill {
     if emptied { Fill::Empty } else { Fill::Stock }
 }
 
-/// The mount that holds each slot, `(path, name)`: the outermost slot of the list above it, named by
-/// the part in it; else, where erkul lists no slot above it, the parent of the path when that holds several
-/// slots (a remote turret with its two guns), named by the parent's own name. A parent with one slot (the
-/// hardpoint of a wing gun, the cab of a mining head) is no mount of its own: such slots stand together.
+/// The name of a part for a person: the parts of the game data and erkul, the wares of the shops, the blueprints;
+/// the identifier only where none of them knows it (`id:5566` is a ware of UEX without an entity identifier).
+pub(crate) fn part_name(stores: &Stores, craft: &[CraftEntry], reference: &str) -> String {
+    if let Some(part) = stores.erkul.parts.get(reference).filter(|part| !part.name.trim().is_empty()) {
+        return part.name.clone();
+    }
+    if let Some(ware) = stores.catalog.iter().find(|ware| ware.code == reference && !ware.name.trim().is_empty()) {
+        return ware.name.clone();
+    }
+    let made = craft.iter().find(|entry| !entry.entity.is_empty() && entry.entity.eq_ignore_ascii_case(reference));
+    match made {
+        Some(entry) if !entry.basis.trim().is_empty() => entry.basis.clone(),
+        Some(entry) if !entry.name.trim().is_empty() => entry.name.clone(),
+        _ => reference.to_string(),
+    }
+}
+
+/// The plan with a readable name for every own part whose stored name is none or its identifier (a plan made
+/// from an equipment names a part the parts do not know by its identifier).
+/// The plan as it is where every part has a name of its own, without a copy.
+fn readable_plan<'a>(chosen: &'a Map, stores: &Stores, craft: &[CraftEntry]) -> std::borrow::Cow<'a, Map> {
+    let unnamed = |part: &Value| {
+        part.as_object().is_some_and(|fields| {
+            let (reference, name) = (field_text(fields, "ref"), field_text(fields, "name").trim());
+            !reference.is_empty() && (name.is_empty() || name == reference)
+        })
+    };
+    if !chosen.iter().any(|(_, part)| unnamed(part)) {
+        return std::borrow::Cow::Borrowed(chosen);
+    }
+    let mut plan = chosen.clone();
+    for (_, part) in &mut plan {
+        if !unnamed(part) {
+            continue;
+        }
+        let Value::Object(fields) = part else { continue };
+        let reference = field_text(fields, "ref").to_string();
+        versekit_core::jsonio::map_set(fields, "name", Value::str(part_name(stores, craft, &reference)));
+    }
+    std::borrow::Cow::Owned(plan)
+}
+
+/// The kind of a slot in words (`WeaponGun` is a ship weapon).
+fn kind_word(kind: &str) -> String {
+    crate::salvage_page::kind_word(kind)
+}
+
+/// Whether the plan chooses anything below `path` (a part or "leave empty"); an entry without its slot
+/// ([`cart::ORPHANED`]) chooses nothing.
+fn chosen_below(chosen: &Map, path: &str) -> bool {
+    let below = format!("{path}/");
+    chosen.iter().any(|(at, part)| {
+        at.starts_with(&below)
+            && part.as_object().is_some_and(|p| {
+                !field_true(p, cart::ORPHANED) && (!field_text(p, "ref").is_empty() || cart::is_emptied(p))
+            })
+    })
+}
+
+/// Whether other slots of the list hang below `slot`: a turret, a gimbal mount, a rack, a mining head with modules.
+fn holds_slots(slots: &[SlotInfo], slot: &SlotInfo) -> bool {
+    slots.iter().any(|s| s.path.strip_prefix(slot.path.as_str()).is_some_and(|rest| rest.starts_with('/')))
+}
+
+/// The mount that holds each slot, `(path, name)`: the slot of the list right above it (the gimbal mount of a gun,
+/// the rack of a missile, the turret of a gimbal mount), named by the part in it; else, where the list holds no
+/// slot above it, the parent of the path when that holds several slots (a remote turret with its two guns), named
+/// by the parent's own name. A parent with one slot (the hardpoint of a wing gun, the cab of a mining head) is no
+/// mount of its own: such slots stand together.
 fn mounts_of(slots: &[SlotInfo], chosen: &Map) -> Vec<Option<(String, String)>> {
-    // The outermost slot of the list above each slot.
+    // The nearest slot of the list above each slot.
     let above: Vec<Option<&SlotInfo>> = slots
         .iter()
         .map(|slot| {
             slots
                 .iter()
                 .filter(|s| slot.path.strip_prefix(s.path.as_str()).is_some_and(|rest| rest.starts_with('/')))
-                .min_by_key(|s| s.path.len())
+                .max_by_key(|s| s.path.len())
         })
         .collect();
     // Counted per parent are the slots right in it, not those that hang in a slot of it (the modules of a head).
@@ -385,9 +450,17 @@ fn plain_port(path: &str) -> String {
 /// first appearance, whatever is in them: the line says when they hold different parts (another choice, or
 /// another part from the factory), and opened it has a line for each slot. Slots in another mount are another
 /// line: the guns of the nose turret and those of the ball turret are fitted apart. Slots whose parent is no
-/// mount (the guns on the two wings, the three mining heads of the Mole) stand together. Mounts of the same name
-/// are told apart by a number: "Baler Salvage Head 1", "… 2".
+/// mount (the coolers, the ore pods of the Mole) stand together. Mounts of the same name are told apart by a
+/// number: "VariPuck S3 Gimbal Mount 1", "… 2".
+///
+/// A slot that holds slots (a turret, a gimbal mount, a rack, a mining head, a radar with its battery) never
+/// stands in one line with a slot that holds none: four gimbal mounts and their four guns read as eight guns.
+/// Slots that hold slots stand in one line where they hold the same part and nothing is chosen below any of them
+/// (the four gimbal mounts of a turret, swapped all at once); one with a choice below it stands alone, so that a
+/// swap of the others does not throw its choice away. The lines of the slots below follow, each named after its
+/// mount.
 fn groups(slots: Vec<SlotInfo>, chosen: &Map) -> Vec<Group> {
+    let holders: Vec<bool> = slots.iter().map(|slot| holds_slots(&slots, slot)).collect();
     let mut mounts = mounts_of(&slots, chosen);
     // Number the mounts that share a name, in the order they first appear.
     let mut seen: Vec<(String, String)> = Vec::new();
@@ -405,10 +478,23 @@ fn groups(slots: Vec<SlotInfo>, chosen: &Map) -> Vec<Group> {
         }
     }
     let mut found: Vec<(String, Group)> = Vec::new();
-    for (slot, mount) in slots.into_iter().zip(mounts) {
+    for ((slot, mount), holder) in slots.into_iter().zip(mounts).zip(holders) {
         let fill = fill_at(chosen, &slot.path);
-        // A fixed slot never stands in one line with one the player fits.
-        let key = format!("{}|{:?}|{}|{}", slot.kind, slot.size, mount.as_ref().map_or("", |(path, _)| path.as_str()), slot.fixed);
+        // A fixed slot never stands in one line with one the player fits. A slot that holds slots stands with those
+        // that hold the same part and have nothing chosen below them; one with a choice below it stands alone.
+        let alike = format!("{}|{:?}|{}|{}", slot.kind, slot.size, mount.as_ref().map_or("", |(path, _)| path.as_str()), slot.fixed);
+        let key = match (holder, chosen_below(chosen, &slot.path)) {
+            (false, _) => alike,
+            (true, true) => format!("holder|{}", slot.path),
+            (true, false) => {
+                let holds = match &fill {
+                    Fill::Own(reference, _) => format!("own:{reference}"),
+                    Fill::Stock => format!("stock:{}", slot.factory.as_ref().map_or("", |(reference, _)| reference.as_str())),
+                    Fill::Empty => "empty".to_string(),
+                };
+                format!("holder|{alike}|{holds}")
+            }
+        };
         match found.iter_mut().find(|(k, _)| *k == key) {
             Some((_, group)) => {
                 group.paths.push(slot.path.clone());
@@ -434,7 +520,7 @@ fn groups(slots: Vec<SlotInfo>, chosen: &Map) -> Vec<Group> {
             }
         }
     }
-    found
+    let lines: Vec<Group> = found
         .into_iter()
         .map(|(_, mut group)| {
             group.own = match group.common() {
@@ -443,7 +529,38 @@ fn groups(slots: Vec<SlotInfo>, chosen: &Map) -> Vec<Group> {
             };
             group
         })
-        .collect()
+        .collect();
+    below_their_mounts(lines)
+}
+
+/// The lines in the order of the list, each line of slots that hold slots followed right by the lines of the slots
+/// below them: the missiles of all four racks of one line stand below that line, not below the next one.
+fn below_their_mounts(lines: Vec<Group>) -> Vec<Group> {
+    let holds = |mount: &Group, line: &Group| line.mount.as_ref().is_some_and(|(path, _)| mount.paths.contains(path));
+    fn place(at: usize, lines: &[Group], holds: &dyn Fn(&Group, &Group) -> bool, placed: &mut [bool], order: &mut Vec<usize>) {
+        placed[at] = true;
+        order.push(at);
+        for next in 0..lines.len() {
+            if !placed[next] && holds(&lines[at], &lines[next]) {
+                place(next, lines, holds, placed, order);
+            }
+        }
+    }
+    let mut placed = vec![false; lines.len()];
+    let mut order = Vec::with_capacity(lines.len());
+    for at in 0..lines.len() {
+        let held = (0..lines.len()).any(|other| other != at && holds(&lines[other], &lines[at]));
+        if !placed[at] && !held {
+            place(at, &lines, &holds, &mut placed, &mut order);
+        }
+    }
+    for at in 0..lines.len() {
+        if !placed[at] {
+            place(at, &lines, &holds, &mut placed, &mut order);
+        }
+    }
+    let mut slots: Vec<Option<Group>> = lines.into_iter().map(Some).collect();
+    order.into_iter().filter_map(|at| slots[at].take()).collect()
 }
 
 /// What the slots of a group that hold different parts hold: "mixed: 1 × CF-337, 1 × Revenant", in the order
@@ -512,18 +629,33 @@ fn entry_text(choice: &Choice, catalog: &HashMap<&str, (&str, &str)>) -> String 
     if label.is_empty() { choice.name.clone() } else { format!("{}  ·  {label}", choice.name) }
 }
 
-/// "2 × WeaponGun S3", with the mount the slots sit in before it: "Nose Turret: 2 × WeaponGun S3".
+/// "2 × Ship weapon S3", with the mount the slots sit in before it: "Nose Turret: 2 × Ship weapon S3".
 fn group_title(group: &Group) -> String {
     let size = group.size.map_or(String::new(), |s| format!(" S{s}"));
-    let what = if group.paths.len() > 1 {
-        format!("{} × {}{size}", group.paths.len(), group.kind)
-    } else {
-        format!("{}{size}", group.kind)
-    };
+    let kind = if group.kind.is_empty() { t("s_wk_platz") } else { kind_word(&group.kind) };
+    let what = if group.paths.len() > 1 { format!("{} × {kind}{size}", group.paths.len()) } else { format!("{kind}{size}") };
     match &group.mount {
         Some((_, name)) => format!("{name}: {what}"),
         None => what,
     }
+}
+
+/// The titles of the lines: [`group_title`], and where several lines would read alike (the four gimbal mounts of a
+/// turret, the radars of the Mole) a number after each, in the order of the lines: "Radar S2 (1)", "… (2)".
+fn titles(groups: &[Group]) -> Vec<String> {
+    let plain: Vec<String> = groups.iter().map(group_title).collect();
+    plain
+        .iter()
+        .enumerate()
+        .map(|(at, title)| {
+            let alike = plain.iter().filter(|other| *other == title).count();
+            if alike < 2 {
+                return title.clone();
+            }
+            let n = plain[..at].iter().filter(|other| *other == title).count() + 1;
+            format!("{title} ({n})")
+        })
+        .collect()
 }
 
 /// The cart of one ship, built the way the bill is built: the entry stands alone in a made-up fleet.
@@ -749,7 +881,7 @@ fn group_choices(
         shop: &ctx.stores.catalog,
         parts: &ctx.stores.erkul.parts,
     };
-    let found = part_choices::choices(&sources, &group.kind, group.size, Some(&group.slot));
+    let found = part_choices::slot_choices(&sources, &group.slot);
     let choices = stock_first(in_size_order(found), group.factory.as_ref());
     let stock = usize::from(group.factory.is_some());
     let entries = choices
@@ -784,9 +916,8 @@ fn slot_list(
     let catalog: HashMap<&str, (&str, &str)> =
         ctx.stores.catalog.iter().map(|p| (p.code.as_str(), (p.grade.as_str(), p.class.as_str()))).collect();
     let line_of = LineOf { scheme, ctx, stacked, catalog: &catalog, active };
-    for group in groups {
+    for (group, title) in groups.iter().zip(titles(groups)) {
         let id = format!("equipment-pick-{key}-{}", group.paths[0]);
-        let title = group_title(group);
         // A group of several slots opens below its line into a line for each slot; at the start it is shut.
         let open = (group.paths.len() > 1).then(|| state.open_groups.contains(&id));
         if group_line(ui, &line_of, state, &id, group, (&title, &title), open, actions) && !state.open_groups.remove(&id) {
@@ -1289,7 +1420,7 @@ fn arrival_lines(shared: &Shared, ctx: &Ctx) -> Vec<(String, bool)> {
     for (_, token, landing) in equipment_share::arrivals(shared, &ctx.extra.ids, &known) {
         let (what, unknown) = match landing {
             Landing::Part(guid) => {
-                let name = ctx.stores.erkul.part_name(&guid);
+                let name = part_name(ctx.stores, &ctx.extra.craft, &guid);
                 (if name == guid { token } else { name }, false)
             }
             Landing::Empty => (String::new(), false),
@@ -1315,7 +1446,7 @@ fn arrival_lines(shared: &Shared, ctx: &Ctx) -> Vec<(String, bool)> {
         .collect();
     if let Some(paint) = &shared.paint {
         lines.push(match equipment_share::land(paint, &ctx.extra.ids, &known) {
-            Landing::Part(guid) => (tf("s_wk_code_lack", &[("teil", Arg::from(ctx.stores.erkul.part_name(&guid)))]), false),
+            Landing::Part(guid) => (tf("s_wk_code_lack", &[("teil", Arg::from(part_name(ctx.stores, &ctx.extra.craft, &guid)))]), false),
             _ => (tf("s_wk_code_lack_unbekannt", &[("kennung", Arg::from(paint.as_str()))]), true),
         });
     }
@@ -1504,15 +1635,24 @@ pub(crate) fn show(
         loadout_bar(inner, scheme, state, &all, key, &mut actions);
         share_bar(inner, scheme, ctx, state, entry, key, &mut actions);
         inner.add_space(4.0);
-        let grouped = groups(slots, &chosen);
+        let readable = readable_plan(&chosen, ctx.stores, &ctx.extra.craft);
+        let grouped = groups(slots, &readable);
         slot_list(inner, scheme, ctx, state, key, &grouped, all.active(), &mut actions);
-        let (situation, lines) = lines_of(entry, wishlist, ctx.sources);
+        let named = match readable {
+            std::borrow::Cow::Owned(plan) => {
+                let mut named = entry.clone();
+                versekit_core::jsonio::map_set(&mut named, "belegung", Value::Object(plan));
+                std::borrow::Cow::Owned(named)
+            }
+            std::borrow::Cow::Borrowed(_) => std::borrow::Cow::Borrowed(entry),
+        };
+        let (situation, lines) = lines_of(&named, wishlist, ctx.sources);
         state.missing.extend(cart::missing_prices(&lines));
         inner.add_space(6.0);
         match situation {
             cart::State::NothingOpen => {
                 // Everything planned is ticked off: not "unchanged" but a warning about the next claim.
-                let fitted = !chosen.is_empty() && lines.is_empty() && chosen_all_done(&chosen);
+                let fitted = lines.is_empty() && hangar::fully_fitted(entry);
                 if fitted {
                     inner.add(
                         egui::Label::new(RichText::new(t("s_hg_fertig_hilfe")).small().color(color(scheme.gold)))
@@ -1530,15 +1670,6 @@ pub(crate) fn show(
         actions.truncate(1);
     }
     actions.pop()
-}
-
-/// `cart.fully_fitted` on the plan: something planned and all of it ticked off.
-fn chosen_all_done(plan: &Map) -> bool {
-    !plan.is_empty()
-        && plan.iter().all(|(_, part)| match part {
-            Value::Object(p) => field_true(p, "erledigt"),
-            _ => true,
-        })
 }
 
 #[cfg(test)]
@@ -1585,8 +1716,10 @@ mod tests {
         ];
         let plain = groups(slots.clone(), &Map::new());
         assert_eq!(plain.iter().map(|g| g.paths.len()).collect::<Vec<_>>(), [3, 1]);
-        assert_eq!(group_title(&plain[0]), "3 × Cooler S1");
-        assert_eq!(group_title(&plain[1]), "Shield S2");
+        assert_eq!(group_title(&plain[0]), "3 × Kühler S1");
+        assert_eq!(group_title(&plain[1]), "Schildgenerator S2");
+        // A slot whose kind the data do not name is a slot, not a blank.
+        assert_eq!(group_title(&groups(vec![slot("e", "", 3, "")], &Map::new())[0]), "Platz S3");
         assert_eq!(plain[0].common(), Some(&Fill::Stock));
         // The same part in all three: still one line, with that part.
         let same = entry(r#"{"a": {"ref": "o", "name": "Other"}, "b": {"ref": "o", "name": "Other"}, "c": {"ref": "o", "name": "Other"}}"#);
@@ -1606,41 +1739,60 @@ mod tests {
         assert_eq!(mixed[0].single(2).common(), Some(&Fill::Empty));
     }
 
+    /// A slot with the name of its factory part.
+    fn named(path: &str, kind: &str, size: i64, part: &str) -> SlotInfo {
+        let mut s = slot(path, kind, size, part);
+        s.factory = Some((part.to_lowercase().replace(' ', "-"), part.to_string()));
+        s
+    }
+
     #[test]
     fn the_guns_of_each_turret_are_a_line_of_their_own_named_after_the_turret() {
-        // The weapons of the F7C-M Super Hornet Mk II as erkul gives them: two S3 guns in the nose turret, two
-        // S4 guns on the wings without a turret, and two S3 guns in the gimbal mounts of the ball turret.
-        let mut nose = slot("hardpoint_weapon_nose", "Turret", 3, "nose");
-        nose.factory = Some(("nose".into(), "Anvil Hornet Mk II S3 Nose Turret".into()));
-        let mut ball = slot("hardpoint_weapon_center", "Turret", 5, "ball");
-        ball.factory = Some(("ball".into(), "Anvil F7C-M Mk II Ball Turret".into()));
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        // The weapons of the F7C-M Super Hornet Mk II as the game data give them: two S3 guns in the nose turret,
+        // an S4 gimbal mount with its gun on each wing, and in the ball turret two S3 gun ports that hold a gimbal
+        // mount with its gun each.
         let slots = vec![
-            nose,
-            slot("hardpoint_weapon_nose/hardpoint_weapon_S1_left", "WeaponGun", 3, "cf337"),
-            slot("hardpoint_weapon_nose/hardpoint_weapon_S1_right", "WeaponGun", 3, "cf337"),
-            slot("hardpoint_weapon_left_wing/hardpoint_class_2", "WeaponGun", 4, "revenant"),
-            slot("hardpoint_weapon_right_wing/hardpoint_class_2", "WeaponGun", 4, "revenant"),
-            ball,
-            slot("hardpoint_weapon_center/hardpoint_weapon_left", "Turret", 3, "varipuck"),
-            slot("hardpoint_weapon_center/hardpoint_weapon_left/hardpoint_class_2", "WeaponGun", 3, "cf337"),
-            slot("hardpoint_weapon_center/hardpoint_weapon_right", "Turret", 3, "varipuck"),
-            slot("hardpoint_weapon_center/hardpoint_weapon_right/hardpoint_class_2", "WeaponGun", 3, "cf337"),
+            named("hardpoint_weapon_nose", "Turret", 3, "Anvil Hornet Mk II S3 Nose Turret"),
+            named("hardpoint_weapon_nose/hardpoint_weapon_S1_left", "WeaponGun", 3, "CF-337 Panther Repeater"),
+            named("hardpoint_weapon_nose/hardpoint_weapon_S1_right", "WeaponGun", 3, "CF-337 Panther Repeater"),
+            named("hardpoint_weapon_left_wing", "Turret", 4, "VariPuck S4 Gimbal Mount"),
+            named("hardpoint_weapon_left_wing/hardpoint_class_2", "WeaponGun", 4, "Revenant Gatling"),
+            named("hardpoint_weapon_right_wing", "Turret", 4, "VariPuck S4 Gimbal Mount"),
+            named("hardpoint_weapon_right_wing/hardpoint_class_2", "WeaponGun", 4, "Revenant Gatling"),
+            named("hardpoint_weapon_center", "Turret", 5, "Anvil F7C-M Mk II Ball Turret"),
+            named("hardpoint_weapon_center/hardpoint_weapon_left", "WeaponGun", 3, "VariPuck S3 Gimbal Mount"),
+            named("hardpoint_weapon_center/hardpoint_weapon_left/hardpoint_class_2", "WeaponGun", 3, "CF-337 Panther Repeater"),
+            named("hardpoint_weapon_center/hardpoint_weapon_right", "WeaponGun", 3, "VariPuck S3 Gimbal Mount"),
+            named("hardpoint_weapon_center/hardpoint_weapon_right/hardpoint_class_2", "WeaponGun", 3, "CF-337 Panther Repeater"),
         ];
-        let titles = |chosen: &Map| groups(slots.clone(), chosen).iter().map(group_title).collect::<Vec<_>>();
+        let lines = |chosen: &Map| titles(&groups(slots.clone(), chosen));
+        // Mounts alike are one line, the gun of each mount a line of its own below it, named after its mount; the
+        // two guns of the nose turret are one line.
         assert_eq!(
-            titles(&Map::new()),
+            lines(&Map::new()),
             [
-                "Turret S3",
-                "Anvil Hornet Mk II S3 Nose Turret: 2 × WeaponGun S3",
-                "2 × WeaponGun S4",
-                "Turret S5",
-                "Anvil F7C-M Mk II Ball Turret: 2 × Turret S3",
-                "Anvil F7C-M Mk II Ball Turret: 2 × WeaponGun S3",
+                "Geschützturm S3",
+                "Anvil Hornet Mk II S3 Nose Turret: 2 × Schiffswaffe S3",
+                "2 × Geschützturm S4",
+                "VariPuck S4 Gimbal Mount 1: Schiffswaffe S4",
+                "VariPuck S4 Gimbal Mount 2: Schiffswaffe S4",
+                "Geschützturm S5",
+                "Anvil F7C-M Mk II Ball Turret: 2 × Schiffswaffe S3",
+                "VariPuck S3 Gimbal Mount 1: Schiffswaffe S3",
+                "VariPuck S3 Gimbal Mount 2: Schiffswaffe S3",
             ]
         );
-        // A turret of the player's choosing names its guns.
-        let chosen = entry(r#"{"hardpoint_weapon_center": {"ref": "tmsb", "name": "TMSB-5 Ball Turret"}}"#);
-        assert!(titles(&chosen).contains(&"TMSB-5 Ball Turret: 2 × WeaponGun S3".to_string()), "{:?}", titles(&chosen));
+        // A gimbal mount of the player's choosing stands alone and names its gun.
+        let chosen = entry(r#"{"hardpoint_weapon_left_wing": {"ref": "other", "name": "Other S4 Gimbal"}}"#);
+        assert!(lines(&chosen).contains(&"Other S4 Gimbal: Schiffswaffe S4".to_string()), "{:?}", lines(&chosen));
+        assert!(lines(&chosen).contains(&"Geschützturm S4 (1)".to_string()), "{:?}", lines(&chosen));
+        // A gun chosen in one wing mount: that mount stands alone, so that a swap of both does not take the gun away.
+        let below = entry(r#"{"hardpoint_weapon_left_wing/hardpoint_class_2": {"ref": "rev2", "name": "Other Gun"}}"#);
+        let split = groups(slots.clone(), &below);
+        let wings: Vec<&Group> = split.iter().filter(|g| g.kind == "Turret" && g.size == Some(4)).collect();
+        assert_eq!(wings.iter().map(|g| g.paths.len()).collect::<Vec<_>>(), [1, 1]);
         // Each gun of a turret can be fitted on its own: another part in one leaves the line whole.
         let one = entry(r#"{"hardpoint_weapon_nose/hardpoint_weapon_S1_left": {"ref": "rev", "name": "Revenant"}}"#);
         let nose_guns = &groups(slots.clone(), &one)[1];
@@ -1648,15 +1800,137 @@ mod tests {
         assert_eq!(nose_guns.common(), None, "the two nose guns hold different parts");
     }
 
+    /// Racks alike are one line; the missiles of each stand right below that line, also those of a rack that comes
+    /// after another kind of rack in the list.
+    #[test]
+    fn the_lines_below_a_line_of_racks_follow_it_right_away() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let mut slots = Vec::new();
+        for (rack, part, size) in [("left_01", "MSD-423 Missile Rack", 3), ("left_03", "MSD-442 Missile Rack", 2), ("right_01", "MSD-423 Missile Rack", 3)] {
+            slots.push(named(&format!("hardpoint_{rack}"), "MissileLauncher", 4, part));
+            for n in 1..=2 {
+                slots.push(named(&format!("hardpoint_{rack}/missile_0{n}_attach"), "Missile", size, "Missile"));
+            }
+        }
+        assert_eq!(
+            titles(&groups(slots, &Map::new())),
+            [
+                "2 × Raketenwerfer S4",
+                "MSD-423 Missile Rack 1: 2 × Rakete S3",
+                "MSD-423 Missile Rack 2: 2 × Rakete S3",
+                "Raketenwerfer S4",
+                "MSD-442 Missile Rack: 2 × Rakete S2",
+            ]
+        );
+    }
+
+    /// The remote turret of the Shiv as the game data give it: four gun ports, each holding a VariPuck S3 gimbal
+    /// mount with a Tormenter in it. Four mounts and four guns, never eight guns in one line.
+    #[test]
+    fn the_gimbal_mounts_of_a_turret_stand_each_with_its_gun_and_are_never_counted_as_guns() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let mut slots = vec![named("hardpoint_turret", "Turret", 3, "Remote Turret")];
+        for side in ["right", "left", "top_right", "top_left"] {
+            let mount = format!("hardpoint_turret/hardpoint_weapon_{side}");
+            slots.push(named(&mount, "WeaponGun", 3, "VariPuck S3 Gimbal Mount"));
+            slots.push(named(&format!("{mount}/hardpoint_class_2"), "WeaponGun", 3, "Tormenter S3 Repeater"));
+        }
+        let grouped = groups(slots.clone(), &Map::new());
+        let lines = titles(&grouped);
+        assert_eq!(
+            lines,
+            [
+                "Geschützturm S3",
+                "Remote Turret: 4 × Schiffswaffe S3",
+                "VariPuck S3 Gimbal Mount 1: Schiffswaffe S3",
+                "VariPuck S3 Gimbal Mount 2: Schiffswaffe S3",
+                "VariPuck S3 Gimbal Mount 3: Schiffswaffe S3",
+                "VariPuck S3 Gimbal Mount 4: Schiffswaffe S3",
+            ]
+        );
+        // The line of the four mounts holds the mounts only, each gun line its one gun.
+        assert!(grouped[1].paths.iter().all(|p| !p.ends_with("hardpoint_class_2")));
+        assert_eq!(grouped[1].factory.as_ref().map(|(_, n)| n.as_str()), Some("VariPuck S3 Gimbal Mount"));
+        assert!(grouped[2..].iter().all(|g| g.paths.len() == 1 && g.paths[0].ends_with("hardpoint_class_2")));
+        assert_eq!(grouped[2].factory.as_ref().map(|(_, n)| n.as_str()), Some("Tormenter S3 Repeater"));
+        assert!(!lines.iter().any(|l| l.contains("8 ×") || l.contains("WeaponGun")), "{lines:?}");
+        // The gun of the second mount chosen: that mount stands alone, the three others stay one line.
+        let one = entry(r#"{"hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2": {"ref": "m5a", "name": "M5A Cannon"}}"#);
+        let split = groups(slots, &one);
+        let mounts: Vec<usize> =
+            split.iter().filter(|g| g.paths[0].matches('/').count() == 1).map(|g| g.paths.len()).collect();
+        assert_eq!(mounts, [3, 1]);
+        // A gun chosen right in all four mounts (none below them any more): one line of four.
+        let guns: Vec<SlotInfo> = std::iter::once(named("hardpoint_turret", "Turret", 3, "Remote Turret"))
+            .chain(["right", "left", "top_right", "top_left"].iter().map(|side| {
+                named(&format!("hardpoint_turret/hardpoint_weapon_{side}"), "WeaponGun", 3, "VariPuck S3 Gimbal Mount")
+            }))
+            .collect();
+        assert_eq!(titles(&groups(guns, &Map::new()))[1], "Remote Turret: 4 × Schiffswaffe S3");
+    }
+
+    /// A part of the plan named by its identifier (a ware of UEX without an entity identifier, after the plan was
+    /// made from an equipment) is named as the shop names it; the battery below the radar stands by the radar and
+    /// is never counted with the radars.
+    #[test]
+    fn a_part_named_by_its_identifier_gets_its_name_and_the_battery_of_a_radar_stands_by_its_radar() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let paths = folder_with(
+            "radar",
+            r#",
+            {"pfad": "hardpoint_radar", "art": "Radar", "groesse": 2, "werk": {"ref": "surveyor", "name": "Surveyor"}},
+            {"pfad": "hardpoint_radar/BatteryPort", "art": "Battery", "groesse": 2, "passt": {"typen": [["Battery", []]], "min": 1, "max": 2}},
+            {"pfad": "hardpoint_radar_cab_front", "art": "Radar", "groesse": 2, "werk": {"ref": "radar", "name": "Radar"}},
+            {"pfad": "hardpoint_radar_cab_front/BatteryPort", "art": "Battery", "groesse": 2, "passt": {"typen": [["Battery", []]], "min": 1, "max": 2}}"#,
+        );
+        let mut stores = Stores::load(&paths);
+        stores.catalog.push(versekit_core::part_choices::ShopPart {
+            code: "id:5566".into(),
+            name: "SNS-R7X".into(),
+            group: "Radar".into(),
+            size: "2".into(),
+            ..Default::default()
+        });
+        let ship = entry(
+            r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {
+                "hardpoint_radar": {"ref": "id:5566", "name": "id:5566", "weg": "kaufen"}}}"#,
+        );
+        let mut state = EquipmentState::default();
+        let shown = drawn(&stores, &ship, &mut state);
+        assert!(!shown.iter().any(|s| s.contains("id:5566")), "{shown:?}");
+        assert!(shown.contains(&"SNS-R7X: Batterie S2".to_string()), "{shown:?}");
+        assert!(shown.contains(&"Radar: Batterie S2".to_string()), "{shown:?}");
+        assert!(!shown.iter().any(|s| s.contains("2 × Radar")), "each radar holds its battery: {shown:?}");
+        assert_eq!(part_name(&stores, &[], "id:5566"), "SNS-R7X");
+        assert_eq!(part_name(&stores, &[], "id:1"), "id:1", "unknown everywhere: the identifier");
+        // The order: the parts, then the wares of the shops, then the blueprints.
+        stores.erkul.parts = versekit_core::erkul_slots::ErkulParts::from_parts(vec![versekit_core::erkul_slots::Part {
+            reference: "a".into(),
+            name: "Part A".into(),
+            ..Default::default()
+        }]);
+        for (code, name) in [("a", "Ware A"), ("b", "Ware B")] {
+            stores.catalog.push(versekit_core::part_choices::ShopPart { code: code.into(), name: name.into(), ..Default::default() });
+        }
+        let craft: Vec<CraftEntry> = ["a", "b", "c"]
+            .iter()
+            .map(|code| CraftEntry { entity: (*code).into(), basis: format!("Craft {}", code.to_uppercase()), ..Default::default() })
+            .collect();
+        assert_eq!(part_name(&stores, &craft, "a"), "Part A");
+        assert_eq!(part_name(&stores, &craft, "b"), "Ware B");
+        assert_eq!(part_name(&stores, &craft, "c"), "Craft C");
+        let _ = std::fs::remove_dir_all(
+            std::env::temp_dir().join(format!("versekit-ausstattung-{}-radar", versekit_core::testdir::run_tag())),
+        );
+    }
+
     #[test]
     fn heads_modules_ore_pods_and_remote_turrets_stand_by_their_mount() {
         let _language = crate::language_lock();
         versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
-        let named = |path: &str, kind: &str, size: i64, part: &str| {
-            let mut s = slot(path, kind, size, part);
-            s.factory = Some((part.to_lowercase().replace(' ', "-"), part.to_string()));
-            s
-        };
         // As erkul gives them: the Mole with three heads in their cabs and eight ore pods, the Vulture with two salvage
         // heads of two modules each, the Reclaimer with remote turrets that are no slots themselves.
         let mut slots = Vec::new();
@@ -1678,20 +1952,19 @@ mod tests {
             }
         }
         let grouped = groups(slots, &Map::new());
-        let titles: Vec<String> = grouped.iter().map(group_title).collect();
         assert_eq!(
-            titles,
+            titles(&grouped),
             [
-                "3 × WeaponMining S2",
-                "8 × Container S1",
-                "2 × SalvageHead S2",
-                "Baler Salvage Head 1: 2 × SalvageModifier S1",
-                "Baler Salvage Head 2: 2 × SalvageModifier S1",
-                "remote turret top: 2 × WeaponGun S3",
-                "remote turret bottom: 2 × WeaponGun S3",
+                "3 × Bergbaukopf S2",
+                "8 × Behälter S1",
+                "2 × Bergungskopf S2",
+                "Baler Salvage Head 1: 2 × Bergungs-Modul S1",
+                "Baler Salvage Head 2: 2 × Bergungs-Modul S1",
+                "remote turret top: 2 × Schiffswaffe S3",
+                "remote turret bottom: 2 × Schiffswaffe S3",
             ]
         );
-        // The three heads of the Mole: one line, each head on its own line when opened.
+        // The three heads of the Mole without module slots: one line, each head on its own line when opened.
         assert_eq!(grouped[0].paths.len(), 3);
         assert_eq!(grouped[0].single(1).paths, ["hardpoint_mining_cab_left/hardpoint_weapon_mining"]);
         // The two modules of a head come from the factory with different parts: one line that says so.
@@ -1700,6 +1973,11 @@ mod tests {
         assert_eq!(mixed_text(&grouped[3]), tf("s_wk_gemischt", &[("liste", Arg::from(liste))]));
         // Opened, each module has its own stock part.
         assert_eq!(grouped[3].single(1).factory.map(|(_, n)| n).as_deref(), Some("ReadyGrip Tractor Module"));
+        // The line of the two salvage heads holds the heads only: their modules have lines of their own below it.
+        assert_eq!(
+            grouped[2].paths,
+            ["hardpoint_salvage_arm_left/hardpoint_salvage_laser", "hardpoint_salvage_arm_right/hardpoint_salvage_laser"]
+        );
     }
 
     #[test]
@@ -1867,18 +2145,18 @@ mod tests {
         let mut state = EquipmentState::default();
         let closed = drawn(&stores, &ship, &mut state);
         let mixed = tf("s_wk_gemischt", &[("liste", Arg::from("1 × New Cooler, 2 × Factory Cooler"))]);
-        assert!(closed.contains(&"3 × Cooler S1".to_string()) && closed.contains(&mixed), "{closed:?}");
+        assert!(closed.contains(&"3 × Kühler S1".to_string()) && closed.contains(&mixed), "{closed:?}");
         assert!(!closed.contains(&tf("s_wk_platz_n", &[("n", Arg::from("1"))])), "shut at the start: {closed:?}");
         state.open_groups.insert("equipment-pick-key-c1".into());
         let shown = drawn(&stores, &ship, &mut state);
         assert!(shown.contains(&t("s_wk_auslegung")), "{shown:?}");
-        assert!(shown.contains(&"3 × Cooler S1".to_string()), "c1 to c3 stand in one mount: {shown:?}");
+        assert!(shown.contains(&"3 × Kühler S1".to_string()), "c1 to c3 stand in one mount: {shown:?}");
         for n in ["1", "2", "3"] {
             assert!(shown.contains(&tf("s_wk_platz_n", &[("n", Arg::from(n))])), "slot {n} has a line: {shown:?}");
         }
         let stock = tf("s_wk_ab_werk", &[("name", Arg::from("Factory Cooler"))]);
         assert!(shown.contains(&stock) && shown.contains(&"New Cooler".to_string()), "{shown:?}");
-        assert!(shown.contains(&"Shield S2".to_string()) && shown.contains(&"New Shield".to_string()), "{shown:?}");
+        assert!(shown.contains(&"Schildgenerator S2".to_string()) && shown.contains(&"New Shield".to_string()), "{shown:?}");
         assert!(shown.contains(&tf("s_wk_posten", &[("n", Arg::Int(2))])), "{shown:?}");
         // The cooler is bought, the shield built: both ways stand with their numbers.
         let bought = tf(
@@ -2041,7 +2319,9 @@ mod tests {
                                         .iter()
                                         .find(|(_, n)| {
                                             n.role() == egui::accesskit::Role::ComboBox
-                                                && n.label().is_some_and(|l| l.starts_with("3 × Cooler S1: "))
+                                                && n.label().is_some_and(|l| {
+                                                    l.starts_with(&format!("3 × {} S1: ", t("s_wr_art_cooler")))
+                                                })
                                         })
                                         .and_then(|(_, n)| n.bounds())
                                         .map(|b| egui::pos2((b.x0 + 30.0) as f32, ((b.y0 + b.y1) / 2.0) as f32))
@@ -2352,6 +2632,126 @@ mod tests {
         assert!(count > 0, "no ship read");
     }
 
+    /// The reported ships on the real slots of the game data (and the shop catalog), copied out of the data folder
+    /// first, never read in place: the remote turret of the Shiv stands as four gimbal mounts each with its gun
+    /// and the mount offers gimbal mounts besides guns; the TMSB-5 in the F7C-M Super Hornet Mk II brings a gun slot
+    /// in each of its gimbal mounts; on the MOLE each radar holds its battery, and a radar planned by the
+    /// identifier of the shop (`id:5566`) is named. On real data:
+    /// `VERSEKIT_MESSORDNER=<data folder> cargo test -p versekit-ui gemeldete_schiffe -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn gemeldete_schiffe_auf_echten_daten() {
+        use versekit_core::erkul_slots::{GAME_PARTS_FILE, GAME_SHIPS_FILE};
+        let Ok(folder) = std::env::var("VERSEKIT_MESSORDNER") else {
+            println!("übersprungen: VERSEKIT_MESSORDNER ist nicht gesetzt");
+            return;
+        };
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let paths = folder_with("echt", "");
+        let copy = std::path::PathBuf::from(paths.app_file(GAME_SHIPS_FILE)).parent().expect("folder").to_path_buf();
+        for name in [GAME_SHIPS_FILE, GAME_PARTS_FILE, "erkul-schiffe.json", "erkul-teile.json", "laeden-katalog.json"] {
+            let from = std::path::Path::new(&folder).join(name);
+            if from.exists() {
+                std::fs::copy(&from, copy.join(name)).expect("copied");
+            }
+        }
+        let stores = Stores::load(&paths);
+        let ship = |name: &str, short: &str| entry(&format!(r#"{{"name": "{name}", "hersteller": "", "kurz": "{short}"}}"#));
+        let lines_of_ship = |entry: &Map, chosen: &Map| {
+            let slots = hardpoints(&stores.erkul.ships, &stores.erkul.parts, ship_id(entry), chosen);
+            let grouped = groups(slots, &readable_plan(chosen, &stores, &[]));
+            let shown = titles(&grouped);
+            println!("== {}", field_text(entry, "name"));
+            for (group, title) in grouped.iter().zip(&shown) {
+                println!("   {title}  [{}]", group.paths.join(", "));
+            }
+            (grouped, shown)
+        };
+        // 1. Shiv: the four gimbal mounts of the remote turret in one line, each gun in a line of its own named after
+        // its mount, and no line of eight guns.
+        let shiv = ship("Shiv", "GLSN_Shiv");
+        let (grouped, shown) = lines_of_ship(&shiv, &Map::new());
+        let turret = |g: &Group| g.paths[0].starts_with("hardpoint_turret/");
+        let mounts: Vec<&Group> = grouped.iter().filter(|g| turret(g) && g.paths[0].matches('/').count() == 1).collect();
+        let guns: Vec<&Group> = grouped.iter().filter(|g| turret(g) && g.paths[0].matches('/').count() == 2).collect();
+        assert_eq!((mounts.len(), mounts[0].paths.len(), guns.len()), (1, 4, 4), "{shown:?}");
+        assert!(mounts[0].paths.iter().all(|p| p.matches('/').count() == 1), "{shown:?}");
+        assert!(guns.iter().all(|g| g.paths.len() == 1), "{shown:?}");
+        assert!(guns.iter().all(|g| g.mount.as_ref().is_some_and(|(_, n)| n.starts_with("VariPuck S3 Gimbal Mount"))), "{shown:?}");
+        assert!(!shown.iter().any(|t| t.contains("WeaponGun") || t.contains("8 ×")), "{shown:?}");
+        // A plan of 5.2.4 with one gun of the shops on all eight paths: read against the slots, the mounts keep their
+        // gimbal mount and the gun sits below each; the hangar counts four.
+        let shop_gun = stores
+            .catalog
+            .iter()
+            .find(|w| w.group == "Guns" && w.size.trim() == "3" && !w.code.starts_with("id:"))
+            .expect("a gun of size 3 in the shops");
+        let mut old = shiv.clone();
+        let mut planned: Map = Vec::new();
+        for side in ["right", "left", "top_right", "top_left"] {
+            for path in [format!("hardpoint_turret/hardpoint_weapon_{side}"), format!("hardpoint_turret/hardpoint_weapon_{side}/hardpoint_class_2")] {
+                let part = format!(r#"{{"ref": "{}", "name": "{}", "weg": "kaufen"}}"#, shop_gun.code, shop_gun.name);
+                planned.push((path, versekit_core::jsonio::loads(&part).expect("part")));
+            }
+        }
+        versekit_core::jsonio::map_set(&mut old, "belegung", Value::Object(planned));
+        assert_eq!(hangar::open_count(&old), 8, "before it is read against the slots");
+        assert!(stores.erkul.tidy_plan(&mut old));
+        assert_eq!(hangar::open_count(&old), 4);
+        let plan = match old.iter().find(|(k, _)| k == "belegung") {
+            Some((_, Value::Object(plan))) => plan.clone(),
+            _ => panic!("the plan"),
+        };
+        let (grouped, shown) = lines_of_ship(&shiv, &plan);
+        let mount = grouped.iter().find(|g| g.paths.contains(&"hardpoint_turret/hardpoint_weapon_left".to_string())).expect("the mount");
+        assert_eq!(mount.common(), Some(&Fill::Stock), "the gimbal mount stays: {shown:?}");
+        let gun_line = grouped.iter().find(|g| g.paths == ["hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2"]).expect("the gun");
+        assert_eq!(gun_line.own.as_ref().map(|(r, _)| r.as_str()), Some(shop_gun.code.as_str()), "{shown:?}");
+        let sources = part_choices::Sources {
+            craft: &[],
+            traits: &HashMap::new(),
+            shop: &stores.catalog,
+            parts: &stores.erkul.parts,
+        };
+        let offered: Vec<String> = part_choices::slot_choices(&sources, &mounts[0].slot).into_iter().map(|c| c.name).collect();
+        assert!(offered.iter().any(|n| n == "VariPuck S3 Gimbal Mount"), "{offered:?}");
+        assert!(offered.iter().any(|n| !n.contains("Gimbal") && !n.contains("Turret")), "a gun right away: {offered:?}");
+        // A gun of the shops chosen right in a gimbal mount: the gun slot below it goes.
+        let gun = entry(&format!(r#"{{"hardpoint_turret/hardpoint_weapon_left": {{"ref": "{}", "name": "Gun"}}}}"#, shop_gun.code));
+        let after = hardpoints(&stores.erkul.ships, &stores.erkul.parts, ship_id(&shiv), &gun);
+        assert!(!after.iter().any(|s| s.path == "hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2"));
+        assert!(after.iter().any(|s| s.path == "hardpoint_turret/hardpoint_weapon_right/hardpoint_class_2"));
+        // 2. F7C-M Super Hornet Mk II with the TMSB-5: a gun slot of size 4 in each of its gimbal mounts, to choose.
+        let hornet = ship("F7C-M Super Hornet Mk II", "ANVL_Hornet_F7CM_Mk2");
+        let tmsb = stores.erkul.parts.all().iter().find(|p| p.name == "TMSB-5 Ball Turret").expect("the TMSB-5").reference.clone();
+        let chosen = entry(&format!(r#"{{"hardpoint_weapon_center": {{"ref": "{tmsb}", "name": "TMSB-5 Ball Turret"}}}}"#));
+        let (grouped, shown) = lines_of_ship(&hornet, &chosen);
+        for side in ["left", "right"] {
+            let path = format!("hardpoint_weapon_center/hardpoint_weapon_{side}/hardpoint_class_2");
+            let line = grouped.iter().find(|g| g.paths == [path.clone()]).unwrap_or_else(|| panic!("{path}: {shown:?}"));
+            assert_eq!((line.kind.as_str(), line.size), ("WeaponGun", Some(4)), "{path}");
+        }
+        assert!(shown.contains(&"TMSB-5 Gimbal Mount 1: Schiffswaffe S4".to_string()), "{shown:?}");
+        // 3. MOLE: each radar holds its battery; the radar planned by the shop's identifier is named.
+        let mole = ship("MOLE", "ARGO_MOLE");
+        let radar = entry(r#"{"hardpoint_radar": {"ref": "id:5566", "name": "id:5566", "weg": "kaufen"}}"#);
+        let (grouped, shown) = lines_of_ship(&mole, &radar);
+        // The planned radar alone, the three of the cabs alike in one line; never a battery among them.
+        let radars: Vec<usize> = grouped.iter().filter(|g| g.kind == "Radar").map(|g| g.paths.len()).collect();
+        assert_eq!(radars, [1, 3], "{shown:?}");
+        let below = grouped.iter().filter(|g| g.kind == "Battery" && g.paths[0].ends_with("/BatteryPort"));
+        let mounts: Vec<String> = below.map(|g| g.mount.as_ref().map_or(String::new(), |(path, _)| path.clone())).collect();
+        assert_eq!(mounts, ["hardpoint_radar", "hardpoint_radar_cab_front", "hardpoint_radar_cab_left", "hardpoint_radar_cab_right"]);
+        assert!(!shown.iter().any(|t| t.contains("id:5566") || t.contains("Battery")), "{shown:?}");
+        if stores.catalog.iter().any(|w| w.code == "id:5566") {
+            assert!(shown.iter().any(|t| t.starts_with("SNS-R7X: Batterie")), "{shown:?}");
+        }
+        let _ = std::fs::remove_dir_all(
+            std::env::temp_dir().join(format!("versekit-ausstattung-{}-echt", versekit_core::testdir::run_tag())),
+        );
+    }
+
     #[test]
     fn the_arrow_of_a_group_opens_a_line_for_each_slot_and_shuts_it_again() {
         let _language = crate::language_lock();
@@ -2367,16 +2767,16 @@ mod tests {
         let mut state = EquipmentState::default();
         let id = "equipment-pick-key-c1";
         // The arrow is named for the screen reader by its group and what it does.
-        let open = format!("3 × Cooler S1: {}", t("s_wk_aufklappen"));
+        let open = format!("3 × Kühler S1: {}", t("s_wk_aufklappen"));
         assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::Button, &open), None);
         assert!(state.open_groups.contains(id), "opened");
         let shown = drawn(&stores, &ship, &mut state);
         assert!(shown.contains(&tf("s_wk_platz_n", &[("n", Arg::from("3"))])), "{shown:?}");
-        let shut = format!("3 × Cooler S1: {}", t("s_wk_zuklappen"));
+        let shut = format!("3 × Kühler S1: {}", t("s_wk_zuklappen"));
         assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::Button, &shut), None);
         assert!(!state.open_groups.contains(id), "shut again");
         // A slot alone has no arrow: there is nothing to open.
-        let shield = format!("Shield S2: {}", t("s_wk_aufklappen"));
+        let shield = format!("Schildgenerator S2: {}", t("s_wk_aufklappen"));
         assert!(!drawn_nodes(&ctx, &stores, &ship, &mut state).iter().any(|l| l.starts_with(&shield)));
         let _ = std::fs::remove_dir_all(
             std::env::temp_dir().join(format!("versekit-ausstattung-{}-pfeil", versekit_core::testdir::run_tag())),
@@ -2419,7 +2819,7 @@ mod tests {
         let mut state = EquipmentState::default();
         // The three coolers of one mount: their list holds a part besides the stock one, and it goes into all three.
         preset_coolers(&mut state, &stores, &Extra::default(), vec![choice("Arctic", "arctic")]);
-        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, "3 × Cooler S1"), None);
+        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, "3 × Kühler S1"), None);
         let set = click_node(&ctx, &stores, &ship, &mut state, Role::ListBoxOption, "Arctic");
         assert_eq!(
             set,
@@ -2438,7 +2838,7 @@ mod tests {
         state.editing = None;
         state.open_groups.insert("equipment-pick-key-c1".into());
         // Its name for the screen reader says the group too: two open groups have no field of the same name.
-        let first = format!("3 × Cooler S1, {}", tf("s_wk_platz_n", &[("n", Arg::from("1"))]));
+        let first = format!("3 × Kühler S1, {}", tf("s_wk_platz_n", &[("n", Arg::from("1"))]));
         assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, &format!("{first}:")), None);
         let stock = tf("s_wk_ab_werk", &[("name", Arg::from("Factory Cooler"))]);
         let back = click_node(&ctx, &stores, &ship, &mut state, Role::ListBoxOption, &stock);
@@ -2449,7 +2849,7 @@ mod tests {
         ctx.all_styles_mut(|style| style.animation_time = 0.0);
         ctx.enable_accesskit();
         state.editing = None;
-        let second = format!("3 × Cooler S1, {}", tf("s_wk_platz_n", &[("n", Arg::from("2"))]));
+        let second = format!("3 × Kühler S1, {}", tf("s_wk_platz_n", &[("n", Arg::from("2"))]));
         assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, &format!("{second}:")), None);
         let empty = click_node(&ctx, &stores, &ship, &mut state, Role::ListBoxOption, &t("s_wk_leer_lassen"));
         assert_eq!(empty, Some(Action::Empty { paths: vec!["c2".into()] }));
@@ -2492,13 +2892,13 @@ mod tests {
         let field = update
             .nodes
             .iter()
-            .find(|(_, n)| n.role() == Role::ComboBox && n.label().is_some_and(|l| l.starts_with("MissileLauncher S3:")))
+            .find(|(_, n)| n.role() == Role::ComboBox && n.label().is_some_and(|l| l.starts_with("Raketenwerfer S3:")))
             .map(|(_, n)| n.clone())
             .expect("the field of the fixed slot");
         assert!(field.label().is_some_and(|l| l.contains(&shown)), "{:?}", field.label());
         assert!(field.is_disabled(), "the field of a fixed slot is off");
         // A click on it chooses nothing.
-        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, "MissileLauncher S3:"), None);
+        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, "Raketenwerfer S3:"), None);
         assert!(state.editing.is_none(), "no list opened");
         let _ = std::fs::remove_dir_all(
             std::env::temp_dir().join(format!("versekit-ausstattung-{}-fest", versekit_core::testdir::run_tag())),

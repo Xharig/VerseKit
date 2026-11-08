@@ -725,10 +725,11 @@ fn loadout(entry: &Map) -> &[(String, Value)] {
     }
 }
 
-/// Whether an entry of the plan is a part to get: it names a part. A slot left empty on purpose
-/// ([`crate::cart::EMPTIED`]) has none, is not in the shopping list and cannot be ticked off, so it is nothing open.
+/// Whether an entry of the plan is a part to get: it names a part of a slot the ship has. A slot left empty on
+/// purpose ([`crate::cart::EMPTIED`]) has none, and an entry whose slot the ship does not have
+/// ([`crate::cart::ORPHANED`]) is in no shopping list: neither can be ticked off, so they are nothing open.
 fn is_part_to_get(part: &Map) -> bool {
-    !text(part, "ref").is_empty()
+    !text(part, "ref").is_empty() && !truthy(get(part, crate::cart::ORPHANED))
 }
 
 /// `cart.open_count`: planned parts not ticked off yet.
