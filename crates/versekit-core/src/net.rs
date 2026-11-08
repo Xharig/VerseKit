@@ -27,8 +27,31 @@ use std::time::Duration;
 use crate::legacy::ENV_NO_NET;
 pub use crate::scmdb::FetchError;
 
+/// What the servers see of the program: `VerseKit/<version> (+<homepage>)`, the version of this build.
+/// The same text as [`crate::basetool::config::user_agent`] gives for it.
+pub const USER_AGENT: &str = concat!("VerseKit/", env!("CARGO_PKG_VERSION"), " (+https://versekit.xharig.com)");
+
 /// Header lines of an answer, names in lower case.
 pub type Headers = Vec<(String, String)>;
+
+/// The longest pause a server's limit is believed (seconds).
+const LIMIT_WAIT_MAX: u64 = 3600;
+/// The pause when a server says its limit is used up but not for how long (seconds).
+const LIMIT_WAIT_DEFAULT: u64 = 900;
+
+/// How long to leave a server alone after `status` and `headers`, or `None` when the answer is no limit.
+/// 429, or 403 with `Retry-After` or `X-RateLimit-Remaining: 0`; the pause is `Retry-After`, else the time to
+/// `X-RateLimit-Reset` (Unix seconds, `now` is the same), else [`LIMIT_WAIT_DEFAULT`]; never more than an hour.
+fn rate_limit_wait(status: u16, headers: &Headers, now: u64) -> Option<u64> {
+    let header = |name: &str| headers.iter().find(|(k, _)| k == name).map(|(_, v)| v.trim());
+    let retry = header("retry-after").and_then(|v| v.parse::<u64>().ok());
+    let used_up = header("x-ratelimit-remaining") == Some("0");
+    if !(status == 429 || (status == 403 && (retry.is_some() || used_up))) {
+        return None;
+    }
+    let reset = header("x-ratelimit-reset").and_then(|v| v.parse::<u64>().ok()).map(|at| at.saturating_sub(now));
+    Some(retry.or(reset).unwrap_or(LIMIT_WAIT_DEFAULT).clamp(1, LIMIT_WAIT_MAX))
+}
 
 /// What a conditional fetch brought.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -152,6 +175,18 @@ fn status_error(status: u16) -> FetchError {
     }
 }
 
+/// The error of an answer that is no success: a used-up limit with its pause, else by the status.
+fn failure(answer: &ureq::http::Response<ureq::Body>) -> FetchError {
+    let headers: Headers = answer
+        .headers()
+        .iter()
+        .map(|(name, value)| (name.as_str().to_lowercase(), value.to_str().unwrap_or("").to_string()))
+        .collect();
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let status = answer.status().as_u16();
+    rate_limit_wait(status, &headers, now).map_or_else(|| status_error(status), FetchError::RateLimited)
+}
+
 impl Net for Web {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         if offline() {
@@ -165,7 +200,7 @@ impl Net for Web {
                 .limit(self.limit)
                 .read_to_vec()
                 .map_err(|e| FetchError::Failed(e.to_string())),
-            status => Err(status_error(status)),
+            _ => Err(failure(&answer)),
         }
     }
 
@@ -212,7 +247,7 @@ impl Net for Web {
                     .map_err(|e| FetchError::Failed(e.to_string()))?;
                 Ok(Fresh::Body(body, tag))
             }
-            status => Err(status_error(status)),
+            _ => Err(failure(&answer)),
         }
     }
 
@@ -277,6 +312,8 @@ pub struct Fake {
     pub etags: Vec<(String, String)>,
     /// Fixed answers to what is sent: address, body sent, answer.
     pub posts: Vec<(String, Vec<u8>, Vec<u8>)>,
+    /// Addresses whose server has used up its limit: the seconds it asks to wait.
+    pub limited: Vec<(String, u64)>,
     pub asked: std::sync::Mutex<Vec<String>>,
 }
 
@@ -296,6 +333,12 @@ impl Fake {
         self
     }
 
+    /// `url` answers that its limit is used up and asks to wait `seconds`.
+    pub fn with_rate_limit(mut self, url: &str, seconds: u64) -> Self {
+        self.limited.push((url.to_string(), seconds));
+        self
+    }
+
     /// `url` answers `answer` to exactly `sent`.
     pub fn with_post(mut self, url: &str, sent: impl Into<Vec<u8>>, answer: impl Into<Vec<u8>>) -> Self {
         self.posts.push((url.to_string(), sent.into(), answer.into()));
@@ -312,6 +355,9 @@ impl Net for Fake {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         if let Ok(mut asked) = self.asked.lock() {
             asked.push(url.to_string());
+        }
+        if let Some((_, seconds)) = self.limited.iter().find(|(u, _)| u == url) {
+            return Err(FetchError::RateLimited(*seconds));
         }
         self.bodies.iter().find(|(u, _)| u == url).map(|(_, b)| b.clone()).ok_or(FetchError::Missing)
     }
@@ -346,6 +392,63 @@ impl Net for Fake {
 mod tests {
     use crate::paths::Host;
     use crate::pypath::Flavor;
+
+    fn headers(list: &[(&str, &str)]) -> super::Headers {
+        list.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    }
+
+    #[test]
+    fn a_used_up_limit_is_told_from_an_ordinary_refusal() {
+        use super::rate_limit_wait as wait;
+        assert_eq!(wait(429, &headers(&[]), 1000), Some(900), "429 without a hint");
+        assert_eq!(wait(429, &headers(&[("retry-after", "120")]), 1000), Some(120));
+        assert_eq!(
+            wait(403, &headers(&[("x-ratelimit-remaining", "0"), ("x-ratelimit-reset", "1300")]), 1000),
+            Some(300)
+        );
+        assert_eq!(wait(403, &headers(&[("x-ratelimit-remaining", "0")]), 1000), Some(900), "no reset named");
+        assert_eq!(wait(403, &headers(&[("retry-after", "60")]), 1000), Some(60));
+        assert_eq!(wait(403, &headers(&[("x-ratelimit-remaining", "0"), ("x-ratelimit-reset", "900")]), 1000), Some(1));
+        assert_eq!(wait(429, &headers(&[("retry-after", "999999")]), 1000), Some(3600), "never more than an hour");
+        assert_eq!(wait(403, &headers(&[("x-ratelimit-remaining", "12")]), 1000), None, "a refusal with limit left");
+        assert_eq!(wait(403, &headers(&[]), 1000), None);
+        assert_eq!(wait(404, &headers(&[("x-ratelimit-remaining", "0")]), 1000), None);
+    }
+
+    #[test]
+    fn the_fake_tells_a_used_up_limit() {
+        use super::{Fake, FetchError, Net};
+        let net = Fake::default().with_rate_limit("https://x/a", 600);
+        assert_eq!(net.get_if_changed("https://x/a", None), Err(FetchError::RateLimited(600)));
+        assert_eq!(net.get("https://x/b"), Err(FetchError::Missing));
+    }
+
+    #[test]
+    fn no_identification_sent_names_the_old_program() {
+        use crate::basetool::config::user_agent;
+        let sent = [
+            super::USER_AGENT.to_string(),
+            crate::translation::USER_AGENT.to_string(),
+            crate::updater::USER_AGENT.to_string(),
+            crate::injection::ranks::USER_AGENT.to_string(),
+            user_agent(env!("CARGO_PKG_VERSION")),
+            user_agent(""),
+        ];
+        for agent in sent {
+            let lower = agent.to_lowercase();
+            for old in ["sc-bp-watcher", "sc bp watcher", "scbpwatcher", "sc_bp_watcher", "ehemals", "watcher"] {
+                assert!(!lower.contains(old), "{agent:?} names the old program ({old})");
+            }
+            assert!(agent.starts_with("VerseKit/"), "{agent:?}");
+        }
+    }
+
+    #[test]
+    fn the_shared_identification_is_the_one_of_the_basetool() {
+        assert_eq!(super::USER_AGENT, crate::basetool::config::user_agent(env!("CARGO_PKG_VERSION")));
+        assert_eq!(crate::translation::USER_AGENT, super::USER_AGENT);
+        assert_eq!(crate::updater::USER_AGENT, super::USER_AGENT);
+    }
 
     #[test]
     fn offline_comes_from_the_environment_given() {

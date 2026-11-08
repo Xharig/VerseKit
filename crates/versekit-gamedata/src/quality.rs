@@ -19,7 +19,7 @@
 //! `q`.
 //!
 //! The computation follows scmdb.net exactly, so both tools show the same
-//! numbers (port of `scbp/product_stats.py` and `scbp/crafting.py` of
+//! numbers (port of `product_stats.py` and `crafting.py` of
 //! 4.12):
 //!
 //! * Each slot has the quality of its material, 0 to 1000; 500 is the base

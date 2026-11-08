@@ -23,6 +23,8 @@
 //! What the page shows is built again only when the patch files changed, another patch or area was chosen or
 //! erkul offers something else: a visit that finds the same files keeps what it built.
 
+use versekit_core::language::SpawnWithLanguage as _;
+use std::collections::BTreeSet;
 use std::sync::mpsc::{Receiver, TryRecvError};
 
 use egui::{RichText, ScrollArea, Ui};
@@ -30,17 +32,19 @@ use versekit_core::erkul_fetch::FnFeed;
 use versekit_core::language::{Arg, pa_field, t, tf};
 use versekit_core::net::{Net, Web};
 use versekit_core::patch_changes::{
-    self, Change, Fate, FieldChange, Offered, Patch, SHOWN_AT_MOST, Summary, Tone, Unreachable,
+    self, Change, Fate, FieldChange, Move, Offered, Patch, SHOWN_AT_MOST, Summary, Tone, Unreachable,
 };
 use versekit_core::paths::Paths;
 use versekit_core::theme::{Color, Scheme};
 
 use crate::color;
 use crate::layout::GAP;
-use crate::widgets::{self, ButtonKind};
+use crate::widgets::{self, ButtonKind, RankTone};
 
 /// How many patches the list shows before it scrolls in itself.
 const LIST_ROWS: f32 = 5.0;
+/// How many of the numbers that rose most, and of those that fell most, the card of the biggest changes names.
+const MOVES_SHOWN: usize = 3;
 /// How long a fetch from erkul may take.
 const ERKUL_SECONDS: u64 = 30;
 /// The largest file of erkul read.
@@ -59,8 +63,8 @@ enum Said {
 enum Source {
     /// The data folder, and erkul over the net.
     Files(Box<Paths>),
-    /// The preview: made-up patches in memory, nothing asked.
-    Sample(Vec<(String, Vec<Change>)>),
+    /// The preview: made-up patches in memory with how many items stayed the same, nothing asked.
+    Sample(Vec<(String, Vec<Change>, Option<i64>)>),
 }
 
 /// What fetching brought: the versions kept anew (or why none), and what erkul offers.
@@ -80,6 +84,14 @@ pub struct PatchChangesState {
     areas: Vec<(String, usize)>,
     /// 0: all areas; else the area at that place of `areas` plus one.
     area: usize,
+    /// The numbers of the patch chosen that rose most and that fell most.
+    moves: (Vec<Move>, Vec<Move>),
+    /// How many items of the patch chosen stayed the same, where its file says so.
+    unchanged: Option<i64>,
+    /// The patch chosen is kept here (its file read once per choice, not in every frame).
+    chosen_kept: bool,
+    /// The patches already looked at; `None` until the list was first seen with what the source offers.
+    seen: Option<BTreeSet<String>>,
     said: Option<Said>,
     sync_job: Option<Receiver<Fetched>>,
     offer_job: Option<Receiver<Option<Vec<Offered>>>>,
@@ -114,6 +126,10 @@ impl PatchChangesState {
             changes: Vec::new(),
             areas: Vec::new(),
             area: 0,
+            moves: (Vec::new(), Vec::new()),
+            unchanged: None,
+            chosen_kept: false,
+            seen: None,
             said: None,
             sync_job: None,
             offer_job: None,
@@ -164,9 +180,11 @@ impl PatchChangesState {
         ];
         let older = vec![item("weapons", Fate::Gone, "Klaus & Werner Lumin V", Some(1), Vec::new())];
         let mut state = PatchChangesState::with_source(Source::Sample(vec![
-            ("4.10.0-LIVE.12519617".to_string(), newest),
-            ("4.9.0-LIVE.12232306".to_string(), older),
+            ("4.10.0-LIVE.12519617".to_string(), newest, Some(9_120)),
+            ("4.9.0-LIVE.12232306".to_string(), older, None),
         ]));
+        // The older patch was looked at, the newer one not yet.
+        state.seen = Some(BTreeSet::from(["4.9.0-LIVE.12232306".to_string()]));
         let offered = |version: &str, date: &str, added, removed, modified| Offered {
             version: version.to_string(),
             date: date.to_string(),
@@ -197,14 +215,14 @@ impl PatchChangesState {
     fn stored(&self) -> Vec<String> {
         match &self.source {
             Source::Files(paths) => patch_changes::stored(paths),
-            Source::Sample(patches) => patches.iter().map(|(v, _)| v.clone()).collect(),
+            Source::Sample(patches) => patches.iter().map(|(v, ..)| v.clone()).collect(),
         }
     }
 
     fn kept(&self, version: &str) -> bool {
         match &self.source {
             Source::Files(paths) => patch_changes::load(paths, version).is_some(),
-            Source::Sample(patches) => patches.iter().any(|(v, _)| v == version),
+            Source::Sample(patches) => patches.iter().any(|(v, ..)| v == version),
         }
     }
 
@@ -212,8 +230,57 @@ impl PatchChangesState {
         match &self.source {
             Source::Files(paths) => patch_changes::changes(paths, version, None),
             Source::Sample(patches) => {
-                patches.iter().find(|(v, _)| v == version).map(|(_, c)| c.clone()).unwrap_or_default()
+                patches.iter().find(|(v, ..)| v == version).map(|(_, c, _)| c.clone()).unwrap_or_default()
             }
+        }
+    }
+
+    fn load_unchanged(&self, version: &str) -> Option<i64> {
+        match &self.source {
+            Source::Files(paths) => patch_changes::unchanged(paths, version),
+            Source::Sample(patches) => patches.iter().find(|(v, ..)| v == version).and_then(|(.., n)| *n),
+        }
+    }
+
+    /// Loads the changes of `version`, its areas, its biggest changes and what stayed the same.
+    fn load_chosen(&mut self, version: &str) {
+        self.changes = self.load_changes(version);
+        self.areas = patch_changes::categories(&self.changes);
+        self.moves = patch_changes::largest_moves(&self.changes, MOVES_SHOWN);
+        self.unchanged = self.load_unchanged(version);
+        self.chosen_kept = self.kept(version);
+    }
+
+    /// The patches with changes not looked at yet, newest first.
+    fn unread(&self) -> Vec<String> {
+        self.seen.as_ref().map(|seen| patch_changes::unread(&self.list, seen)).unwrap_or_default()
+    }
+
+    /// Reads the patches looked at and joins them with those marked in this run (a write that failed loses none).
+    /// The first time the list holds what the source offers and there is no file, everything in it counts as looked
+    /// at: only what comes after that is news. A file that is there but cannot be read changes nothing.
+    fn refresh_seen(&mut self) {
+        let Source::Files(paths) = &self.source else { return };
+        if let Some(from_file) = patch_changes::seen(paths) {
+            self.seen.get_or_insert_with(BTreeSet::new).extend(from_file);
+            return;
+        }
+        if self.seen.is_none() && self.offered.is_some() && !patch_changes::seen_exists(paths) {
+            let all: BTreeSet<String> = self.list.iter().filter(|p| !p.empty).map(|p| p.version.clone()).collect();
+            keep_seen(paths, &all);
+            self.seen = Some(all);
+        }
+    }
+
+    /// Marks `versions` as looked at and keeps that.
+    fn mark_read(&mut self, versions: &[String]) {
+        let Some(seen) = &mut self.seen else { return };
+        let before = seen.len();
+        seen.extend(versions.iter().cloned());
+        if seen.len() != before
+            && let Source::Files(paths) = &self.source
+        {
+            keep_seen(paths, seen);
         }
     }
 
@@ -228,18 +295,17 @@ impl PatchChangesState {
             Source::Sample(patches) => sample_overview(patches, &offered),
         };
         if let Some(version) = self.chosen.clone() {
-            self.changes = self.load_changes(&version);
-            self.areas = patch_changes::categories(&self.changes);
+            self.load_chosen(&version);
             self.area = self.area.min(self.areas.len());
         }
+        self.refresh_seen();
         self.builds += 1;
     }
 
     /// Chooses a patch; the largest area stands chosen, not all of them.
     fn choose(&mut self, version: &str) {
         self.chosen = Some(version.to_string());
-        self.changes = self.load_changes(version);
-        self.areas = patch_changes::categories(&self.changes);
+        self.load_chosen(version);
         self.area = usize::from(!self.areas.is_empty());
     }
 
@@ -253,7 +319,7 @@ impl PatchChangesState {
         let (sender, receiver) = std::sync::mpsc::channel();
         let lock = versekit_core::writeguard::state();
         let wake = ctx.clone();
-        let started = std::thread::Builder::new().name("patch-aenderungen".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("patch-aenderungen".into()).spawn_with_language(move || {
             versekit_core::writeguard::adopt(&lock);
             let feed = FnFeed(erkul_get);
             let new = patch_changes::sync(&own, &feed);
@@ -275,7 +341,7 @@ impl PatchChangesState {
         }
         let (sender, receiver) = std::sync::mpsc::channel();
         let wake = ctx.clone();
-        let started = std::thread::Builder::new().name("patch-angebot".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("patch-angebot".into()).spawn_with_language(move || {
             let _ = sender.send(patch_changes::offered(&FnFeed(erkul_get)));
             wake.request_repaint();
         });
@@ -334,8 +400,17 @@ impl PatchChangesState {
     }
 }
 
+/// Keeps the patches looked at; a write the guard refuses is left, any other failure noted.
+fn keep_seen(paths: &Paths, seen: &BTreeSet<String>) {
+    match patch_changes::set_seen(paths, seen) {
+        Ok(()) => {}
+        Err(error) if versekit_core::writeguard::refused(&error) => {}
+        Err(error) => versekit_core::errors::record("patch_changes_page.seen", &error),
+    }
+}
+
 /// The list of the preview: what is offered and what is kept, as `overview` puts them together.
-fn sample_overview(patches: &[(String, Vec<Change>)], offered: &[Offered]) -> Vec<Patch> {
+fn sample_overview(patches: &[(String, Vec<Change>, Option<i64>)], offered: &[Offered]) -> Vec<Patch> {
     let mut list: Vec<Patch> = offered
         .iter()
         .map(|o| Patch {
@@ -345,10 +420,10 @@ fn sample_overview(patches: &[(String, Vec<Change>)], offered: &[Offered]) -> Ve
             summary: o.summary.clone(),
             empty: !o.summary.has_content(),
             at_source: true,
-            kept: patches.iter().any(|(v, _)| *v == o.version),
+            kept: patches.iter().any(|(v, ..)| *v == o.version),
         })
         .collect();
-    for (version, changes) in patches {
+    for (version, changes, _) in patches {
         if list.iter().any(|p| &p.version == version) {
             continue;
         }
@@ -374,7 +449,7 @@ fn small(ui: &mut Ui, text: &str, tone: Color) {
 fn tone_colour(scheme: &Scheme, tone: &Tone) -> Color {
     match tone {
         Tone::Up => scheme.accent,
-        Tone::Down => scheme.red,
+        Tone::Down => scheme.red_text(),
         Tone::Gone => scheme.gold,
         Tone::Same => scheme.sub,
         Tone::Plain => scheme.fg,
@@ -388,6 +463,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     ui.add_space(GAP);
     patch_list(ui, scheme, state);
     ui.add_space(GAP);
+    if biggest(ui, scheme, state) {
+        ui.add_space(GAP);
+    }
     area_choice(ui, scheme, state);
     ui.add_space(GAP);
     items(ui, scheme, state);
@@ -399,7 +477,9 @@ fn patch_list(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     let shown: Vec<Patch> = state.list.iter().filter(|p| !p.empty).cloned().collect();
     let left_out = state.list.len() - shown.len();
     let row_height = ui.spacing().interact_size.y + ui.spacing().item_spacing.y + 6.0;
+    let unread = state.unread();
     let mut picked = None;
+    let mut all_read = false;
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
         widgets::card_title(ui, scheme, &t("s_pa_patches_kopf"));
@@ -423,6 +503,17 @@ fn patch_list(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
                 row.add(egui::Label::new(RichText::new(said).small().color(color(scheme.sub))).wrap());
             }
         });
+        // What came since the last visit, with the way to take it as read.
+        if !unread.is_empty() {
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|row| {
+                let line = tf("s_pag_seit_besuch", &[("n", Arg::from(unread.len()))]);
+                row.add(egui::Label::new(RichText::new(line).small().color(color(scheme.accent))).wrap());
+                let word = t("s_pag_alle_gelesen");
+                let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("check-check");
+                all_read = row.add(button).clicked();
+            });
+        }
         if !shown.is_empty() {
             ui.add_space(6.0);
             let area = ScrollArea::vertical()
@@ -445,6 +536,9 @@ fn patch_list(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
                         if !patch.at_source {
                             widgets::badge(row, scheme, scheme.accent, &t("s_pa_nur_hier"));
                         }
+                        if unread.contains(&patch.version) {
+                            widgets::badge(row, scheme, scheme.gold, &t("s_pag_ungelesen"));
+                        }
                     });
                 }
             });
@@ -454,9 +548,70 @@ fn patch_list(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
             small(ui, &tf("s_pav_leere_weg", &[("n", Arg::from(left_out))]), scheme.sub);
         }
     });
+    if all_read {
+        state.mark_read(&unread);
+    }
     if let Some(version) = picked {
         state.choose(&version);
+        // A patch not fetched yet shows no values: it stays unread until it can be looked at.
+        if state.chosen_kept {
+            state.mark_read(std::slice::from_ref(&version));
+        }
     }
+}
+
+/// The card of the biggest changes of the patch chosen: its counter with what stayed the same, the numbers that
+/// rose most and those that fell most, each as a bar measured at the largest of its kind. Drawn only for a patch
+/// kept here; returns whether it was drawn.
+fn biggest(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) -> bool {
+    let Some(version) = state.chosen.as_deref() else { return false };
+    if !state.chosen_kept {
+        return false;
+    }
+    let summary = state.list.iter().find(|p| p.version == version).map(|p| p.summary.clone()).unwrap_or_default();
+    let counter = match state.unchanged {
+        Some(same) => tf(
+            "s_pag_zaehler",
+            &[
+                ("plus", Arg::from(summary.added)),
+                ("minus", Arg::from(summary.removed)),
+                ("tilde", Arg::from(summary.modified)),
+                ("gleich", Arg::from(same)),
+            ],
+        ),
+        None => patch_changes::counter_text(&summary),
+    };
+    let (rises, falls) = &state.moves;
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_pag_kopf"));
+        ui.add_space(4.0);
+        small(ui, &counter, scheme.sub);
+        if rises.is_empty() && falls.is_empty() {
+            ui.add_space(4.0);
+            small(ui, &t("s_pag_keine_zahl"), scheme.sub);
+            return;
+        }
+        let groups = [("s_pag_gestiegen", rises, RankTone::Accent), ("s_pag_gefallen", falls, RankTone::Red)];
+        for (key, moves, tone) in groups {
+            if moves.is_empty() {
+                continue;
+            }
+            ui.add_space(GAP / 2.0);
+            ui.label(RichText::new(t(key)).strong());
+            ui.add_space(2.0);
+            let largest = moves.iter().map(|m| m.share.abs()).fold(0.0, f64::max).max(f64::MIN_POSITIVE);
+            for change in moves {
+                let name = format!("{} · {}", change.name, pa_field(&change.path));
+                let (before, after) = patch_changes::pair(Some(&change.old), Some(&change.new));
+                let share = patch_changes::share_text(Some(&change.old), Some(&change.new));
+                let number = format!("{before} → {after}  {share}");
+                widgets::ranking_row_tone(ui, scheme, &name, &number, (change.share.abs() / largest) as f32, tone);
+                ui.add_space(2.0);
+            }
+        }
+    });
+    true
 }
 
 /// The areas of the patch chosen with their counts, all of them first, in a card of their own.
@@ -498,7 +653,7 @@ fn items(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) {
             small(ui, &text, scheme.sub);
             return;
         };
-        if !state.kept(version) {
+        if !state.chosen_kept {
             let entry = state.list.iter().find(|p| p.version == version);
             let text = match entry {
                 Some(patch) if !patch.empty => tf(

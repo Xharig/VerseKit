@@ -439,7 +439,7 @@ mod tests {
         use versekit_core::paths::Host;
         use versekit_core::pypath::Flavor;
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let home = std::env::temp_dir().join(format!("versekit-schwund-{}", versekit_core::testdir::run_tag()));
         let home = home.to_string_lossy().replace('\\', "/");
         let _ = std::fs::remove_dir_all(&home);

@@ -131,7 +131,7 @@ impl ShopLine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
     use versekit_core::paths::Host;
     use versekit_core::pypath::Flavor;
 
@@ -166,7 +166,7 @@ mod tests {
     #[test]
     fn the_cheapest_shop_stands_there_and_nothing_stands_where_nothing_is_known() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let paths = paths("known");
         let file = paths.app_file(shops::CACHE);
         std::fs::write(

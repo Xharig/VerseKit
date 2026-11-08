@@ -258,7 +258,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut NotesState) {
     ui.label(sub(scheme, t("s_nz_lead")));
     ui.add_space(6.0);
     if state.failed {
-        ui.label(RichText::new(t("s_nz_nicht_gespeichert")).color(color(scheme.red)));
+        ui.label(RichText::new(t("s_nz_nicht_gespeichert")).color(color(scheme.red_text())));
         ui.add_space(4.0);
     }
     ui.horizontal_wrapped(|row| {
@@ -321,7 +321,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut NotesState) {
 /// memos where it `fills` (beside the text), else it ends with the last row; more rows scroll.
 fn list_block(ui: &mut Ui, scheme: &Scheme, state: &mut NotesState, height: f32, fills: bool, now: f64) -> egui::Rect {
     let inner = (height - widgets::LIST_FRAME_EXTRA).max(0.0);
-    widgets::list_frame(ui, scheme, |list| {
+    widgets::list_frame_marked(ui, scheme, |list| {
         list.set_width(list.available_width());
         if state.memos.items.is_empty() {
             if fills {
@@ -475,7 +475,7 @@ fn editor(ui: &mut Ui, scheme: &Scheme, state: &mut NotesState, height: f32, now
 mod tests {
     use super::*;
     use egui::{Event, Rect, vec2};
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
 
     fn texts(shapes: &[egui::epaint::ClippedShape]) -> Vec<String> {
         fn collect(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
@@ -585,9 +585,22 @@ mod tests {
     }
 
     #[test]
+    fn the_list_of_notes_carries_the_corner_brackets_of_a_card() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let ctx = context();
+        let mut state = state_with(3);
+        crate::widgets::drawn_cards::take_marked_lists();
+        frame(&ctx, &mut state, 900.0, 0.0, Vec::new());
+        let (list, _) = boxes(&ctx);
+        let marked = crate::widgets::drawn_cards::take_marked_lists();
+        assert!(marked.iter().any(|frame| frame.contains_rect(list)), "list {list:?} in a marked frame: {marked:?}");
+    }
+
+    #[test]
     fn the_first_line_of_the_field_stands_as_a_heading_and_the_rest_as_text() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = state_with(1);
         state.memos.set_text(0, "Titanium holen\nLorville\nArea18", 1);
@@ -624,7 +637,7 @@ mod tests {
     #[test]
     fn a_note_made_typed_saved_and_loaded_again_is_there() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths_in("rundweg");
         let ctx = context();
         let mut state = NotesState::with_files(&paths);
@@ -664,7 +677,7 @@ mod tests {
     #[test]
     fn the_list_goes_down_to_the_edge_of_the_window_like_the_text_field_at_every_height() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut last_height = 0.0;
         for window in [480.0, 640.0, 900.0, 1300.0] {
             let size = vec2(900.0, window);
@@ -717,7 +730,7 @@ mod tests {
     #[test]
     fn in_a_narrow_window_the_list_above_the_text_ends_with_its_rows() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = state_with(2);
         let size = vec2(400.0, 900.0);
@@ -730,7 +743,7 @@ mod tests {
     #[test]
     fn the_note_is_not_there_when_nothing_was_saved() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths_in("gegenprobe");
         let ctx = context();
         let mut state = NotesState::with_files(&paths);
@@ -768,7 +781,7 @@ mod tests {
     #[test]
     fn a_deleted_note_comes_back_to_its_place_and_goes_after_a_while() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths_in("loeschen");
         let ctx = context();
         let mut state = NotesState::with_files(&paths);
@@ -803,7 +816,7 @@ mod tests {
     #[test]
     fn a_locked_data_folder_says_so_and_keeps_the_note_in_the_window() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths_in("gesperrt");
         let ctx = context();
         let mut state = NotesState::with_files(&paths);
@@ -913,7 +926,7 @@ mod tests {
     #[test]
     fn the_buttons_give_the_marked_letters_their_look_and_take_it_again() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (ctx, mut state) = page_with("Einkauf\nTitanium und Gold");
         for (button, style) in [(0, BOLD), (1, ITALIC), (2, UNDERLINE), (3, STRIKE)] {
             // The time of the frames only goes forward.
@@ -950,7 +963,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for language in [Choice::De, Choice::En] {
-            set_language(language);
+            set_thread_language(language);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for (physical, in_table) in [260.0f32, 330.0, 400.0, 559.0, 560.0, 700.0, 900.0]
                     .into_iter()
@@ -997,7 +1010,7 @@ mod tests {
     #[test]
     fn ctrl_b_i_u_act_on_the_marked_letters_and_ctrl_u_deletes_nothing() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (ctx, mut state) = page_with("Einkauf\nTitanium und Gold");
         mark(&ctx, &mut state, 8..16, 1.0);
         let command = egui::Modifiers::COMMAND;
@@ -1023,7 +1036,7 @@ mod tests {
     #[test]
     fn the_list_buttons_make_points_with_bullets_and_numbers_and_no_signs_in_the_text() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (ctx, mut state) = page_with("Einkauf\nTitanium\nGold\nQuantanium");
         mark(&ctx, &mut state, 8..20, 1.0);
         click_button(&ctx, &mut state, 4, 1.1);
@@ -1074,7 +1087,7 @@ mod tests {
     #[test]
     fn enter_in_an_empty_point_ends_the_list_and_backspace_takes_a_point_out() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (ctx, mut state) = page_with("Einkauf\nTitanium");
         mark(&ctx, &mut state, 8..8, 1.0);
         click_button(&ctx, &mut state, 4, 1.1);
@@ -1102,7 +1115,7 @@ mod tests {
     #[test]
     fn a_formatted_note_is_saved_and_opens_again_in_its_look() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths_in("aussehen");
         let ctx = context();
         let mut state = NotesState::with_files(&paths);
@@ -1133,7 +1146,7 @@ mod tests {
     #[test]
     fn a_note_of_5_1_0_opens_as_it_was_and_stays_the_same_in_the_file() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths_in("alt-5-1-0");
         let old = "{\n \"format\": 1,\n \"zettel\": [\n  {\n   \"text\": \"Titanium holen\\n- Lorville\\n**Area18**\",\n   \"bearbeitet\": 1762300000\n  }\n ]\n}";
         let file = paths.app_file(memo::FILE);
@@ -1160,7 +1173,7 @@ mod tests {
             Choice::En,
             ["Bold (Ctrl+B)", "Italic (Ctrl+I)", "Underline (Ctrl+U)"],
         )] {
-            set_language(choice);
+            set_thread_language(choice);
             let meanings: Vec<String> =
                 rich::BUTTONS.iter().map(|(_, _, key, letter)| rich::meaning(key, *letter)).collect();
             if !cfg!(target_os = "macos") {
@@ -1243,7 +1256,7 @@ mod tests {
     #[test]
     fn a_table_is_put_in_filled_with_tab_and_its_columns_stand_in_line() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (ctx, mut state) = page_with("Erze");
         let lines_before = segments(&ctx, &mut state);
         mark(&ctx, &mut state, 4..4, 1.0);
@@ -1300,7 +1313,9 @@ mod tests {
     ) -> rich::tests::Drawn {
         let scheme = versekit_core::theme::current();
         let mut shapes = Vec::new();
-        for time in [50.0, 50.1] {
+        // Two frames well after the last one, so animations are over; the clock of a context only goes forward.
+        let start = ctx.input(|i| i.time);
+        for time in [start + 50.0, start + 50.1] {
             let mut output = ctx.run_ui(
                 egui::RawInput {
                     time: Some(time),
@@ -1332,7 +1347,7 @@ mod tests {
     #[test]
     fn the_table_on_the_page_is_closed_all_round_and_every_cell_keeps_the_same_room_to_its_lines() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         for (scale, width) in [(1.0, 900.0), (1.25, 900.0), (1.5, 560.0), (2.0, 400.0), (1.0, 260.0)] {
             let (ctx, mut state) = page_with("Erze\nLindinium\t12\nSavrilium\t7");
             ctx.set_pixels_per_point(scale);
@@ -1352,7 +1367,7 @@ mod tests {
     #[test]
     fn a_table_typed_in_by_hand_keeps_its_frame_and_its_room_at_every_step() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (ctx, mut state) = page_with("Erze");
         mark(&ctx, &mut state, 4..4, 1.0);
         click_button(&ctx, &mut state, TABLE, 1.1);
@@ -1372,7 +1387,9 @@ mod tests {
                     problems.push(format!("after {typed:?} ({step}) in {table:?}: {problem}"));
                 }
             }
-            frame(&ctx, &mut state, 900.0, time + 0.05, vec![tab.clone()]);
+            // The drawn tables moved the clock of the context ahead: go on from there.
+            time = ctx.input(|i| i.time) + 0.1;
+            frame(&ctx, &mut state, 900.0, time, vec![tab.clone()]);
             time += 0.1;
         }
         assert_eq!(problems, Vec::<String>::new());
@@ -1381,7 +1398,7 @@ mod tests {
     #[test]
     fn the_row_and_column_buttons_change_the_table_and_the_table_button_takes_it_out() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (ctx, mut state) = page_with("Erze\nErz\tMenge\nGold\t12\nEnde");
         let mut look = state.memos().items[0].look.clone();
         look.set_lines(1..3, LineKind::Table);
@@ -1412,7 +1429,7 @@ mod tests {
     #[test]
     fn a_table_is_saved_as_tab_separated_lines_and_opens_again_as_a_table() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths_in("tabelle");
         let ctx = context();
         let mut state = NotesState::with_files(&paths);
@@ -1443,7 +1460,7 @@ mod tests {
     fn nothing_sticks_out_at_any_width_and_the_list_goes_above_the_text_where_narrow() {
         let _language = crate::language_lock();
         for choice in [Choice::De, Choice::En] {
-            set_language(choice);
+            set_thread_language(choice);
             let ctx = context();
             let mut state = NotesState::default();
             for n in 0..4 {

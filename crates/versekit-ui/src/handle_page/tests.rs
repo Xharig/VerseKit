@@ -181,6 +181,22 @@ fn the_list_sorts_by_stance_name_kind_and_time_and_filters() {
     assert_eq!(names(state.arranged()), ["Alpha", "beta", "NOVA", "REDSUN", "Zeta"]);
 }
 
+/// To watch stands between unknown and hostile, and its filter, the last one, shows only those rows.
+#[test]
+fn to_watch_stands_before_hostile_and_has_its_own_filter() {
+    let mut relations = Relations::default();
+    relations.set(Kind::Handle, "Feind", Some(Stance::Hostile));
+    relations.set(Kind::Handle, "Schatten", Some(Stance::Watch));
+    relations.set(Kind::Org, "AUGE", Some(Stance::Watch));
+    relations.set(Kind::Handle, "Freund", Some(Stance::Friendly));
+    let all = rows(&relations, &[("Fremder".to_string(), 10.0)]);
+    let order = |view: View| names(&arrange(&all, &view)).iter().map(|n| n.to_string()).collect::<Vec<String>>();
+    assert_eq!(order(View::default()), ["Freund", "AUGE", "Schatten", "Feind"], "friendly, to watch, hostile");
+    let only = View { stance: STANCE_FILTERS.len() - 1, ..View::default() };
+    assert_eq!(STANCE_FILTERS[only.stance], Some(Some(Stance::Watch)));
+    assert_eq!(order(only), ["AUGE", "Schatten"]);
+}
+
 #[test]
 fn a_stance_changed_on_a_row_is_written_and_the_overlay_is_told() {
     set_thread_language(Choice::De);

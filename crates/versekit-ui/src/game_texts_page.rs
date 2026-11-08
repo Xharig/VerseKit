@@ -23,6 +23,7 @@
 //! Fetching and writing take seconds, so they run on a thread of their own,
 //! one at a time; the page shows what happens and what came of it.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
@@ -237,7 +238,7 @@ impl GameTextsState {
         let lock = versekit_core::writeguard::state();
         let started = std::thread::Builder::new()
             .name("spieltexte".into())
-            .spawn(move || {
+            .spawn_with_language(move || {
                 versekit_core::writeguard::adopt(&lock);
                 work(&paths, net.as_ref(), archive.as_ref(), &sender);
             })
@@ -637,7 +638,7 @@ fn hint(ui: &mut Ui, scheme: &Scheme, text: &str) {
 
 fn said_line(ui: &mut Ui, scheme: &Scheme, state: &GameTextsState) {
     if let Some((text, bad)) = state.said() {
-        let tone: Color = if *bad { scheme.red } else { scheme.sub };
+        let tone: Color = if *bad { scheme.red_text() } else { scheme.sub };
         ui.add(egui::Label::new(RichText::new(text).color(color(tone))).wrap());
     }
 }
@@ -1304,7 +1305,7 @@ mod tests {
     impl Game {
         fn new(name: &str) -> Game {
             let language = crate::language_lock();
-            versekit_core::language::set_language(versekit_core::language::Choice::De);
+            versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
             let root = std::env::temp_dir()
                 .join(format!("versekit-gametexts-page-{name}-{}", versekit_core::testdir::run_tag()));
             let _ = fs::remove_dir_all(&root);
@@ -1602,7 +1603,9 @@ mod tests {
                 screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1600.0, 5000.0))),
                 ..Default::default()
             };
-            let output = ctx.run_ui(input, |ui| show_translation(ui, scheme, &mut state));
+            let mut output = ctx.run_ui(input, |ui| show_translation(ui, scheme, &mut state));
+            // No renderer takes the new textures; egui complains about a pass dropped with them.
+            output.textures_delta.clear();
             labels = output
                 .shapes
                 .iter()
@@ -2619,7 +2622,7 @@ mod tests {
         fs::create_dir_all(&ptu).unwrap();
         fs::write(format!("{ptu}/Data.p4k"), "").unwrap();
         for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
-            versekit_core::language::set_language(choice);
+            versekit_core::language::set_thread_language(choice);
             for width in [1500.0, 1000.0, WIDE] {
                 let what = format!("{choice:?} {width}");
                 let s = seen(&game.paths, width);
@@ -2650,7 +2653,7 @@ mod tests {
                 }
             }
         }
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
     }
 
     #[test]

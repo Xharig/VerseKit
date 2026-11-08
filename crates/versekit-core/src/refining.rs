@@ -19,16 +19,17 @@
 //! and what every refinery makes of an ore (`mining.refinery_matrix`, `refineries_for` and the short names
 //! of the columns of `pages.py`).
 //!
-//! The terminal shows one line per method and no numbers, so the levels are written down by hand. For
-//! Pyrometric Chromalysis and Dinyx Solventation they are the ones the costs and times of a run show, not the
-//! ones the text suggests. A bigger level is better for the player on every axis, also for the costs (3 is
-//! "low costs").
+//! The levels of the methods come from the game data where the reading of the values kept them ([`Methods`],
+//! [`GAME_FILE`], read from the line the terminal shows below each method); otherwise from the table written down
+//! by hand ([`METHODS`]), where for Pyrometric Chromalysis and Dinyx Solventation they are the ones the costs and
+//! times of a run show. A bigger level is better for the player on every axis, also for the costs (3 is "low
+//! costs").
 
 use crate::jsonio::Value;
 use crate::mining_data::MiningData;
 use crate::stock_data::lower;
 
-/// The game version the levels were read in, and when.
+/// The game version the levels of the table were read in, and when; the page names them while it shows the table.
 pub const PATCH: &str = "4.10";
 pub const READ_ON: &str = "2026-09-03";
 
@@ -59,54 +60,163 @@ fn position(axis: &str) -> Option<usize> {
     }
 }
 
-/// The level of a method on an axis; 0 for an unknown method or axis.
-pub fn level(key: &str, axis: &str) -> u8 {
-    match (METHODS.iter().find(|(k, _, _)| *k == key), position(axis)) {
-        (Some((_, _, levels)), Some(at)) => levels[at],
-        _ => 0,
-    }
-}
-
 /// The name of a method in the game.
 pub fn name(key: &str) -> &'static str {
     METHODS.iter().find(|(k, _, _)| *k == key).map_or("", |(_, name, _)| name)
 }
 
-/// The method that suits the axes the player chose, and all nine in that order. What was not chosen follows
-/// in the order yield, costs, speed, so the order is always the same; a second axis equal to the first adds
-/// nothing.
-pub fn recommend(first: Option<&str>, second: Option<&str>) -> (&'static str, Vec<&'static str>) {
-    let mut order: Vec<&str> = Vec::new();
-    for axis in
-        [first, second].into_iter().flatten().filter(|a| position(a).is_some()).chain(["ertrag", "kosten", "tempo"])
-    {
-        if !order.contains(&axis) {
-            order.push(axis);
-        }
-    }
-    let mut all: Vec<&'static str> = METHODS.iter().map(|(k, _, _)| *k).collect();
-    all.sort_by_key(|key| order.iter().map(|axis| std::cmp::Reverse(level(key, axis))).collect::<Vec<_>>());
-    (all[0], all)
+/// The file the levels read from the game data are kept in, beside the cache of the values.
+pub const GAME_FILE: &str = "raffinerie-verfahren-spieldaten.json";
+/// The version of the layout of [`GAME_FILE`].
+pub const GAME_FORMAT: i64 = 1;
+
+/// Where the levels of the methods come from.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Origin {
+    /// The table written down by hand ([`METHODS`], [`PATCH`], [`READ_ON`]).
+    Table,
+    /// The game data of `build`, read in the channel `channel` (`LIVE`, `PTU` …).
+    Game { build: String, channel: String },
 }
 
-/// The methods another one beats in every respect: no axis worse, one better. Per method the first such
-/// other one. Computed, not entered: if a level changes, the advice stays true.
-pub fn dominated() -> Vec<(&'static str, &'static str)> {
-    let mut result = Vec::new();
-    for (a, _, _) in METHODS {
-        for (b, _, _) in METHODS {
-            if a == b {
-                continue;
+/// The nine methods with their levels (yield, speed, cost advantage, as in [`METHODS`]): read from the game data
+/// where that worked, else the table.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Methods {
+    levels: [(&'static str, [u8; 3]); 9],
+    pub origin: Origin,
+}
+
+impl Methods {
+    /// The table written down by hand.
+    pub fn table() -> Methods {
+        Methods { levels: METHODS.map(|(key, _, levels)| (key, levels)), origin: Origin::Table }
+    }
+
+    /// The levels of [`GAME_FILE`] as written by the reading of the game data. Every one of the nine methods of the
+    /// table has to be there once, by its name in the game, with yield and costs 1 to 3 and speed 0 to 3.
+    ///
+    /// # Errors
+    ///
+    /// What does not fit, in words for the error log.
+    pub fn from_game_text(text: &str) -> Result<Methods, String> {
+        let read = crate::jsonio::loads(text).map_err(|error| format!("no JSON: {error}"))?;
+        if read.get("format") != Some(&Value::int(GAME_FORMAT)) {
+            return Err("another layout".into());
+        }
+        let word = |key: &str| read.get(key).and_then(Value::as_str).unwrap_or_default().to_string();
+        let (build, channel) = (word("build"), word("kanal"));
+        let Some(Value::Array(entries)) = read.get("verfahren") else { return Err("no methods".into()) };
+        let mut levels = METHODS.map(|(key, _, _)| (key, None::<[u8; 3]>));
+        for entry in entries {
+            let name = entry.get("name").and_then(Value::as_str).unwrap_or_default();
+            let Some(at) = METHODS.iter().position(|(_, known, _)| known.eq_ignore_ascii_case(name.trim())) else {
+                return Err(format!("unknown method {name:?}"));
+            };
+            let number = |axis: &str, lowest: u8| match entry.get(axis) {
+                Some(Value::Int(digits)) => digits.parse::<u8>().ok().filter(|n| (lowest..=3).contains(n)),
+                _ => None,
+            };
+            let (Some(gain), Some(speed), Some(cost)) = (number("ertrag", 1), number("tempo", 0), number("kosten", 1))
+            else {
+                return Err(format!("levels of {name:?} out of range"));
+            };
+            if levels[at].1.replace([gain, speed, cost]).is_some() {
+                return Err(format!("{name:?} twice"));
             }
-            let better = AXES.iter().any(|axis| level(b, axis) > level(a, axis));
-            let worse = AXES.iter().any(|axis| level(b, axis) < level(a, axis));
-            if better && !worse {
-                result.push((a, b));
-                break;
+        }
+        let mut complete = [("", [0; 3]); 9];
+        for (slot, (key, found)) in complete.iter_mut().zip(levels) {
+            *slot = (key, found.ok_or_else(|| format!("{key} missing"))?);
+        }
+        Ok(Methods { levels: complete, origin: Origin::Game { build, channel } })
+    }
+
+    /// The levels of the game data kept in `file`; `None` when there is no such file, or it does not fit (then the
+    /// error log says why).
+    pub fn from_game_file(file: &str) -> Option<Methods> {
+        let text = std::fs::read_to_string(file).ok()?;
+        match Methods::from_game_text(&text) {
+            Ok(methods) => Some(methods),
+            Err(error) => {
+                crate::errors::record("refining.game_file", &error);
+                None
             }
         }
     }
-    result
+
+    /// The level of a method on an axis; 0 for an unknown method or axis.
+    pub fn level(&self, key: &str, axis: &str) -> u8 {
+        match (self.levels.iter().find(|(k, _)| *k == key), position(axis)) {
+            (Some((_, levels)), Some(at)) => levels[at],
+            _ => 0,
+        }
+    }
+
+    /// The methods whose levels differ from the table, in the order of the table.
+    pub fn differing_from_table(&self) -> Vec<&'static str> {
+        let table = Methods::table();
+        self.levels
+            .iter()
+            .filter(|(key, levels)| table.levels.iter().any(|(k, l)| k == key && l != levels))
+            .map(|(key, _)| *key)
+            .collect()
+    }
+
+    /// The method that suits the axes the player chose, and all nine in that order. What was not chosen follows
+    /// in the order yield, costs, speed, so the order is always the same; a second axis equal to the first adds
+    /// nothing.
+    pub fn recommend(&self, first: Option<&str>, second: Option<&str>) -> (&'static str, Vec<&'static str>) {
+        let mut order: Vec<&str> = Vec::new();
+        for axis in [first, second]
+            .into_iter()
+            .flatten()
+            .filter(|a| position(a).is_some())
+            .chain(["ertrag", "kosten", "tempo"])
+        {
+            if !order.contains(&axis) {
+                order.push(axis);
+            }
+        }
+        let mut all: Vec<&'static str> = self.levels.iter().map(|(k, _)| *k).collect();
+        all.sort_by_key(|key| order.iter().map(|axis| std::cmp::Reverse(self.level(key, axis))).collect::<Vec<_>>());
+        (all[0], all)
+    }
+
+    /// The methods another one beats in every respect: no axis worse, one better. Per method the first such
+    /// other one. Computed, not entered: if a level changes, the advice stays true.
+    pub fn dominated(&self) -> Vec<(&'static str, &'static str)> {
+        let mut result = Vec::new();
+        for (a, _) in self.levels {
+            for (b, _) in self.levels {
+                if a == b {
+                    continue;
+                }
+                let better = AXES.iter().any(|axis| self.level(b, axis) > self.level(a, axis));
+                let worse = AXES.iter().any(|axis| self.level(b, axis) < self.level(a, axis));
+                if better && !worse {
+                    result.push((a, b));
+                    break;
+                }
+            }
+        }
+        result
+    }
+}
+
+/// The level of a method of the table on an axis; 0 for an unknown method or axis.
+pub fn level(key: &str, axis: &str) -> u8 {
+    Methods::table().level(key, axis)
+}
+
+/// [`Methods::recommend`] for the table.
+pub fn recommend(first: Option<&str>, second: Option<&str>) -> (&'static str, Vec<&'static str>) {
+    Methods::table().recommend(first, second)
+}
+
+/// [`Methods::dominated`] for the table.
+pub fn dominated() -> Vec<(&'static str, &'static str)> {
+    Methods::table().dominated()
 }
 
 // ------------------------------------------------------------ the refineries
@@ -446,5 +556,74 @@ mod tests {
         assert_eq!(head("Checkmate"), "Check\nmate");
         assert_eq!(head("Pyro-Gate"), "Pyro-\nGate");
         assert_eq!(head("Orbituary"), "Orbit\nuary");
+    }
+
+    /// The file the reading of the game data writes, for the methods of the table with `levels` per name.
+    fn game_text(levels: &[(&str, [u8; 3])]) -> String {
+        let entries: Vec<String> = levels
+            .iter()
+            .map(|(name, [gain, speed, cost])| {
+                format!(r#"{{"name": "{name}", "ertrag": {gain}, "tempo": {speed}, "kosten": {cost}}}"#)
+            })
+            .collect();
+        format!(r#"{{"format": 1, "build": "4.10.2-LIVE.1", "kanal": "PTU", "verfahren": [{}]}}"#, entries.join(", "))
+    }
+
+    fn table_levels() -> Vec<(&'static str, [u8; 3])> {
+        METHODS.iter().map(|(_, name, levels)| (*name, *levels)).collect()
+    }
+
+    #[test]
+    fn the_levels_read_from_the_game_take_the_place_of_the_table() {
+        let mut read = table_levels();
+        // As in the game data of 4.10.2: the levels of Ferron Exchange and Kazen Winnowing exchanged.
+        let (ferron, kazen) = (read[3].1, read[4].1);
+        (read[3].1, read[4].1) = (kazen, ferron);
+        let methods = Methods::from_game_text(&game_text(&read)).expect("all nine");
+        assert_eq!(methods.origin, Origin::Game { build: "4.10.2-LIVE.1".into(), channel: "PTU".into() });
+        assert_eq!(methods.level("ferron", "ertrag"), kazen[0]);
+        assert_eq!(methods.differing_from_table(), ["ferron", "kazen"]);
+        assert_eq!(Methods::table().differing_from_table(), Vec::<&str>::new());
+        // The order follows the levels read: of the moderate yields Ferron came first by its low costs, now Kazen.
+        let place = |order: &[&str], key: &str| order.iter().position(|k| *k == key).expect(key);
+        let (_, table_order) = recommend(None, None);
+        let (_, read_order) = methods.recommend(None, None);
+        assert!(place(&table_order, "ferron") < place(&table_order, "kazen"), "{table_order:?}");
+        assert!(place(&read_order, "kazen") < place(&read_order, "ferron"), "{read_order:?}");
+        // Names are found whatever their case and spaces.
+        let loose: Vec<(String, [u8; 3])> =
+            table_levels().into_iter().map(|(name, levels)| (format!(" {} ", name.to_uppercase()), levels)).collect();
+        let loose: Vec<(&str, [u8; 3])> = loose.iter().map(|(name, levels)| (name.as_str(), *levels)).collect();
+        assert!(Methods::from_game_text(&game_text(&loose)).is_ok());
+    }
+
+    #[test]
+    fn a_file_of_the_game_that_does_not_fit_leaves_the_table() {
+        let all = table_levels();
+        assert!(Methods::from_game_text(&game_text(&all[..8])).unwrap_err().contains("missing"));
+        let mut twice = all.clone();
+        twice[8].0 = twice[0].0;
+        assert!(Methods::from_game_text(&game_text(&twice)).unwrap_err().contains("twice"));
+        let mut unknown = all.clone();
+        unknown[0].0 = "Quantum Folding";
+        assert!(Methods::from_game_text(&game_text(&unknown)).unwrap_err().contains("unknown"));
+        for wrong in [[0, 3, 1], [3, 4, 1], [3, 3, 0], [3, 3, 4]] {
+            let mut levels = all.clone();
+            levels[0].1 = wrong;
+            assert!(Methods::from_game_text(&game_text(&levels)).is_err(), "{wrong:?}");
+        }
+        let mut speed_zero = all.clone();
+        speed_zero[0].1 = [3, 0, 1];
+        assert!(Methods::from_game_text(&game_text(&speed_zero)).is_ok(), "the slowest speed is 0");
+        let other_layout = game_text(&all).replace(r#""format": 1"#, r#""format": 2"#);
+        assert!(Methods::from_game_text(&other_layout).is_err());
+        assert!(Methods::from_game_text("{kaputt").is_err());
+        let dir = crate::testdir::Dir::new("raffinerie-spieldaten");
+        let file = dir.path().join(GAME_FILE).to_string_lossy().into_owned();
+        assert_eq!(Methods::from_game_file(&file), None, "no file");
+        std::fs::write(&file, "{kaputt").unwrap();
+        assert_eq!(Methods::from_game_file(&file), None, "a broken file");
+        std::fs::write(&file, game_text(&all)).unwrap();
+        assert!(Methods::from_game_file(&file).is_some_and(|m| m.differing_from_table().is_empty()));
     }
 }

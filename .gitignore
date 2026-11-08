@@ -37,4 +37,5 @@ tools/nutzung-worker/node_modules/
 
 # Rust-Bauordner
 /target
+/target-*/
 /tools/bildwerkzeug/target

@@ -240,7 +240,7 @@ fn shows(texts: &Texts, text: &str) -> bool {
 fn setup() -> std::sync::MutexGuard<'static, ()> {
     let guard = crate::language_lock();
     theme::set_current("original");
-    language::set_language(Choice::De);
+    language::set_thread_language(Choice::De);
     guard
 }
 
@@ -579,7 +579,7 @@ fn the_question_holds_long_names_at_every_width_scheme_and_language_and_nothing_
     for scheme in theme::schemes() {
         theme::set_thread_current(scheme.id);
         for english in [false, true] {
-            language::set_language(if english { Choice::En } else { Choice::De });
+            language::set_thread_language(if english { Choice::En } else { Choice::De });
             for scope in [Scope::Everything, Scope::OnlyOld] {
                 for width in [330.0, 480.0, 640.0, 900.0, 1400.0] {
                     let places = long_places();
@@ -628,7 +628,7 @@ fn the_question_holds_long_names_at_every_width_scheme_and_language_and_nothing_
         }
     }
     theme::set_current("original");
-    language::set_language(Choice::De);
+    language::set_thread_language(Choice::De);
     let _ = std::fs::remove_dir_all(paths.home);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
 }

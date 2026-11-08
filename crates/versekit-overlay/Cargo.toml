@@ -21,12 +21,14 @@ versekit-ui = { path = "../versekit-ui" }
 # Process list (is the game running), the find signal, the window photo of
 # the self-check, the mutex of the one overlay and the rounded corners.
 windows-sys = { workspace = true, features = [
+    "Win32_Media_Audio",
     "Win32_Graphics_Dwm",
     "Win32_System_Diagnostics_ToolHelp",
     "Win32_System_Diagnostics_Debug",
     "Win32_Storage_Xps",
     "Win32_System_Threading",
     "Win32_System_StationsAndDesktops",
+    "Win32_UI_Controls",
 ] }
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]

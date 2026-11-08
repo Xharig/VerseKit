@@ -106,7 +106,7 @@ fn header_problems(file: &LangFile) -> Vec<String> {
     match &file.header {
         None => vec![format!("{}: `quelle` is missing", file.name)],
         Some(h) if h.trim().is_empty() => vec![format!("{}: `quelle` is empty", file.name)],
-        Some(h) => ["language.py", "export_language", "scbp/"]
+        Some(h) => ["language.py", "export_language"]
             .iter()
             .filter(|old| h.contains(**old))
             .map(|old| format!("{}: the header still points to `{old}`", file.name))
@@ -495,8 +495,8 @@ fn the_checks_find_their_defect() {
     assert!(parse("x", "[]").is_err());
 
     // Header.
-    let old = good.replace("hand edited", "scbp/language.py (tools/export_language.py)");
-    assert_eq!(header_problems(&parse("old", &old).expect("parses")).len(), 3);
+    let old = good.replace("hand edited", "language.py (tools/export_language.py)");
+    assert_eq!(header_problems(&parse("old", &old).expect("parses")).len(), 2);
     let no_header = good.replace(" \"quelle\": \"hand edited\",\n", "");
     assert_eq!(header_problems(&parse("none", &no_header).expect("parses")).len(), 1);
 

@@ -42,6 +42,8 @@ use std::time::Duration;
 use versekit_core::language::{t, tf};
 use versekit_core::window_signal::Signal;
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{CreateSolidBrush, DeleteObject, HFONT, HGDIOBJ};
+use windows_sys::Win32::UI::Controls::{DRAWITEMSTRUCT, MEASUREITEMSTRUCT, ODS_SELECTED, ODT_MENU};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Shell::{
     NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIM_ADD, NIM_DELETE, NIM_MODIFY, NOTIFYICONDATAW,
@@ -50,11 +52,13 @@ use windows_sys::Win32::UI::Shell::{
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyIcon, DestroyMenu, DestroyWindow,
     DispatchMessageW, GetCursorPos, GetForegroundWindow, GetMessageW, IDI_APPLICATION, IMAGE_ICON, IsWindow,
-    IsWindowVisible, LR_DEFAULTSIZE, LR_LOADFROMFILE, LoadIconW, LoadImageW, MF_SEPARATOR, MF_STRING, MSG,
-    PostMessageW, PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow, TPM_RIGHTBUTTON,
-    TrackPopupMenu, TranslateMessage, WM_APP, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_LBUTTONUP, WM_NULL, WM_RBUTTONUP,
-    WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    IsWindowVisible, LR_DEFAULTSIZE, LR_LOADFROMFILE, LoadIconW, LoadImageW, MENUINFO, MF_SEPARATOR, MF_STRING,
+    MIM_BACKGROUND, MSG, PostMessageW, PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow,
+    SetMenuInfo, TPM_RIGHTBUTTON, TrackPopupMenu, TranslateMessage, WM_APP, WM_CLOSE, WM_COMMAND, WM_DESTROY,
+    WM_DRAWITEM, WM_LBUTTONUP, WM_MEASUREITEM, WM_NULL, WM_RBUTTONUP, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
+
+use crate::tray_look;
 
 /// The message of our own for everything the icon reports. `WM_APP` is the
 /// range Windows leaves to programs.
@@ -269,6 +273,10 @@ struct Inner {
     leak: bool,
     /// A way to start the game is known: the menu has the entry for the launcher.
     launcher: AtomicBool,
+    /// The texts of the menu that is open, by the number each entry carries as its data (1 is the first; a
+    /// separator carries 0), and the font it is drawn in; both only while it is open.
+    open_menu: Mutex<Vec<String>>,
+    menu_font: AtomicIsize,
 }
 
 static INNER: OnceLock<Mutex<Option<Arc<Inner>>>> = OnceLock::new();
@@ -315,23 +323,44 @@ impl Inner {
         false
     }
 
-    /// The menu of the right click; the choice comes back as `WM_COMMAND`.
+    /// The menu of the right click; the choice comes back as `WM_COMMAND`. Its entries are drawn in the colors of
+    /// the house (`tray_look`); without the font of the menus they are the plain ones of Windows.
     fn show_menu(&self, hwnd: HWND) {
+        let font = tray_look::MenuFont::of_system();
+        let items = menu(&self.version, self.launcher.load(Ordering::Relaxed));
+        *self.open_menu.lock().unwrap_or_else(|e| e.into_inner()) = items.iter().map(|i| i.text.clone()).collect();
+        self.menu_font.store(font.as_ref().map_or(0, |f| f.0 as isize), Ordering::Relaxed);
+        let look = tray_look::Look::house();
         // SAFETY: the menu is made, used and destroyed here, by this thread.
         unsafe {
             let handle = CreatePopupMenu();
             if handle.is_null() {
                 return;
             }
-            for item in menu(&self.version, self.launcher.load(Ordering::Relaxed)) {
-                let (flags, text) =
-                    if item.entry.is_none() { (MF_SEPARATOR, wide("")) } else { (MF_STRING, wide(&item.text)) };
-                if AppendMenuW(handle, flags, item.command as usize, text.as_ptr()) == 0 {
+            for (n, item) in items.iter().enumerate() {
+                let separator = item.entry.is_none();
+                let text = wide(&item.text);
+                let appended = if font.is_some() {
+                    // An entry drawn here carries its number in the menu (1 is the first) as its data.
+                    let data = if separator { 0 } else { n + 1 };
+                    AppendMenuW(handle, tray_look::item_flags(separator), item.command as usize, data as *const u16)
+                } else if separator {
+                    AppendMenuW(handle, MF_SEPARATOR, 0, std::ptr::null())
+                } else {
+                    AppendMenuW(handle, MF_STRING, item.command as usize, text.as_ptr())
+                };
+                if appended == 0 {
                     versekit_core::errors::record(
                         "tray_icon.show_menu",
                         &format!("AppendMenuW failed for {}", item.text),
                     );
                 }
+            }
+            // The ground around the entries (the edge inside the frame) in the color of the house as well.
+            let ground = CreateSolidBrush(look.back);
+            if font.is_some() {
+                let info = MENUINFO { cbSize: std::mem::size_of::<MENUINFO>() as u32, fMask: MIM_BACKGROUND, hbrBack: ground, ..Default::default() };
+                SetMenuInfo(handle, &info);
             }
             let mut at = POINT { x: 0, y: 0 };
             GetCursorPos(&mut at);
@@ -345,10 +374,44 @@ impl Inner {
             TrackPopupMenu(handle, TPM_RIGHTBUTTON, at.x, at.y, 0, hwnd, std::ptr::null());
             PostMessageW(hwnd, WM_NULL, 0, 0);
             DestroyMenu(handle);
+            DeleteObject(ground as HGDIOBJ);
             if !before.is_null() && before != hwnd && IsWindow(before) != 0 {
                 SetForegroundWindow(before);
             }
         }
+        self.menu_font.store(0, Ordering::Relaxed);
+        self.open_menu.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        drop(font);
+    }
+
+    /// The text of the entry of the open menu that carries `data` as its number; `None` for a separator.
+    fn open_text(&self, data: usize) -> Option<String> {
+        let texts = self.open_menu.lock().unwrap_or_else(|e| e.into_inner());
+        data.checked_sub(1).and_then(|n| texts.get(n)).filter(|t| !t.is_empty()).cloned()
+    }
+
+    /// `WM_MEASUREITEM` of an entry of the open menu; false for anything else.
+    fn measure_item(&self, hwnd: HWND, item: &mut MEASUREITEMSTRUCT) -> bool {
+        let font = self.menu_font.load(Ordering::Relaxed);
+        if item.CtlType != ODT_MENU || font == 0 {
+            return false;
+        }
+        let (width, height) = tray_look::measure_for(hwnd, font as HFONT, self.open_text(item.itemData).as_deref());
+        item.itemWidth = width;
+        item.itemHeight = height;
+        true
+    }
+
+    /// `WM_DRAWITEM` of an entry of the open menu; false for anything else.
+    fn draw_item(&self, item: &DRAWITEMSTRUCT) -> bool {
+        let font = self.menu_font.load(Ordering::Relaxed);
+        if item.CtlType != ODT_MENU || font == 0 {
+            return false;
+        }
+        let text = self.open_text(item.itemData);
+        let selected = item.itemState & ODS_SELECTED != 0;
+        tray_look::draw(item.hDC, item.rcItem, font as HFONT, text.as_deref(), selected, &tray_look::Look::house());
+        true
     }
 
     fn command(&self, command: u32) {
@@ -376,6 +439,21 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
             WM_COMMAND => {
                 inner.command((wparam & 0xFFFF) as u32);
                 return 0;
+            }
+            // The entries of the menu, drawn in the colors of the house.
+            WM_MEASUREITEM if lparam != 0 => {
+                // SAFETY: Windows hands the structure of the entry with this message, for the time of the call.
+                let item = unsafe { &mut *(lparam as *mut MEASUREITEMSTRUCT) };
+                if inner.measure_item(hwnd, item) {
+                    return 1;
+                }
+            }
+            WM_DRAWITEM if lparam != 0 => {
+                // SAFETY: as above.
+                let item = unsafe { &*(lparam as *const DRAWITEMSTRUCT) };
+                if inner.draw_item(item) {
+                    return 1;
+                }
             }
             WM_DESTROY => {
                 // SAFETY: ends the message loop of this thread.
@@ -495,6 +573,8 @@ impl Tray {
             stopped: AtomicBool::new(false),
             leak: counter == Some("ohne_icon_freigeben"),
             launcher: AtomicBool::new(false),
+            open_menu: Mutex::new(Vec::new()),
+            menu_font: AtomicIsize::new(0),
         });
         *INNER.get_or_init(|| Mutex::new(None)).lock().unwrap_or_else(|e| e.into_inner()) = Some(Arc::clone(&inner));
         let thread = Arc::clone(&inner);
@@ -669,9 +749,60 @@ fn run(inner: &Arc<Inner>) {
 mod tests {
     use super::*;
 
+    /// The window of the icon without a window: what the procedure needs to measure and draw the open menu.
+    fn inner_with_menu(texts: &[&str], font: isize) -> Inner {
+        let (sender, _events) = mpsc::channel();
+        Inner {
+            sender,
+            shell: Arc::new(Recorder::default()),
+            hwnd: AtomicIsize::new(0),
+            icon: AtomicIsize::new(0),
+            tip: String::new(),
+            version: String::new(),
+            placed: AtomicBool::new(false),
+            taskbar_created: AtomicU32::new(0),
+            keep: false,
+            forget: false,
+            stopped: AtomicBool::new(false),
+            leak: false,
+            launcher: AtomicBool::new(false),
+            open_menu: Mutex::new(texts.iter().map(|t| t.to_string()).collect()),
+            menu_font: AtomicIsize::new(font),
+        }
+    }
+
+    /// An entry carries its number in the menu; a separator carries 0 and has no text. Only the entries of the
+    /// open menu are measured and drawn here: another owner-drawn thing and a closed menu are left to Windows.
+    #[test]
+    fn the_entries_of_the_open_menu_are_found_by_their_number_and_only_they_are_drawn_here() {
+        let font = tray_look::MenuFont::of_system().expect("the font of the menus");
+        let inner = inner_with_menu(&["VerseKit zeigen", "", "Beenden"], font.0 as isize);
+        assert_eq!(inner.open_text(1).as_deref(), Some("VerseKit zeigen"));
+        assert_eq!(inner.open_text(2), None, "a separator");
+        assert_eq!(inner.open_text(0), None);
+        assert_eq!(inner.open_text(3).as_deref(), Some("Beenden"));
+        assert_eq!(inner.open_text(9), None);
+        // SAFETY: plain structures; zero is a valid start.
+        let mut measured: MEASUREITEMSTRUCT = unsafe { std::mem::zeroed() };
+        measured.CtlType = ODT_MENU;
+        measured.itemData = 1;
+        assert!(inner.measure_item(std::ptr::null_mut(), &mut measured));
+        assert!(measured.itemWidth > 0 && measured.itemHeight > 0);
+        measured.CtlType = ODT_MENU + 1;
+        assert!(!inner.measure_item(std::ptr::null_mut(), &mut measured), "not a menu: Windows draws it");
+        let closed = inner_with_menu(&["VerseKit zeigen"], 0);
+        measured.CtlType = ODT_MENU;
+        assert!(!closed.measure_item(std::ptr::null_mut(), &mut measured), "no menu open: nothing taken");
+        // SAFETY: as above.
+        let mut drawn: DRAWITEMSTRUCT = unsafe { std::mem::zeroed() };
+        drawn.CtlType = ODT_MENU + 1;
+        assert!(!inner.draw_item(&drawn));
+        assert!(!closed.draw_item(&DRAWITEMSTRUCT { CtlType: ODT_MENU, ..drawn }));
+    }
+
     #[test]
     fn the_menu_has_its_groups_and_numbers_each_entry_once() {
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let items = menu("5.0.0", false);
         let entries: Vec<Entry> = items.iter().filter_map(|i| i.entry).collect();
         assert_eq!(
@@ -703,7 +834,7 @@ mod tests {
 
     #[test]
     fn the_entry_for_the_launcher_comes_with_a_way_to_start_and_keeps_every_number() {
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let without = menu("5.0.0", false);
         let with = menu("5.0.0", true);
         let entries: Vec<Entry> = with.iter().filter_map(|i| i.entry).collect();

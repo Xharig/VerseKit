@@ -20,7 +20,8 @@
 //!
 //! * The catalog `laeden-katalog.json`: every part UEX sells in the sections
 //!   [`SECTIONS`] with maker, size, class, grade and the places that sell it,
-//!   and the cheapest price of each. It follows the patch and takes about a
+//!   the cheapest price of each, and the shops ([`Outlet`]) with what each
+//!   sells at which price. It follows the patch and takes about a
 //!   minute to build (three requests per group); it is built in the background
 //!   and never shipped.
 //! * The prices `laeden.json`: the shops of one part, fetched when somebody
@@ -56,8 +57,11 @@ pub const CACHE: &str = "laeden.json";
 /// The file of the catalog.
 pub const CATALOG_CACHE: &str = "laeden-katalog.json";
 pub const FORMAT: i64 = 1;
-/// 7: the cheapest price with its place for the part texts in the game.
+/// 7: the cheapest price with its place for the part texts in the game. The shops of each place came later as
+/// fields of their own ([`OUTLETS_MARK`]), so that the readers of format 7 keep reading the file.
 pub const FORMAT_CATALOG: i64 = 7;
+/// The field that says the catalog holds the shops (`laeden`, `l`); a catalog without it is built anew once.
+pub const OUTLETS_MARK: &str = "mit_laeden";
 /// A part without a code is led by its UEX number with this prefix.
 pub const ID_PREFIX: &str = "id:";
 /// The sections of UEX the catalog holds.
@@ -256,6 +260,16 @@ pub struct Part {
     pub places: Vec<String>,
     /// The cheapest price with its place (`p`); the price as the file holds it.
     pub cheapest: Option<(Value, String)>,
+    /// The shops that sell it, each with its price, the cheapest first (`l`): the index in [`Catalog::outlets`].
+    pub offers: Vec<(usize, f64)>,
+}
+
+/// A shop of the catalog: the terminal of UEX (`laeden`), at its place in its star system.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Outlet {
+    pub name: String,
+    pub place: String,
+    pub system: String,
 }
 
 /// A part for the shops page.
@@ -285,6 +299,10 @@ pub struct Catalog {
     /// Lower-case name → cheapest price and place.
     pub price_names: OrderedMap<(Value, String)>,
     pub codes: Vec<String>,
+    /// The shops the parts name (`laeden`); empty in a catalog built before they were kept.
+    pub outlets: Vec<Outlet>,
+    /// Whether it was built with the shops ([`OUTLETS_MARK`]).
+    pub with_outlets: bool,
     /// When it was fetched (`geholt`).
     pub fetched: Option<f64>,
 }
@@ -353,10 +371,45 @@ impl Catalog {
                         _ => Vec::new(),
                     },
                     cheapest: pair_of(x.get("p")),
+                    offers: match x.get("l") {
+                        Some(Value::Array(rows)) => rows
+                            .iter()
+                            .filter_map(|row| match row {
+                                Value::Array(pair) if pair.len() == 2 => Some((
+                                    usize::try_from(stock_fetch::py_int(&pair[0])?).ok()?,
+                                    py_float_value(&pair[1])?,
+                                )),
+                                _ => None,
+                            })
+                            .collect(),
+                        _ => Vec::new(),
+                    },
                 })
                 .collect(),
             _ => Vec::new(),
         };
+        let outlets: Vec<Outlet> = match data.get("laeden") {
+            Some(Value::Array(rows)) => rows
+                .iter()
+                .map(|row| match row {
+                    Value::Array(fields) => Outlet {
+                        name: string_of(fields.first()),
+                        place: string_of(fields.get(1)),
+                        system: string_of(fields.get(2)),
+                    },
+                    _ => Outlet { name: String::new(), place: String::new(), system: String::new() },
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        // An offer that names no shop of the table is left out.
+        let parts = parts
+            .into_iter()
+            .map(|mut part: Part| {
+                part.offers.retain(|(at, _)| *at < outlets.len());
+                part
+            })
+            .collect();
         let mut price_names = OrderedMap::new();
         if let Some(Value::Object(entries)) = data.get("preise_namen") {
             for (name, pair) in entries {
@@ -375,8 +428,84 @@ impl Catalog {
             parts,
             price_names,
             codes,
+            outlets,
+            with_outlets: truthy(data.get(OUTLETS_MARK)),
             fetched: data.get("geholt").filter(|v| truthy(Some(v))).and_then(py_float_value),
         }
+    }
+
+    /// Was the catalog built with the shops of its places? One built before is built anew ([`catalog_due`]).
+    pub fn knows_outlets(&self) -> bool {
+        self.with_outlets
+    }
+
+    /// The shops at `place` with how many parts each sells, by name without case.
+    pub fn outlets_at(&self, place: &str) -> Vec<(usize, usize)> {
+        let mut counts = vec![0usize; self.outlets.len()];
+        for part in &self.parts {
+            for (at, _) in &part.offers {
+                counts[*at] += 1;
+            }
+        }
+        let mut found: Vec<(usize, usize)> = self
+            .outlets
+            .iter()
+            .enumerate()
+            .filter(|(at, outlet)| outlet.place == place && counts[*at] > 0)
+            .map(|(at, _)| (at, counts[at]))
+            .collect();
+        found.sort_by(|a, b| {
+            let (x, y) = (&self.outlets[a.0].name, &self.outlets[b.0].name);
+            lower(x).cmp(&lower(y)).then_with(|| x.cmp(y))
+        });
+        found
+    }
+
+    /// What the shop `outlet` sells: the code of each part with its price there, in the order of the parts.
+    pub fn offers_of(&self, outlet: usize) -> Vec<(String, f64)> {
+        self.parts
+            .iter()
+            .filter(|part| !part.code.is_empty())
+            .filter_map(|part| part.offers.iter().find(|(at, _)| *at == outlet).map(|(_, price)| (part.code.clone(), *price)))
+            .collect()
+    }
+
+    /// The shop that `typed` names (without case and outer blanks): its label ([`Catalog::outlet_label`]), that is
+    /// its name where only one shop carries it, else its name and its place.
+    pub fn outlet_named(&self, typed: &str) -> Option<usize> {
+        let wanted = lower(typed.trim());
+        if wanted.is_empty() {
+            return None;
+        }
+        (0..self.outlets.len()).find(|at| lower(&self.outlet_label(*at)) == wanted)
+    }
+
+    /// How the shop `at` is named for a choice: its name, or `name · place` where other shops carry the same
+    /// name (a chain at several places).
+    pub fn outlet_label(&self, at: usize) -> String {
+        let Some(outlet) = self.outlets.get(at) else { return String::new() };
+        let shared = self.outlets.iter().filter(|o| lower(&o.name) == lower(&outlet.name)).count() > 1;
+        if shared { format!("{} · {}", outlet.name, outlet.place) } else { outlet.name.clone() }
+    }
+
+    /// The labels of all shops that sell something ([`Catalog::outlet_label`]), once each, by label without case.
+    pub fn outlet_names(&self) -> Vec<String> {
+        let mut selling = vec![false; self.outlets.len()];
+        for part in &self.parts {
+            for (at, _) in &part.offers {
+                selling[*at] = true;
+            }
+        }
+        let mut names: Vec<String> = Vec::new();
+        let mut seen = HashSet::new();
+        for at in (0..self.outlets.len()).filter(|at| selling[*at] && !self.outlets[*at].name.is_empty()) {
+            let label = self.outlet_label(at);
+            if seen.insert(lower(&label)) {
+                names.push(label);
+            }
+        }
+        names.sort_by(|a, b| lower(a).cmp(&lower(b)).then_with(|| a.cmp(b)));
+        names
     }
 
     /// Is the catalog there? Without parts there is no shop list.
@@ -462,6 +591,14 @@ impl Catalog {
                 if let Some((price, place)) = &x.cheapest {
                     fields.push(uex::field("p", Value::Array(vec![price.clone(), Value::Str(place.clone())])));
                 }
+                if !x.offers.is_empty() {
+                    let offers = x
+                        .offers
+                        .iter()
+                        .map(|(at, price)| Value::Array(vec![Value::int(*at as i64), uex::float(*price)]))
+                        .collect();
+                    fields.push(uex::field("l", Value::Array(offers)));
+                }
                 Value::Object(fields)
             })
             .collect();
@@ -487,14 +624,31 @@ impl Catalog {
                 ),
             ),
             uex::field("kennungen", Value::Array(self.codes.iter().cloned().map(Value::Str).collect())),
+            uex::field(OUTLETS_MARK, Value::Bool(self.with_outlets)),
+            uex::field(
+                "laeden",
+                Value::Array(
+                    self.outlets
+                        .iter()
+                        .map(|o| {
+                            Value::Array(vec![
+                                Value::Str(o.name.clone()),
+                                Value::Str(o.place.clone()),
+                                Value::Str(o.system.clone()),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
         ]
     }
 }
 
-/// Is the catalog due: stale (patch, emergency limit) or older than `max_age`
-/// seconds? Reads only the file.
+/// Is the catalog due: stale (patch, emergency limit), built before it kept the shops ([`OUTLETS_MARK`]), or
+/// older than `max_age` seconds? Reads only the file. A catalog without the shops stays readable until the new
+/// one is there; a failed build keeps it.
 pub fn catalog_due(paths: &Paths, now: f64, max_age: Option<f64>) -> bool {
-    if CATALOG.stale(paths, now) {
+    if CATALOG.stale(paths, now) || !CATALOG.load(paths).is_some_and(|data| truthy(data.get(OUTLETS_MARK))) {
         return true;
     }
     match max_age {
@@ -557,6 +711,8 @@ pub fn build_catalog(
     let mut groups: Vec<(String, String)> = Vec::new();
     let mut parts: Vec<Part> = Vec::new();
     let mut name_prices: OrderedMap<(Value, String)> = OrderedMap::new();
+    let mut outlets: Vec<Outlet> = Vec::new();
+    let mut outlet_index: std::collections::HashMap<Outlet, usize> = std::collections::HashMap::new();
     for (number, category) in chosen.iter().enumerate() {
         let cat_index = groups.len();
         groups.push((string_of(category.get("section")), string_of(category.get("name"))));
@@ -584,6 +740,7 @@ pub fn build_catalog(
                     grade: String::new(),
                     places: Vec::new(),
                     cheapest: None,
+                    offers: Vec::new(),
                 },
             );
             let key = lower(&name);
@@ -632,9 +789,10 @@ pub fn build_catalog(
         else {
             return false;
         };
-        // Per part the places that sell it and the cheapest price with its place.
+        // Per part the places that sell it, the cheapest price with its place, and the shops with their price.
         let mut sold_at: OrderedMap<Vec<String>> = OrderedMap::new();
         let mut cheapest: OrderedMap<(Value, String)> = OrderedMap::new();
+        let mut offered: OrderedMap<Vec<(usize, f64)>> = OrderedMap::new();
         for x in uex::rows(&price_rows) {
             let price = uex::number(x, "price_buy").unwrap_or(0.0);
             if price <= 0.0 {
@@ -649,6 +807,20 @@ pub fn build_catalog(
             if !place.is_empty() {
                 if !here.contains(&place) {
                     here.push(place.clone());
+                }
+                let terminal = uex::stripped(x, "terminal_name");
+                if !terminal.is_empty() {
+                    let outlet =
+                        Outlet { name: terminal, place: place.clone(), system: uex::stripped(x, "star_system_name") };
+                    let at = *outlet_index.entry(outlet.clone()).or_insert_with(|| {
+                        outlets.push(outlet);
+                        outlets.len() - 1
+                    });
+                    let offers = offered.entry_or_default(&item);
+                    match offers.iter_mut().find(|(known, _)| *known == at) {
+                        Some(slot) => slot.1 = slot.1.min(price),
+                        None => offers.push((at, price)),
+                    }
                 }
                 let better = cheapest.get(&item).is_none_or(|(old, _)| price < py_float_value(old).unwrap_or(0.0));
                 if better {
@@ -665,6 +837,11 @@ pub fn build_catalog(
                 places.sort();
                 places
             };
+            if let Some(offers) = offered.get(item) {
+                let mut offers = offers.clone();
+                offers.sort_by(|a, b| a.1.total_cmp(&b.1));
+                part.offers = offers;
+            }
             if let Some(hit) = cheapest.get(item) {
                 part.cheapest = Some(hit.clone());
                 let key = lower(&part.name);
@@ -697,7 +874,8 @@ pub fn build_catalog(
             price_names.set(name, hit.clone());
         }
     }
-    let catalog = Catalog { names: kept, groups, parts, price_names, codes, fetched: Some(now) };
+    let catalog =
+        Catalog { names: kept, groups, parts, price_names, codes, outlets, with_outlets: true, fetched: Some(now) };
     CATALOG.save(paths, catalog.value(), true, now).is_ok()
 }
 
@@ -978,15 +1156,92 @@ mod tests {
         let write = |name: &str, text: &str| std::fs::write(folder.join(name), text).unwrap();
         assert!(catalog_due(&paths, 1000.0, None), "no file: due");
         write("spielstand.json", r#"{"live":"4.10.0","ptu":"","format":1,"geholt":1.0}"#);
-        write(
-            CATALOG_CACHE,
-            r#"{"namen":{},"kategorien":[],"teile":[],"preise_namen":{},"kennungen":[],"format":7,"geholt":900.0,"spielstand":"4.10.0"}"#,
-        );
+        let catalog = |mark: &str| {
+            format!(
+                r#"{{"namen":{{}},"kategorien":[],"teile":[],"preise_namen":{{}},"kennungen":[],{mark}"format":{FORMAT_CATALOG},"geholt":900.0,"spielstand":"4.10.0"}}"#
+            )
+        };
+        write(CATALOG_CACHE, &catalog(""));
+        assert!(catalog_due(&paths, 1000.0, None), "a catalog without the shops is built anew once");
+        write(CATALOG_CACHE, &catalog(&format!(r#""{OUTLETS_MARK}":true,"#)));
         assert!(!catalog_due(&paths, 1000.0, None), "same build, young: not due");
         assert!(catalog_due(&paths, 1000.0, Some(50.0)), "older than the asked age: due");
         assert!(!catalog_due(&paths, 1000.0, Some(500.0)));
         write("spielstand.json", r#"{"live":"4.11.0","ptu":"","format":1,"geholt":1.0}"#);
         assert!(catalog_due(&paths, 1000.0, None), "a new game build makes it due at once");
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
+    /// The catalog keeps the shops of each place from the answers it asks for anyway, with what each sells at
+    /// which price; it reads back the same, and a shop is found by its name. Made-up answers, no network.
+    #[test]
+    fn the_catalog_keeps_the_shops_of_each_place_with_what_they_sell() {
+        let folder = std::env::temp_dir().join(format!("versekit-laeden-orte-{}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        let home = folder.to_string_lossy().into_owned();
+        let vars = [(crate::legacy::ENV_HOME, home.as_str()), (crate::legacy::ENV_NO_NET, "0")];
+        let paths = Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home));
+        let answer = |url: &str| -> Result<Vec<u8>, crate::scmdb::FetchError> {
+            let data = if url == SOURCE_CATEGORIES {
+                r#"[{"id": 1, "section": "Systems", "name": "Coolers"}, {"id": 2, "section": "Armor", "name": "Helmets"}]"#
+            } else if url == format!("{SOURCE_ITEMS}1") {
+                r#"[{"id": 10, "uuid": "u-frost", "name": "Frostline", "company_name": "Wen", "size": "1"},
+                    {"id": 11, "uuid": "u-glacier", "name": "Glacier", "company_name": "Wen", "size": "2"}]"#
+            } else if url == format!("{SOURCE_ITEMS}2") {
+                r#"[{"id": 20, "uuid": "u-helm", "name": "Morozov Helm", "company_name": "Roberts"}]"#
+            } else if url == format!("{SOURCE_CATEGORY_PRICES}1") {
+                r#"[{"id_item": 10, "price_buy": 500, "terminal_name": "Cool Corner", "city_name": "Area18", "star_system_name": "Stanton"},
+                    {"id_item": 10, "price_buy": 450, "terminal_name": "Cool Corner", "city_name": "Area18", "star_system_name": "Stanton"},
+                    {"id_item": 10, "price_buy": 480, "terminal_name": "Dumpers Depot", "space_station_name": "Seraphim", "star_system_name": "Stanton"},
+                    {"id_item": 11, "price_buy": 900, "terminal_name": "Dumpers Depot", "space_station_name": "Seraphim", "star_system_name": "Stanton"},
+                    {"id_item": 11, "price_buy": 0, "terminal_name": "Cool Corner", "city_name": "Area18", "star_system_name": "Stanton"}]"#
+            } else if url == format!("{SOURCE_CATEGORY_PRICES}2") {
+                r#"[{"id_item": 20, "price_buy": 1200, "terminal_name": "CenterMass", "city_name": "Area18", "star_system_name": "Stanton"},
+                    {"id_item": 20, "price_buy": 1300, "terminal_name": "Dumpers Depot", "space_station_name": "Seraphim", "star_system_name": "Stanton"}]"#
+            } else if url.starts_with(SOURCE_ATTRIBUTES) {
+                "[]"
+            } else {
+                return Err(crate::scmdb::FetchError::Missing);
+            };
+            Ok(format!(r#"{{"status": "ok", "data": {data}}}"#).into_bytes())
+        };
+        assert!(build_catalog(&paths, 1000.0, None, &answer, &mut |_, _| {}));
+        let catalog = Catalog::load(&paths);
+        assert!(catalog.knows_outlets(), "{:?}", catalog.outlets);
+        let name = |at: usize| catalog.outlets[at].name.clone();
+        let at_area18: Vec<(String, usize)> = catalog.outlets_at("Area18").into_iter().map(|(at, n)| (name(at), n)).collect();
+        assert_eq!(at_area18, [("CenterMass".to_string(), 1), ("Cool Corner".to_string(), 1)], "by name, a price of 0 is no offer");
+        let at_seraphim: Vec<(String, usize)> = catalog.outlets_at("Seraphim").into_iter().map(|(at, n)| (name(at), n)).collect();
+        assert_eq!(at_seraphim, [("Dumpers Depot".to_string(), 3)]);
+        assert!(catalog.outlets_at("Lorville").is_empty());
+        let depot = catalog.outlet_named("  dumpers depot ").expect("found by its name without case");
+        assert_eq!(catalog.outlets[depot].system, "Stanton");
+        let mut sold = catalog.offers_of(depot);
+        sold.sort_by(|a, b| a.0.cmp(&b.0));
+        assert_eq!(sold, [("u-frost".to_string(), 480.0), ("u-glacier".to_string(), 900.0), ("u-helm".to_string(), 1300.0)]);
+        let corner = catalog.outlet_named("Cool Corner").unwrap();
+        assert_eq!(catalog.offers_of(corner), [("u-frost".to_string(), 450.0)], "the cheaper of two rows of one shop");
+        assert_eq!(catalog.outlet_names(), ["CenterMass", "Cool Corner", "Dumpers Depot"]);
+        assert_eq!(catalog.outlet_named("Nirgends"), None);
+        let frost = catalog.parts.iter().find(|p| p.code == "u-frost").unwrap();
+        assert_eq!(frost.offers.first().map(|(_, price)| *price), Some(450.0), "the cheapest shop first");
+        assert_eq!(frost.places, ["Area18", "Seraphim"], "the places stay as before");
+        // A catalog built before the shops were kept knows none and reads all the same; it is due once.
+        let older = Catalog::from_value(&jsonio::loads(r#"{"teile": [{"n": "X", "s": "u-x", "o": ["Area18"]}]}"#).unwrap());
+        assert!(older.ready() && !older.knows_outlets() && older.outlets_at("Area18").is_empty());
+        assert!(!catalog_due(&paths, 1000.0, None), "the new one is not due");
+        // The part texts in the game read the same file as before: the cheapest price of each part.
+        let texts = crate::injection::sources::shops(&paths);
+        let helm = texts.by_entity.get("u-helm").map(|(price, place)| (py_float_value(price), place.clone()));
+        assert_eq!(helm, Some((Some(1200.0), Value::str("Area18"))), "{:?}", texts.by_entity);
+        // A chain at two places is chosen by its name and its place.
+        let mut chain = catalog.clone();
+        chain.outlets.push(Outlet { name: "CenterMass".into(), place: "Lorville".into(), system: "Stanton".into() });
+        chain.parts[0].offers.push((chain.outlets.len() - 1, 999.0));
+        assert_eq!(chain.outlet_named("CenterMass"), None, "the name alone names two");
+        assert_eq!(chain.outlet_named("centermass · lorville"), Some(chain.outlets.len() - 1));
+        assert!(chain.outlet_names().contains(&"CenterMass · Area18".to_string()), "{:?}", chain.outlet_names());
         let _ = std::fs::remove_dir_all(folder);
     }
 

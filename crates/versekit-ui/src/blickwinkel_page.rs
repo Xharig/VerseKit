@@ -265,7 +265,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FovState, paths: &Pat
             state.commit_distance(paths);
         }
         if state.distance_invalid() {
-            ui.label(RichText::new(t("s_fv_abstand_ungueltig")).small().color(color(scheme.red)));
+            ui.label(RichText::new(t("s_fv_abstand_ungueltig")).small().color(color(scheme.red_text())));
         }
         false
     })
@@ -382,7 +382,7 @@ fn grade_color(scheme: &Scheme, grade: Grade) -> Color {
     match grade {
         Grade::Green => scheme.accent,
         Grade::Yellow => scheme.gold,
-        Grade::Red => scheme.red,
+        Grade::Red => scheme.red_text(),
     }
 }
 
@@ -719,7 +719,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 
@@ -958,7 +958,7 @@ mod tests {
         for scheme in ["original", "krt"] {
             theme::set_thread_current(scheme);
             for english in [false, true] {
-                language::set_language(if english { Choice::En } else { Choice::De });
+                language::set_thread_language(if english { Choice::En } else { Choice::De });
                 // The smallest window of the program, full HD, a wide screen.
                 for (width, height) in [(926.0, 600.0), (1280.0, 800.0), (1920.0, 1080.0), (2560.0, 1440.0)] {
                     for ppp in [1.0, 1.5, 2.0] {
@@ -992,7 +992,7 @@ mod tests {
             }
         }
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
     }
 

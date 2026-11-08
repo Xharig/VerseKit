@@ -50,23 +50,27 @@ impl Outcome {
     }
 }
 
-/// The hotkey of the refinery scan and the reading it started.
-pub struct RefineryKey {
+/// A hotkey that starts a job in a thread of its own, one at a time, and what the job came to: the refinery scan,
+/// the picture of the game.
+pub struct KeyJob<T> {
     /// The combination, read from the settings at every key.
     pub hotkey: Arc<Mutex<Option<Hotkey>>>,
     pub presses: Receiver<()>,
-    done: (Sender<Outcome>, Receiver<Outcome>),
+    done: (Sender<T>, Receiver<T>),
     running: bool,
 }
 
-impl RefineryKey {
-    pub fn new(hotkey: Option<Hotkey>, presses: Receiver<()>) -> RefineryKey {
-        RefineryKey { hotkey: Arc::new(Mutex::new(hotkey)), presses, done: mpsc::channel(), running: false }
+/// The hotkey of the refinery scan and the reading it started.
+pub type RefineryKey = KeyJob<Outcome>;
+
+impl<T> KeyJob<T> {
+    pub fn new(hotkey: Option<Hotkey>, presses: Receiver<()>) -> KeyJob<T> {
+        KeyJob { hotkey: Arc::new(Mutex::new(hotkey)), presses, done: mpsc::channel(), running: false }
     }
 
-    /// The presses since the last look start a reading, one at a time; `start` runs it in a thread of its own
-    /// (in the overlay: [`read_screen`]). Gives what came of a reading that ended since.
-    pub fn poll(&mut self, start: impl FnOnce(Sender<Outcome>)) -> Option<Outcome> {
+    /// The presses since the last look start a job, one at a time; `start` runs it in a thread of its own (for the
+    /// refinery: [`read_screen`]). Gives what came of a job that ended since.
+    pub fn poll(&mut self, start: impl FnOnce(Sender<T>)) -> Option<T> {
         let mut pressed = false;
         while self.presses.try_recv().is_ok() {
             pressed = true;

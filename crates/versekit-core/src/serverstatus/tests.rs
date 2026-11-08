@@ -227,7 +227,7 @@ fn the_notices_of_two_months_resolved_ones_fetched_once() {
 
 #[test]
 fn the_age_is_written_as_on_the_status_page() {
-    crate::language::set_language(crate::language::Choice::De);
+    crate::language::set_thread_language(crate::language::Choice::De);
     let now = 10_000_000.0;
     assert_eq!(relative_time(None, now), "—");
     assert_eq!(relative_time(Some(now - 30.0), now), crate::language::t("s_st_gerade"));

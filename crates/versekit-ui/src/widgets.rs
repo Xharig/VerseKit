@@ -271,7 +271,7 @@ const BRAND_FILL_DEPTH: f64 = 0.5;
 /// The colors of `_button` in `pages.py`, with a visible hover for every kind.
 pub fn button_colors(scheme: &Scheme, kind: ButtonKind, hovered: bool) -> ButtonColors {
     let mut colors = match kind {
-        ButtonKind::Danger => ButtonColors { text: scheme.red, fill: scheme.danger_fill, border: scheme.red },
+        ButtonKind::Danger => ButtonColors { text: scheme.red_text(), fill: scheme.danger_fill, border: scheme.red },
         ButtonKind::Brand(brand) => {
             ButtonColors { text: brand, fill: scheme.surface.mix(scheme.bg, BRAND_FILL_DEPTH), border: brand }
         }
@@ -1776,7 +1776,7 @@ pub fn checked_field(
         })
         .inner;
     if let Some(error) = error {
-        ui.label(RichText::new(error).color(color(scheme.red)));
+        ui.label(RichText::new(error).color(color(scheme.red_text())));
     }
     response
 }
@@ -2419,7 +2419,7 @@ impl From<bool> for Alarm {
 
 /// The pale red of [`Alarm::Quiet`]: halfway between red and the muted text.
 pub fn quiet_red(scheme: &Scheme) -> Color {
-    scheme.red.mix(scheme.sub, 0.5)
+    scheme.red_text().mix(scheme.sub, 0.5)
 }
 
 /// A symbol with its word in the head or foot bar, like 4.12 (a symbol alone
@@ -2440,7 +2440,7 @@ pub fn bar_action(
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     if ui.is_rect_visible(rect) {
         let tone = if alarm == Alarm::Loud {
-            scheme.red
+            scheme.red_text()
         } else if alarm == Alarm::Quiet && !response.hovered() {
             quiet_red(scheme)
         } else if response.hovered() || alarm == Alarm::News {
@@ -2725,6 +2725,7 @@ pub fn list_frame<R>(ui: &mut Ui, scheme: &Scheme, add_contents: impl FnOnce(&mu
 pub fn list_frame_marked<R>(ui: &mut Ui, scheme: &Scheme, add_contents: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
     let shown = list_frame(ui, scheme, add_contents);
     paint_corner_marks(ui, scheme, shown.response.rect, control_radius(scheme));
+    drawn_cards::note_marked_list(shown.response.rect);
     shown
 }
 
@@ -2887,6 +2888,8 @@ pub mod drawn_cards {
         static SEARCHES: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
         /// The places of the list frames drawn.
         static LISTS: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
+        /// The places of the list frames drawn with the corner brackets of a card.
+        static MARKED_LISTS: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
         /// The places of the hints in small grey text drawn.
         static HINTS: RefCell<Vec<egui::Rect>> = const { RefCell::new(Vec::new()) };
         /// The places of the setting and switch rows drawn, with their column of controls.
@@ -2989,6 +2992,17 @@ pub mod drawn_cards {
         LISTS.with(|lists| std::mem::take(&mut *lists.borrow_mut()))
     }
 
+    pub(super) fn note_marked_list(rect: egui::Rect) {
+        if ON.with(Cell::get) {
+            MARKED_LISTS.with(|lists| lists.borrow_mut().push(rect));
+        }
+    }
+
+    /// The places of the list frames drawn with corner brackets since the last call.
+    pub fn take_marked_lists() -> Vec<egui::Rect> {
+        MARKED_LISTS.with(|lists| std::mem::take(&mut *lists.borrow_mut()))
+    }
+
     /// Starts or stops noting the cards drawn by this thread; stopping forgets the ones noted.
     pub fn record(on: bool) {
         ON.with(|flag| flag.set(on));
@@ -2996,6 +3010,7 @@ pub mod drawn_cards {
             take();
             take_searches();
             take_lists();
+            take_marked_lists();
             take_hints();
             take_choices();
             take_rows();
@@ -3604,9 +3619,16 @@ pub fn badge(ui: &mut Ui, scheme: &Scheme, tone: Color, text: &str) -> Response 
 /// on hover. On screen always in the order given, the +N badge last, also in
 /// a row laid out from the right.
 pub fn badges(ui: &mut Ui, scheme: &Scheme, marks: &[(&str, Color)]) {
-    let rest: Vec<&str> = marks.iter().skip(2).map(|(text, _)| *text).collect();
+    badges_within(ui, scheme, marks, 2);
+}
+
+/// Like [`badges`], but only the first `full` badges are written out; the rest go into the `+n` badge,
+/// which names them on hover.
+pub fn badges_within(ui: &mut Ui, scheme: &Scheme, marks: &[(&str, Color)], full: usize) {
+    let rest: Vec<&str> = marks.iter().skip(full).map(|(text, _)| *text).collect();
     let rest_label = format!("+{}", rest.len());
-    let mut parts: Vec<(&str, Color, bool)> = marks.iter().take(2).map(|(text, tone)| (*text, *tone, false)).collect();
+    let mut parts: Vec<(&str, Color, bool)> =
+        marks.iter().take(full).map(|(text, tone)| (*text, *tone, false)).collect();
     if !rest.is_empty() {
         parts.push((&rest_label, scheme.sub, true));
     }

@@ -29,6 +29,7 @@
 //! Reading, the preview and taking over run in a thread of their own: the
 //! catalog may have to be read from its cache first.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
 
@@ -145,7 +146,7 @@ impl ImportState {
     {
         let (send, answer) = mpsc::channel();
         let ctx = ctx.clone();
-        let started = std::thread::Builder::new().name("bestand-einlesen".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("bestand-einlesen".into()).spawn_with_language(move || {
             let _ = send.send(Answer::from(work()));
             ctx.request_repaint();
         });
@@ -260,7 +261,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ImportState, host: &Host) 
             ui.add(egui::Label::new(RichText::new(t("s_vorschau_leer_h")).small().color(color(scheme.sub))).wrap());
         }
         Stage::Unknown => {
-            widgets::status_box(ui, scheme, scheme.red, "circle-x", &t("s_be_unbekannt"), &t("s_be_unbekannt_h"));
+            widgets::status_box(ui, scheme, scheme.red_text(), "circle-x", &t("s_be_unbekannt"), &t("s_be_unbekannt_h"));
         }
         Stage::Wishlist => {
             widgets::status_box(ui, scheme, scheme.gold, "triangle-alert", &t("s_be_leer"), &t("s_be_leer_h"));

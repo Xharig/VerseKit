@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn places_and_durations_as_text() {
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let place = Place { system: "Stanton".into(), places: vec!["Hurston".into(), "Crusader".into()], more: 2 };
         assert_eq!(place_text(&place), "Annehmen in Stanton: Hurston, Crusader und 2 weiteren");
         assert_eq!(duration_text(15), "15 Min");

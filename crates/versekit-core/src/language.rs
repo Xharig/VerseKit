@@ -243,6 +243,41 @@ pub fn set_thread_language(choice: Choice) {
     THREAD_LANGUAGE.with(|l| l.set(value));
 }
 
+/// Wraps `work` so that it runs with the language of the thread that calls
+/// this function. For a thread this thread starts: a new thread has no
+/// language of its own and would read the one of the program.
+pub fn inherit_language<R>(work: impl FnOnce() -> R) -> impl FnOnce() -> R {
+    let value = THREAD_LANGUAGE.with(std::cell::Cell::get);
+    move || {
+        THREAD_LANGUAGE.with(|l| l.set(value));
+        work()
+    }
+}
+
+/// Starts a thread like [`std::thread::spawn`] that reads the language of the
+/// calling thread.
+pub fn spawn_with_language<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> std::thread::JoinHandle<T> {
+    std::thread::spawn(inherit_language(work))
+}
+
+/// [`std::thread::Builder::spawn`] for a thread that reads the language of the
+/// calling thread.
+pub trait SpawnWithLanguage {
+    fn spawn_with_language<T: Send + 'static>(
+        self,
+        work: impl FnOnce() -> T + Send + 'static,
+    ) -> std::io::Result<std::thread::JoinHandle<T>>;
+}
+
+impl SpawnWithLanguage for std::thread::Builder {
+    fn spawn_with_language<T: Send + 'static>(
+        self,
+        work: impl FnOnce() -> T + Send + 'static,
+    ) -> std::io::Result<std::thread::JoinHandle<T>> {
+        self.spawn(inherit_language(work))
+    }
+}
+
 /// The language texts are written in. Decided once from the settings.
 pub fn current() -> Lang {
     match THREAD_LANGUAGE.with(std::cell::Cell::get) {
@@ -700,12 +735,21 @@ pub fn property_name(name: &str, key: Option<&str>, laser: bool) -> String {
     property_name_in(current(), name, key, laser)
 }
 
+/// Is this a test build (`SC_BP_TESTFASSUNG` set to anything but empty or `0`)?
+pub fn test_build(host: &Host) -> bool {
+    host.var("SC_BP_TESTFASSUNG").is_some_and(|value| !value.is_empty() && value != "0")
+}
+
+/// Does the run say it is one for testing, in the head bar of the main window: a test build ([`test_build`]),
+/// or a run on a copy of the data (`--daten`, [`Host::copy`]). A data folder named by the environment does not
+/// count: it can be the player's own one at a place of their choosing.
+pub fn test_run(host: &Host) -> bool {
+    test_build(host) || host.copy.is_some()
+}
+
 /// The window title, with a warning for test builds (`SC_BP_TESTFASSUNG`).
 pub fn window_title_in(lang: Lang, text: &str, host: &Host) -> String {
-    match host.var("SC_BP_TESTFASSUNG") {
-        Some(value) if !value.is_empty() && value != "0" => format!("{text}   {}", t_in(lang, "s_testfassung")),
-        _ => text.to_string(),
-    }
+    if test_build(host) { format!("{text}   {}", t_in(lang, "s_testfassung")) } else { text.to_string() }
 }
 
 pub fn window_title(text: &str) -> String {
@@ -841,6 +885,20 @@ mod tests {
         assert_eq!(window_title_in(Lang::De, "Verse-Kit", &host), "Verse-Kit");
     }
 
+    /// The head bar says "test build" for a test build and for a run on a copy of the data, never for the
+    /// player's own data, also not for a data folder named by the environment.
+    #[test]
+    fn a_test_build_and_a_copy_of_the_data_are_test_runs() {
+        let host = |vars: &[(&str, &str)]| Host::new(Flavor::Posix, vars, "/");
+        assert!(!test_run(&host(&[])));
+        assert!(test_run(&host(&[("SC_BP_TESTFASSUNG", "1")])) && test_build(&host(&[("SC_BP_TESTFASSUNG", "1")])));
+        assert!(!test_run(&host(&[("SC_BP_TESTFASSUNG", "0")])) && !test_run(&host(&[("SC_BP_TESTFASSUNG", "")])));
+        assert!(!test_run(&host(&[(crate::legacy::ENV_HOME, "/eigen")])), "an own data folder is no test");
+        let mut copy = host(&[]);
+        copy.copy = Some("/kopie".into());
+        assert!(test_run(&copy) && !test_build(&copy), "a copy is a test run, the title keeps its own word");
+    }
+
     #[test]
     fn phrase_renders_nested_values() {
         let inner = Phrase::new("bauplaene");
@@ -869,6 +927,59 @@ mod tests {
         assert_eq!(current(), Lang::En);
         set_thread_language(Choice::De);
         assert_eq!(current(), Lang::De);
+        set_thread_language(Choice::Auto);
+    }
+
+    /// Two threads fetch texts at the same time, one in German and one in
+    /// English: each reads its own language on every call, in the plain
+    /// texts, the filled ones and a stored phrase.
+    #[test]
+    fn threads_with_different_languages_read_side_by_side() {
+        use std::sync::{Arc, Barrier};
+
+        let start = Arc::new(Barrier::new(2));
+        let read = |choice: Choice, lang: Lang| {
+            let start = Arc::clone(&start);
+            std::thread::spawn(move || {
+                set_thread_language(choice);
+                start.wait();
+                let a = args(&[("0", 3.into()), ("1", 714.into()), ("2", 0.into())]);
+                let phrase = Phrase::new("ab_rang").with("0", Phrase::new("bauplaene"));
+                for round in 0..2000 {
+                    assert_eq!(current(), lang, "round {round}");
+                    assert_eq!(t("bauplaene"), t_in(lang, "bauplaene"), "round {round}");
+                    assert_eq!(tf("von_gesamt", &a), tf_in(lang, "von_gesamt", &a), "round {round}");
+                    assert_eq!(phrase.to_string(), phrase.render(lang), "round {round}");
+                }
+            })
+        };
+        let german = read(Choice::De, Lang::De);
+        let english = read(Choice::En, Lang::En);
+        german.join().expect("the German thread read its own language");
+        english.join().expect("the English thread read its own language");
+        assert_ne!(t_in(Lang::De, "bauplaene"), t_in(Lang::En, "bauplaene"), "the two languages differ here");
+    }
+
+    /// A thread started with the language of its starter reads that language,
+    /// whatever the program reads; a plain thread reads the one of the program.
+    #[test]
+    fn a_started_thread_reads_the_language_of_its_starter() {
+        let program = std::thread::spawn(current).join().expect("thread");
+        let (other, choice) = if program == Lang::En { (Lang::De, Choice::De) } else { (Lang::En, Choice::En) };
+        set_thread_language(choice);
+        let texts = || {
+            let a = args(&[("0", 1.into()), ("1", 2.into()), ("2", 3.into())]);
+            (current(), t("bauplaene"), tf("von_gesamt", &a))
+        };
+        let a = args(&[("0", 1.into()), ("1", 2.into()), ("2", 3.into())]);
+        let expected = (other, t_in(other, "bauplaene"), tf_in(other, "von_gesamt", &a));
+        let built = std::thread::Builder::new().spawn_with_language(texts).expect("start");
+        assert_eq!(built.join().expect("thread"), expected);
+        assert_eq!(spawn_with_language(texts).join().expect("thread"), expected);
+        let plain = std::thread::spawn(current).join().expect("thread");
+        assert_eq!(plain, program, "a plain thread keeps reading the language of the program");
+        let nested = spawn_with_language(|| spawn_with_language(current).join().expect("thread"));
+        assert_eq!(nested.join().expect("thread"), other, "the language goes on through a second thread");
         set_thread_language(Choice::Auto);
     }
 }

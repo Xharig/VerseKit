@@ -259,7 +259,7 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
             block.clicked(on, now);
         }
         let (text, fault) = block.status(now, wall);
-        let shade = if fault { scheme.red } else { tone };
+        let shade = if fault { scheme.red_text() } else { tone };
         let state_line = ui.add(egui::Label::new(egui::RichText::new(text).color(crate::color(shade))).wrap());
         // A jump from the menu filter to the switch or to its help frames it with its state.
         crate::highlight::mark(ui, scheme, row.union(state_line.rect), &[title.as_str(), help.as_str()]);

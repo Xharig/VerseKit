@@ -210,7 +210,7 @@ pub fn changes(joins: &[Join]) -> usize {
 
 /// The time of day of a moment in the local time (`17:26`), empty without one.
 fn clock(at: Option<i64>) -> String {
-    at.and_then(crate::formats::local_time).map(|t| crate::formats::strftime("%H:%M", &t)).unwrap_or_default()
+    at.and_then(crate::formats::local_time).map(|t| crate::formats::strftime_shown("%H:%M", &t)).unwrap_or_default()
 }
 
 /// Which parts of the reading the player switched on.

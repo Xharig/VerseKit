@@ -93,7 +93,7 @@ fn jump_from_the_list(ctx: &egui::Context, page: &mut SamplePage) -> Vec<(String
 #[test]
 fn a_jump_out_of_a_page_without_a_row_in_the_menu_offers_no_way_back() {
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let ctx = egui::Context::default();
     crate::install(&ctx);
     let mut page = SamplePage::preview();
@@ -115,7 +115,7 @@ fn a_jump_out_of_a_page_without_a_row_in_the_menu_offers_no_way_back() {
 #[test]
 fn the_jump_from_the_blueprint_list_to_crafting_leads_back_to_the_list() {
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let ctx = egui::Context::default();
     crate::install(&ctx);
     let mut page = SamplePage::preview();
@@ -136,7 +136,7 @@ fn the_page_rename_ships_stays_says_where_the_names_went_and_leads_to_the_hangar
     let ctx = egui::Context::default();
     crate::install(&ctx);
     for choice in [language::Choice::De, language::Choice::En] {
-        language::set_language(choice);
+        language::set_thread_language(choice);
         let mut page = SamplePage::preview();
         page.go_to("hf_asop");
         let texts = settle(&ctx, &mut page);
@@ -150,13 +150,13 @@ fn the_page_rename_ships_stays_says_where_the_names_went_and_leads_to_the_hangar
         let back = tf("hf_zurueck_seite", &[("0", Arg::from(t("hf_asop").as_str()))]);
         assert!(!texts.iter().any(|(text, _)| *text == back), "{texts:?}");
     }
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
 }
 
 #[test]
 fn a_page_picked_otherwise_after_the_jump_drops_the_way_back() {
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let ctx = egui::Context::default();
     crate::install(&ctx);
     let mut page = SamplePage::preview();

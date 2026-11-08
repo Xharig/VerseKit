@@ -70,11 +70,13 @@ pub type Int = i128;
 
 /// The materials the reading knows: the names of the storable materials by their comparison form
 /// (`norm_material`), the first name of a form wins, in the order given; and which of them count in pieces.
+/// Beside them the storage locations, for the name of the station at the top of the terminal ([`station`]).
 #[derive(Clone, Debug, Default)]
 pub struct Index {
     by_form: Vec<(String, String)>,
     lookup: HashMap<String, usize>,
     pieces: HashSet<String>,
+    places: Vec<String>,
 }
 
 impl Index {
@@ -94,9 +96,15 @@ impl Index {
         index
     }
 
-    /// The index of the stock data of the player.
+    /// The same index knowing the storage locations `places`; without them no station is read.
+    pub fn with_places(mut self, places: &[String]) -> Index {
+        self.places = places.to_vec();
+        self
+    }
+
+    /// The index of the stock data of the player, with its storage locations.
     pub fn of(data: &crate::stock_data::StockData) -> Index {
-        Index::new(data.storable(), |name| data.is_piece(name))
+        Index::new(data.storable(), |name| data.is_piece(name)).with_places(data.places())
     }
 
     fn get(&self, form: &str) -> Option<&str> {
@@ -780,6 +788,156 @@ fn head(word: &Word, keys: &[&str]) -> bool {
     keys.iter().any(|key| text.contains(key))
 }
 
+/// The head under the name of the station at the top of the terminal (`STATION PROFIL`, `STATION PROFILE`), in
+/// the comparison form of [`station_parts`] (`L` as `I`); parts of the word, so a letter misread at an end still
+/// hits.
+const HEAD_PROFILE: [&str; 2] = ["PROFI", "ROFII"];
+
+/// How far above the head of the profile the name of the station may stand, in heights of the head.
+const STATION_REACH: f64 = 10.0;
+
+/// The shortest comparison form of a place that counts; shorter names hit too easily by chance.
+const STATION_MIN_LEN: usize = 4;
+
+/// The comparison form of a text for the name of the station: capitals, letters the recognition mistakes for one
+/// another made one (`0` as `O`; `1` and `L` as `I`; `5` as `S`; `|` and `!` as `I` only when a letter or digit
+/// follows), cut into parts at everything that is neither letter nor digit.
+fn station_parts(text: &str) -> Vec<String> {
+    let upper: Vec<char> = text.chars().flat_map(char::to_uppercase).collect();
+    let mut parts = Vec::new();
+    let mut part = String::new();
+    for (at, &c) in upper.iter().enumerate() {
+        let c = match c {
+            '0' => 'O',
+            '1' | 'L' => 'I',
+            '|' | '!' if upper.get(at + 1).is_some_and(|next| next.is_alphanumeric()) => 'I',
+            '5' => 'S',
+            other => other,
+        };
+        if c.is_alphanumeric() {
+            part.push(c);
+        } else if !part.is_empty() {
+            parts.push(std::mem::take(&mut part));
+        }
+    }
+    if !part.is_empty() {
+        parts.push(part);
+    }
+    parts
+}
+
+/// The readings of one row as parts, left to right. The recognition often gives one spot twice in different
+/// spellings (`PROFIL` and `pROFlL`): words that lie over one another by more than half the narrower one are one
+/// spot, spellings alike in comparison form are one. A spot with several spellings gives one reading per
+/// spelling, the first reading the first spelling of every spot, the second the second (or the last there is).
+fn row_readings(row: &[Word]) -> Vec<Vec<String>> {
+    struct Spot {
+        left: f64,
+        right: f64,
+        spellings: Vec<Vec<String>>,
+    }
+    let mut spots: Vec<Spot> = Vec::new();
+    for word in row {
+        let parts = station_parts(&word.t);
+        if parts.is_empty() {
+            continue;
+        }
+        let (left, right) = (word.x, word.x + word.w);
+        let over = spots.last_mut().filter(|spot| {
+            let shared = spot.right.min(right) - spot.left.max(left);
+            shared > 0.5 * word.w.min(spot.right - spot.left)
+        });
+        match over {
+            Some(spot) => {
+                spot.left = spot.left.min(left);
+                spot.right = spot.right.max(right);
+                if !spot.spellings.contains(&parts) {
+                    spot.spellings.push(parts);
+                }
+            }
+            None => spots.push(Spot { left, right, spellings: vec![parts] }),
+        }
+    }
+    let most = spots.iter().map(|spot| spot.spellings.len()).max().unwrap_or(0);
+    (0..most)
+        .map(|k| spots.iter().flat_map(|spot| spot.spellings[k.min(spot.spellings.len() - 1)].clone()).collect())
+        .collect()
+}
+
+/// The places whose whole name stands in one row as a run of whole parts, in any of its readings. A name that
+/// lies inside the run of a longer one found in the same reading counts not.
+fn places_in_row<'a>(row: &[Word], places: &'a [String]) -> Vec<&'a str> {
+    row_readings(row).iter().flat_map(|parts| places_in_parts(parts, places)).collect()
+}
+
+/// [`places_in_row`] for one reading of the row.
+fn places_in_parts<'a>(parts: &[String], places: &'a [String]) -> Vec<&'a str> {
+    let mut found: Vec<(&str, usize, usize)> = Vec::new();
+    for place in places {
+        let form: String = station_parts(place).concat();
+        if form.chars().count() < STATION_MIN_LEN {
+            continue;
+        }
+        for start in 0..parts.len() {
+            let mut run = String::new();
+            for (end, part) in parts.iter().enumerate().skip(start) {
+                run.push_str(part);
+                if !form.starts_with(&run) {
+                    break;
+                }
+                if run == form {
+                    found.push((place.as_str(), start, end));
+                    break;
+                }
+            }
+        }
+    }
+    let inside = |a: &(&str, usize, usize), b: &(&str, usize, usize)| {
+        b.1 <= a.1 && a.2 <= b.2 && (b.1, b.2) != (a.1, a.2)
+    };
+    found.iter().filter(|a| !found.iter().any(|b| inside(a, b))).map(|a| a.0).collect()
+}
+
+/// The storage location the terminal stands at: the name of the station above the head of its profile
+/// (`ARC-L1 WIDE FOREST STATION` over `STATION PROFIL`), compared with `places` without case and with the
+/// letters the recognition mistakes. The name is the biggest writing above the head: of the rows at most
+/// [`STATION_REACH`] heights of the head above it only those with the tallest words count (a tenth of slack), so
+/// a place named in a smaller line over it counts not. Only a sure hit counts: the head is found, and those rows
+/// name exactly one place. The name as the list writes it, or `None`.
+pub fn station(words: &[Word], places: &[String]) -> Option<String> {
+    if places.is_empty() {
+        return None;
+    }
+    let lines = rows(words);
+    let mut hits: Vec<&str> = Vec::new();
+    let profile = |w: &&Word| {
+        let form = station_parts(&w.t).concat();
+        HEAD_PROFILE.iter().any(|key| form.contains(key))
+    };
+    let tallest = |line: &[Word]| line.iter().map(|w| w.h).fold(0.0, f64::max);
+    for anchor in words.iter().filter(profile) {
+        let reach = STATION_REACH * anchor.h.max(4.0);
+        let above: Vec<&Vec<Word>> = lines
+            .iter()
+            .filter(|line| {
+                let top = line.iter().map(|w| w.y).fold(f64::INFINITY, f64::min);
+                let bottom = line.iter().map(|w| w.y + w.h).fold(f64::NEG_INFINITY, f64::max);
+                bottom <= anchor.middle_y() && anchor.y - top <= reach
+            })
+            .collect();
+        let biggest = above.iter().map(|line| tallest(line)).fold(0.0, f64::max);
+        for line in above.into_iter().filter(|line| tallest(line) >= 0.9 * biggest) {
+            hits.extend(places_in_row(line, places));
+        }
+    }
+    hits.sort_unstable();
+    hits.dedup();
+    match hits.as_slice() {
+        [one] => Some(one.to_string()),
+        _ => None,
+    }
+}
+
 /// A yield table found on the picture: its part and the sum as text with a point (`12.76`) or empty.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Table {
@@ -1239,6 +1397,9 @@ pub struct ScannedJob {
     pub remaining: Option<i64>,
     /// The cells of the unsure rows, for learning.
     pub cells: Vec<digits::Cell>,
+    /// The storage location read at the top of the terminal ([`station`]), as the list writes it; empty when
+    /// there was no sure hit.
+    pub station: String,
 }
 
 /// The lines of a reading joined to the lines that wait in the refinery field, when both show the same job
@@ -1268,7 +1429,7 @@ pub fn join_scrolled(before: &str, read: &str) -> Option<(String, usize)> {
 /// `read_image`: a picture read, `(jobs, kept)` for the refinery field. First the search for the tables over the
 /// whole picture ([`search_jobs`], [`find_tables`]), then per table enlarged readings of its part only
 /// ([`PASSES`]), made into one by [`merge_passes`]. The jobs stand left to right; without a table the list is
-/// empty.
+/// empty. Each job carries the station read from the search ([`station`]).
 ///
 /// `picture` gives the cells for the learned digits (`None`: no checks at the patterns). `keep`: a reading that
 /// stays empty or unsure keeps a picture for the bug report, the part of the table when it was found, else the
@@ -1290,6 +1451,7 @@ pub fn read_image(
         return Ok((Vec::new(), kept));
     }
     let (mut jobs, mut kept) = (Vec::new(), false);
+    let at = station(&words, &index.places).unwrap_or_default();
     let checks_from = picture.filter(|_| !learned.is_empty());
     for table in &tables {
         let area = table.area;
@@ -1318,6 +1480,7 @@ pub fn read_image(
             remaining: if state == State::Done { None } else { remaining_seconds(&words, area) },
             cells: unsure_cells(picture, &passes, &merged.details, index),
             unsure: merged.unsure,
+            station: at.clone(),
         });
     }
     Ok((jobs, kept))

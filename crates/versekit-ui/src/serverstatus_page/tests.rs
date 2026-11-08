@@ -17,7 +17,7 @@
 
 use std::sync::Mutex;
 
-use versekit_core::language::{Choice, set_language};
+use versekit_core::language::{Choice, set_thread_language};
 use versekit_core::net::Fake;
 use versekit_core::paths::Host;
 use versekit_core::pypath::Flavor;
@@ -40,7 +40,7 @@ fn index() -> String {
 
 fn german() -> std::sync::MutexGuard<'static, ()> {
     let guard = crate::language_lock();
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
     guard
 }
 

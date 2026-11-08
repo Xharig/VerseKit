@@ -110,6 +110,13 @@ impl Schedule {
         self.running = false;
     }
 
+    /// Sending waits until `at` (`Retry-After`): the next pass comes then, if none comes earlier.
+    pub fn resume_at(&mut self, at: f64) {
+        if at.is_finite() && at < self.next {
+            self.next = at;
+        }
+    }
+
     /// Seconds until the next check is worth it: at least `MIN_WAIT` (a
     /// worker never spins), at most `limit`.
     pub fn wait(&self, now: f64, limit: f64) -> f64 {
@@ -166,5 +173,18 @@ mod tests {
         let halted = Schedule { next: f64::INFINITY, halted: true, changed_at: Some(1.0), ..Schedule::default() };
         assert_eq!(halted.wait(1000.0, 60.0), 60.0);
         assert_eq!(Schedule::default().wait(1000.0, 60.0), MIN_WAIT);
+    }
+
+    #[test]
+    fn a_wait_for_retry_after_brings_the_next_pass_forward_but_never_back() {
+        let mut s = Schedule::default();
+        s.start();
+        s.succeeded(1000.0, false);
+        s.resume_at(1127.0);
+        assert!(!s.due(1126.0) && s.due(1127.0), "the pass comes when sending may go on again");
+        s.resume_at(5000.0);
+        assert_eq!(s.next, 1127.0, "a later wait does not push the pass back");
+        s.resume_at(f64::INFINITY);
+        assert_eq!(s.next, 1127.0);
     }
 }

@@ -1235,7 +1235,7 @@ fn loadout_bar(
     // The sentence stands below the field, in its column.
     if let Some(problem) = state.renaming.as_ref().filter(|r| r.key == key).and_then(|r| r.problem) {
         line(ui, scheme, stacked, "", |row| {
-            row.add(egui::Label::new(RichText::new(t(problem)).small().color(color(scheme.red))).wrap());
+            row.add(egui::Label::new(RichText::new(t(problem)).small().color(color(scheme.red_text()))).wrap());
         });
     }
     // The way back stands a few seconds at the top right, as everywhere.
@@ -1338,7 +1338,7 @@ fn paste_panel(ui: &mut Ui, scheme: &Scheme, ctx: &Ctx, state: &mut EquipmentSta
     if !text.trim().is_empty() {
         let found = equipment_share::read_all(&text);
         if found.is_empty() {
-            ui.add(egui::Label::new(RichText::new(refusal(Refused::NoCode)).small().color(color(scheme.red))).wrap());
+            ui.add(egui::Label::new(RichText::new(refusal(Refused::NoCode)).small().color(color(scheme.red_text()))).wrap());
         }
         let known = |guid: &str| ctx.stores.erkul.parts.get(guid).is_some();
         for result in found {
@@ -1346,7 +1346,7 @@ fn paste_panel(ui: &mut Ui, scheme: &Scheme, ctx: &Ctx, state: &mut EquipmentSta
             let shared = match result {
                 Ok(shared) => shared,
                 Err(refused) => {
-                    ui.add(egui::Label::new(RichText::new(refusal(refused)).small().color(color(scheme.red))).wrap());
+                    ui.add(egui::Label::new(RichText::new(refusal(refused)).small().color(color(scheme.red_text()))).wrap());
                     continue;
                 }
             };
@@ -1355,7 +1355,7 @@ fn paste_panel(ui: &mut Ui, scheme: &Scheme, ctx: &Ctx, state: &mut EquipmentSta
             ui.add(egui::Label::new(widgets::bold(ui, head, egui::TextStyle::Body)).wrap());
             if !fits_ship(entry, &shared, ctx) {
                 let other = tf("s_wk_code_anderes", &[("schiff", Arg::from(shared.ship.as_str()))]);
-                ui.add(egui::Label::new(RichText::new(other).small().color(color(scheme.red))).wrap());
+                ui.add(egui::Label::new(RichText::new(other).small().color(color(scheme.red_text()))).wrap());
                 continue;
             }
             for (line, unknown) in arrival_lines(&shared, ctx) {
@@ -1434,7 +1434,7 @@ fn share_bar(ui: &mut Ui, scheme: &Scheme, ctx: &Ctx, state: &mut EquipmentState
     });
     borrow_panel(ui, scheme, ctx, state, entry, key, actions);
     if let Some((_, said, bad)) = state.said.as_ref().filter(|(k, _, _)| k == key) {
-        let tone = if *bad { scheme.red } else { scheme.accent };
+        let tone = if *bad { scheme.red_text() } else { scheme.accent };
         ui.add(egui::Label::new(RichText::new(said).small().color(color(tone))).wrap());
     }
     paste_panel(ui, scheme, ctx, state, entry, key, actions);
@@ -1576,7 +1576,7 @@ mod tests {
     #[test]
     fn slots_that_stand_alike_are_one_line_that_says_when_they_hold_different_parts() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let slots = vec![
             slot("a", "Cooler", 1, "f"),
             slot("b", "Cooler", 1, "f"),
@@ -1651,7 +1651,7 @@ mod tests {
     #[test]
     fn heads_modules_ore_pods_and_remote_turrets_stand_by_their_mount() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let named = |path: &str, kind: &str, size: i64, part: &str| {
             let mut s = slot(path, kind, size, part);
             s.factory = Some((part.to_lowercase().replace(' ', "-"), part.to_string()));
@@ -1849,7 +1849,7 @@ mod tests {
     #[test]
     fn the_box_says_no_data_where_there_are_no_slots_and_shows_slots_and_cart_where_there_are() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let ship = entry(
             r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {
                 "c1": {"ref": "new-cooler", "name": "New Cooler", "weg": "kaufen"},
@@ -1900,7 +1900,7 @@ mod tests {
 
     #[test]
     fn the_box_sticks_out_nowhere_and_no_text_lies_on_another_in_both_languages() {
-        use versekit_core::language::{Choice as Lang, set_language};
+        use versekit_core::language::{Choice as Lang, set_thread_language};
         fn texts(shape: &egui::epaint::Shape, out: &mut Vec<(String, egui::Rect)>) {
             match shape {
                 // Row by row: the box of a text of several lines also holds the room beside its last line.
@@ -1941,7 +1941,7 @@ mod tests {
         let scheme = versekit_core::theme::current();
         let mut findings = Vec::new();
         for lang in [Lang::De, Lang::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in [380.0_f32, 520.0, 900.0] {
                     // 0: as it is, 1: the list of the coolers open, 2: renaming to a name another one has, 3: a code
@@ -2119,7 +2119,7 @@ mod tests {
                 }
             }
         }
-        set_language(Lang::De);
+        set_thread_language(Lang::De);
         let _ = std::fs::remove_dir_all(
             std::env::temp_dir().join(format!("versekit-ausstattung-{}-rand", versekit_core::testdir::run_tag())),
         );
@@ -2355,7 +2355,7 @@ mod tests {
     #[test]
     fn the_arrow_of_a_group_opens_a_line_for_each_slot_and_shuts_it_again() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         use egui::accesskit::Role;
         let paths = folder("pfeil");
         let stores = Stores::load(&paths);
@@ -2404,7 +2404,7 @@ mod tests {
     #[test]
     fn a_pick_in_the_field_of_a_slot_sets_the_part_and_the_stock_part_goes_back_to_it() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         use egui::accesskit::Role;
         let paths = folder("wahl");
         let stores = Stores::load(&paths);
@@ -2461,7 +2461,7 @@ mod tests {
     #[test]
     fn a_fixed_slot_shows_its_factory_part_in_a_field_that_is_off_and_a_click_does_nothing() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         use egui::accesskit::Role;
         let paths = folder_with(
             "fest",
@@ -2517,7 +2517,7 @@ mod tests {
             size: None,
         };
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let none = HashMap::new();
         assert_eq!(
             entry_text(&choice, &none),
@@ -2616,7 +2616,7 @@ mod tests {
     #[test]
     fn a_pasted_code_shows_what_arrives_first_and_is_put_in_on_the_click() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let ship = entry(r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {}}"#);
         let stores = Stores::load(&folder("teilen"));
         // The receiver's game data know only one of the two parts.
@@ -2660,7 +2660,7 @@ mod tests {
     #[test]
     fn the_loadout_of_another_ship_of_the_type_is_taken_over_from_the_list() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let ship = entry(r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {}}"#);
         let stores = Stores::load(&folder("uebernehmen"));
         let extra = Extra::default();
@@ -2685,13 +2685,15 @@ mod tests {
                     events: if round == 2 { events.take().unwrap_or_default() } else { Vec::new() },
                     ..Default::default()
                 };
-                let output = ctx.run_ui(input, |ui| {
+                let mut output = ctx.run_ui(input, |ui| {
                     state.open_all = true;
                     let box_ctx = Ctx { stores: &stores, extra: &extra, sources: &Fake, paths: None, others: Some(others) };
                     if let Some(asked) = show(ui, scheme, &box_ctx, state, &ship, "key", false) {
                         action = Some(asked);
                     }
                 });
+                // No renderer takes the new textures; egui complains about a pass dropped with them.
+                output.textures_delta.clear();
                 fn collect(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
                     match shape {
                         egui::epaint::Shape::Text(text) => out.push(text.galley.text().to_string()),
@@ -2737,7 +2739,7 @@ mod tests {
     #[test]
     fn a_code_of_another_ship_or_a_broken_one_is_said_and_puts_nothing_in() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let ship = entry(r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {}}"#);
         let stores = Stores::load(&folder("teilen-fremd"));
         let extra = Extra { ids: PartIds::new([(KNOWN.into(), "COOL_Test_S1".into())]), ..Extra::default() };

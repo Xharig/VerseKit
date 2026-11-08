@@ -33,6 +33,7 @@
 
 mod list;
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -317,6 +318,8 @@ pub struct CraftingState {
     ship_version: u64,
     /// A ship another page asked to filter by when this page is entered.
     jump_ship: Option<String>,
+    /// The jobs of the fabricator, entered by hand.
+    pub workbench: crate::workbench_ui::WorkbenchState,
 }
 
 /// Where the values are read from, kept for another try.
@@ -441,6 +444,7 @@ impl CraftingState {
             ship_fit: (ShipFit::Off, None),
             ship_version: 0,
             jump_ship: None,
+            workbench: crate::workbench_ui::WorkbenchState::default(),
         }
     }
 
@@ -482,7 +486,7 @@ impl CraftingState {
     /// in a thread of its own (the files are large).
     fn read_names(&mut self, folder: String) {
         let (sender, receiver) = std::sync::mpsc::channel();
-        let started = std::thread::Builder::new().name("crafting-names".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("crafting-names".into()).spawn_with_language(move || {
             let de = versekit_core::controls::ini_texts(&folder, language::Lang::De);
             let en = versekit_core::controls::ini_texts(&folder, language::Lang::En);
             let _ = sender.send(Names::from_ini(&de, &en));
@@ -684,7 +688,7 @@ impl CraftingState {
         let (sender, receiver) = std::sync::mpsc::channel();
         let own = Paths::new(paths.host.clone());
         let lock = versekit_core::writeguard::state();
-        let started = std::thread::Builder::new().name("raw-prices".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("raw-prices".into()).spawn_with_language(move || {
             versekit_core::writeguard::adopt(&lock);
             let agent = versekit_core::basetool::config::user_agent(env!("CARGO_PKG_VERSION"));
             let outcome = versekit_core::stock_fetch::update_prices(&own, &agent);
@@ -1023,6 +1027,8 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, shared
         ui.label(sub(scheme, line));
         ui.add_space(6.0);
     }
+    // The jobs of the fabricator, folded while none is open.
+    crate::workbench_ui::show(ui, scheme, &mut state.workbench, state.paths.as_ref());
     if state.pending.is_some() {
         widgets::loading(ui, scheme, &t("s_p9_werte_neu"));
     }
@@ -1593,7 +1599,7 @@ fn count_row(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, ingredient
         }
     });
     if !valid {
-        ui.label(RichText::new(t("s_p9_anzahl_falsch")).small().color(color(scheme.red)));
+        ui.label(RichText::new(t("s_p9_anzahl_falsch")).small().color(color(scheme.red_text())));
     }
 }
 
@@ -1660,7 +1666,7 @@ fn craft_buttons(
                     .collect();
                 (tn("s_lg_teilweise", &[Arg::from(pairs.join(", "))]), scheme.gold)
             }
-            Feedback::NotSaved => (t("s_p9_lager_nicht_gespeichert"), scheme.red),
+            Feedback::NotSaved => (t("s_p9_lager_nicht_gespeichert"), scheme.red_text()),
         };
         ui.add(egui::Label::new(RichText::new(text).small().color(color(tone))).wrap());
     }
@@ -2077,7 +2083,7 @@ fn quality_controls(
     if field {
         if invalid {
             detail.bad.insert(material.to_string());
-            ui.label(RichText::new(t("s_p9_qualitaet_falsch")).small().color(color(scheme.red)));
+            ui.label(RichText::new(t("s_p9_qualitaet_falsch")).small().color(color(scheme.red_text())));
         } else {
             detail.bad.remove(material);
         }
@@ -2203,10 +2209,10 @@ fn mix_controls(
         });
     }
     if wrong_amount {
-        ui.label(RichText::new(t("s_he_mix_menge_falsch")).small().color(color(scheme.red)));
+        ui.label(RichText::new(t("s_he_mix_menge_falsch")).small().color(color(scheme.red_text())));
     }
     if wrong_quality {
-        ui.label(RichText::new(t("s_p9_qualitaet_falsch")).small().color(color(scheme.red)));
+        ui.label(RichText::new(t("s_p9_qualitaet_falsch")).small().color(color(scheme.red_text())));
     }
     let lots: Vec<Lot> = rows.iter().map(Part::lot).collect();
     let together = quality_mix::total(&lots);
@@ -2457,7 +2463,7 @@ fn values_table(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, recipe:
 mod tests {
     use egui::{Pos2, Rect, vec2};
     use versekit_core::jsonio;
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
     use versekit_core::paths::Host;
     use versekit_core::pypath::Flavor;
 
@@ -2720,7 +2726,7 @@ mod tests {
     #[test]
     fn without_a_choice_the_list_shows_everything_and_the_other_side_asks_for_one() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = state("ask", STOCK);
         let shown = frame(&context(), &mut page, &["Frostline"], 1300.0);
         assert!(shown.iter().any(|s| s.contains("von 3 herstellbar")), "{shown:?}");
@@ -2767,7 +2773,7 @@ mod tests {
             (Choice::En, "Fabricator: 2 in progress, 4 waiting, 10 in the history  ·  Dismantling 4/4"),
         ];
         for (language, line) in lines {
-            set_language(language);
+            set_thread_language(language);
             for width in [260.0, 380.0, 640.0, 900.0, 1300.0] {
                 let mut page = with_limits("grenzen", Some(both));
                 let shown = frame_rects(&mut page, width);
@@ -2781,7 +2787,7 @@ mod tests {
             }
         }
         // Without a queue of dismantling the line ends after the history.
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let some = CrafterLimits { dismantle: None, ..both };
         let shown = frame_rects(&mut with_limits("grenzen-ohne-zerlegen", Some(some)), 900.0);
         assert!(shown.iter().any(|(text, _)| text == "Fabrikator: 2 in Arbeit, 4 wartend, 10 im Verlauf"), "{shown:?}");
@@ -2792,11 +2798,12 @@ mod tests {
     fn without_game_data_that_state_the_limits_no_line_is_shown() {
         let _language = crate::language_lock();
         for language in [Choice::De, Choice::En] {
-            set_language(language);
+            set_thread_language(language);
             let shown = frame_rects(&mut with_limits("ohne-grenzen", None), 900.0);
             assert!(!shown.is_empty(), "the page is there");
             assert!(
-                shown.iter().all(|(text, _)| !text.starts_with("Fabrikator") && !text.starts_with("Fabricator:")),
+                // The line of the limits begins with the name and a colon; the jobs of the fabricator are another part.
+                shown.iter().all(|(text, _)| !text.starts_with("Fabrikator:") && !text.starts_with("Fabricator:")),
                 "{shown:?}"
             );
         }
@@ -2805,7 +2812,7 @@ mod tests {
     #[test]
     fn the_search_finds_by_name_maker_category_and_ingredient() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = state("search", STOCK);
         let ctx = context();
         // The maker: "Greycat" is in no name, so only the maker can find Grand Core.
@@ -2842,7 +2849,7 @@ mod tests {
     #[test]
     fn a_material_that_is_in_no_recipe_says_so() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = state("none", STOCK);
         // Hadanite is not in the made-up recipes but in the closed list of the stock data.
         page.data.add_recipe_materials([("Hadanite".to_string(), true, 0.0, 0.0)]);
@@ -2854,7 +2861,7 @@ mod tests {
     #[test]
     fn a_chosen_item_says_what_is_there_and_what_is_missing() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         for width in [380.0, 900.0, 1300.0] {
             let mut page = state("open", STOCK);
             page.open = page.book.items.iter().position(|i| i.name == "Frostline");
@@ -2869,18 +2876,18 @@ mod tests {
             assert!(has(&shown, &tf("s_fb_stufe", &[("n", Arg::Int(1))])), "{shown:?}");
             assert!(has(&shown, &duration(900)), "the time: {shown:?}");
             // The English page writes the decimal point.
-            set_language(Choice::En);
+            set_thread_language(Choice::En);
             let shown = frame(&context(), &mut page, &[], width);
             let gold = tn("s_p9_teil", &[Arg::from("0.1"), Arg::from("0.2"), Arg::from("0.1")]);
             assert!(shown.contains(&gold), "{shown:?}");
-            set_language(Choice::De);
+            set_thread_language(Choice::De);
         }
     }
 
     #[test]
     fn choosing_an_item_shows_its_recipe_and_values() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("choose", STOCK, 1300.0);
         let shown = bench.frame();
         assert!(has(&shown, &t("s_fb_waehlen")) && !has(&shown, "Agricium"), "{shown:?}");
@@ -2896,7 +2903,7 @@ mod tests {
     #[test]
     fn the_category_menu_filters_and_a_ticked_entry_takes_the_filter_away() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("category", STOCK, 1300.0);
         let shown = bench.click_node(egui::accesskit::Role::Button, "Vehikel");
         assert!(
@@ -2933,7 +2940,7 @@ mod tests {
     #[test]
     fn the_switches_show_what_is_affordable_and_what_is_owned() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("switches", RICH, 1300.0);
         bench.have = ["Grand Core"].iter().map(|n| name_key(n)).collect();
         let (owned, enough) = ("Bauplan vorhanden", "Material reicht");
@@ -2982,7 +2989,7 @@ mod tests {
     #[test]
     fn the_values_follow_the_slider_at_once() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("values", STOCK, 1300.0);
         bench.click_text("Frostline");
         let shown = bench.frame();
@@ -3000,7 +3007,7 @@ mod tests {
     #[test]
     fn a_material_of_the_recipe_leads_to_mining_in_two_and_in_three_columns() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         for width in [1300.0, 2600.0] {
             let mut bench = Bench::new("material-link", STOCK, width);
             bench.click_text("Frostline");
@@ -3012,7 +3019,7 @@ mod tests {
     #[test]
     fn autofill_takes_the_stock_and_else_the_best_or_the_lowest_quality() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("fill", STOCK, 1300.0);
         bench.click_text("Frostline");
         let stand = |b: &Bench, m: &str| b.page.detail.as_ref().unwrap().stand[m];
@@ -3049,7 +3056,7 @@ mod tests {
     #[test]
     fn the_best_fill_mixes_the_best_lots_and_crafting_takes_them() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = mix_bench("mix-best", TWO_IRONS);
         bench.click_button(&t("s_he_bestes"));
         // 0.3 at 865 and 0.2 at 797: (259.5 + 159.4) / 0.5 = 837.8.
@@ -3084,7 +3091,7 @@ mod tests {
     #[test]
     fn lots_mixed_by_hand_give_the_weighted_quality_and_what_is_missing() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = mix_bench("mix-hand", TWO_IRONS);
         // The worst fill takes one quality: the normal case of one slider; the plus beside it
         // adds a second lot.
@@ -3134,7 +3141,7 @@ mod tests {
     #[test]
     fn the_count_multiplies_the_amounts_and_max_takes_what_the_stock_covers() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("count-buttons", RICH, 1300.0);
         bench.click_text("Frostline");
         let shown = bench.click_node(egui::accesskit::Role::Button, &t("s_fb_mehr"));
@@ -3160,7 +3167,7 @@ mod tests {
     #[test]
     fn max_does_nothing_where_the_stock_covers_no_piece() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("count-none", "[]", 1300.0);
         bench.click_text("Frostline");
         bench.click_button(&t("s_fb_max"));
@@ -3170,7 +3177,7 @@ mod tests {
     #[test]
     fn a_narrow_window_shows_the_list_or_the_choice_with_the_way_back() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("narrow", STOCK, 380.0);
         let shown = bench.frame();
         assert!(has(&shown, "Frostline") && has(&shown, "Arc Shield"), "{shown:?}");
@@ -3248,7 +3255,7 @@ mod tests {
     #[test]
     fn the_list_as_rows_shows_the_same_items() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = state("rows", STOCK);
         page.view = View::List;
         let shown = frame(&context(), &mut page, &[], 1300.0);
@@ -3301,18 +3308,18 @@ mod tests {
     #[test]
     fn an_open_part_says_into_which_of_my_ships_it_goes_and_when_it_cannot_say() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let eclipse = r#"{"schiffe": [{"name": "Eclipse", "hersteller": "Aegis Dynamics"}]}"#;
         let (mut page, catalog) = fits_page("fits-in", eclipse, Some(SHIPS));
         let shown = frame_with(&ctx, &mut page, &[], 900.0, &catalog);
         // Written out: the names of the values must be those of the text, or the braces would stand there.
         assert!(shown.contains(&"Passt in deine Schiffe: Eclipse (3×)".to_string()), "{shown:?}");
-        set_language(Choice::En);
+        set_thread_language(Choice::En);
         let shown = frame_with(&ctx, &mut page, &[], 900.0, &catalog);
         assert!(shown.contains(&"Fits your ships: Eclipse (3×)".to_string()), "{shown:?}");
         assert!(!shown.iter().any(|s| s.contains('{') && s.contains('}')), "{shown:?}");
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
 
         let gladius = r#"{"schiffe": [{"name": "Gladius", "hersteller": "Aegis Dynamics"}]}"#;
         let (mut page, catalog) = fits_page("fits-nowhere", gladius, Some(SHIPS));
@@ -3341,7 +3348,7 @@ mod tests {
     fn a_blueprint_without_slot_data_fetches_them_once_and_says_so() {
         use crate::slot_sync::tests::{Counter, WAIT};
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let arrow = r#"{"format": 1, "schiffe": [{"name": "Arrow", "hersteller": "Anvil", "hkurz": "ANVL"}]}"#;
         let (mut page, catalog) = fits_page("fits-fetch", arrow, None);
@@ -3361,9 +3368,9 @@ mod tests {
         assert!(page.sync.asked(crate::slot_sync::Trigger::BlueprintNoData) >= 2);
         assert!(page.sync.wait_idle(WAIT));
         assert_eq!((page.sync.runs(), counter.catalogs()), (1, 1));
-        set_language(Choice::En);
+        set_thread_language(Choice::En);
         assert!(t("s_hg_passt_unbekannt").contains("being fetched"), "{}", t("s_hg_passt_unbekannt"));
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
     }
 
     /// Eclipse: coolers and a shield of size 2, a power plant of size 1. Gladius: a power plant of size 2.
@@ -3412,7 +3419,7 @@ mod tests {
     #[test]
     fn the_ship_filter_shows_the_parts_of_a_ship_with_and_without_the_blueprint() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let (mut page, catalog) = ship_page("ship-filter", ECLIPSE_AND_GLADIUS, Some(FLEET));
         assert_eq!(page.ship_names(), ["Eclipse", "Gladius"], "each ship once, in the order of the hangar");
@@ -3426,12 +3433,12 @@ mod tests {
         assert_eq!(listed(&shown), ["Frostline", "Arc Shield"], "{shown:?}");
         assert!(has(&shown, "Passt in Eclipse · Bauplan vorhanden: 1 von 2"), "{shown:?}");
         assert!(has(&shown, "Für Eclipse"), "the button names the ship: {shown:?}");
-        set_language(Choice::En);
+        set_thread_language(Choice::En);
         let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
         assert!(has(&shown, "Fits Eclipse · blueprint owned: 1 of 2"), "{shown:?}");
         assert!(has(&shown, "For Eclipse"), "{shown:?}");
         assert!(!shown.iter().any(|s| s.contains('{') && s.contains('}')), "{shown:?}");
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
 
         // A category on top narrows to the parts of the ship in it: the cooler stays under its own category and
         // subcategory, alone or with the ship.
@@ -3506,7 +3513,7 @@ mod tests {
     fn a_ship_without_slot_data_says_so_and_fetches_them_instead_of_saying_nothing_fits() {
         use crate::slot_sync::tests::{Counter, WAIT};
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let (mut page, catalog) = ship_page("ship-nodata", ECLIPSE_AND_GLADIUS, None);
         let counter = Counter::new("4.3");
@@ -3518,17 +3525,17 @@ mod tests {
         assert!(!has(&shown, &t("s_he_nichts")), "not \"nothing found\": {shown:?}");
         assert!(page.sync.asked(crate::slot_sync::Trigger::BlueprintNoData) >= 1);
         assert!(page.sync.wait_idle(WAIT));
-        set_language(Choice::En);
+        set_thread_language(Choice::En);
         let shown = frame_with(&ctx, &mut page, &[], 1300.0, &catalog);
         assert!(has(&shown, "Slot data for Eclipse is being fetched."), "{shown:?}");
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(page.sync.wait_idle(WAIT));
     }
 
     #[test]
     fn the_ship_is_chosen_in_the_menu_and_an_empty_hangar_says_what_to_do() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("ship-menu", STOCK, 1300.0);
         let (page, catalog) = ship_page("ship-menu-page", ECLIPSE_AND_GLADIUS, Some(FLEET));
         (bench.page, bench.catalog) = (page, catalog);
@@ -3568,7 +3575,7 @@ mod tests {
     #[test]
     fn a_count_that_is_no_count_is_said_and_blocks_crafting() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         for (typed, fine) in [
             ("1", true),
@@ -3597,7 +3604,7 @@ mod tests {
     #[test]
     fn a_quality_that_is_no_quality_is_said_and_blocks_crafting() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let (mut page, _, _) = open_frostline("badq");
         frame(&ctx, &mut page, &[], 900.0);
@@ -3618,7 +3625,7 @@ mod tests {
     #[test]
     fn crafting_reads_the_stock_fresh_and_keeps_what_another_page_wrote() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut page, item, ingredients) = open_frostline("fresh");
         let file = page.stock_file().unwrap();
         // Enough for one piece: Iron 0.5, Gold 0.2 (one crate each, whole).
@@ -3645,7 +3652,7 @@ mod tests {
     #[test]
     fn crafting_waits_while_the_sync_holds_the_stock_and_keeps_what_it_wrote() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut page, item, ingredients) = open_frostline("lock");
         let file = page.stock_file().unwrap();
         assert!(stock::save(&file, &entries(RICH), "test"));
@@ -3683,7 +3690,7 @@ mod tests {
     #[test]
     fn crafting_lowers_the_notes_and_the_item_stays_while_pieces_are_left() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut page, item, ingredients) = open_frostline("notes");
         let file = page.stock_file().unwrap();
         let rows = entries(
@@ -3707,7 +3714,7 @@ mod tests {
     #[test]
     fn a_jump_waits_for_the_recipes_and_chooses_the_item_when_they_are_there() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = CraftingState::empty(None);
         page.jump_to("Frostline");
         page.enter();
@@ -3734,7 +3741,7 @@ mod tests {
     #[test]
     fn crafting_takes_the_ingredients_out_of_the_stock_file_and_lowers_the_notes() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = state("craft", RICH);
         let index = page.book.items.iter().position(|i| i.name == "Frostline").unwrap();
         page.open = Some(index);
@@ -3764,7 +3771,7 @@ mod tests {
     #[test]
     fn nothing_is_taken_when_anything_is_missing() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = state("short", r#"[{"material":"Iron","menge":2.0,"qualitaet":700,"ort":"Levski"}]"#);
         let index = page.book.items.iter().position(|i| i.name == "Frostline").unwrap();
         page.open = Some(index);
@@ -3784,7 +3791,7 @@ mod tests {
     #[test]
     fn the_quality_follows_the_stock_until_it_is_set_by_hand() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = state("quality", STOCK);
         let index = page.book.items.iter().position(|i| i.name == "Frostline").unwrap();
         let recipe = page.values.clone().unwrap().recipes[page.book.items[index].recipe].clone();
@@ -3811,7 +3818,7 @@ mod tests {
     #[test]
     fn the_lowest_quality_of_the_recipe_binds_the_quality_and_rules_out_buying() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut values = sample_values();
         values.recipes[0].tiers[0].slots[0].options[0].min_quality = Some(800);
         let mut bench = Bench::new("floor", STOCK, 1300.0);
@@ -3845,7 +3852,7 @@ mod tests {
     #[test]
     fn the_filters_narrow_the_list() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut page = state("filters", STOCK);
         let ctx = context();
         page.picks.state = "habe".into();
@@ -3887,7 +3894,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in [380.0, 520.0, 900.0, 1300.0] {
                     for chosen in [false, true] {
@@ -3942,7 +3949,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
@@ -4012,7 +4019,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 let smallest = versekit_core::font_size::min_window(points).0;
                 for width in [smallest * 0.5, smallest * 0.65, smallest * 0.8, smallest, smallest * 1.3] {
@@ -4058,7 +4065,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{} findings:\n{}", findings.len(), findings[..findings.len().min(25)].join("\n"));
     }
 }

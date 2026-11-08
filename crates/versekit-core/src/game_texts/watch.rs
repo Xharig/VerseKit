@@ -30,6 +30,7 @@ use super::{Archive, Notice, Ran, SETTING_STOCK_MARK, Upkeep, check_game_languag
 use crate::errors;
 use crate::injection::sources;
 use crate::jsonio::Value;
+use crate::language::SpawnWithLanguage as _;
 use crate::net::Net;
 use crate::paths::Paths;
 use crate::recipe_file::{self, Updated};
@@ -416,9 +417,10 @@ impl Watch {
             let _ = sender.send(Done { ran, looked, catalog: built, denied: crate::writeguard::take_denied() });
         };
         #[cfg(test)]
-        let started = !self.fail_spawn && std::thread::Builder::new().name("spieltexte".into()).spawn(work).is_ok();
+        let started =
+            !self.fail_spawn && std::thread::Builder::new().name("spieltexte".into()).spawn_with_language(work).is_ok();
         #[cfg(not(test))]
-        let started = std::thread::Builder::new().name("spieltexte".into()).spawn(work).is_ok();
+        let started = std::thread::Builder::new().name("spieltexte".into()).spawn_with_language(work).is_ok();
         if started {
             self.in_flight = Some(InFlight { job: has_job, catalog: has_catalog, mining, done: receiver });
             return;

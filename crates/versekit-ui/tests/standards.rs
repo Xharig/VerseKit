@@ -380,6 +380,113 @@ fn the_channel_scan_finds_a_second_list() {
     assert!(own_channel_lists("x.rs", one).is_empty(), "the one list or a single name is no list");
 }
 
+/// The name of the function that switches the language for the whole program, put together here so
+/// this file does not contain it as a call.
+fn global_switch() -> String {
+    format!("{}language(", "set_")
+}
+
+/// The files of `sources` that a `#[cfg(test)] mod name;` line of another file pulls in.
+fn declared_test_files(sources: &[(String, String)]) -> Vec<String> {
+    let mut found = Vec::new();
+    for (file, text) in sources {
+        let unix = file.replace('\\', "/");
+        let (folder, name) = unix.rsplit_once('/').unwrap_or((".", &unix));
+        let stem = name.trim_end_matches(".rs");
+        let lines: Vec<&str> = text.lines().collect();
+        for (at, line) in lines.iter().enumerate() {
+            let line = line.trim();
+            let Some(declared) = line.strip_prefix("mod ").or_else(|| line.strip_prefix("pub mod ")) else {
+                continue;
+            };
+            let Some(module) = declared.strip_suffix(';') else { continue };
+            if at > 0 && lines[at - 1].trim() == "#[cfg(test)]" {
+                found.push(format!("{folder}/{module}.rs"));
+                found.push(format!("{folder}/{stem}/{module}.rs"));
+                found.push(format!("{folder}/{module}/mod.rs"));
+            }
+        }
+    }
+    found
+}
+
+/// The lines of `text` that belong to a `#[cfg(test)]` item: from the attribute to the closing brace at its indent.
+fn test_lines(text: &str) -> Vec<bool> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut inside = vec![false; lines.len()];
+    let mut at = 0;
+    while at < lines.len() {
+        if lines[at].trim() != "#[cfg(test)]" {
+            at += 1;
+            continue;
+        }
+        let indent = lines[at].len() - lines[at].trim_start().len();
+        let mut end = at + 1;
+        if !lines.get(end).is_some_and(|l| l.trim_end().ends_with(';')) {
+            let closes = |l: &str| l.trim() == "}" && l.len() - l.trim_start().len() == indent;
+            while end < lines.len() && !closes(lines[end]) {
+                end += 1;
+            }
+        }
+        inside[at..=end.min(lines.len() - 1)].fill(true);
+        at = end + 1;
+    }
+    inside
+}
+
+/// Calls of the program-wide language switch in test code: `file:line` of each. Tests that run side by side
+/// would switch each other's language; they use `set_thread_language` for their own thread.
+fn global_switch_in_tests(file: &str, text: &str, whole_file: bool) -> Vec<String> {
+    let needle = global_switch();
+    let inside = test_lines(text);
+    let mut found = Vec::new();
+    for (at, line) in text.lines().enumerate() {
+        if !(whole_file || inside[at]) || line.trim_start().starts_with("//") {
+            continue;
+        }
+        for (position, _) in line.match_indices(&needle) {
+            let before = line[..position].chars().next_back();
+            let is_name = before.is_some_and(|c| c.is_alphanumeric() || c == '_');
+            if !is_name && !line[..position].trim_end().ends_with("fn") {
+                found.push(format!("{file}:{}", at + 1));
+            }
+        }
+    }
+    found
+}
+
+/// No test switches the language of the whole program: it would change the texts of every test running at
+/// the same time.
+#[test]
+fn tests_switch_the_language_of_their_thread_only() {
+    let sources = workspace_sources();
+    let declared = declared_test_files(&sources);
+    let mut found = Vec::new();
+    for (file, text) in &sources {
+        let unix = file.replace('\\', "/");
+        let whole_file =
+            unix.contains("/tests/") || unix.ends_with("/tests.rs") || declared.iter().any(|d| unix.ends_with(d.as_str()));
+        found.extend(global_switch_in_tests(&unix, text, whole_file));
+    }
+    assert!(
+        found.is_empty(),
+        "Test schaltet die Sprache für alle Threads um, statt set_thread_language:\n{}",
+        found.join("\n")
+    );
+}
+
+#[test]
+fn the_language_scan_finds_a_global_switch_in_a_test() {
+    let call = format!("language::{}Choice::De);", global_switch());
+    let program = format!("fn show() {{\n    {call}\n}}\n");
+    assert!(global_switch_in_tests("x.rs", &program, false).is_empty(), "the program may switch the language");
+    let test = format!("fn show() {{}}\n\n#[cfg(test)]\nmod tests {{\n    fn one() {{\n        {call}\n    }}\n}}\n");
+    assert_eq!(global_switch_in_tests("x.rs", &test, false), ["x.rs:6"]);
+    assert_eq!(global_switch_in_tests("tests.rs", &program, true), ["tests.rs:2"], "a file of tests only");
+    let own = format!("fn {}Choice) {{}}\n// {call}\nlanguage::set_thread_language(Choice::En);\n", global_switch());
+    assert!(global_switch_in_tests("x.rs", &own, true).is_empty(), "definition, comment and thread switch are fine");
+}
+
 /// The first line of every file's licence header keeps its dash.
 const HEADER: &str = "// VerseKit — companion for Star Citizen.";
 

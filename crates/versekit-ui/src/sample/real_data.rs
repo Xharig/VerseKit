@@ -80,7 +80,7 @@ pub(super) fn real_page(name: &str, settings: &str, vars: &[(&str, &str)]) -> (S
         std::fs::write(dir.join("einstellungen.json"), settings).unwrap();
     }
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     (SamplePage::with_settings(Paths::new(host_in(&dir, vars))), dir)
 }
 
@@ -237,7 +237,7 @@ fn the_view_angle_page_holds_its_texts_at_every_size_scheme_and_language() {
             page.size = points;
             let (width, height) = font_size::min_window(points);
             for english in [false, true] {
-                language::set_language(if english { language::Choice::En } else { language::Choice::De });
+                language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
                 page.go_to("hf_blickwinkel");
                 let mut shown = (0.0, Vec::new());
                 for _ in 0..4 {
@@ -257,7 +257,7 @@ fn the_view_angle_page_holds_its_texts_at_every_size_scheme_and_language() {
         }
     }
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
 }
@@ -267,7 +267,7 @@ fn the_view_angle_page_holds_its_texts_at_every_size_scheme_and_language() {
 #[test]
 fn the_menu_filter_finds_the_rows_of_the_real_graphics_page_and_not_the_made_up_one() {
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let hits = |filter: &str, sample: bool| super::nav_hits_in(filter, "hf_gruppe_spiel", "hf_grafik", sample);
     let page = language::t("hf_grafik");
     assert!(
@@ -312,7 +312,7 @@ fn the_graphics_page_holds_long_texts_at_every_size_scheme_and_language() {
             page.size = points;
             let (width, height) = font_size::min_window(points);
             for english in [false, true] {
-                language::set_language(if english { language::Choice::En } else { language::Choice::De });
+                language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
                 page.go_to("hf_grafik");
                 // The box reads the log in a thread of its own: frames until it shows.
                 let mut shown = (0.0, Vec::new());
@@ -343,7 +343,7 @@ fn the_graphics_page_holds_long_texts_at_every_size_scheme_and_language() {
         }
     }
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
 }
@@ -418,7 +418,8 @@ fn the_controls_page_holds_long_names_at_every_size_scheme_and_language() {
                     let (width, _) = font_size::min_window(points);
                     let (width, height) = if wide { (1800.0, tall) } else { (width, tall) };
                     for english in [false, true] {
-                        language::set_language(if english { language::Choice::En } else { language::Choice::De });
+                        let choice = if english { language::Choice::En } else { language::Choice::De };
+                        language::set_thread_language(choice);
                         page.go_to("hf_joysticks");
                         let mut shown = (0.0, Vec::new());
                         for _ in 0..3 {
@@ -452,7 +453,7 @@ fn the_controls_page_holds_long_names_at_every_size_scheme_and_language() {
         let _ = std::fs::remove_dir_all(page_dir);
     }
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
 }
 
@@ -505,7 +506,7 @@ fn the_axes_page_holds_long_names_at_every_size_scheme_and_language() {
                 let (width, _) = font_size::min_window(points);
                 let (width, height) = if wide { (1800.0, tall) } else { (width, tall) };
                 for english in [false, true] {
-                    language::set_language(if english { language::Choice::En } else { language::Choice::De });
+                    language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
                     page.go_to("hf_achsen");
                     let mut shown = (0.0, Vec::new());
                     for _ in 0..3 {
@@ -552,7 +553,7 @@ fn the_axes_page_holds_long_names_at_every_size_scheme_and_language() {
     let _ = std::fs::remove_dir_all(dir);
     let _ = std::fs::remove_dir_all(page_dir);
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
 }
 
@@ -560,7 +561,7 @@ fn the_axes_page_holds_long_names_at_every_size_scheme_and_language() {
 #[test]
 fn the_menu_filter_finds_the_blocks_of_the_real_controls_page() {
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let hits = |filter: &str| super::nav_hits_in(filter, "hf_gruppe_spiel", "hf_joysticks", false);
     let page = language::t("hf_joysticks");
     assert!(
@@ -593,7 +594,7 @@ fn the_pages_of_the_game_settings_hold_long_texts_at_every_size_scheme_and_langu
             page.size = points;
             let (width, height) = font_size::min_window(points);
             for english in [false, true] {
-                language::set_language(if english { language::Choice::En } else { language::Choice::De });
+                language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
                 for key in ["hf_startprogramme", "hf_module", "hf_erkennung", "hf_grafik"] {
                     page.go_to(key);
                     let (overflow, texts) = draw(&mut page, width, height);
@@ -616,7 +617,7 @@ fn the_pages_of_the_game_settings_hold_long_texts_at_every_size_scheme_and_langu
         }
     }
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
 }
@@ -664,7 +665,7 @@ fn the_two_models_of_the_signature_window_hold_at_every_size_scheme_and_language
             let (min_width, min_height) = font_size::min_window(points);
             for width in [min_width, min_width * 2.0] {
                 for english in [false, true] {
-                    language::set_language(if english { language::Choice::En } else { language::Choice::De });
+                    language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
                     page.go_to("hf_overlay");
                     let (overflow, texts) = draw(&mut page, width, min_height);
                     if overflow > 0.5 {
@@ -681,7 +682,7 @@ fn the_two_models_of_the_signature_window_hold_at_every_size_scheme_and_language
         }
     }
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
 }
@@ -724,7 +725,7 @@ fn the_blocks_of_user_cfg_and_anti_afk_and_the_bubbles_of_the_channels_hold_long
                 let (width, _) = font_size::min_window(points);
                 let (width, height) = if wide { (1800.0, 4000.0) } else { (width, 4000.0) };
                 for english in [false, true] {
-                    language::set_language(if english { language::Choice::En } else { language::Choice::De });
+                    language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
                     for (key, wanted) in [
                         (
                             "hf_spiel",
@@ -765,7 +766,7 @@ fn the_blocks_of_user_cfg_and_anti_afk_and_the_bubbles_of_the_channels_hold_long
         }
     }
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     let _ = std::fs::remove_dir_all(page_dir);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
@@ -818,7 +819,7 @@ fn back_on_the_contracts_after_a_new_log_the_page_reads_it() {
     let _language = crate::language_lock();
     let dir = folder("auftraege-wiederkommen");
     theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let mut page = SamplePage::with_settings(Paths::new(host_apart(&dir)));
     let backups = dir.join("LIVE").join("logbackups");
     std::fs::create_dir_all(&backups).unwrap();
@@ -962,7 +963,7 @@ fn not_yet_count(texts: &[(String, Pos2)]) -> usize {
 #[test]
 fn real_data_start_in_the_stored_language_and_drawing_leaves_it_alone() {
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let (mut page, dir) = real_page("sprache", "{\n  \"sprache\": \"en\"\n}\n", &[]);
     assert!(matches!(page.start_language(), language::Choice::En), "the stored English is the start language");
     // Drawing changes no language by itself: other windows and tests share it.
@@ -978,18 +979,21 @@ fn real_data_start_in_the_stored_language_and_drawing_leaves_it_alone() {
 #[test]
 fn real_data_read_and_write_the_settings_of_allgemein_like_4_12() {
     let _language = crate::language_lock();
-    let file = "{\n  \"update_pruefen\": false,\n  \"mangohud\": true,\n  \"signalton\": false,\n  \"pruefintervall_sekunden\": 7\n}\n";
+    let file = "{\n  \"update_pruefen\": false,\n  \"mangohud\": true,\n  \"signalton\": false,\n  \"pruefintervall_sekunden\": 7,\n  \"ton_raffinerie\": false,\n  \"lautstaerke\": 35,\n  \"grafikkarte\": false,\n  \"uhr_24h\": true\n}\n";
     let (mut page, dir) = real_page("allgemein", file, &[]);
     assert!(page.mangohud && !page.sounds[0], "read with the keys of 4.12");
     assert_eq!(page.check_interval, 7, "the check interval of 4.12");
+    // The four settings that had no effect are read: the sound of the refinery, the volume, the card, the clock.
+    assert!(!page.sounds[1] && !page.gpu && page.clock_24, "refinery sound off, no card, 24 hours");
+    assert_eq!(page.volume, 35);
+    assert!(!page.gpu_started, "the card as the program started with it is the stored one: no restart bar");
 
-    // What cannot work yet says so; a switch that does nothing is not there.
-    // Graphics card, second sound, volume and clock (the use count has no row any more; the start with the
-    // system is a switch that writes its entry); on Linux MangoHud is a switch.
+    // No row says that its function comes later: every switch does something. The start with the system is a
+    // switch that writes its entry; on Linux MangoHud is a switch.
     // A window tall enough for the whole page: rows below the window are not drawn.
     page.go_to("hf_allgemein");
     let texts = draw(&mut page, 1280.0, 1600.0).1;
-    assert_eq!(not_yet_count(&texts), 4, "{texts:?}");
+    assert_eq!(not_yet_count(&texts), 0, "{texts:?}");
     let reason = shows(&texts, "nur unter Linux");
     assert_eq!(reason, !cfg!(target_os = "linux"), "MangoHud: the reason where the system cannot");
     // Updates are always looked for quietly: no switch for it.
@@ -1003,9 +1007,21 @@ fn real_data_read_and_write_the_settings_of_allgemein_like_4_12() {
     page.mangohud = false;
     page.sounds[0] = true;
     page.check_interval = 12;
+    page.sounds[1] = true;
+    page.volume = 80;
+    page.gpu = true;
+    page.clock_24 = false;
     let _ = look(&mut page, "hf_allgemein");
     let text = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
-    for wanted in ["\"mangohud\": false", "\"signalton\": true", "\"pruefintervall_sekunden\": 12"] {
+    for wanted in [
+        "\"mangohud\": false",
+        "\"signalton\": true",
+        "\"pruefintervall_sekunden\": 12",
+        "\"ton_raffinerie\": true",
+        "\"lautstaerke\": 80",
+        "\"grafikkarte\": true",
+        "\"uhr_24h\": false",
+    ] {
         assert!(text.contains(wanted), "{wanted} in {text}");
     }
     // The old update switch of 4.12 is left as it was, never written by v5.
@@ -1022,7 +1038,7 @@ fn real_data_read_and_write_the_settings_of_allgemein_like_4_12() {
 fn the_switch_of_the_start_with_the_system_is_the_entry_and_says_what_the_entry_says() {
     use versekit_core::autostart::{Memory, NAME};
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let (mut page, dir) = real_page("autostart", "{}\n", &[]);
     // In memory unless the program hands over the real one: nothing is written outside.
     assert!(!page.autostart_on);
@@ -1057,7 +1073,7 @@ fn the_switch_of_the_start_with_the_system_is_the_entry_and_says_what_the_entry_
 fn on_a_copy_the_switch_of_the_start_with_the_system_holds_and_its_entry_names_the_copy() {
     use versekit_core::autostart::{NAME, desktop_file_name};
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let dir = folder("autostart-kopie");
     let root = dir.to_string_lossy().into_owned();
     let paths = Paths::for_copy(host_in(&dir, &[]), &root).expect("an empty folder is a new copy");
@@ -1205,7 +1221,7 @@ fn the_sync_button_and_its_line_fit_in_the_head_of_the_three_pages() {
             page.go_to(key);
             let _ = area;
             for choice in [language::Choice::De, language::Choice::En] {
-                language::set_language(choice);
+                language::set_thread_language(choice);
                 for scheme in theme::schemes().iter().step_by(3) {
                     for points in [font_size::POINTS_RANGE.0, font_size::POINTS_RANGE.1] {
                         let (min_width, height) = font_size::min_window(points);
@@ -1258,7 +1274,7 @@ fn the_sync_button_and_its_line_fit_in_the_head_of_the_three_pages() {
             }
         }
     }
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "Kopf mit Abgleich:\n{}", findings.join("\n"));
 }
@@ -1281,7 +1297,7 @@ fn placeholder_pages(page: &mut SamplePage) -> Vec<&'static str> {
 #[test]
 fn on_real_data_no_page_shows_the_placeholder_of_the_sample() {
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let (mut page, dir) = real_page("kein-platzhalter", "", &[]);
     assert_eq!(placeholder_pages(&mut page), Vec::<&str>::new(), "pages on real data with the placeholder");
     let _ = std::fs::remove_dir_all(dir);

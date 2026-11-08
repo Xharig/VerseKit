@@ -20,7 +20,7 @@
 mod tests {
     use super::super::*;
     use egui::{Rect, vec2};
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
 
     fn texts(shapes: &[egui::epaint::ClippedShape]) -> Vec<String> {
         fn collect(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn the_sample_shows_the_method_the_ores_and_their_places() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = MiningState::default();
         let (shown, over) = mining(&context(), &mut state, 900.0);
         assert_eq!(over, 0.0);
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn a_raw_material_from_another_page_opens_with_its_places_and_refineries() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = MiningState::default();
         // The recipe says "Quantanium", the mining data "Quantanium (Raw)": the key finds it.
         state.jump_to("Quantanium");
@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn the_refinery_list_is_shut_at_first_and_opens_and_shuts_with_a_click_on_its_header() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = MiningState::default();
         state.jump_to("Quantanium");
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn a_place_lists_its_ores_per_tool_and_the_only_one_says_so() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = MiningState {
             search: "daymar".to_string(),
             open: Some("ort:Daymar".to_string()),
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn the_signature_names_the_ore_both_ways() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = MiningState { signature: "6.340".to_string(), ..MiningState::default() };
         let (shown, _) = mining(&context(), &mut state, 900.0);
         assert!(
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     fn the_axes_chosen_lead_to_their_method() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         // Speed first, then costs.
         let mut state = MiningState { first: 3, second: 2, ..MiningState::default() };
         let (shown, _) = mining(&context(), &mut state, 900.0);
@@ -254,10 +254,64 @@ mod tests {
         assert!(!shown.contains(&t("s_rm_zeit_laeuft")), "a fast method: {shown:?}");
     }
 
+    /// The levels the reading of the game data keeps for 4.10.2: the nine of the table, five of them under another
+    /// name.
+    const GAME_4_10_2: &str = r#"{"format": 1, "build": "4.10.2-LIVE.12913470", "kanal": "KANAL", "verfahren": [
+        {"name": "Pyrometric Chromalysis", "ertrag": 3, "tempo": 3, "kosten": 1},
+        {"name": "Gaskin Process", "ertrag": 2, "tempo": 3, "kosten": 1},
+        {"name": "Dinyx Solventation", "ertrag": 3, "tempo": 0, "kosten": 3},
+        {"name": "Ferron Exchange", "ertrag": 3, "tempo": 1, "kosten": 2},
+        {"name": "Kazen Winnowing", "ertrag": 1, "tempo": 2, "kosten": 3},
+        {"name": "Thermonatic Deposition", "ertrag": 2, "tempo": 1, "kosten": 3},
+        {"name": "Electrostarolysis", "ertrag": 2, "tempo": 2, "kosten": 2},
+        {"name": "Cormack Method", "ertrag": 1, "tempo": 3, "kosten": 2},
+        {"name": "XCR Reaction", "ertrag": 1, "tempo": 3, "kosten": 1}]}"#;
+
+    #[test]
+    fn the_levels_kept_from_the_game_data_lead_the_advice_and_say_where_they_come_from() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        use versekit_core::paths::Host;
+        use versekit_core::pypath::Flavor;
+        let dir = versekit_core::testdir::Dir::new("bergbau-spieldaten");
+        let text = dir.path().to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text));
+        // Costs first, then speed: the table names Electrostarolysis.
+        let mut state = MiningState { first: 2, second: 3, ..MiningState::with_files(&paths) };
+        assert_eq!(state.methods.origin, refining::Origin::Table, "no file: the table");
+        let (shown, _) = mining(&context(), &mut state, 900.0);
+        assert!(shown.contains(&tf("s_rm_nimm", &[("0", Arg::from("Electrostarolysis"))])), "{shown:?}");
+        // The reading of the game data kept the levels of 4.10.2: Kazen Winnowing has the low costs now. The page
+        // finds the new file by its time when it looks again.
+        std::fs::write(paths.app_file(refining::GAME_FILE), GAME_4_10_2.replace("KANAL", "LIVE")).unwrap();
+        state.looked_at = f64::NEG_INFINITY;
+        let (shown, _) = mining(&context(), &mut state, 900.0);
+        assert!(shown.contains(&tf("s_rm_nimm", &[("0", Arg::from("Kazen Winnowing"))])), "{shown:?}");
+        let build = Arg::from("4.10.2-LIVE.12913470");
+        let live = [tf("s_rm_stand_spiel", &[("0", build.clone())])];
+        assert_eq!(methods_origin(&state.methods), live, "LIVE says nothing more");
+        // From a channel of test builds the page says what the pages that read the archive say of it.
+        std::fs::write(paths.app_file(refining::GAME_FILE), GAME_4_10_2.replace("KANAL", "PTU")).unwrap();
+        state.reload_methods();
+        let said = methods_origin(&state.methods);
+        assert_eq!(said, [tf("s_rm_stand_spiel", &[("0", build)]), tf("s_ak_testkanal", &[("0", Arg::from("PTU"))])]);
+        // A file without a build says only where the levels come from.
+        let without = GAME_4_10_2.replace("KANAL", "LIVE").replace("4.10.2-LIVE.12913470", "");
+        std::fs::write(paths.app_file(refining::GAME_FILE), without).unwrap();
+        state.reload_methods();
+        assert_eq!(methods_origin(&state.methods), [t("s_rm_stand_spiel_ohne")]);
+        // A file that does not fit leaves the table.
+        std::fs::write(paths.app_file(refining::GAME_FILE), "{kaputt").unwrap();
+        state.reload_methods();
+        assert_eq!(state.methods, refining::Methods::table());
+        let table = tf("s_rm_stand", &[("0", Arg::from(refining::PATCH)), ("1", Arg::from(refining::READ_ON))]);
+        assert_eq!(methods_origin(&state.methods), [table]);
+    }
+
     #[test]
     fn without_mining_data_the_page_offers_to_fetch_them() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         // Other tests switch the scheme of the whole run; a scheme with filled buttons writes them in capitals.
         versekit_core::theme::set_thread_current("original");
         use versekit_core::paths::Host;
@@ -296,7 +350,7 @@ mod tests {
     #[test]
     fn the_refinery_table_bundles_per_system_and_names_every_station() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = MiningState::default();
         let scheme = versekit_core::theme::current();
         let (shown, over) = draw(&context(), 380.0, |ui| crate::refineries_page::show_page(ui, scheme, &mut state));
@@ -346,7 +400,7 @@ mod tests {
     #[test]
     fn the_head_of_a_refinery_column_lists_all_its_stations_on_hover() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = MiningState::default();
         let scheme = versekit_core::theme::current();
         let plain = rest_pointer(&mut state, None);
@@ -391,7 +445,7 @@ mod tests {
     #[test]
     fn the_refinery_rows_stay_level_and_the_systems_stand_over_their_columns() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let scheme = versekit_core::theme::current();
         let mut state = MiningState::default();
@@ -484,7 +538,7 @@ mod tests {
     #[test]
     fn the_refinery_table_grows_with_the_window() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (columns, _) = refining::matrix(MiningState::default().data());
         let last = refining::head(&crate::refineries_page::short_name(&columns[columns.len() - 1]));
         let right_edge = |texts: &[(String, Rect)]| texts.iter().find(|(t, _)| *t == last).expect("head").1.max.x;
@@ -505,7 +559,7 @@ mod tests {
     #[test]
     fn an_ore_that_is_the_only_one_of_its_tool_at_a_place_says_so() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         // Hadanite is the only ore for the hand at Daymar: no "100 %", "the only one here".
         let mut state = MiningState::default();
         state.jump_to("Hadanite");
@@ -567,7 +621,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in [380.0, 520.0, 900.0] {
                     for which in 0..4 {
@@ -598,7 +652,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 }

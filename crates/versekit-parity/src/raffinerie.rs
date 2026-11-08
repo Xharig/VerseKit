@@ -506,6 +506,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
                 },
                 remaining: j["remaining"].as_i64(),
                 cells: Vec::new(),
+                station: String::new(),
             })
             .collect()
     };

@@ -26,6 +26,7 @@
 
 mod helpers;
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -121,7 +122,7 @@ fn run(
 ) -> Pending {
     let pending = Pending::default();
     let (slot, ctx) = (Arc::clone(&pending.0), ctx.clone());
-    let started = std::thread::Builder::new().name("dateidialog".into()).spawn(move || {
+    let started = std::thread::Builder::new().name("dateidialog".into()).spawn_with_language(move || {
         let answer = helpers::ask_desktop(&helpers, origin).unwrap_or_else(pick);
         *slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(answer);
         ctx.request_repaint();

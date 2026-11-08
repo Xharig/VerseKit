@@ -28,12 +28,20 @@
 //! ⚠ The ports right on a ship come without kind and size (they sit in the encrypted vehicle implementation, and
 //! the archive is read without a key): kind and size are then those of the factory part, and a port empty at the factory gets
 //! its kind from its name and no size. A port the game marks `uneditable` is no slot; the ports below it are.
+//!
+//! ⚠ The paints: p4kx fits a paint to a ship by the paint ports of the vehicle implementation, so without the key
+//! it fits 12 of 1064. What the DataForge gives readably ([`PaintFacts`]): the tags a paint requires of its port
+//! (`RequiredTags`, `Paint_Gladius`) and the paint ports of the ship Records (21 ships). Those go into the files;
+//! every other paint port stays without a rule (see `versekit_core::erkul_slots::fits_like_stock`).
 
 use std::collections::{BTreeMap, HashMap};
 
+use p4kx_dataforge::{DataForge, TreeBuilder};
 use serde_json::Value as Json;
 use versekit_core::erkul_slots::SWAPPABLE;
 use versekit_core::jsonio::{Map, Value};
+
+use crate::fields::{component, structs, structure, text};
 
 /// The slots of the ships, in the form of `erkul-schiffe.json`.
 pub const SHIPS_FILE: &str = versekit_core::erkul_slots::GAME_SHIPS_FILE;
@@ -41,8 +49,84 @@ pub const SHIPS_FILE: &str = versekit_core::erkul_slots::GAME_SHIPS_FILE;
 pub const PARTS_FILE: &str = versekit_core::erkul_slots::GAME_PARTS_FILE;
 /// The format of [`SHIPS_FILE`]: the one of `erkul-schiffe.json`.
 pub const SHIPS_FORMAT: i64 = versekit_core::ships::ERKUL_FILE_FORMAT;
-/// The format of [`PARTS_FILE`]: the one of `erkul-teile.json`.
-pub const PARTS_FORMAT: i64 = versekit_core::erkul_slots::PARTS_FORMAT;
+/// The format of [`PARTS_FILE`]: the one of `erkul-teile.json` with the class name and the tags a paint
+/// requires; a file of an older format is read again once (`values_store`).
+pub const PARTS_FORMAT: i64 = versekit_core::erkul_slots::GAME_PARTS_FORMAT;
+
+/// One paint port of a ship Record (`SItemPortDef` with the type `Paints`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RecordPort {
+    pub name: String,
+    /// What the port offers a paint: its `PortTags` and `RequiredPortTags` and the `AttachDef.Tags` of the ship, as
+    /// p4kx counts them.
+    pub offers: Vec<String>,
+    /// What a paint has to carry: the `RequiredPortTags`.
+    pub requires: Vec<String>,
+}
+
+/// What the DataForge says about paints beyond the catalog of p4kx, read without the key.
+#[derive(Clone, Debug, Default)]
+pub struct PaintFacts {
+    /// Paint identifier → the tags it requires of its port (`AttachDef.RequiredTags`).
+    pub required: HashMap<String, Vec<String>>,
+    /// Ship identifier → the paint ports of its Record.
+    pub ports: HashMap<String, Vec<RecordPort>>,
+}
+
+fn words(text: Option<&str>) -> Vec<String> {
+    text.unwrap_or_default().split_whitespace().map(str::to_string).collect()
+}
+
+impl PaintFacts {
+    /// Reads the paints (`…/paints/…`) and the vehicles (`entities/spaceships`, `entities/groundvehicles`) of the
+    /// DataForge.
+    pub fn read(forge: &DataForge<'_>) -> PaintFacts {
+        let mut builder = TreeBuilder::new();
+        let mut facts = PaintFacts::default();
+        for record in forge.records() {
+            let (Ok("EntityClassDefinition"), Ok(path)) = (record.type_name(), record.record_path()) else { continue };
+            let path = path.to_ascii_lowercase();
+            let vehicle = path.contains("entities/spaceships/") || path.contains("entities/groundvehicles/");
+            let paint = path.contains("/paints/");
+            if !vehicle && !paint {
+                continue;
+            }
+            let Ok(tree) = builder.build(&record) else { continue };
+            let definition = structure(component(&tree, "SAttachableComponentParams"), "AttachDef");
+            let guid = tree.guid().to_string().to_ascii_lowercase();
+            if paint {
+                if text(definition, "Type").is_some_and(|kind| kind.eq_ignore_ascii_case("Paints")) {
+                    let required = words(text(definition, "RequiredTags"));
+                    if !required.is_empty() {
+                        facts.required.insert(guid, required);
+                    }
+                }
+                continue;
+            }
+            let own = words(text(definition, "Tags"));
+            let ports: Vec<RecordPort> = structs(component(&tree, "SItemPortContainerComponentParams"), "Ports")
+                .filter(|port| {
+                    structs(Some(port), "Types")
+                        .any(|kind| text(Some(kind), "Type").is_some_and(|k| k.eq_ignore_ascii_case("Paints")))
+                })
+                .map(|port| {
+                    let requires = words(text(Some(port), "RequiredPortTags"));
+                    let mut offers = words(text(Some(port), "PortTags"));
+                    for tag in requires.iter().chain(&own) {
+                        if !offers.contains(tag) {
+                            offers.push(tag.clone());
+                        }
+                    }
+                    RecordPort { name: text(Some(port), "Name").unwrap_or_default().to_string(), offers, requires }
+                })
+                .collect();
+            if !ports.is_empty() {
+                facts.ports.insert(guid, ports);
+            }
+        }
+        facts
+    }
+}
 
 /// The record paths p4kx builds the catalog of, one build each: the ships, the ground vehicles, the parts and the
 /// makers.
@@ -82,6 +166,8 @@ pub struct Catalogs {
     loadouts: HashMap<String, Json>,
     makers: HashMap<String, Json>,
     build: String,
+    /// What the DataForge says about paints ([`PaintFacts::read`]); empty where it was not read.
+    pub paints: PaintFacts,
 }
 
 impl Catalogs {
@@ -266,6 +352,46 @@ fn counts(sizes: &[(String, Option<i64>)]) -> Vec<Value> {
         .collect()
 }
 
+/// Gives the paint slots right on a ship without a rule of their own the rule of the paint port of the ship
+/// Record: the port of the same name, else the only one where the ship has one paint slot and one such port.
+fn paint_rules(slots: &mut [Value], record_ports: &[RecordPort]) {
+    let open = |slot: &Value| {
+        slot.as_object().is_some_and(|fields| {
+            let get = |key: &str| fields.iter().find(|(k, _)| k == key).map(|(_, v)| v);
+            get("art").and_then(Value::as_str) == Some("Paints")
+                && get("passt").is_none()
+                && !get("pfad").and_then(Value::as_str).unwrap_or("/").contains('/')
+        })
+    };
+    let paint_slots = slots.iter().filter(|slot| open(slot)).count();
+    for slot in slots.iter_mut().filter(|slot| open(slot)) {
+        let Value::Object(fields) = slot else { continue };
+        let path = fields.iter().find(|(k, _)| k == "pfad").and_then(|(_, v)| v.as_str()).unwrap_or_default().to_string();
+        let port = record_ports
+            .iter()
+            .find(|port| port.name.eq_ignore_ascii_case(&path))
+            .or_else(|| (paint_slots == 1 && record_ports.len() == 1).then(|| &record_ports[0]));
+        // A port that names no paint family (no `RequiredPortTags`, nothing of a paint offered) says nothing: it would
+        // take the factory paint's family away from the slot.
+        let Some(port) = port.filter(|port| {
+            !port.requires.is_empty() || port.offers.iter().any(|tag| tag.to_ascii_lowercase().contains("paint"))
+        }) else {
+            continue;
+        };
+        let tags = |list: &[String]| Value::Array(list.iter().map(Value::str).collect());
+        fields.push((
+            "passt".to_string(),
+            Value::Object(vec![
+                ("typen".to_string(), Value::Array(vec![Value::Array(vec![Value::str("Paints"), Value::Array(Vec::new())])])),
+                ("min".to_string(), Value::Null),
+                ("max".to_string(), Value::Null),
+                ("porttags".to_string(), tags(&port.offers)),
+                ("verlangt".to_string(), tags(&port.requires)),
+            ]),
+        ));
+    }
+}
+
 /// The maker of a ship: its name and the short code of its class name (`ANVL` of `ANVL_Hornet_F7CM_Mk2`).
 fn maker_of(catalogs: &Catalogs, ship: &Json) -> (String, String) {
     let class = ship["className"].as_str().unwrap_or_default();
@@ -291,6 +417,9 @@ pub fn ships_file(catalogs: &Catalogs) -> Value {
         let ports = catalogs.loadouts.get(guid).and_then(|l| l["ports"].as_array()).cloned().unwrap_or_default();
         let (mut slots, mut sizes) = (Vec::new(), Vec::new());
         collect(catalogs, &ports, "", true, &mut slots, &mut sizes);
+        if let Some(record_ports) = catalogs.paints.ports.get(&guid.to_ascii_lowercase()) {
+            paint_rules(&mut slots, record_ports);
+        }
         let (maker, code) = maker_of(catalogs, ship);
         if !maker.is_empty() && !code.is_empty() && !makers.iter().any(|(k, _)| *k == slim(&maker)) {
             makers.push((slim(&maker), Value::str(&code)));
@@ -349,8 +478,16 @@ pub fn parts_file(catalogs: &Catalogs) -> Value {
             ("untertyp".to_string(), Value::str(item["subType"].as_str().unwrap_or_default())),
             ("groesse".to_string(), int(&item["size"]).map_or(Value::Null, Value::int)),
             ("tags".to_string(), Value::Array(strings(&item["tags"]))),
-            ("verlangt".to_string(), Value::Array(Vec::new())),
+            // What a paint requires of its port (`Paint_Gladius`): it decides where the paint goes.
+            (
+                "verlangt".to_string(),
+                Value::Array(
+                    catalogs.paints.required.get(&guid.to_ascii_lowercase()).into_iter().flatten().map(Value::str).collect(),
+                ),
+            ),
             ("guete".to_string(), int(&item["grade"]).map_or(Value::str(""), |g| Value::str(g.to_string()))),
+            // The class name ties a flight blade without tags to the blade of its ship (`erkul_slots::fits_like_stock`).
+            ("klasse".to_string(), Value::str(item["className"].as_str().unwrap_or_default())),
         ];
         if !own.is_empty() {
             part.push(("plaetze".to_string(), Value::Array(own)));
@@ -477,6 +614,8 @@ mod tests {
         assert_eq!(slots[1].factory, Some(("pp".to_string(), "Maelstrom".to_string())));
         assert!(slots[1].fit.is_none(), "the top port names no kind: the factory part gave it");
         assert_eq!(slots[4].fit.as_ref().map(|f| (f.min, f.max)), Some((Some(3), Some(3))));
+        // Each part keeps its class name: it ties a flight blade without tags to its ship.
+        assert_eq!(parts.get("tmsb").map(|p| p.class.as_str()), Some("TMSB5"));
         // The AI ship is left out.
         assert!(!ships.knows(ShipId { name: "F7C-M AI", maker: "", short: "ANVL_Hornet_F7CM_Mk2_PU_AI", maker_short: "" }));
         // Another turret brings its own slots: the TMSB-5 two S4 guns in place of the stock ones.
@@ -489,5 +628,71 @@ mod tests {
         assert!(after.contains(&("hardpoint_weapon_center/hardpoint_weapon_left".to_string(), Some(4))), "{after:?}");
         assert!(after.contains(&("hardpoint_weapon_center/hardpoint_weapon_right".to_string(), Some(4))), "{after:?}");
         assert!(!after.iter().any(|(p, _)| p.contains("hardpoint_missile_rack")), "the stock rack went with the stock turret");
+    }
+
+    /// The paints: what a paint requires and the paint port of the ship Record go into the files; the paint slot
+    /// then takes the paints of its family only, and the parts file has the format of 5.2.1.
+    #[test]
+    fn the_paint_slot_takes_the_rule_of_the_paint_port_of_the_ship_record() {
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let mut raw = catalog();
+        let items = raw["items"].as_array_mut().expect("items");
+        for (guid, class, tags) in [
+            ("P1", "Paint_Hornet_Mk2_Black", r#"["Paint_Hornet_F7_Mk2", "@Black"]"#),
+            ("p2", "Paint_Gladius_Pirate", r#"["Paint_Gladius", "@GladiusPirate"]"#),
+        ] {
+            let tags: Json = serde_json::from_str(tags).expect("tags");
+            items.push(serde_json::json!({"guid": guid, "className": class, "name": {"en": class}, "type": "Paints", "size": 1, "tags": tags}));
+        }
+        let paints = PaintFacts {
+            // The DataForge writes identifiers in lower case; the catalog may not.
+            required: [("p1", "Paint_Hornet_F7_Mk2"), ("p2", "Paint_Gladius")]
+                .into_iter()
+                .map(|(guid, tag)| (guid.to_string(), vec![tag.to_string()]))
+                .collect(),
+            ports: [(
+                "s1".to_string(),
+                vec![RecordPort {
+                    name: "Hardpoint_Paint".into(),
+                    offers: vec!["Paint_Hornet_F7_Mk2".into(), "anvl_hornet_f7cm_mk2".into()],
+                    requires: vec!["Paint_Hornet_F7_Mk2".into()],
+                }],
+            )]
+            .into_iter()
+            .collect(),
+        };
+        let mut catalogs = Catalogs { paints, ..Catalogs::default() };
+        catalogs.add(&raw);
+        let parts_value = parts_file(&catalogs);
+        let Value::Object(root) = &parts_value else { panic!("an object") };
+        assert_eq!(root.first().map(|(k, v)| (k.as_str(), v.clone())), Some(("format", Value::int(3))));
+        // Files of their own: the other test of this module writes the same names into the same folder.
+        let ships = ErkulShips::load(&written(&ships_file(&catalogs), "lack-schiffe.json"));
+        let parts = ErkulParts::load(&written(&parts_value, "lack-teile.json"));
+        assert_eq!(parts.get("P1").map(|p| p.required.clone()), Some(vec!["Paint_Hornet_F7_Mk2".to_string()]));
+        let id = ShipId { name: "F7C-M Super Hornet Mk II", maker: "Anvil Aerospace", short: "ANVL_Hornet_F7CM_Mk2", maker_short: "" };
+        let slots = hardpoints(&ships, &parts, id, &Map::new());
+        let paint = slots.iter().find(|s| s.kind == "Paints").expect("the paint slot");
+        let offered: Vec<&str> = parts.compatible(paint).iter().map(|p| p.reference.as_str()).collect();
+        assert_eq!(offered, ["P1"], "the Hornet paint, not the Gladius paint");
+        // Counter-check: without the Record port the slot has no rule, and no list.
+        let required = PaintFacts { required: catalogs.paints.required.clone(), ..PaintFacts::default() };
+        let mut bare = Catalogs { paints: required, ..Catalogs::default() };
+        bare.add(&raw);
+        let ships = ErkulShips::load(&written(&ships_file(&bare), "lack-schiffe-ohne-port.json"));
+        let paint = hardpoints(&ships, &parts, id, &Map::new()).into_iter().find(|s| s.kind == "Paints").expect("slot");
+        assert!(paint.fit.is_none());
+        assert!(parts.compatible(&paint).is_empty());
+        // A Record port that names no paint family gives no rule either.
+        let silent = RecordPort { name: "hardpoint_paint".into(), offers: vec!["anvl_hornet_f7cm_mk2".into()], requires: Vec::new() };
+        let paints = PaintFacts {
+            required: catalogs.paints.required.clone(),
+            ports: [("s1".to_string(), vec![silent])].into_iter().collect(),
+        };
+        let mut quiet = Catalogs { paints, ..Catalogs::default() };
+        quiet.add(&raw);
+        let ships = ErkulShips::load(&written(&ships_file(&quiet), "lack-schiffe-stummer-port.json"));
+        let paint = hardpoints(&ships, &parts, id, &Map::new()).into_iter().find(|s| s.kind == "Paints").expect("slot");
+        assert!(paint.fit.is_none(), "the silent port is no rule");
     }
 }

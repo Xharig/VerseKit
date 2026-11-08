@@ -24,8 +24,10 @@
 //! ⚠ Only what stands the same in every game language is counted: contracts
 //! over `<EndMission>` (only the own player, once per mission id), quantum
 //! jumps, ships, weapons (each piece once per session), deaths (only the
-//! number of the own body counts), crashes, lost connections. Injuries and
-//! zones appear only as text on screen and are not counted.
+//! number of the own body counts), crashes, lost connections. Injuries come as
+//! a notification in the game language and are found by the phrases of the
+//! game texts (`injuries`); zones appear only as text on screen and are not
+//! counted.
 
 use std::collections::HashSet;
 use std::fs;
@@ -33,9 +35,11 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use crate::injuries::{self, Phrases, Severity};
 use crate::jsonio::{self, Map, Value, map_set};
+use crate::logread;
 use crate::logsource::LogSource;
-use crate::logtime::{Facts, candidate_lines, seconds, time_of};
+use crate::logtime::{Facts, FactsScan, candidate_lines, seconds, time_of};
 use crate::mission_log::get;
 use crate::ordered::{OrderedMap, parallel_map};
 use crate::paths::Paths;
@@ -44,7 +48,8 @@ use crate::pypath::Flavor;
 use crate::text::{PY_NONSPACE, decode_replace, py_strip};
 
 pub const FILE: &str = "statistik.json";
-pub const FORMAT: i64 = 4;
+/// 5: the injuries of a session (`verletzungen`); every log still there is read once more.
+pub const FORMAT: i64 = 5;
 
 const QUIT: &str = "<SystemQuit>";
 const QUANTUM: &str = "<Quantum Drive Arrived - Arrived at Final Destination>";
@@ -104,6 +109,7 @@ static MARKERS: LazyLock<Regex> = LazyLock::new(|| {
         crate::shard::JOIN_MARK,
         CRASH[0],
         CRASH[1],
+        injuries::NOTIFICATION,
     ];
     let escaped: Vec<String> = literals.iter().map(|l| regex::escape(l)).collect();
     Regex::new(&escaped.join("|")).expect("aus maskierten Teilen gebaut")
@@ -147,9 +153,28 @@ fn texts(list: Vec<String>) -> Value {
 /// arrived or the stamps make no session.
 ///
 /// `account` is the player of this log; contracts count only when `Player[…]`
-/// is the account. Without a known account everyone counts.
-#[allow(clippy::too_many_lines)]
+/// is the account. Without a known account everyone counts. The injuries are
+/// found by the bundled phrases.
 pub fn read_log_text(text: &str, account: Option<&str>) -> Option<Map> {
+    let facts = Facts::of(text);
+    let log = Log { spawn: facts.spawn, first: facts.first.as_deref(), last: facts.last.as_deref(), account };
+    session_of(text, &log, &Phrases::table())
+}
+
+/// What a session is read with besides its lines: whether the player arrived, the first and the last stamp of the
+/// whole log, and the player of the log.
+struct Log<'a> {
+    spawn: bool,
+    first: Option<&'a str>,
+    last: Option<&'a str>,
+    account: Option<&'a str>,
+}
+
+/// The session entry of a log from the lines worth a look (`lines` may hold more) and the facts of the whole
+/// log; `phrases` tell the injuries.
+#[allow(clippy::too_many_lines)]
+fn session_of(lines: &str, log: &Log<'_>, phrases: &Phrases) -> Option<Map> {
+    let Log { spawn, first, last, account } = *log;
     let account = account.filter(|a| !a.is_empty());
     let own = |player: &str| account.is_none_or(|a| player.to_lowercase() == a.to_lowercase());
     let mut clean_end = false;
@@ -167,8 +192,9 @@ pub fn read_log_text(text: &str, account: Option<&str>) -> Option<Map> {
     let mut bodies: HashSet<String> = HashSet::new();
     let mut deaths: Vec<i64> = Vec::new();
     let mut shards: Vec<crate::shard::Join> = Vec::new();
+    let mut hurt = injuries::Count::default();
 
-    for line in candidate_lines(text, &MARKERS) {
+    for line in candidate_lines(lines, &MARKERS) {
         let stamp = Some(time_of(line)).filter(|s| !s.is_empty());
         // ⚠ The order of these branches is the order of Python's `elif` chain: a
         // line with a quantum mark but no stamp falls through to the next ones.
@@ -232,16 +258,19 @@ pub fn read_log_text(text: &str, account: Option<&str>) -> Option<Map> {
             }
         } else if line.contains(crate::shard::JOIN_MARK) {
             shards.extend(crate::shard::join_in(line));
+        } else if line.contains(injuries::NOTIFICATION) {
+            if let Some((severity, text)) = phrases.notice(line) {
+                hurt.add(severity, text, seconds(stamp.unwrap_or("")).filter(|m| *m != 0));
+            }
         } else if !crashed && CRASH.iter().any(|mark| line.contains(mark)) {
             crashed = true;
         }
     }
-    let facts = Facts::of(text);
-    if !facts.spawn {
+    if !spawn {
         return None;
     }
-    let start = seconds(facts.first.as_deref().unwrap_or("")).filter(|s| *s != 0)?;
-    let end = seconds(facts.last.as_deref().unwrap_or("")).filter(|s| *s != 0)?;
+    let start = seconds(first.unwrap_or("")).filter(|s| *s != 0)?;
+    let end = seconds(last.unwrap_or("")).filter(|s| *s != 0)?;
     if end < start {
         return None;
     }
@@ -277,7 +306,13 @@ pub fn read_log_text(text: &str, account: Option<&str>) -> Option<Map> {
         ("absturz".into(), Value::Bool(crashed)),
         ("abbrueche".into(), ints(disconnects)),
         ("shards".into(), shard_list(shards)),
+        ("verletzungen".into(), injury_counts(hurt.counts())),
     ])
+}
+
+/// The injuries of a session as `{"leicht": n, "mittel": n, "schwer": n}`.
+fn injury_counts(counts: [i64; 3]) -> Value {
+    Value::Object(Severity::ALL.iter().map(|s| (s.stored().to_string(), Value::int(counts[s.index()]))).collect())
 }
 
 /// The joins of a session as `[[moment, shard], …]`; a join without a stamp has `null` as its moment. Only the name
@@ -291,10 +326,44 @@ fn shard_list(joins: Vec<crate::shard::Join>) -> Value {
     )
 }
 
+/// What [`read_log`] keeps of a log it read: the lines worth a look so far, each ended by `\n`, and the facts of
+/// the whole log.
+#[derive(Default)]
+struct Seen {
+    lines: String,
+    facts: FactsScan,
+}
+
+impl Seen {
+    /// Takes the next piece of the log: whole lines.
+    fn piece(&mut self, text: &str) {
+        self.facts.piece(text);
+        for line in candidate_lines(text, &MARKERS) {
+            self.lines.push_str(line);
+            self.lines.push('\n');
+        }
+    }
+
+    fn entry(&self, account: Option<&str>, phrases: &Phrases) -> Option<Map> {
+        let facts = self.facts.facts();
+        let log = Log { spawn: facts.spawn, first: facts.first.as_deref(), last: facts.last.as_deref(), account };
+        session_of(&self.lines, &log, phrases)
+    }
+}
+
 /// [`read_log_text`] of a log file; an unreadable one has none.
+///
+/// ⚠ The file is read a piece at a time and only the lines worth a look are kept, so a log of gigabytes never
+/// stands in memory whole. A line longer than one piece is read in parts.
 pub fn read_log(path: &str, account: Option<&str>) -> Option<Map> {
-    let bytes = fs::read(path).ok()?;
-    read_log_text(&decode_replace(&bytes), account)
+    read_log_with(path, account, &Phrases::table())
+}
+
+/// [`read_log`] with the phrases of the injuries of the installation.
+pub fn read_log_with(path: &str, account: Option<&str>, phrases: &Phrases) -> Option<Map> {
+    let mut seen = Seen::default();
+    logread::read_all(path, |bytes| seen.piece(&decode_replace(bytes))).ok()?;
+    seen.entry(account, phrases)
 }
 
 /// `{'format':…, 'sitzungen': {von: {…}}, 'gelesen': {name: size}}`.
@@ -353,8 +422,16 @@ pub fn catch_up(src: &LogSource<'_>, files: &[String], clock: &dyn Fn() -> f64) 
         marks.push((name, size));
         jobs.push((path, src.account_of_file(path)));
     }
-    let entries: Vec<Map> =
-        parallel_map(&jobs, |(path, account)| read_log(path, account.as_deref())).into_iter().flatten().collect();
+    // The phrases of the injuries in the languages of the installation, read once for all logs.
+    let phrases = if jobs.is_empty() {
+        Phrases::default()
+    } else {
+        Phrases::of(&crate::logsource::LogSource::sources_of(paths))
+    };
+    let entries: Vec<Map> = parallel_map(&jobs, |(path, account)| read_log_with(path, account.as_deref(), &phrases))
+        .into_iter()
+        .flatten()
+        .collect();
     // ⚠ The clock is read once per run, whether or not anything is written: its calls are counted.
     let now = clock();
     if marks.is_empty() {
@@ -443,6 +520,64 @@ mod tests {
             Some(Value::Int(t)) => t.parse().expect("Zahl"),
             other => panic!("{key}: {other:?}"),
         }
+    }
+
+    /// The injuries of a session: each severity on its own, a repeat within ten seconds once, no injury and other
+    /// notifications not at all; read the same from the file a piece at a time.
+    #[test]
+    fn the_injuries_of_a_session_count_by_their_severity() {
+        let note = |stamp: &str, text: &str| {
+            format!("<2026-10-01T10:{stamp}.000Z> [Notice] <SHUDEvent_OnNotification> Added notification \"{text}: \" [3]\n")
+        };
+        let mut text = String::from("<2026-10-01T10:00:00.000Z> Start OnClientSpawned\n");
+        for (stamp, phrase) in [
+            ("01:00", "Minor Injury Detected"),
+            ("01:04", "Minor Injury Detected"),
+            ("05:00", "Leichte Verletzung erkannt"),
+            ("06:00", "Moderate Injury Detected"),
+            ("07:00", "Severe Injury Detected"),
+            ("08:00", "No Injury Detected"),
+            ("09:00", "Bauplan erhalten: Helm"),
+        ] {
+            text.push_str(&note(stamp, phrase));
+        }
+        text.push_str("<2026-10-01T10:30:00.000Z> Ende\n");
+        let entry = read_log_text(&text, None).expect("Sitzung");
+        let Some(Value::Object(hurt)) = get(&entry, "verletzungen") else { panic!("verletzungen") };
+        assert_eq!((int(hurt, "leicht"), int(hurt, "mittel"), int(hurt, "schwer")), (2, 1, 1));
+        let dir = crate::testdir::fresh("statistik-verletzungen");
+        let file = dir.join("Game.log");
+        fs::write(&file, &text).unwrap();
+        assert_eq!(read_log(&file.to_string_lossy(), None), Some(entry), "the same a piece at a time");
+        // A session without any: all three zero.
+        let calm = entry_of(&[]);
+        let Some(Value::Object(none)) = get(&calm, "verletzungen") else { panic!("verletzungen") };
+        assert_eq!((int(none, "leicht"), int(none, "mittel"), int(none, "schwer")), (0, 0, 0));
+    }
+
+    /// The shape of a game log of 04.11.2026: one injury is one `Added notification` line, followed by a line with
+    /// only its text and the lines of `<UpdateNotificationItem>`; it counts once.
+    #[test]
+    fn one_injury_in_the_shape_of_the_game_log_counts_once() {
+        let text = "Leichte Verletzung erkannt - Linker Arm - Behandlung der Stufe 3 erforderlich : ";
+        let log = format!(
+            "<2026-11-04T17:40:00.000Z> Start OnClientSpawned\n\
+             <2026-11-04T17:45:49.599Z> [Notice] <SHUDEvent_OnNotification> Added notification \"{text}\" [91] to queue. \
+             New queue size: 1, MissionId: [00000000-0000-0000-0000-000000000000], ObjectiveId: [] \
+             [Team_CoreGameplayFeatures][Missions][Comms]\n\
+             \"{text}\" [91]\n\
+             <2026-11-04T17:45:49.600Z> [Notice] <UpdateNotificationItem> Notification \"{text}\" [91], Action: Next\n\
+             <2026-11-04T17:45:54.600Z> [Notice] <UpdateNotificationItem> Notification \"{text}\" [91], Action: StartFade\n\
+             <2026-11-04T17:45:55.600Z> [Notice] <UpdateNotificationItem> Notification \"{text}\" [91], Action: Remove\n\
+             <2026-11-04T18:00:00.000Z> Ende\n"
+        );
+        let entry = read_log_text(&log, None).expect("Sitzung");
+        let Some(Value::Object(hurt)) = get(&entry, "verletzungen") else { panic!("verletzungen") };
+        assert_eq!((int(hurt, "leicht"), int(hurt, "mittel"), int(hurt, "schwer")), (1, 0, 0));
+    }
+
+    fn entry_of(lines: &[&str]) -> Map {
+        entry(lines, None)
     }
 
     #[test]

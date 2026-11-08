@@ -857,7 +857,7 @@ mod tests {
     fn german() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 

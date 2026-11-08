@@ -25,6 +25,7 @@
 //! pages. What the pages have no field for (play time, range of blueprints, icon, the notes in the game) is
 //! written straight to the settings file.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use egui::{RichText, Ui};
@@ -506,7 +507,7 @@ impl SamplePage {
                 if let Some(reason) = &wizard.storage_blocked {
                     ui.add_space(6.0);
                     let said = tf("ablage_gesperrt", &[("0", Arg::from(reason.as_str()))]);
-                    Self::state_line(ui, scheme.red, "circle-x", &said);
+                    Self::state_line(ui, scheme.red_text(), "circle-x", &said);
                 } else if self.store.is_some() && wizard.storage_at.is_finite() {
                     // The trial write went through: the folder is said to be good.
                     ui.add_space(6.0);
@@ -748,7 +749,7 @@ impl SamplePage {
         match wizard.reading.poll(ui.ctx(), &store.paths, folder).cloned() {
             Some(done) if !done.saved => {
                 // Nothing was marked as read: the reading can be done again once the folder can be written.
-                Self::state_line(ui, scheme.red, "circle-x", &t("ov_bestand_fehler"));
+                Self::state_line(ui, scheme.red_text(), "circle-x", &t("ov_bestand_fehler"));
             }
             Some(done) => {
                 let line = tf("nachgelesen_gross", &[("0", Arg::from(done.added)), ("1", Arg::from(done.files))]);
@@ -781,7 +782,7 @@ impl SamplePage {
             let (tx, rx) = mpsc::channel();
             let copy = store.paths.working_copy();
             let wake = ui.ctx().clone();
-            let started = std::thread::Builder::new().name("konten".into()).spawn(move || {
+            let started = std::thread::Builder::new().name("konten".into()).spawn_with_language(move || {
                 let _ = tx.send(detection::accounts(&copy));
                 wake.request_repaint();
             });
@@ -1254,7 +1255,7 @@ mod tests {
         let dir = super::super::real_data::folder(name);
         std::fs::write(dir.join("einstellungen.json"), "{}\n").unwrap();
         theme::set_current("original");
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         (SamplePage::with_settings(Paths::new(host_apart(&dir))), dir)
     }
 
@@ -2024,7 +2025,7 @@ mod tests {
         let dir = super::super::real_data::folder("einrichtung-gesperrt");
         let blocked = dir.join("kein-ordner");
         std::fs::write(&blocked, "ich bin eine Datei").unwrap();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let page = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&blocked, &[])));
         let mut bench = Bench::new(page);
         assert!(bench.page.open_setup_if_needed(), "nothing can be saved: the assistant comes");
@@ -2057,14 +2058,14 @@ mod tests {
             w.state.step = w.steps.iter().position(|s| *s == Step::Storage).unwrap();
         }
         for choice in [language::Choice::De, language::Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             let texts = bench.settle();
             assert!(shows(&texts, &language::t("ablage_ok")), "{choice:?}: {texts:?}");
             let blocked = language::t("ablage_gesperrt");
             let head = blocked.split('(').next().unwrap_or_default().trim();
             assert!(!shows(&texts, head), "{choice:?}: not blocked {texts:?}");
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2079,7 +2080,7 @@ mod tests {
             w.state.step = w.steps.len() - 1;
         }
         for choice in [language::Choice::De, language::Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             bench.settle();
             // The tips stand further down in the step that scrolls.
             scroll_step(&mut bench, -800.0);
@@ -2088,7 +2089,7 @@ mod tests {
             let again = tf("as_tipp_erneut", &[("0", Arg::from(language::t("hf_einrichtung")))]);
             assert!(shows(&texts, &again), "{choice:?}: {texts:?}");
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2308,7 +2309,7 @@ mod tests {
         let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
         assert!(file.contains("\"overlay_modus\": \"popup\""), "{file}");
         assert!(file.contains("\"deckkraft_prozent\": 61"), "{file}");
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2391,7 +2392,7 @@ mod tests {
             ] {
                 // The scheme of this test thread only: the scheme of the program is one for all tests side by side.
                 theme::set_thread_current(scheme_id);
-                language::set_language(lang);
+                language::set_thread_language(lang);
                 // What the window shows without the assistant stands behind it: only the rest is the assistant's.
                 page.setup = None;
                 let behind = draw(&mut page, width, height, false);
@@ -2519,7 +2520,7 @@ mod tests {
                 }
             }
         }
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         theme::set_thread_current("original");
         let _ = std::fs::remove_dir_all(dir);
         assert!(findings.is_empty(), "{}", findings.join("\n"));

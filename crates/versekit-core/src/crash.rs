@@ -353,6 +353,38 @@ pub fn clear_crash(paths: &Paths) -> bool {
     true
 }
 
+/// The setting that holds which crash of the main window the player was told of: the time of its file in
+/// milliseconds since 1970.
+pub const TOLD_SETTING: &str = "absturz_gemeldet";
+
+/// A crash of the last run of the main window the player was not told of yet: its first line, when and in which
+/// version.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Untold {
+    pub first: String,
+    pub at: Option<f64>,
+    pub version: String,
+}
+
+/// The mark of the set-aside crash: the time of its file in milliseconds, 0 where the time cannot be read.
+fn crash_mark(paths: &Paths) -> i64 {
+    crash_time(paths).map_or(0, |at| (at * 1000.0).round() as i64)
+}
+
+/// The set-aside crash of the main window, where the player was not told of it yet; `None` without one.
+pub fn untold(paths: &Paths) -> Option<Untold> {
+    let first = last_crash(paths).into_iter().next()?;
+    if paths.setting_int(TOLD_SETTING, -1, None, None) == crash_mark(paths) {
+        return None;
+    }
+    Some(Untold { first, at: crash_time(paths), version: crash_version(paths) })
+}
+
+/// Notes that the player was told of the set-aside crash: [`untold`] has nothing until the next crash.
+pub fn mark_told(paths: &Paths) -> bool {
+    paths.set_setting(TOLD_SETTING, crate::jsonio::Value::int(crash_mark(paths)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -387,6 +419,35 @@ mod tests {
         assert!(clear_crash(&paths));
         assert!(last_crash(&paths).is_empty());
         assert_eq!(crash_version(&paths), "");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A crash is told once: after the mark it is not untold any more, a newer crash is, and a clean run has none.
+    #[test]
+    fn a_crash_is_untold_until_marked_and_the_next_crash_is_new() {
+        let (paths, dir) = paths_in("gemeldet");
+        assert!(install(&paths, "5.2.0"));
+        assert_eq!(untold(&paths), None, "no crash");
+        fs::write(dir.join(FILE), "Fatal error: panic: eins\n\nCurrent thread 'main':\n").unwrap();
+        assert!(install(&paths, "5.2.1"));
+        let found = untold(&paths).expect("the crash of the run before");
+        assert_eq!(found.first, "Fatal error: panic: eins");
+        assert_eq!(found.version, "5.2.0");
+        assert!(found.at.is_some());
+        assert!(mark_told(&paths));
+        assert_eq!(untold(&paths), None, "told once");
+        // A clean run keeps the crash set aside and still told.
+        assert!(install(&paths, "5.2.1"));
+        assert_eq!(untold(&paths), None, "not again after a clean run");
+        // A new crash, a little later: untold again.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        fs::write(dir.join(FILE), "Fatal error: panic: zwei\n").unwrap();
+        assert!(install(&paths, "5.2.1"));
+        assert_eq!(untold(&paths).map(|u| u.first).as_deref(), Some("Fatal error: panic: zwei"));
+        // Cleared ("Nicht senden"): nothing is left to tell, nor in the report.
+        assert!(clear_crash(&paths));
+        assert_eq!(untold(&paths), None);
+        assert!(last_crash(&paths).is_empty());
         let _ = fs::remove_dir_all(&dir);
     }
 

@@ -30,6 +30,7 @@
 //! The fetch itself is [`crate::trade::fetch_slots`] on its own thread; the pages read the store again when the
 //! file changed.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::Duration;
@@ -173,7 +174,7 @@ impl SlotSync {
         run.running = true;
         drop(run);
         let inner = Arc::clone(&self.inner);
-        let started = std::thread::Builder::new().name("erkul-steckplaetze".to_string()).spawn(move || work(&inner));
+        let started = std::thread::Builder::new().name("erkul-steckplaetze".to_string()).spawn_with_language(move || work(&inner));
         if started.is_err() {
             if let Ok(mut run) = self.inner.run.lock() {
                 run.running = false;

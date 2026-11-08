@@ -23,6 +23,7 @@
 //! ⚠ Names, conditions, titles and texts are the words of CIG and stay as they are; the colours of the lights
 //! come from the colour scheme, so they read in every scheme.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
 
@@ -191,7 +192,7 @@ impl ServerStatusState {
         let net = Arc::clone(net);
         let lock = versekit_core::writeguard::state();
         let wake = ctx.clone();
-        let started = std::thread::Builder::new().name("serverstatus".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("serverstatus".into()).spawn_with_language(move || {
             versekit_core::writeguard::adopt(&lock);
             let fetched = if look {
                 let (state, changed) = serverstatus::ask(&own, net.as_ref(), now());
@@ -219,7 +220,7 @@ impl ServerStatusState {
         let net = Arc::clone(net);
         let lock = versekit_core::writeguard::state();
         let wake = ctx.clone();
-        let started = std::thread::Builder::new().name("serverstatus-meldungen".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("serverstatus-meldungen".into()).spawn_with_language(move || {
             versekit_core::writeguard::adopt(&lock);
             let _ = sender.send(serverstatus::messages(&own, net.as_ref(), now(), MONTHS, NOTICES));
             wake.request_repaint();
@@ -292,7 +293,7 @@ fn light_colour(scheme: &Scheme, light: &str) -> Color {
     match light {
         "ok" => scheme.accent,
         "hinweis" => scheme.blue,
-        "aus" => scheme.red,
+        "aus" => scheme.red_text(),
         _ => scheme.yellow,
     }
 }

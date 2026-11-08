@@ -619,7 +619,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 

@@ -29,6 +29,7 @@
 //! date builds a fresh one first (sending then waits for the player to read
 //! it).
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
@@ -105,7 +106,7 @@ impl TestReceiver {
         let record = Arc::clone(&seen);
         std::thread::Builder::new()
             .name("test-empfaenger".into())
-            .spawn(move || {
+            .spawn_with_language(move || {
                 for stream in listener.incoming().filter_map(Result::ok) {
                     if let Some(request) = Self::read_request(stream)
                         && let Ok(mut list) = record.lock()
@@ -436,7 +437,7 @@ impl DiagnoseState {
         let (sender, receiver) = channel();
         let repaint = ctx.clone();
         self.stale = false;
-        let started = std::thread::Builder::new().name("bericht-bauen".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("bericht-bauen".into()).spawn_with_language(move || {
             writeguard::adopt(&guard);
             let _ = sender.send(Self::make(&paths, &env, inputs));
             repaint.request_repaint();
@@ -648,7 +649,7 @@ impl DiagnoseState {
         let host = self.paths.host.clone();
         let (sender, receiver) = channel();
         let repaint = ctx.clone();
-        let started = std::thread::Builder::new().name("bericht-senden".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("bericht-senden".into()).spawn_with_language(move || {
             writeguard::adopt(&guard);
             let transport: Result<Arc<dyn Transport>, SendFailure> = match via {
                 SendVia::Transport(transport) => Ok(transport),
@@ -792,7 +793,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut DiagnoseState) {
         if let Some((text, tone)) = &state.notice {
             let tone = match tone {
                 Tone::Good => scheme.accent,
-                Tone::Bad => scheme.red,
+                Tone::Bad => scheme.red_text(),
                 Tone::Quiet => scheme.sub,
             };
             small(ui, text, color(tone));
@@ -830,7 +831,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut DiagnoseState) {
                 state.last_edit = now;
             }
             if state.asked_for_sentence && state.message.trim().is_empty() {
-                small(ui, &t("s_di_ohne_satz_feld"), color(scheme.red));
+                small(ui, &t("s_di_ohne_satz_feld"), color(scheme.red_text()));
             }
         });
 
@@ -917,7 +918,7 @@ mod tests {
     /// texts the page shows are the ones the test asks for.
     fn german() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         guard
     }
 
@@ -1386,7 +1387,7 @@ mod tests {
         state.set_message(&"Ein langer Satz ohne Ende, der umbrechen muss. ".repeat(12));
         let mut findings = Vec::new();
         for choice in [language::Choice::De, language::Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             for id in ["original", "krt"] {
                 versekit_core::theme::set_thread_current(id);
                 for points in [0, 3, 7] {
@@ -1422,7 +1423,7 @@ mod tests {
                 }
             }
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         versekit_core::theme::set_thread_current(versekit_core::theme::DEFAULT);
         let _ = std::fs::remove_dir_all(&dir);
         assert!(findings.is_empty(), "abgeschnitten ({}):\n{}", findings.len(), findings.join("\n"));

@@ -426,20 +426,44 @@ pub fn set_done(entry: &mut Map, path: &str, on: bool) -> bool {
 /// can stand in the hangar and on the wish list at once (a second copy), and
 /// the tick belongs to exactly one of them.
 pub fn tick(data: &mut Map, origin: Origin, ship: &str, paths: &[String], on: bool) -> bool {
+    tick_and_ready(data, origin, ship, paths, on).changed
+}
+
+/// What a tick did.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Ticked {
+    /// Whether a tick was set or taken back.
+    pub changed: bool,
+    /// Whether the ship of the hangar went on ready because its last part was ticked off.
+    pub went_ready: bool,
+}
+
+/// Whether ticking `paths` on `entry` would change something.
+fn would_tick(entry: &Map, paths: &[String], on: bool) -> bool {
+    let differs = |slot: &Map| !slot.is_empty() && truthy(get(slot, "erledigt")) != on;
+    paths.iter().any(|path| slot_of(entry, path).is_some_and(differs))
+}
+
+/// [`tick`], and a ship of the hangar whose plan is ticked off completely by it goes on ready.
+///
+/// ⚠ Several ships can have one name (two of a kind): the bill knows them by their name only, so the tick goes to
+/// the first of them that it changes anything on, and only that one can go on ready. A planned ship never does:
+/// it is not in the hangar yet and has no switch.
+pub fn tick_and_ready(data: &mut Map, origin: Origin, ship: &str, paths: &[String], on: bool) -> Ticked {
     let key = if origin == Origin::Wishlist { "wunsch" } else { "schiffe" };
-    let Some((_, Value::Array(list))) = data.iter_mut().find(|(k, _)| k == key) else { return false };
-    for item in list {
-        if let Value::Object(entry) = item
-            && text(entry, "name") == ship
-        {
-            let mut changed = false;
-            for path in paths {
-                changed |= set_done(entry, path, on);
-            }
-            return changed;
-        }
+    let Some((_, Value::Array(list))) = data.iter_mut().find(|(k, _)| k == key) else { return Ticked::default() };
+    let same_name = |item: &Value| matches!(item, Value::Object(entry) if text(entry, "name") == ship);
+    let changes = |item: &Value| matches!(item, Value::Object(entry) if would_tick(entry, paths, on));
+    // The first ship of the name that the tick changes something on; failing that, the first of the name.
+    let at = list.iter().position(|item| same_name(item) && changes(item)).or_else(|| list.iter().position(same_name));
+    let Some(Value::Object(entry)) = at.map(|at| &mut list[at]) else { return Ticked::default() };
+    let was_fitted = crate::hangar::fully_fitted(entry);
+    let mut changed = false;
+    for path in paths {
+        changed |= set_done(entry, path, on);
     }
-    false
+    let went_ready = changed && on && origin == Origin::Hangar && crate::hangar::ready_when_fitted(entry, was_fitted);
+    Ticked { changed, went_ready }
 }
 
 // ------------------------------------------------------------ the lines
@@ -1577,5 +1601,90 @@ mod tests {
         // A ship without an equipment gets one when a part is put in.
         let mut bare = data(r#"{"name": "Bare"}"#);
         assert!(set_part(&mut bare, "p", "r", "R", BUY) && !loadout(&bare).is_empty());
+    }
+
+    fn ships_of<'a>(fleet: &'a Map, list: &str) -> Vec<&'a Map> {
+        entries_of(fleet, list)
+    }
+
+    fn ready(entry: &Map) -> bool {
+        crate::hangar::field_true(entry, "einsatzbereit")
+    }
+
+    #[test]
+    fn the_last_tick_puts_a_ship_of_the_hangar_on_ready_and_only_once() {
+        let mut fleet = data(
+            r#"{"schiffe": [{"name": "Gladius", "belegung": {"a": {"ref": "x", "erledigt": true}, "b": {"ref": "y"}}}]}"#,
+        );
+        let a = ["a".to_string()];
+        let b = ["b".to_string()];
+        // A tick that leaves a part open does nothing to the switch.
+        assert_eq!(tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &a, true), Ticked::default());
+        assert!(!ready(ships_of(&fleet, "schiffe")[0]));
+        // The last one switches it on.
+        let last = tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &b, true);
+        assert_eq!(last, Ticked { changed: true, went_ready: true });
+        assert!(ready(ships_of(&fleet, "schiffe")[0]));
+        // Switched off by the player: it stays off while the plan stays complete...
+        let Some((_, Value::Array(list))) = fleet.iter_mut().find(|(k, _)| k == "schiffe") else { panic!("list") };
+        let Some(Value::Object(ship)) = list.first_mut() else { panic!("ship") };
+        map_set(ship, "einsatzbereit", Value::Bool(false));
+        crate::hangar::note_switched_off(ship);
+        assert_eq!(tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &b, true), Ticked::default());
+        assert!(!ready(ships_of(&fleet, "schiffe")[0]), "ticking what is ticked brings nothing back");
+        // A tick taken back and set again completes the same plan once more: it stays off.
+        assert!(tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &b, false).changed);
+        let again = tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &b, true);
+        assert_eq!(again, Ticked { changed: true, went_ready: false });
+        assert!(!ready(ships_of(&fleet, "schiffe")[0]), "the same plan, switched off: it stays off");
+        // ...and a part that comes in and is ticked off brings it on again, once.
+        let Some((_, Value::Array(list))) = fleet.iter_mut().find(|(k, _)| k == "schiffe") else { panic!("list") };
+        let Some(Value::Object(ship)) = list.first_mut() else { panic!("ship") };
+        assert!(set_part(ship, "c", "z", "Z", BUY));
+        assert!(!ready(ships_of(&fleet, "schiffe")[0]));
+        let c = ["c".to_string()];
+        assert!(tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &c, true).went_ready);
+        assert!(ready(ships_of(&fleet, "schiffe")[0]));
+    }
+
+    #[test]
+    fn a_tick_taken_back_never_switches_and_a_ship_that_is_ready_is_not_told_again() {
+        let mut fleet = data(r#"{"schiffe": [{"name": "Gladius", "einsatzbereit": true,
+            "belegung": {"a": {"ref": "x"}}}]}"#);
+        let a = ["a".to_string()];
+        // Ready already: ticking the last part is no news.
+        assert_eq!(
+            tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &a, true),
+            Ticked { changed: true, went_ready: false }
+        );
+        let back = tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &a, false);
+        assert_eq!(back, Ticked { changed: true, went_ready: false });
+        assert!(ready(ships_of(&fleet, "schiffe")[0]), "taking a tick back leaves the switch as it is");
+    }
+
+    #[test]
+    fn the_tick_of_one_ship_does_not_touch_another_of_the_same_name_or_a_planned_one() {
+        let mut fleet = data(
+            r#"{"schiffe": [
+                {"name": "Gladius", "belegung": {"a": {"ref": "x", "erledigt": true}}},
+                {"name": "Gladius", "belegung": {"a": {"ref": "x"}, "b": {"ref": "y"}}}],
+               "wunsch": [{"name": "Gladius", "belegung": {"a": {"ref": "x"}}}]}"#,
+        );
+        let a = ["a".to_string()];
+        let b = ["b".to_string()];
+        // The first Gladius has "a" ticked already: the tick goes to the second one, which has something to tick.
+        assert!(!tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &a, true).went_ready);
+        let ships = ships_of(&fleet, "schiffe");
+        assert!(is_done(ships[1], "a") && !is_done(ships[1], "b"), "the second one changed");
+        assert!(!ready(ships[0]) && !ready(ships[1]));
+        // Its last part: the second one goes on ready, the first one (long complete) does not.
+        assert!(tick_and_ready(&mut fleet, Origin::Hangar, "Gladius", &b, true).went_ready);
+        let ships = ships_of(&fleet, "schiffe");
+        assert!(!ready(ships[0]) && ready(ships[1]));
+        // A planned ship is ticked off but never goes on ready, and the owned ones stay as they are.
+        let planned = tick_and_ready(&mut fleet, Origin::Wishlist, "Gladius", &a, true);
+        assert_eq!(planned, Ticked { changed: true, went_ready: false });
+        assert!(!ready(ships_of(&fleet, "wunsch")[0]));
+        assert!(!ready(ships_of(&fleet, "schiffe")[0]));
     }
 }

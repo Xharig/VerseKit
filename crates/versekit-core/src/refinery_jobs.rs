@@ -289,6 +289,7 @@ mod tests {
             state,
             remaining,
             cells: Vec::new(),
+            station: String::new(),
         }
     }
 
@@ -355,7 +356,7 @@ mod tests {
 
     #[test]
     fn the_label_names_two_materials_and_the_sum() {
-        crate::language::set_language(crate::language::Choice::De);
+        crate::language::set_thread_language(crate::language::Choice::De);
         let label = job(r#"{"materials": ["Gold", "Gold", "Iron", "Quarz"], "total": "12.5"}"#);
         assert_eq!(job_label(&label, 2), "Gold, Iron … · 12,5 cSCU");
         assert_eq!(job_label(&job(r#"{"materials": []}"#), 2), "?");

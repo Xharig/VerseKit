@@ -56,8 +56,8 @@ pub fn sources(own: &str) -> &'static [&'static str] {
 }
 /// The page with all releases, for fetching by hand.
 pub const PAGE: &str = "https://github.com/Xharig/VerseKit/releases";
-/// What the servers see of the program. It names the old name too, so that lists that know it still do.
-pub const USER_AGENT: &str = "VerseKit (ehemals SC-BP-Watcher) (+https://github.com/Xharig/VerseKit)";
+/// What the servers see of the program.
+pub const USER_AGENT: &str = crate::net::USER_AGENT;
 /// The remembered releases, in `Intern`.
 pub const CACHE: &str = "versionen.json";
 /// How long one look at GitHub holds, in seconds: at most six requests an hour, far below the 60 GitHub allows

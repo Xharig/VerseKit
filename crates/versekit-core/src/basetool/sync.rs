@@ -47,6 +47,7 @@ use crate::basetool::schedule::{MIN_WAIT, Schedule};
 use crate::basetool::scopes::{self, AREAS, SETTING_LABEL, Switches, all_in};
 use crate::basetool::state;
 use crate::jsonio::{Map, Value, map_set};
+use crate::language::SpawnWithLanguage as _;
 use crate::logsource::ALL_ACCOUNTS;
 use crate::paths::Paths;
 use crate::writeguard;
@@ -262,6 +263,8 @@ struct Engine {
     passing: Mutex<()>,
     /// Time and size of `bestand.json` at the last look; `None` before the first.
     collection_seen: Mutex<Option<Option<FileStamp>>>,
+    /// The end of a wait after `Retry-After` the last pass left in the state.
+    resume_at: Mutex<Option<f64>>,
 }
 
 /// When a file was written and how long it is.
@@ -460,6 +463,7 @@ impl Engine {
             }
         }
         *lock(&self.locations) = locations;
+        *lock(&self.resume_at) = crate::basetool::pacing::wait_until(&state, self.now());
 
         // A reminder only where a new login helps: rights the Basetool does
         // not offer yet cannot be granted.
@@ -529,8 +533,15 @@ impl Engine {
             self.collection_taken();
             let now = self.now();
             let pending = !lock(&self.inbox).is_empty();
+            let resume = lock(&self.resume_at).take();
             match result {
-                Ok(()) => lock(&self.schedule).succeeded(now, pending),
+                Ok(()) => {
+                    let mut schedule = lock(&self.schedule);
+                    schedule.succeeded(now, pending);
+                    if let Some(at) = resume {
+                        schedule.resume_at(at);
+                    }
+                }
                 Err(error) => lock(&self.schedule).failed(now, error.action(), error.retry_after, jitter()),
             }
             (self.waker)();
@@ -636,7 +647,7 @@ impl SyncHandle {
         handle.watch_saves();
         let worker = {
             let engine = handle.engine.clone();
-            std::thread::Builder::new().name("basetool-sync".into()).spawn(move || engine.work()).ok()
+            std::thread::Builder::new().name("basetool-sync".into()).spawn_with_language(move || engine.work()).ok()
         };
         *lock(&handle.worker) = worker;
         handle
@@ -673,6 +684,7 @@ impl SyncHandle {
             guard: writeguard::state(),
             passing: Mutex::new(()),
             collection_seen: Mutex::new(None),
+            resume_at: Mutex::new(None),
         });
         SyncHandle {
             engine,
@@ -880,7 +892,7 @@ impl SyncHandle {
     /// because a running pass holds the areas.
     pub fn switched(&self) {
         let handle = self.clone();
-        let spawned = std::thread::Builder::new().name("basetool-switch".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("basetool-switch".into()).spawn_with_language(move || {
             let engine = &handle.engine;
             writeguard::adopt(&engine.guard);
             let capabilities = engine.status.get().1.map(|s| s.capabilities.clone()).unwrap_or_default();
@@ -909,7 +921,7 @@ impl SyncHandle {
     pub fn job<R: Send + 'static>(&self, work: impl FnOnce(&Connection) -> R + Send + 'static) -> Job<R> {
         let (send, answer) = std::sync::mpsc::channel();
         let engine = self.engine.clone();
-        let spawned = std::thread::Builder::new().name("basetool-job".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("basetool-job".into()).spawn_with_language(move || {
             writeguard::adopt(&engine.guard);
             let _ = send.send(work(&engine.conn));
             (engine.waker)();
@@ -933,7 +945,7 @@ impl SyncHandle {
         self.login.publish(Login::Starting);
         (self.engine.waker)();
         let handle = self.clone();
-        let spawned = std::thread::Builder::new().name("basetool-login".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("basetool-login".into()).spawn_with_language(move || {
             writeguard::adopt(&handle.engine.guard);
             // A failure inside must not leave "getting a code" on the page for good.
             let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handle.run_login(round, &wanted)));

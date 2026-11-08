@@ -17,7 +17,7 @@
 
 use egui::{Event, Modifiers, PointerButton, Pos2, RawInput, Rect, pos2, vec2};
 use versekit_core::jsonio;
-use versekit_core::language::{Choice, set_language};
+use versekit_core::language::{Choice, set_thread_language};
 use versekit_core::paths::{COPY_DATA_FOLDER, Host};
 use versekit_core::signature_scan::Gray;
 use versekit_core::testdir;
@@ -197,7 +197,7 @@ fn the_model_says_what_it_shows_in_both_languages_and_stays_inside_a_narrow_page
     let scheme = versekit_core::theme::current();
     let mut seen = Vec::new();
     for choice in [Choice::De, Choice::En] {
-        set_language(choice);
+        set_thread_language(choice);
         let (game, pill) = (t("s_sg_modell_spiel"), signature_window::with_thousands(EXAMPLE));
         seen.push(game.clone());
         for width in [260.0, 700.0] {
@@ -223,7 +223,7 @@ fn the_model_says_what_it_shows_in_both_languages_and_stays_inside_a_narrow_page
         }
     }
     assert_ne!(seen[0], seen[1], "the model is named in both languages");
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
 }
 
 #[test]
@@ -324,6 +324,7 @@ fn the_settings_of_the_scanner_go_to_the_file_under_their_names_and_come_back() 
         linger: 12,
     };
     state.search_frame = Some([300, 20, 400, 120]);
+    state.delay = 20;
     for (key, value) in state.setting_values() {
         assert!(paths.set_setting(key, value), "{key}");
     }
@@ -331,6 +332,7 @@ fn the_settings_of_the_scanner_go_to_the_file_under_their_names_and_come_back() 
     assert!(again.on);
     assert_eq!(again.layout, state.layout);
     assert_eq!(again.search_frame, Some([300, 20, 400, 120]));
+    assert_eq!(again.delay, 20, "the seconds before the picture of the game");
     let names: Vec<&str> = state.setting_values().iter().map(|(k, _)| *k).collect();
     assert_eq!(
         names,
@@ -342,7 +344,8 @@ fn the_settings_of_the_scanner_go_to_the_file_under_their_names_and_come_back() 
             "signatur_overlay_zeile",
             "signatur_fenster_ort",
             "signatur_fenster_nachlauf",
-            "signatur_rahmen"
+            "signatur_rahmen",
+            "spielbild_wartezeit"
         ]
     );
     // The old choice "Abbau mit" in the settings file is ignored without a word.
@@ -688,11 +691,15 @@ fn the_buttons_and_the_line_of_the_game_picture_fit_into_the_cards_in_both_langu
     let ctx = context();
     let scheme = versekit_core::theme::current();
     for choice in [Choice::De, Choice::En] {
-        set_language(choice);
+        set_thread_language(choice);
         let mut state = ScannerState::with_files(&paths);
         state.search_frame = Some([300, 20, 400, 120]);
-        // While it waits: the line with the countdown and the blocked button.
-        state.start_fetch_from(&ctx, 0.0, Box::new(MadeScreen(None)), std::time::Duration::from_millis(1500));
+        // While it waits: the line with the countdown, the button that stops it and the hint of the hotkey.
+        // The longest kind of combination: all three modifier keys and F12.
+        let longest = versekit_core::overlay::Hotkey { ctrl: true, alt: true, shift: true, key: 0x7b }.text();
+        state.hotkey = Some(longest.clone());
+        let (delay, wait) = (Duration::from_secs(30), Duration::ZERO);
+        state.start_fetch_from(&ctx, 0.0, Box::new(MadeScreen(None)), delay, wait);
         for width in [300.0, 420.0, 610.0, 900.0] {
             let (mut over, mut shown) = (0.0f32, Vec::new());
             for _ in 0..2 {
@@ -707,21 +714,24 @@ fn the_buttons_and_the_line_of_the_game_picture_fit_into_the_cards_in_both_langu
                 shown = texts(&out.shapes);
             }
             assert!(over <= 0.5, "{choice:?} sticks out by {over} at {width}");
-            for key in ["s_sg_rahmen_weg", "s_sg_rahmen_zeigen", "s_sg_bild_holen"] {
-                if key != "s_sg_bild_holen" || versekit_core::screen_grab::supported() {
+            let grab = versekit_core::screen_grab::supported();
+            for key in ["s_sg_rahmen_weg", "s_sg_rahmen_zeigen", "s_sg_bild_abbrechen"] {
+                if key != "s_sg_bild_abbrechen" || grab {
                     assert!(shown.iter().any(|s| s.eq_ignore_ascii_case(&t(key))), "{choice:?} {width}: {key} missing in {shown:?}");
                 }
             }
-        }
-        for _ in 0..400 {
-            state.poll_fetch(&ctx);
-            if state.fetch.is_none() {
-                break;
+            if grab {
+                let hotkey = tf("s_sg_bild_kuerzel", &[("0", Arg::from(longest.as_str()))]);
+                // A hint may wrap into lines of its own: its words are all there.
+                let all = shown.join(" ");
+                for word in hotkey.split_whitespace() {
+                    assert!(all.contains(word), "{choice:?} {width}: {word} of the hotkey hint missing in {shown:?}");
+                }
             }
-            std::thread::sleep(std::time::Duration::from_millis(10));
         }
+        state.cancel_fetch();
     }
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
 }
 
 // ------------------------------------------------------------ the picture of the game behind the models
@@ -796,7 +806,7 @@ fn a_frame_drawn_around_the_signature_in_the_picture_is_read_and_shown_in_the_ga
 #[test]
 fn both_models_stand_on_the_picture_of_the_game_and_without_one_on_the_grey_ground_with_a_line() {
     let _language = crate::language_lock();
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
     let paths = copy("scanner-ui-spielbild");
     let ctx = context();
     let scheme = versekit_core::theme::current();
@@ -842,7 +852,7 @@ fn both_models_stand_on_the_picture_of_the_game_and_without_one_on_the_grey_grou
     }
     // A picture in the file: both models stand on it, the line goes, the button fetches anew.
     let picture = GamePicture::from_bgra(&game_screen(1720, 720, (800, 60, 120, 30)), 1720, 720).expect("a picture");
-    assert!(picture.write(&paths.app_file(crate::game_picture::FILE)));
+    assert!(picture.write(&paths.app_file(game_picture::FILE)));
     let mut state = ScannerState::with_files(&paths);
     let with = draw(&mut state);
     assert_eq!(large(&with), 2, "both models on the picture");
@@ -867,7 +877,7 @@ impl Source for MadeScreen {
 #[test]
 fn the_fetch_keeps_the_picture_in_the_folder_intern_says_the_countdown_and_says_when_the_game_did_not_come() {
     let _language = crate::language_lock();
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
     let paths = copy("scanner-ui-holen");
     let ctx = context();
     let mut state = ScannerState::with_files(&paths);
@@ -884,19 +894,180 @@ fn the_fetch_keeps_the_picture_in_the_folder_intern_says_the_countdown_and_says_
         }
         panic!("the fetch did not end");
     };
-    state.start_fetch_from(&ctx, 10.0, Box::new(MadeScreen(Some((0, 0, 1600, 900)))), wait);
-    assert_eq!(state.ground_line(13.2), Some(tf("s_sg_bild_warte", &[("0", Arg::from(57i64))])));
+    state.start_fetch_from(&ctx, 10.0, Box::new(MadeScreen(Some((0, 0, 1600, 900)))), Duration::ZERO, wait);
+    assert_eq!(state.ground_line(13.2), Some(t("s_sg_bild_laeuft")), "no time to let pass: it waits for the game");
     settle(&mut state);
     assert_eq!(state.picture.as_ref().map(|p| p.game), Some((1600, 900)));
-    let file = paths.app_file(crate::game_picture::FILE);
+    let file = paths.app_file(game_picture::FILE);
     assert!(file.replace('\\', "/").contains("/Intern/"), "{file}");
     assert_eq!(GamePicture::read(&file).map(|p| p.game), Some((1600, 900)));
     assert_eq!(state.ground_line(20.0), None, "a picture: nothing to say");
     // The game does not come: said, and the picture before stays.
-    state.start_fetch_from(&ctx, 30.0, Box::new(MadeScreen(None)), std::time::Duration::from_millis(30));
+    state.start_fetch_from(&ctx, 30.0, Box::new(MadeScreen(None)), Duration::ZERO, Duration::from_millis(30));
     settle(&mut state);
     assert_eq!(state.ground_line(40.0), Some(t("s_sg_bild_kein_spiel")));
     assert_eq!(state.picture.as_ref().map(|p| p.game), Some((1600, 900)));
+}
+
+/// The chosen seconds count down in the line over the models; then it waits for the game. A second click while it
+/// runs starts nothing new, and stopping it grabs nothing and keeps no file.
+#[test]
+fn the_countdown_says_the_seconds_left_and_stopping_it_grabs_nothing() {
+    let _language = crate::language_lock();
+    set_thread_language(Choice::De);
+    let paths = copy("scanner-ui-countdown");
+    let ctx = context();
+    let mut state = ScannerState::with_files(&paths);
+    assert_eq!(state.delay, game_picture::DEFAULT_DELAY, "ten seconds without a setting");
+    let game = Some((0, 0, 1600, 900));
+    let left = |n: i64| Some(tf("s_sg_bild_warte", &[("0", Arg::from(n))]));
+    state.start_fetch_from(&ctx, 100.0, Box::new(MadeScreen(game)), Duration::from_secs(20), game_picture::WAIT);
+    assert!(state.fetching());
+    assert_eq!(state.ground_line(100.0), left(20));
+    assert_eq!(state.ground_line(107.5), left(13));
+    assert_eq!(state.ground_line(119.2), left(1));
+    assert_eq!(state.ground_line(120.0), Some(t("s_sg_bild_laeuft")), "the time is over: it waits for the game");
+    state.start_fetch_from(&ctx, 110.0, Box::new(MadeScreen(game)), Duration::from_secs(5), game_picture::WAIT);
+    assert_eq!(state.ground_line(107.5), left(13), "a second click starts nothing new");
+    state.cancel_fetch();
+    assert!(!state.fetching());
+    let after = if versekit_core::screen_grab::supported() { Some(t("s_sg_bild_keins")) } else { None };
+    assert_eq!(state.ground_line(108.0), after, "stopped: no countdown, nothing failed");
+    // The thread ends at its next look without a grab.
+    std::thread::sleep(game_picture::LOOK_EVERY * 3);
+    assert_eq!(GamePicture::read(&paths.app_file(game_picture::FILE)), None, "nothing grabbed, nothing kept");
+    state.poll_fetch(&ctx);
+    assert_eq!(state.picture, None);
+}
+
+/// A made-up screen with the game in front that counts how often it was asked for the game.
+struct Watched(Arc<std::sync::atomic::AtomicUsize>);
+
+impl Source for Watched {
+    fn game(&mut self) -> Option<(i32, i32, i32, i32)> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Some((0, 0, 1600, 900))
+    }
+    fn grab(&mut self, area: (i32, i32, i32, i32)) -> Result<Vec<u8>, versekit_core::screen_grab::GrabError> {
+        Ok(game_screen(area.2, area.3, (10, 10, 20, 20)))
+    }
+}
+
+/// Stopping a fetch stops its thread too: once its short wait is over, it never asks for the game, and nothing is
+/// grabbed or kept. The same fetch left alone does ask.
+#[test]
+fn stopping_a_fetch_stops_its_thread_before_it_looks_at_the_game() {
+    let paths = copy("scanner-ui-stopp");
+    let ctx = context();
+    let delay = Duration::from_millis(150);
+    // Long enough for the wait and a few looks of the thread.
+    let after = delay + game_picture::LOOK_EVERY * 3;
+    let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut state = ScannerState::with_files(&paths);
+    state.start_fetch_from(&ctx, 0.0, Box::new(Watched(asked.clone())), delay, game_picture::WAIT);
+    state.cancel_fetch();
+    std::thread::sleep(after);
+    assert_eq!(asked.load(Ordering::SeqCst), 0, "stopped: the game is never asked for");
+    assert_eq!(GamePicture::read(&paths.app_file(game_picture::FILE)), None, "nothing grabbed, nothing kept");
+    // Left alone, the same fetch asks once its wait is over.
+    let seen = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    state.start_fetch_from(&ctx, 1.0, Box::new(Watched(seen.clone())), delay, game_picture::WAIT);
+    std::thread::sleep(after);
+    assert!(seen.load(Ordering::SeqCst) >= 1, "not stopped: it looks");
+    state.cancel_fetch();
+}
+
+/// The button of the picture: a click starts the countdown of the chosen seconds, and while it runs the button
+/// stops it.
+#[test]
+fn the_button_starts_the_countdown_and_while_it_runs_stops_it() {
+    if !versekit_core::screen_grab::supported() {
+        return;
+    }
+    let _language = crate::language_lock();
+    set_thread_language(Choice::De);
+    let paths = copy("scanner-ui-knopf");
+    let ctx = context();
+    let scheme = versekit_core::theme::current();
+    let mut state = ScannerState::with_files(&paths);
+    state.delay = 30;
+    // A made-up screen: the check never grabs the real one.
+    state.screen = || Box::new(MadeScreen(None));
+    // Draws the cards; gives the texts and where the text `wanted` stands.
+    let frame =|state: &mut ScannerState, events: Vec<Event>, time: f64, wanted: &str| {
+        let mut out = ctx.run_ui(
+            RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(700.0, 1400.0))),
+                ..input(events, time)
+            },
+            |ui| model_cards(ui, scheme, state, ["Lage", "", "x"], ["Rahmen", "", "y"]),
+        );
+        out.textures_delta.clear();
+        let at = out.shapes.iter().find_map(|clipped| match &clipped.shape {
+            egui::epaint::Shape::Text(text) if text.galley.text() == wanted => Some(text.visual_bounding_rect().center()),
+            _ => None,
+        });
+        (texts(&out.shapes), at)
+    };
+    let fetch = t("s_sg_bild_holen");
+    let (_, at) = frame(&mut state, vec![], 1.0, &fetch);
+    let at = at.expect("the button to fetch");
+    frame(&mut state, press(at), 1.1, &fetch);
+    frame(&mut state, vec![release(at)], 1.2, &fetch);
+    assert!(state.fetching(), "the click started it");
+    let stop = t("s_sg_bild_abbrechen");
+    let (shown, at) = frame(&mut state, vec![], 3.0, &stop);
+    assert!(!shown.contains(&fetch), "while it runs no second fetch: {shown:?}");
+    let countdown = tf("s_sg_bild_warte", &[("0", Arg::from(29i64))]);
+    assert!(shown.contains(&countdown), "{countdown} in {shown:?}");
+    let at = at.expect("the button to stop");
+    frame(&mut state, press(at), 3.1, &stop);
+    frame(&mut state, vec![release(at)], 3.2, &stop);
+    assert!(!state.fetching(), "the click stopped it");
+    let (shown, _) = frame(&mut state, vec![], 3.5, &fetch);
+    assert!(shown.contains(&fetch), "the button to fetch is back: {shown:?}");
+}
+
+/// A picture the hotkey of the overlay took comes into the window: it replaces the one shown, and a countdown still
+/// running is not needed any more.
+#[test]
+fn a_picture_the_hotkey_took_replaces_the_one_shown_and_ends_the_countdown() {
+    let paths = copy("scanner-ui-kuerzel");
+    let ctx = context();
+    let file = paths.app_file(game_picture::FILE);
+    let first = GamePicture::from_bgra(&game_screen(1600, 900, (10, 10, 20, 20)), 1600, 900).expect("a picture");
+    assert!(first.write(&file));
+    let mut state = ScannerState::with_files(&paths);
+    assert_eq!(state.picture.as_ref().map(|p| p.game), Some((1600, 900)));
+    assert!(!state.take_new_picture(), "the same file: nothing new");
+    state.start_fetch_from(&ctx, 0.0, Box::new(MadeScreen(None)), Duration::from_secs(30), game_picture::WAIT);
+    // The overlay writes the next one. The time of the file has to differ from the one before.
+    std::thread::sleep(Duration::from_millis(50));
+    let next = GamePicture::from_bgra(&game_screen(2560, 1080, (10, 10, 20, 20)), 2560, 1080).expect("the next");
+    assert!(next.write(&file));
+    state.poll_fetch(&ctx);
+    assert_eq!(state.picture.as_ref().map(|p| p.game), Some((2560, 1080)), "the picture of the hotkey is shown");
+    assert!(!state.fetching(), "the countdown is not needed any more");
+    assert_eq!(state.ground_line(1.0), None, "a picture: nothing to say");
+}
+
+/// The hint of the hotkey: only where it is on, and only where the window can fetch a picture at all.
+#[test]
+fn the_hint_names_the_hotkey_only_while_it_is_on() {
+    let _language = crate::language_lock();
+    set_thread_language(Choice::De);
+    let paths = copy("scanner-ui-kuerzel-hinweis");
+    let mut state = ScannerState::with_files(&paths);
+    let grab = versekit_core::screen_grab::supported();
+    let default = versekit_core::overlay::DEFAULT_PICTURE_HOTKEY;
+    assert_eq!(state.hotkey.as_deref(), grab.then_some(default), "on without a setting, where it can be had");
+    let said = grab.then(|| tf("s_sg_bild_kuerzel", &[("0", Arg::from(default))]));
+    assert_eq!(state.hotkey_line(), said);
+    paths.set_setting(versekit_core::overlay::keys::HOTKEY_PICTURE_ON, jsonio::Value::Bool(false));
+    state.load(&paths);
+    assert_eq!(state.hotkey, None);
+    assert_eq!(state.hotkey_line(), None);
+    assert_eq!(ScannerState::default().hotkey_line(), None, "without own data no picture, no hint");
 }
 
 #[test]
@@ -1056,7 +1227,7 @@ fn the_model_stands_on_a_ground_lighter_than_the_card_with_a_clear_edge() {
 #[test]
 fn the_signature_box_in_the_model_is_a_dark_box_with_the_symbol_and_an_example_number() {
     let _language = crate::language_lock();
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
     let ctx = context();
     let scheme = versekit_core::theme::current();
     let mut frame = None;
@@ -1120,7 +1291,7 @@ fn without_a_frame_the_place_kept_is_dashed_and_named_in_both_languages_and_a_fr
     let _language = crate::language_lock();
     let place = Some([440, 470, 130, 60]);
     for choice in [Choice::De, Choice::En] {
-        set_language(choice);
+        set_thread_language(choice);
         let word = t("s_sg_modell_gemerkt");
         let kept = frame_shapes(None, place, 700.0);
         assert!(texts(&kept).contains(&word), "{choice:?}: {:?}", texts(&kept));
@@ -1134,15 +1305,15 @@ fn without_a_frame_the_place_kept_is_dashed_and_named_in_both_languages_and_a_fr
     }
     assert_ne!(
         {
-            set_language(Choice::De);
+            set_thread_language(Choice::De);
             t("s_sg_modell_gemerkt")
         },
         {
-            set_language(Choice::En);
+            set_thread_language(Choice::En);
             t("s_sg_modell_gemerkt")
         }
     );
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
 }
 
 /// Draws the two cards at `width` and gives the top left corner of each title.
@@ -1183,7 +1354,7 @@ fn card_titles(width: f32) -> (Pos2, Pos2, f32) {
 #[test]
 fn the_two_models_stand_side_by_side_only_where_each_keeps_its_least_width() {
     let _language = crate::language_lock();
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
     let (left, right, over) = card_titles(1400.0);
     assert!((left.y - right.y).abs() < 1.0 && right.x > left.x + crate::widgets::PICTURE_MIN_WIDTH, "side by side: {left:?} {right:?}");
     assert!(over <= 0.5, "sticks out by {over} at 1400");

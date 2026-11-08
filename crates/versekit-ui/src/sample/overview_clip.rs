@@ -147,7 +147,7 @@ fn every_tile_of_the_overview_shows_its_box_whole() {
     let mut findings = Vec::new();
     let mut whole = 0;
     for (choice, lang) in [(Choice::De, "de"), (Choice::En, "en")] {
-        language::set_language(choice);
+        language::set_thread_language(choice);
         for (case, mut page) in pages(&dir) {
             for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
                 page.size = points;
@@ -165,7 +165,7 @@ fn every_tile_of_the_overview_shows_its_box_whole() {
             }
         }
     }
-    language::set_language(Choice::De);
+    language::set_thread_language(Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(whole > 0, "no tile was shown in full: the check saw nothing");
     assert!(
@@ -207,7 +207,7 @@ fn the_field_of_tiles_scrolls_below_a_head_that_stays() {
     let dir = folder("kachel-rollen");
     let mut findings = Vec::new();
     for (choice, lang) in [(Choice::De, "de"), (Choice::En, "en")] {
-        language::set_language(choice);
+        language::set_thread_language(choice);
         let (hint, hidden, keys) =
             (language::t("s_ke_hinweis"), language::t("s_ke_ausgeblendet"), language::t("s_kt_tasten"));
         for (case, mut page) in pages(&dir) {
@@ -272,7 +272,7 @@ fn the_field_of_tiles_scrolls_below_a_head_that_stays() {
             }
         }
     }
-    language::set_language(Choice::De);
+    language::set_thread_language(Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "{} finding(s):\n{}", findings.len(), findings[..findings.len().min(20)].join("\n"));
 }

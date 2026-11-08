@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Anti-AFK in the overlay (`sc_bp_watcher.py` of 4.12: the button of the bar, the beat, the line of the stop).
+//! Anti-AFK in the overlay (the main module of 4.12: the button of the bar, the beat, the line of the stop).
 //!
 //! The overlay is the process that presses the keys. The beat runs in a thread of its own
 //! ([`anti_afk::Runner`]), not in the frames of the window, so it goes on whatever the window does. The window
@@ -436,7 +436,7 @@ mod tests {
         // The language of the process is one: the texts compared here are the German ones.
         static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        versekit_core::language::set_language(Choice::De);
+        versekit_core::language::set_thread_language(Choice::De);
         guard
     }
 }

@@ -265,11 +265,11 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
                 }
             });
             if let Some((text, bad)) = &block.said {
-                let tone = if *bad { scheme.red } else { scheme.sub };
+                let tone = if *bad { scheme.red_text() } else { scheme.sub };
                 ui.add(egui::Label::new(RichText::new(text).color(color(tone))).wrap());
             }
             if let Some(text) = &unreadable {
-                ui.add(egui::Label::new(RichText::new(text).color(color(scheme.red))).wrap());
+                ui.add(egui::Label::new(RichText::new(text).color(color(scheme.red_text()))).wrap());
             }
         } else {
             if !side_by_side {

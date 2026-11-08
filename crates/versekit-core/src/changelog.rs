@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The history of the versions for the page „Was ist neu“ (4.12 `updater.history`, `history_grouped`,
-//! `points_by_kind`, `intro`).
+//! The history of the versions for the page „Was ist neu“ (4.12 `updater.history`, `points_by_kind`, `intro`).
+//! 4.12 merged the patch versions of a series into one entry; here every version stands on its own.
 //!
 //! Two sources: the change logs built into the program (`CHANGELOG.md` German, `CHANGELOG.en.md` English) and the
 //! release texts of GitHub. ⚠ The built-in log comes first, because only it knows the language; GitHub fills in
@@ -72,7 +72,7 @@ const KINDS: [(Kind, &[&str]); 3] = [
 /// One version in the history.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
-    /// `v4.12.0`; a series grouped into one is `v4.12`.
+    /// `v4.12.0`.
     pub version: String,
     /// `2026-10-19`, or empty.
     pub date: String,
@@ -160,17 +160,22 @@ pub fn clean_row(line: &str) -> String {
     py_strip(&line.replace('`', "")).to_string()
 }
 
-/// The part of a bilingual release text that fits the language: English above, German in a `<details>` block
-/// below. Without the block the text stays whole; a missing part is made up by the other one.
+/// The part of a bilingual release text that fits the language: one language above, the other in a `<details>`
+/// block below. ⚠ Which one stands where is told by the summary of the block (`English` or `Deutsch`): the
+/// releases since 3.x have German above and English inside, the oldest ones the other way round. Without the
+/// block the text stays whole; a missing part is made up by the other one.
 pub fn language_part(text: &str, lang: Lang) -> String {
     static DETAILS: OnceLock<Regex> = OnceLock::new();
-    let Some(found) = pattern(&DETAILS, r"(?is)<details>\s*<summary>.*?</summary>(.*?)</details>").captures(text)
+    let Some(found) = pattern(&DETAILS, r"(?is)<details>\s*<summary>(.*?)</summary>(.*?)</details>").captures(text)
     else {
         return text.to_string();
     };
     let start = found.get(0).map_or(0, |m| m.start());
-    let german = found.get(1).map_or("", |m| py_strip(m.as_str()));
-    let english = py_strip(py_strip(&text[..start]).trim_end_matches('-'));
+    let label = found.get(1).map_or("", |m| m.as_str()).to_lowercase();
+    let inside = found.get(2).map_or("", |m| py_strip(m.as_str()));
+    let above = py_strip(py_strip(&text[..start]).trim_end_matches('-'));
+    let inside_is_german = label.contains("deutsch") || label.contains("german");
+    let (german, english) = if inside_is_german { (inside, above) } else { (above, inside) };
     let (wanted, other) = if lang == Lang::De { (german, english) } else { (english, german) };
     if wanted.is_empty() { other } else { wanted }.to_string()
 }
@@ -235,39 +240,19 @@ pub fn history_of(raw: &str, lang: Lang, releases: &[Release]) -> Vec<Entry> {
     entries
 }
 
-/// The history with the patch versions of a series in one entry (`v3.13.0` to `.3` become `v3.13`).
+/// The history as the page lists it: every version on its own with its own date (`v5.1.0` to `v5.1.4` are five
+/// entries), never merged into a series.
 ///
 /// ⚠ Test versions stay single (who runs one sees what that one brought) and vanish once the finished version
-/// of their number is there. The lead and the date are the newest version's; the points of all stand below.
-pub fn grouped(lang: Lang, releases: &[Release]) -> Vec<Entry> {
-    group(history(lang, releases))
+/// of their number is there.
+pub fn listed(lang: Lang, releases: &[Release]) -> Vec<Entry> {
+    without_finished_tests(history(lang, releases))
 }
 
-/// [`grouped`] on a history that is already made.
-pub fn group(all: Vec<Entry>) -> Vec<Entry> {
+/// [`listed`] on a history that is already made: drops the test versions whose finished version is there.
+pub fn without_finished_tests(all: Vec<Entry>) -> Vec<Entry> {
     let finished: BTreeSet<_> = all.iter().filter(|e| !is_prerelease(&e.version)).map(|e| parts(&e.version)).collect();
-    let mut out: Vec<Entry> = Vec::new();
-    let mut by_series: Vec<((u64, u64), usize)> = Vec::new();
-    for entry in all {
-        if is_prerelease(&entry.version) {
-            if !finished.contains(&parts(&entry.version)) {
-                out.push(entry);
-            }
-            continue;
-        }
-        let (major, minor, _) = parts(&entry.version);
-        match by_series.iter().find(|(series, _)| *series == (major, minor)) {
-            Some((_, at)) => {
-                let present = &mut out[*at];
-                present.text = format!("{}\n\n{}", present.text, entry.text);
-            }
-            None => {
-                by_series.push(((major, minor), out.len()));
-                out.push(Entry { version: format!("v{major}.{minor}"), ..entry });
-            }
-        }
-    }
-    out
+    all.into_iter().filter(|e| !is_prerelease(&e.version) || !finished.contains(&parts(&e.version))).collect()
 }
 
 #[cfg(test)]

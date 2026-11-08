@@ -109,12 +109,7 @@ impl Facts {
     pub fn of(text: &str) -> Facts {
         let first = first_stamp(text).map(str::to_string);
         let last = first.as_ref().and_then(|_| last_stamp(text).map(str::to_string));
-        let spawned = text.find(SPAWN_MARKER).and_then(|at| {
-            let start = text[..at].rfind(['\n', '\r']).map_or(0, |i| i + 1);
-            let line = text[start..].split(['\n', '\r']).next().unwrap_or_default();
-            TIME.find(line).map(|m| m.as_str()[1..].to_string())
-        });
-        Facts { spawn: text.contains(SPAWN_MARKER), first, last, spawned }
+        Facts { spawn: text.contains(SPAWN_MARKER), first, last, spawned: spawn_stamp(text) }
     }
 
     /// Seconds from the first arrival of the player to the last stamp; 0 unless both parse, the stamps are not zero
@@ -137,6 +132,44 @@ impl Facts {
             _ => 0,
         }
     }
+}
+
+/// [`Facts::of`] for a log handed over a piece at a time (whole lines): the same facts as for the pieces joined
+/// into one text, without the text ever standing in memory whole.
+#[derive(Clone, Debug, Default)]
+pub struct FactsScan {
+    facts: Facts,
+}
+
+impl FactsScan {
+    /// The next piece of the log.
+    pub fn piece(&mut self, text: &str) {
+        let facts = &mut self.facts;
+        if facts.first.is_none() {
+            facts.first = first_stamp(text).map(str::to_string);
+        }
+        if let Some(last) = last_stamp(text) {
+            facts.last = Some(last.to_string());
+        }
+        // The first line with the mark decides, though it may carry no stamp.
+        if !facts.spawn && text.contains(SPAWN_MARKER) {
+            facts.spawn = true;
+            facts.spawned = spawn_stamp(text);
+        }
+    }
+
+    /// The facts of what was handed over so far.
+    pub fn facts(&self) -> &Facts {
+        &self.facts
+    }
+}
+
+/// The stamp of the line with the first [`SPAWN_MARKER`] of a text.
+fn spawn_stamp(text: &str) -> Option<String> {
+    let at = text.find(SPAWN_MARKER)?;
+    let start = text[..at].rfind(['\n', '\r']).map_or(0, |i| i + 1);
+    let line = text[start..].split(['\n', '\r']).next().unwrap_or_default();
+    TIME.find(line).map(|m| m.as_str()[1..].to_string())
 }
 
 /// The lines of a text that contain a match of `markers`, in order, each
@@ -211,6 +244,29 @@ mod tests {
         // Without an arrival, or with an arrival without a stamp, nothing is measured.
         assert_eq!(Facts::of("<2026-11-06T08:11:17.443Z> a\n<2026-11-06T09:13:11.000Z> b\n").after_spawn(), 0);
         assert_eq!(Facts::of("<2026-11-06T08:11:17.443Z> a\nOnClientSpawned ohne Stempel\n<2026-11-06T09:13:11.000Z> b\n").after_spawn(), 0);
+    }
+
+    #[test]
+    fn the_facts_of_pieces_are_the_facts_of_the_whole_text() {
+        let texts = [
+            "<2026-11-06T08:11:17.443Z> Log started\n<2026-11-06T08:11:42.663Z> [CSessionManager::OnClientSpawned] Spawned!\n<2026-11-06T08:22:12.241Z> [CSessionManager::OnClientSpawned] Spawned!\n<2026-11-06T09:13:11.000Z> ende\n",
+            "<2026-11-06T08:11:17.443Z> a\nOnClientSpawned ohne Stempel\n<2026-11-06T08:22:12.241Z> OnClientSpawned\n<2026-11-06T09:13:11.000Z> b\n",
+            "kein Stempel\nOnClientSpawned\n",
+            "zuerst ohne\r<2026-01-01T12:00:00Z> zwei <2026-02-02T02:02:02>\nSchluss ohne",
+            "",
+        ];
+        for text in texts {
+            let want = Facts::of(text);
+            for (cut, _) in text.match_indices('\n') {
+                let mut scan = FactsScan::default();
+                scan.piece(&text[..=cut]);
+                scan.piece(&text[cut + 1..]);
+                assert_eq!(scan.facts(), &want, "{text:?} cut after {cut}");
+            }
+            let mut scan = FactsScan::default();
+            text.split_inclusive('\n').for_each(|line| scan.piece(line));
+            assert_eq!(scan.facts(), &want, "{text:?} line by line");
+        }
     }
 
     #[test]

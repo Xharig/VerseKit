@@ -140,7 +140,7 @@ const FILES: [(&str, &str); 3] = [
 
 /// All pages, in the three ways the window is shown, in German and English.
 fn all_findings() -> Vec<String> {
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
     let mut findings = Vec::new();
     theme::set_current("original");
     let dir = folder("kartenbreite");
@@ -149,7 +149,7 @@ fn all_findings() -> Vec<String> {
         std::fs::write(files.join(name), content).expect("a file of the copy");
     }
     for (choice, case) in [(Choice::De, "de"), (Choice::En, "en")] {
-        set_language(choice);
+        set_thread_language(choice);
         let mut sample = SamplePage::preview();
         for key in pages() {
             look(&format!("{case} sample"), &mut sample, key, &mut findings);
@@ -163,7 +163,7 @@ fn all_findings() -> Vec<String> {
             look(&format!("{case} real data with files"), &mut full, key, &mut findings);
         }
     }
-    set_language(Choice::De);
+    set_thread_language(Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     let _ = std::fs::remove_dir_all(files);
     findings

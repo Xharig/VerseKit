@@ -42,6 +42,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::basetool::connection::get;
 use crate::basetool::error::ApiError;
 use crate::basetool::hold;
+use crate::basetool::pacing;
 use crate::basetool::scopes::ROUTE_STOCK;
 use crate::basetool::stock_sync::{identity, num_value};
 use crate::basetool::sync::SyncHandle;
@@ -177,8 +178,10 @@ pub fn snapshot(state: &Map) -> Option<Snapshot> {
         Some(Value::Object(sub)) if get(sub, "server").is_some() => sub,
         _ => return None,
     };
+    // The order of the pass (`stock_area`): the UEX numbers and the materials, then the names of the lots over
+    // there, the items last. Another order gives a row another `bt` than the pass gave its lot.
     let mut names = BTreeMap::new();
-    for cache in ["resolved_uex", "resolved", "resolved_items"] {
+    let take_cache = |names: &mut BTreeMap<String, String>, cache: &str| {
         if let Some(Value::Object(entries)) = get(sub, cache) {
             for (key, value) in entries {
                 if let Value::Str(bt) = value {
@@ -186,7 +189,21 @@ pub fn snapshot(state: &Map) -> Option<Snapshot> {
                 }
             }
         }
+    };
+    take_cache(&mut names, "resolved_uex");
+    take_cache(&mut names, "resolved");
+    if let Some(Value::Object(server)) = get(sub, "server") {
+        for (_, lot) in server {
+            let material = lot.get("material");
+            let bt = material.and_then(|m| m.get("bt")).and_then(Value::as_str).unwrap_or_default();
+            let name = py_strip(material.and_then(|m| m.get("name")).and_then(Value::as_str).unwrap_or_default())
+                .to_lowercase();
+            if !name.is_empty() && !bt.is_empty() {
+                names.entry(name).or_insert_with(|| bt.to_string());
+            }
+        }
     }
+    take_cache(&mut names, "resolved_items");
     let mut lots = BTreeMap::new();
     if let Some(Value::Object(server)) = get(sub, "server") {
         for (_, lot) in server {
@@ -194,9 +211,6 @@ pub fn snapshot(state: &Map) -> Option<Snapshot> {
             let bt = material.and_then(|m| m.get("bt")).and_then(Value::as_str).unwrap_or_default().to_string();
             let name = py_strip(material.and_then(|m| m.get("name")).and_then(Value::as_str).unwrap_or_default())
                 .to_lowercase();
-            if !name.is_empty() && !bt.is_empty() {
-                names.entry(name.clone()).or_insert_with(|| bt.clone());
-            }
             let place = lot.get("location").and_then(|l| l.get("name")).and_then(Value::as_str).unwrap_or_default();
             let quality = number(lot.get("quality")) as i64;
             let key = identity(if bt.is_empty() { &name } else { &bt }, place, quality, truthy_flag(lot.get("stolen")));
@@ -408,16 +422,40 @@ pub enum Failure {
 /// out: every new send would make its link invalid. The remembered state and
 /// the link in memory are checked; the sync sets the link before it saves.
 pub fn send(sync: &SyncHandle, op: &Value) -> Result<(), Failure> {
+    send_keyed(sync, op, &crate::basetool::connection::new_idempotency_key())
+}
+
+/// [`send`] under the `Idempotency-Key` `key`. Sending the same op again under the same key cannot apply it twice:
+/// the Basetool answers what it answered the first time (for 24 hours).
+///
+/// ⚠ While the sync waits for `Retry-After` nothing goes out: the error says how long it still is. A refusal with
+/// `Retry-After` starts that wait for the sync as well.
+pub fn send_keyed(sync: &SyncHandle, op: &Value, key: &str) -> Result<(), Failure> {
     let state = sync.state().unwrap_or_default();
-    let pending = hold::held_routes(&state, sync.now()).into_iter().any(|(r, how)| r == ROUTE_STOCK && how == "pending");
+    let now = sync.now();
+    if let Some(until) = pacing::wait_until(&state, now) {
+        let code = get(&state, pacing::WAIT).and_then(|w| w.get("code")).and_then(Value::as_str).unwrap_or_default();
+        let code = if code.is_empty() { "EXCHANGE_BUDGET_EXHAUSTED" } else { code };
+        let left = (until - now).ceil().max(1.0) as u64;
+        return Err(Failure::Api(ApiError::new(code, 503).with_retry_after(Some(left))));
+    }
+    let pending = hold::held_routes(&state, now).into_iter().any(|(r, how)| r == ROUTE_STOCK && how == "pending");
     if pending || sync.confirm_link(ROUTE_STOCK).is_some() {
         return Err(Failure::Reason("MASS_CHANGE_PENDING".into()));
     }
     let body = Value::Object(vec![("ops".into(), Value::Array(vec![op.clone()]))]);
-    let answer = sync
-        .connection()
-        .request("POST", ROUTE_STOCK, Some(&body), &[], Some(&crate::basetool::connection::new_idempotency_key()))
-        .map_err(Failure::Api)?;
+    let answer = match sync.connection().request("POST", ROUTE_STOCK, Some(&body), &[], Some(key)) {
+        Ok(answer) => answer,
+        Err(error) => {
+            if error.retry_after.is_some() {
+                let refused = error.clone();
+                sync.decide(std::sync::Arc::new(move |state: &mut Map| {
+                    pacing::wait_after(state, now, &refused);
+                }));
+            }
+            return Err(Failure::Api(error));
+        }
+    };
     if let Some(Value::Array(results)) = get(&answer, "results") {
         for entry in results {
             if !matches!(entry, Value::Object(_)) {
@@ -532,6 +570,31 @@ mod tests {
         assert_eq!(gap_of("Mirage", "Orison", None, &snap), None, "a row never resolved has no lot to be refused");
         assert_eq!(gap_of("Iron", "Orison", Some("bt-iron|orison|500|0"), &snap), None, "a conflict is decided elsewhere");
         assert_eq!(snap.refused.get("bt-mirage|orison|0|0").map(String::as_str), Some("AMBIGUOUS"));
+    }
+
+    /// The pass gives a name the `bt` of a lot over there before it asks for items; the page does the same, or a
+    /// row finds no lot although it has one.
+    #[test]
+    fn a_row_finds_its_lot_by_the_names_in_the_order_of_the_pass() {
+        let state = value(
+            r#"{"stock": {"server": {"L7": {"material": {"bt": "bt-a", "name": "Mirage"}, "location": {"name": "Orison"},
+                "quality": 0, "stolen": false, "quantity": {"amount": 1, "unit": "PIECE"},
+                "split": {"personal": {"amount": 1, "unit": "PIECE"}, "pools": []}}},
+                "resolved": {}, "resolved_items": {"mirage": "bt-b"}, "items": {"bt-a": true}}}"#,
+        );
+        let Value::Object(state) = state else { panic!("object") };
+        let snap = snapshot(&state).expect("a snapshot");
+        let row = RowRef {
+            lookup: "Mirage".into(),
+            raw: false,
+            item: true,
+            quality: None,
+            place: "Orison".into(),
+            stolen: false,
+            amount: 1.0,
+        };
+        assert_eq!(row_key(&row, &snap).as_deref(), Some("bt-a|orison|0|0"));
+        assert_eq!(attach(&[row], Some(&snap))[0].lot.as_deref(), Some("bt-a|orison|0|0"));
     }
 
     #[test]

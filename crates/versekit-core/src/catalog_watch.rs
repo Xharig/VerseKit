@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The catalog watch (`Watcher._catalog_tick`, `catalog_new`): is something
+//! The catalog watch (`_catalog_tick` of the 4.12 watcher, `catalog_new`): is something
 //! newly craftable in the game? It compares the set of craftable items with
 //! the one remembered in `catalog-seen.json`. The remembered state survives
 //! restarts, otherwise everything would come twice after each start.

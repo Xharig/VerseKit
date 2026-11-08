@@ -1,6 +1,6 @@
 {
  "hinweis": "Welcher Patch welche Baupläne gebracht hat. Nur die Zugänge je Spielversion, nie der ganze Katalog — eine vollständige Liste wäre ein wesentlicher Teil einer fremden Datenbank.",
- "quelle": "eigene Beobachtung des SC BP Watcher, gegengeprüft am eigenen Bestand",
+ "quelle": "eigene Beobachtung von VerseKit, gegengeprüft am eigenen Bestand",
  "weitergabe": true,
  "patches": {
   "4.10.0-live.12519617": {

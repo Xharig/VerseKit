@@ -21,6 +21,7 @@
 //! browser, a dialog, a new process) goes through a function the page holds, so
 //! a test can put its own in its place and see what was asked for.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use versekit_core::jsonio::{self, Value};
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::paths::{Host, Paths};
@@ -497,7 +498,7 @@ impl FolderSearch {
         let (send, answer) = std::sync::mpsc::channel();
         let chosen = typed.clone();
         // Without a thread the channel is closed at once: the answer is "nothing found", the folder counts as typed.
-        let _ = std::thread::Builder::new().name("spielordner-suche".into()).spawn(move || {
+        let _ = std::thread::Builder::new().name("spielordner-suche".into()).spawn_with_language(move || {
             let _ = send.send(Paths::new(host).resolve_game_folder(&chosen));
         });
         FolderSearch { typed, answer }
@@ -690,7 +691,7 @@ pub(in crate::sample) mod tests {
         }
 
         /// Where the controls named `label` for a screen reader stand, from one frame.
-        fn named(&mut self, label: &str) -> Vec<egui::Rect> {
+        pub(in crate::sample) fn named(&mut self, label: &str) -> Vec<egui::Rect> {
             self.ctx.enable_accesskit();
             let width = font_size::BASE_MIN_SIZE.0;
             let input = egui::RawInput {
@@ -1076,6 +1077,8 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("such-taste", "", &[]);
         let mut bench = Bench::new(page);
         bench.page.overlay_runs = || true;
+        // The hotkey of the picture of the game below it without its picker: the one of the search is the last.
+        bench.page.picture_hotkey_on = false;
         bench.page.go_to("hf_overlay");
         // A little down the page, so that the picker below the last row of the first group stands in the window.
         bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
@@ -1119,6 +1122,82 @@ pub(in crate::sample) mod tests {
         assert_eq!(current(&bench.page).as_deref(), Some("Umschalt+H"), "the last one stays");
         let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
         assert_eq!(said, Some(language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from("Umschalt+H"))])));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The hotkey of the picture of the game on the overlay page: on at first with the default; a change is said while
+    /// the overlay runs and kept in `hotkey_bild`, without a modifier key the saved one stays, and switched off
+    /// `hotkey_bild_an` keeps `false`. Where the screen cannot be read, the reason.
+    #[test]
+    fn the_hotkey_of_the_picture_of_the_game_is_on_at_first_changed_and_refused_without_a_modifier() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("bild-taste", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.overlay_runs = || true;
+        // The handle search without its picker: the one of the picture is the third of the page.
+        bench.page.search_hotkey_on = false;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
+        assert!(shown(&texts, &language::t("s_hk_bild")), "the row: {texts:?}");
+        assert!(bench.page.picture_hotkey_on, "on at first");
+        let current = |page: &SamplePage| hotkey_text(page.picture_modifiers, page.picture_key);
+        assert_eq!(current(&bench.page).as_deref(), Some("Alt+Umschalt+B"));
+        if !versekit_core::screen_grab::supported() {
+            assert!(shown(&texts, &language::t("s_nicht_moegl")), "where the screen cannot be read, the reason");
+            let _ = std::fs::remove_dir_all(dir);
+            return;
+        }
+        let strg = language::t("s_ei_taste_strg");
+        bench.click_nth(&strg, 2);
+        bench.settle();
+        assert_eq!(current(&bench.page).as_deref(), Some("Strg+Alt+Umschalt+B"));
+        let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
+        assert_eq!(said, Some(language::tf("s_hk_ok", &[("0", language::Arg::from("Strg+Alt+Umschalt+B"))])));
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_bild\": \"Strg+Alt+Umschalt+B\""), "{stored}");
+        // The hint under the button of the picture names it in the language of the window.
+        let shown_key = crate::sample::glance_tiles::hotkey_in(language::current(), "Strg+Alt+Umschalt+B");
+        assert_eq!(bench.page.mining.scanner.hotkey.as_deref(), Some(shown_key.as_str()));
+        for word in [strg.clone(), "Alt".to_string(), language::t("s_ei_taste_umschalt")] {
+            bench.click_nth(&word, 2);
+            bench.settle();
+        }
+        assert_eq!(current(&bench.page).as_deref(), Some("Umschalt+B"), "the last one stays");
+        let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
+        assert_eq!(said, Some(language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from("Umschalt+B"))])));
+        bench.page.picture_hotkey_on = false;
+        bench.settle();
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_bild_an\": false"), "{stored}");
+        assert_eq!(bench.page.mining.scanner.hotkey, None, "switched off: the hint names no hotkey");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The seconds before the picture of the game, in the card of the signature window: ten at first, a click on
+    /// another choice keeps it in `spielbild_wartezeit`.
+    #[test]
+    fn the_seconds_before_the_picture_of_the_game_are_chosen_and_kept() {
+        if !versekit_core::screen_grab::supported() {
+            return;
+        }
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("bild-wartezeit", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 9000.0;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        assert!(texts.iter().any(|(t, _)| *t == language::t("s_sg_bild_wartezeit")), "the row: {texts:?}");
+        assert_eq!(bench.page.mining.scanner.delay, 10, "ten seconds at first");
+        // The last "30 s" of the page is the choice of the row, the last row of the page.
+        let thirty = texts.iter().filter(|(t, _)| t == "30 s").count();
+        assert!(thirty >= 1, "{texts:?}");
+        bench.click_nth("30 s", thirty - 1);
+        bench.settle();
+        assert_eq!(bench.page.mining.scanner.delay, 30);
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"spielbild_wartezeit\": 30"), "{stored}");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -1251,7 +1330,7 @@ pub(in crate::sample) mod tests {
             std::fs::write(dir.join(file), text).unwrap();
         }
         theme::set_current("original");
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         (SamplePage::with_settings(Paths::new(host_apart(&dir))), dir)
     }
 
@@ -1546,7 +1625,7 @@ pub(in crate::sample) mod tests {
         assert!(pinned.iter().any(|key| key == "hf_handlesuche"), "the handle search has a pin: {pinned:?}");
         assert!(!pinned.iter().any(|key| key == "hf_beziehungen"), "the relations have no pin of their own");
         for choice in [language::Choice::De, language::Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             bench.page.overview = None;
             bench.settle();
             let overview = bench.page.overview.clone().expect("counted");
@@ -1587,7 +1666,7 @@ pub(in crate::sample) mod tests {
                 );
             }
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2138,7 +2217,7 @@ pub(in crate::sample) mod tests {
         bench.page.go_to("hf_overlay");
         assert_eq!(bench.page.overlay_sections, Sections::default(), "nothing written: everything shows");
         for lang in [language::Choice::De, language::Choice::En] {
-            language::set_language(lang);
+            language::set_thread_language(lang);
             let wheel = |dy: f32| egui::Event::MouseWheel {
                 unit: egui::MouseWheelUnit::Point,
                 delta: egui::vec2(0.0, dy),
@@ -2163,6 +2242,7 @@ pub(in crate::sample) mod tests {
                 "s_ov_zeige_ort",
                 "s_ov_zeige_auftraege",
                 "s_ov_zeige_raffinerie",
+                "s_ov_zeige_werkbank",
                 "s_ov_zeige_update",
                 "s_ov_auftraege_max",
             ] {
@@ -2170,7 +2250,7 @@ pub(in crate::sample) mod tests {
                 assert!(texts.iter().any(|(t, _)| t.to_lowercase() == text), "{key} ({text}) is not on the page");
             }
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         // The contracts off: written to the file, read back by a new page and by the overlay.
         bench.page.overlay_sections = Sections::default().with(Section::Contracts, false);
         bench.page.overlay_contracts_max = 12;
@@ -2197,7 +2277,7 @@ pub(in crate::sample) mod tests {
         assert_eq!(bench.page.overlay_events, Events::default(), "nothing written: only the blueprint");
         // Every event has its switch on the page, in German and in English.
         for lang in [language::Choice::De, language::Choice::En] {
-            language::set_language(lang);
+            language::set_thread_language(lang);
             // The group stands below the visible part: from the top, scrolled down step by step, what showed up is
             // collected.
             let wheel = |dy: f32| egui::Event::MouseWheel {
@@ -2231,7 +2311,7 @@ pub(in crate::sample) mod tests {
                 assert!(texts.iter().any(|(t, _)| t.to_lowercase() == text), "{key} ({text}) is not on the page");
             }
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         // Switch the scanner on and the blueprint off: written to the file, and read back by a new page.
         bench.page.overlay_events = Events::default().with(Event::Scanner, true).with(Event::Blueprint, false);
         bench.settle();
@@ -2255,7 +2335,7 @@ pub(in crate::sample) mod tests {
         bench.page.go_to("hf_overlay");
         assert!(!bench.page.overlay_fps, "off by default");
         for lang in [language::Choice::De, language::Choice::En] {
-            language::set_language(lang);
+            language::set_thread_language(lang);
             // From the top, in steps shorter than the window, so that no part of the page is scrolled past unseen.
             let wheel = |dy: f32| egui::Event::MouseWheel {
                 unit: egui::MouseWheelUnit::Point,
@@ -2283,7 +2363,7 @@ pub(in crate::sample) mod tests {
                 assert!(texts.iter().any(|(t, _)| t.to_lowercase() == text), "{key} ({text}) is not on the page");
             }
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let file = dir.join("einstellungen.json");
         let before = std::fs::read_to_string(&file).unwrap_or_default();
         assert!(!before.contains("overlay_fps_zeile"), "nothing written yet");
@@ -2309,7 +2389,7 @@ pub(in crate::sample) mod tests {
         assert!(bench.page.overlay_info_bar, "on by default");
         assert!(!bench.page.overlay_info_bar_always, "without the game off by default");
         for lang in [language::Choice::De, language::Choice::En] {
-            language::set_language(lang);
+            language::set_thread_language(lang);
             // From the top, in steps shorter than the window, so that no part of the page is scrolled past unseen.
             let wheel = |dy: f32| egui::Event::MouseWheel {
                 unit: egui::MouseWheelUnit::Point,
@@ -2336,7 +2416,7 @@ pub(in crate::sample) mod tests {
                 assert!(texts.iter().any(|(t, _)| t.to_lowercase() == text), "{key} ({text}) is not on the page");
             }
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let file = dir.join("einstellungen.json");
         let before = std::fs::read_to_string(&file).unwrap_or_default();
         assert!(!before.contains("\"infoleiste\""), "nothing written yet");
@@ -2363,7 +2443,7 @@ pub(in crate::sample) mod tests {
         bench.page.go_to("hf_overlay");
         assert!(bench.page.overlay_always, "on by default");
         for lang in [language::Choice::De, language::Choice::En] {
-            language::set_language(lang);
+            language::set_thread_language(lang);
             let texts = bench.settle();
             let at = |key: &str| texts.iter().find(|(t, _)| *t == language::t(key)).map(|(_, at)| at.y);
             let (game, switch) = (at("s_ei_ov_spiel"), at("s_ov_ohne_spiel"));
@@ -2371,7 +2451,7 @@ pub(in crate::sample) mod tests {
             assert!(game < switch, "{lang:?}: under the row about the game");
             assert!(texts.iter().any(|(t, _)| *t == language::t("s_ei_ov_durch")), "{lang:?}: the rows after it stay");
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let file = dir.join("einstellungen.json");
         let host = || Paths::new(super::super::real_data::host_in(&dir, &[]));
         assert!(versekit_core::overlay::Settings::read(&host()).overlay_always, "the overlay reads it on");
@@ -2393,7 +2473,7 @@ pub(in crate::sample) mod tests {
     #[test]
     fn the_rows_of_the_overlay_go_down_to_two() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (page, dir) = real_page("zeilen-zwei", "{\n  \"max_zeilen\": 3\n}\n", &[]);
         let host = || Paths::new(super::super::real_data::host_in(&dir, &[]));
         assert_eq!(page.overlay_rows, 3, "three is kept as it stands");
@@ -2435,7 +2515,7 @@ pub(in crate::sample) mod tests {
         bench.page.go_to("hf_overlay");
         assert_eq!((bench.page.overlay_size, bench.page.overlay_info_bar_size), (100, 100), "as the main window");
         for lang in [language::Choice::De, language::Choice::En] {
-            language::set_language(lang);
+            language::set_thread_language(lang);
             // From the top, in steps shorter than the window, so that no part of the page is scrolled past unseen.
             let wheel = |dy: f32| egui::Event::MouseWheel {
                 unit: egui::MouseWheelUnit::Point,
@@ -2465,7 +2545,7 @@ pub(in crate::sample) mod tests {
             let percents: Vec<&(String, Pos2)> = texts.iter().filter(|(t, _)| t.ends_with('%')).collect();
             assert!(texts.iter().filter(|(t, _)| t == "100 %").count() >= 2, "both at 100 %: {percents:?}");
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let file = dir.join("einstellungen.json");
         let host = || Paths::new(super::super::real_data::host_in(&dir, &[]));
         let read = || {

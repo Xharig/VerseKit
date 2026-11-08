@@ -28,6 +28,7 @@
 //! the visible part, the rest stays transparent, and the window region cuts
 //! the window down to that part, so clicks beside it reach the game.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -84,8 +85,8 @@ mod os {
 
     /// The short sound of a find; `loud` for one that must not be missed.
     #[cfg(not(windows))]
-    pub fn beep(loud: bool) {
-        versekit_core::sound::play(loud);
+    pub fn beep(loud: bool, volume: i64) {
+        versekit_core::sound::play(loud, volume);
     }
     #[cfg(target_os = "macos")]
     pub fn set_region(_hwnd: isize, _r: Option<Rect>, _radius: i32) -> bool {
@@ -307,6 +308,8 @@ pub struct OverlayApp {
     hotkey: Arc<Mutex<Option<Hotkey>>>,
     hotkey_presses: Receiver<()>,
     refinery: crate::refinery::RefineryKey,
+    /// The hotkey of the picture of the game and the grab it started.
+    picture: crate::picture::PictureKey,
     /// The hotkey of the handle search in the info bar, read at every key, and its presses.
     search_hotkey: Arc<Mutex<Option<Hotkey>>>,
     search_presses: Receiver<()>,
@@ -364,6 +367,9 @@ pub struct OverlayApp {
     /// The refinery jobs kept in the data, read every [`REFINERY_READ_EVERY`], and when.
     pub refinery_jobs: Vec<versekit_core::jsonio::Map>,
     refinery_read: Option<Instant>,
+    /// The jobs of the fabricator kept in the data, read as often as the refinery jobs, and when.
+    pub workbench_jobs: Vec<versekit_core::workbench_jobs::Job>,
+    workbench_read: Option<Instant>,
     /// Where the button that takes the hiding back was drawn in the last frame.
     pub unhide_button: Option<egui::Rect>,
     /// A way to start the game is known (the watcher says so): the rocket and the entry of the icon's menu.
@@ -853,6 +859,7 @@ impl OverlayApp {
             self.rows.trim(fresh.rows);
             *self.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.hotkey;
             *self.refinery.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.scan_hotkey;
+            *self.picture.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.picture_hotkey;
             *self.search_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.search_hotkey;
             let scmdb_changed = fresh.scmdb != self.settings.scmdb;
             let sizes = (self.settings.size_percent, fresh.size_percent);
@@ -998,7 +1005,7 @@ impl OverlayApp {
                     self.rows.push(row, self.settings.rows);
                     // No opening and no flash: it is news from the catalog, not a find of the player.
                     if self.settings.sound {
-                        os::beep(loud);
+                        os::beep(loud, self.settings.volume);
                     }
                 }
                 News::System(title, text) => self.notices.push((title.to_string(), text.to_string())),
@@ -1006,9 +1013,11 @@ impl OverlayApp {
                     self.read_control_now();
                     self.opens_for(Event::Blueprint, now);
                     if self.settings.sound {
-                        os::beep(false);
+                        os::beep(false, self.settings.volume);
                     }
                 }
+                // The sound of a refinery job that is done: its own switch, checked where it is told.
+                News::Beep => os::beep(false, self.settings.volume),
                 // No sound: the blueprint has its own, the others open quietly.
                 News::Opens(event) => {
                     self.read_control_now();
@@ -1057,10 +1066,11 @@ impl OverlayApp {
         }
         // The hotkey of the refinery scan: one reading at a time; the main window opens on what it read.
         let (paths, sound) = (self.paths.as_ref().map(|p| Paths::new(p.host.clone())), self.settings.sound);
+        let volume = self.settings.volume;
         let read = self.refinery.poll(|done| match paths {
             Some(paths) => {
                 if sound {
-                    os::beep(false);
+                    os::beep(false, volume);
                 }
                 let wake = || {
                     if let Some(ctx) = crate::CONTEXT.get() {
@@ -1079,6 +1089,28 @@ impl OverlayApp {
                 self.rows.push(Row::Hint { text: Phrase::new(key).into(), contract: None }, self.settings.rows)
             }
             None => {}
+        }
+        // The hotkey of the picture of the game: one grab at a time, kept for the main window; a hint row says what
+        // came of it.
+        let (paths, sound) = (self.paths.as_ref().map(|p| Paths::new(p.host.clone())), self.settings.sound);
+        let taken = self.picture.poll(|done| match paths {
+            Some(paths) => {
+                if sound {
+                    os::beep(false, volume);
+                }
+                let wake = || {
+                    if let Some(ctx) = crate::CONTEXT.get() {
+                        ctx.request_repaint();
+                    }
+                };
+                crate::picture::take(paths, writeguard::state(), done, wake);
+            }
+            None => {
+                let _ = done.send(crate::picture::Outcome::Failed);
+            }
+        });
+        if let Some(outcome) = taken {
+            self.rows.push(Row::Hint { text: Phrase::new(outcome.hint()).into(), contract: None }, self.settings.rows);
         }
         // The hotkey of the handle search: the info bar takes the keyboard and its field the cursor; without the bar
         // on the screen a hint row says where the search is.
@@ -1144,6 +1176,25 @@ impl OverlayApp {
             }
         }
         let lines = versekit_core::overview::refinery_lines(&self.refinery_jobs, contested::now());
+        if lines.iter().any(|(_, done)| !done) {
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
+        lines
+    }
+
+    /// The lines of the jobs of the fabricator for this frame, while their part is shown, read as the refinery
+    /// jobs are.
+    fn workbench_lines(&mut self, ctx: &egui::Context) -> Vec<(String, bool)> {
+        if !self.settings.sections.contains(Section::Workbench) {
+            return Vec::new();
+        }
+        if self.workbench_read.is_none_or(|at| at.elapsed() >= REFINERY_READ_EVERY) {
+            self.workbench_read = Some(Instant::now());
+            if let Some(paths) = self.paths.as_ref().map(|p| Paths::new(p.host.clone())) {
+                self.workbench_jobs = versekit_core::workbench_jobs::load(&paths);
+            }
+        }
+        let lines = versekit_core::workbench_jobs::lines(&self.workbench_jobs, contested::now());
         if lines.iter().any(|(_, done)| !done) {
             ctx.request_repaint_after(Duration::from_secs(1));
         }
@@ -1573,7 +1624,7 @@ impl OverlayApp {
     pub fn game_programs(&self, started: bool) {
         let Some(paths) = self.paths.as_ref().map(Paths::working_copy) else { return };
         let spawner = Arc::clone(&self.spawner);
-        std::thread::spawn(move || {
+        versekit_core::language::spawn_with_language(move || {
             if started {
                 versekit_core::start_programs::on_game_started(&paths, &spawner);
             } else {
@@ -1593,7 +1644,7 @@ impl OverlayApp {
         let Some(paths) = self.paths.as_ref().map(Paths::working_copy) else { return };
         self.status = Phrase::new("s_sp_start_lauft").into();
         let (spawner, sender) = (Arc::clone(&self.spawner), self.launch_tx.clone());
-        std::thread::spawn(move || {
+        versekit_core::language::spawn_with_language(move || {
             let _ = sender.send(game_start::start_game(&paths, &spawner));
         });
     }
@@ -1829,7 +1880,14 @@ impl OverlayApp {
         }
 
         let scheme = theme::current();
-        let refinery = if shown == Shown::Open { self.refinery_lines(&ctx) } else { Vec::new() };
+        // The refinery jobs, then the jobs of the fabricator, in the same lines under the contracts.
+        let refinery = if shown == Shown::Open {
+            let mut lines = self.refinery_lines(&ctx);
+            lines.extend(self.workbench_lines(&ctx));
+            lines
+        } else {
+            Vec::new()
+        };
         // Counter check: the content is lost after coming back from the strip.
         let lost = self.counter.as_deref() == Some("leer") && self.was_waiting;
         let empty = Rows::default();
@@ -2144,7 +2202,7 @@ fn start_game_watch(
 ) {
     std::thread::Builder::new()
         .name("spielwache".into())
-        .spawn(move || {
+        .spawn_with_language(move || {
             writeguard::adopt(&guard);
             let paths = host.map(Paths::new);
             let mut last_location = Instant::now() - LOCATION_EVERY;
@@ -2187,7 +2245,7 @@ fn start_control_watch(path: String, wake: impl Fn() + Send + 'static) -> Receiv
     let (requests, receiver) = mpsc::channel();
     std::thread::Builder::new()
         .name("steuerung".into())
-        .spawn(move || {
+        .spawn_with_language(move || {
             let mut last: Option<Vec<u8>> = None;
             loop {
                 let now = std::fs::read(&path).ok();
@@ -2223,6 +2281,7 @@ struct Parts {
     hotkey: Arc<Mutex<Option<Hotkey>>>,
     hotkey_presses: Receiver<()>,
     refinery: crate::refinery::RefineryKey,
+    picture: crate::picture::PictureKey,
     search_hotkey: Arc<Mutex<Option<Hotkey>>>,
     search_presses: Receiver<()>,
     control: Option<Receiver<Control>>,
@@ -2330,6 +2389,7 @@ impl OverlayApp {
             hotkey: p.hotkey,
             hotkey_presses: p.hotkey_presses,
             refinery: p.refinery,
+            picture: p.picture,
             search_hotkey: p.search_hotkey,
             search_presses: p.search_presses,
             scmdb: versekit_core::scmdb_bridge::Bridge::new(),
@@ -2365,6 +2425,8 @@ impl OverlayApp {
             hidden_note: None,
             refinery_jobs: Vec::new(),
             refinery_read: None,
+            workbench_jobs: Vec::new(),
+            workbench_read: None,
             unhide_button: None,
             launcher: false,
             game_programs_checked: false,
@@ -2684,6 +2746,21 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             }
             #[cfg(target_os = "macos")]
             drop(search_tx);
+            // The hotkey of the picture of the game grabs the screen: only where that works, as the refinery scan.
+            let (picture_tx, picture_rx) = mpsc::channel();
+            let picture = crate::picture::PictureKey::new(settings.picture_hotkey, picture_rx);
+            #[cfg_attr(not(windows), allow(unused_mut))]
+            let mut picture_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() && versekit_core::screen_grab::supported() {
+                let ctx = cc.egui_ctx.clone();
+                picture_registered =
+                    crate::win::start_hotkeys(picture.hotkey.clone(), picture_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(not(windows))]
+            drop(picture_tx);
             if args.probe.is_none()
                 && let Some(choice) = &hotkey_choice
             {
@@ -2697,6 +2774,10 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 if let Some(paths) = &paths {
                     let search = overlay::HotkeyChoice::read_search(paths);
                     versekit_core::trail::step(&overlay::search_hotkey_trail(&search, search_registered));
+                    if versekit_core::screen_grab::supported() {
+                        let picture = overlay::HotkeyChoice::read_picture(paths);
+                        versekit_core::trail::step(&overlay::picture_hotkey_trail(&picture, picture_registered));
+                    }
                 }
             }
             let mut app = OverlayApp::new(Parts {
@@ -2713,6 +2794,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 hotkey,
                 hotkey_presses: hotkey_rx,
                 refinery,
+                picture,
                 search_hotkey,
                 search_presses: search_rx,
                 control: control_rx,
@@ -2853,6 +2935,8 @@ mod tests {
         control: Sender<Control>,
         /// A press of the hotkey of the handle search.
         search_key: Sender<()>,
+        /// A press of the hotkey of the picture of the game.
+        picture_key: Sender<()>,
     }
 
     fn bench(args: Args, real_game: bool, paths: Option<Paths>) -> Bench {
@@ -2900,6 +2984,43 @@ mod tests {
         assert_eq!(hints(&bench.app), 1, "no second hint");
     }
 
+    /// The hotkey of the picture of the game: two quick presses are one grab, and a hint row says what came of it
+    /// (without own data there is no folder to keep it in).
+    #[test]
+    fn the_hotkey_of_the_picture_says_what_came_of_the_grab() {
+        let mut bench = bench(Args::default(), false, None);
+        let hint = language::t("ov_hk_bild_fehler");
+        let hints = |app: &OverlayApp| {
+            app.rows.iter().filter(|row| matches!(row, Row::Hint { text, .. } if text.render() == hint)).count()
+        };
+        bench.app.rows.clear();
+        bench.app.take_news();
+        assert_eq!(hints(&bench.app), 0, "no press, nothing");
+        bench.picture_key.send(()).unwrap();
+        bench.picture_key.send(()).unwrap();
+        bench.app.take_news();
+        assert_eq!(hints(&bench.app), 1, "one hint for two quick presses");
+        bench.app.take_news();
+        assert_eq!(hints(&bench.app), 1, "told once");
+    }
+
+    /// The jobs of the fabricator come to the open overlay while their switch is on, and the switch takes them away.
+    #[test]
+    fn the_jobs_of_the_fabricator_follow_their_switch() {
+        use versekit_core::workbench_jobs::Job;
+        let mut bench = bench(Args::default(), false, None);
+        let ctx = egui::Context::default();
+        let now = contested::now();
+        bench.app.workbench_jobs =
+            vec![Job { id: 1, name: "Helm".into(), seconds: 600, entered: now - 60.0, notified: false }];
+        bench.app.workbench_read = Some(Instant::now());
+        let lines = bench.app.workbench_lines(&ctx);
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(lines[0].0.starts_with("Helm") && !lines[0].1, "{lines:?}");
+        bench.app.settings.sections = bench.app.settings.sections.with(Section::Workbench, false);
+        assert!(bench.app.workbench_lines(&ctx).is_empty(), "switched off: nothing");
+    }
+
     /// The refinery jobs come to the open overlay while their switch is on, and the switch takes them away.
     #[test]
     fn the_refinery_jobs_follow_their_switch() {
@@ -2928,6 +3049,7 @@ mod tests {
         let (_presses, presses_rx) = mpsc::channel();
         let (control, control_rx) = mpsc::channel();
         let (search_key, search_rx) = mpsc::channel();
+        let (picture_key, picture_rx) = mpsc::channel();
         let file_settings = Settings::default();
         let forced_game = Arc::new(ForcedGame::new(args.game.then_some(true)));
         let app = OverlayApp::new(Parts {
@@ -2944,6 +3066,7 @@ mod tests {
             hotkey: Arc::new(Mutex::new(None)),
             hotkey_presses: presses_rx,
             refinery: crate::refinery::RefineryKey::new(None, mpsc::channel().1),
+            picture: crate::picture::PictureKey::new(None, picture_rx),
             search_hotkey: Arc::new(Mutex::new(None)),
             search_presses: search_rx,
             control: Some(control_rx),
@@ -2958,7 +3081,7 @@ mod tests {
             afk_asked: Arc::new(AtomicU8::new(0)),
             demand: Arc::new(Mutex::new(Vec::new())),
         });
-        Bench { app, news, game, control, search_key }
+        Bench { app, news, game, control, search_key, picture_key }
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {

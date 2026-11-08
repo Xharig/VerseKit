@@ -223,7 +223,7 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
             && let Some(home) = &home
         {
             let question = tf("s_mlu_frage", &[("ort", Arg::from(home.as_str())), ("m", Arg::from(struck.len()))]);
-            row.add(egui::Label::new(RichText::new(question).color(color(scheme.red))).wrap());
+            row.add(egui::Label::new(RichText::new(question).color(color(scheme.red_text()))).wrap());
             if row.add(widgets::Button::new(&t("s_mlg_bestaetigen"), ButtonKind::Danger, scheme)).clicked() {
                 run = Some(Ask::Move);
             }
@@ -288,7 +288,7 @@ fn report_section(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, run: &mu
     ui.add_space(4.0);
     ui.horizontal_wrapped(|row| {
         if state.reloc.ask == Some(Ask::Back) {
-            row.add(egui::Label::new(RichText::new(t("s_mlu_zurueck_frage")).color(color(scheme.red))).wrap());
+            row.add(egui::Label::new(RichText::new(t("s_mlu_zurueck_frage")).color(color(scheme.red_text()))).wrap());
             if row.add(widgets::Button::new(&t("s_mlg_bestaetigen"), ButtonKind::Danger, scheme)).clicked() {
                 *run = Some(Ask::Back);
             }
@@ -461,7 +461,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 
@@ -712,7 +712,7 @@ mod tests {
         let (home, paths) = world("passt");
         let mut findings = Vec::new();
         for choice in [Choice::De, Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for (width, asking, report) in
                     [380.0, 520.0, 900.0].into_iter().flat_map(|w| [(w, false, false), (w, true, true)])
@@ -742,7 +742,7 @@ mod tests {
                 }
             }
         }
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
         let _ = std::fs::remove_dir_all(home);
     }

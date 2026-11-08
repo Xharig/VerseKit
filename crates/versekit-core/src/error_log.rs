@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The error log `fehler.json` in the data folder (`scbp/errors.py`):
+//! The error log `fehler.json` in the data folder (as `errors.py` of 4.12 kept it):
 //! time, version, location, kind and message of every error that was caught
 //! and reported.
 //!

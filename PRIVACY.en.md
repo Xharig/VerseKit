@@ -29,10 +29,20 @@ request, the other side sees your IP address.
 |---|---|
 | New versions, catalogue and contract data | GitHub |
 | Crafting data | scmdb.net |
-| Prices, shops, places, list of items and goods | UEX (uexcorp.space) |
+| Prices, shops, places, list of items and goods | UEX (api.uexcorp.uk) |
 | Ship values | erkul.games |
 | Server status | status.robertsspaceindustries.com |
+| Handle search: profile, organizations and pictures of the handle or org you search for | robertsspaceindustries.com |
+| Cycle of the Executive Hangar (Contested Zones) | contestedzonetimers.com |
 | Translations you choose | the respective source (such as StarStrings, Luftwerft, Dymerz) |
+| Shared relations list ("Load list" in the handle search) | the address you enter yourself |
+
+VerseKit loads a shared relations list only when you click "Load list", and
+only over https. All that goes there is the usual identifier
+`VerseKit/<version>` that every request carries. The list joins your
+relations in your data folder (`beziehungen.json`), and your own marks stay as
+they are. VerseKit keeps the address in your settings
+(`beziehungen_liste_adresse`).
 
 With the environment variable `SC_BP_NO_NET=1` VerseKit fetches nothing.
 

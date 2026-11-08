@@ -76,7 +76,7 @@ Dasselbe funktioniert über **zwei Rechner**, wenn beide denselben Cloud- oder N
 
 Liegt dein Präfix woanders, trägst du den Ordner mit der `Game.log` im Assistenten oder in `spiel_ordner` ein (siehe oben).
 
-**Startmenü.** *Einstellungen → Allgemein → Eintrag im Startmenü* legt `~/.local/share/applications/versekit.desktop` an (bzw. unter `$XDG_DATA_HOME`) und das Symbol daneben unter `icons/hicolor/256x256/apps/versekit.png`. Er startet die AppImage-Datei selbst, nicht den entpackten Zwischenordner. Ein Update zieht Name und Symbol eines vorhandenen Eintrags nach; einen gelöschten legt es nicht wieder an. Der Eintrag des SC BP Watcher wird übernommen.
+**Startmenü.** *Einstellungen → Allgemein → Eintrag im Startmenü* legt `~/.local/share/applications/versekit.desktop` an (bzw. unter `$XDG_DATA_HOME`) und das Symbol daneben unter `icons/hicolor/256x256/apps/versekit.png`. Er startet die AppImage-Datei selbst, nicht den entpackten Zwischenordner. Ein Update zieht Name und Symbol eines vorhandenen Eintrags nach; einen gelöschten legt es nicht wieder an. Der Eintrag der Vorgängerversion 4.x wird übernommen.
 
 **Beim Anmelden starten** schreibt `~/.config/autostart/versekit.desktop` (bzw. unter `$XDG_CONFIG_HOME`). Schaltest du den Eintrag in den Einstellungen deines Desktops aus, zählt das als aus.
 

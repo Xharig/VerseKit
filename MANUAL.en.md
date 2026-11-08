@@ -76,7 +76,7 @@ The same works across **two machines** if both use the same cloud or network fol
 
 If your prefix lies elsewhere, enter the folder with the `Game.log` in the assistant or in `spiel_ordner` (see above).
 
-**Application menu.** *Settings → General → Entry in the application menu* writes `~/.local/share/applications/versekit.desktop` (or below `$XDG_DATA_HOME`) and the icon next to it in `icons/hicolor/256x256/apps/versekit.png`. It starts the AppImage file itself, not the unpacked temporary folder. An update brings name and icon of an existing entry along; a deleted one is not made again. The entry of SC BP Watcher is taken over.
+**Application menu.** *Settings → General → Entry in the application menu* writes `~/.local/share/applications/versekit.desktop` (or below `$XDG_DATA_HOME`) and the icon next to it in `icons/hicolor/256x256/apps/versekit.png`. It starts the AppImage file itself, not the unpacked temporary folder. An update brings name and icon of an existing entry along; a deleted one is not made again. The entry of the previous version (4.x) is taken over.
 
 **Start at login** writes `~/.config/autostart/versekit.desktop` (or below `$XDG_CONFIG_HOME`). If you switch the entry off in the settings of your desktop, it counts as off.
 

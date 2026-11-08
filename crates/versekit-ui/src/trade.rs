@@ -19,6 +19,7 @@
 //! age and distance are written, a pair of toggle buttons, a job that runs
 //! beside the page and tells it when it is done.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -84,7 +85,7 @@ impl<T: Send + 'static> Job<T> {
     pub fn spawn(ctx: &egui::Context, name: &str, work: impl FnOnce() -> T + Send + 'static) -> Job<T> {
         let (send, slot) = std::sync::mpsc::channel();
         let ctx = ctx.clone();
-        let started = std::thread::Builder::new().name(name.to_string()).spawn(move || {
+        let started = std::thread::Builder::new().name(name.to_string()).spawn_with_language(move || {
             let result = work();
             let _ = send.send(result);
             ctx.request_repaint();
@@ -234,7 +235,7 @@ pub fn start_background(paths: &Paths, ctx: &egui::Context) {
     let (paths, ctx) = (job_paths(paths), ctx.clone());
     let slots = crate::slot_sync::global();
     slots.wake(&ctx);
-    let _ = std::thread::Builder::new().name("trade-sync".to_string()).spawn(move || {
+    let _ = std::thread::Builder::new().name("trade-sync".to_string()).spawn_with_language(move || {
         std::thread::sleep(std::time::Duration::from_secs(5));
         slots.request(&paths, crate::slot_sync::Trigger::Start);
         // The shop prices need the slots: they wait for the run, at most as long as a slow net takes.

@@ -660,7 +660,7 @@ pub fn refinery_lines(jobs: &[Map], now: f64) -> Vec<(String, bool)> {
         .map(|job| {
             let ends = job_ends(job);
             let at = crate::formats::local_time(ends as i64)
-                .map_or_else(String::new, |time| crate::formats::strftime("%H:%M", &time));
+                .map_or_else(String::new, |time| crate::formats::strftime_shown("%H:%M", &time));
             let left = [("0", countdown_text(ends - now).into()), ("1", at.into())];
             (format!("{} · {}", label(job), crate::language::tf("s_uv_raff_noch", &left)), false)
         })

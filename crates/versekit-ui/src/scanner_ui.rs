@@ -22,9 +22,14 @@
 //! through the file the overlay leaves the last picture in. A change goes back by the signal that the settings
 //! changed.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, SystemTime};
+
 use egui::{
     CursorIcon, Key, Pos2, Rect, RichText, Role, Sense, Stroke, StrokeKind, TextureOptions, Ui, WidgetInfo, pos2, vec2,
 };
+use versekit_core::game_picture::{self, Fetched, GamePicture};
 use versekit_core::jsonio::Value;
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::mining_data::MiningData;
@@ -35,7 +40,6 @@ use versekit_core::signature_window::{self, Hint, Layout};
 use versekit_core::theme::{Color, Scheme};
 use versekit_core::window_signal::{self, Role as WindowRole, Signal};
 
-use crate::game_picture::{self, Fetched, GamePicture};
 use crate::trade::{Job, Polled};
 use crate::widgets::{self, ButtonKind};
 use crate::{color, icons};
@@ -235,10 +239,30 @@ pub struct ScannerState {
     /// The picture of the game behind the two models and its texture.
     picture: Option<GamePicture>,
     picture_texture: Option<egui::TextureHandle>,
-    /// The fetch of a new picture while it runs, and when it began.
-    fetch: Option<(Job<Fetched>, f64)>,
+    /// When the file of the picture was written that is shown, and when the file was looked at last: a picture the
+    /// hotkey of the overlay took replaces it.
+    picture_stamp: Option<SystemTime>,
+    picture_looked: f64,
+    /// The fetch of a new picture while it runs.
+    fetch: Option<Fetching>,
     /// The text key of what the last fetch came to, where it brought no picture.
     fetch_said: Option<&'static str>,
+    /// The seconds between the click and the picture (one of [`game_picture::DELAYS`]).
+    pub delay: i64,
+    /// The hotkey of the overlay that takes the picture at once, as the page shows it; `None` where it is off or
+    /// cannot be had.
+    pub hotkey: Option<String>,
+    /// Where a fetch takes its pictures from: the screen (the checks make one up).
+    screen: fn() -> Box<dyn Source>,
+}
+
+/// A fetch while it runs: its thread, when it began and how long it lets pass before it grabs, and the switch that
+/// stops it.
+struct Fetching {
+    job: Job<Fetched>,
+    started: f64,
+    delay: f64,
+    stop: Arc<AtomicBool>,
 }
 
 impl Default for ScannerState {
@@ -261,8 +285,13 @@ impl Default for ScannerState {
             taught: false,
             picture: None,
             picture_texture: None,
+            picture_stamp: None,
+            picture_looked: f64::NEG_INFINITY,
             fetch: None,
             fetch_said: None,
+            delay: game_picture::DEFAULT_DELAY,
+            hotkey: None,
+            screen: || Box::new(Screen),
         }
     }
 }
@@ -282,9 +311,26 @@ impl ScannerState {
         let hint = Hint::read(paths);
         self.search_frame = hint.frame;
         self.remembered = hint.remembered();
-        if self.picture.is_none() {
-            self.picture = GamePicture::read(&paths.app_file(game_picture::FILE));
+        self.delay = game_picture::delay(paths);
+        let hotkey = versekit_core::overlay::HotkeyChoice::read_picture(paths).hotkey();
+        self.hotkey = hotkey.filter(|_| versekit_core::screen_grab::supported()).map(|h| h.text());
+        self.take_new_picture();
+    }
+
+    /// Reads the file of the picture where it was written since the picture shown (by a fetch or by the hotkey of
+    /// the overlay). Gives whether a new picture came.
+    pub(crate) fn take_new_picture(&mut self) -> bool {
+        let Some(paths) = &self.paths else { return false };
+        let file = paths.app_file(game_picture::FILE);
+        let stamp = std::fs::metadata(&file).and_then(|meta| meta.modified()).ok();
+        if stamp.is_none() || stamp == self.picture_stamp {
+            return false;
         }
+        let Some(picture) = GamePicture::read(&file) else { return false };
+        self.picture_stamp = stamp;
+        self.picture = Some(picture);
+        self.picture_texture = None;
+        true
     }
 
     /// What stands behind the models: the picture of the game where there is one.
@@ -302,67 +348,103 @@ impl ScannerState {
         self.paths.is_some() && versekit_core::screen_grab::supported()
     }
 
-    /// Starts waiting for the game to come to the front, to grab its window once then.
+    /// Starts the countdown of the chosen seconds; then the game window is grabbed once, as soon as the game is in
+    /// front.
     pub fn start_fetch(&mut self, ctx: &egui::Context, now: f64) {
-        self.start_fetch_from(ctx, now, Box::new(Screen), game_picture::WAIT);
+        let delay = Duration::from_secs(self.delay.max(0) as u64);
+        self.start_fetch_from(ctx, now, (self.screen)(), delay, game_picture::WAIT);
     }
 
-    /// As [`ScannerState::start_fetch`], with the pictures from `source` (the checks make up a screen).
+    /// As [`ScannerState::start_fetch`], with the pictures from `source` (the checks make up a screen), after
+    /// `delay`, waiting `wait` more for the game.
     fn start_fetch_from(
         &mut self,
         ctx: &egui::Context,
         now: f64,
         mut source: Box<dyn Source>,
-        wait: std::time::Duration,
+        delay: Duration,
+        wait: Duration,
     ) {
         let Some(paths) = &self.paths else { return };
         if self.fetch.is_some() {
             return;
         }
         let file = paths.app_file(game_picture::FILE);
+        let stop = Arc::new(AtomicBool::new(false));
+        let halt = stop.clone();
         let job = Job::spawn(ctx, "spielbild", move || {
-            let fetched = game_picture::fetch(source.as_mut(), wait, game_picture::LOOK_EVERY);
-            match fetched {
-                Fetched::Got(picture) if !picture.write(&file) => {
-                    Fetched::Failed(versekit_core::screen_grab::GrabError::Failed)
-                }
-                other => other,
-            }
+            let fetched = game_picture::fetch(source.as_mut(), delay, wait, game_picture::LOOK_EVERY, &halt);
+            game_picture::keep(fetched, &file)
         });
-        self.fetch = Some((job, now));
+        self.fetch = Some(Fetching { job, started: now, delay: delay.as_secs_f64(), stop });
         self.fetch_said = None;
     }
 
-    /// Takes the picture once the fetch is done; until then the page is woken every second for the countdown.
-    pub fn poll_fetch(&mut self, ctx: &egui::Context) {
-        let Some((job, _)) = &self.fetch else { return };
-        let said = match job.poll() {
-            Polled::Running => {
-                ctx.request_repaint_after(std::time::Duration::from_secs(1));
-                return;
-            }
-            Polled::Done(Fetched::Got(picture)) => {
-                self.picture = Some(picture);
-                self.picture_texture = None;
-                None
-            }
-            Polled::Done(Fetched::NoGame) => Some("s_sg_bild_kein_spiel"),
-            Polled::Done(Fetched::Failed(_)) | Polled::Lost => Some("s_sg_bild_fehler"),
-        };
-        self.fetch = None;
-        self.fetch_said = said;
+    /// Whether a fetch runs (its countdown, or the wait for the game).
+    pub fn fetching(&self) -> bool {
+        self.fetch.is_some()
     }
 
-    /// The line under the model of the frame: the countdown, what the fetch came to, or that there is no picture.
+    /// Stops the fetch that runs: nothing is grabbed, the picture before stays.
+    pub fn cancel_fetch(&mut self) {
+        if let Some(fetching) = self.fetch.take() {
+            fetching.stop.store(true, Ordering::Relaxed);
+        }
+        self.fetch_said = None;
+    }
+
+    /// Takes the picture once the fetch is done; until then the page is woken twice a second for the countdown.
+    /// Every [`LOOK_SECONDS`] the file is looked at: a picture the hotkey of the overlay took is shown, and a fetch
+    /// still running is not needed any more.
+    pub fn poll_fetch(&mut self, ctx: &egui::Context) {
+        let now = ctx.input(|i| i.time);
+        if let Some(fetching) = &self.fetch {
+            let polled = fetching.job.poll();
+            if matches!(polled, Polled::Running) {
+                ctx.request_repaint_after(Duration::from_millis(500));
+            } else {
+                self.fetch = None;
+                self.fetch_said = match polled {
+                    Polled::Done(Fetched::Got(picture)) => {
+                        self.picture = Some(picture);
+                        self.picture_texture = None;
+                        // The fetch wrote it into the file: that file is the picture shown.
+                        self.picture_stamp = self.paths.as_ref().and_then(|paths| {
+                            std::fs::metadata(paths.app_file(game_picture::FILE)).and_then(|m| m.modified()).ok()
+                        });
+                        None
+                    }
+                    Polled::Running | Polled::Done(Fetched::Stopped) => None,
+                    Polled::Done(Fetched::NoGame) => Some("s_sg_bild_kein_spiel"),
+                    Polled::Done(Fetched::Failed(_)) | Polled::Lost => Some("s_sg_bild_fehler"),
+                };
+            }
+        }
+        if now - self.picture_looked >= LOOK_SECONDS || now < self.picture_looked {
+            self.picture_looked = now;
+            if self.take_new_picture() && self.fetch.is_some() {
+                self.cancel_fetch();
+            }
+        }
+    }
+
+    /// The line over the models: the countdown, the wait for the game, what the fetch came to, or that there is no
+    /// picture.
     fn ground_line(&self, now: f64) -> Option<String> {
-        if let Some((_, started)) = &self.fetch {
-            let left = (game_picture::WAIT.as_secs_f64() - (now - started)).ceil().max(0.0) as i64;
-            return Some(tf("s_sg_bild_warte", &[("0", Arg::from(left))]));
+        if let Some(fetching) = &self.fetch {
+            let left = (fetching.delay - (now - fetching.started)).ceil().max(0.0) as i64;
+            return Some(if left > 0 { tf("s_sg_bild_warte", &[("0", Arg::from(left))]) } else { t("s_sg_bild_laeuft") });
         }
         if let Some(key) = self.fetch_said {
             return Some(t(key));
         }
         (self.picture.is_none() && self.can_fetch()).then(|| t("s_sg_bild_keins"))
+    }
+
+    /// The hint under the button of the picture where the hotkey of the overlay takes it too.
+    fn hotkey_line(&self) -> Option<String> {
+        let hotkey = self.hotkey.as_deref().filter(|_| self.can_fetch())?;
+        Some(tf("s_sg_bild_kuerzel", &[("0", Arg::from(hotkey))]))
     }
 
     /// The place of the signature for the model of the window: the place found last, else the middle of the
@@ -384,6 +466,7 @@ impl ScannerState {
             (signature_window::keys::PLACE, Value::str(self.layout.place.setting())),
             (signature_window::keys::LINGER, Value::int(self.layout.linger)),
             (signature_window::keys::FRAME, Hint { frame: self.search_frame, places: Vec::new() }.frame_value()),
+            (game_picture::DELAY_SETTING, Value::int(game_picture::nearest_delay(self.delay))),
         ]
     }
 
@@ -828,17 +911,23 @@ pub fn model_cards(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, place
                         state.request_show(now);
                     }
                     state.poll_show(row.ctx());
-                    if state.can_fetch() {
+                    if state.can_fetch() && state.fetching() {
+                        // While the countdown or the wait for the game runs: the button stops it.
+                        let stop = t("s_sg_bild_abbrechen");
+                        if row.add(widgets::Button::new(&stop, ButtonKind::Normal, scheme).icon("x")).clicked() {
+                            state.cancel_fetch();
+                        }
+                    } else if state.can_fetch() {
                         let fetch = t(if state.picture.is_some() { "s_sg_bild_neu" } else { "s_sg_bild_holen" });
-                        let waiting = state.fetch.is_some().then(|| t("s_sg_bild_laeuft"));
-                        let button = widgets::Button::new(&fetch, ButtonKind::Normal, scheme)
-                            .icon("image-plus")
-                            .blocked(waiting.as_deref());
-                        if row.add(button).clicked() && state.fetch.is_none() {
+                        let button = widgets::Button::new(&fetch, ButtonKind::Normal, scheme).icon("image-plus");
+                        if row.add(button).clicked() {
                             state.start_fetch(row.ctx(), now);
                         }
                     }
                 });
+                if let Some(line) = state.hotkey_line() {
+                    widgets::hint(ui, scheme, &line);
+                }
                 widgets::hint(ui, scheme, &t("s_sg_rahmen_privat"));
             }
         });

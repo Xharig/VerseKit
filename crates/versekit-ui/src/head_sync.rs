@@ -136,7 +136,7 @@ impl HeadSync {
         let tone = match verdict {
             Verdict::Done => scheme.sub,
             Verdict::Waiting => scheme.yellow,
-            Verdict::Failed => scheme.red,
+            Verdict::Failed => scheme.red_text(),
         };
         ui.add(egui::Label::new(RichText::new(text).small().color(color(tone))).wrap());
     }
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn the_button_shows_only_with_the_switch_the_rights_and_the_connection() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let double = Arc::new(ExchangeDouble::new());
         let dir = folder("sichtbar");
         let wire = Wire::over_double(&double, &dir);
@@ -232,7 +232,7 @@ mod tests {
     #[test]
     fn a_click_asks_for_a_pass_and_the_line_tells_how_it_ended() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let double = Arc::new(ExchangeDouble::new());
         let dir = folder("klick");
         let wire = Wire::over_double(&double, &dir);
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn a_long_line_wraps_in_a_narrow_column_and_is_never_cut() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let double = Arc::new(ExchangeDouble::new());
         let dir = folder("schmal");
         let wire = Wire::over_double(&double, &dir);
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn the_line_follows_the_language_and_a_refusal_stays_until_a_pass_goes_through() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let double = Arc::new(ExchangeDouble::new());
         let dir = folder("sprache");
         let wire = Wire::over_double(&double, &dir);
@@ -335,7 +335,7 @@ mod tests {
         let texts = frame(&ctx, &mut head, &wire, Vec::new());
         assert!(said(&texts, "Mit dem Basetool abgeglichen"), "{texts:?}");
         // The same line in the other language, without another click.
-        language::set_language(Choice::En);
+        language::set_thread_language(Choice::En);
         let texts = frame(&ctx, &mut head, &wire, Vec::new());
         assert!(said(&texts, "Synced with the Basetool"), "{texts:?}");
         // A refusal shows as it is now, and goes when the next pass went through.
@@ -346,7 +346,7 @@ mod tests {
         wire.sync.pass_now().expect("pass");
         let texts = frame(&ctx, &mut head, &wire, Vec::new());
         assert!(said(&texts, "Synced with the Basetool"), "{texts:?}");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -354,7 +354,7 @@ mod tests {
     fn on_a_copy_of_the_data_the_button_does_nothing_and_says_why() {
         use versekit_core::legacy::{ENV_BASETOOL_KEYNAME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let root = folder("testbetrieb");
         std::fs::create_dir_all(std::path::Path::new(&root).join(versekit_core::paths::COPY_DATA_FOLDER)).unwrap();
         let secrets = format!("{root}/geheim");

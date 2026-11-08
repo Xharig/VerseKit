@@ -29,10 +29,20 @@ bei jedem Abruf sieht die Gegenseite deine IP-Adresse.
 |---|---|
 | Neue Versionen, Katalog- und Vertragsdaten | GitHub |
 | Herstellungsdaten | scmdb.net |
-| Preise, Läden, Orte, Gegenstands- und Warenliste | UEX (uexcorp.space) |
+| Preise, Läden, Orte, Gegenstands- und Warenliste | UEX (api.uexcorp.uk) |
 | Schiffswerte | erkul.games |
 | Serverstatus | status.robertsspaceindustries.com |
+| Handle-Suche: Profil, Organisationen und Bilder des Handles oder der Org, die du suchst | robertsspaceindustries.com |
+| Takt des Executive Hangars (Contested Zones) | contestedzonetimers.com |
 | Übersetzungen, die du auswählst | die jeweilige Quelle (etwa StarStrings, Luftwerft, Dymerz) |
+| Geteilte Beziehungsliste („Liste laden“ in der Handle-Suche) | die Adresse, die du selbst einträgst |
+
+Eine geteilte Beziehungsliste lädt VerseKit nur, wenn du auf „Liste laden“
+klickst, und nur über https. Dorthin geht nur die übliche Kennung
+`VerseKit/<Version>`, die jeder Abruf trägt. Die Liste kommt zu deinen
+Beziehungen in deinem Datenordner (`beziehungen.json`), deine eigenen
+Markierungen bleiben dabei stehen. Die Adresse merkt sich VerseKit in deinen
+Einstellungen (`beziehungen_liste_adresse`).
 
 Mit der Umgebungsvariable `SC_BP_NO_NET=1` holt VerseKit gar nichts.
 

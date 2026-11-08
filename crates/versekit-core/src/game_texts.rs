@@ -17,7 +17,7 @@
 
 //! The game's texts as a whole: what the pages and the background do with
 //! the translation and the blueprint notes, port of the parts of
-//! `settings_window.py`, `pages.py` and `sc_bp_watcher.py` that drive
+//! `settings_window.py`, `pages.py` and the main module of 4.12 that drive
 //! `translation` and `injection`.
 //!
 //! Every translation update and every game patch rewrites the `global.ini`,
@@ -53,7 +53,9 @@ pub const SETTING_CONFIRMED: &str = "inj_bestaetigt";
 /// The `Data.p4k` stamp at the last patch seen (`p4k_stand`).
 pub const P4K_SETTING: &str = "p4k_stand";
 
-/// How often the translation is looked at for a newer version: every five minutes.
+/// How often the translation is looked at for a newer version: every five minutes. A look at a release on
+/// GitHub carries the `ETag` of the last one and costs nothing against GitHub's hourly limit while the release
+/// is unchanged (`translation::latest`).
 pub const TEXTS_POLL_SECONDS: f64 = 300.0;
 pub const STOCK_POLL_SECONDS: f64 = 30.0;
 pub const FILE_POLL_SECONDS: f64 = 5.0;
@@ -601,7 +603,7 @@ fn side_notes(paths: &Paths, net: &dyn Net, archive: &dyn Archive, kept: &Kept, 
     Some(injection::apply_texts(paths, &target, &kept.language(paths), &inputs, false))
 }
 
-/// `Watcher._aktive_quelle`: the chosen source of the main installation when
+/// `_aktive_quelle` of the 4.12 watcher: the chosen source of the main installation when
 /// it is set up. A choice that is set counts as it is, also the original
 /// texts and „no translation“: then there is no source to fetch or to enter in
 /// the `user.cfg` (4.12 fell back to the first source with a note and so
@@ -618,7 +620,7 @@ pub fn active_source(paths: &Paths) -> Option<String> {
     }
 }
 
-/// `Watcher._spielsprache_pruefen`: put the language of the chosen
+/// `_spielsprache_pruefen` of the 4.12 watcher: put the language of the chosen
 /// translation back into the user.cfg when it is missing. Only for a source
 /// the player chose, and only when its file is there.
 pub fn check_game_language(paths: &Paths, source: Option<&str>) -> Option<Notice> {
@@ -627,7 +629,7 @@ pub fn check_game_language(paths: &Paths, source: Option<&str>) -> Option<Notice
     language_line(paths, &Kept { channel: None, root, source })
 }
 
-/// `Watcher._inj_mark`: collection, version and the shop catalog stand.
+/// `_inj_mark` of the 4.12 watcher: collection, version and the shop catalog stand.
 pub fn stock_mark(paths: &Paths, owned: &BTreeSet<String>) -> String {
     let mut mark = format!("{}@{}", injection::stock_mark(owned), version());
     if item_info::enabled(paths) {
@@ -683,7 +685,7 @@ pub struct Job {
     pub stock_only: bool,
 }
 
-/// The clocks of the background (`Watcher.texte_*`).
+/// The clocks of the background (`texte_*` of the 4.12 watcher).
 #[derive(Clone, Debug, Default)]
 pub struct Upkeep {
     pub texts_next: f64,
@@ -712,7 +714,7 @@ impl Upkeep {
         }
     }
 
-    /// `Watcher._patch_finished`.
+    /// `_patch_finished` of the 4.12 watcher.
     fn patch_finished(&mut self, paths: &Paths, archive: &dyn Archive, now: f64) -> bool {
         if now < self.p4k_next {
             return false;
@@ -744,7 +746,7 @@ impl Upkeep {
         false
     }
 
-    /// `Watcher._textdatei_geaendert`.
+    /// `_textdatei_geaendert` of the 4.12 watcher.
     fn file_changed(&mut self, paths: &Paths) -> bool {
         let Some(stamp) = file_stamp(paths) else { return false };
         match &self.file_stamp {
@@ -756,7 +758,7 @@ impl Upkeep {
         }
     }
 
-    /// `Watcher._texte_tick`: whether a run is due, and which. `owned` is the
+    /// `_texte_tick` of the 4.12 watcher: whether a run is due, and which. `owned` is the
     /// collection as it is now.
     pub fn tick(&mut self, paths: &Paths, archive: &dyn Archive, owned: &BTreeSet<String>, now: f64) -> Option<Job> {
         if crate::net::offline_in(&paths.host) || self.running {
@@ -819,7 +821,7 @@ pub struct Ran {
     pub renewed: bool,
 }
 
-/// `Watcher._kanaele_abgleichen` and `_texte_abgleichen`: carry out a run.
+/// `_kanaele_abgleichen` of the 4.12 watcher and `_texte_abgleichen`: carry out a run.
 /// Never fails; problems go to the error log.
 pub fn run(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_version: &str) -> Ran {
     let mut ran = Ran::default();
@@ -898,7 +900,7 @@ fn renew_side(paths: &Paths, net: &dyn Net, kept: &Kept, ran: &mut Ran) -> bool 
     }
 }
 
-/// `Watcher._texte_abgleichen`.
+/// `_texte_abgleichen` of the 4.12 watcher.
 fn reconcile(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_version: &str, ran: &mut Ran) {
     let source = job.source.as_deref();
     let folder = source.map_or_else(|| "english".to_string(), |s| translation::language_folder(paths, s, None));

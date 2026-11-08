@@ -140,7 +140,7 @@ fn the_changes_are_flat_with_missing_values_kept_apart() {
 
 #[test]
 fn values_are_written_as_the_python_version_writes_them() {
-    crate::language::set_language(crate::language::Choice::De);
+    crate::language::set_thread_language(crate::language::Choice::De);
     let f = |x: f64| number_text(Some(&Value::Float(x)), 4);
     assert_eq!(f(975.0), "975");
     assert_eq!(f(0.30000000004), "0.3");
@@ -172,7 +172,7 @@ fn a_difference_always_shows_and_never_as_a_false_zero() {
 
 #[test]
 fn nested_values_name_what_differs() {
-    crate::language::set_language(crate::language::Choice::De);
+    crate::language::set_thread_language(crate::language::Choice::De);
     let old = jsonio::loads(r#"[{"consumes": [{"resource": "Power", "units": 4}], "gone": 1}]"#).unwrap();
     let new = jsonio::loads(r#"[{"consumes": [{"resource": "Power", "units": 6}], "added": 2}]"#).unwrap();
     // In the order of the full paths: `[0].added`, `[0].consumes[0].units`, `[0].gone`.
@@ -205,5 +205,106 @@ fn a_version_from_the_net_stays_in_its_folder() {
     let paths = Paths::new(home);
     let target = folder(&paths);
     assert!(target.ends_with(FOLDER) && target.starts_with(&appdata), "{target}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_kept_patch_says_how_many_items_stayed_the_same() {
+    static ASKED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    let (paths, dir) = paths_in("unveraendert");
+    sync(&paths, &feed(&ASKED, true)).unwrap();
+    assert_eq!(unchanged(&paths, "4.10.0-LIVE.12519617"), None, "one of two areas says it: no part as the whole");
+    assert_eq!(unchanged(&paths, "4.10.1-LIVE.12600000"), None, "not kept");
+    // A file whose summary says it wins over the areas.
+    let target = file(&paths, "4.11.0-LIVE.1");
+    let write = |text: &str| std::fs::write(&target, text).unwrap();
+    write(
+        r#"{"version": "4.11.0-LIVE.1", "summary": {"unchanged": 9000},
+            "categories": [{"kind": "ships", "unchanged": 5}]}"#,
+    );
+    assert_eq!(unchanged(&paths, "4.11.0-LIVE.1"), Some(9000));
+    let areas = r#"[{"kind": "ships", "unchanged": 5}, {"kind": "weapons", "unchanged": 7}]"#;
+    write(&format!(r#"{{"version": "4.11.0-LIVE.1", "summary": {{"unchanged": null}}, "categories": {areas}}}"#));
+    assert_eq!(unchanged(&paths, "4.11.0-LIVE.1"), Some(12), "an empty summary leaves it to the areas, all of them");
+    write(r#"{"version": "4.11.0-LIVE.1", "categories": [{"kind": "ships"}]}"#);
+    assert_eq!(unchanged(&paths, "4.11.0-LIVE.1"), None, "nothing said, nothing counted");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_largest_rises_and_falls_are_found_in_percent_of_the_old_value() {
+    static ASKED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    let (paths, dir) = paths_in("groesste");
+    sync(&paths, &feed(&ASKED, true)).unwrap();
+    let all = changes(&paths, "4.10.0-LIVE.12519617", None);
+    let (rises, falls) = largest_moves(&all, 3);
+    let named = |list: &[Move]| list.iter().map(|m| (m.name.clone(), m.path.clone())).collect::<Vec<_>>();
+    assert_eq!(named(&rises), [("C788_Cannon".to_string(), "weapon.ammo.speed".to_string())]);
+    assert_eq!(named(&falls), [("Cutter".to_string(), "precomputed.fuel.burnRate.main".to_string())]);
+    assert!((rises[0].share - 100.0 / 11.0).abs() < 1e-9, "{}", rises[0].share);
+    assert!((falls[0].share + 78.64).abs() < 1e-9, "{}", falls[0].share);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let field = |path: &str, old: Value, new: Value| FieldChange { path: path.into(), old: Some(old), new: Some(new) };
+    let item = |fate: Fate, name: &str, fields: Vec<FieldChange>| Change {
+        kind: "weapons".into(),
+        fate,
+        id: String::new(),
+        name: name.into(),
+        size: None,
+        fields,
+    };
+    let (f, i) = (Value::Float, Value::int);
+    let made = [
+        item(
+            Fate::Changed,
+            "A",
+            vec![
+                field("up.small", i(100), i(110)),
+                field("up.big", f(2.0), f(7.0)),
+                field("from.zero", i(0), i(5)),
+                field("truth", Value::Bool(false), Value::Bool(true)),
+                field("tiny", i(1000), i(1004)),
+                field("down", i(100), i(40)),
+                field("negative.base", f(-1.0), f(2.0)),
+                field("endless", f(1e-300), f(1e300)),
+            ],
+        ),
+        item(Fate::Changed, "B", vec![field("up.same", i(100), i(110)), field("down.more", f(4.0), f(0.5))]),
+        // A new item has no old value to compare with, even when its file names one.
+        item(Fate::New, "C", vec![field("up.huge", i(1), i(1000))]),
+    ];
+    let (rises, falls) = largest_moves(&made, 2);
+    let paths_of = |list: &[Move]| list.iter().map(|m| m.path.as_str()).collect::<Vec<_>>().join(",");
+    assert_eq!(paths_of(&rises), "up.big,up.small", "the largest first, cut at two, equal ones in their order");
+    assert_eq!(paths_of(&falls), "down.more,down", "by size: -87.5 % before -60 %");
+    let rises = largest_moves(&made, 9).0;
+    // Left out: a base of zero or below, truth, a tiny change, an endless share, a new item.
+    assert_eq!(paths_of(&rises), "up.big,up.small,up.same");
+    assert_eq!(share_text(Some(&i(100)), Some(&i(120))), "+20 %");
+    assert_eq!(share_text(Some(&i(100)), Some(&i(350))), "×3.5");
+    assert_eq!(share_text(Some(&i(1000)), Some(&i(1004))), "");
+}
+
+#[test]
+fn the_patches_looked_at_are_kept_and_the_others_are_unread() {
+    let (paths, dir) = paths_in("gelesen");
+    assert_eq!(seen(&paths), None, "never opened");
+    let patch = |version: &str, empty: bool| Patch {
+        version: version.into(),
+        short: String::new(),
+        date: String::new(),
+        summary: Summary::default(),
+        empty,
+        at_source: true,
+        kept: false,
+    };
+    let list = [patch("4.11.0-LIVE.2", false), patch("4.10.1-LIVE.1", true), patch("4.10.0-LIVE.1", false)];
+    let looked: BTreeSet<String> = ["4.10.0-LIVE.1".to_string()].into();
+    set_seen(&paths, &looked).unwrap();
+    assert_eq!(seen(&paths), Some(looked.clone()));
+    assert!(stored(&paths).is_empty(), "the file is no patch file");
+    assert_eq!(unread(&list, &looked), ["4.11.0-LIVE.2"], "a patch without changes is never unread");
+    assert!(unread(&list, &list.iter().map(|p| p.version.clone()).collect()).is_empty());
     let _ = std::fs::remove_dir_all(&dir);
 }

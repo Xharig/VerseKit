@@ -26,6 +26,7 @@
 //! an import, a ship by hand, a wish and entering the page ask
 //! [`crate::slot_sync`] for the missing ones.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
@@ -148,8 +149,19 @@ pub struct HangarState {
     craft_jump: Option<String>,
     /// The dialog to save or open a file of share codes, while it is open.
     share_dialog: Option<ShareDialog>,
-    /// The notice after a ship changed between the own ships and the wish list: text, icon, since when.
+    /// The notice after a ship changed between the own ships and the wish list, or went on ready by itself because
+    /// its list was ticked off: text, icon, since when.
     moved: Option<(String, &'static str, Option<f64>)>,
+    /// The question after a ship was put on ready with parts of its list still open.
+    ready_question: Option<ReadyQuestion>,
+}
+
+/// The ship a question about its list is about: the place in the hangar, checked against name and maker before
+/// anything is ticked, because the list can change under an open question.
+struct ReadyQuestion {
+    index: usize,
+    name: String,
+    maker: String,
 }
 
 /// A dialog of the share codes and the box it belongs to.
@@ -226,6 +238,7 @@ impl Default for HangarState {
             craft_jump: None,
             share_dialog: None,
             moved: None,
+            ready_question: None,
         }
     }
 }
@@ -381,7 +394,7 @@ impl HangarState {
                 let guard = writeguard::state();
                 std::thread::Builder::new()
                     .name("hangar-einlieferung".into())
-                    .spawn(move || {
+                    .spawn_with_language(move || {
                         inbox::serve(listener, thread_inbox, files, guard, || {
                             if let Some(ctx) = thread_repaint.get() {
                                 ctx.request_repaint();
@@ -1242,7 +1255,7 @@ fn hand_part(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
     if let Some((text, tone)) = &state.message {
         let tone = match tone {
             Tone::Good => scheme.accent,
-            Tone::Bad => scheme.red,
+            Tone::Bad => scheme.red_text(),
             Tone::Quiet => scheme.sub,
         };
         small(ui, text, tone);
@@ -1609,7 +1622,7 @@ fn show_planned(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: 
     if let Some((text, tone)) = &state.wish_message {
         let tone = match tone {
             Tone::Good => scheme.accent,
-            Tone::Bad => scheme.red,
+            Tone::Bad => scheme.red_text(),
             Tone::Quiet => scheme.sub,
         };
         small(ui, text, tone);
@@ -1869,10 +1882,11 @@ pub fn show_page_with(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sou
             state.moved = None;
         }
     }
+    ready_question(ui, scheme, state);
     state.unit_menu = state.unit_choices();
     ui.label(RichText::new(t("s_hgl_lead")).small().color(color(scheme.sub)));
     if let Some((line, fine)) = state.receiver.as_ref().and_then(last_event_line) {
-        let tone = if fine { scheme.accent } else { scheme.red };
+        let tone = if fine { scheme.accent } else { scheme.red_text() };
         ui.add(egui::Label::new(RichText::new(line).small().color(color(tone))).wrap());
     }
     ui.add_space(4.0);
@@ -1955,7 +1969,8 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
     } else {
         tf("s_hg_meine_gefiltert", &[("n", Arg::from(shown.len())), ("alle", Arg::from(ships.len()))])
     };
-    ui.label(RichText::new(head).strong());
+    // The head of the own ships like the one of the planned ones below them.
+    widgets::heading(ui, scheme, &head);
     ui.add_space(4.0);
     if ships.is_empty() {
         widgets::empty_state(ui, scheme, "plane", &t("s_hg_leer"));
@@ -1983,7 +1998,7 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
             state.names.write_now();
         }
         if let Some((text, bad)) = state.names.written() {
-            small(ui, text, if *bad { scheme.red } else { scheme.sub });
+            small(ui, text, if *bad { scheme.red_text() } else { scheme.sub });
         }
         if state.names.writing() {
             ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
@@ -2045,10 +2060,22 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
     match action {
         RowAction::Remove(name, maker) => state.remove(&name, &maker),
         RowAction::Ready(on) => {
+            let mut question = None;
             if let Some(entry) = hangar::ship_mut(&mut state.held.data, i) {
                 map_set(entry, "einsatzbereit", Value::Bool(on));
+                if !on {
+                    // Switched off with the plan complete: it does not go on again by itself for this plan.
+                    hangar::note_switched_off(entry);
+                }
+                // The switch is set at once; with parts open the player is asked whether they count as fitted.
+                if on && hangar::open_count(entry) > 0 {
+                    let (name, maker) = (hangar::field_text(entry, "name"), hangar::field_text(entry, "hersteller"));
+                    question = Some(ReadyQuestion { index: i, name: name.to_string(), maker: maker.to_string() });
+                }
                 state.save();
             }
+            state.ready_question = question;
+            ui.ctx().request_repaint();
         }
         RowAction::Melt(choice) => {
             if let Some(entry) = hangar::ship_mut(&mut state.held.data, i)
@@ -2066,15 +2093,80 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
                 return;
             }
             let (stores, extra) = (state.stores.clone(), state.extra.clone());
-            if let Some(entry) = hangar::ship_mut(&mut state.held.data, i)
-                && change_plan(entry, &asked, &stores, &extra, &mut state.equipment)
-            {
-                // The card was drawn with the old height.
-                state.heights.clear();
-                state.save();
+            let mut went_ready = None;
+            if let Some(entry) = hangar::ship_mut(&mut state.held.data, i) {
+                let was_fitted = hangar::fully_fitted(entry);
+                if change_plan(entry, &asked, &stores, &extra, &mut state.equipment) {
+                    if ready_after_tick(entry, was_fitted, &asked) {
+                        went_ready = Some(hangar::field_text(entry, "name").to_string());
+                    }
+                    // The card was drawn with the old height.
+                    state.heights.clear();
+                    state.save();
+                }
+            }
+            if let Some(name) = went_ready {
+                let said = tf("s_hg_einsatz_auto", &[("schiff", Arg::from(name))]);
+                state.moved = Some((said, "circle-check", None));
             }
             ui.ctx().request_repaint();
         }
+    }
+}
+
+/// The last part ticked off puts the ship on ready (`was_fitted`: the plan was complete before the change); a tick
+/// taken back and any other change of the plan do not. True when the ship went on ready.
+fn ready_after_tick(entry: &mut Map, was_fitted: bool, asked: &equipment_box::Action) -> bool {
+    matches!(asked, equipment_box::Action::Tick { on: true, .. }) && hangar::ready_when_fitted(entry, was_fitted)
+}
+
+/// Whether the ship at `index` of the hangar is the one the question was asked about.
+fn is_the_asked_ship(data: &Map, asked: &ReadyQuestion) -> bool {
+    hangar::ships(data).get(asked.index).is_some_and(|entry| {
+        hangar::field_text(entry, "name") == asked.name && hangar::field_text(entry, "hersteller") == asked.maker
+    })
+}
+
+/// The question after a ship was put on ready with parts of its list open: tick them all off as fitted, or leave
+/// the list as it is ("No", Esc or a click beside the dialog; the switch stays on either way). Only while the
+/// ship is the one asked about and has parts open.
+fn ready_question(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
+    let Some(asked) = &state.ready_question else { return };
+    let open = if is_the_asked_ship(&state.held.data, asked) {
+        hangar::ships(&state.held.data).get(asked.index).map_or(0, |entry| hangar::open_count(entry))
+    } else {
+        0
+    };
+    if open == 0 {
+        state.ready_question = None;
+        return;
+    }
+    let title = t("s_hg_einsatz_frage_titel");
+    let text = tf("s_hg_einsatz_frage", &[("schiff", Arg::from(asked.name.as_str())), ("n", Arg::from(open))]);
+    let ((yes, no), close) = widgets::dialog(ui.ctx(), scheme, "einsatzbereit-frage", |d| {
+        widgets::heading(d, scheme, &title);
+        d.add(egui::Label::new(text.as_str()).wrap());
+        d.add_space(8.0);
+        d.horizontal(|row| {
+            let no = row.add(widgets::Button::new(&t("e_nein"), ButtonKind::Normal, scheme)).clicked();
+            let yes = row.add(widgets::Button::new(&t("e_ja"), ButtonKind::Strong, scheme)).clicked();
+            (yes, no)
+        })
+        .inner
+    });
+    if yes {
+        if let Some(asked) = state.ready_question.take()
+            && is_the_asked_ship(&state.held.data, &asked)
+            && let Some(entry) = hangar::ship_mut(&mut state.held.data, asked.index)
+            && hangar::tick_all(entry) > 0
+        {
+            // The card was drawn with the old height.
+            state.heights.clear();
+            state.save();
+        }
+        ui.ctx().request_repaint();
+    } else if no || close {
+        state.ready_question = None;
     }
 }
 
@@ -2221,7 +2313,7 @@ mod tests {
     #[test]
     fn under_the_names_stands_how_many_ships_can_be_renamed_and_which_not() {
         steady_scheme();
-        use versekit_core::language::{Choice, set_language};
+        use versekit_core::language::{Choice, set_thread_language};
         let _language = crate::language_lock();
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -2230,7 +2322,7 @@ mod tests {
         let mut state = HangarState::default();
         let without = "C8 Pisces, Freelancer MAX, Polaris";
         for choice in [Choice::De, Choice::En] {
-            set_language(choice);
+            set_thread_language(choice);
             let (labels, _, _) = frame(&ctx, &mut state, Vec::new());
             let shown = |text: &str| labels.iter().any(|(_, label)| label == text);
             let stand = tf("s_as_stand", &[("0", Arg::from(4)), ("1", Arg::from(7))]);
@@ -2244,7 +2336,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(tf("s_as_stand", &[("0", Arg::from(4)), ("1", Arg::from(7))]).starts_with("4 von 7"));
         // Without the table of the language file neither line.
         state.names = ShipNames::default();
@@ -2311,7 +2403,7 @@ mod tests {
     fn the_wish_list_takes_a_ship_of_the_list_with_its_maker_and_says_why_it_refuses_another() {
         steady_scheme();
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let (mut state, dir) = page_on(
             "wunsch",
             r#"{"format": 1, "schiffe": [{"name": "Avenger Titan", "herkunft": "pledge", "belegung": {}}]}"#,
@@ -2383,7 +2475,7 @@ mod tests {
     #[test]
     fn the_ship_planned_from_the_shops_is_stored_like_the_one_entered_in_the_section() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let start = r#"{"format": 1, "schiffe": [{"name": "Avenger Titan", "herkunft": "pledge", "belegung": {}}]}"#;
         let (mut entered, dir_a) = page_on("plan-eingetragen", start);
         let (mut planned, dir_b) = page_on("plan-aus-laeden", start);
@@ -2409,7 +2501,7 @@ mod tests {
     fn the_hangar_page_ends_with_the_section_planned_and_scrolls_to_it_once_asked() {
         steady_scheme();
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let ctx = egui::Context::default();
         crate::install(&ctx);
         let scheme = versekit_core::theme::current();
@@ -2454,7 +2546,7 @@ mod tests {
     #[test]
     fn a_ship_with_a_maker_in_the_hangar_is_not_wished_for_and_a_failed_save_is_said_on_the_list() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let (mut state, dir) = page_on(
             "wunsch-hersteller",
             r#"{"format": 1, "schiffe": [{"name": "Arrow", "hersteller": "Anvil Aerospace", "herkunft": "pledge", "belegung": {}}]}"#,
@@ -2577,12 +2669,12 @@ mod tests {
     #[test]
     fn the_wish_list_with_cards_sticks_out_nowhere_in_both_languages() {
         steady_scheme();
-        use versekit_core::language::{Choice as Lang, set_language};
+        use versekit_core::language::{Choice as Lang, set_thread_language};
         let _language = crate::language_lock();
         let scheme = versekit_core::theme::current();
         let mut findings = Vec::new();
         for lang in [Lang::De, Lang::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in [380.0_f32, 520.0, 900.0] {
                     let ctx = egui::Context::default();
@@ -2616,7 +2708,7 @@ mod tests {
                 }
             }
         }
-        set_language(Lang::De);
+        set_thread_language(Lang::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
@@ -2755,7 +2847,7 @@ mod tests {
     fn the_button_of_a_ship_asks_for_its_craftable_parts_once() {
         steady_scheme();
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let start = r#"{"format": 1, "schiffe": [{"name": "Arrow", "hersteller": "Anvil Aerospace"},
             {"name": "Avenger Titan", "hersteller": "Aegis Dynamics"}]}"#;
         let (mut state, dir) = page_on("craft-jump", start);
@@ -2807,7 +2899,7 @@ mod tests {
     fn the_unit_of_a_ship_is_offered_only_with_the_area_on_and_two_units_and_goes_into_the_file() {
         use versekit_core::basetool::exchange_double::ExchangeDouble;
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let dir = std::env::temp_dir()
             .join(format!("versekit-hangar-einheit-{}", versekit_core::testdir::run_tag()))
             .to_string_lossy()
@@ -2896,7 +2988,7 @@ mod tests {
             output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut texts));
             texts.contains(&t("s_hg_import_basetool_2"))
         };
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let mut state = HangarState::with_file(&paths);
         assert!(state.adding_open.is_none_or(|open| open), "the import part is open on an empty hangar");
         assert!(!shows(&mut state), "no connection");
@@ -2905,10 +2997,10 @@ mod tests {
         assert!(wire.sync.set_setting(SETTING_SHIPS, Value::Bool(true)));
         wire.sync.pass_now().expect("pass");
         for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
-            versekit_core::language::set_language(choice);
+            versekit_core::language::set_thread_language(choice);
             assert!(shows(&mut state), "area on");
         }
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -3657,5 +3749,251 @@ mod tests {
         assert_eq!(parts(&got), parts(&want), "the same parts in the same slots");
         assert_eq!(plan_part(&receiver, "hp_a").map(|(r, _)| r).as_deref(), Some(LASER), "the plan of the pages follows");
         assert!(box_state.said.as_ref().is_some_and(|(_, text, bad)| text.contains("PvP") && !bad), "{:?}", box_state.said);
+    }
+
+    // ------------------------------------------------------------ the switch "ready" and the list of the ship
+
+    /// Two Gladius of one name with parts open: two on the first, one on the second.
+    const READY_FLEET: &str = r#"{"format": 1, "schiffe": [
+        {"name": "Gladius", "hersteller": "Aegis", "herkunft": "pledge", "belegung": {
+            "a": {"ref": "x", "name": "X", "weg": "kaufen"}, "b": {"ref": "y", "name": "Y", "weg": "kaufen"}}},
+        {"name": "Gladius", "hersteller": "", "herkunft": "ingame", "belegung": {
+            "a": {"ref": "x", "name": "X", "weg": "kaufen"}}}]}"#;
+
+    /// One frame of the page: what it shows as (role, text) and the places of the controls named `named`.
+    fn ready_frame(
+        ctx: &egui::Context,
+        state: &mut HangarState,
+        events: Vec<egui::Event>,
+        named: &[(Role, String)],
+    ) -> (Vec<(Role, String)>, Vec<Vec<egui::Pos2>>) {
+        let scheme = versekit_core::theme::current();
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 4000.0))),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+        output.textures_delta.clear();
+        let Some(update) = output.platform_output.accesskit_update else { return (Vec::new(), Vec::new()) };
+        let shown = update
+            .nodes
+            .iter()
+            .filter_map(|(_, n)| n.label().or(n.value()).map(|l| (n.role(), l.to_owned())))
+            .collect();
+        let places = named
+            .iter()
+            .map(|(role, name)| {
+                let mut found: Vec<egui::Pos2> = update
+                    .nodes
+                    .iter()
+                    .filter(|(_, n)| n.role() == *role && n.label() == Some(name.as_str()))
+                    .filter_map(|(_, n)| n.bounds())
+                    .map(|b| egui::pos2(((b.x0 + b.x1) / 2.0) as f32, ((b.y0 + b.y1) / 2.0) as f32))
+                    .collect();
+                found.sort_by(|a, b| a.y.total_cmp(&b.y));
+                found
+            })
+            .collect();
+        (shown, places)
+    }
+
+    /// Clicks the switch "Ready" of the ship that stands `which`th from the top. The page after the click; the places
+    /// of "Yes" and "No".
+    fn switch_on(
+        state: &mut HangarState,
+        ctx: &egui::Context,
+        which: usize,
+    ) -> (Vec<(Role, String)>, Vec<egui::Pos2>, Vec<egui::Pos2>) {
+        let switch = (Role::CheckBox, t("s_hg_einsatzbereit"));
+        let buttons = [(Role::Button, t("e_ja")), (Role::Button, t("e_nein"))];
+        let named = [switch, buttons[0].clone(), buttons[1].clone()];
+        ready_frame(ctx, state, Vec::new(), &named);
+        let (_, places) = ready_frame(ctx, state, Vec::new(), &named);
+        let at = places[0].get(which).copied().expect("the switch of that ship");
+        ready_frame(ctx, state, click(at), &named);
+        // A dialog is laid out in its first frame and seen from its second.
+        ready_frame(ctx, state, Vec::new(), &named);
+        let (shown, places) = ready_frame(ctx, state, Vec::new(), &named);
+        (shown, places[1].clone(), places[2].clone())
+    }
+
+    fn ready_flags(state: &HangarState) -> Vec<bool> {
+        hangar::ships(&state.held.data).iter().map(|s| hangar::field_true(s, "einsatzbereit")).collect()
+    }
+
+    fn open_counts(state: &HangarState) -> Vec<usize> {
+        hangar::ships(&state.held.data).iter().map(|s| hangar::open_count(s)).collect()
+    }
+
+    /// The question is there, whatever the ship is called in it.
+    fn asks(shown: &[(Role, String)]) -> bool {
+        shown.iter().any(|(_, text)| *text == t("s_hg_einsatz_frage_titel"))
+    }
+
+    #[test]
+    fn a_ship_put_on_ready_with_parts_open_asks_and_yes_ticks_its_list_and_no_other() {
+        yes_ticks_that_ship_only(0);
+    }
+
+    #[test]
+    fn the_second_of_two_ships_of_one_kind_is_the_one_that_is_asked_about_and_ticked() {
+        yes_ticks_that_ship_only(1);
+    }
+
+    /// Clicks the switch of the ship `which`th from the top, answers Yes and sees that this ship, and no other, is
+    /// ticked off.
+    fn yes_ticks_that_ship_only(which: usize) {
+        steady();
+        let _language = crate::language_lock();
+        let (mut state, dir) = page_on(&format!("einsatz-ja-{which}"), READY_FLEET);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.enable_accesskit();
+        let (shown, yes, _) = switch_on(&mut state, &ctx, which);
+        assert!(ready_flags(&state).iter().any(|on| *on), "the click switched nothing");
+        assert!(state.ready_question.is_some(), "no question was set");
+        let near: Vec<_> = shown.iter().filter(|(_, text)| text.to_lowercase().contains("abhaken")).collect();
+        assert!(asks(&shown), "{} nodes, none is the question: {near:?}", shown.len());
+        let flags = ready_flags(&state);
+        assert_eq!(flags.iter().filter(|on| **on).count(), 1, "the switch of one ship is on: {flags:?}");
+        let before = open_counts(&state);
+        let ready_at = flags.iter().position(|on| *on).expect("the ship on ready");
+        assert!(before[ready_at] > 0, "it has parts open");
+        let click_yes = click(yes.first().copied().expect("the button Yes"));
+        ready_frame(&ctx, &mut state, click_yes, &[]);
+        let after = open_counts(&state);
+        assert_eq!(after[ready_at], 0, "all of its list is ticked off");
+        for (i, count) in after.iter().enumerate() {
+            if i != ready_at {
+                assert_eq!(*count, before[i], "the other ships keep their list: {before:?} {after:?}");
+            }
+        }
+        assert_eq!(ready_flags(&state), flags, "no other switch moved");
+        let on_disk = hangar::read(&dir.join(hangar::FILE).to_string_lossy()).expect("file");
+        assert_eq!(hangar::open_count(hangar::ships(&on_disk)[ready_at]), 0, "written to the file");
+        let (shown, _) = ready_frame(&ctx, &mut state, Vec::new(), &[]);
+        assert!(!asks(&shown), "the question is gone");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn no_leaves_the_list_and_only_the_switch_changes() {
+        steady();
+        let _language = crate::language_lock();
+        let (mut state, dir) = page_on("einsatz-nein", READY_FLEET);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.enable_accesskit();
+        let before = open_counts(&state);
+        let (shown, _, no) = switch_on(&mut state, &ctx, 0);
+        assert!(asks(&shown), "{shown:?}");
+        let click_no = click(no.first().copied().expect("the button No"));
+        ready_frame(&ctx, &mut state, click_no, &[]);
+        assert_eq!(open_counts(&state), before, "nothing was ticked");
+        assert_eq!(ready_flags(&state).iter().filter(|on| **on).count(), 1, "the switch stays on");
+        let (shown, _) = ready_frame(&ctx, &mut state, Vec::new(), &[]);
+        assert!(!asks(&shown), "the question is gone");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn escape_answers_no_and_switching_off_takes_the_question_back() {
+        steady();
+        let _language = crate::language_lock();
+        let (mut state, dir) = page_on("einsatz-esc", READY_FLEET);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.enable_accesskit();
+        let before = open_counts(&state);
+        let (shown, _, _) = switch_on(&mut state, &ctx, 0);
+        assert!(asks(&shown), "{shown:?}");
+        let escape = egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: Some(egui::Key::Escape),
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        };
+        ready_frame(&ctx, &mut state, vec![escape], &[]);
+        let (shown, _) = ready_frame(&ctx, &mut state, Vec::new(), &[]);
+        assert!(!asks(&shown) && state.ready_question.is_none(), "Esc closed the question");
+        assert_eq!(open_counts(&state), before, "and ticked nothing");
+        assert_eq!(ready_flags(&state).iter().filter(|on| **on).count(), 1, "the switch stays on");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_ship_switched_off_with_a_complete_list_stays_off_when_a_tick_is_set_again() {
+        steady();
+        let _language = crate::language_lock();
+        let fleet = r#"{"format": 1, "schiffe": [
+            {"name": "Gladius", "hersteller": "Aegis", "herkunft": "pledge", "belegung": {
+                "a": {"ref": "x", "name": "X", "weg": "kaufen", "erledigt": true}}}]}"#;
+        let (mut state, dir) = page_on("einsatz-aus", fleet);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.enable_accesskit();
+        // On (nothing to ask), then off with the list complete.
+        switch_on(&mut state, &ctx, 0);
+        assert_eq!(ready_flags(&state), [true]);
+        switch_on(&mut state, &ctx, 0);
+        assert_eq!(ready_flags(&state), [false], "the second click switches it off");
+        // The tick is taken back and set again in the box: the ship stays off.
+        let ship = hangar::ship_mut(&mut state.held.data, 0).expect("ship");
+        let tick = |on: bool| equipment_box::Action::Tick { paths: vec!["a".to_string()], on };
+        assert!(equipment_box::apply(ship, &tick(false)));
+        let was = hangar::fully_fitted(ship);
+        assert!(equipment_box::apply(ship, &tick(true)));
+        assert!(!ready_after_tick(ship, was, &tick(true)), "the same list, switched off: it stays off");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_ship_with_nothing_open_is_not_asked() {
+        steady();
+        let _language = crate::language_lock();
+        let fleet = r#"{"format": 1, "schiffe": [
+            {"name": "Gladius", "hersteller": "Aegis", "herkunft": "pledge", "belegung": {
+                "a": {"ref": "x", "name": "X", "weg": "kaufen", "erledigt": true}}}]}"#;
+        let (mut state, dir) = page_on("einsatz-nichts", fleet);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.enable_accesskit();
+        let (shown, _, _) = switch_on(&mut state, &ctx, 0);
+        assert!(!asks(&shown), "{shown:?}");
+        assert_eq!(ready_flags(&state), [true], "the switch is on");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_last_tick_in_the_box_puts_the_ship_on_ready_and_a_tick_taken_back_does_not() {
+        use equipment_box::Action;
+        let mut ship = match jsonio::loads(
+            r#"{"name": "Gladius", "belegung": {"a": {"ref": "x", "erledigt": true}, "b": {"ref": "y"}}}"#,
+        ) {
+            Ok(Value::Object(m)) => m,
+            other => panic!("{other:?}"),
+        };
+        let tick = |on: bool| Action::Tick { paths: vec!["b".to_string()], on };
+        let was = hangar::fully_fitted(&ship);
+        // Taking the open part away completes the plan too, but that is no tick: the ship does not go on ready.
+        let clear = Action::Clear { paths: vec!["b".to_string()] };
+        let mut cleared = ship.clone();
+        assert!(equipment_box::apply(&mut cleared, &clear));
+        assert!(hangar::fully_fitted(&cleared), "nothing open any more");
+        assert!(!ready_after_tick(&mut cleared, was, &clear), "another change of the plan");
+        assert!(!hangar::field_true(&cleared, "einsatzbereit"));
+        assert!(equipment_box::apply(&mut ship, &tick(true)));
+        assert!(ready_after_tick(&mut ship, was, &tick(true)), "the last part");
+        assert!(hangar::field_true(&ship, "einsatzbereit"));
+        // Switched off by hand, then a tick taken back and the plan still complete next time: nothing comes back.
+        map_set(&mut ship, "einsatzbereit", Value::Bool(false));
+        let was = hangar::fully_fitted(&ship);
+        assert!(!ready_after_tick(&mut ship, was, &tick(true)), "it was complete already");
+        assert!(equipment_box::apply(&mut ship, &tick(false)));
+        let was = hangar::fully_fitted(&ship);
+        assert!(!ready_after_tick(&mut ship, was, &tick(false)), "a tick taken back");
+        assert!(!hangar::field_true(&ship, "einsatzbereit"));
     }
 }

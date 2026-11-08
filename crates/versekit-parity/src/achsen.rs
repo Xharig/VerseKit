@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Rust side of the check of the axes and curves against `scbp/curves.py` (`tools/parity_achsen.py`): the reading
+//! Rust side of the check of the axes and curves against `curves.py` (`tools/parity_achsen.py`): the reading
 //! of the file, the answer of the curve and the numbers the way Python writes them.
 //!
 //! `gegenprobe`: the lists come back in reverse order, the answers with the other sign, the texts of the numbers

@@ -16,7 +16,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! The own corrections of class, size and grade of blueprints (`bp-overrides.json`), and the size a skin or
-//! special variant takes from its base (`load_meta`, `_size_grade_class` of `sc_bp_watcher.py`).
+//! special variant takes from its base (`load_meta`, `_size_grade_class` of the main module of 4.12).
 //!
 //! Order of precedence for size, grade and class: the own corrections, then the game data, then scmdb (which the
 //! catalog stands on only when the archive cannot be read). The file is optional and lies beside the collection;

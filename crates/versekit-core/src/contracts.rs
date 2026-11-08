@@ -109,6 +109,12 @@ static OBJECTIVE_TITLE: LazyLock<Regex> = LazyLock::new(|| {
 /// without them cannot match.
 const MARK_END_MISSION: &str = "<EndMission>";
 const MARK_LEFT_GAME: &str = "CSessionManager::RequestFrontEnd]";
+const MARK_OBJECTIVE: &str = "<ObjectiveUpserted>";
+const MARK_MARKER: &str = "CreateMarker";
+
+/// The literal parts of the lines the functions `*_from_text` look at: a line without one of them changes no
+/// answer, so a reader may keep these lines alone. The change of server is not among them, see [`SilenceScan`].
+pub const TEXT_MARKERS: [&str; 5] = [NOTIFICATION, MARK_LEFT_GAME, MARK_END_MISSION, MARK_OBJECTIVE, MARK_MARKER];
 
 /// `Auftrag angenommen: %s` → `Auftrag angenommen`.
 fn shorten_phrase(value: &str) -> String {
@@ -292,7 +298,7 @@ pub enum ObjectiveEvent {
 
 /// The states of the objectives in this text, in the order of the log.
 pub fn objective_states_from_text(text: &str) -> Vec<(String, String, String, String)> {
-    if !text.contains("<ObjectiveUpserted>") {
+    if !text.contains(MARK_OBJECTIVE) {
         return Vec::new();
     }
     OBJECTIVE_STATE
@@ -304,7 +310,7 @@ pub fn objective_states_from_text(text: &str) -> Vec<(String, String, String, St
 /// All objective messages of this text, in the order of the log.
 pub fn objective_events_from_text(text: &str) -> Vec<ObjectiveEvent> {
     let mut found: Vec<(usize, ObjectiveEvent)> = Vec::new();
-    if text.contains("<ObjectiveUpserted>") {
+    if text.contains(MARK_OBJECTIVE) {
         for c in OBJECTIVE_STATE.captures_iter(text) {
             let at = c.get(0).map_or(0, |m| m.start());
             found.push((
@@ -350,7 +356,7 @@ static CONTRACT_MARKER: LazyLock<Regex> = LazyLock::new(|| {
 /// the same contract id.
 pub fn contracts_from_text(text: &str) -> HashMap<String, String> {
     let mut found = HashMap::new();
-    if !text.contains("CreateMarker") {
+    if !text.contains(MARK_MARKER) {
         return found;
     }
     for c in CONTRACT_MARKER.captures_iter(text) {
@@ -364,19 +370,67 @@ pub fn contracts_from_text(text: &str) -> HashMap<String, String> {
 /// an end in the log.
 const SERVER_CHANGE: &str = "<Change Server Start>";
 
+/// `(changed, silent, alive)`: has a change of server happened, which mission ids are silent since, which alive.
+pub type Silence = (bool, HashSet<String>, HashSet<String>);
+
 /// `(changed, silent, alive)` for a log text: has a change of server happened,
 /// which of the ids no longer appear after the last one, which do (or, without
 /// a change, appear anywhere in the text).
-pub fn server_change_silence(text: &str, mission_ids: &[String]) -> (bool, HashSet<String>, HashSet<String>) {
-    let ids: HashSet<String> = mission_ids.iter().filter(|i| !i.is_empty()).cloned().collect();
-    let Some(last) = text.rfind(SERVER_CHANGE) else {
-        let alive = ids.iter().filter(|i| text.contains(i.as_str())).cloned().collect();
-        return (false, HashSet::new(), alive);
-    };
-    let after = &text[last..];
-    let silent: HashSet<String> = ids.iter().filter(|i| !after.contains(i.as_str())).cloned().collect();
-    let alive = ids.difference(&silent).cloned().collect();
-    (true, silent, alive)
+pub fn server_change_silence(text: &str, mission_ids: &[String]) -> Silence {
+    let mut scan = SilenceScan::new(mission_ids);
+    scan.piece(text);
+    scan.finish()
+}
+
+/// [`server_change_silence`] for a log that is handed over a piece at a time (whole lines): the answer is the same
+/// as for the pieces joined into one text.
+pub struct SilenceScan {
+    ids: HashSet<String>,
+    changed: bool,
+    /// The ids found after the last change of server so far.
+    after: HashSet<String>,
+    /// The ids found anywhere so far, counted until the first change of server.
+    anywhere: HashSet<String>,
+}
+
+impl SilenceScan {
+    pub fn new(mission_ids: &[String]) -> SilenceScan {
+        SilenceScan {
+            ids: mission_ids.iter().filter(|i| !i.is_empty()).cloned().collect(),
+            changed: false,
+            after: HashSet::new(),
+            anywhere: HashSet::new(),
+        }
+    }
+
+    /// The next piece of the log.
+    pub fn piece(&mut self, text: &str) {
+        let from = match text.rfind(SERVER_CHANGE) {
+            Some(last) => {
+                self.changed = true;
+                self.after.clear();
+                last
+            }
+            None => 0,
+        };
+        for id in &self.ids {
+            if self.changed && !self.after.contains(id) && text[from..].contains(id.as_str()) {
+                self.after.insert(id.clone());
+            }
+            if !self.changed && !self.anywhere.contains(id) && text.contains(id.as_str()) {
+                self.anywhere.insert(id.clone());
+            }
+        }
+    }
+
+    /// `(changed, silent, alive)`.
+    pub fn finish(self) -> Silence {
+        if !self.changed {
+            return (false, HashSet::new(), self.anywhere);
+        }
+        let silent = self.ids.difference(&self.after).cloned().collect();
+        (true, silent, self.after)
+    }
 }
 
 /// Mission id → contract key in the order the ids were first set, like a
@@ -648,6 +702,40 @@ mod tests {
         // A shared offer with a real id still counts as a start.
         let real = line("Auftrag geteilt", "Hunt", &ids("cccc", ""));
         assert_eq!(events_from_text(&real, &patterns())[0].kind, Kind::Accept);
+    }
+
+    #[test]
+    fn the_silence_of_pieces_is_the_silence_of_the_whole_text() {
+        let ids: Vec<String> = ["id-a", "id-b", "id-c", ""].map(String::from).to_vec();
+        let texts = [
+            "x id-a\n<Change Server Start>\nid-b y\n",
+            "id-a\nid-b\nid-c\n",
+            "<Change Server Start> id-a\nid-b\n<Change Server Start>\nid-c id-b\n id-a <Change Server Start>",
+            "id-a id-b <Change Server Start> id-c\n",
+            "no id at all\n",
+            "",
+        ];
+        for text in texts {
+            let want = server_change_silence(text, &ids);
+            for (cut, _) in text.match_indices('\n') {
+                let mut scan = SilenceScan::new(&ids);
+                scan.piece(&text[..=cut]);
+                scan.piece(&text[cut + 1..]);
+                assert_eq!(scan.finish(), want, "{text:?} cut after {cut}");
+            }
+            let mut scan = SilenceScan::new(&ids);
+            text.split_inclusive('\n').for_each(|line| scan.piece(line));
+            assert_eq!(scan.finish(), want, "{text:?} line by line");
+        }
+        // Something to see in the answer: after the last change only the ids named after it live.
+        let (changed, silent, alive) = server_change_silence(texts[0], &ids);
+        assert!(changed);
+        assert_eq!(alive, HashSet::from(["id-b".to_string()]));
+        assert_eq!(silent, HashSet::from(["id-a".to_string(), "id-c".to_string()]));
+        // Without a change every id named anywhere lives.
+        let (changed, silent, alive) = server_change_silence(texts[1], &ids);
+        assert!(!changed && silent.is_empty());
+        assert_eq!(alive.len(), 3);
     }
 
     #[test]

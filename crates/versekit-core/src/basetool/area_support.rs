@@ -27,6 +27,7 @@ use crate::basetool::connection::{get, get_str};
 use crate::basetool::error::{ApiError, truthy};
 use crate::basetool::feed::{self, Sent, list};
 use crate::basetool::hold::{self, ChangeSet};
+use crate::basetool::pacing;
 use crate::basetool::sync::Pass;
 use crate::jsonio::{self, Map, Value, map_set};
 
@@ -205,21 +206,49 @@ pub struct Posted {
     pub offers_reduced: i64,
     pub offers_removed: i64,
     pub detached: i64,
+    /// Sending waits until this time (`Retry-After`); nothing more went out.
+    pub waiting: Option<f64>,
 }
 
 /// Sends the change sets of `route` behind the lock of the Basetool
 /// (`_send_unless_held`): nothing goes out while the route is held; if the
 /// Basetool holds a send, the loop ends there and the route is held.
+///
+/// Sparing ([`pacing`]): an operation answered before without being applied does not go out again while the plan
+/// holds it unchanged, and its refusal is reported as before. While a `Retry-After` stands nothing goes out; a
+/// send refused with one starts that wait, and the pass goes on without an error.
 pub fn send_unless_held(pass: &mut Pass<'_>, route: &str, sets: &[ChangeSet]) -> Result<Posted, ApiError> {
     let mut out = Posted::default();
-    if !hold::may_send(pass.state, pass.confirmations, route, sets, pass.now, pass.release_now) {
+    pacing::clear_expired_wait(pass.state, pass.now);
+    let release = pass.release_now.contains(route);
+    let (to_send, silent) = pacing::leave_out(pass.state, route, sets, pass.now, release);
+    out.failed = silent;
+    if let Some(until) = pacing::wait_until(pass.state, pass.now) {
+        out.paused = true;
+        out.waiting = Some(until);
+        return Ok(out);
+    }
+    if !hold::may_send(pass.state, pass.confirmations, route, &to_send, pass.now, pass.release_now) {
         out.paused = true;
         return Ok(out);
     }
-    for (number, (change_set, keys)) in sets.iter().enumerate() {
-        match feed::send_change_set(pass.conn, pass.conn.config(), route, change_set)? {
+    let mut answered: Vec<pacing::Answered> = Vec::new();
+    for (number, (change_set, keys)) in to_send.iter().enumerate() {
+        let sent = match feed::send_change_set(pass.conn, pass.conn.config(), route, change_set) {
+            Ok(sent) => sent,
+            Err(error) => match pacing::wait_after(pass.state, pass.now, &error) {
+                Some(until) => {
+                    error.record("basetool_sync.send");
+                    out.paused = true;
+                    out.waiting = Some(until);
+                    break;
+                }
+                None => return Err(error),
+            },
+        };
+        match sent {
             Sent::Held { confirm_url, error: _ } => {
-                hold::hold(pass.state, pass.confirmations, route, &sets[number..], confirm_url, &out.refused, pass.now);
+                hold::hold(pass.state, pass.confirmations, route, &to_send[number..], confirm_url, &out.refused, pass.now);
                 out.paused = true;
                 break;
             }
@@ -235,26 +264,38 @@ pub fn send_unless_held(pass: &mut Pass<'_>, route: &str, sets: &[ChangeSet]) ->
                 out.offers_removed += count_of(&result, "offersRemoved");
                 out.detached += count_of(&result, "detachedFromMissions");
                 let mut refused_keys = std::collections::BTreeSet::new();
+                let mut outcomes: Vec<Option<(String, String)>> = vec![None; keys.len()];
                 for entry in list(&result, "results") {
                     let index = match entry.get("index") {
                         Some(Value::Int(n)) => n.parse::<usize>().ok().filter(|i| *i < keys.len()),
                         _ => None,
                     };
                     let kind = entry.get("result").and_then(Value::as_str);
+                    let reason = match entry.get("reason") {
+                        Some(v) if truthy(v) => crate::basetool::error::py_str(v),
+                        _ => String::new(),
+                    };
+                    if let Some(index) = index {
+                        outcomes[index] = Some((kind.unwrap_or_default().to_string(), reason.clone()));
+                    }
                     if let Some(index) = index
                         && kind != Some("unchanged")
                     {
-                        let reason = match entry.get("reason") {
-                            Some(v) if truthy(v) => crate::basetool::error::py_str(v),
-                            _ => String::new(),
-                        };
                         out.failed.push((keys[index].clone(), kind.unwrap_or_default().to_string(), reason));
                         refused_keys.insert(keys[index].clone());
                     }
+                }
+                let ops: &[Value] = match change_set.get("ops") {
+                    Some(Value::Array(ops)) => ops,
+                    _ => &[],
+                };
+                for ((op, key), outcome) in ops.iter().zip(keys).zip(outcomes) {
+                    answered.push((hold::op_hash(op), key.clone(), outcome));
                 }
                 out.refused.extend(refused_ops(change_set, keys, &refused_keys));
             }
         }
     }
+    pacing::remember(pass.state, route, sets, &answered, pass.now);
     Ok(out)
 }

@@ -66,7 +66,7 @@ pub fn prepare(look: Look, quiet: bool) -> Result<WgpuSetupExisting, String> {
     let paths = run_paths();
     let version = env!("CARGO_PKG_VERSION");
     let failed = if quiet { Vec::new() } else { super::failed_stages(paths, version) };
-    let stages = super::order(&super::ladder(look), &failed);
+    let stages = super::order(&super::ladder_for(look, super::use_card(paths)), &failed);
     let window = ProbeWindow::new();
     let result = super::choose(&stages, |stage| match &window {
         _ if super::refused(stage) => Err("refused for the counter check".to_string()),

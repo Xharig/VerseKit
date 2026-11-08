@@ -19,6 +19,7 @@
 //! after the other (`versekit_core::handle_query::pictures` keeps them on disk); the frame only takes what came.
 //! Until a picture is there, or when there is none, [`Pictures::show`] draws a quiet box of the same size.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender};
@@ -114,7 +115,7 @@ impl Pictures {
             let net = Arc::clone(net);
             let lock = versekit_core::writeguard::state();
             let wake = ctx.clone();
-            let started = std::thread::Builder::new().name("handle-bilder".into()).spawn(move || {
+            let started = std::thread::Builder::new().name("handle-bilder".into()).spawn_with_language(move || {
                 versekit_core::writeguard::adopt(&lock);
                 for url in asked {
                     let image = pictures::get(&own, net.as_ref(), &url).and_then(|bytes| decode(&bytes));

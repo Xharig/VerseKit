@@ -27,6 +27,7 @@
 //! What is shown: the binding the game uses (`actionmaps.xml`), the factory setting of the game, or a saved
 //! file of the folder of the profiles (only to look at).
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
@@ -285,7 +286,7 @@ impl ListState {
         }
         let (sender, receiver) = mpsc::channel();
         let copy = paths.working_copy();
-        let spawned = std::thread::Builder::new().name("joysticks-names".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("joysticks-names".into()).spawn_with_language(move || {
             let _ = sender.send(Arc::new(load_names(&copy, lang, key)));
         });
         if spawned.is_ok() {

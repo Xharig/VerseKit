@@ -63,6 +63,9 @@ pub const DEFAULT_SCAN_HOTKEY: &str = "Alt+Umschalt+R";
 /// The hotkey that puts the cursor into the handle search of the info bar, without a setting (H for handle). It is
 /// on until switched off ([`keys::HOTKEY_SEARCH_ON`]).
 pub const DEFAULT_SEARCH_HOTKEY: &str = "Alt+Umschalt+H";
+/// The hotkey that takes the picture of the game for the signature window at once, without a setting (B for Bild),
+/// in the same way. It is on until switched off ([`keys::HOTKEY_PICTURE_ON`]).
+pub const DEFAULT_PICTURE_HOTKEY: &str = "Alt+Umschalt+B";
 /// The info bar stands over the running game while its setting is missing; a stored setting wins.
 pub const INFO_BAR_DEFAULT: bool = true;
 /// The info bar waits hidden without the game while its setting is missing; a stored setting wins.
@@ -90,9 +93,15 @@ pub mod keys {
     /// The earlier switch of the hotkey of the handle search, left unread.
     pub const HOTKEY_SEARCH_ON_OLD: &str = "hotkey_suche_an";
     pub const HOTKEY_SEARCH: &str = "hotkey_suche";
+    /// The hotkey of the picture of the game is registered (only a literal `false` switches it off).
+    pub const HOTKEY_PICTURE_ON: &str = "hotkey_bild_an";
+    pub const HOTKEY_PICTURE: &str = "hotkey_bild";
     pub const CORNER: &str = "overlay_ecke";
     pub const BAR: &str = "overlay_leiste";
     pub const SOUND: &str = "signalton";
+    /// The sound when a refinery job is done, and the volume of every sound in percent.
+    pub const SOUND_REFINERY: &str = crate::sound::REFINERY_SETTING;
+    pub const VOLUME: &str = crate::sound::VOLUME_SETTING;
     pub const MODE: &str = "overlay_modus";
     pub const POPUP_SECONDS: &str = "popup_sekunden";
     pub const OPACITY: &str = "deckkraft_prozent";
@@ -141,6 +150,8 @@ pub mod keys {
     pub const SHOW_CONTRACTS: &str = "overlay_zeige_auftraege";
     pub const SHOW_UPDATE: &str = "overlay_zeige_update";
     pub const SHOW_REFINERY: &str = "overlay_zeige_raffinerie";
+    /// The jobs of the fabricator in the open overlay.
+    pub const SHOW_WORKBENCH: &str = "overlay_zeige_werkbank";
     /// How many contracts the game lets a player hold, for the count in the head of the bar
     /// ([`super::CONTRACTS_MAX_DEFAULT`] without the key).
     pub const CONTRACTS_MAX: &str = "overlay_auftraege_hoechstzahl";
@@ -622,13 +633,21 @@ pub enum Section {
     Contracts,
     /// The refinery jobs, running with the time left and done, under the contracts.
     Refinery,
+    /// The jobs of the fabricator, under the refinery jobs.
+    Workbench,
     /// The line that a newer version is ready.
     Update,
 }
 
 impl Section {
-    pub const ALL: [Section; 5] =
-        [Section::Shard, Section::Location, Section::Contracts, Section::Refinery, Section::Update];
+    pub const ALL: [Section; 6] = [
+        Section::Shard,
+        Section::Location,
+        Section::Contracts,
+        Section::Refinery,
+        Section::Workbench,
+        Section::Update,
+    ];
 
     /// The settings key of the switch.
     pub fn key(self) -> &'static str {
@@ -637,6 +656,7 @@ impl Section {
             Section::Location => keys::SHOW_LOCATION,
             Section::Contracts => keys::SHOW_CONTRACTS,
             Section::Refinery => keys::SHOW_REFINERY,
+            Section::Workbench => keys::SHOW_WORKBENCH,
             Section::Update => keys::SHOW_UPDATE,
         }
     }
@@ -833,6 +853,15 @@ impl HotkeyChoice {
         Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination)
     }
 
+    /// The hotkey of the picture of the game, [`DEFAULT_PICTURE_HOTKEY`] where none is set.
+    pub fn read_picture(paths: &Paths) -> HotkeyChoice {
+        if !picture_hotkey_on(paths) {
+            return HotkeyChoice::Off;
+        }
+        let text = paths.setting(keys::HOTKEY_PICTURE).unwrap_or_else(|| DEFAULT_PICTURE_HOTKEY.to_string());
+        Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination)
+    }
+
     pub fn hotkey(&self) -> Option<Hotkey> {
         match self {
             HotkeyChoice::Combination(hotkey) => Some(*hotkey),
@@ -851,6 +880,11 @@ pub fn search_hotkey_on(paths: &Paths) -> bool {
     !literal_false(paths, keys::HOTKEY_SEARCH_ON)
 }
 
+/// Whether the hotkey of the picture of the game is to be registered: off only by a literal `false` (`hotkey_bild_an`).
+pub fn picture_hotkey_on(paths: &Paths) -> bool {
+    !literal_false(paths, keys::HOTKEY_PICTURE_ON)
+}
+
 /// One line of the start trail about a hotkey: its name and what came of its registration.
 fn trail_line(name: &str, choice: &HotkeyChoice, registered: Result<(), String>) -> String {
     match (choice, registered) {
@@ -864,6 +898,11 @@ fn trail_line(name: &str, choice: &HotkeyChoice, registered: Result<(), String>)
 /// The line of the start trail about the hotkey of the handle search, in the way of [`hotkey_trail`].
 pub fn search_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
     trail_line("Such-Hotkey", choice, registered)
+}
+
+/// The line of the start trail about the hotkey of the picture of the game, in the way of [`hotkey_trail`].
+pub fn picture_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    trail_line("Bild-Hotkey", choice, registered)
 }
 
 /// The lines of the start trail about the hotkeys, as 4.12 writes them (`hotkey_anmelden`, `hotkey_scan_anmelden`):
@@ -906,8 +945,12 @@ pub struct Settings {
     pub scan_hotkey: Option<Hotkey>,
     /// The hotkey that puts the cursor into the handle search of the info bar.
     pub search_hotkey: Option<Hotkey>,
+    /// The hotkey that takes the picture of the game for the signature window at once.
+    pub picture_hotkey: Option<Hotkey>,
     pub layout: Layout,
     pub sound: bool,
+    /// The volume of every sound in percent.
+    pub volume: i64,
     pub mode: Mode,
     pub popup_seconds: i64,
     /// Background opacity in percent; text and icons stay solid.
@@ -966,8 +1009,10 @@ impl Default for Settings {
             hotkey: Hotkey::parse(DEFAULT_HOTKEY),
             scan_hotkey: Hotkey::parse(DEFAULT_SCAN_HOTKEY),
             search_hotkey: None,
+            picture_hotkey: Hotkey::parse(DEFAULT_PICTURE_HOTKEY),
             layout: Layout::default(),
             sound: true,
+            volume: crate::sound::VOLUME_DEFAULT,
             mode: Mode::Always,
             popup_seconds: 6,
             opacity: 93,
@@ -1009,6 +1054,8 @@ impl Settings {
         // Switched off only by a literal `false`, as 4.12 reads both.
         let off = |key: &str| literal_false(paths, key);
         let hotkey = HotkeyChoice::read(paths).hotkey();
+        // The overlay follows the clock of the main window the next time it reads its settings.
+        crate::formats::apply_clock(paths);
         Settings {
             click_through: paths.setting_bool(keys::CLICK_THROUGH, false),
             auto_through: !off(keys::AUTO_THROUGH),
@@ -1016,11 +1063,13 @@ impl Settings {
             hotkey,
             scan_hotkey: HotkeyChoice::read_scan(paths).hotkey(),
             search_hotkey: HotkeyChoice::read_search(paths).hotkey(),
+            picture_hotkey: HotkeyChoice::read_picture(paths).hotkey(),
             layout: Layout {
                 corner: Corner::from_setting(corner.as_deref()),
                 bar: BarSide::from_settings(bar.as_deref(), corner.as_deref()),
             },
             sound: paths.setting_bool(keys::SOUND, true),
+            volume: crate::sound::volume(paths),
             mode: Mode::from_setting(paths.setting(keys::MODE).as_deref()),
             popup_seconds: paths.setting_int(keys::POPUP_SECONDS, 6, Some(2), Some(60)),
             opacity: paths.setting_int(keys::OPACITY, 93, Some(30), Some(100)),
@@ -1898,9 +1947,13 @@ mod tests {
         paths.set_setting(keys::SHOW_CONTRACTS, Value::Bool(false));
         let read = Settings::read(&paths).sections;
         assert!(!read.contains(Section::Contracts));
-        for section in [Section::Location, Section::Shard, Section::Refinery, Section::Update] {
+        for section in [Section::Location, Section::Shard, Section::Refinery, Section::Workbench, Section::Update] {
             assert!(read.contains(section), "{section:?}");
         }
+        // The jobs of the fabricator by their own switch, the others stay.
+        paths.set_setting(keys::SHOW_WORKBENCH, Value::Bool(false));
+        let read = Settings::read(&paths).sections;
+        assert!(!read.contains(Section::Workbench) && read.contains(Section::Refinery));
         // The most contracts: ten by default, the player's number within its limits.
         assert_eq!(Settings::read(&paths).contracts_max, 10);
         paths.set_setting(keys::CONTRACTS_MAX, Value::int(12));
@@ -2014,6 +2067,34 @@ mod tests {
         paths.set_setting(keys::HOTKEY_SEARCH, Value::str("H"));
         assert_eq!(HotkeyChoice::read_search(&paths), HotkeyChoice::Wrong("H".into()));
         assert_eq!(Settings::read(&paths).search_hotkey, None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The hotkey of the picture of the game is on until a literal `false` switches it off; then it is the default
+    /// or the one saved, by the rules of the other hotkeys, and the start trail says what came of it.
+    #[test]
+    fn the_hotkey_of_the_picture_of_the_game_is_on_until_switched_off() {
+        let (paths, dir) = events_paths("bildtaste");
+        assert!(picture_hotkey_on(&paths), "on without a setting");
+        let h = Hotkey::parse(DEFAULT_PICTURE_HOTKEY).unwrap();
+        assert!(!h.ctrl && h.alt && h.shift, "like the other defaults, without Strg");
+        assert_eq!(Settings::read(&paths).picture_hotkey, Some(h));
+        assert_eq!(Settings::default().picture_hotkey, Some(h));
+        let trail = picture_hotkey_trail(&HotkeyChoice::read_picture(&paths), Ok(()));
+        assert_eq!(trail, "Bild-Hotkey: Alt+Umschalt+B angemeldet (ok)");
+        for (value, on) in [(Value::str("false"), true), (Value::int(0), true), (Value::Bool(false), false)] {
+            paths.set_setting(keys::HOTKEY_PICTURE_ON, value.clone());
+            assert_eq!(picture_hotkey_on(&paths), on, "{value:?}");
+        }
+        assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Off);
+        assert_eq!(Settings::read(&paths).picture_hotkey, None);
+        assert_eq!(picture_hotkey_trail(&HotkeyChoice::Off, Ok(())), "Bild-Hotkey: ausgeschaltet");
+        paths.set_setting(keys::HOTKEY_PICTURE_ON, Value::Bool(true));
+        paths.set_setting(keys::HOTKEY_PICTURE, Value::str("F14"));
+        assert_eq!(Settings::read(&paths).picture_hotkey.map(Hotkey::text).as_deref(), Some("F14"));
+        paths.set_setting(keys::HOTKEY_PICTURE, Value::str("B"));
+        assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Wrong("B".into()), "a letter needs a modifier");
+        assert_eq!(Settings::read(&paths).picture_hotkey, None);
         let _ = std::fs::remove_dir_all(dir);
     }
 

@@ -137,11 +137,38 @@ pub fn read_file(path: &Path, pattern: &Regex, sources: &Sources) -> Vec<Find> {
 /// The account from a text section. The expressions are tried in order,
 /// not by position of the match.
 pub fn account_from_text(text: &str) -> Option<String> {
-    ACCOUNT_RES
-        .iter()
-        .find_map(|rx| rx.captures(text).and_then(|c| c.get(1)).map(|m| py_strip(m.as_str()).to_string()))
-        // The handle of the player: private for the streamer mode, wherever it is read.
-        .inspect(|found| crate::streamer::learn(found))
+    let mut scan = HandleScan::default();
+    scan.piece(text);
+    scan.handle()
+}
+
+/// [`account_from_text`] for a log handed over a piece at a time (whole lines): the same handle as for the pieces
+/// joined into one text. Each expression keeps its first match.
+#[derive(Clone, Debug, Default)]
+pub struct HandleScan {
+    found: [Option<String>; 3],
+}
+
+impl HandleScan {
+    /// The next piece of the log.
+    pub fn piece(&mut self, text: &str) {
+        for (rx, found) in ACCOUNT_RES.iter().zip(&mut self.found) {
+            if found.is_none() {
+                *found = rx.captures(text).and_then(|c| c.get(1)).map(|m| py_strip(m.as_str()).to_string());
+            }
+        }
+    }
+
+    /// The handle of the first expression that found one.
+    pub fn handle(&self) -> Option<String> {
+        self.found
+            .iter()
+            .flatten()
+            .next()
+            .cloned()
+            // The handle of the player: private for the streamer mode, wherever it is read.
+            .inspect(|found| crate::streamer::learn(found))
+    }
 }
 
 /// The account a log belongs to. Only the start is read; across the block
@@ -270,6 +297,30 @@ mod tests {
         // Only the line of the login session counts, and an empty handle gives no name.
         assert_eq!(account_from_text("<Party> Fully authenticated : handle[Fremd]"), None);
         assert_eq!(account_from_text("<CLoginSession> Fully authenticated : handle[] hub[1]"), None);
+    }
+
+    #[test]
+    fn the_handle_of_pieces_is_the_handle_of_the_whole_text() {
+        let old = "<Legacy login response> [CIG-net] User Login Success - Handle[Alt] - Time";
+        let named = "<X> Character: y - name Neu - state STATE_CURRENT";
+        let blank = "<Legacy login response> [CIG-net] User Login Success - Handle[ ] - Time";
+        for text in [
+            format!("{LOGIN_5}\n{old}\n"),
+            format!("{old}\n{LOGIN_5}\n"),
+            format!("{LOGIN_5}\n{named}\n"),
+            format!("{named}\n{LOGIN_5}\n{blank}\n"),
+            format!("{blank}\n{old}\n"),
+            "nothing\n".to_string(),
+        ] {
+            let mut scan = HandleScan::default();
+            text.split_inclusive('\n').for_each(|line| scan.piece(line));
+            assert_eq!(scan.handle(), account_from_text(&text), "{text:?}");
+        }
+        // The first expression to find a handle wins, wherever its line stands.
+        let mut scan = HandleScan::default();
+        scan.piece(&format!("{LOGIN_5}\n"));
+        scan.piece(&format!("{old}\n"));
+        assert_eq!(scan.handle(), s("Alt"));
     }
 
     #[test]

@@ -17,6 +17,7 @@
 
 //! The page „Was ist neu“ on the user's own data (4.12 `pages._whats_new`): the versions from the change log
 //! built into the program and from the release texts of GitHub, a filter by kind, only the newest version open.
+//! The head of a version names the version only, no date: updates come almost daily.
 
 use std::collections::HashSet;
 
@@ -88,7 +89,7 @@ impl NewsState {
             .is_none_or(|(l, names, _)| *l != lang || !names.iter().eq(releases.iter().map(|r| &r.version)));
         if stale {
             let names: Vec<String> = releases.iter().map(|r| r.version.clone()).collect();
-            let shown = shown_of(changelog::grouped(lang, releases));
+            let shown = shown_of(changelog::listed(lang, releases));
             self.flipped.clear();
             self.built = Some((lang, names, shown));
         }
@@ -220,9 +221,6 @@ fn version_box(
                     row.add(image);
                 }
                 row.label(RichText::new(&shown.entry.version).strong().color(color(scheme.accent)));
-                if !shown.entry.date.is_empty() {
-                    row.label(RichText::new(&shown.entry.date).small().color(color(scheme.sub)));
-                }
                 let count = if points.len() == 1 {
                     t("s_wn_aenderung_eins")
                 } else {
@@ -232,14 +230,8 @@ fn version_box(
             })
         });
         let response = head.response.on_hover_cursor(egui::CursorIcon::PointingHand);
-        response.widget_info(|| {
-            egui::WidgetInfo::selected(
-                egui::Role::Button,
-                true,
-                open,
-                format!("{} {}", shown.entry.version, shown.entry.date),
-            )
-        });
+        response
+            .widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, open, shown.entry.version.clone()));
         if response.hovered() {
             let fill = egui::Shape::rect_filled(response.rect, crate::control_radius(scheme), color(scheme.hover));
             ui.painter().set(background, fill);

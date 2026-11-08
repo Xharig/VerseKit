@@ -31,7 +31,8 @@ use std::path::Path;
 
 use crate::errors;
 use crate::jsonio::{self, Map, Value, map_set};
-use crate::logtime::{Facts, seconds};
+use crate::logread;
+use crate::logtime::{Facts, FactsScan, seconds};
 use crate::mission_log::get;
 use crate::ordered::parallel_map;
 use crate::paths::Paths;
@@ -46,7 +47,10 @@ pub const MAX_SPAN_SEC: i64 = 24 * 3600;
 /// From and to of a log's text in seconds, or `None` when the player never
 /// arrived or the stamps make no session (`span_from_log`).
 pub fn span_of_text(text: &str) -> Option<(i64, i64)> {
-    let facts = Facts::of(text);
+    span_of_facts(&Facts::of(text))
+}
+
+fn span_of_facts(facts: &Facts) -> Option<(i64, i64)> {
     if !facts.spawn {
         return None;
     }
@@ -59,9 +63,12 @@ pub fn span_of_text(text: &str) -> Option<(i64, i64)> {
 }
 
 /// [`span_of_text`] of a log file; an unreadable file has none.
+///
+/// ⚠ The file is read a piece at a time, so a log of gigabytes never stands in memory whole.
 pub fn span_from_log(path: &str) -> Option<(i64, i64)> {
-    let bytes = fs::read(path).ok()?;
-    span_of_text(&decode_replace(&bytes))
+    let mut scan = FactsScan::default();
+    logread::read_all(path, |bytes| scan.piece(&decode_replace(bytes))).ok()?;
+    span_of_facts(scan.facts())
 }
 
 /// The saved sessions: `{'format':…, 'sitzungen':[…]}`. A broken file is set

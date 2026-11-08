@@ -871,7 +871,7 @@ fn chain_box(
 mod tests {
     use super::*;
     use egui::{Rect, Shape, vec2};
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
 
     /// One page of the routes in its own context, drawn frame by frame.
     struct Rig {
@@ -957,7 +957,7 @@ mod tests {
     #[test]
     fn the_field_for_the_start_waits_with_a_ring_and_a_line_until_a_start_is_chosen() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (hint, line) = (t("s_hd_wo_ph"), t("s_hd_rt_start_zuerst"));
         let mut rig = Rig::new();
         let waiting = rig.settle();
@@ -977,7 +977,7 @@ mod tests {
     #[test]
     fn the_field_for_the_start_takes_the_focus_once_when_the_page_opens() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut rig = Rig::new();
         rig.settle();
         rig.type_text("Lor");

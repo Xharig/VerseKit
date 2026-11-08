@@ -502,7 +502,7 @@ fn on_a_copy_of_the_data_the_translation_is_only_looked_at_by_the_page_and_the_r
         )
         .with(&raw, "Bounty_title_001=Neu\nvehicle_x=y\n");
     // The button of the page: a calm sentence, no failure, nothing fetched or written into the game.
-    crate::language::set_language(crate::language::Choice::De);
+    crate::language::set_thread_language(crate::language::Choice::De);
     let done = switch_source(&s.paths, &net, &FakeArchive::default(), "dymerz_de", "", &|_| {}).expect("no failure");
     assert_eq!(done.fetched, "Neue Fassung vom 28.10.2026 gibt es, im Testbetrieb nicht eingespielt.");
     assert!(done.cleaned.is_none() && done.applied.is_none());

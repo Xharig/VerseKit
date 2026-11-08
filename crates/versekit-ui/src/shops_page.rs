@@ -178,6 +178,9 @@ pub struct ShopsState {
     /// `None` until read.
     fallback: Option<Vec<Entry>>,
     fallback_job: Option<Job<Vec<Entry>>>,
+    /// The shop whose whole offer is open, chosen in the list of a place or by its name in the field of the place;
+    /// held by name and place, so that a catalog read again finds it at whatever index it has there.
+    outlet: Option<shops::Outlet>,
 }
 
 /// What the page asks of the window.
@@ -214,6 +217,7 @@ impl Default for ShopsState {
             planned: None,
             fallback: None,
             fallback_job: None,
+            outlet: None,
         }
     }
 }
@@ -353,6 +357,7 @@ impl ShopsState {
             || !self.place_text.is_empty()
             || self.place.is_some()
             || self.chosen.is_some()
+            || self.outlet.is_some()
             || self.wanted.iter().any(|w| !w.is_empty())
     }
 
@@ -362,7 +367,70 @@ impl ShopsState {
         self.place_text.clear();
         self.place = None;
         self.chosen = None;
+        self.outlet = None;
         self.wanted = Default::default();
+    }
+
+    /// What the text of the field of the place says: empty is no place and no shop; exactly a place is that place;
+    /// exactly the name of one shop opens that shop. A shop opened from the list stays while the text stays
+    /// (`changed` is false); a text that names nothing known leaves the place as it was.
+    fn take_place_text(&mut self, changed: bool) {
+        let typed = lower(self.place_text.trim());
+        if typed.is_empty() {
+            self.place = None;
+            self.outlet = None;
+            return;
+        }
+        if let Some(found) = self.catalog.places().into_iter().find(|p| lower(p) == typed) {
+            if changed || self.place.as_deref() != Some(found.as_str()) {
+                self.outlet = None;
+            }
+            self.place = Some(found);
+            return;
+        }
+        if !changed {
+            return;
+        }
+        match self.catalog.outlet_named(&typed) {
+            Some(at) => self.open_outlet(at),
+            // A text that names nothing known closes a shop that was open; the place stays as it was.
+            None => self.outlet = None,
+        }
+    }
+
+    /// Does the text of the field name a place, or the shop that is open?
+    fn place_text_known(&self) -> bool {
+        let typed = lower(self.place_text.trim());
+        typed.is_empty()
+            || self.catalog.places().iter().any(|p| lower(p) == typed)
+            || self.outlet_index().is_some_and(|at| lower(&self.catalog.outlet_label(at)) == typed)
+    }
+
+    /// Opens the whole offer of the shop `at` of the catalog, at its place.
+    fn open_outlet(&mut self, at: usize) {
+        let Some(outlet) = self.catalog.outlets.get(at).cloned() else { return };
+        self.place = Some(outlet.place.clone());
+        self.outlet = Some(outlet);
+        self.chosen = None;
+        self.normalize();
+    }
+
+    /// The index of the open shop in the catalog as it is now; `None` when none is open or the catalog lost it.
+    fn outlet_index(&self) -> Option<usize> {
+        let outlet = self.outlet.as_ref()?;
+        self.catalog.outlets.iter().position(|o| o == outlet)
+    }
+
+    /// The entries the open shop sells, each with its price there, in the order of the list; those the search
+    /// and the menus leave out are left out here too.
+    fn outlet_offers(&self, at: usize) -> Vec<(usize, f64)> {
+        let prices: std::collections::HashMap<String, f64> = self.catalog.offers_of(at).into_iter().collect();
+        self.entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| self.fits(e, None) && shops::search_finds(&e.hay, &self.search))
+            .filter_map(|(i, e)| prices.get(&e.code).map(|price| (i, *price)))
+            .collect()
     }
 
     fn at_place(&self, entry: &Entry) -> bool {
@@ -620,6 +688,13 @@ fn all_label(field: Field) -> String {
     })
 }
 
+/// What the field of the place offers: the places, then the names of the shops that are no place of the same name.
+fn place_suggestions(places: &[String], outlets: &[String]) -> Vec<String> {
+    let mut all = places.to_vec();
+    all.extend(outlets.iter().filter(|name| !places.iter().any(|p| lower(p) == lower(name))).cloned());
+    all
+}
+
 /// A number of parts with the thousands separator of the language.
 fn counted(n: usize) -> String {
     versekit_core::formats::count(language::current(), i64::try_from(n).unwrap_or(i64::MAX))
@@ -665,35 +740,33 @@ fn head(ui: &mut Ui, scheme: &Scheme, state: &mut ShopsState) {
         state.chosen = None;
     }
     ui.add_space(4.0);
-    // The place: typed or picked; it counts once the text is exactly one place.
+    // The place, or a shop by its name: typed or picked. A place counts once the text is exactly one place; the name
+    // of one shop opens its whole offer at its place.
     let places = state.catalog.places();
+    let suggestions = place_suggestions(&places, &state.catalog.outlet_names());
     let more = |n: usize| tf("s_mlg_mehr", &[("n", Arg::from(n))]);
     let place_hint = t("s_hd_ld_ort_ph");
     let mut text = std::mem::take(&mut state.place_text);
+    let typed_before = text.clone();
     ui.label(RichText::new(t("s_ld_ort")).strong());
     let picked = widgets::SuggestField::new("handel-ort", &place_hint, scheme, &more)
         .width(width)
-        .show(ui, &mut text, &places)
+        .show(ui, &mut text, &suggestions)
         .picked;
-    state.place_text = text;
-    let typed = lower(state.place_text.trim());
-    let before = state.place.clone();
-    if typed.is_empty() {
-        state.place = None;
-    } else if let Some(found) = places.iter().find(|p| lower(p) == typed) {
-        state.place = Some(found.clone());
-    }
     if let Some(index) = picked
-        && let Some(place) = places.get(index)
+        && let Some(name) = suggestions.get(index)
     {
-        state.place = Some(place.clone());
-        state.place_text = place.clone();
+        text = name.clone();
     }
-    if before != state.place {
+    let changed = text != typed_before;
+    state.place_text = text;
+    let before = (state.place.clone(), state.outlet.clone());
+    state.take_place_text(changed);
+    if before != (state.place.clone(), state.outlet.clone()) {
         state.chosen = None;
         state.normalize();
     }
-    if !typed.is_empty() && state.place.is_none() {
+    if !state.place_text_known() {
         trade::colored(ui, scheme.yellow, &t("s_ld_ort_unbekannt"));
     }
     ui.add_space(4.0);
@@ -764,7 +837,12 @@ fn body(ui: &mut Ui, scheme: &Scheme, state: &mut ShopsState, hangar: &mut Hanga
         ui.add_space(4.0);
     }
     if let Some(chosen) = state.chosen.clone() {
-        if ui.add(widgets::Button::new(&t("s_ld_zurueck_liste"), ButtonKind::Normal, scheme)).clicked() {
+        // From a part of a shop the way back leads to that shop.
+        let back = match &state.outlet {
+            Some(outlet) => tf("s_ld_zurueck_zu", &[("0", Arg::from(outlet.name.as_str()))]),
+            None => t("s_ld_zurueck_liste"),
+        };
+        if ui.add(widgets::Button::new(&back, ButtonKind::Normal, scheme)).clicked() {
             state.close_detail();
             return None;
         }
@@ -780,8 +858,132 @@ fn body(ui: &mut Ui, scheme: &Scheme, state: &mut ShopsState, hangar: &mut Hanga
         chosen_view(ui, scheme, state, &chosen, lang);
         return action;
     }
+    if state.outlet.is_some() {
+        match state.outlet_index() {
+            Some(at) => {
+                outlet_view(ui, scheme, state, at, lang);
+                return None;
+            }
+            // The catalog read again no longer knows the shop: back to the list.
+            None => state.outlet = None,
+        }
+    }
     list_view(ui, scheme, state);
     None
+}
+
+/// The shops of the chosen place, each with how many parts it sells; a click opens its whole offer. A catalog of
+/// the format before has no shops yet: a line says when they come.
+fn outlets_of_place(ui: &mut Ui, scheme: &Scheme, state: &mut ShopsState) {
+    let Some(place) = state.place.clone() else { return };
+    if !state.catalog.knows_outlets() {
+        trade::quiet(ui, scheme, &t("s_ld_shops_spaeter"));
+        ui.add_space(GAP);
+        return;
+    }
+    // Counted as the offer of a shop shows it: with the search and the menus.
+    let outlets: Vec<(usize, usize)> = state
+        .catalog
+        .outlets_at(&place)
+        .into_iter()
+        .map(|(at, _)| (at, state.outlet_offers(at).len()))
+        .filter(|(_, count)| *count > 0)
+        .collect();
+    if outlets.is_empty() {
+        return;
+    }
+    ui.label(
+        RichText::new(tf("s_ld_shops_hier", &[("0", Arg::from(place.as_str())), ("1", Arg::from(counted(outlets.len())))]))
+            .strong()
+            .color(color(scheme.accent)),
+    );
+    let mut opened = None;
+    for (n, (at, count)) in outlets.iter().enumerate() {
+        let name = state.catalog.outlet_label(*at);
+        let text = format!("{name} ({})", tf("s_ld_shop_teile", &[("0", Arg::from(counted(*count)))]));
+        if trade::link_row_striped(ui, scheme, n % 2 == 1, &text) {
+            opened = Some(*at);
+        }
+    }
+    ui.add_space(GAP);
+    if let Some(at) = opened {
+        state.open_outlet(at);
+    }
+}
+
+/// The whole offer of one shop: its name, place and system, then every part it sells with its price there, by
+/// group; a click on a part opens it with all its shops and the shopping list, as in the list.
+fn outlet_view(ui: &mut Ui, scheme: &Scheme, state: &mut ShopsState, at: usize, lang: Lang) {
+    let outlet = state.catalog.outlets[at].clone();
+    let back = tf("s_ld_zurueck_zu", &[("0", Arg::from(outlet.place.as_str()))]);
+    if ui.add(widgets::Button::new(&back, ButtonKind::Normal, scheme)).clicked() {
+        state.outlet = None;
+        return;
+    }
+    ui.add_space(4.0);
+    let offers = state.outlet_offers(at);
+    trade::two_sided(
+        ui,
+        |left| {
+            left.label(RichText::new(&outlet.name).strong());
+        },
+        |side| {
+            let place: Vec<&str> =
+                [outlet.place.as_str(), outlet.system.as_str()].into_iter().filter(|s| !s.is_empty()).collect();
+            trade::quiet(side, scheme, &place.join(" · "));
+        },
+    );
+    trade::quiet(ui, scheme, &tf("s_ld_shop_teile", &[("0", Arg::from(counted(offers.len())))]));
+    ui.add_space(4.0);
+    if offers.is_empty() {
+        trade::quiet(ui, scheme, &t("s_hd_ld_nichts"));
+        return;
+    }
+    let mut groups: Vec<(String, Vec<(usize, f64)>)> = Vec::new();
+    for offer in offers {
+        let group = state.entries[offer.0].group.clone();
+        match groups.iter_mut().find(|(name, _)| *name == group) {
+            Some(slot) => slot.1.push(offer),
+            None => groups.push((group, vec![offer])),
+        }
+    }
+    groups.sort_by_cached_key(|(group, _)| lower(&label_of(Field::Group, group)));
+    let mut picked = None;
+    let mut shown = 0;
+    for (group, members) in &groups {
+        if shown >= EMERGENCY_CAP {
+            break;
+        }
+        ui.label(
+            RichText::new(format!("{} ({})", label_of(Field::Group, group), counted(members.len())))
+                .strong()
+                .color(color(scheme.accent)),
+        );
+        for (n, (index, price)) in members.iter().take(EMERGENCY_CAP - shown).enumerate() {
+            if offer_row(ui, scheme, &state.entries[*index], *price, n % 2 == 1, lang) {
+                picked = Some(*index);
+            }
+            shown += 1;
+        }
+        ui.add_space(GAP);
+    }
+    if let Some(index) = picked {
+        let entry = state.entries[index].clone();
+        let ctx = ui.ctx().clone();
+        state.choose(&ctx, &entry);
+    }
+}
+
+/// A row of the offer of a shop: the name, and the details and the price there at the right.
+fn offer_row(ui: &mut Ui, scheme: &Scheme, entry: &Entry, price: f64, stripe: bool, lang: Lang) -> bool {
+    let height = ui.text_style_height(&egui::TextStyle::Body) + 10.0;
+    let (rect, clicked) = trade::clickable_row(ui, scheme, stripe, height);
+    let mut details = entry_details(entry);
+    details.push(trade::auec(lang, price));
+    let right = RichText::new(details.join(" · ")).small().color(color(scheme.sub));
+    let mut inner = trade::row_content(ui, rect, Some(right));
+    inner.add(egui::Label::new(&entry.name).truncate());
+    clicked
 }
 
 /// Where the basket row stands for a part, a ship has the button that plans it in the hangar (the section
@@ -817,7 +1019,7 @@ fn plan_row(
     }
     if let Some((said, failed)) = &state.planned {
         ui.horizontal_wrapped(|row| {
-            let tone = if *failed { scheme.red } else { scheme.accent };
+            let tone = if *failed { scheme.red_text() } else { scheme.accent };
             row.add(egui::Label::new(RichText::new(said).color(color(tone))).wrap());
             if !*failed && jump(row) {
                 action = Some(Action::ToPlanned);
@@ -838,7 +1040,7 @@ fn basket_row(ui: &mut Ui, scheme: &Scheme, state: &mut ShopsState, chosen: &Cho
         }
     });
     if let Some((said, failed)) = &state.added {
-        let tone = if *failed { scheme.red } else { scheme.accent };
+        let tone = if *failed { scheme.red_text() } else { scheme.accent };
         ui.add(egui::Label::new(RichText::new(said).color(color(tone))).wrap());
     }
 }
@@ -851,6 +1053,13 @@ fn list_view(ui: &mut Ui, scheme: &Scheme, state: &mut ShopsState) {
     if !searching && !filtered {
         areas(ui, scheme, state);
         return;
+    }
+    // A place without a search shows its shops first, then what is sold there.
+    if !searching {
+        outlets_of_place(ui, scheme, state);
+        if state.outlet.is_some() {
+            return;
+        }
     }
     let shown = state.visible();
     let offered = state.entries.iter().filter(|e| state.at_place(e)).count();
@@ -941,10 +1150,8 @@ fn areas(ui: &mut Ui, scheme: &Scheme, state: &mut ShopsState) {
     }
 }
 
-/// A row of the list: the name, and class, size, grade and maker at the right.
-fn part_row(ui: &mut Ui, scheme: &Scheme, entry: &Entry, stripe: bool) -> bool {
-    let height = ui.text_style_height(&egui::TextStyle::Body) + 10.0;
-    let (rect, clicked) = trade::clickable_row(ui, scheme, stripe, height);
+/// Class, size, grade and maker of an entry, readable, those it has.
+fn entry_details(entry: &Entry) -> Vec<String> {
     let mut details: Vec<String> = Vec::new();
     if !entry.class.is_empty() {
         details.push(label_of(Field::Class, &entry.class));
@@ -958,6 +1165,14 @@ fn part_row(ui: &mut Ui, scheme: &Scheme, entry: &Entry, stripe: bool) -> bool {
     if !entry.maker.is_empty() {
         details.push(entry.maker.clone());
     }
+    details
+}
+
+/// A row of the list: the name, and class, size, grade and maker at the right.
+fn part_row(ui: &mut Ui, scheme: &Scheme, entry: &Entry, stripe: bool) -> bool {
+    let height = ui.text_style_height(&egui::TextStyle::Body) + 10.0;
+    let (rect, clicked) = trade::clickable_row(ui, scheme, stripe, height);
+    let details = entry_details(entry);
     let right = (!details.is_empty()).then(|| RichText::new(details.join(" · ")).small().color(color(scheme.sub)));
     let mut inner = trade::row_content(ui, rect, right);
     inner.add(egui::Label::new(&entry.name).truncate());
@@ -1094,6 +1309,18 @@ impl ShopsState {
         self.place_text = place.to_string();
         self.normalize();
     }
+
+    /// The field of the place as somebody types `text` into it.
+    pub(crate) fn type_place(&mut self, text: &str) {
+        self.place_text = text.to_string();
+        self.take_place_text(true);
+        self.normalize();
+    }
+
+    /// The name of the open shop, if one is open.
+    pub(crate) fn open_outlet_name(&self) -> Option<String> {
+        self.outlet.as_ref().map(|o| o.name.clone())
+    }
 }
 
 #[cfg(test)]
@@ -1184,6 +1411,60 @@ mod tests {
         state.normalize();
         assert_eq!(state.wanted[1], "");
         assert_eq!(state.wanted[2], "");
+    }
+
+    /// The state of [`state`] with a catalog that knows the shops: Cool Corner and CenterMass in Lorville,
+    /// Dumpers in Area18, and a shop named like a place.
+    fn state_with_shops() -> ShopsState {
+        let mut state = state();
+        let data = versekit_core::jsonio::loads(
+            r#"{"teile": [
+                {"n": "Arctic", "s": "u-Arctic", "o": ["Lorville"], "l": [[0, 100.0], [1, 120.0]]},
+                {"n": "Frost", "s": "u-Frost", "o": ["Area18"], "l": [[2, 90.0]]},
+                {"n": "Wave", "s": "u-Wave", "o": ["Lorville"], "l": [[0, 50.0]]},
+                {"n": "Helmet", "s": "u-Helmet", "o": ["Lorville"], "l": [[1, 300.0]]}],
+             "laeden": [["Cool Corner", "Lorville", "Stanton"], ["CenterMass", "Lorville", "Stanton"],
+                        ["Dumpers", "Area18", "Stanton"], ["Lorville", "Area18", "Stanton"]]}"#,
+        )
+        .unwrap();
+        state.catalog = Catalog::from_value(&data);
+        state
+    }
+
+    #[test]
+    fn the_field_offers_places_and_shops_and_the_name_of_a_shop_opens_it() {
+        let mut state = state_with_shops();
+        let names = place_suggestions(&state.catalog.places(), &state.catalog.outlet_names());
+        assert_eq!(names, ["Area18", "Lorville", "CenterMass", "Cool Corner", "Dumpers"], "a shop named like a place once");
+        state.type_place("centermass");
+        assert_eq!(state.open_outlet_name().as_deref(), Some("CenterMass"));
+        assert_eq!(state.place.as_deref(), Some("Lorville"), "at its place");
+        let offer: Vec<(String, f64)> =
+            state.outlet_offers(state.outlet_index().unwrap()).into_iter().map(|(i, p)| (state.entries[i].name.clone(), p)).collect();
+        assert_eq!(offer, [("Arctic".to_string(), 120.0), ("Helmet".to_string(), 300.0)], "what it sells, its price there");
+        // The search narrows the offer as it narrows the list.
+        state.search = "helm".into();
+        assert_eq!(state.outlet_offers(state.outlet_index().unwrap()).len(), 1);
+        state.search.clear();
+        // A place typed closes the shop; a word that names nothing leaves the place; empty clears both.
+        state.type_place("Area18");
+        assert_eq!((state.outlet.is_none(), state.place.as_deref()), (true, Some("Area18")));
+        state.type_place("Nirgendwo");
+        assert_eq!(state.place.as_deref(), Some("Area18"));
+        assert!(!state.place_text_known(), "the field says the word is unknown");
+        state.type_place("centermass");
+        state.type_place("centermass x");
+        assert!(state.outlet.is_none() && !state.place_text_known(), "a word after the name closes the shop");
+        state.type_place("");
+        assert!(state.place.is_none() && state.outlet.is_none());
+        // A shop opened from the list stays while the text of its place stays.
+        state.type_place("Lorville");
+        state.open_outlet(0);
+        state.take_place_text(false);
+        assert_eq!(state.open_outlet_name().as_deref(), Some("Cool Corner"));
+        assert!(state.is_narrowed());
+        state.reset();
+        assert!(state.outlet.is_none() && !state.is_narrowed());
     }
 
     #[test]

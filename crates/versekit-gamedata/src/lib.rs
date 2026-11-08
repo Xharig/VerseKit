@@ -45,6 +45,7 @@ pub mod product_table;
 pub mod quality;
 pub mod quality_goods;
 mod recipes;
+pub mod refining_processes;
 pub mod scmdb;
 pub mod scmdb_catalog;
 pub mod ship_slots;
@@ -246,12 +247,30 @@ impl GameData {
     /// [`Error::Encrypted`] for an encrypted DataForge, [`Error::Slots`] when p4kx cannot build a catalog or its
     /// JSON cannot be read.
     pub fn ship_slots(&self) -> Result<(versekit_core::jsonio::Value, versekit_core::jsonio::Value), Error> {
+        let forge = self.dataforge_bytes()?;
+        self.ship_slots_with(&forge)
+    }
+
+    /// [`GameData::ship_slots`] with the DataForge bytes read already (`dataforge`): the paints come from there
+    /// ([`ship_slots::PaintFacts`]).
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`GameData::ship_slots`]; [`Error::DataForge`] when `dataforge` is no readable DataForge.
+    pub fn ship_slots_with(
+        &self,
+        dataforge: &[u8],
+    ) -> Result<(versekit_core::jsonio::Value, versekit_core::jsonio::Value), Error> {
         if let Some(entry) = DATAFORGE_ENTRIES.iter().find_map(|path| self.find_entry(path))
             && entry.is_encrypted()
         {
             return Err(Error::Encrypted { entry: entry.path().to_string() });
         }
+        let forge = DataForge::open(dataforge)
+            .map_err(|source| Error::DataForge { entry: DATAFORGE_ENTRIES[0].to_string(), source: Box::new(source) })?;
         let mut catalogs = ship_slots::Catalogs::default();
+        catalogs.paints = ship_slots::PaintFacts::read(&forge);
+        drop(forge);
         for text in ship_slots::FILTERS {
             let filter = p4kx_export::Filter::new(text);
             let options = p4kx_export::CatalogOptions {

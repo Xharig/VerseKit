@@ -46,6 +46,7 @@ use versekit_core::basetool::key::system_keys;
 use versekit_core::basetool::orgstock::{OrgStock, OrgStockArea};
 use versekit_core::basetool::orgunits::{OrgUnit, OrgUnitsArea, label as unit_label};
 use versekit_core::basetool::overview::{self, AreaCard, CARDS, DecisionCard, DecisionKind, DemandInfo, Verdict};
+use versekit_core::basetool::pacing;
 use versekit_core::basetool::scopes::{
     SCOPES_DEMAND_DETAILS, SCOPES_ORGSTOCK_DETAILS, SCOPES_ORGSTOCK_WRITE, SCOPES_ORGUNITS, SETTING_DEMAND,
     SETTING_LABEL, SETTING_NEW_SHIP_UNIT, SETTING_ORGSTOCK, SETTING_ORGSTOCK_WRITE, SETTING_SHIPS, SETTING_STOCK,
@@ -56,8 +57,9 @@ use versekit_core::basetool::ship_area::ShipArea;
 use versekit_core::basetool::stock_area::StockArea;
 use versekit_core::basetool::sync::{Login, Phase, Setup, Shared, Status, SyncHandle};
 use versekit_core::basetool::{config, hold};
+use versekit_core::formats;
 use versekit_core::jsonio::{Map, Value};
-use versekit_core::language::{Arg, t, tf};
+use versekit_core::language::{self, Arg, t, tf};
 use versekit_core::paths::Paths;
 use versekit_core::theme::{Color, Scheme};
 
@@ -603,7 +605,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState) {
         }
     }
     if frame.connected && frame.any_on && !frame.login_active() {
-        sync_card(ui, scheme, page, &frame, &mut acts);
+        sync_card(ui, scheme, page, &frame, state, &mut acts);
         ui.add_space(GAP);
     }
     if frame.status.code.starts_with("account_") {
@@ -1054,9 +1056,49 @@ fn new_ship_unit(ui: &mut Ui, scheme: &Scheme, wire: &Wire, f: &Frame, acts: &mu
     }
 }
 
+/// When a wait after `Retry-After` ends, as the player reads it: the time of day, or with the date from a day
+/// on. Rounded up to the minute, so the shown time is never one that still lies ahead of the real end.
+fn wait_clock(until: f64, now: f64) -> String {
+    let until = (until / 60.0).ceil() * 60.0;
+    if until - now >= 86_400.0 {
+        return formats::date_time(language::current(), until);
+    }
+    formats::floor_seconds(until)
+        .and_then(formats::local_time)
+        .map(|time| formats::strftime_shown("%H:%M", &time))
+        .unwrap_or_default()
+}
+
+/// The first line of a wait after `Retry-After`: why and until when, by the code the wait was started with.
+/// `None` once the time is over.
+fn wait_text(state: &Map, now: f64) -> Option<String> {
+    let until = pacing::wait_until(state, now)?;
+    let code = state
+        .iter()
+        .find(|(k, _)| k == pacing::WAIT)
+        .and_then(|(_, wait)| wait.get("code"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let key = match code {
+        "EXCHANGE_BUDGET_EXHAUSTED" => "s_btv_warte_budget",
+        "RATE_LIMITED" => "s_btv_warte_bremse",
+        _ => "s_btv_warte_allgemein",
+    };
+    Some(tf(key, &[("zeit", Arg::from(wait_clock(until, now)))]))
+}
+
+/// The wait after `Retry-After`: the reason with the end of the pause, and that the sync goes on by itself.
+/// Nothing once the time is over; the page is drawn again then.
+fn wait_note(ui: &mut Ui, scheme: &Scheme, state: &Map, now: f64) {
+    let (Some(text), Some(until)) = (wait_text(state, now), pacing::wait_until(state, now)) else { return };
+    small(ui, &text, scheme.yellow);
+    small(ui, &t("s_btv_warte_danach"), scheme.sub);
+    ui.ctx().request_repaint_after(std::time::Duration::from_secs_f64((until - now).clamp(0.2, 60.0)));
+}
+
 /// The card "Sync": the time of the last pass or that one runs, what stopped
-/// it, and the button.
-fn sync_card(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState, f: &Frame, acts: &mut Vec<Act>) {
+/// it, the pause the Basetool asked for, and the button.
+fn sync_card(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState, f: &Frame, state: &Map, acts: &mut Vec<Act>) {
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
         widgets::card_title(ui, scheme, &t("s_btv_abgleich"));
@@ -1075,6 +1117,7 @@ fn sync_card(ui: &mut Ui, scheme: &Scheme, page: &mut ConnectionState, f: &Frame
         } else if !f.status.code.is_empty() && f.status.phase != Phase::Running {
             small(ui, &error_text(&f.status.code), scheme.yellow);
         }
+        wait_note(ui, scheme, state, f.now);
         ui.add_space(6.0);
         let word = t("s_btv_jetzt");
         let sync =
@@ -1090,7 +1133,7 @@ fn account_card(ui: &mut Ui, scheme: &Scheme, f: &Frame, acts: &mut Vec<Act>) {
     widgets::card(ui, scheme, |ui| {
         ui.set_width(ui.available_width());
         widgets::card_title(ui, scheme, &t("s_btv_konto"));
-        let tone = if f.status.code == "account_mismatch" { scheme.red } else { scheme.yellow };
+        let tone = if f.status.code == "account_mismatch" { scheme.red_text() } else { scheme.yellow };
         small(ui, &error_text(&f.status.code), tone);
         if f.status.code == "account_unknown" {
             ui.add_space(6.0);
@@ -1643,6 +1686,60 @@ mod tests {
         let (_, texts, _) = draw(Map::new(), now);
         assert!(texts.is_empty(), "nothing held, nothing said: {texts:?}");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The pause after `Retry-After`: the reason by its code with the end, the line that the sync goes on, and
+    /// nothing once the time is over.
+    #[test]
+    fn a_wait_after_retry_after_says_why_until_when_and_vanishes_when_over() {
+        use versekit_core::language::{Choice, set_thread_language};
+        set_thread_language(Choice::De);
+        let now = 1_800_000_000.0;
+        let waiting = |until: f64, code: &str| {
+            Map::from([(
+                pacing::WAIT.to_string(),
+                Value::Object(vec![("until".into(), Value::Float(until)), ("code".into(), Value::str(code))]),
+            )])
+        };
+        let draw = |state: &Map, at: f64| piece(700.0, |ui, scheme, _| wait_note(ui, scheme, state, at));
+        let mut lines = Vec::new();
+        for (code, key) in [
+            ("EXCHANGE_BUDGET_EXHAUSTED", "s_btv_warte_budget"),
+            ("RATE_LIMITED", "s_btv_warte_bremse"),
+            ("SERVICE_UNAVAILABLE", "s_btv_warte_allgemein"),
+            ("", "s_btv_warte_allgemein"),
+        ] {
+            let state = waiting(now + 600.0, code);
+            let clock = wait_clock(now + 600.0, now);
+            assert_eq!(clock.len(), 5, "a time of day inside the day: {clock}");
+            let expected = tf(key, &[("zeit", Arg::from(clock))]);
+            assert_eq!(wait_text(&state, now), Some(expected.clone()));
+            let (overflow, texts, _) = draw(&state, now);
+            assert_eq!(overflow, 0.0);
+            assert!(texts.contains(&expected.to_lowercase()), "{code}: {texts:?}");
+            assert!(shows_alone(&texts, "s_btv_warte_danach"), "{code}: {texts:?}");
+            lines.push(expected);
+        }
+        assert!(lines[0] != lines[1] && lines[0] != lines[2] && lines[1] != lines[2], "one text per cause");
+        assert_eq!(lines[2], lines[3], "an unknown code is the general text");
+        // From a day on the date comes with the time; the shown minute is never before the end.
+        let long = wait_clock(now + 90_000.0, now);
+        assert!(long.contains('.') && long.contains(':'), "{long}");
+        let end = now + 61.0;
+        assert_eq!(wait_clock(end, now), wait_clock((end / 60.0).ceil() * 60.0, now));
+        // The English page says it in English.
+        set_thread_language(Choice::En);
+        assert!(
+            wait_text(&waiting(now + 600.0, "RATE_LIMITED"), now).is_some_and(|text| text.starts_with("The Basetool"))
+        );
+        set_thread_language(Choice::De);
+        // Over: the line is gone, as is a state without a wait.
+        let state = waiting(now + 600.0, "RATE_LIMITED");
+        for (state, at) in [(&state, now + 600.0), (&state, now + 700.0), (&Map::new(), now)] {
+            assert_eq!(wait_text(state, at), None);
+            let (_, texts, _) = draw(state, at);
+            assert!(texts.is_empty(), "nothing said: {texts:?}");
+        }
     }
 
     /// The unit for new ships: only with more than one unit, and a unit the

@@ -544,7 +544,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut SalvageState, craftin
         let typed = state.typed.trim().to_string();
         // The fault stands at the field it belongs to.
         if state.no_match {
-            ui.label(RichText::new(t("s_zb_kein_treffer")).color(color(scheme.red)));
+            ui.label(RichText::new(t("s_zb_kein_treffer")).color(color(scheme.red_text())));
         } else if !typed.is_empty() && state.shown.name().is_none() && !state.anything_holds(&typed) {
             ui.label(sub(scheme, t("s_zb_nichts_gefunden")));
         }
@@ -576,7 +576,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut SalvageState, craftin
             }
         });
         if let Some((said, fault)) = &state.said {
-            let tone = if *fault { scheme.red } else { scheme.sub };
+            let tone = if *fault { scheme.red_text() } else { scheme.sub };
             ui.label(RichText::new(said).color(color(tone)));
         }
         look
@@ -770,7 +770,7 @@ fn wreck(
 mod tests {
     use super::*;
     use egui::{Event, Pos2, Rect, vec2};
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
 
     /// What one frame drew: the texts with their places, how far the page sticks out at the right, and the
     /// texts that were cut with "…".
@@ -888,7 +888,7 @@ mod tests {
     #[test]
     fn the_one_field_finds_a_ship_and_a_part_and_says_when_it_finds_neither() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut state, mut crafting) = sample();
         let frames = Frames::new(900.0, 900.0);
         frames.settle(&mut state, &mut crafting);
@@ -975,7 +975,7 @@ mod tests {
     #[test]
     fn a_click_on_a_part_of_the_wreck_opens_its_calculation_and_the_way_back_returns() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut state, mut crafting) = sample();
         let frames = Frames::new(900.0, 900.0);
         state.typed = "Cutlass Black".into();
@@ -1030,7 +1030,7 @@ mod tests {
     #[test]
     fn the_result_stands_only_while_the_field_names_it() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut state, mut crafting) = sample();
         let frames = Frames::new(900.0, 900.0);
         state.typed = "Prospector".into();
@@ -1065,7 +1065,7 @@ mod tests {
     #[test]
     fn the_search_stays_on_top_while_only_the_result_scrolls() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut state, mut crafting) = sample();
         let frames = Frames::new(900.0, 600.0);
         state.typed = "Cutlass Black".into();
@@ -1104,7 +1104,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in [versekit_core::font_size::POINTS_RANGE.0, versekit_core::font_size::POINTS_RANGE.1] {
                 for width in [380.0, 520.0, 900.0] {
                     for view in 0..7 {
@@ -1151,7 +1151,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
@@ -1170,7 +1170,7 @@ mod tests {
     #[test]
     fn a_wreck_of_the_sample_shows_its_parts_their_value_and_what_has_no_price() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut state, mut crafting) = sample();
         let frames = Frames::new(900.0, 900.0);
         let ctx = egui::Context::default();
@@ -1211,7 +1211,7 @@ mod tests {
     #[test]
     fn each_part_of_the_sample_names_what_comes_back_and_what_is_lost() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (mut state, mut crafting) = sample();
         let frames = Frames::new(900.0, 900.0);
         let names: Vec<String> = dismantle_view::part_names(crafting.parts().expect("sample values").1);
@@ -1255,7 +1255,7 @@ mod tests {
     #[test]
     fn a_wreck_looked_up_stands_there_again_without_the_net() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         use versekit_core::paths::Host;
         use versekit_core::pypath::Flavor;
         let dir = std::env::temp_dir().join(format!("versekit-bergung-seite-{}", versekit_core::testdir::run_tag()));

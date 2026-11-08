@@ -58,7 +58,7 @@ pub(super) fn page_with(name: &str, files: &[(&str, String)]) -> (SamplePage, st
 
 fn theme_and_language() {
     versekit_core::theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
 }
 
 fn real_page_in(dir: &std::path::Path) -> (SamplePage, ()) {
@@ -267,11 +267,12 @@ fn a_field_of_the_shops_opens_its_list_and_takes_an_entry() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// A catalog with three parts and one price list of one part.
+/// A catalog with three parts, the three shops that sell them and one price list of one part.
 pub(super) fn catalog_file() -> String {
     let fetched = seconds() - 7_200.0;
+    let format = versekit_core::shops::FORMAT_CATALOG;
     format!(
-        r#"{{"namen":{{"arctic":101,"frost":102}},"kategorien":[["Systems","Coolers"],["Armor","Helmets"]],"teile":[{{"n":"Arctic","s":"u-101","k":0,"h":"ACME","g":"2","c":"Military","q":"A","o":["Lorville","Port Olisar"],"p":[1200.0,"Lorville"]}},{{"n":"Frost","s":"id:102","k":0,"h":"","g":"1","c":"","q":"B","o":["Port Olisar"]}},{{"n":"Iron Helmet","s":"u-201","k":1,"h":"Armorsmith","g":"","c":"","q":"","o":["Lorville"],"p":[800,"Lorville"]}}],"preise_namen":{{"arctic":[1200.0,"Lorville"]}},"kennungen":["u-101","u-201"],"format":7,"geholt":{fetched}}}"#
+        r#"{{"namen":{{"arctic":101,"frost":102}},"kategorien":[["Systems","Coolers"],["Armor","Helmets"]],"teile":[{{"n":"Arctic","s":"u-101","k":0,"h":"ACME","g":"2","c":"Military","q":"A","o":["Lorville","Port Olisar"],"p":[1200.0,"Lorville"],"l":[[0,1200.0],[1,1500.0]]}},{{"n":"Frost","s":"id:102","k":0,"h":"","g":"1","c":"","q":"B","o":["Port Olisar"],"l":[[1,300.0]]}},{{"n":"Iron Helmet","s":"u-201","k":1,"h":"Armorsmith","g":"","c":"","q":"","o":["Lorville"],"p":[800,"Lorville"],"l":[[2,800.0]]}}],"preise_namen":{{"arctic":[1200.0,"Lorville"]}},"kennungen":["u-101","u-201"],"mit_laeden":true,"laeden":[["Shop A","Lorville","Stanton"],["Shop B","Port Olisar","Stanton"],["Tammany","Lorville","Stanton"]],"format":{format},"geholt":{fetched}}}"#
     )
 }
 
@@ -290,6 +291,53 @@ impl SamplePage {
     fn shops_place(&mut self, place: &str) {
         self.shops.want_place(place);
     }
+
+    fn shops_type_place(&mut self, text: &str) {
+        self.shops.type_place(text);
+    }
+}
+
+/// Wunsch von Blackd0g84: a place shows its shops, a click on a shop shows all it sells with its price there, a part
+/// of it opens as in the list and the way back leads to the shop; a shop is found by its name in the field too.
+#[test]
+fn a_place_lists_its_shops_and_a_shop_shows_its_whole_offer() {
+    let _language = crate::language_lock();
+    let files =
+        [("laeden-katalog.json", catalog_file()), ("laeden.json", shops_file()), ("schiffe.json", ships_file())];
+    let (mut page, dir) = page_with("shops-orte", &files);
+    page.shops_place("Lorville");
+    let (overflow, texts) = look(&mut page, "hf_laeden", 1280.0);
+    assert_eq!(overflow, 0.0);
+    let heading = language::tf("s_ld_shops_hier", &[("0", language::Arg::from("Lorville")), ("1", language::Arg::from("2"))]);
+    assert!(shows(&texts, &heading), "{texts:?}");
+    let row_a = format!("Shop A ({})", language::tf("s_ld_shop_teile", &[("0", language::Arg::from("1"))]));
+    let row_t = format!("Tammany ({})", language::tf("s_ld_shop_teile", &[("0", language::Arg::from("1"))]));
+    assert!(shows(&texts, &row_a) && shows(&texts, &row_t) && !shows(&texts, "Shop B ("), "only the shops of the place: {texts:?}");
+    assert!(shows(&texts, "Arctic") && shows(&texts, "Iron Helmet"), "what is sold there stays below: {texts:?}");
+    // A click on the shop opens what it sells, with its price there; nothing of another shop.
+    draw_clicking(&mut page, 1280.0, 820.0, &[&row_a]);
+    assert_eq!(page.shops.open_outlet_name().as_deref(), Some("Shop A"));
+    let (overflow, texts) = look(&mut page, "hf_laeden", 1280.0);
+    assert_eq!(overflow, 0.0);
+    assert!(shows(&texts, "Shop A") && shows(&texts, "Lorville · Stanton"), "{texts:?}");
+    assert!(starting_with(&texts, "Arctic").is_some() && texts.iter().any(|(t, _)| t.contains("1.200 aUEC")), "{texts:?}");
+    assert!(!shows(&texts, "Iron Helmet") && !shows(&texts, "Frost"), "only what this shop sells: {texts:?}");
+    // A part of the shop opens as in the list (the shops of the place, the shopping list); back leads to the shop.
+    draw_clicking(&mut page, 1280.0, 820.0, &["Arctic"]);
+    let texts = look(&mut page, "hf_laeden", 1280.0).1;
+    assert!(shows(&texts, "Shop A") && shows(&texts, &language::t("s_ld_in_korb")), "the part with its shops: {texts:?}");
+    let back_to = |name: &str| language::tf("s_ld_zurueck_zu", &[("0", language::Arg::from(name))]);
+    draw_clicking(&mut page, 1280.0, 820.0, &[&back_to("Shop A")]);
+    assert_eq!(page.shops.open_outlet_name().as_deref(), Some("Shop A"), "back to the shop, not to the list");
+    draw_clicking(&mut page, 1280.0, 820.0, &[&back_to("Lorville")]);
+    assert_eq!(page.shops.open_outlet_name(), None, "and from the shop back to the place");
+    // The name of a shop in the field opens it at its place, without regard to case.
+    page.shops_type_place("tammany");
+    assert_eq!(page.shops.open_outlet_name().as_deref(), Some("Tammany"));
+    let texts = look(&mut page, "hf_laeden", 1280.0).1;
+    assert!(shows(&texts, "Iron Helmet") && texts.iter().any(|(t, _)| t.contains("800 aUEC")), "{texts:?}");
+    assert!(!shows(&texts, &language::t("s_ld_ort_unbekannt")), "a shop is no unknown place");
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -384,7 +432,7 @@ fn the_lists_of_the_trade_pages_hold_long_names_at_every_size() {
             page.size = points;
             let (width, height) = versekit_core::font_size::min_window(points);
             for english in [false, true] {
-                language::set_language(if english { language::Choice::En } else { language::Choice::De });
+                language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
                 for key in ["hf_verkauf", "hf_routen", "hf_laeden"] {
                     page.go_to(key);
                     let (overflow, _) = draw(&mut page, width, height);
@@ -399,7 +447,7 @@ fn the_lists_of_the_trade_pages_hold_long_names_at_every_size() {
         }
     }
     versekit_core::theme::set_current("original");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "abgeschnitten:\n{}", findings.join("\n"));
 }
@@ -476,7 +524,7 @@ fn the_trade_pages_are_not_cut_off_at_the_smallest_window() {
     page.selling_take_from_stock();
     for width in [880.0, 1100.0, 1600.0] {
         for english in [false, true] {
-            language::set_language(if english { language::Choice::En } else { language::Choice::De });
+            language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
             let (overflow, _) = look(&mut page, "hf_verkauf", width);
             assert_eq!(overflow, 0.0, "verkauf width {width}, english {english}");
             let (overflow, _) = look(&mut page, "hf_routen", width);
@@ -485,6 +533,6 @@ fn the_trade_pages_are_not_cut_off_at_the_smallest_window() {
             assert_eq!(overflow, 0.0, "shops width {width}, english {english}");
         }
     }
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
 }

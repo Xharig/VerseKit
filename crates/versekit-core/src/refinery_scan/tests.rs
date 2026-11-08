@@ -724,3 +724,134 @@ fn a_confusable_value_is_confirmed_at_the_learned_digits_of_the_picture() {
     let checks = Checks { confirm: Some(confirmer(&picture, &passes, &none, &index)), reread: None };
     assert!(merge_passes(&passes, &index, None, &checks, false).found.is_empty());
 }
+
+/// Storage locations as the list of places writes them.
+fn places(names: &[&str]) -> Vec<String> {
+    names.iter().map(|s| s.to_string()).collect()
+}
+
+const PLACES: [&str; 5] = ["Area18", "ARC-L1 Wide Forest Station", "HUR-L1 Green Glade Station", "Levski", "Seraphim Station"];
+
+/// The top of the terminal as the recognition reads it: the small system line, the name of the station in big
+/// letters (`name`, one word per entry), the head of the profile under it and the list of materials below.
+fn terminal_top(name: &[&str], profile: &str) -> Vec<Word> {
+    let mut words = vec![sized("//", 1000.0, 300.0, 12.0, 9.0), sized("RAFFINERIESYSTEM", 1016.0, 300.0, 110.0, 9.0)];
+    let mut x = 1000.0;
+    for part in name {
+        let w = 16.0 * part.chars().count() as f64;
+        words.push(sized(part, x, 318.0, w, 22.0));
+        x += w + 12.0;
+    }
+    // The heading of the job card on the right stands in the same row.
+    words.push(sized("RAFFINERIEAUFTRÄGE", 1450.0, 320.0, 150.0, 18.0));
+    words.push(sized("STATION", 1000.0, 356.0, 50.0, 12.0));
+    words.push(sized(profile, 1056.0, 356.0, 50.0, 12.0));
+    words.push(sized("//", 1000.0, 380.0, 12.0, 9.0));
+    words.push(sized("MATERIALSPEZIALISIERUNGEN", 1016.0, 380.0, 170.0, 9.0));
+    words.push(sized("LEVSKI", 1000.0, 400.0, 40.0, 9.0));
+    words
+}
+
+#[test]
+fn the_name_over_the_station_profile_is_the_place_from_the_list() {
+    let list = places(&PLACES);
+    let top = terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL");
+    assert_eq!(station(&top, &list).as_deref(), Some("ARC-L1 Wide Forest Station"));
+    // The English terminal, letters misread and words cut otherwise: still the same place, as the list writes it.
+    let misread = terminal_top(&["arc-Ll", "WlDE F0REST", "STATI0N"], "PROFILE");
+    assert_eq!(station(&misread, &list).as_deref(), Some("ARC-L1 Wide Forest Station"));
+    let joined = terminal_top(&["ARC-L1WIDEFOREST", "STATION"], "PR0FIL");
+    assert_eq!(station(&joined, &list).as_deref(), Some("ARC-L1 Wide Forest Station"), "PR0FIL still holds PROFI");
+    // A row below the head (the list of materials names Levski) and the row of the head count not.
+    assert_eq!(station(&terminal_top(&["SERAPHIM", "STATION"], "PROFIL"), &list).as_deref(), Some("Seraphim Station"));
+}
+
+#[test]
+fn without_a_sure_hit_there_is_no_station() {
+    let list = places(&PLACES);
+    // No head of the profile read: the name alone is not enough.
+    let no_head: Vec<Word> =
+        terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL").into_iter().filter(|w| w.t != "PROFIL").collect();
+    assert_eq!(station(&no_head, &list), None);
+    // A station the list does not know, part of a name, or a misread letter that is no lookalike.
+    assert_eq!(station(&terminal_top(&["CRU-L1", "AMBITIOUS", "DREAM", "STATION"], "PROFIL"), &list), None);
+    assert_eq!(station(&terminal_top(&["WIDE", "FOREST", "STATION"], "PROFIL"), &list), None);
+    assert_eq!(station(&terminal_top(&["ARC-L1", "WIDE", "FOREXT", "STATION"], "PROFIL"), &list), None);
+    // Two places in big letters above the head: not sure.
+    let mut two = terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL");
+    two.push(sized("LEVSKI", 1000.0, 270.0, 96.0, 22.0));
+    assert_eq!(station(&two, &list), None);
+    // Two heads with another place over each: not sure either.
+    let mut twice = terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL");
+    twice.extend(
+        terminal_top(&["SERAPHIM", "STATION"], "PROFILE").into_iter().map(|w| Word { y: w.y + 500.0, ..w }),
+    );
+    assert_eq!(station(&twice, &list), None);
+    // The same row far above the head counts not: ten heights of the head at most.
+    let far: Vec<Word> = terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL")
+        .into_iter()
+        .map(|w| if w.y == 318.0 { Word { y: 200.0, ..w } } else { w })
+        .collect();
+    assert_eq!(station(&far, &list), None);
+    // Without a list of places nothing is read; a short name in the list hits nothing by chance.
+    assert_eq!(station(&terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL"), &[]), None);
+    assert_eq!(station(&terminal_top(&["ARC", "L1"], "PROFIL"), &places(&["ARC"])), None);
+}
+
+#[test]
+fn only_the_biggest_writing_above_the_head_is_the_name() {
+    let list = places(&PLACES);
+    // A place in a small line over the name: the name in big letters wins.
+    let mut small = terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL");
+    small.push(sized("LEVSKI", 1000.0, 285.0, 40.0, 9.0));
+    assert_eq!(station(&small, &list).as_deref(), Some("ARC-L1 Wide Forest Station"));
+    // The station is not in the list: the small line does not stand in for it.
+    let mut unknown = terminal_top(&["CRU-L1", "AMBITIOUS", "DREAM", "STATION"], "PROFIL");
+    unknown.push(sized("LEVSKI", 1000.0, 285.0, 40.0, 9.0));
+    assert_eq!(station(&unknown, &list), None);
+}
+
+#[test]
+fn a_spot_read_twice_and_stray_strokes_still_give_the_name() {
+    let list = places(&PLACES);
+    // The recognition gave one spot of the name in two spellings, the wrong one first, and the head twice.
+    let mut doubled = terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL");
+    let wide = doubled.iter().position(|w| w.t == "WIDE").expect("WIDE");
+    doubled.insert(wide, Word { t: "WIOE".into(), ..doubled[wide].clone() });
+    doubled.push(sized("pROFlL", 1056.0, 356.0, 50.0, 12.0));
+    assert_eq!(station(&doubled, &list).as_deref(), Some("ARC-L1 Wide Forest Station"));
+    // A stroke standing alone or a mark at the end of a word is no letter.
+    let strokes = terminal_top(&["ARC-L1", "|", "WIDE", "FOREST", "STATION!"], "PROFIL");
+    assert_eq!(station(&strokes, &list).as_deref(), Some("ARC-L1 Wide Forest Station"));
+    // A 5 read as S, a | at the front of a word as I.
+    let lagrange = places(&["CRU-L5 Wide Station"]);
+    assert_eq!(station(&terminal_top(&["CRU-LS", "W|DE", "STATI0N"], "PROFIL"), &lagrange).as_deref(), Some("CRU-L5 Wide Station"));
+}
+
+#[test]
+fn a_name_inside_a_longer_one_of_the_same_row_counts_not() {
+    let list = places(&["ARC-L1 Wide Forest Station", "Wide Forest Station"]);
+    let top = terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL");
+    assert_eq!(station(&top, &list).as_deref(), Some("ARC-L1 Wide Forest Station"));
+    // Two names spelled alike by the lookalikes are not sure either.
+    let alike = places(&["ARC-L1 Wide Forest Station", "ARC-LI Wide Forest Station"]);
+    assert_eq!(station(&top, &alike), None);
+}
+
+#[test]
+fn every_job_of_a_reading_carries_the_station_above_it() {
+    let words: Vec<Word> =
+        two_cards().into_iter().chain(terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL")).collect();
+    let index = index_of(&["Gold", "Tungsten", "Iron", "Torite"]).with_places(&places(&PLACES));
+    let mut ocr = FakeOcr { words: words.clone(), calls: 0 };
+    let (jobs, _) = read_image((5120, 1440), None, &mut ocr, &index, &Digits::default(), None).expect("read");
+    assert_eq!(jobs.len(), 2);
+    assert!(jobs.iter().all(|j| j.station == "ARC-L1 Wide Forest Station"), "{jobs:?}");
+    assert_eq!(jobs[0].text, "Gold 553 122 cSCU\nTungsten 531 234 cSCU", "the lines stay as they were");
+    // Counter-check: an index without places reads no station.
+    let mut ocr = FakeOcr { words, calls: 0 };
+    let (jobs, _) =
+        read_image((5120, 1440), None, &mut ocr, &index_of(&["Gold", "Tungsten", "Iron", "Torite"]), &Digits::default(), None)
+            .expect("read");
+    assert!(jobs.iter().all(|j| j.station.is_empty()));
+}

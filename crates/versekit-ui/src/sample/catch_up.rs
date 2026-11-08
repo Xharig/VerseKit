@@ -24,6 +24,7 @@
 //! known and reads nothing twice. For that reason nothing is read when the data folder cannot be written:
 //! sessions marked as read whose finds were not saved would be lost for good.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use versekit_core::catalog_cache::CatalogCache;
@@ -126,7 +127,7 @@ impl Reading {
             let guard = writeguard::state();
             let (tx, rx) = mpsc::channel();
             let wake = ctx.clone();
-            let started = std::thread::Builder::new().name("nachlese".into()).spawn(move || {
+            let started = std::thread::Builder::new().name("nachlese".into()).spawn_with_language(move || {
                 writeguard::adopt(&guard);
                 let _ = tx.send(catch_up(&own));
                 wake.request_repaint();

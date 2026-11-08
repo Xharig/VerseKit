@@ -60,6 +60,7 @@
 //! To be tried by the player against `pp_rebindkeys export`. With a modifier held, a letter is still taken by its
 //! sign; any other key by its place, because Shift turns a figure into another sign (`Shift+7` is `/`).
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver};
@@ -725,7 +726,7 @@ impl BindState {
             let flag = Arc::clone(&stop);
             let (sender, answer) = mpsc::channel();
             let waiter = self.waiter.clone();
-            let spawned = std::thread::Builder::new().name("joysticks-press".into()).spawn(move || {
+            let spawned = std::thread::Builder::new().name("joysticks-press".into()).spawn_with_language(move || {
                 let stopped = || flag.load(Ordering::Relaxed);
                 let found = match waiter {
                     Some(wait) => wait(PATIENCE, &stopped),
@@ -799,7 +800,7 @@ impl BindState {
                 ui.add_space(4.0);
                 ui.add(egui::Label::new(RichText::new(t("s_js_spiel_zu")).small().color(color(scheme.sub))).wrap());
                 if let Some(reason) = &open.failure {
-                    ui.add(egui::Label::new(RichText::new(reason).small().color(color(scheme.red))).wrap());
+                    ui.add(egui::Label::new(RichText::new(reason).small().color(color(scheme.red_text()))).wrap());
                 }
                 ui.add_space(8.0);
                 ui.horizontal_wrapped(|ui| {

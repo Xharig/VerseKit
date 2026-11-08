@@ -70,9 +70,16 @@ pub enum Column {
     Searched,
 }
 
-/// The choices of the stance filter: every row marked, then one stance each, `Some(None)` for unknown.
-const STANCE_FILTERS: [Option<Option<Stance>>; 5] =
-    [None, Some(Some(Stance::Friendly)), Some(Some(Stance::Neutral)), Some(None), Some(Some(Stance::Hostile))];
+/// The choices of the stance filter: every row marked, then one stance each, `Some(None)` for unknown; to watch
+/// came last, so that the places of the others stay.
+const STANCE_FILTERS: [Option<Option<Stance>>; 6] = [
+    None,
+    Some(Some(Stance::Friendly)),
+    Some(Some(Stance::Neutral)),
+    Some(None),
+    Some(Some(Stance::Hostile)),
+    Some(Some(Stance::Watch)),
+];
 /// The choices of the kind filter.
 const KIND_FILTERS: [Option<Kind>; 3] = [None, Some(Kind::Handle), Some(Kind::Org)];
 
@@ -91,7 +98,7 @@ pub struct Row {
 pub struct View {
     pub sort: Column,
     pub ascending: bool,
-    /// An index into the stance filter: 0 every row marked, 1 friendly, 2 neutral, 3 unknown, 4 hostile.
+    /// An index into the stance filter: 0 every row marked, 1 friendly, 2 neutral, 3 unknown, 4 hostile, 5 to watch.
     pub stance: usize,
     /// An index into the kind filter: 0 all, 1 handles, 2 organizations.
     pub kind: usize,
@@ -141,13 +148,14 @@ pub fn rows(relations: &Relations, recent: &[(String, f64)]) -> Vec<Row> {
     rows
 }
 
-/// The place of a stance in the list: friendly, neutral, unknown, hostile.
+/// The place of a stance in the list: friendly, neutral, unknown, to watch, hostile.
 fn stance_rank(stance: Option<Stance>) -> u8 {
     match stance {
         Some(Stance::Friendly) => 0,
         Some(Stance::Neutral) => 1,
         None => 2,
-        Some(Stance::Hostile) => 3,
+        Some(Stance::Watch) => 3,
+        Some(Stance::Hostile) => 4,
     }
 }
 
@@ -466,10 +474,11 @@ fn cell<R>(ui: &mut Ui, width: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
     .inner
 }
 
-/// The width of the marks and the button that takes the mark away.
+/// The width of the marks (one for each stance) and the button that takes the mark away.
 fn actions_width(ui: &Ui) -> f32 {
     let gap = ui.spacing().item_spacing.x;
-    3.0 * MARK_SIZE + 3.0 * gap + widgets::ICON_BUTTON_SIZE
+    let marks = Stance::ALL.len() as f32;
+    marks * MARK_SIZE + marks * gap + widgets::ICON_BUTTON_SIZE
 }
 
 /// The widths of the columns stance, kind, name and searched in a row of `ui`: the three beside the name shrink
@@ -592,6 +601,7 @@ fn filters(ui: &mut Ui, scheme: &Scheme, state: &mut HandlePageState) {
             t(Stance::Neutral.label()),
             t("s_hqs_unbekannt"),
             t(Stance::Hostile.label()),
+            t(Stance::Watch.label()),
         ];
         let kinds = [t("s_hqs_alle_arten"), t("s_hqs_handles"), t("s_hqs_orgs")];
         let stance_refs: Vec<&str> = stances.iter().map(String::as_str).collect();

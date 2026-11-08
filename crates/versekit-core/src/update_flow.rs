@@ -16,7 +16,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Fetching and installing a version, the one way the click in the window and the automatic update share
-//! (4.12 `pages._fetch_version` and `sc_bp_watcher._auto_update`).
+//! (4.12 `pages._fetch_version` and `_auto_update` of the main module).
 //!
 //! [`run`] is the sequence for a release that is chosen: file that fits, lock, download with the percentage,
 //! installing, the hand-over. [`Runner`] is the same in a thread of its own, for a window that must not freeze
@@ -29,7 +29,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use crate::auto_update::{self, Installed, Request};
-use crate::language::{Arg, t, tf};
+use crate::language::{Arg, SpawnWithLanguage as _, t, tf};
 use crate::net::Net;
 use crate::paths::Paths;
 use crate::update_swap::{self, Started};
@@ -250,7 +250,7 @@ impl Runner {
             shared.state = Some(State::Busy { version: String::new(), percent: None });
         }
         let (runner, env) = (self.clone(), env.clone());
-        let spawned = std::thread::Builder::new().name("update-fetch".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("update-fetch".into()).spawn_with_language(move || {
             let paths = Paths::new(host);
             let done = fetch_newest(&env, &paths, with_prerelease, &mut |event| runner.event(event), &|version| {
                 runner.lock().state = Some(State::Busy { version: version.to_string(), percent: None });

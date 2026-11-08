@@ -23,6 +23,7 @@
 //! minute; GitHub is asked for by this window itself only while the page is open, at most every five minutes.
 //! The fetching is [`update_flow::Runner`]: a thread of its own, its state read here every frame.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use egui::{Frame, Margin, RichText, Sense, Stroke, Ui, UiBuilder};
@@ -409,7 +410,7 @@ impl UpdateUi {
         self.next_look = now + LOOK_SECONDS;
         let (net, own, host) = (self.env.net.clone(), self.env.own_version.clone(), paths.host.clone());
         let (slot, ctx) = (self.slot.clone(), ctx.clone());
-        let spawned = std::thread::Builder::new().name("update-look".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("update-look".into()).spawn_with_language(move || {
             let paths = Paths::new(host);
             let checked = updater::check(&*net, &paths, &own, true, updater::now());
             let look = Look { fetched: checked.fetched, rate_limited: checked.rate_limited };
@@ -660,7 +661,7 @@ pub(crate) fn remember_rect(ui: &Ui, id: egui::Id, rect: egui::Rect) {
 mod tests {
     use std::cell::RefCell;
 
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
     use versekit_core::theme;
 
     use super::*;
@@ -710,7 +711,7 @@ mod tests {
     fn the_boxes_of_the_channels_keep_their_height_frame_after_frame() {
         let _language = crate::language_lock();
         for choice in [Choice::De, Choice::En] {
-            set_language(choice);
+            set_thread_language(choice);
             // 650 is about what the page has in the smallest window, close to where the boxes go one below the other.
             for width in [1200.0, 650.0, 500.0] {
                 let drawn = frames(&mut stocked("5.0.0-dev"), width, 60);
@@ -732,7 +733,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
     }
 
     /// A build of the source is updated by `git pull`: its boxes name the newest version and offer no fetch, and

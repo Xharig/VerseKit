@@ -44,7 +44,11 @@ fn every_kept_picture_of_the_terminal_gives_its_lines() {
         ["Iron", "Quantainium", "Laranite", "Tungsten", "Corundum", "Titanium", "Quartz", "Ouratite", "Agricium"]
             .map(String::from)
             .to_vec();
-    let index = Index::new(&materials, |_| false);
+    let places: Vec<String> =
+        ["ARC-L1 Wide Forest Station", "CRU-L1 Ambitious Dream Station", "HUR-L1 Green Glade Station", "Levski"]
+            .map(String::from)
+            .to_vec();
+    let index = Index::new(&materials, |_| false).with_places(&places);
     let learned = Digits::default();
     let mut names: Vec<String> = std::fs::read_dir(&folder)
         .expect("the folder")
@@ -67,6 +71,14 @@ fn every_kept_picture_of_the_terminal_gives_its_lines() {
             // Every table with the rows of each enlarged reading, and the rows of the search in its column.
             let mut ocr = Recognition::new(&bitmap);
             let search = merge_words(&ocr.read(&search_jobs(width, height)).expect("search"));
+            // The rows around the head of the station's profile, where the name of the station stands.
+            for row in rows(&search) {
+                let line: Vec<String> = row.iter().map(|w| format!("{}@{:.0},{:.0}h{:.0}", w.t, w.x, w.y, w.h)).collect();
+                let text = line.join(" ").to_uppercase();
+                if ["PROF", "STATION", "RAFFINERIESYS", "REFINERY"].iter().any(|k| text.contains(k)) {
+                    println!("  top: {}", line.join("  "));
+                }
+            }
             for table in find_tables(&search, width, height) {
                 println!("  table {:?} total {:?}", table.area, table.total);
                 let (x, _, w, _) = table.area;
@@ -98,7 +110,10 @@ fn every_kept_picture_of_the_terminal_gives_its_lines() {
             }
         }
         for job in &jobs {
-            println!("total {:?} state {:?} remaining {:?} unsure {:?}\n{}", job.total, job.state, job.remaining, job.unsure, job.text);
+            println!(
+                "total {:?} state {:?} remaining {:?} unsure {:?} station {:?}\n{}",
+                job.total, job.state, job.remaining, job.unsure, job.station, job.text
+            );
         }
         if !jobs.iter().any(|j| !j.text.trim().is_empty()) {
             failed.push(name);

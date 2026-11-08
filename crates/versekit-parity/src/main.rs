@@ -203,28 +203,28 @@
 //! `versekit-parity grafik <python.json> <ausgabe.json> [--gegenprobe]`
 //! runs the graphics settings of `attributes.xml` (the text after a set of
 //! changes, the settings and levels read, the comparison with the preset of
-//! the machine) as `tools/parity_grafik.py` does with `scbp/graphics.py` (see
+//! the machine) as `tools/parity_grafik.py` does with `graphics.py` (see
 //! `grafik`).
 //!
 //! `versekit-parity schreiben <python.json> <ausgabe.json> [--gegenprobe]`
 //! runs the changes of the `actionmaps.xml` (bind an action, reset, play a
 //! binding back, swap an id) as `tools/parity_schreiben.py` does with
-//! `scbp/joysticks.py`, comparing the meaning of the result (see `schreiben`).
+//! `joysticks.py`, comparing the meaning of the result (see `schreiben`).
 //!
 //! `versekit-parity achsen <python.json> <ausgabe.json> [--gegenprobe]`
 //! runs the reading of the dead zones, saturations and exponents, the answer of
 //! the curve and the numbers the way Python writes them, as
-//! `tools/parity_achsen.py` does with `scbp/curves.py` (see `achsen`).
+//! `tools/parity_achsen.py` does with `curves.py` (see `achsen`).
 //!
 //! `versekit-parity belegung <python.json> <ausgabe.json> [--gegenprobe]`
 //! runs what lies on the keys (plain names of inputs and actions, the
 //! `defaultProfile.xml`, the four views, the list as a file) as
-//! `tools/parity_belegung.py` does with `scbp/joysticks.py` (see `belegung`).
+//! `tools/parity_belegung.py` does with `joysticks.py` (see `belegung`).
 //!
 //! `versekit-parity joysticks <python.json> <ausgabe.json> [--gegenprobe]`
 //! runs the reading part of the controls (devices of a log, the binding and
 //! the bindings in an `actionmaps.xml`, the comparison over a scratch game
-//! folder) as `tools/parity_joysticks.py` does with `scbp/joysticks.py` (see
+//! folder) as `tools/parity_joysticks.py` does with `joysticks.py` (see
 //! `joysticks`).
 //!
 //! `versekit-parity einspielschutz <python.json> <ausgabe.json> [--gegenprobe]`

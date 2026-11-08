@@ -126,6 +126,8 @@ pub struct Session {
     pub drops: Vec<(String, i64)>,
     /// The joins of a shard, in the order of the log (none in an entry of an older version).
     pub shards: Vec<crate::shard::Join>,
+    /// The injuries: light, moderate, severe (none in an entry of an older version).
+    pub injuries: [i64; 3],
     /// Which of the exported counts the entry holds at all (an older format
     /// lacks some; the export tells none from zero).
     pub present: Present,
@@ -176,6 +178,10 @@ impl Session {
             crashed: get(entry, "absturz").is_some_and(truthy),
             drops: count_pairs(get(entry, "abbrueche")),
             shards: joins(get(entry, "shards")),
+            injuries: match get(entry, "verletzungen") {
+                Some(Value::Object(counts)) => crate::injuries::Severity::ALL.map(|s| int(counts, s.stored())),
+                _ => [0; 3],
+            },
             present: Present {
                 contracts: get(entry, "auftraege").is_some(),
                 failed: get(entry, "fehlgeschlagen").is_some(),
@@ -285,7 +291,7 @@ pub fn local_day(lang: Lang, seconds: i64) -> String {
 /// `21.10.2026, 19:05`.
 pub fn local_moment(lang: Lang, seconds: i64) -> String {
     let Some(t) = formats::local_time(seconds) else { return String::new() };
-    format!("{}, {}", local_day(lang, seconds), formats::strftime("%H:%M", &t))
+    format!("{}, {}", local_day(lang, seconds), formats::strftime_shown("%H:%M", &t))
 }
 
 /// A stamp of the game log (UTC, no zone) as it stands, without conversion:
@@ -319,6 +325,8 @@ pub struct Summary {
     pub jumps: i64,
     pub deaths: i64,
     pub last_death: Option<i64>,
+    /// The injuries of the own sessions: light, moderate, severe.
+    pub injuries: [i64; 3],
     pub lost: i64,
     pub most_lost: Option<String>,
     /// How many sessions are evaluated: the base of "per session". Not
@@ -364,6 +372,7 @@ pub fn summary(stats: &[Session], spans: &[(i64, i64)], running: Option<(i64, i6
         jumps: mine.iter().map(|s| s.jumps).sum(),
         deaths: deaths.len() as i64,
         last_death: deaths.iter().copied().max(),
+        injuries: mine.iter().fold([0; 3], |sum, s| [0, 1, 2].map(|i| sum[i] + s.injuries[i])),
         lost: lost.values().sum(),
         most_lost: top(&lost, 1).into_iter().next().map(|(name, _)| name),
         recorded: mine.len() as i64,
@@ -1045,6 +1054,37 @@ mod tests {
         assert_eq!((all.deaths, all.last_death), (2, Some(900)));
         assert_eq!((all.lost, all.most_lost.as_deref()), (1, Some("AEGS_Sabre")));
         assert_eq!((all.longest, all.average, all.since), (3600, 2300, Some(100)));
+    }
+
+    /// The injuries of the own sessions add up per severity; a foreign session and an entry without them add
+    /// nothing.
+    #[test]
+    fn the_injuries_of_the_own_sessions_add_up() {
+        let entry = |from: i64, account: &str, hurt: Option<[i64; 3]>| {
+            let mut map: Map = vec![
+                ("von".into(), Value::int(from)),
+                ("bis".into(), Value::int(from + 3600)),
+                ("account".into(), Value::str(account)),
+            ];
+            if let Some([light, moderate, severe]) = hurt {
+                let counts = vec![
+                    ("leicht".into(), Value::int(light)),
+                    ("mittel".into(), Value::int(moderate)),
+                    ("schwer".into(), Value::int(severe)),
+                ];
+                map.push(("verletzungen".into(), Value::Object(counts)));
+            }
+            Session::of(&map)
+        };
+        let sessions = [
+            entry(100, "Xharig", Some([2, 1, 0])),
+            entry(10_000, "Xharig", Some([1, 0, 1])),
+            entry(20_000, "Fremder", Some([9, 9, 9])),
+            entry(30_000, "Xharig", None),
+        ];
+        assert_eq!(sessions[3].injuries, [0, 0, 0], "an older entry");
+        let all = summary(&sessions, &[], None, Some("xharig"));
+        assert_eq!(all.injuries, [3, 1, 1]);
     }
 
     #[test]

@@ -695,7 +695,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 
@@ -1302,7 +1302,7 @@ mod tests {
         let mut findings = Vec::new();
         for scheme in schemes {
             for choice in [Choice::De, Choice::En] {
-                language::set_language(choice);
+                language::set_thread_language(choice);
                 for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                     let ctx = egui::Context::default();
                     crate::install(&ctx);
@@ -1352,7 +1352,7 @@ mod tests {
                 }
             }
         }
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let _ = std::fs::remove_dir_all(home);
         assert!(findings.is_empty(), "{findings:#?}");
     }
@@ -1505,7 +1505,7 @@ mod tests {
         write_deals(&paths, &standard(), &sales);
         let mut findings = Vec::new();
         for choice in [Choice::De, Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 // Open, open and narrowed by the search (the longest head), and folded shut.
                 for (width, (open, search)) in [380.0, 520.0, 900.0]

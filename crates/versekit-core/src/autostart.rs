@@ -130,7 +130,7 @@ fn migrate_one(store: &dyn Store, old: &str, command: &str) -> bool {
 }
 
 /// The file name of an entry on a system with `.desktop` files: lower case, spaces as hyphens
-/// (`SC BP Watcher` becomes `sc-bp-watcher.desktop`, as 4.12 wrote it).
+/// (the autostart name of 4.12 becomes the file 4.12 wrote).
 pub fn desktop_file_name(name: &str) -> String {
     format!("{}.desktop", name.trim().to_lowercase().replace(' ', "-"))
 }

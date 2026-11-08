@@ -26,6 +26,7 @@
 //! another part of the program) is shown with who decided, and can be neither chosen
 //! nor moved: a move must never land in a copy of the data or in real data.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use egui::{RichText, Ui};
@@ -149,7 +150,7 @@ impl DataFolderState {
         let slot: Slot = Arc::new(Mutex::new(None));
         let (copy, guard, target, ctx, out) =
             (paths.working_copy(), writeguard::state(), target.to_string(), ctx.clone(), Arc::clone(&slot));
-        let started = std::thread::Builder::new().name("data-folder".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("data-folder".into()).spawn_with_language(move || {
             writeguard::adopt(&guard);
             // A crash in the move must not leave the page waiting for ever.
             let outcome =
@@ -396,13 +397,13 @@ mod tests {
     use egui::Role;
     use std::fs;
     use std::time::{Duration, Instant};
-    use versekit_core::language::{Choice as LangChoice, set_language};
+    use versekit_core::language::{Choice as LangChoice, set_thread_language};
     use versekit_core::paths::Host;
     use versekit_core::pypath::Flavor;
 
     fn german() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
-        set_language(LangChoice::De);
+        set_thread_language(LangChoice::De);
         guard
     }
 
@@ -702,11 +703,11 @@ mod tests {
         assert_eq!(blocked_reason(None, true, false), None);
         let _german = german();
         for lang in [LangChoice::De, LangChoice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             let text = t("s_pf_gesperrt_daten");
             assert!(text.contains("--daten") && !text.contains("s_pf_"), "{lang:?}: {text}");
         }
-        set_language(LangChoice::De);
+        set_thread_language(LangChoice::De);
         assert_eq!(t("s_pf_gesperrt_daten"), "Der Ordner ist beim Start mit --daten festgelegt.");
     }
 
@@ -747,13 +748,13 @@ mod tests {
             Outcome::NotSaved,
         ];
         for lang in [LangChoice::De, LangChoice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for outcome in &outcomes {
                 let text = report_of(outcome).text;
                 assert!(!text.is_empty() && !text.contains('{') && !text.contains("s_pf_"), "{outcome:?}: {text}");
             }
         }
-        set_language(LangChoice::De);
+        set_thread_language(LangChoice::De);
         assert!(report_of(&outcomes[5]).text.starts_with("Umgezogen und geprüft: 4. Im alten Ordner blieben 2:"));
         assert!(!report_of(&outcomes[6]).good && report_of(&outcomes[4]).good);
     }

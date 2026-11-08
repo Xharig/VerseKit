@@ -407,7 +407,7 @@ fn page_mark(ui: &mut Ui, scheme: &Scheme, n: usize, on: bool) -> egui::Response
 mod tests {
     use super::*;
     use egui::{Event, Pos2, Rect, Shape};
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
     use versekit_core::theme;
 
     /// One text of a frame: what it says, where it stands, the rectangle it is clipped to and whether it was cut
@@ -560,7 +560,7 @@ mod tests {
     fn the_gallery_of_5_0_shows_its_five_highlights_with_their_pictures() {
         let _language = crate::language_lock();
         for (lang, choice) in [(Lang::De, Choice::De), (Lang::En, Choice::En)] {
-            set_language(choice);
+            set_thread_language(choice);
             let mut bench = Bench::new("5.0.0-dev");
             assert_eq!(bench.state.version(), "5.0.0");
             assert_eq!(bench.state.pages(), 6, "five highlights and the list of the rest");
@@ -575,13 +575,13 @@ mod tests {
                 assert!(shown.textures.contains(&texture.id()), "{lang:?} {}", point.picture);
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
     }
 
     #[test]
     fn a_page_shows_picture_kind_title_text_and_way() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("4.0.1");
         let shown = bench.settle();
         let point = gallery::highlights("4.0.1")[0];
@@ -611,7 +611,7 @@ mod tests {
     #[test]
     fn next_and_back_page_through_and_the_last_page_lists_the_rest() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("3.97.0");
         let points = gallery::highlights("3.97.0");
         let pages = bench.state.pages();
@@ -641,7 +641,7 @@ mod tests {
     #[test]
     fn the_arrow_keys_and_the_page_marks_page_through() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("4.0.0");
         bench.key(egui::Key::ArrowRight);
         assert_eq!(bench.state.page(), 1);
@@ -670,7 +670,7 @@ mod tests {
     #[test]
     fn look_gives_the_place_and_closes() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("3.97.1");
         bench.click(&t("gal_weiter"));
         bench.click(&label(&t("gal_ansehen"), ButtonKind::Normal));
@@ -683,7 +683,7 @@ mod tests {
     #[test]
     fn close_and_escape_close_without_a_place() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new("4.0.0");
         bench.click(&label(&t("gal_schliessen"), ButtonKind::Strong));
         assert_eq!(bench.outcomes, vec![GalleryOutcome { closed: true, open: None }]);
@@ -700,7 +700,7 @@ mod tests {
             assert_ne!(picture_bytes(name, Lang::En), picture_bytes(name, Lang::De), "{name}");
         }
         assert!(picture_bytes("nichts", Lang::De).is_none());
-        set_language(Choice::En);
+        set_thread_language(Choice::En);
         let mut bench = Bench::new("4.0.0");
         let shown = bench.settle();
         let point = gallery::highlights("4.0.0")[0];
@@ -709,11 +709,11 @@ mod tests {
         assert_eq!((picture.name, picture.lang), ("karten", Lang::En));
         assert_eq!(picture.texture.as_ref().map(|t| t.name()), Some("galerie-karten-en".to_string()));
         // Switching the language takes the German picture and the German list.
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let again = bench.settle();
         assert!(again.shows(&t(point.title)));
         assert!(bench.state.pictures.iter().any(|p| p.lang == Lang::De && p.name == "karten"));
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
     }
 
     /// What is cut on a page: a text cut short with dots, a text that does not stand wholly within its clip and
@@ -756,7 +756,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for (points, _) in versekit_core::font_size::LEVELS.iter().map(|(name, p)| (*p, *name)) {
                 for version in ["3.97.0", "4.0.0", "5.0.0"] {
                     let mut bench = Bench::new(version).sized(points);
@@ -783,7 +783,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 

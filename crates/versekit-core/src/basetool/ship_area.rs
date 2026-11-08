@@ -254,7 +254,8 @@ impl ShipArea {
         let new_unit = Self::new_unit(pass.paths, known.as_ref());
         let sets =
             ship_sync::change_sets(&result, &local, &resolved, &server, 500, new_unit.as_deref(), known.as_ref());
-        let Posted { failed, applied, posted, paused, detached, .. } = send_unless_held(pass, ROUTE_SHIPS, &sets)?;
+        let Posted { failed, applied, posted, paused, detached, waiting, .. } =
+            send_unless_held(pass, ROUTE_SHIPS, &sets)?;
         let rejected: BTreeMap<String, String> = failed
             .iter()
             .map(|(ext, kind, reason)| (ext.clone(), if reason.is_empty() { kind.clone() } else { reason.clone() }))
@@ -402,6 +403,7 @@ impl ShipArea {
             ("unresolved", local.keys().filter(|e| !resolved.contains_key(*e)).count() as i64),
             ("detached", detached),
             ("paused", i64::from(paused)),
+            ("waiting", i64::from(waiting.is_some())),
         ] {
             map_set(&mut counts, name, Value::int(value));
         }

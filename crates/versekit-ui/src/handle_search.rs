@@ -28,6 +28,7 @@
 //! A click on the name of an organization on the card opens its members, page by page; a click on a member
 //! searches it. The empty field with the cursor shows the handles searched lately; a click searches one.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
 
@@ -37,11 +38,11 @@ use versekit_core::handle_query::cache::{self, KEY_AFFILIATIONS, KEY_CLEAR_AFTER
 use versekit_core::handle_query::log_monitor::{self, Monitor};
 use versekit_core::handle_query::members::{self, Member};
 use versekit_core::handle_query::org::{self, Answer, Hit};
-use versekit_core::handle_query::relations::{ImportError, Kind, Relation, Relations, Stance};
+use versekit_core::handle_query::relations::{self, ImportError, Kind, Relation, Relations, Stance};
 use versekit_core::handle_query::{Failure, Found, Membership, Org, Settings, page};
 use versekit_core::jsonio::Value;
 use versekit_core::language::{self, Arg, t, tf};
-use versekit_core::net::Net;
+use versekit_core::net::{FetchError, Net};
 use versekit_core::paths::Paths;
 use versekit_core::theme::{Color, Scheme};
 
@@ -76,8 +77,6 @@ pub const STAR_SIZE: f32 = 15.0;
 const STAR_GAP: f32 = 4.0;
 /// The share of the text beside a picture its right column takes.
 const RIGHT_SHARE: f32 = 0.40;
-/// The names are this much larger than the text below them.
-const NAME_SCALE: f32 = 4.0 / 3.0;
 /// The highest the list of members gets on the card and on the page before it scrolls.
 pub const MEMBERS_HEIGHT: f32 = 200.0;
 pub const MEMBERS_HEIGHT_PAGE: f32 = 420.0;
@@ -116,6 +115,7 @@ pub fn stance_icon(stance: Stance) -> &'static str {
     match stance {
         Stance::Friendly => "shield-check",
         Stance::Neutral => "shield-half",
+        Stance::Watch => "eye",
         Stance::Hostile => "shield-alert",
     }
 }
@@ -125,7 +125,8 @@ pub fn stance_color(scheme: &Scheme, stance: Stance) -> Color {
     match stance {
         Stance::Friendly => scheme.accent,
         Stance::Neutral => scheme.yellow,
-        Stance::Hostile => scheme.red,
+        Stance::Watch => scheme.blue,
+        Stance::Hostile => scheme.red_text(),
     }
 }
 
@@ -211,6 +212,17 @@ pub struct HandleSearch {
     /// The card of a handle or organization spreads over the width it is given instead of keeping
     /// [`CARD_WIDTH`].
     pub card_spread: bool,
+    /// The address of a list of relations to load, and the loading while it runs.
+    pub list_url: String,
+    list_job: Option<Receiver<ListAnswer>>,
+}
+
+/// What came of loading a list from an address, read in the thread of the loading.
+enum ListAnswer {
+    Got(Relations),
+    TooLarge,
+    NoList,
+    Fetch(FetchError),
 }
 
 impl HandleSearch {
@@ -235,6 +247,7 @@ impl HandleSearch {
             relations: Relations::load(&own),
             log: log_monitor::Settings::read(&own),
             pictures: Pictures::new(Some(&own), net.clone()),
+            list_url: own.setting(relations::LIST_ADDRESS_SETTING).unwrap_or_default(),
             paths: Some(own),
             net,
             ..HandleSearch::empty()
@@ -270,6 +283,8 @@ impl HandleSearch {
             history: None,
             history_rect: None,
             card_spread: false,
+            list_url: String::new(),
+            list_job: None,
         }
     }
 
@@ -435,7 +450,7 @@ impl HandleSearch {
         let net = Arc::clone(net);
         let lock = versekit_core::writeguard::state();
         let wake = ctx.clone();
-        let started = std::thread::Builder::new().name("handle-suche".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("handle-suche".into()).spawn_with_language(move || {
             versekit_core::writeguard::adopt(&lock);
             let _ = sender.send(ask(&own, net.as_ref()));
             wake.request_repaint();
@@ -507,7 +522,7 @@ impl HandleSearch {
         let net = Arc::clone(net);
         let lock = versekit_core::writeguard::state();
         let wake = ctx.clone();
-        let started = std::thread::Builder::new().name("org-mitglieder".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("org-mitglieder".into()).spawn_with_language(move || {
             versekit_core::writeguard::adopt(&lock);
             let _ = sender.send(ask(&own, net.as_ref()));
             wake.request_repaint();
@@ -554,7 +569,10 @@ impl HandleSearch {
             && let Some(answer) = pending.take()
         {
             if let Some(path) = answer {
-                let written = std::fs::write(&path, text).is_ok();
+                // Never half a file: written beside it and put in its place.
+                let written =
+                    versekit_core::jsonio::write_text_atomic(&path, text, versekit_core::jsonio::Newline::Native)
+                        .is_ok();
                 let count = Arg::Int(self.relations.list().len() as i64);
                 self.message =
                     Some(if written { tf("s_hq_export_ok", &[("n", count)]) } else { t("s_hq_export_fehler") });
@@ -576,6 +594,73 @@ impl HandleSearch {
             }
             self.import = None;
         }
+        self.tick_list();
+    }
+
+    /// Loads the list of relations at the address in the field, in a thread of its own over the net of the search
+    /// (only `https`); its relations are taken as from a file. Asked only by a click.
+    pub fn load_list(&mut self, ctx: &egui::Context) {
+        if self.list_job.is_some() {
+            return;
+        }
+        let Some(address) = relations::list_address(&self.list_url) else {
+            self.message = Some(t("s_hq_url_falsch"));
+            return;
+        };
+        let Some(net) = self.net.clone() else {
+            self.message = Some(t("s_hq_offline"));
+            return;
+        };
+        if let Some(paths) = &self.paths {
+            paths.set_setting(relations::LIST_ADDRESS_SETTING, Value::str(address.clone()));
+        }
+        self.list_url = address.clone();
+        let (send, receive) = std::sync::mpsc::channel();
+        let wake = ctx.clone();
+        let started = std::thread::Builder::new().name("beziehungen-liste".into()).spawn_with_language(move || {
+            // Read here, not in the frame: a long list takes its time.
+            let answer = match net.get(&address) {
+                Ok(body) if body.len() > relations::LIST_LIMIT => ListAnswer::TooLarge,
+                Ok(body) => Relations::parse(&String::from_utf8_lossy(&body)).map_or(ListAnswer::NoList, ListAnswer::Got),
+                Err(error) => ListAnswer::Fetch(error),
+            };
+            let _ = send.send(answer);
+            wake.request_repaint();
+        });
+        if started.is_ok() {
+            self.list_job = Some(receive);
+            self.message = Some(t("s_hq_url_laedt"));
+        } else {
+            self.message = Some(t("s_hq_url_fehler"));
+        }
+    }
+
+    /// Takes the list loaded once it came: the names not marked here are added, the own marks stay; or what kept it.
+    fn tick_list(&mut self) {
+        let Some(job) = &self.list_job else { return };
+        let answer = match job.try_recv() {
+            Ok(answer) => answer,
+            Err(TryRecvError::Empty) => return,
+            Err(TryRecvError::Disconnected) => ListAnswer::Fetch(FetchError::Failed(String::new())),
+        };
+        self.list_job = None;
+        self.message = Some(match answer {
+            ListAnswer::Got(other) => {
+                let count = self.relations.take(&other, false);
+                self.save_relations();
+                self.changed |= count > 0;
+                tf("s_hq_url_ok", &[("n", Arg::Int(count as i64))])
+            }
+            ListAnswer::TooLarge => t("s_hq_url_zu_gross"),
+            ListAnswer::NoList => t("s_hq_url_keine_liste"),
+            ListAnswer::Fetch(FetchError::Offline) => t("s_hq_offline"),
+            ListAnswer::Fetch(_) => t("s_hq_url_fehler"),
+        });
+    }
+
+    /// Whether a list is being loaded.
+    pub fn list_loading(&self) -> bool {
+        self.list_job.is_some()
     }
 
     fn save_relations(&self) {
@@ -726,10 +811,14 @@ impl HandleSearch {
         }
     }
 
-    /// Puts the cursor into the field, e.g. for a key that opens the search.
+    /// Puts the cursor into the field, e.g. for a key that opens the search, with the handle searched last
+    /// selected as a whole: typing replaces it.
     pub fn focus_field(&self, ctx: &egui::Context) {
         if let Some(id) = self.field_id {
             ctx.memory_mut(|m| m.request_focus(id));
+            let mut state = egui::text_edit::TextEditState::load(ctx, id).unwrap_or_default();
+            state.cursor.set_char_range(Some(egui::text::CCursorRange::select_all_str(&self.query)));
+            state.store(ctx, id);
         }
     }
 
@@ -861,7 +950,8 @@ impl HandleSearch {
         let stance = self.relations.of(Kind::Org, &org.sid);
         let tone = stance.map_or(scheme.fg, |s| stance_color(scheme, s));
         let body = egui::TextStyle::Body.resolve(ui.style()).size;
-        let (big, bold) = (crate::fonts::bold(body * NAME_SCALE), crate::fonts::bold(body));
+        let heading = egui::TextStyle::Heading.resolve(ui.style()).size;
+        let (big, bold) = (crate::fonts::bold(heading), crate::fonts::bold(body));
         self.pictures.show(ui, scheme, &org.logo, LOGO_SIZE);
         let gap = ui.spacing().item_spacing.x;
         let width = (width - LOGO_SIZE - gap).max(1.0);
@@ -933,7 +1023,8 @@ impl HandleSearch {
         let stance = self.stance_of(found);
         let tone = stance.as_ref().map_or(scheme.fg, |(s, _, _)| stance_color(scheme, *s));
         let body = egui::TextStyle::Body.resolve(ui.style()).size;
-        let (big, bold) = (crate::fonts::bold(body * NAME_SCALE), crate::fonts::bold(body));
+        let heading = egui::TextStyle::Heading.resolve(ui.style()).size;
+        let (big, bold) = (crate::fonts::bold(heading), crate::fonts::bold(body));
         self.pictures.show(ui, scheme, &profile.image, AVATAR_SIZE);
         let gap = ui.spacing().item_spacing.x;
         let width = (width - AVATAR_SIZE - gap).max(1.0);
@@ -1036,7 +1127,8 @@ impl HandleSearch {
         let stance = self.relations.of(Kind::Org, &org.sid);
         let tone = stance.map_or(scheme.fg, |s| stance_color(scheme, s));
         let body = egui::TextStyle::Body.resolve(ui.style()).size;
-        let (big, bold) = (crate::fonts::bold(body * NAME_SCALE), crate::fonts::bold(body));
+        let heading = egui::TextStyle::Heading.resolve(ui.style()).size;
+        let (big, bold) = (crate::fonts::bold(heading), crate::fonts::bold(body));
         let kind = if !main {
             t("s_hq_partner")
         } else if org.commitment.is_empty() {
@@ -1214,7 +1306,7 @@ impl HandleSearch {
     fn member_row(&mut self, ui: &mut Ui, scheme: &Scheme, member: &Member, sid: &str, wide: bool) -> Option<String> {
         let gap = ui.spacing().item_spacing.x;
         let star_width = 5.0 * STAR_SIZE + 4.0 * STAR_GAP;
-        let marks = if wide && !member.hidden() { 3.0 * (MARK_SIZE + gap) } else { 0.0 };
+        let marks = if wide && !member.hidden() { Stance::ALL.len() as f32 * (MARK_SIZE + gap) } else { 0.0 };
         let rest = (ui.available_width() - star_width - marks - 3.0 * gap).max(2.0);
         let handle_width = (rest * MEMBER_HANDLE_SHARE).floor().max(1.0);
         let rank_width = (rest - handle_width).max(1.0);
@@ -1248,7 +1340,7 @@ impl HandleSearch {
         send
     }
 
-    /// The three marks of a stance for `name`; the one set in its colour. A click sets that stance, on the one
+    /// The four marks of a stance for `name`; the one set in its colour. A click sets that stance, on the one
     /// set it takes it away.
     pub fn marks(&mut self, ui: &mut Ui, scheme: &Scheme, kind: Kind, name: &str) {
         let set = self.relations.of(kind, name);
@@ -1417,10 +1509,23 @@ impl HandleSearch {
         self.transfer_message(ui, scheme);
     }
 
-    /// The export and the import of the relations, with what the last one said.
+    /// The export and the import of the relations, the loading of a list from an address, with what the last one
+    /// said.
     pub fn transfer(&mut self, ui: &mut Ui, scheme: &Scheme) {
         self.tick();
         ui.horizontal_wrapped(|ui| self.transfer_buttons(ui, scheme));
+        ui.horizontal_wrapped(|row| {
+            let field = widgets::text_field(&mut self.list_url, &t("s_hq_url_feld"), scheme).desired_width(320.0);
+            let response = row.add(field);
+            let enter = response.lost_focus() && row.input(|i| i.key_pressed(egui::Key::Enter));
+            let word = t("s_hq_url_laden");
+            let busy = self.list_loading().then(|| t("s_hq_url_laedt"));
+            let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("download").blocked(busy.as_deref());
+            if row.add(button).clicked() || enter {
+                self.load_list(row.ctx());
+            }
+        });
+        widgets::hint(ui, scheme, &t("s_hq_url_h"));
         self.transfer_message(ui, scheme);
     }
 
@@ -1428,20 +1533,24 @@ impl HandleSearch {
     fn transfer_buttons(&mut self, ui: &mut Ui, scheme: &Scheme) {
         let (export, import) = (t("s_hq_export"), t("s_hq_import"));
         let filters: file_dialog::Filters = &[("JSON", &["json"])];
+        // A list of another marking tool comes as TOML.
+        let lists = t("s_hq_listen_filter");
+        let readable: file_dialog::Filters = &[(lists.as_str(), &["json", "toml"])];
         if ui.add(widgets::Button::new(&export, ButtonKind::Normal, scheme)).clicked() && self.export.is_none() {
             let pending = file_dialog::save_file(ui.ctx(), &export, filters, None, "versekit-beziehungen.json");
             self.export = Some((pending, self.relations.export_text()));
         }
         if ui.add(widgets::Button::new(&import, ButtonKind::Normal, scheme)).clicked() && self.import.is_none() {
-            self.import = Some(file_dialog::open_file(ui.ctx(), &import, filters, None));
+            self.import = Some(file_dialog::open_file(ui.ctx(), &import, readable, None));
         }
     }
 
-    /// What the last export or import said.
+    /// What the last export or import said, and which lists the import takes.
     fn transfer_message(&self, ui: &mut Ui, scheme: &Scheme) {
         if let Some(message) = &self.message {
             widgets::hint(ui, scheme, message);
         }
+        widgets::hint(ui, scheme, &t("s_hq_import_h"));
     }
 }
 
@@ -1450,7 +1559,7 @@ pub(crate) mod tests {
     use super::*;
     use std::sync::Mutex;
     use versekit_core::handle_query::page::{orgs_url, profile_url};
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
     use versekit_core::net::Fake;
 
     static OPENED: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -1476,6 +1585,25 @@ pub(crate) mod tests {
         frame(&ctx, &mut search, wipe, egui::Modifiers::NONE);
         assert!(search.query.is_empty(), "the field is empty: {:?}", search.query);
         assert!(search.shown().is_none(), "the card went with the text");
+    }
+
+    /// The key of the search selects the handle searched last: typing replaces it as a whole.
+    #[test]
+    fn the_key_of_the_search_selects_the_last_handle_and_typing_replaces_it() {
+        let ctx = context();
+        let mut search = HandleSearch::empty();
+        search.query = "Old_Handle".into();
+        frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        // The cursor stood in the field before, at its end.
+        search.focus_field(&ctx);
+        frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        search.stop_typing(&ctx);
+        frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        search.focus_field(&ctx);
+        frame(&ctx, &mut search, Vec::new(), egui::Modifiers::NONE);
+        assert!(search.typing(&ctx), "the field has the cursor");
+        frame(&ctx, &mut search, vec![egui::Event::Text("Neu".into())], egui::Modifiers::NONE);
+        assert_eq!(search.query, "Neu", "the old handle was selected and is replaced");
     }
 
     #[test]
@@ -1515,6 +1643,84 @@ pub(crate) mod tests {
             &[(versekit_core::legacy::ENV_HOME, home.as_str())],
             &home,
         ))
+    }
+
+    /// Waits until the list asked for came (a thread of its own), at most ten seconds.
+    fn wait_for_list(search: &mut HandleSearch) {
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while search.list_loading() && std::time::Instant::now() < end {
+            search.tick();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(!search.list_loading(), "the list did not come");
+    }
+
+    /// A list at an https address is asked only when asked for, over the net of the search, and taken like a file;
+    /// its address is kept. Another address is refused before anything is asked.
+    #[test]
+    fn a_list_at_an_address_is_loaded_on_a_click_and_taken() {
+        language::set_thread_language(language::Choice::De);
+        let dir = versekit_core::testdir::Dir::new("beziehungen-adresse");
+        let address = "https://example.org/org-liste.toml";
+        let list = "format = \"sc-social-overlay\"\nformat_version = 1\n\
+                    [[players]]\nhandle = \"Gegner_1\"\ncolor = \"red\"\n\
+                    [[players]]\nhandle = \"Kumpel\"\ncolor = \"red\"\n\
+                    [[orgs]]\nsid = \"FREUNDE\"\npriority = 1\ncolor = \"green\"\n";
+        let fake = Arc::new(Fake::default().with(address, list));
+        let mut own = Relations::default();
+        own.set(Kind::Handle, "Kumpel", Some(Stance::Friendly));
+        assert!(own.save(&paths(&dir)));
+        let mut search = HandleSearch::with_net(&paths(&dir), Some(fake.clone() as Arc<dyn Net>));
+        let ctx = egui::Context::default();
+        assert!(fake.asked().is_empty(), "nothing asked by itself");
+        search.list_url = "http://example.org/org-liste.toml".into();
+        search.load_list(&ctx);
+        assert_eq!(search.message.as_deref(), Some(t("s_hq_url_falsch").as_str()));
+        assert!(fake.asked().is_empty() && !search.list_loading(), "no plain http");
+        search.list_url = format!(" {address} ");
+        search.load_list(&ctx);
+        wait_for_list(&mut search);
+        assert_eq!(fake.asked(), [address]);
+        assert_eq!(search.message, Some(tf("s_hq_url_ok", &[("n", Arg::Int(2))])));
+        let kept = Relations::load(&paths(&dir));
+        assert_eq!(kept.of(Kind::Handle, "Gegner_1"), Some(Stance::Hostile));
+        assert_eq!(kept.of(Kind::Org, "FREUNDE"), Some(Stance::Friendly));
+        assert_eq!(kept.of(Kind::Handle, "Kumpel"), Some(Stance::Friendly), "the own mark stays");
+        assert!(search.take_changed());
+        // The address is kept for the next start.
+        assert_eq!(HandleSearch::with_net(&paths(&dir), None).list_url, address);
+    }
+
+    /// Without the net, or with an answer that is no list, it says so and changes nothing.
+    #[test]
+    fn a_list_that_cannot_be_had_says_why() {
+        language::set_thread_language(language::Choice::De);
+        let dir = versekit_core::testdir::Dir::new("beziehungen-adresse-fehler");
+        let ctx = egui::Context::default();
+        let mut offline = HandleSearch::with_net(&paths(&dir), None);
+        offline.list_url = "https://example.org/liste.json".into();
+        offline.load_list(&ctx);
+        assert_eq!(offline.message.as_deref(), Some(t("s_hq_offline").as_str()));
+        let fake = Arc::new(Fake::default().with("https://example.org/liste.json", "<html>keine Liste</html>"));
+        let mut search = HandleSearch::with_net(&paths(&dir), Some(fake as Arc<dyn Net>));
+        search.list_url = "https://example.org/liste.json".into();
+        search.load_list(&ctx);
+        wait_for_list(&mut search);
+        assert_eq!(search.message.as_deref(), Some(t("s_hq_url_keine_liste").as_str()));
+        assert!(Relations::load(&paths(&dir)).is_empty());
+        // Larger than a list may be: said so, nothing read.
+        let big = vec![b'#'; relations::LIST_LIMIT + 1];
+        let fake = Arc::new(Fake::default().with("https://example.org/gross.toml", big));
+        let mut large = HandleSearch::with_net(&paths(&dir), Some(fake as Arc<dyn Net>));
+        large.list_url = "https://example.org/gross.toml".into();
+        large.load_list(&ctx);
+        wait_for_list(&mut large);
+        assert_eq!(large.message.as_deref(), Some(t("s_hq_url_zu_gross").as_str()));
+        // An address the fake does not know fails as a missing page does.
+        search.list_url = "https://example.org/fehlt.json".into();
+        search.load_list(&ctx);
+        wait_for_list(&mut search);
+        assert_eq!(search.message.as_deref(), Some(t("s_hq_url_fehler").as_str()));
     }
 
     fn search_with_site(dir: &versekit_core::testdir::Dir) -> HandleSearch {
@@ -1586,7 +1792,7 @@ pub(crate) mod tests {
 
     fn german() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         guard
     }
 
@@ -2105,7 +2311,7 @@ pub(crate) mod tests {
         let (low, high) = versekit_core::font_size::POINTS_RANGE;
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in low..=high {
                 for card in [&card, &long] {
                     let ctx = context();
@@ -2136,7 +2342,7 @@ pub(crate) mod tests {
                 }
             }
         }
-        set_language(Choice::Auto);
+        set_thread_language(Choice::Auto);
         assert!(findings.is_empty(), "zu breit:\n{}", findings.join("\n"));
     }
 
@@ -2189,7 +2395,7 @@ pub(crate) mod tests {
         let (low, high) = versekit_core::font_size::POINTS_RANGE;
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in low..=high {
                 for answer in
                     [Answer::Org(org::Found { org: org.clone(), fetched: 0.0 }), Answer::Choices(hits.clone())]
@@ -2208,7 +2414,7 @@ pub(crate) mod tests {
                 }
             }
         }
-        set_language(Choice::Auto);
+        set_thread_language(Choice::Auto);
         assert!(findings.is_empty(), "zu breit:\n{}", findings.join("\n"));
     }
 
@@ -2305,6 +2511,18 @@ pub(crate) mod tests {
             "s_hq_export_ok",
             "s_hq_import_ok",
             "s_hq_import_fehler",
+            "s_hq_import_h",
+            "s_hq_listen_filter",
+            "s_hq_beobachten",
+            "s_hq_url_feld",
+            "s_hq_url_laden",
+            "s_hq_url_laedt",
+            "s_hq_url_ok",
+            "s_hq_url_falsch",
+            "s_hq_url_fehler",
+            "s_hq_url_zu_gross",
+            "s_hq_url_keine_liste",
+            "s_hq_url_h",
             "s_hq_export_fehler",
             "s_hq_log_klick",
             "s_hq_einst_tage",

@@ -32,6 +32,7 @@
 //! lots, filters, search and scroll position stay; only what no longer
 //! exists goes.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
@@ -231,7 +232,7 @@ impl<T> Pending<T> {
 fn spawn<T: Send + 'static>(ctx: Option<&egui::Context>, work: impl FnOnce() -> T + Send + 'static) -> Pending<T> {
     let (send, answer) = std::sync::mpsc::channel();
     let ctx = ctx.cloned();
-    let started = std::thread::Builder::new().name("lager-der-einheit".into()).spawn(move || {
+    let started = std::thread::Builder::new().name("lager-der-einheit".into()).spawn_with_language(move || {
         let _ = send.send(work());
         if let Some(ctx) = ctx {
             ctx.request_repaint();
@@ -1325,7 +1326,7 @@ fn tone_color(scheme: &Scheme, tone: Tone) -> Color {
         Tone::Quiet => scheme.sub,
         Tone::Done => scheme.accent,
         Tone::Warn => scheme.yellow,
-        Tone::Error => scheme.red,
+        Tone::Error => scheme.red_text(),
     }
 }
 
@@ -1353,7 +1354,7 @@ fn field_label(ui: &mut Ui, text: &str) {
 
 fn field_error(ui: &mut Ui, scheme: &Scheme, error: Option<&String>) {
     if let Some(error) = error {
-        ui.add(egui::Label::new(RichText::new(error).color(color(scheme.red))).wrap());
+        ui.add(egui::Label::new(RichText::new(error).color(color(scheme.red_text()))).wrap());
     }
 }
 
@@ -1467,7 +1468,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut OrgStockState) {
         });
     }
     if let Some(error) = state.fetch_error.clone() {
-        small(ui, scheme, &error, scheme.red);
+        small(ui, scheme, &error, scheme.red_text());
     }
     ui.add_space(4.0);
     match state.data.clone() {

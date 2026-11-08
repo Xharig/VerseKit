@@ -34,7 +34,7 @@ use std::collections::{BTreeSet, HashMap};
 use crate::hangar::{get, py_int, text};
 use crate::jsonio::{Map, Value};
 use crate::paths::Paths;
-use crate::ships::{ErkulShips, ShipId, stored};
+use crate::ships::{ErkulShips, ShipId};
 
 pub const PARTS_FILE: &str = "erkul-teile.json";
 pub const PARTS_FORMAT: i64 = 2;
@@ -43,6 +43,10 @@ pub const PARTS_FORMAT: i64 = 2;
 pub const GAME_SHIPS_FILE: &str = "spiel-schiffe.json";
 /// The parts with slots of the game data, in the form of [`PARTS_FILE`].
 pub const GAME_PARTS_FILE: &str = "spiel-teile.json";
+/// The format of [`GAME_PARTS_FILE`]: that of [`PARTS_FILE`] with the class name of each part and the tags a paint
+/// requires (since 5.2.1). A file of format [`PARTS_FORMAT`] is still read as it is; the game data read it again
+/// from the archive at the next start with the game closed (`versekit-gamedata`, `values_store`).
+pub const GAME_PARTS_FORMAT: i64 = 3;
 
 /// The kinds of slot a player can change (`erkul.SWAPPABLE`): the ones a
 /// blueprint can fill plus battery, avionics and gravity generator.
@@ -126,6 +130,9 @@ pub struct Part {
     pub ports: Vec<PartPort>,
     /// Port name → what sits in it at the factory, in stored order.
     pub factory: Vec<(String, (String, String))>,
+    /// The class name in the game data (`Controller_Flight_AEGS_Gladius`); empty where the file has none
+    /// (erkul's, and the game files written before 5.2.1).
+    pub class: String,
 }
 
 /// The stored parts.
@@ -183,9 +190,19 @@ impl SlotInfo {
 }
 
 impl ErkulParts {
-    /// Reads the stored parts file; empty without a usable one.
+    /// Reads the stored parts file, erkul's ([`PARTS_FORMAT`]) or the game's ([`GAME_PARTS_FORMAT`]); empty without a
+    /// usable one.
     pub fn load(path: &str) -> ErkulParts {
-        let root = stored(path, PARTS_FORMAT);
+        let root = match crate::jsonio::read_json(path) {
+            Ok(Value::Object(root))
+                if [PARTS_FORMAT, GAME_PARTS_FORMAT].iter().any(|format| {
+                    crate::jsonio::py_eq(get(&root, "format"), Some(&Value::int(*format)))
+                }) =>
+            {
+                root
+            }
+            _ => Map::new(),
+        };
         let mut parts = Vec::new();
         if let Some(Value::Object(items)) = get(&root, "teile") {
             for (reference, raw) in items {
@@ -217,6 +234,7 @@ impl ErkulParts {
                     grade: text(raw, "guete").to_string(),
                     ports,
                     factory,
+                    class: text(raw, "klasse").to_string(),
                 });
             }
         }
@@ -256,11 +274,83 @@ impl ErkulParts {
         self.index.get(reference).map(|&i| &self.parts[i])
     }
 
-    /// `erkul.compatible`: the stored parts that fit this slot.
+    /// `erkul.compatible`: the stored parts that fit this slot. A ship-bound slot without its own `fit`
+    /// takes the parts that belong to the same ship as its factory part ([`ErkulParts::bound_stock`]).
     pub fn compatible(&self, slot: &SlotInfo) -> Vec<&Part> {
-        let Some(fit) = &slot.fit else { return Vec::new() };
-        self.parts.iter().filter(|p| fits_slot(fit, p)).collect()
+        if let Some(fit) = &slot.fit {
+            return self.parts.iter().filter(|p| fits_slot(fit, p)).collect();
+        }
+        match self.bound_stock(slot) {
+            Some(stock) => self.parts.iter().filter(|p| fits_like_stock(stock, p)).collect(),
+            None => Vec::new(),
+        }
     }
+
+    /// The factory part a slot of a [`SHIP_BOUND`] kind takes its rule from, where the slot has no `fit` of its
+    /// own (a port right on the ship: its tags sit in the encrypted vehicle implementation) and the part is known.
+    pub fn bound_stock(&self, slot: &SlotInfo) -> Option<&Part> {
+        if slot.fit.is_some() || !SHIP_BOUND.contains(&slot.kind.as_str()) {
+            return None;
+        }
+        let (reference, _) = slot.factory.as_ref()?;
+        self.get(reference).filter(|stock| stock.kind == slot.kind)
+    }
+}
+
+/// The kinds of slot whose parts belong to one ship each: the flight blades and the paints. A blade of the game
+/// carries the tag of its ship and requires the same tag of the port (`Tags` = `RequiredTags`, e.g.
+/// `AEGS_Gladius_Blade`), so it goes only where the factory blade of the ship goes. A paint requires the tag of its
+/// ship family of the port (`RequiredTags` = `Paint_Gladius`), which the port offers.
+///
+/// ⚠⚠ Such a slot without a rule of its own and without a known factory part has no list at all: which paints a
+/// ship takes sits in the encrypted vehicle implementation, and the names do not tell it (the MDC takes
+/// `Paint_MTC`, the Ursa `Ursa_Paint`). No choice is better than the paints of every ship.
+///
+/// ⚠ Not the turrets and racks: their tags mix ship-bound ones with general ones (`gimbalMount`, `flightReady`),
+/// and what the port of the ship requires sits in the encrypted vehicle implementation.
+pub const SHIP_BOUND: [&str; 2] = ["FlightController", "Paints"];
+
+/// Does `part` belong to the same ship as the factory part `stock` of a [`SHIP_BOUND`] slot? The factory part
+/// itself always does.
+///
+/// A paint: one that requires of its port only what the factory paint requires (the port offers that), and not
+/// nothing; without what the factory paint requires (a file of 5.2.0) none other.
+///
+/// A flight blade: with tags at the factory part exactly its tags (case aside). Without tags (the
+/// Constellation Mk IV, the Fury, the 300 series): only an untagged blade whose class name continues the class
+/// name of the factory part right with `_Blade` or `_Flight_Blade` (`Controller_Flight_RSI_Constellation_Andromeda`
+/// → `…_Andromeda_Blade_HND`); without class names nothing else.
+///
+/// ⚠ Not the bare prefix: `Controller_Flight_MISC_Fury_LX` and `…_Fury_LX_Blade_HND` continue
+/// `Controller_Flight_MISC_Fury` too, and belong to another ship.
+pub fn fits_like_stock(stock: &Part, part: &Part) -> bool {
+    if part.reference == stock.reference {
+        return true;
+    }
+    if part.kind != stock.kind {
+        return false;
+    }
+    if let (Some(own), Some(wanted)) = (part.size, stock.size)
+        && own != wanted
+    {
+        return false;
+    }
+    let lowered = |tags: &[String]| tags.iter().map(|t| t.to_lowercase()).collect::<BTreeSet<String>>();
+    if stock.kind == "Paints" {
+        let offered = lowered(&stock.required);
+        return !offered.is_empty() && !part.required.is_empty() && lowered(&part.required).is_subset(&offered);
+    }
+    if !stock.tags.is_empty() {
+        return lowered(&part.tags) == lowered(&stock.tags);
+    }
+    let family = stock.class.to_lowercase();
+    if !part.tags.is_empty() || family.is_empty() {
+        return false;
+    }
+    part.class
+        .to_lowercase()
+        .strip_prefix(&format!("{family}_"))
+        .is_some_and(|rest| rest.starts_with("blade") || rest.starts_with("flight_blade"))
 }
 
 /// `erkul.fits_slot`: does the part go into the slot? Four conditions, all must hold: kind and subkind
@@ -270,6 +360,9 @@ impl ErkulParts {
 ///
 /// ⚠ Without the last two the torpedo slot of the Eclipse would offer the racks of every other ship:
 /// 126 instead of 4.
+///
+/// A paint compares its tags without case: what it requires comes from the DataForge (since 5.2.1), what the port
+/// offers from erkul or the ship Record, and the game spells a family both ways (`Paint_Gladius`, `paint_gladius`).
 pub fn fits_slot(fit: &Fit, part: &Part) -> bool {
     if !fit.types.iter().any(|(kind, subs)| *kind == part.kind && (subs.is_empty() || subs.contains(&part.subkind))) {
         return false;
@@ -278,6 +371,11 @@ pub fn fits_slot(fit: &Fit, part: &Part) -> bool {
         && (fit.min.is_some_and(|low| size < low) || fit.max.is_some_and(|high| size > high))
     {
         return false;
+    }
+    if part.kind == "Paints" {
+        let lowered = |tags: &[String]| tags.iter().map(|t| t.to_lowercase()).collect::<BTreeSet<String>>();
+        let (offered, carried) = (lowered(&fit.port_tags), lowered(&part.tags));
+        return lowered(&part.required).is_subset(&offered) && lowered(&fit.required).is_subset(&carried);
     }
     let offered: BTreeSet<&String> = fit.port_tags.iter().collect();
     if !part.required.iter().all(|r| offered.contains(r)) {
@@ -724,6 +822,113 @@ mod tests {
         let mut paint = part("f", "MissileLauncher", 0, &["Eclipse_Rack"], &[]);
         paint.size = None;
         assert!(fits_slot(&slot_fit, &paint));
+    }
+
+    /// Flight blades as the game data hold them: per ship a factory blade and blades to buy, each with the tag of
+    /// its ship; the Constellation Andromeda (and its Master Modes copy) without tags, the Fury and Fury LX too.
+    fn blades() -> ErkulParts {
+        let blade = |reference: &str, name: &str, class: &str, tags: &[&str]| Part {
+            reference: reference.into(),
+            name: name.into(),
+            kind: "FlightController".into(),
+            subkind: "UNDEFINED".into(),
+            size: Some(1),
+            tags: tags.iter().map(|s| (*s).to_string()).collect(),
+            class: class.into(),
+            ..Part::default()
+        };
+        ErkulParts::from_parts(vec![
+            blade("f8c", "Flight Blade", "Controller_Flight_ANVL_Lightning_F8C", &["ANVL_Lighting_Blade"]),
+            blade("f8", "Flight Blade", "Controller_Flight_ANVL_Lightning_F8", &["ANVL_Lighting_Blade"]),
+            blade("glad", "Gladius Standard Flight Blade", "Controller_Flight_AEGS_Gladius", &["AEGS_Gladius_Blade"]),
+            blade("glad-hnd", "Gladius PHB Flight Blade", "Controller_Flight_AEGS_Gladius_Blade_HND", &["AEGS_Gladius_Blade"]),
+            blade("glad-spd", "Gladius TSB Flight Blade", "Controller_Flight_AEGS_Gladius_Blade_SPD", &["aegs_gladius_blade"]),
+            blade("arrow", "Arrow Standard Flight Blade", "Controller_Flight_ANVL_Arrow", &["ANVL_Arrow_Blade"]),
+            blade("asgard", "Anvil Asgard Standard Flight Blade", "Controller_Flight_ANVL_Asgard", &["ANVL_Asgard_Blade"]),
+            blade("andro", "Andromeda Standard", "Controller_Flight_RSI_Constellation_Andromeda", &[]),
+            blade("andro-hnd", "Andromeda PHB", "Controller_Flight_RSI_Constellation_Andromeda_Blade_HND", &[]),
+            blade("andro-mm", "Andromeda Standard", "Controller_Flight_RSI_Constellation_Andromeda_MM_322", &[]),
+            blade("andro-gs-hnd", "Andromeda GS PHB", "Controller_Flight_RSI_Constellation_Andromeda_GS_Blade_HND", &["$RSI_Constellation_Andromeda_Blade"]),
+            blade("fury", "Flight Blade", "Controller_Flight_MISC_Fury", &[]),
+            blade("fury-lx", "Flight Blade", "Controller_Flight_MISC_Fury_LX", &[]),
+            blade("fury-lx-hnd", "Fury LX PHB", "Controller_Flight_MISC_Fury_LX_Blade_HND", &[]),
+            blade("fury-spd", "Fury TSB", "Controller_Flight_MISC_Fury_Flight_Blade_SPD", &[]),
+            // A blade of the size of another family and a part of another kind with the same tag.
+            Part { size: Some(2), ..blade("big", "Big Blade", "Controller_Flight_AEGS_Gladius_Blade_XL", &["AEGS_Gladius_Blade"]) },
+            Part { kind: "Cooler".into(), ..blade("cool", "Cooler", "COOL_Gladius", &["AEGS_Gladius_Blade"]) },
+        ])
+    }
+
+    fn refs(parts: &ErkulParts, slot: &SlotInfo) -> Vec<String> {
+        let mut found: Vec<String> = parts.compatible(slot).iter().map(|p| p.reference.clone()).collect();
+        found.sort();
+        found
+    }
+
+    fn blade_slot(factory: Option<&str>) -> SlotInfo {
+        SlotInfo { size: Some(1), ..slot("hardpoint_controller_flight", "FlightController", None, factory) }
+    }
+
+    #[test]
+    fn a_flight_blade_slot_takes_only_the_blades_of_its_own_ship() {
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let parts = blades();
+        // The F8C takes the blades with its tag: its own and the F8's, never the Gladius' or the Arrow's.
+        assert_eq!(refs(&parts, &blade_slot(Some("f8c"))), ["f8", "f8c"]);
+        // The Gladius takes its three, the tag compared without case; not the cooler with the same tag, not the
+        // blade of another size.
+        assert_eq!(refs(&parts, &blade_slot(Some("glad"))), ["glad", "glad-hnd", "glad-spd"]);
+        // Without tags: the blades of the same class family only, not the Master Modes copy, not the Mk IV GS
+        // (tagged), not the Fury LX nor its blade beside the Fury.
+        assert_eq!(refs(&parts, &blade_slot(Some("andro"))), ["andro", "andro-hnd"]);
+        assert_eq!(refs(&parts, &blade_slot(Some("fury"))), ["fury", "fury-spd"]);
+        assert_eq!(refs(&parts, &blade_slot(Some("fury-lx"))), ["fury-lx", "fury-lx-hnd"]);
+        // Without class names (a file written before 5.2.1) an untagged factory blade keeps to itself.
+        let no_class = ErkulParts::from_parts(blades().parts.into_iter().map(|p| Part { class: String::new(), ..p }).collect());
+        assert_eq!(refs(&no_class, &blade_slot(Some("andro"))), ["andro"]);
+        // The factory part is always among them, even one the rule would not take.
+        assert!(fits_like_stock(parts.get("fury").unwrap(), parts.get("fury").unwrap()));
+        // A slot of its own rule (erkul's file with its tags) goes by that rule, not by the factory part.
+        let own = SlotInfo { fit: Some(fit("FlightController", 1, 1, &[], &["ANVL_Arrow_Blade"])), ..blade_slot(Some("f8c")) };
+        assert_eq!(refs(&parts, &own), ["arrow"]);
+        // Without a known factory part there is no rule and no list; other kinds keep theirs.
+        assert!(refs(&parts, &blade_slot(None)).is_empty());
+        assert!(refs(&parts, &blade_slot(Some("unknown"))).is_empty());
+        assert!(parts.bound_stock(&slot("hardpoint_cooler", "Cooler", None, Some("cool"))).is_none());
+    }
+
+    #[test]
+    fn a_paint_slot_takes_only_the_paints_its_ship_family_requires() {
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let paint = |reference: &str, tags: &[&str], needs: &[&str]| part(reference, "Paints", 1, tags, needs);
+        let parts = ErkulParts::from_parts(vec![
+            paint("pirate", &["Paint_Gladius", "@GladiusPirate"], &["Paint_Gladius"]),
+            paint("valiant", &["Paint_Gladius", "@GladiusValiant"], &["paint_gladius"]),
+            paint("lightning", &["Paint_Lightning", "@LightningPlatinum"], &["Paint_Lightning"]),
+            paint("free", &["Paint_Template"], &[]),
+            paint("old", &["Paint_Gladius"], &[]),
+        ]);
+        let paint_slot = |factory: Option<&str>, fit: Option<Fit>| SlotInfo {
+            size: None,
+            ..slot("hardpoint_paint", "Paints", fit, factory)
+        };
+        // A Gladius with its factory paint: the paints that require the Gladius family, case aside; not the
+        // Lightning's, not one that requires nothing.
+        assert_eq!(refs(&parts, &paint_slot(Some("pirate"), None)), ["pirate", "valiant"]);
+        // A factory paint whose requirement is unknown (a file of 5.2.0) keeps to itself.
+        assert_eq!(refs(&parts, &paint_slot(Some("old"), None)), ["old"]);
+        // No rule of its own and no factory paint: no list, not every paint.
+        assert!(refs(&parts, &paint_slot(None, None)).is_empty());
+        // The rule of the port (erkul's, or the ship Record's) decides where there is one: it offers and requires
+        // the Lightning family, spelt in lower case.
+        let lightning = vec!["paint_lightning".to_string()];
+        let port = Fit {
+            types: vec![("Paints".into(), Vec::new())],
+            port_tags: lightning.clone(),
+            required: lightning,
+            ..Fit::default()
+        };
+        assert_eq!(refs(&parts, &paint_slot(None, Some(port))), ["lightning"]);
     }
 
     #[test]

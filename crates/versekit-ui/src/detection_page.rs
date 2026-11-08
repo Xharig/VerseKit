@@ -137,7 +137,7 @@ impl DetectionState {
     fn search(&mut self, paths: &Paths) {
         let (sender, receiver) = mpsc::channel();
         let copy = paths.working_copy();
-        std::thread::spawn(move || {
+        versekit_core::language::spawn_with_language(move || {
             let accounts = detection::accounts(&copy);
             let _ = sender.send((accounts, detection::foreign(&copy)));
         });
@@ -224,7 +224,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths
             let (sender, receiver) = mpsc::channel();
             let (copy, build) = (paths.working_copy(), state.build);
             let all = detection::all_blueprints(paths);
-            std::thread::spawn(move || {
+            versekit_core::language::spawn_with_language(move || {
                 let counted =
                     build(&copy).map(|catalog| catalog.blueprints.iter().filter(|b| all || !b.no_way).count());
                 let _ = sender.send(counted);
@@ -438,7 +438,7 @@ fn foreign_block(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths
     if confirm && let Foreign::Asking(names) = std::mem::replace(&mut state.foreign, Foreign::Clean) {
         let (sender, receiver) = mpsc::channel();
         let copy = paths.working_copy();
-        std::thread::spawn(move || {
+        versekit_core::language::spawn_with_language(move || {
             let _ = sender.send(detection::remove_foreign(&copy, &names));
         });
         state.foreign = Foreign::Removing(receiver);
@@ -642,7 +642,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 

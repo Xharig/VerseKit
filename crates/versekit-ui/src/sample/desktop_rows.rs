@@ -54,6 +54,18 @@ fn notice_reachable_on(windows: bool, tray: bool) -> bool {
     !windows || tray
 }
 
+/// Why the row of the entry in the menu has no buttons, as a text key, `None` where it has them: on Windows the
+/// installer makes the entry, elsewhere only a system with menus of `.desktop` files has one.
+fn menu_unavailable(windows: bool, available: bool) -> Option<&'static str> {
+    if windows {
+        Some("s_ei_installer")
+    } else if !available {
+        Some("s_ei_nur_linux")
+    } else {
+        None
+    }
+}
+
 /// The state of the rows.
 pub(super) struct DesktopRows {
     pub tray: bool,
@@ -115,6 +127,7 @@ impl DesktopRows {
         let reason = |row: &mut Ui, key: &str| {
             row.label(RichText::new(t(key)).color(color(scheme.sub)));
         };
+        let menu_reason = menu_unavailable(cfg!(windows), desktop_entry::available());
         match r {
             0 if !cfg!(windows) => reason(row, "s_nur_win"),
             0 => {
@@ -140,7 +153,7 @@ impl DesktopRows {
                     return Some(Wish::Scmdb(self.scmdb));
                 }
             }
-            _ if !desktop_entry::available() => reason(row, "s_ei_nur_linux"),
+            _ if menu_reason.is_some() => reason(row, menu_reason.unwrap_or_default()),
             _ => {
                 let mut wish = None;
                 row.horizontal_wrapped(|row| {
@@ -251,7 +264,7 @@ mod tests {
     #[test]
     fn the_entry_in_the_menu_is_written_and_taken_away_only_for_a_machine() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let dir = Dir::new("allgemein-menue");
         let data = dir.path().to_string_lossy().into_owned();
         let host = Host::new(Flavor::Posix, &[("XDG_DATA_HOME", &data), ("HOME", &data)], &data);
@@ -275,7 +288,7 @@ mod tests {
     #[test]
     fn the_switch_of_the_message_says_its_state_and_the_icon_says_nothing() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let mut rows = DesktopRows::default();
         assert_eq!(rows.apply(Wish::Notice(false), None).unwrap(), format!("{}: {}", t("s_systemmeldung"), t("e_aus")));
         assert_eq!(rows.apply(Wish::Tray(true), None), None);
@@ -326,7 +339,7 @@ mod tests {
     #[test]
     fn on_real_data_each_row_says_what_this_system_can_and_reads_its_setting() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let file = "{\n  \"tray\": false,\n  \"systemmeldung\": false\n}\n";
         let (mut page, dir) = super::super::real_data::real_page("allgemein-system", file, &[]);
         assert!(!page.desktop.tray && !page.desktop.notice, "read under the keys of the overlay");
@@ -341,11 +354,16 @@ mod tests {
         assert_eq!(in_row(&t("s_tray"), &t("s_nur_win")), !cfg!(windows), "the icon: the reason off Windows");
         let message = cfg!(windows) || notify::available();
         assert_eq!(in_row(&t("s_systemmeldung"), &t("s_systemmeldung_fehlt")), !message, "notify-send missing");
-        // The entry in the application menu: a row with its button where there are such menus, no row elsewhere.
+        // The entry in the application menu: a row with its button where there are such menus, on Windows a row that
+        // says the installer makes it, no row elsewhere.
         let menus = desktop_entry::available();
-        assert_eq!(row_of(&t("s_menue")).is_some(), menus, "the row only where there are such menus: {texts:?}");
+        assert_eq!(row_of(&t("s_menue")).is_some(), menus || cfg!(windows), "the row: {texts:?}");
         if menus {
             assert!(in_row(&t("s_menue"), &t("s_menue_anlegen")), "the button where there are such menus");
+        }
+        if cfg!(windows) {
+            assert!(in_row(&t("s_menue"), &t("s_ei_installer")), "on Windows the installer makes it: {texts:?}");
+            assert!(!in_row(&t("s_menue"), &t("s_ei_nur_linux")), "not \"only Linux\" on Windows");
         }
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -387,7 +405,7 @@ mod tests {
     #[test]
     fn without_the_icon_on_windows_the_switch_of_the_message_is_grey_and_does_nothing() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let mut grey = DesktopRows { tray: false, notice: true, windows: true, ..DesktopRows::default() };
         assert!(!grey.notice_reachable());
         assert_eq!(click_the_message(&mut grey), (None, true), "a grey switch keeps its state");
@@ -396,6 +414,15 @@ mod tests {
         let mut linux = DesktopRows { tray: false, notice: true, windows: false, ..DesktopRows::default() };
         assert!(linux.notice_reachable(), "off Windows the icon does not matter");
         assert_eq!(click_the_message(&mut linux), (Some(Wish::Notice(false)), false));
+    }
+
+    /// Windows: the installer makes the entry. Linux: the buttons. Another system without such menus: only Linux.
+    #[test]
+    fn the_row_of_the_menu_says_the_installer_on_windows_and_only_linux_elsewhere() {
+        assert_eq!(menu_unavailable(true, false), Some("s_ei_installer"));
+        assert_eq!(menu_unavailable(false, true), None, "Linux has the buttons");
+        assert_eq!(menu_unavailable(false, false), Some("s_ei_nur_linux"));
+        assert_eq!(menu_unavailable(cfg!(windows), desktop_entry::available()).is_none(), desktop_entry::available());
     }
 
     #[test]
@@ -417,6 +444,7 @@ mod tests {
             "s_menue_steht",
             "s_menue_weg_ok",
             "s_ei_nur_linux",
+            "s_ei_installer",
             "s_scmdb",
             "s_scmdb_h",
             "s_scmdb_bereit",

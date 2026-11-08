@@ -137,7 +137,7 @@ enum Machine {
 fn read_machine(paths: &Paths) -> Receiver<Option<Info>> {
     let (sender, receiver) = mpsc::channel();
     let copy = paths.working_copy();
-    std::thread::spawn(move || {
+    versekit_core::language::spawn_with_language(move || {
         let _ = sender.send(machine_info::read(&copy, None));
     });
     receiver
@@ -767,7 +767,7 @@ fn cfg_row(ui: &mut Ui, scheme: &Scheme, state: &mut GrafikState, r: usize) -> b
             // Anything but digits stays in the field and is not taken over: the field says so at once (what is
             // wanted is the number that was typed before).
             if !digits {
-                let red = color(scheme.red);
+                let red = color(scheme.red_text());
                 ui.label(RichText::new(t("s_gr_fps_ungueltig")).small().color(red));
                 ui.add_space(4.0);
             }
@@ -1185,7 +1185,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 

@@ -1046,7 +1046,7 @@ pub fn show_at(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut Li
         return;
     }
     if data.save_failed {
-        ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red)));
+        ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red_text())));
     }
     let total = data.catalog.blueprints.len();
     let mine = data.catalog.blueprints.iter().filter(|b| data.have.contains(&b.key)).count();
@@ -2375,7 +2375,7 @@ mod tests {
         use std::time::{Duration, Instant};
 
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let paths = empty_paths("first-frame");
         let stale = sample_catalog();
         let new = patched(&stale);
@@ -2480,10 +2480,10 @@ mod tests {
     #[test]
     fn without_any_catalog_the_list_says_it_is_being_built() {
         use std::sync::mpsc;
-        use versekit_core::language::{Choice, set_language};
+        use versekit_core::language::{Choice, set_thread_language};
 
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let paths = empty_paths("no-catalog");
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -2515,10 +2515,10 @@ mod tests {
     /// falls back to the plain empty page.
     #[test]
     fn a_failed_build_leaves_the_list_alone() {
-        use versekit_core::language::{Choice, set_language};
+        use versekit_core::language::{Choice, set_thread_language};
 
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let paths = empty_paths("failed");
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -2676,7 +2676,7 @@ mod tests {
 
     /// The text of a key in German, whatever language the test run has set.
     fn t_de(key: &str) -> String {
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         t(key)
     }
 
@@ -2808,7 +2808,7 @@ mod tests {
         let now = export::now_unix();
         let mut findings = Vec::new();
         for choice in [Choice::De, Choice::En] {
-            versekit_core::language::set_language(choice);
+            versekit_core::language::set_thread_language(choice);
             let (smallest, largest) = versekit_core::font_size::POINTS_RANGE;
             for points in [smallest, largest] {
                 for width in [560.0, 1600.0] {
@@ -2851,7 +2851,7 @@ mod tests {
                 }
             }
         }
-        versekit_core::language::set_language(Choice::De);
+        versekit_core::language::set_thread_language(Choice::De);
         assert!(findings.is_empty(), "weitere Wege:\n{}", findings.join("\n"));
     }
 
@@ -2972,7 +2972,7 @@ mod tests {
     #[test]
     fn a_period_lists_flat_newest_first_with_time_and_source() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let now = at("2026-10-22 20:00:00");
         let mut data = received_list(
             &["2026-10-21 08:00:00", "2026-10-22 09:30:00", "2026-10-21 08:00:00", "2026-10-22 18:15:00"],
@@ -3004,7 +3004,7 @@ mod tests {
         let heads: Vec<String> = bp::groups(&data.catalog, &[0, 1]).iter().map(|g| g.title.to_uppercase()).collect();
         assert!(heads.iter().all(|h| !drawn.contains(h)), "{heads:?} in {drawn:?}");
         // The same in English.
-        versekit_core::language::set_language(versekit_core::language::Choice::En);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::En);
         let drawn = frame_at(&ctx, &mut data, &mut state, now, 900.0).0;
         assert!(drawn.iter().any(|d| d.starts_with("2026-10-22 18:15 · Start")), "{drawn:?}");
         assert!(drawn.iter().any(|d| d.starts_with("2026-10-22 09:30 · By hand")), "{drawn:?}");
@@ -3012,7 +3012,7 @@ mod tests {
         state.period = Period::Today;
         let drawn = frame_at(&ctx, &mut data, &mut state, at("2026-10-25 12:00:00"), 900.0).0;
         assert!(drawn.contains(&t("erhalten_leer")), "{drawn:?}");
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         assert!(drawn.iter().all(|d| !names.contains(d)), "no row in an empty period: {drawn:?}");
     }
 
@@ -3079,7 +3079,7 @@ mod tests {
         let times: Vec<&str> = times.iter().map(String::as_str).collect();
         let mut findings = Vec::new();
         for choice in [Choice::De, Choice::En] {
-            versekit_core::language::set_language(choice);
+            versekit_core::language::set_thread_language(choice);
             let (smallest, largest) = versekit_core::font_size::POINTS_RANGE;
             for points in [smallest, (smallest + largest) / 2, largest] {
                 for width in [560.0, 620.0, 900.0, 1600.0] {
@@ -3110,7 +3110,7 @@ mod tests {
                 }
             }
         }
-        versekit_core::language::set_language(Choice::De);
+        versekit_core::language::set_thread_language(Choice::De);
         assert!(findings.is_empty(), "abgeschnitten:\n{}", findings.join("\n"));
     }
 

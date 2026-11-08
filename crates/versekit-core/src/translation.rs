@@ -40,13 +40,13 @@ use crate::game_ini::{self, GAME_LANGUAGES};
 use crate::injection;
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::language::{self, Arg, Lang};
-use crate::net::{FetchError, Net};
+use crate::net::{FetchError, Fresh, Net};
 use crate::paths::Paths;
 use crate::text::{decode_ignore, py_splitlines, py_strip};
 use crate::zip;
 
 pub const NOTE_FILE: &str = game_ini::NOTE_FILE;
-pub const USER_AGENT: &str = "SC-BP-Watcher (+https://github.com/Xharig/VerseKit)";
+pub const USER_AGENT: &str = crate::net::USER_AGENT;
 /// Seconds one request may take.
 pub const TIMEOUT_SECONDS: u64 = 60;
 /// The own address and the source of a side channel.
@@ -621,7 +621,7 @@ pub fn look_on_copy(net: &dyn Net, paths: &Paths, source: &str, channel: Option<
     let key = note_key(source, channel);
     let found = spec(paths, source, channel)
         .ok_or_else(|| Problem::NoChannelVersion(channel.unwrap_or("LIVE").to_string()))
-        .and_then(|spec| latest(net, &spec));
+        .and_then(|spec| latest(net, paths, &spec));
     let found = match found {
         Ok(found) => found,
         Err(problem) => {
@@ -1031,7 +1031,7 @@ impl Problem {
 /// `translation._net_error`.
 fn net_problem(error: &FetchError) -> Problem {
     match error {
-        FetchError::Refused => Problem::Refused,
+        FetchError::Refused | FetchError::RateLimited(_) => Problem::Refused,
         FetchError::Offline => Problem::Offline,
         other => {
             let text = other.to_string();
@@ -1063,9 +1063,8 @@ fn is_direct(spec: &Spec) -> bool {
     spec.source == CUSTOM || (spec.url.is_some() && spec.repo.is_none())
 }
 
-fn get_json(net: &dyn Net, url: &str) -> Result<Value, Problem> {
-    let bytes = net.get(url).map_err(|e| net_problem(&e))?;
-    jsonio::loads(&String::from_utf8_lossy(&bytes)).map_err(|e| Problem::Net(e.to_string()))
+fn release_from(bytes: &[u8]) -> Result<Value, Problem> {
+    jsonio::loads(&String::from_utf8_lossy(bytes)).map_err(|e| Problem::Net(e.to_string()))
 }
 
 /// `translation._custom_latest`: the identifier from the header only.
@@ -1086,17 +1085,47 @@ fn str_of(value: Option<&Value>) -> &str {
     value.and_then(Value::as_str).unwrap_or("")
 }
 
-/// `translation.latest`.
-pub fn latest(net: &dyn Net, spec: &Spec) -> Result<Latest, Problem> {
+/// `translation.latest`. A release on GitHub is asked with the `ETag` of the last answer, which
+/// [`release_cache`] keeps: `304 Not Modified` does not count against the hourly limit of the GitHub API.
+/// While GitHub asks to wait, or when it says so now, the last answer stands in for a new one; without one
+/// the look is refused.
+pub fn latest(net: &dyn Net, paths: &Paths, spec: &Spec) -> Result<Latest, Problem> {
     if is_direct(spec) {
         let url = spec.url.clone().unwrap_or_default();
         return Ok(Latest { ident: head_ident(net, &url)?, url, size: 0, date: None });
     }
     let repo = spec.repo.as_deref().unwrap_or("");
-    let release = match &spec.tag {
-        Some(tag) => get_json(net, &format!("https://api.github.com/repos/{repo}/releases/tags/{tag}"))?,
-        None => get_json(net, &format!("https://api.github.com/repos/{repo}/releases/latest"))?,
+    let url = match &spec.tag {
+        Some(tag) => format!("https://api.github.com/repos/{repo}/releases/tags/{tag}"),
+        None => format!("https://api.github.com/repos/{repo}/releases/latest"),
     };
+    let key = release_cache::key(&url, spec.asset.as_deref());
+    let mut book = release_cache::read(paths);
+    let kept = book.get(&key).cloned();
+    let at = crate::updater::now();
+    let stand_in = |kept: Option<release_cache::Kept>| kept.map(|k| k.latest).ok_or(Problem::Refused);
+    if book.paused(at) {
+        return stand_in(kept);
+    }
+    match net.get_if_changed(&url, kept.as_ref().map(|k| k.etag.as_str())) {
+        Ok(Fresh::Unchanged) => kept.map(|k| k.latest).ok_or(Problem::NoVersion),
+        Ok(Fresh::Body(bytes, etag)) => {
+            let found = latest_of_release(&release_from(&bytes)?, spec)?;
+            book.keep(&key, etag.as_deref(), &found);
+            release_cache::write(paths, &book);
+            Ok(found)
+        }
+        Err(FetchError::RateLimited(wait)) => {
+            book.pause(at, wait);
+            release_cache::write(paths, &book);
+            stand_in(kept)
+        }
+        Err(error) => Err(net_problem(&error)),
+    }
+}
+
+/// The newest version a release of the GitHub API offers `spec`: its file.
+fn latest_of_release(release: &Value, spec: &Spec) -> Result<Latest, Problem> {
     let mut ident = str_of(release.get("tag_name")).to_string();
     let published = str_of(release.get("published_at"));
     let lower = ident.to_lowercase();
@@ -1129,7 +1158,7 @@ pub fn update_available(net: &dyn Net, paths: &Paths, source: &str, channel: Opt
     let key = note_key(source, channel);
     let found = spec(paths, source, channel)
         .ok_or_else(|| Problem::NoChannelVersion(channel.unwrap_or("LIVE").to_string()))
-        .and_then(|spec| latest(net, &spec));
+        .and_then(|spec| latest(net, paths, &spec));
     let Ok(Latest { ident: Some(ident), date, .. }) = found else {
         record_check(paths, &key, Check::Failed, None);
         return (false, None);
@@ -1504,7 +1533,7 @@ fn fetch_and_place(
     let key = note_key(source, channel);
     let spec =
         spec(paths, source, channel).ok_or_else(|| Problem::NoChannelVersion(channel.unwrap_or("LIVE").to_string()))?;
-    let found = latest(net, &spec)?;
+    let found = latest(net, paths, &spec)?;
     progress(Progress::Loading(language::t(&spec.label), found.size as f64 / 1_048_576.0));
     let content = net.get(&found.url).map_err(|e| net_problem(&e))?;
     let mut language = spec.language.clone();
@@ -1550,6 +1579,8 @@ fn fetch_and_place(
     injection::discard_origtext_for(paths, &target);
     Ok(Fetched { source: source.to_string(), ident, bytes: ini.len(), target, language, backup })
 }
+
+mod release_cache;
 
 #[cfg(test)]
 mod tests;

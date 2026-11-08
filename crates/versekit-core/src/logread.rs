@@ -164,6 +164,19 @@ pub fn read_rest(file: &mut File, start: u64, end: u64) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
+/// Hands the whole file to `each` a piece at a time: the pieces of [`read_lines`], then the last line without its
+/// end. Nothing of the file stays in memory but the piece in hand.
+pub fn read_all(path: &str, mut each: impl FnMut(&[u8])) -> io::Result<()> {
+    let mut file = File::open(path)?;
+    let size = file.metadata()?.len();
+    let next = read_lines(&mut file, 0, size, false, &mut each)?;
+    let rest = read_rest(&mut file, next, size)?;
+    if !rest.is_empty() {
+        each(&rest);
+    }
+    Ok(())
+}
+
 /// What a reader keeps of a log it follows: the session, where the next reading starts and its own state.
 pub struct Followed<T> {
     pub session: Session,
@@ -274,6 +287,63 @@ mod tests {
         assert_eq!(pieces.concat(), text);
         assert_eq!((next, read), (text.len() as u64, text.len() as u64));
         assert!(largest <= BLOCK, "{largest}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_whole_file_comes_in_pieces_with_its_last_line_at_the_end() {
+        let dir = scratch("alles");
+        let log = dir.join("Game.log");
+        let path = log.to_string_lossy().into_owned();
+        let line = "<2026-11-05T22:30:00.000Z> a line of the log that fills it\n";
+        for tail in ["", "an end that never comes"] {
+            let text = format!("{}{tail}", line.repeat(BLOCK * 2 / line.len() + 3));
+            std::fs::write(&log, &text).unwrap();
+            counted();
+            let mut pieces: Vec<Vec<u8>> = Vec::new();
+            read_all(&path, |b| pieces.push(b.to_vec())).unwrap();
+            let (read, largest) = counted();
+            assert_eq!(pieces.concat(), text.as_bytes());
+            assert!(pieces.len() >= 3 && pieces.iter().all(|p| p.len() <= BLOCK), "{}", pieces.len());
+            // The last line without its end is read twice: into the piece in hand and again as the rest.
+            assert!(largest <= BLOCK, "{largest}");
+            assert!((text.len() as u64..=(text.len() + tail.len()) as u64).contains(&read), "{read}");
+        }
+        std::fs::write(&log, "").unwrap();
+        read_all(&path, |_| panic!("nothing to hand over")).unwrap();
+        assert!(read_all(&dir.join("gibtsnicht.log").to_string_lossy(), |_| ()).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_statistics_and_the_start_of_the_overlay_ask_for_a_block_at_most() {
+        use crate::live_contracts::StartLog;
+
+        let dir = scratch("bloecke-ganz");
+        let log = dir.join("Game.log");
+        let path = log.to_string_lossy().into_owned();
+        let text = format!(
+            "{START}<2026-11-05T22:28:01.000Z> [Notice] <CSessionManager::OnClientSpawned> Spawned!\n{}\
+             <2026-11-05T23:50:00.000Z> <SystemQuit>\n",
+            flood(14)
+        );
+        std::fs::write(&log, &text).unwrap();
+        let size = text.len() as u64;
+        counted();
+        let entry = crate::play_stats::read_log(&path, None).expect("a session");
+        let (read, largest) = counted();
+        assert_eq!(crate::mission_log::get(&entry, "sauber"), Some(&crate::jsonio::Value::Bool(true)));
+        assert!(largest <= BLOCK, "statistics: {largest}");
+        assert_eq!(read, size);
+        assert!(crate::playtime::span_from_log(&path).is_some());
+        let (read, largest) = counted();
+        assert!(largest <= BLOCK, "playing time: {largest}");
+        assert_eq!(read, size);
+        let started = StartLog::read(&path).expect("a log");
+        let (read, largest) = counted();
+        assert!(largest <= BLOCK, "start of the overlay: {largest}");
+        assert_eq!(read, size);
+        assert!(started.lines().len() < 4096, "only the lines worth a look stay: {}", started.lines().len());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

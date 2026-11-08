@@ -118,11 +118,52 @@ fn row_text(row: &Value, key: &str) -> String {
     }
 }
 
+/// Item name in lower case → its class (`scRecord`), only where the name has exactly one.
+type Classes = std::collections::HashMap<String, String>;
+
+/// `catalog/resolve` for items whose references may carry `scRecord`. A miss remembered from a reference without
+/// that class is asked again at once, and a miss keeps the class it was asked with.
+fn resolve_with_records(
+    pass: &Pass<'_>,
+    refs: &[(String, Value)],
+    cache: &mut Map,
+) -> Result<Vec<(String, String)>, ApiError> {
+    let record = |reference: &Value| reference.get("scRecord").and_then(Value::as_str).map(str::to_string);
+    for (key, reference) in refs {
+        let Some(class) = record(reference) else { continue };
+        let stale = matches!(get(cache, key), Some(Value::Object(entry))
+            if entry.iter().find(|(k, _)| k == "scRecord").and_then(|(_, v)| v.as_str()) != Some(class.as_str()));
+        if stale {
+            cache.retain(|(k, _)| k != key);
+        }
+    }
+    let found = feed::resolve_refs(pass.conn, "ITEM", refs, cache, pass.now);
+    for (key, reference) in refs {
+        if let (Some(class), Some(Value::Object(entry))) =
+            (record(reference), cache.iter_mut().find(|(k, _)| k == key).map(|(_, v)| v))
+        {
+            map_set(entry, "scRecord", Value::str(class));
+        }
+    }
+    found
+}
+
+/// Whether a row of the trade stock is an item whose class is known; its name in lower case then.
+fn item_with_class(row: &Value, classes: &Classes) -> Option<String> {
+    let name = row_text(row, "ware").to_lowercase();
+    (row.get("stueck").is_some_and(truthy) && classes.contains_key(&name)).then_some(name)
+}
+
 /// Items entered by hand with a UEX number are resolved by that number, not by
 /// the name: a name may fit several things. The `bt` per number stays in the
 /// state (`resolved_uex`). Gives `uex:<number>` to `bt`, per row through its key,
 /// never through the name: a goods of the same name stays a goods.
-fn resolve_uex_items(pass: &Pass<'_>, trade: &[Value], sub: &mut Map) -> Result<BTreeMap<String, String>, ApiError> {
+fn resolve_uex_items(
+    pass: &Pass<'_>,
+    trade: &[Value],
+    sub: &mut Map,
+    classes: &Classes,
+) -> Result<BTreeMap<String, String>, ApiError> {
     let mut refs: Vec<(String, Value)> = Vec::new();
     for row in trade {
         let Some(key) = stock_sync::uex_key(row) else { continue };
@@ -133,6 +174,9 @@ fn resolve_uex_items(pass: &Pass<'_>, trade: &[Value], sub: &mut Map) -> Result<
         let uex = row.get("uex").cloned().unwrap_or(Value::Null);
         let mut reference = Map::new();
         map_set(&mut reference, "uexId", uex);
+        if let Some(class) = classes.get(&name.to_lowercase()) {
+            map_set(&mut reference, "scRecord", Value::str(class.chars().take(200).collect::<String>()));
+        }
         map_set(&mut reference, "name", Value::str(name.chars().take(200).collect::<String>()));
         refs.push((key, Value::Object(reference)));
     }
@@ -140,7 +184,7 @@ fn resolve_uex_items(pass: &Pass<'_>, trade: &[Value], sub: &mut Map) -> Result<
         return Ok(BTreeMap::new());
     }
     let mut cache = take_object(sub, "resolved_uex");
-    let found = feed::resolve_refs(pass.conn, "ITEM", &refs, &mut cache, pass.now);
+    let found = resolve_with_records(pass, &refs, &mut cache);
     put_object(sub, "resolved_uex", cache);
     let found: BTreeMap<String, String> = found?.into_iter().collect();
     Ok(refs.iter().filter_map(|(key, _)| found.get(key).map(|bt| (key.clone(), bt.clone()))).collect())
@@ -261,10 +305,22 @@ impl StockArea {
             return Err(ApiError::internal("STOCK_AMOUNT_UNREADABLE", "an amount of the stock is no number"));
         }
         let data = StockData::load(|name| paths.app_file(name));
-        let uex_bts = resolve_uex_items(pass, &trade, sub)?;
+        let classes: Classes = crate::stock_journal::names::classes_by_name(paths);
+        let uex_bts = resolve_uex_items(pass, &trade, sub, &classes)?;
         // Items with a UEX number do not go into the search by name; a goods or a raw material of the same name does.
+        // An item with a known class is asked for as an item at once: a near material name would win otherwise.
+        let with_class: BTreeSet<String> = trade
+            .iter()
+            .filter(|r| stock_sync::uex_key(r).is_none())
+            .filter_map(|r| item_with_class(r, &classes))
+            .collect();
         let mut names: BTreeSet<String> = raw.iter().map(|r| row_text(r, "material")).collect();
-        names.extend(trade.iter().filter(|r| stock_sync::uex_key(r).is_none()).map(|r| row_text(r, "ware")));
+        names.extend(
+            trade
+                .iter()
+                .filter(|r| stock_sync::uex_key(r).is_none() && item_with_class(r, &classes).is_none())
+                .map(|r| row_text(r, "ware")),
+        );
         names.retain(|n| !n.is_empty());
         let refs: Vec<(String, Value)> = names
             .iter()
@@ -301,18 +357,30 @@ impl StockArea {
         for bt in &uex_items {
             items.insert(bt.clone(), true);
         }
-        let rest: Vec<&String> = names.iter().filter(|n| !resolved.contains_key(&n.to_lowercase())).collect();
+        let mut rest: Vec<String> = names.iter().filter(|n| !resolved.contains_key(&n.to_lowercase())).cloned().collect();
+        rest.extend(
+            trade
+                .iter()
+                .filter(|r| with_class.contains(&row_text(r, "ware").to_lowercase()))
+                .map(|r| row_text(r, "ware"))
+                .filter(|n| !resolved.contains_key(&n.to_lowercase())),
+        );
         if !rest.is_empty() {
             let refs: Vec<(String, Value)> = rest
                 .iter()
                 .map(|n| {
                     let mut reference = Map::new();
+                    if with_class.contains(&n.to_lowercase())
+                        && let Some(class) = classes.get(&n.to_lowercase())
+                    {
+                        map_set(&mut reference, "scRecord", Value::str(class.chars().take(200).collect::<String>()));
+                    }
                     map_set(&mut reference, "name", Value::str(n.chars().take(200).collect::<String>()));
                     (n.to_lowercase(), Value::Object(reference))
                 })
                 .collect();
             let mut cache = take_object(sub, "resolved_items");
-            let found = feed::resolve_refs(pass.conn, "ITEM", &refs, &mut cache, pass.now);
+            let found = resolve_with_records(pass, &refs, &mut cache);
             put_object(sub, "resolved_items", cache);
             for (name, bt) in found? {
                 resolved.entry(name).or_insert_with(|| bt.clone());
@@ -326,7 +394,14 @@ impl StockArea {
         let lots: Vec<&Value> = server_raw.values().collect();
         let mut server = stock_sync::server_lots(&lots);
         let (raw, trade, moved) = stock_sync::relocate(&raw, &trade, &resolver, &places, &server, &items);
-        let (local, skipped) = stock_sync::local_lots(&raw, &trade, &resolver, &places, &|n| data.is_piece(n), &items);
+        let (mut local, skipped) =
+            stock_sync::local_lots(&raw, &trade, &resolver, &places, &|n| data.is_piece(n), &items);
+        for lot in local.values_mut().filter(|lot| lot.item) {
+            let name = lot.material.get("name").and_then(Value::as_str).unwrap_or_default().to_lowercase();
+            if let (Some(class), Value::Object(material)) = (classes.get(&name), &mut lot.material) {
+                map_set(material, "scRecord", Value::str(class.chars().take(200).collect::<String>()));
+            }
+        }
         let decisions = text_map(sub, "decisions");
         let baseline: Option<BTreeMap<String, f64>> = match get(sub, "baseline") {
             Some(Value::Object(inner)) => Some(inner.iter().map(|(k, v)| (k.clone(), number(Some(v)))).collect()),
@@ -341,7 +416,7 @@ impl StockArea {
         let overrides: BTreeSet<String> =
             decisions.iter().filter(|(_, v)| v.as_str() == "mine").map(|(k, _)| k.clone()).collect();
         let sets = stock_sync::change_sets(&result, &local, &server, 500, &overrides);
-        let Posted { failed, applied, posted, paused, offers_reduced, offers_removed, .. } =
+        let Posted { failed, applied, posted, paused, offers_reduced, offers_removed, waiting, .. } =
             send_unless_held(pass, ROUTE_STOCK, &sets)?;
         let rejected: BTreeMap<String, String> = failed
             .iter()
@@ -453,6 +528,7 @@ impl StockArea {
             ("skipped_material", distinct(&skipped.material)),
             ("guarded", guarded.len() as i64),
             ("paused", i64::from(paused)),
+            ("waiting", i64::from(waiting.is_some())),
             ("offers", offers_reduced + offers_removed),
             ("split_changed", i64::from(split_changed)),
         ] {

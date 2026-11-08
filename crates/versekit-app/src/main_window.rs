@@ -23,6 +23,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use versekit_core::autostart;
+use versekit_core::language::Lang;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::report_send::Target;
 use versekit_core::trail::{self, PageTrail};
@@ -369,24 +370,26 @@ fn data_folder(args: &[String]) -> Option<String> {
     args.iter().position(|a| a == "--daten").and_then(|at| args.get(at + 1)).cloned()
 }
 
-/// The window title: the product name; a copy of the data says so.
-fn title(copy: bool) -> &'static str {
-    if copy { "VerseKit (Testkopie)" } else { "VerseKit" }
+/// The window title in `lang`: the product name; a copy of the data says so in brackets behind it.
+fn title(lang: Lang, copy: bool) -> String {
+    if copy { format!("VerseKit ({})", versekit_core::language::t_in(lang, "hf_titel_kopie")) } else { "VerseKit".into() }
 }
 
 /// The title with the version of the program after the product name; a copy keeps its word behind it.
-fn versioned_title(copy: bool, version: &str) -> String {
-    match title(copy).strip_prefix("VerseKit") {
+fn versioned_title(lang: Lang, copy: bool, version: &str) -> String {
+    let title = title(lang, copy);
+    match title.strip_prefix("VerseKit") {
         Some(rest) => format!("VerseKit {version}{rest}"),
-        None => title(copy).to_string(),
+        None => title,
     }
 }
 
 /// The title as it stands in the bar: the version of the program, and a test build says so (`SC_BP_TESTFASSUNG`
 /// of `host`).
 fn shown_title(copy: bool, host: &Host) -> String {
-    let text = versioned_title(copy, env!("CARGO_PKG_VERSION"));
-    versekit_core::language::window_title_in(versekit_core::language::current(), &text, host)
+    let lang = versekit_core::language::current();
+    let text = versioned_title(lang, copy, env!("CARGO_PKG_VERSION"));
+    versekit_core::language::window_title_in(lang, &text, host)
 }
 
 /// The window as it opens before the remembered place is applied: title, the class every window of the program
@@ -470,6 +473,8 @@ pub fn run(args: &[String]) -> eframe::Result {
     }
     // The backup made at the first start of this version is told once (after the assistant, when one is open).
     page.open_first_backup_hint();
+    // A crash of the last run is told once, after the notes above; sending its report is up to the player.
+    page.open_crash_hint();
     let (width, height) = font_size::BASE_MIN_SIZE;
     let mut viewport = base_viewport(copy, (width, height));
     let mut placing: Option<Placing> = None;
@@ -788,16 +793,19 @@ mod tests {
     }
 
     #[test]
-    fn the_title_is_the_product_name_and_a_copy_says_so() {
-        assert_eq!(title(false), "VerseKit");
-        assert!(title(true).starts_with("VerseKit") && title(true).contains("Testkopie"));
-        assert!(!title(false).to_lowercase().contains("watcher"), "the old name is gone");
+    fn the_title_is_the_product_name_and_a_copy_says_so_in_the_language_of_the_window() {
+        assert_eq!(title(Lang::De, false), "VerseKit");
+        assert_eq!(title(Lang::En, false), "VerseKit");
+        assert_eq!(title(Lang::De, true), "VerseKit (Testkopie)");
+        assert_eq!(title(Lang::En, true), "VerseKit (test copy)");
+        assert!(!title(Lang::De, false).to_lowercase().contains("watcher"), "the old name is gone");
     }
 
     #[test]
     fn the_main_window_shows_the_version_of_the_program_in_its_title() {
-        assert_eq!(versioned_title(false, "5.0.0-dev"), "VerseKit 5.0.0-dev");
-        assert_eq!(versioned_title(true, "5.0.0-dev"), "VerseKit 5.0.0-dev (Testkopie)");
+        assert_eq!(versioned_title(Lang::De, false, "5.0.0-dev"), "VerseKit 5.0.0-dev");
+        assert_eq!(versioned_title(Lang::De, true, "5.0.0-dev"), "VerseKit 5.0.0-dev (Testkopie)");
+        assert_eq!(versioned_title(Lang::En, true, "5.0.0-dev"), "VerseKit 5.0.0-dev (test copy)");
         let plain = Host::new(versekit_core::pypath::Flavor::native(), &[], "/");
         assert_eq!(shown_title(false, &plain), format!("VerseKit {}", env!("CARGO_PKG_VERSION")));
         let viewport = base_viewport(false, (880.0, 380.0));
@@ -824,7 +832,8 @@ mod tests {
         let test = Host::new(flavor, &[("SC_BP_TESTFASSUNG", "1")], "/");
         let warning = versekit_core::language::t("s_testfassung");
         assert_eq!(shown_title(false, &test), format!("{named}   {warning}"));
-        assert!(shown_title(true, &test).starts_with(&versioned_title(true, env!("CARGO_PKG_VERSION"))), "the copy keeps its word");
+        let copy = versioned_title(versekit_core::language::current(), true, env!("CARGO_PKG_VERSION"));
+        assert!(shown_title(true, &test).starts_with(&copy), "the copy keeps its word");
         let off = Host::new(flavor, &[("SC_BP_TESTFASSUNG", "0")], "/");
         assert_eq!(shown_title(false, &off), named);
     }

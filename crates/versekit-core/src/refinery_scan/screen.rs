@@ -206,6 +206,7 @@ pub fn reading_value(jobs: &[ScannedJob], kept: bool) -> Value {
                         .collect(),
                 ),
             ),
+            ("station".into(), Value::str(j.station.clone())),
         ])
     };
     Value::Object(vec![
@@ -257,6 +258,7 @@ pub fn reading_of(value: &Value) -> Option<(Vec<ScannedJob>, bool)> {
             },
             remaining: number(item, "remaining"),
             cells,
+            station: text(item, "station").unwrap_or_default(),
         });
     }
     Some((jobs, value.get("aufgehoben") == Some(&Value::Bool(true))))
@@ -301,11 +303,27 @@ mod tests {
                 read: "122".into(),
                 crop: Gray { width: 2, height: 2, gray: vec![0, 255, 30, 7] },
             }],
+            station: "ARC-L1 Wide Forest Station".into(),
         }];
         let value = reading_value(&jobs, true);
         let text = jsonio::dumps(&value, None, false);
-        assert_eq!(reading_of(&jsonio::loads(&text).expect("json")), Some((jobs, true)));
+        assert_eq!(reading_of(&jsonio::loads(&text).expect("json")), Some((jobs.clone(), true)));
         assert_eq!(reading_of(&Value::str("nichts")), None);
+        // A reading written before the station was read has none.
+        let mut older = value.clone();
+        if let Value::Object(top) = &mut older
+            && let Some((_, Value::Array(items))) = top.iter_mut().find(|(key, _)| key == "auftraege")
+        {
+            for item in items {
+                if let Value::Object(fields) = item {
+                    fields.retain(|(key, _)| key != "station");
+                }
+            }
+        }
+        assert_ne!(older, value);
+        let (read, _) = reading_of(&older).expect("reading");
+        assert_eq!(read[0].station, "");
+        assert_eq!(read[0].text, jobs[0].text);
     }
 
     #[test]

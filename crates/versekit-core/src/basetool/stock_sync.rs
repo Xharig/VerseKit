@@ -229,8 +229,10 @@ pub fn item_flags(items: &[&Value], known: Option<&BTreeMap<String, bool>>) -> B
 /// A lot of this side.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LocalLot {
-    /// `{bt, name}`.
+    /// `{bt, name}`, for an item with its class `scRecord` where it is known.
     pub material: Value,
+    /// The Basetool keeps it as an item.
+    pub item: bool,
     /// The place as `catalog/locations` has it (`name`, `uex`).
     pub location: Value,
     pub quality: i64,
@@ -289,7 +291,8 @@ pub fn local_lots(
             skipped.location.push(if location.is_empty() { NO_PLACE.to_string() } else { location.to_string() });
             return;
         };
-        let (unit, quality) = if items.get(&bt).copied().unwrap_or(false) {
+        let item = items.get(&bt).copied().unwrap_or(false);
+        let (unit, quality) = if item {
             (PIECE, 0)
         } else {
             (if store == "raw" && is_piece(name) { PIECE } else { SCU }, quality)
@@ -304,6 +307,7 @@ pub fn local_lots(
                 ("bt".to_string(), Value::str(&bt)),
                 ("name".to_string(), Value::str(head(name, 200))),
             ]),
+            item,
             location: place.clone(),
             quality,
             stolen,
@@ -604,6 +608,9 @@ pub fn keep_unmapped(
 ///
 /// ⚠ A lot that is not here at all is set to 0 with the data of the Basetool:
 /// material, place and unit only the server still knows.
+///
+/// ⚠ An item goes out by `bt` and `scRecord` alone, without `name`: the Basetool asks its material catalogue
+/// first while a name stands there, and a near material name makes the change `AMBIGUOUS` (basetool#3058).
 pub fn change_sets(
     plan_result: &StockPlan,
     local: &BTreeMap<String, LocalLot>,
@@ -614,11 +621,12 @@ pub fn change_sets(
     let mut ops: Vec<Value> = Vec::new();
     let mut keys: Vec<String> = Vec::new();
     for (n, (key, amount, expected)) in plan_result.push.iter().enumerate() {
-        let (material, location, quality, stolen, unit) = match (local.get(key), server.get(key)) {
-            (Some(l), _) => (&l.material, &l.location, l.quality, l.stolen, l.unit.as_str()),
-            (None, Some(s)) => (&s.material, &s.location, s.quality, s.stolen, s.unit.as_str()),
+        let (material, location, quality, stolen, unit, item) = match (local.get(key), server.get(key)) {
+            (Some(l), _) => (&l.material, &l.location, l.quality, l.stolen, l.unit.as_str(), l.item),
+            (None, Some(s)) => (&s.material, &s.location, s.quality, s.stolen, s.unit.as_str(), s.item),
             (None, None) => continue,
         };
+        let material_fields: &[&str] = if item { &["bt", "scRecord"] } else { &["bt", "name"] };
         let keep = |value: &Value, names: &[&str]| -> Value {
             match value {
                 Value::Object(map) => Value::Object(
@@ -630,7 +638,11 @@ pub fn change_sets(
         let mut op = Map::new();
         map_set(&mut op, "opId", Value::str(format!("s{}", n + 1)));
         map_set(&mut op, "op", Value::str("set-quantity"));
-        map_set(&mut op, "material", keep(material, &["bt", "name"]));
+        let reference = match keep(material, material_fields) {
+            Value::Object(fields) if fields.is_empty() => keep(material, &["bt", "name"]),
+            fields => fields,
+        };
+        map_set(&mut op, "material", reference);
         map_set(&mut op, "location", keep(location, &["name", "uex"]));
         map_set(&mut op, "quality", Value::int(quality));
         map_set(&mut op, "stolen", Value::Bool(stolen));
@@ -755,6 +767,40 @@ mod tests {
         };
         assert_eq!(op.get("override"), Some(&Value::Bool(true)));
         assert_eq!(op.get("expectedQuantity").and_then(|q| q.get("amount")), Some(&Value::Float(2.0)));
+    }
+
+    #[test]
+    fn an_item_goes_out_by_its_keys_without_the_name_and_a_material_keeps_its_name() {
+        let resolve = |name: &str| Some(format!("bt-{}", name.to_lowercase()));
+        let items: BTreeMap<String, bool> = [("bt-coverall".to_string(), true)].into_iter().collect();
+        let trade = [Value::Object(vec![
+            ("ware".into(), Value::str("CoverAll")),
+            ("menge".into(), Value::int(1)),
+            ("ort".into(), Value::str("Orbituary")),
+            ("stueck".into(), Value::Bool(true)),
+        ])];
+        let (mut local, _) = local_lots(&[row("Iron", 3.0, 500)], &trade, &resolve, &places(), &|_| false, &items);
+        let shield = local.get_mut("bt-coverall|orbituary|0|0").expect("the item");
+        assert!(shield.item);
+        if let Value::Object(material) = &mut shield.material {
+            map_set(material, "scRecord", Value::str("SHLD_GODI_S02_CoverAll_SCItem"));
+        }
+        let result = plan(&local, &BTreeMap::new(), None, &BTreeMap::new(), &BTreeSet::new());
+        let sets = change_sets(&result, &local, &BTreeMap::new(), 500, &BTreeSet::new());
+        let Some(Value::Array(ops)) = sets[0].0.get("ops") else { panic!("ops") };
+        let material_of = |bt: &str| {
+            ops.iter()
+                .find_map(|op| op.get("material").filter(|m| m.get("bt") == Some(&Value::str(bt))).cloned())
+                .expect(bt)
+        };
+        assert_eq!(
+            material_of("bt-coverall"),
+            Value::Object(vec![
+                ("bt".into(), Value::str("bt-coverall")),
+                ("scRecord".into(), Value::str("SHLD_GODI_S02_CoverAll_SCItem")),
+            ])
+        );
+        assert_eq!(material_of("bt-iron").get("name"), Some(&Value::str("Iron")), "a raw material stays as it is");
     }
 
     #[test]

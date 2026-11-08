@@ -20,23 +20,43 @@
 //! smaller and kept in one file of the folder `Intern` until the next one replaces it.
 //!
 //! The scanner itself never grabs the whole window (only the area it searches), so there is no picture to take
-//! over from it: the player asks for one, switches to the game, and the picture is taken the moment the game is
-//! in front. Before that nothing is grabbed, so no other window ends up in the picture.
+//! over from it: the player asks for one in the main window, switches to the game and has a chosen number of
+//! seconds to switch the scanner on and scan; then the picture is taken as soon as the game is in front. Before
+//! that nothing is grabbed, so no other window ends up in the picture. A hotkey of the overlay takes it at once
+//! ([`take_now`]).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use versekit_core::screen_grab::{Area, GrabError};
-use versekit_core::signature_watch::Source;
+use crate::paths::Paths;
+use crate::screen_grab::{Area, GrabError};
+use crate::signature_watch::Source;
 
 /// The file in the folder `Intern`.
 pub const FILE: &str = "signatur-spielbild.bin";
 const MAGIC: &[u8; 4] = b"VKG1";
 /// The longest side of the picture kept, in pixels: the models are at most a few hundred points wide.
 pub const LONGEST: usize = 1280;
-/// So long the game has to come to the front after the click.
+/// So long the game has to come to the front once the chosen seconds are over.
 pub const WAIT: Duration = Duration::from_secs(60);
-/// So often it is asked whether the game is in front.
+/// So often it is asked whether the game is in front, and whether the fetch was stopped.
 pub const LOOK_EVERY: Duration = Duration::from_millis(250);
+/// The seconds the player can choose between the click and the picture.
+pub const DELAYS: [i64; 4] = [5, 10, 20, 30];
+/// The seconds while the setting is missing.
+pub const DEFAULT_DELAY: i64 = 10;
+/// The setting of the seconds.
+pub const DELAY_SETTING: &str = "spielbild_wartezeit";
+
+/// The seconds of the settings: missing or unreadable is [`DEFAULT_DELAY`], anything else the nearest of [`DELAYS`].
+pub fn delay(paths: &Paths) -> i64 {
+    nearest_delay(paths.setting_int(DELAY_SETTING, DEFAULT_DELAY, None, None))
+}
+
+/// The one of [`DELAYS`] nearest to `seconds`, the smaller one of two as near.
+pub fn nearest_delay(seconds: i64) -> i64 {
+    DELAYS.into_iter().min_by_key(|d| d.abs_diff(seconds)).unwrap_or(DEFAULT_DELAY)
+}
 
 /// The picture: RGB, top row first, and the size of the game window it was taken of.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -111,9 +131,8 @@ impl GamePicture {
 
     /// Keeps the picture in `path`, replacing the one before without ever leaving a half-written file.
     pub fn write(&self, path: &str) -> bool {
-        let temp = versekit_core::jsonio::temp_name(path);
-        versekit_core::jsonio::write_new(&temp, &self.bytes()).is_ok()
-            && versekit_core::jsonio::replace_file(&temp, path).is_ok()
+        let temp = crate::jsonio::temp_name(path);
+        crate::jsonio::write_new(&temp, &self.bytes()).is_ok() && crate::jsonio::replace_file(&temp, path).is_ok()
     }
 
     /// The picture kept in `path`, if there is one.
@@ -130,19 +149,45 @@ pub enum Fetched {
     NoGame,
     /// The game was in front, but the screen could not be read.
     Failed(GrabError),
+    /// The player stopped the fetch before the picture was taken.
+    Stopped,
 }
 
-/// Waits up to `wait` for the game to be in front, asking every `every`, and then grabs its window once.
-pub fn fetch(source: &mut dyn Source, wait: Duration, every: Duration) -> Fetched {
+/// Lets `delay` pass, then waits up to `wait` more for the game to be in front, asking every `every`, and grabs
+/// its window once. Nothing is grabbed before `delay` is over. `stop` ends it at the next look.
+pub fn fetch(source: &mut dyn Source, delay: Duration, wait: Duration, every: Duration, stop: &AtomicBool) -> Fetched {
     let start = Instant::now();
     loop {
+        if stop.load(Ordering::Relaxed) {
+            return Fetched::Stopped;
+        }
+        let passed = start.elapsed();
+        if passed < delay {
+            std::thread::sleep(every.min(delay - passed));
+            continue;
+        }
         if let Some(game) = source.game() {
             return grab_once(source, game);
         }
-        if start.elapsed() >= wait {
+        if passed >= delay + wait {
             return Fetched::NoGame;
         }
         std::thread::sleep(every);
+    }
+}
+
+/// Grabs the game window at once, where the game is in front (the hotkey of the overlay), and keeps the picture in
+/// `file`; a picture that cannot be written counts as failed.
+pub fn take_now(source: &mut dyn Source, file: &str) -> Fetched {
+    let Some(game) = source.game() else { return Fetched::NoGame };
+    keep(grab_once(source, game), file)
+}
+
+/// A picture fetched goes into `file`; one that cannot be written counts as failed.
+pub fn keep(fetched: Fetched, file: &str) -> Fetched {
+    match fetched {
+        Fetched::Got(picture) if !picture.write(file) => Fetched::Failed(GrabError::Failed),
+        other => other,
     }
 }
 
@@ -159,17 +204,20 @@ fn grab_once(source: &mut dyn Source, game: Area) -> Fetched {
 mod tests {
     use super::*;
 
-    /// A made-up screen: the game comes to the front after `after` questions, its picture a colour per quarter.
+    /// A made-up screen: the game comes to the front after `after` questions, its picture a colour per quarter. It
+    /// writes down when it was asked for the game.
     struct Made {
         game: Area,
         after: usize,
         asked: usize,
         grabbed: Vec<Area>,
+        looked: Vec<Instant>,
     }
 
     impl Source for Made {
         fn game(&mut self) -> Option<Area> {
             self.asked += 1;
+            self.looked.push(Instant::now());
             (self.asked > self.after).then_some(self.game)
         }
         fn grab(&mut self, area: Area) -> Result<Vec<u8>, GrabError> {
@@ -217,7 +265,7 @@ mod tests {
 
     #[test]
     fn the_picture_goes_to_its_file_and_comes_back_and_a_strange_file_is_no_picture() {
-        let folder = versekit_core::testdir::fresh("spielbild-datei");
+        let folder = crate::testdir::fresh("spielbild-datei");
         let path = folder.join(FILE).to_string_lossy().into_owned();
         assert_eq!(GamePicture::read(&path), None, "no file yet");
         let picture = GamePicture::from_bgra(&quarters(1920, 1080), 1920, 1080).expect("a picture");
@@ -233,17 +281,107 @@ mod tests {
         assert_eq!(GamePicture::of(b"VKS2 something else"), None);
     }
 
+    const MS: fn(u64) -> Duration = Duration::from_millis;
+
     #[test]
     fn the_fetch_waits_for_the_game_to_come_to_the_front_and_grabs_its_window_exactly_once() {
         let game = (2560, 0, 1600, 900);
-        let mut screen = Made { game, after: 3, asked: 0, grabbed: Vec::new() };
-        let fetched = fetch(&mut screen, Duration::from_secs(5), Duration::from_millis(1));
+        let go = AtomicBool::new(false);
+        let mut screen = Made { game, after: 3, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        let fetched = fetch(&mut screen, Duration::ZERO, Duration::from_secs(5), MS(1), &go);
         let Fetched::Got(picture) = fetched else { panic!("{fetched:?}") };
         assert_eq!(picture.game, (1600, 900));
         assert_eq!(screen.grabbed, vec![game], "the whole game window, once, on the second screen");
         // The game never comes: nothing is grabbed.
-        let mut away = Made { game, after: usize::MAX, asked: 0, grabbed: Vec::new() };
-        assert_eq!(fetch(&mut away, Duration::from_millis(20), Duration::from_millis(1)), Fetched::NoGame);
+        let mut away = Made { game, after: usize::MAX, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        assert_eq!(fetch(&mut away, Duration::ZERO, MS(20), MS(1), &go), Fetched::NoGame);
         assert!(away.grabbed.is_empty());
+    }
+
+    /// The game in front at once is not grabbed before the chosen seconds are over: the player still switches the
+    /// scanner on and scans.
+    #[test]
+    fn the_fetch_lets_the_chosen_time_pass_before_it_looks_at_the_game() {
+        let game = (0, 0, 1600, 900);
+        let go = AtomicBool::new(false);
+        let mut screen = Made { game, after: 0, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        let start = Instant::now();
+        let fetched = fetch(&mut screen, MS(120), Duration::from_secs(5), MS(10), &go);
+        assert!(matches!(fetched, Fetched::Got(_)), "{fetched:?}");
+        // When the game was asked for, not how long the whole fetch took: making the picture smaller takes long
+        // in a debug build by itself.
+        let first = screen.looked.first().copied().expect("asked for the game");
+        assert!(first.duration_since(start) >= MS(120), "asked before the time: {:?}", first.duration_since(start));
+        assert_eq!(screen.asked, 1, "the game is asked for only once the time is over");
+        assert_eq!(screen.grabbed, vec![game]);
+        // The time over, the game not in front: it is waited for, at most `wait`.
+        let mut away = Made { game, after: usize::MAX, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        let start = Instant::now();
+        assert_eq!(fetch(&mut away, MS(40), MS(40), MS(5), &go), Fetched::NoGame);
+        assert!(start.elapsed() >= MS(80), "{:?}", start.elapsed());
+        let first = away.looked.first().copied().expect("asked for the game");
+        assert!(first.duration_since(start) >= MS(40), "asked before the time: {:?}", first.duration_since(start));
+        assert!(away.grabbed.is_empty());
+    }
+
+    /// Stopped while the time runs, or while it waits for the game: it ends at the next look and grabs nothing.
+    #[test]
+    fn a_stopped_fetch_ends_at_once_and_grabs_nothing() {
+        let game = (0, 0, 1600, 900);
+        let stop = std::sync::Arc::new(AtomicBool::new(false));
+        let stopper = stop.clone();
+        let late = std::thread::spawn(move || {
+            std::thread::sleep(MS(30));
+            stopper.store(true, Ordering::Relaxed);
+        });
+        let mut screen = Made { game, after: 0, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        let start = Instant::now();
+        assert_eq!(fetch(&mut screen, Duration::from_secs(30), WAIT, MS(5), &stop), Fetched::Stopped);
+        assert!(start.elapsed() < Duration::from_secs(10), "{:?}", start.elapsed());
+        assert!(screen.grabbed.is_empty());
+        late.join().unwrap();
+        let mut away = Made { game, after: usize::MAX, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        assert_eq!(fetch(&mut away, Duration::ZERO, WAIT, MS(5), &stop), Fetched::Stopped, "stopped before");
+    }
+
+    /// The hotkey: the game in front is grabbed at once and kept in the file; without the game nothing is grabbed and
+    /// the picture before stays.
+    #[test]
+    fn take_now_grabs_the_game_in_front_at_once_and_keeps_it() {
+        let folder = crate::testdir::fresh("spielbild-sofort");
+        let file = folder.join(FILE).to_string_lossy().into_owned();
+        let game = (0, 0, 1920, 1080);
+        let mut screen = Made { game, after: 0, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        let Fetched::Got(picture) = take_now(&mut screen, &file) else { panic!("a picture") };
+        assert_eq!(screen.grabbed, vec![game]);
+        assert_eq!(GamePicture::read(&file), Some(picture));
+        let mut away = Made { game: (0, 0, 800, 600), after: usize::MAX, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        assert_eq!(take_now(&mut away, &file), Fetched::NoGame);
+        assert_eq!(away.asked, 1, "asked once, not waited for");
+        assert_eq!(GamePicture::read(&file).map(|p| p.game), Some((1920, 1080)), "the picture before stays");
+        // A file that cannot be written: failed.
+        let blocked = folder.join("ordner").join("gibt-es-nicht").join(FILE).to_string_lossy().into_owned();
+        let mut screen = Made { game, after: 0, asked: 0, grabbed: Vec::new(), looked: Vec::new() };
+        assert_eq!(take_now(&mut screen, &blocked), Fetched::Failed(GrabError::Failed));
+    }
+
+    #[test]
+    fn the_seconds_of_the_settings_are_one_of_the_choices_and_ten_without_a_setting() {
+        assert_eq!(nearest_delay(10), 10);
+        assert_eq!(nearest_delay(0), 5);
+        assert_eq!(nearest_delay(14), 10);
+        assert_eq!(nearest_delay(15), 10, "the smaller of two as near");
+        assert_eq!(nearest_delay(16), 20);
+        assert_eq!(nearest_delay(999), 30);
+        use crate::paths::Host;
+        use crate::pypath::Flavor;
+        let dir = crate::testdir::fresh("spielbild-wartezeit");
+        let home = dir.to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::Posix, &[("HOME", &home)], &home));
+        assert_eq!(delay(&paths), DEFAULT_DELAY);
+        paths.set_setting(DELAY_SETTING, crate::jsonio::Value::int(30));
+        assert_eq!(delay(&paths), 30);
+        paths.set_setting(DELAY_SETTING, crate::jsonio::Value::str("lange"));
+        assert_eq!(delay(&paths), DEFAULT_DELAY);
     }
 }

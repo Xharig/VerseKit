@@ -26,6 +26,7 @@
 //! page anew and threw away what had been dragged without a word), and the curve shows the sensitivity the sliders
 //! show, not the one in the file.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
@@ -289,7 +290,7 @@ impl AxesState {
             let (sender, receiver) = mpsc::channel();
             let copy = paths.working_copy();
             let before = self.look.clone();
-            let spawned = std::thread::Builder::new().name("axes-look".into()).spawn(move || {
+            let spawned = std::thread::Builder::new().name("axes-look".into()).spawn_with_language(move || {
                 let _ = sender.send(read_look(&copy, before));
             });
             match spawned {
@@ -478,7 +479,7 @@ fn read_look(paths: &Paths, before: Option<Arc<Look>>) -> Arc<Look> {
                 .and_then(|since| i64::try_from(since.as_secs()).ok());
             let changed = seconds
                 .and_then(formats::local_time)
-                .map(|time| formats::strftime("%d.%m.%Y %H:%M", &time))
+                .map(|time| formats::strftime_shown("%d.%m.%Y %H:%M", &time))
                 .unwrap_or_default();
             FileLine { path, changed }
         })
@@ -1344,7 +1345,7 @@ fn sets_body(ui: &mut Ui, scheme: &Scheme, state: &mut AxesState, look: &Look) -
     if let Some((name, why)) = &state.set_refusal
         && *name == state.set_name
     {
-        ui.add(egui::Label::new(RichText::new(why).small().color(color(scheme.red))).wrap().selectable(false));
+        ui.add(egui::Label::new(RichText::new(why).small().color(color(scheme.red_text()))).wrap().selectable(false));
     }
     act
 }
@@ -2067,7 +2068,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 
@@ -2542,7 +2543,7 @@ mod tests {
         }
         let names_de = ["Spielstandard", "Ausgewogen", "Feines Zielen", "Direkt", "Pedale"];
         for (choice, language) in [(Choice::De, "de"), (Choice::En, "en")] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             for (at, preset) in axes::PRESETS.iter().enumerate() {
                 for key in [format!("s_ac_vor_{}", preset.key), format!("s_ac_vor_{}_t", preset.key)] {
                     let text = t(&key);
@@ -2553,7 +2554,7 @@ mod tests {
                 }
             }
         }
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
     }
 
     #[test]

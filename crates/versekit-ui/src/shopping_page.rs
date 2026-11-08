@@ -173,6 +173,9 @@ struct View {
     template_said: Option<String>,
     /// Which templates are unfolded, their searches, a rename and a deletion to take back.
     templates: TemplateView,
+    /// The ships that went on ready because the last part of their list was ticked off: the notice (text, since
+    /// when) is shown for a few seconds.
+    ready_said: Option<(String, Option<f64>)>,
 }
 
 impl View {
@@ -322,6 +325,7 @@ impl Default for ShoppingState {
                 template_name: String::new(),
                 template_said: None,
                 templates: TemplateView::default(),
+                ready_said: None,
             },
         }
     }
@@ -1018,10 +1022,10 @@ fn route_body(
 /// calls it shows it, the later ones find it taken.
 fn failures(ui: &mut Ui, scheme: &Scheme, failed: &mut [bool; 2]) {
     if std::mem::take(&mut failed[0]) {
-        ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red)));
+        ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red_text())));
     }
     if std::mem::take(&mut failed[1]) {
-        ui.label(RichText::new(t("s_ld_korb_fehler")).color(color(scheme.red)));
+        ui.label(RichText::new(t("s_ld_korb_fehler")).color(color(scheme.red_text())));
     }
 }
 
@@ -1134,6 +1138,7 @@ fn page(
         }
     }
     apply_ticks(ui, view, paths, ticks);
+    ready_notice(ui, scheme, view);
 }
 
 /// The parts put in from the shops: how many of each, the cheapest shop and every shop that sells it, a tick
@@ -1731,13 +1736,35 @@ fn write_ticks(view: &mut View, paths: Option<&Paths>, ticks: Vec<(Line, bool)>)
     if ticks.is_empty() {
         return;
     }
+    let mut went_ready: Vec<String> = Vec::new();
     view.edit(paths, |data| {
         let mut changed = false;
         for (line, on) in &ticks {
-            changed |= cart::tick(data, line.origin, &line.ship, &line.paths, *on);
+            let ticked = cart::tick_and_ready(data, line.origin, &line.ship, &line.paths, *on);
+            changed |= ticked.changed;
+            if ticked.went_ready {
+                went_ready.push(line.ship.clone());
+            }
         }
         changed
     });
+    // Said only for what was written: a save that failed has its own message.
+    if !went_ready.is_empty() && !view.save_failed {
+        went_ready.sort();
+        went_ready.dedup();
+        let said = tf("s_hg_einsatz_auto", &[("schiff", Arg::from(went_ready.join(", ")))]);
+        view.ready_said = Some((said, None));
+    }
+}
+
+/// The notice that a ship went on ready by itself, for a few seconds.
+fn ready_notice(ui: &Ui, scheme: &Scheme, view: &mut View) {
+    if let Some((text, since)) = view.ready_said.as_mut() {
+        let since = *since.get_or_insert(ui.input(|i| i.time));
+        if !widgets::notice(ui.ctx(), scheme, since, "circle-check", text, None).shown {
+            view.ready_said = None;
+        }
+    }
 }
 
 /// Draws the page.
@@ -1763,7 +1790,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ShoppingState, crafti
 mod tests {
     use super::*;
     use egui::{Rect, vec2};
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
 
     fn texts(shapes: &[egui::epaint::ClippedShape]) -> Vec<String> {
         fn collect(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
@@ -1813,7 +1840,7 @@ mod tests {
     #[test]
     fn the_sample_bill_shows_ships_positions_sum_and_route() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = ShoppingState::default();
         let (shown, over) = draw(&context(), &mut state, 900.0);
         assert_eq!(over, 0.0);
@@ -1899,7 +1926,7 @@ mod tests {
     #[test]
     fn a_ticked_position_says_done_instead_of_an_amount() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let done: Vec<Line> =
             cart::invoice(&parse(SAMPLE_FLEET), &Sample).lines.into_iter().filter(|l| l.done).collect();
         assert_eq!(done.len(), 1);
@@ -1915,7 +1942,7 @@ mod tests {
     #[test]
     fn a_part_without_a_price_and_one_not_yet_looked_up_are_told_apart() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = ShoppingState::default();
         // The drive is known to UEX, no shop carries it; the other part nobody has looked up.
         state.view.fleet = parse(
@@ -1933,7 +1960,7 @@ mod tests {
     #[test]
     fn the_route_takes_the_place_that_covers_most_before_the_cheaper_one() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = ShoppingState::default();
         // The cooler is cheaper in Area18, but Lorville carries the cooler and the shield: one stop.
         state.view.fleet = parse(
@@ -1950,7 +1977,7 @@ mod tests {
     #[test]
     fn a_tick_goes_to_the_ship_of_its_origin_and_takes_the_position_off_the_bill() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = ShoppingState::default();
         let ctx = context();
         let (first, _) = draw(&ctx, &mut state, 900.0);
@@ -2004,7 +2031,7 @@ mod tests {
     #[test]
     fn the_three_empty_situations_have_three_sentences() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = ShoppingState::default();
         state.view.fleet = hangar::empty();
         let (shown, _) = draw(&context(), &mut state, 900.0);
@@ -2115,7 +2142,7 @@ mod tests {
     #[test]
     fn a_ship_with_a_plan_and_no_slot_data_is_not_called_factory_fitted() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = ShoppingState::default();
         state.view.fleet = parse(r#"{"schiffe": [{"name": "Galaxy", "belegung": {"a": {"ref": "x", "name": "Y"}}}]}"#);
         let (shown, _) = draw(&context(), &mut state, 900.0);
@@ -2188,7 +2215,7 @@ mod tests {
     #[test]
     fn the_order_of_the_stops_is_changed_and_kept() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = ShoppingState::default();
         // Two stops that cover one part each: the cheaper one comes first.
         state.view.fleet = parse(
@@ -2288,7 +2315,7 @@ mod tests {
     #[test]
     fn a_stop_dragged_by_its_grip_lands_where_the_mouse_lets_go() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = two_stops();
         let shapes = settle(&ctx, &mut state);
@@ -2307,7 +2334,7 @@ mod tests {
     #[test]
     fn a_click_on_the_grip_moves_nothing() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = two_stops();
         let shapes = settle(&ctx, &mut state);
@@ -2360,7 +2387,7 @@ mod tests {
     #[test]
     fn the_parts_from_the_shops_stand_with_how_many_their_places_the_sum_and_the_route() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = from_shops(&[(SAMPLE_COOLER, "Frostline Cooler", 2), (SAMPLE_RADAR, "Radar X", 1)]);
         let (shown, over) = draw(&context(), &mut state, 900.0);
         assert_eq!(over, 0.0);
@@ -2393,7 +2420,7 @@ mod tests {
     #[test]
     fn the_parts_of_the_ships_and_of_the_shops_make_one_sum_and_one_route() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = from_shops(&[(SAMPLE_COOLER, "Frostline Cooler", 2)]);
         state.view.fleet = parse(
             r#"{"schiffe": [{"name": "Cutlass Black", "belegung": {
@@ -2413,7 +2440,7 @@ mod tests {
     #[test]
     fn an_empty_list_points_to_the_shops_and_still_shows_the_templates() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = from_shops(&[]);
         let (shown, _) = draw(&context(), &mut state, 900.0);
         assert!(shown.contains(&t("s_ek_kein_schiff")) && shown.contains(&t("s_ek_korb_leer")), "{shown:?}");
@@ -2529,7 +2556,7 @@ mod tests {
     #[test]
     fn a_part_is_ticked_off_as_bought_and_taken_out_of_the_list() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new(from_shops(&[(SAMPLE_COOLER, "Frostline Cooler", 2), (SAMPLE_RADAR, "Radar X", 1)]));
         bench.click_named(&["Frostline Cooler", &t("s_ek_korb_abhaken")]);
         assert!(bench.state.view.basket.items.iter().any(|i| i.reference == SAMPLE_COOLER && i.done));
@@ -2545,7 +2572,7 @@ mod tests {
     #[test]
     fn a_list_is_kept_as_a_template_loaded_again_and_taken_away() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new(from_shops(&[(SAMPLE_COOLER, "Frostline Cooler", 2)]));
         // Without a name the button keeps nothing.
         bench.click(&t("s_ek_vorlage_speichern"));
@@ -2583,7 +2610,7 @@ mod tests {
     #[test]
     fn an_empty_template_is_filled_by_the_search_changed_part_by_part_and_put_on_the_list() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new(from_shops(&[]));
         let name = "Rüstung Mamba";
         bench.state.view.template_name = name.into();
@@ -2643,7 +2670,7 @@ mod tests {
     #[test]
     fn a_template_is_renamed_and_folded() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new(from_shops(&[(SAMPLE_COOLER, "Frostline Cooler", 2)]));
         bench.state.view.template_name = "F8C".into();
         bench.click(&t("s_ek_vorlage_speichern"));
@@ -2735,7 +2762,7 @@ mod tests {
         let mut findings = Vec::new();
         let long = "Rüstung der Staffel Mamba mit einem sehr langen Namen für die Vorlage";
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in [380.0, 520.0, 900.0] {
                     let ctx = context();
@@ -2795,14 +2822,14 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
     #[test]
     fn a_stop_is_ticked_off_on_the_way_and_the_ticks_of_the_route_are_taken_back() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut bench = Bench::new(from_shops(&[(SAMPLE_COOLER, "Frostline Cooler", 1), (SAMPLE_RADAR, "Radar X", 1)]));
         let shown = bench.settle();
         assert!(!shown.iter().any(|s| s.contains(&t("s_ek_stopps_zuruecksetzen"))), "nothing ticked yet: {shown:?}");
@@ -2870,7 +2897,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in (380..=900).step_by(65).map(|w| w as f32) {
                     let ctx = context();
@@ -2918,7 +2945,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
@@ -2936,7 +2963,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in [380.0, 520.0, 900.0] {
                     let ctx = context();
@@ -2952,7 +2979,98 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
+    }
+
+    /// A line of the list for the part at `path` of the ship `ship` of `origin`.
+    fn tick_line(ship: &str, origin: Origin, path: &str) -> Line {
+        Line {
+            kind: Kind::Part,
+            ship: ship.into(),
+            origin,
+            position: String::new(),
+            name: "P".into(),
+            reference: "x".into(),
+            way: cart::BUY.into(),
+            buy: cart::BuyOption {
+                condition: Condition::NotChecked,
+                price: None,
+                shop: String::new(),
+                place: String::new(),
+            },
+            craft: cart::CraftOption {
+                condition: Condition::NoRecipe,
+                material: None,
+                seconds: None,
+                blueprint: String::new(),
+                unpriced: Vec::new(),
+            },
+            done: false,
+            count: 1,
+            path: String::new(),
+            paths: vec![path.to_string()],
+            slot_kind: String::new(),
+            size: None,
+            factory_ref: String::new(),
+            factory_name: String::new(),
+        }
+    }
+
+    fn on_ready(paths: &Paths) -> Vec<bool> {
+        let data = hangar::read(&paths.app_file(FLEET_FILE)).expect("file");
+        hangar::ships(&data).iter().map(|s| hangar::field_true(s, "einsatzbereit")).collect()
+    }
+
+    /// The last part ticked off in the shopping list puts that ship, and only that one, on ready by itself, and says
+    /// so; switched off again it stays off.
+    #[test]
+    fn ticking_the_last_part_in_the_list_puts_the_ship_on_ready_and_off_it_stays_off() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let paths = folder(
+            "einsatz-auto",
+            r#"{"format": 1, "schiffe": [
+                {"name": "Gladius", "hersteller": "Aegis", "belegung": {"a": {"ref": "x", "name": "P"}, "b": {"ref": "y", "name": "Q"}}},
+                {"name": "Gladius", "hersteller": "", "belegung": {"a": {"ref": "x", "name": "P"}}}],
+               "wunsch": [{"name": "Gladius", "belegung": {"a": {"ref": "x", "name": "P"}}}]}"#,
+        );
+        let mut state = ShoppingState::with_files(&paths);
+        let tick = |state: &mut ShoppingState, origin: Origin, path: &str, on: bool| {
+            write_ticks(&mut state.view, Some(&paths), vec![(tick_line("Gladius", origin, path), on)]);
+        };
+        // Part "a" of the Gladius: the first one has b open, so the tick goes to the first that it changes
+        // something on, which is the first; it is not the last part there.
+        tick(&mut state, Origin::Hangar, "a", true);
+        assert_eq!(on_ready(&paths), [false, false]);
+        assert!(state.view.ready_said.is_none(), "nothing to say yet");
+        // Its last part: the first ship is on ready, the second one is not touched, the notice says which.
+        tick(&mut state, Origin::Hangar, "b", true);
+        assert_eq!(on_ready(&paths), [true, false]);
+        let said = tf("s_hg_einsatz_auto", &[("schiff", Arg::from("Gladius"))]);
+        assert_eq!(state.view.ready_said.as_ref().map(|(text, _)| text.as_str()), Some(said.as_str()));
+        // The second Gladius is ticked off by its own part: it goes on ready on its own.
+        state.view.ready_said = None;
+        tick(&mut state, Origin::Hangar, "a", true);
+        assert_eq!(on_ready(&paths), [true, true]);
+        // Switched off by hand: ticking what is ticked brings nothing back.
+        let mut data = hangar::read(&paths.app_file(FLEET_FILE)).expect("file");
+        if let Some((_, Value::Array(list))) = data.iter_mut().find(|(k, _)| k == "schiffe")
+            && let Some(Value::Object(ship)) = list.first_mut()
+        {
+            jsonio::map_set(ship, "einsatzbereit", Value::Bool(false));
+        }
+        assert!(hangar::write(&paths.app_file(FLEET_FILE), &data));
+        state.view.ready_said = None;
+        tick(&mut state, Origin::Hangar, "b", true);
+        assert_eq!(on_ready(&paths), [false, true], "it stays off");
+        assert!(state.view.ready_said.is_none());
+        // A planned ship is ticked off, goes on no switch and moves no ship of the hangar.
+        tick(&mut state, Origin::Wishlist, "a", true);
+        assert_eq!(on_ready(&paths), [false, true]);
+        assert!(state.view.ready_said.is_none(), "a planned ship has no switch to say anything about");
+        let _ = std::fs::remove_dir_all(
+            std::env::temp_dir().join(format!("versekit-einkauf-{}-einsatz-auto", versekit_core::testdir::run_tag())),
+        );
     }
 }

@@ -29,6 +29,7 @@
 //! first, scmdb as fallback, cross-check and filler of what the own
 //! reading does not read; the corrections apply to whichever source was used.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
@@ -275,11 +276,25 @@ pub fn start(channel_folder: Option<&Path>, cache_file: &str, supply: Arc<dyn Su
                 !stamp.filled && !supply.is_off() && now().saturating_sub(stamp.attempt) > RETRY_SECONDS;
             // The slots of the ships came with 5.2.0: a cache from before has none beside it yet.
             // Only an archive gives them, and only while the game is closed.
-            let slots_missing = stamp.source == "archive"
+            let missing_beside = |name: &str| {
+                stamp.source == "archive"
+                    && !archive.is_empty()
+                    && supply.game_closed()
+                    && Path::new(cache_file).parent().is_some_and(|folder| !folder.join(name).exists())
+            };
+            let slots_missing = missing_beside(crate::ship_slots::SHIPS_FILE);
+            // The levels of the processing methods came with 5.2.1, the same way.
+            let refining_missing = missing_beside(crate::refining_processes::FILE);
+            // The parts of 5.2.1 carry the class names and what a paint requires: a file of an older format is
+            // read again once, the same way.
+            let parts_outdated = stamp.source == "archive"
                 && !archive.is_empty()
                 && supply.game_closed()
-                && Path::new(cache_file).parent().is_some_and(|folder| !folder.join(crate::ship_slots::SHIPS_FILE).exists());
-            archive_changed || scmdb_missing || slots_missing
+                && Path::new(cache_file).parent().is_some_and(|folder| {
+                    let file = folder.join(crate::ship_slots::PARTS_FILE);
+                    file.exists() && format_of(&file) != Some(crate::ship_slots::PARTS_FORMAT)
+                });
+            archive_changed || scmdb_missing || slots_missing || refining_missing || parts_outdated
         }
     };
     let source = stored.as_ref().map(|s| s.stamp.source.clone()).unwrap_or_default();
@@ -290,6 +305,18 @@ pub fn start(channel_folder: Option<&Path>, cache_file: &str, supply: Arc<dyn Su
         supply,
     });
     Start { values, source, rebuild }
+}
+
+/// The `format` a stored slot file starts with (`{"format": 3, …`): read from its first bytes, without reading the
+/// whole file; `None` when it cannot be read or does not start that way.
+fn format_of(file: &Path) -> Option<i64> {
+    use std::io::Read as _;
+    let mut head = [0u8; 64];
+    let read = fs::File::open(file).ok()?.read(&mut head).ok()?;
+    let text = std::str::from_utf8(&head[..read]).ok()?;
+    let rest = text.trim_start().strip_prefix('{')?.trim_start().strip_prefix("\"format\"")?.trim_start().strip_prefix(':')?;
+    let digits: String = rest.trim_start().chars().take_while(char::is_ascii_digit).collect();
+    digits.parse().ok()
 }
 
 /// The values the reading gave.
@@ -322,8 +349,11 @@ impl Rebuild {
             Some(game) => game.and_then(|game| {
                 let texts = game.localization(Language::English)?;
                 let values = game.values(&texts)?;
-                self.keep_signatures(&game, &texts, build.as_deref());
-                self.keep_slots(&game);
+                // Read once for the signatures and the processing methods.
+                let forge = game.dataforge_bytes();
+                self.keep_signatures(&game, forge.as_deref(), &texts, build.as_deref());
+                self.keep_slots(&game, forge.as_deref());
+                self.keep_refining(&game, forge.as_deref(), &texts, build.as_deref());
                 Ok(values)
             }),
             None => Err(Error::NoGameFolder),
@@ -389,11 +419,20 @@ impl Rebuild {
 
     /// Keeps the scan signatures of the rocks of the archive beside the cache, where the mining data find them. A
     /// reading or a write that fails only leaves the signatures of the mining data as they were.
-    fn keep_signatures(&self, game: &GameData, texts: &crate::Localization, build: Option<&str>) {
+    fn keep_signatures(
+        &self,
+        game: &GameData,
+        forge: Result<&[u8], &Error>,
+        texts: &crate::Localization,
+        build: Option<&str>,
+    ) {
         let Some(folder) = Path::new(&self.cache_file).parent() else { return };
         let file = folder.join(crate::mineables::SIGNATURES_FILE).to_string_lossy().into_owned();
-        let rocks = game.dataforge_bytes().and_then(|bytes| crate::mineables::rocks_from_dataforge(&bytes, texts));
-        match rocks {
+        let bytes = match forge {
+            Ok(bytes) => bytes,
+            Err(error) => return versekit_core::errors::record("values.signatures", error),
+        };
+        match crate::mineables::rocks_from_dataforge(bytes, texts) {
             Ok(rocks) => {
                 let stamp = crate::mineables::ArchiveStamp::of(game.archive_path());
                 if let Err(error) = crate::mineables::write_signatures(&file, &rocks, build, stamp)
@@ -406,17 +445,54 @@ impl Rebuild {
         }
     }
 
+    /// Keeps the levels of the processing methods of the archive beside the cache, where the mining page finds them
+    /// before its own table ([`crate::refining_processes`]). While the game runs nothing is read; a reading or a
+    /// write that fails leaves the file as it was, and the page keeps what it has.
+    fn keep_refining(
+        &self,
+        game: &GameData,
+        forge: Result<&[u8], &Error>,
+        texts: &crate::Localization,
+        build: Option<&str>,
+    ) {
+        use crate::refining_processes::{self, Kept};
+        let Some(folder) = Path::new(&self.cache_file).parent() else { return };
+        if !self.supply.game_closed() {
+            return;
+        }
+        let file = folder.join(refining_processes::FILE).to_string_lossy().into_owned();
+        let read = match forge {
+            Ok(bytes) => refining_processes::from_dataforge(bytes, texts),
+            Err(error) => return versekit_core::errors::record("values.refining", error),
+        };
+        let read = match read {
+            Ok(read) => read,
+            Err(error) => return versekit_core::errors::record("values.refining", &error),
+        };
+        let channel = refining_processes::channel_of(game.archive_path());
+        match refining_processes::keep(&file, &read, build, &channel) {
+            Kept::Written => {}
+            Kept::Incomplete(why) => versekit_core::errors::record("values.refining_incomplete", &why),
+            Kept::Failed(error) if writeguard::refused(&error) => {}
+            Kept::Failed(error) => versekit_core::errors::record("values.refining_write", &error),
+        }
+    }
+
     /// Keeps the slots of the ships and the parts with slots of the archive beside the cache, where the hangar
     /// finds them before erkul's ([`crate::ship_slots`]). A reading or a write that fails leaves the files as they
-    /// were: the hangar then reads erkul's.
-    fn keep_slots(&self, game: &GameData) {
+    /// were: the hangar then reads erkul's, and a parts file of an older format stays in use (and due again).
+    fn keep_slots(&self, game: &GameData, forge: Result<&[u8], &Error>) {
         let Some(folder) = Path::new(&self.cache_file).parent() else { return };
         // While the game runs the slots wait for the next start with the game closed: the files stay missing
         // or as they were, and the hangar reads what it has.
         if !self.supply.game_closed() {
             return;
         }
-        match game.ship_slots() {
+        let bytes = match forge {
+            Ok(bytes) => bytes,
+            Err(error) => return versekit_core::errors::record("values.slots", error),
+        };
+        match game.ship_slots_with(bytes) {
             Ok((ships, parts)) => {
                 for (name, value) in [(crate::ship_slots::SHIPS_FILE, ships), (crate::ship_slots::PARTS_FILE, parts)] {
                     let file = folder.join(name).to_string_lossy().into_owned();
@@ -470,7 +546,7 @@ impl Pending {
         let (lock, thread_wake, thread_denied) = (writeguard::state(), Arc::clone(&wake), Arc::clone(&denied));
         std::thread::Builder::new()
             .name("values-read".into())
-            .spawn(move || {
+            .spawn_with_language(move || {
                 writeguard::adopt(&lock);
                 let built = catch_unwind(AssertUnwindSafe(work)).unwrap_or(None);
                 thread_denied.lock().unwrap_or_else(|e| e.into_inner()).extend(writeguard::take_denied());
@@ -544,13 +620,42 @@ mod tests {
         // A cache from before 5.2.0 has no slots of the ships beside it: they are read once.
         assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the slots of the ships are missing");
         fs::write(dir.join(crate::ship_slots::SHIPS_FILE), b"{}").unwrap();
+        // A cache from before 5.2.1 has no levels of the processing methods beside it: they are read once.
+        assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the processing methods are missing");
+        assert!(start(Some(&dir), &file, Arc::new(Playing)).rebuild.is_none(), "but not while the game runs");
+        fs::write(dir.join(crate::refining_processes::FILE), b"{}").unwrap();
+        // The parts of an older format (5.2.0, without class names and what a paint requires) are read once again;
+        // not while the game runs.
+        let parts = dir.join(crate::ship_slots::PARTS_FILE);
+        fs::write(&parts, br#"{"format": 2, "spielversion": "4.10", "teile": {}}"#).unwrap();
+        assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the parts are of an older format");
+        assert!(start(Some(&dir), &file, Arc::new(Playing)).rebuild.is_none(), "but not while the game runs");
+        let current = format!(r#"{{"format": {}, "spielversion": "4.10", "teile": {{}}}}"#, crate::ship_slots::PARTS_FORMAT);
+        fs::write(&parts, current).unwrap();
         let current = start(Some(&dir), &file, Arc::new(Offline));
         assert!(current.values.is_some());
-        assert!(current.rebuild.is_none(), "same archive, scmdb filled, slots there");
+        assert!(current.rebuild.is_none(), "same archive, scmdb filled, slots, parts and processing methods there");
         fs::write(&archive, b"archive of a new patch").unwrap();
         let changed = start(Some(&dir), &file, Arc::new(Offline));
         assert!(changed.values.is_some(), "the old values are shown while the new ones are read");
         assert!(changed.rebuild.is_some());
+    }
+
+    /// The format is read from the first bytes of the file as the reading writes it: were it written in another
+    /// order, every start would read the archive again.
+    #[test]
+    fn the_format_of_the_parts_file_is_read_from_what_the_reading_writes() {
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let dir = folder("format");
+        let file = dir.join(crate::ship_slots::PARTS_FILE);
+        let written = crate::ship_slots::parts_file(&crate::ship_slots::Catalogs::default());
+        jsonio::write_text_atomic(&file.to_string_lossy(), &jsonio::dumps(&written, None, false), Newline::Native).unwrap();
+        assert_eq!(format_of(&file), Some(crate::ship_slots::PARTS_FORMAT));
+        // Counter-check: a file of 5.2.0 and one that is no slot file.
+        fs::write(&file, br#"{"format": 2, "teile": {}}"#).unwrap();
+        assert_eq!(format_of(&file), Some(2));
+        fs::write(&file, b"[]").unwrap();
+        assert_eq!(format_of(&file), None);
     }
 
     /// A supply without network whose game runs.

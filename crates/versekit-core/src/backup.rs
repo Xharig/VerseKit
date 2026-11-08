@@ -58,7 +58,7 @@ pub const LAST_SETTING: &str = "letzte_sicherung";
 ///
 /// ⚠ In doubt something does NOT belong here. A backup too large costs seconds, one too small costs the
 /// inventory.
-pub const RELOADABLE: [&str; 15] = [
+pub const RELOADABLE: [&str; 16] = [
     // v5: what the overlay tells the main window about anti-AFK. A state of the running program, never a
     // setting: a backup that took it along would bring a "on" back to a program that has it off.
     "Intern/anti-afk.json",
@@ -73,6 +73,7 @@ pub const RELOADABLE: [&str; 15] = [
     "Intern/scmdb-items.json",
     "Intern/serverstatus.json",
     "Intern/uebersetzung.json",
+    "Intern/uebersetzung_abfragen.json",
     "Intern/verkauf.json",
     "Intern/aktionsnamen.json",
     "Intern/versionen.json",

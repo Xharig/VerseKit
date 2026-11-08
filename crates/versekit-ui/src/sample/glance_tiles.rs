@@ -21,6 +21,7 @@
 //! the overview says it comes later. The files are read anew for every count,
 //! as 4.12 reads them whenever the page is shown.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -144,7 +145,7 @@ impl<T: Clone + Send + 'static> LogLook<T> {
         };
         if due && !self.busy.swap(true, Ordering::AcqRel) {
             let (found, busy, own) = (self.found.clone(), self.busy.clone(), paths.working_copy());
-            let started = std::thread::Builder::new().name("uebersicht-spielprotokoll".into()).spawn(move || {
+            let started = std::thread::Builder::new().name("uebersicht-spielprotokoll".into()).spawn_with_language(move || {
                 let answer = read(&own);
                 *found.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(answer);
                 busy.store(false, Ordering::Release);
@@ -183,7 +184,7 @@ impl StatusLook {
         if due && !self.busy.swap(true, Ordering::AcqRel) {
             let (busy, own) = (self.busy.clone(), paths.working_copy());
             let agent = versekit_core::basetool::config::user_agent(env!("CARGO_PKG_VERSION"));
-            let started = std::thread::Builder::new().name("uebersicht-serverstatus".into()).spawn(move || {
+            let started = std::thread::Builder::new().name("uebersicht-serverstatus".into()).spawn_with_language(move || {
                 let web = net::Web::new(&agent, std::time::Duration::from_secs(15), 1 << 20);
                 serverstatus::refresh(&own, &web, now);
                 busy.store(false, Ordering::Release);
@@ -200,7 +201,7 @@ impl StatusLook {
 pub(super) fn clock(lang: Lang, seconds: i64, now: i64) -> String {
     let day = |at: i64| formats::local_time(at).map(|t| formats::strftime("%Y-%m-%d", &t));
     match formats::local_time(seconds) {
-        Some(at) if day(seconds) == day(now) => formats::strftime("%H:%M", &at),
+        Some(at) if day(seconds) == day(now) => formats::strftime_shown("%H:%M", &at),
         _ => stats_report::local_moment(lang, seconds),
     }
 }
@@ -390,7 +391,8 @@ pub(super) fn refinery_tile(paths: &Paths, lang: Lang, now: i64) -> Option<Glanc
         .map(|job| {
             let ends = overview::job_ends(job);
             let state = if ends > now as f64 {
-                let at = formats::local_time(ends as i64).map_or_else(String::new, |t| formats::strftime("%H:%M", &t));
+                let at =
+                    formats::local_time(ends as i64).map_or_else(String::new, |t| formats::strftime_shown("%H:%M", &t));
                 let left = Arg::from(overview::countdown_text(ends - now as f64));
                 tf_in(lang, "s_uv_raff_noch", &[("0", left), ("1", Arg::from(at))])
             } else {
@@ -752,7 +754,7 @@ impl SamplePage {
             None => glance(t_in(lang, "s_uv_sicherung_nie"), Vec::new()).line_tone(Tone::Warn),
             Some((at, time)) => {
                 let format = if lang == Lang::De { "%d.%m.%Y %H:%M" } else { "%Y-%m-%d %H:%M" };
-                glance(ago(at), vec![one("s_uv_sicherung_zuletzt", Arg::from(formats::strftime(format, &time)))])
+                glance(ago(at), vec![one("s_uv_sicherung_zuletzt", Arg::from(formats::strftime_shown(format, &time)))])
             }
         };
         // "Back up now" on the tile itself, as in 4.12: the link that makes the backup without a trip to the page.
@@ -805,7 +807,7 @@ mod tests {
     /// midnight: a day with a change of summer time is an hour longer or shorter.
     fn now_and_clock() -> (i64, String) {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
-        let clock = formats::strftime("%H:%M", &formats::local_time(now).unwrap());
+        let clock = formats::strftime_shown("%H:%M", &formats::local_time(now).unwrap());
         (now, clock)
     }
 

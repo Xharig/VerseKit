@@ -41,7 +41,7 @@ pub const MIN_SHOWN: i64 = 1;
 /// The setting „Ruf-Stufen an den Rängen“.
 pub const SETTING: &str = "ruf_stufen";
 pub const BASE: &str = "https://raw.githubusercontent.com/StarCitizenWiki/scunpacked-data/master/factions";
-pub const USER_AGENT: &str = "VerseKit";
+pub const USER_AGENT: &str = crate::net::USER_AGENT;
 
 /// One group: file, scope, and (language key, standing name) rising.
 struct Group {

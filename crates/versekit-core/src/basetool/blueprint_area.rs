@@ -357,13 +357,25 @@ impl Area for BlueprintArea {
         let mut posted: BTreeSet<String> = BTreeSet::new();
         let mut refused: Vec<Value> = Vec::new();
         let mut change_sets = plan_mod::sync_change_sets(&plan, &local);
-        if !hold::may_send(pass.state, pass.confirmations, ROUTE_BLUEPRINTS, &change_sets, pass.now, pass.release_now) {
+        crate::basetool::pacing::clear_expired_wait(pass.state, pass.now);
+        if crate::basetool::pacing::wait_until(pass.state, pass.now).is_some()
+            || !hold::may_send(pass.state, pass.confirmations, ROUTE_BLUEPRINTS, &change_sets, pass.now, pass.release_now)
+        {
             paused = true;
             change_sets.clear();
         }
         let all_sets = change_sets.clone();
         for (number, (change_set, targets)) in all_sets.iter().enumerate() {
-            let result = match feed::send_change_set(conn, conn.config(), ROUTE_BLUEPRINTS, change_set)? {
+            let sent = match feed::send_change_set(conn, conn.config(), ROUTE_BLUEPRINTS, change_set) {
+                Ok(sent) => sent,
+                Err(error) if crate::basetool::pacing::wait_after(pass.state, pass.now, &error).is_some() => {
+                    error.record("basetool_sync.send");
+                    paused = true;
+                    break;
+                }
+                Err(error) => return Err(error),
+            };
+            let result = match sent {
                 Sent::Held { confirm_url, error: _ } => {
                     hold::hold(
                         pass.state,

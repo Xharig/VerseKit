@@ -1809,7 +1809,7 @@ mod tests {
             })
             .collect();
         for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
-            versekit_core::language::set_language(choice);
+            versekit_core::language::set_thread_language(choice);
             for scheme in theme::schemes() {
                 for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                     let (width, height) = versekit_core::font_size::min_window(points);
@@ -1842,7 +1842,7 @@ mod tests {
                 }
             }
         }
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
     }
 
     /// The line with the way back stands there while a contract was just hidden, also when nothing

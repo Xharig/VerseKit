@@ -31,6 +31,7 @@
 //! | `feed` | snapshot and feed to the end, resolving names, locations, sending change sets |
 //! | `guard` | the write guard and the request journal for a test against the real Basetool |
 //! | `hold` | change sets the Basetool holds back until the member confirms them |
+//! | `pacing` | answered operations that are not sent again, the wait after `Retry-After` |
 //! | `state` | the sync state of each installation |
 //! | `schedule` | when the next sync is due |
 //! | `blueprint_sync` | the blueprints against the Basetool: plan and change sets, without the net |
@@ -68,6 +69,7 @@ pub mod key;
 pub mod orgstock;
 pub mod orgunits;
 pub mod overview;
+pub mod pacing;
 pub mod proof;
 pub mod schedule;
 pub mod scopes;

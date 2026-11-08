@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn each_channel_gets_a_bubble_with_the_state_of_its_user_cfg_and_a_look_holds_for_a_while() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (root, paths) = world(
             "blasen",
             &[
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn without_any_channel_the_block_says_so() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (root, paths) = world("leer", &[("LIVE", true, None)]);
         // The game folder goes: no channel is left.
         fs::remove_dir_all(format!("{root}/StarCitizen")).unwrap();

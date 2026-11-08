@@ -41,8 +41,9 @@ use crate::contracts::{self, Event, Kind, Patterns};
 use crate::errors;
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::location;
+use crate::logread;
 use crate::logsource::{Clock, LogSource};
-use crate::logtime::{Facts, candidate_lines, seconds, time_of};
+use crate::logtime::{Facts, FactsScan, candidate_lines, seconds, time_of};
 use crate::mission_log::{self as log, ABORTED, COMPLETED, EXPIRED, FAILED, RUNNING, clean, get, key_of, text_of};
 use crate::ordered::{OrderedMap, parallel_map};
 use crate::paths::{Paths, now_seconds};
@@ -153,8 +154,28 @@ struct FileScan {
     session: String,
 }
 
+#[cfg(test)]
 fn scan_text(text: &str, patterns: &Patterns, blueprints: &Regex) -> (Vec<Item>, Facts) {
     let mut items = Vec::new();
+    scan_lines(text, patterns, blueprints, &mut items);
+    (items, Facts::of(text))
+}
+
+/// [`scan_text`] of a log file, read a piece at a time: every line is looked at on its own, so the items are the
+/// same as for the whole text, and only the piece in hand stands in memory.
+fn scan_file(path: &str, patterns: &Patterns, blueprints: &Regex) -> io::Result<(Vec<Item>, Facts)> {
+    let mut items = Vec::new();
+    let mut facts = FactsScan::default();
+    logread::read_all(path, |bytes| {
+        let text = decode_replace(bytes);
+        scan_lines(&text, patterns, blueprints, &mut items);
+        facts.piece(&text);
+    })?;
+    Ok((items, facts.facts().clone()))
+}
+
+/// Adds the items of the lines of `text`, in their order.
+fn scan_lines(text: &str, patterns: &Patterns, blueprints: &Regex, items: &mut Vec<Item>) {
     for line in candidate_lines(text, &MARKERS) {
         if line.contains("<EndMission>")
             && let Some(c) = END_KIND.captures(line)
@@ -179,7 +200,6 @@ fn scan_text(text: &str, patterns: &Patterns, blueprints: &Regex) -> (Vec<Item>,
             items.push(Item::Event { when: time_of(line).to_string(), event });
         }
     }
-    (items, Facts::of(text))
 }
 
 /// When this session was played: the first stamp near the top of the log.
@@ -618,9 +638,7 @@ impl<'s, 'p> MissionScan<'s, 'p> {
         let mut book = Book::default();
         for batch in files.chunks(16) {
             let scans = parallel_map(batch, |path| -> io::Result<FileScan> {
-                let bytes = fs::read(path)?;
-                let text = decode_replace(&bytes);
-                let (items, facts) = scan_text(&text, &context.patterns, &context.blueprints);
+                let (items, facts) = scan_file(path, &context.patterns, &context.blueprints)?;
                 Ok(FileScan { items, facts, session: self.session_start(path) })
             });
             for (path, scan) in batch.iter().zip(scans) {
@@ -656,19 +674,21 @@ impl<'s, 'p> MissionScan<'s, 'p> {
         {
             return Ok(hit.clone());
         }
-        let bytes = fs::read(path)?;
-        let text = decode_replace(&bytes);
         let mut reported = HashSet::new();
-        for line in candidate_lines(&text, &NOTIFICATIONS) {
-            for pattern in [&patterns.start, &patterns.end] {
-                if let Some(c) = pattern.captures(line) {
-                    reported.insert(clean(&c[1]));
-                    break;
+        let mut facts = FactsScan::default();
+        logread::read_all(path, |bytes| {
+            let text = decode_replace(bytes);
+            for line in candidate_lines(&text, &NOTIFICATIONS) {
+                for pattern in [&patterns.start, &patterns.end] {
+                    if let Some(c) = pattern.captures(line) {
+                        reported.insert(clean(&c[1]));
+                        break;
+                    }
                 }
             }
-        }
-        let facts = Facts::of(&text);
-        let result = (reported, silence_counts(&facts));
+            facts.piece(&text);
+        })?;
+        let result = (reported, silence_counts(facts.facts()));
         if let Some(key) = key {
             let mut cache = self.reported.lock().unwrap_or_else(|e| e.into_inner());
             if cache.len() > 1000 {
@@ -1252,6 +1272,56 @@ mod tests {
         println!("not written (guard): {:?}", crate::writeguard::take_denied());
         crate::writeguard::deny(false);
         crate::writeguard::allow_under(None);
+    }
+
+    /// A log of several blocks with the contract lines spread through it, between lines of the flood.
+    fn big_session(blocks: usize) -> String {
+        let flood = "<2026-10-01T10:30:00.000Z> [Notice] <Monitored Space> \"Überwachter Raum ausgefallen: \" [4711]\n";
+        let mut body = String::new();
+        for round in 0..blocks * 2 {
+            let (id, second) = (format!("m{round}"), 60 + round as u32 * 20);
+            body.push_str(&accept(second, &format!("Job {round}"), &id));
+            body.push_str(&flood.repeat(crate::logread::BLOCK / 2 / flood.len()));
+            body.push_str(&blueprint(second + 5, &format!("Part {round}")));
+            if round % 3 != 0 {
+                body.push_str(&end(second + 10, &format!("Job {round}"), &id, "Complete"));
+            }
+        }
+        session(&body)
+    }
+
+    #[test]
+    fn a_log_read_in_pieces_gives_the_items_the_titles_and_the_facts_of_the_whole_text() {
+        let lab = Lab::new("stuecke");
+        let paths = lab.paths();
+        let src = LogSource::new(&paths, LogSource::sources_of(&paths));
+        let scan = MissionScan::new(&src);
+        let (patterns, blueprints) = patterns();
+        for (name, text) in [("a.log", big_session(3)), ("b.log", session("")), ("c.log", String::new())] {
+            let path = lab.backup(name, &text);
+            let (items, facts) = scan_file(&path, &patterns, &blueprints).expect("readable");
+            assert_eq!((items.clone(), facts.clone()), scan_text(&text, &patterns, &blueprints), "{name}");
+            if name == "a.log" {
+                assert!(items.len() > 20 && text.len() > 3 * crate::logread::BLOCK);
+            }
+            let mut want = HashSet::new();
+            for line in candidate_lines(&text, &NOTIFICATIONS) {
+                for pattern in [&patterns.start, &patterns.end] {
+                    if let Some(c) = pattern.captures(line) {
+                        want.insert(clean(&c[1]));
+                        break;
+                    }
+                }
+            }
+            let got = scan.reported_titles(&path, &patterns).expect("readable");
+            assert_eq!(got, (want, silence_counts(&Facts::of(&text))), "{name}");
+        }
+        // The history of the file as a whole equals the one of its text.
+        let path = lab.backup("log0.log", &big_session(3));
+        let context = Context { patterns, blueprints };
+        let text = fs::read_to_string(&path).expect("text");
+        let from_files = scan.history_of(&[path], &context).expect("history");
+        assert_eq!(from_files, history(&[text]));
     }
 
     #[test]

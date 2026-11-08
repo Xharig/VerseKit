@@ -369,7 +369,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut DemandState) {
             ui.add_space(6.0);
             if let Some(code) = state.failure() {
                 let said = versekit_core::basetool::error::error_text(&code);
-                ui.label(RichText::new(said).small().color(color(scheme.red)));
+                ui.label(RichText::new(said).small().color(color(scheme.red_text())));
             }
             if state.asked.is_some() {
                 widgets::loading(ui, scheme, &t("s_bt_laeuft"));
@@ -438,7 +438,7 @@ mod tests {
     use egui::{Rect, vec2};
     use versekit_core::basetool::demo::DemoLogin;
     use versekit_core::basetool::scopes::SETTING_DEMAND;
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
 
     fn texts(shapes: &[egui::epaint::ClippedShape]) -> Vec<String> {
         fn collect(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
@@ -494,7 +494,7 @@ mod tests {
     #[test]
     fn the_demand_of_the_sync_is_shown_against_the_own_stock() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let wire = connected("shown");
         wire.sync.pass_now().expect("pass");
         let mut state = DemandState::new(Some(Link::from_wire(&wire)), None);
@@ -532,7 +532,7 @@ mod tests {
     #[test]
     fn without_a_demand_the_page_waits_and_the_button_asks_for_a_sync() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let wire = connected("waits");
         let mut state = DemandState::new(Some(Link::from_wire(&wire)), None);
         let ctx = context();
@@ -548,7 +548,7 @@ mod tests {
     #[test]
     fn a_reason_is_said_and_nothing_else_is_shown() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let wire = connected("reason");
         wire.demand.take(
             versekit_core::basetool::demand::parse(
@@ -570,7 +570,7 @@ mod tests {
         wire.sync.pass_now().expect("pass");
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in [380.0, 520.0, 900.0] {
                     let ctx = context();
@@ -583,14 +583,14 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
     #[test]
     fn the_sample_shows_a_made_up_demand() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut state = DemandState::default();
         let (shown, over) = draw(&context(), &mut state, 900.0);
         assert_eq!(over, 0.0);

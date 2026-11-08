@@ -203,6 +203,85 @@ impl Items {
     }
 }
 
+/// The class of an item by its name: name in lower case → class, only where all sources together give that name
+/// exactly one class (classes are compared without case). `values` are class and name of the game values, `seen`
+/// class and GUID of what the journal met, named by `items`; the first spelling of a class counts.
+pub fn classes_from(
+    values: impl IntoIterator<Item = (String, String)>,
+    seen: impl IntoIterator<Item = (String, String)>,
+    items: &Items,
+) -> HashMap<String, String> {
+    let mut found: HashMap<String, Vec<String>> = HashMap::new();
+    let mut add = |name: &str, class: &str| {
+        let (name, class) = (name.trim().to_lowercase(), class.trim());
+        if name.is_empty() || class.is_empty() {
+            return;
+        }
+        let classes = found.entry(name).or_default();
+        if !classes.iter().any(|known| known.eq_ignore_ascii_case(class)) {
+            classes.push(class.to_string());
+        }
+    };
+    for (class, name) in values {
+        if usable(&name) {
+            add(&name, &class);
+        }
+    }
+    for (class, guid) in seen {
+        for name in items.candidates(&class, &guid) {
+            add(name, &class);
+        }
+    }
+    found.into_iter().filter_map(|(name, mut classes)| (classes.len() == 1).then(|| (name, classes.remove(0)))).collect()
+}
+
+type ClassStamp = Vec<(String, Option<(Option<std::time::SystemTime>, u64)>)>;
+
+/// The last table of [`classes_by_name`] with the state of the files it came from.
+static CLASSES: std::sync::Mutex<Option<(ClassStamp, HashMap<String, String>)>> = std::sync::Mutex::new(None);
+
+/// [`classes_from`] out of the stored files: the game values, the journal and the names of the journal. Read again
+/// only when one of the files changed.
+pub fn classes_by_name(paths: &Paths) -> HashMap<String, String> {
+    let files = [VALUES_FILE, crate::stock_journal::FILE, asop::NAMES_FILE, crate::shops::CATALOG_CACHE];
+    let stamp: ClassStamp = files
+        .iter()
+        .map(|name| {
+            let path = paths.app_file(name);
+            let meta = std::fs::metadata(&path).ok().map(|m| (m.modified().ok(), m.len()));
+            (path, meta)
+        })
+        .collect();
+    let mut memo = CLASSES.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((seen, table)) = memo.as_ref()
+        && *seen == stamp
+    {
+        return table.clone();
+    }
+    let values: Vec<(String, String)> =
+        match jsonio::read_json(&paths.app_file(VALUES_FILE)).ok().as_ref().and_then(|d| d.get("values")) {
+            Some(values) => match values.get("items") {
+                Some(Value::Object(items)) => items
+                    .iter()
+                    .map(|(_, item)| {
+                        let text = |key: &str| item.get(key).and_then(Value::as_str).unwrap_or_default().to_string();
+                        (text("class_name"), text("name"))
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            },
+            None => Vec::new(),
+        };
+    let journal = crate::stock_journal::load(paths);
+    let mut seen: Vec<(String, String)> = Vec::new();
+    for session in crate::stock_journal::sessions(&journal) {
+        seen.extend(session.purchases.iter().chain(&session.sales).map(|deal| (deal.class.clone(), deal.guid.clone())));
+    }
+    let table = classes_from(values, seen, &Items::load(paths));
+    *memo = Some((stamp, table.clone()));
+    table
+}
+
 /// The sources of the names of places.
 #[derive(Clone, Debug, Default)]
 pub struct Places {
@@ -571,6 +650,30 @@ mod tests {
         let empty = Places::from_parts(places.learned.clone(), places.readable.clone(), Vec::new());
         assert_eq!(empty.place("900"), PlaceName::Listed("Ruptura OLP".into()));
         assert_eq!(empty.place("1"), PlaceName::Unknown("1".into()));
+    }
+
+    #[test]
+    fn an_item_name_gives_its_class_only_where_the_sources_name_exactly_one() {
+        let items = Items::from_parts(
+            [("item_NameMining_Gadget_SHIN_Okunis".to_string(), "Okunis".to_string())],
+            [("g-two".to_string(), "Twin".to_string())],
+            Vec::new(),
+        );
+        let values = [
+            ("SHLD_GODI_S02_CoverAll_SCItem", "CoverAll"),
+            ("BEHR_BallisticGatling_S6", "AD6B Ballistic Gatling"),
+            ("TWIN_A", "Twin"),
+            ("PLACEHOLDER_X", "@item_placeholder"),
+        ]
+        .map(|(c, n)| (c.to_string(), n.to_string()));
+        let seen = [("Mining_Gadget_SHIN_Okunis", ""), ("TWIN_B", "g-two"), ("shld_godi_s02_coverall_scitem", "")]
+            .map(|(c, g)| (c.to_string(), g.to_string()));
+        let classes = classes_from(values, seen, &items);
+        assert_eq!(classes.get("coverall").map(String::as_str), Some("SHLD_GODI_S02_CoverAll_SCItem"), "case alone is no second class");
+        assert_eq!(classes.get("ad6b ballistic gatling").map(String::as_str), Some("BEHR_BallisticGatling_S6"));
+        assert_eq!(classes.get("okunis").map(String::as_str), Some("Mining_Gadget_SHIN_Okunis"), "named through the journal");
+        assert_eq!(classes.get("twin"), None, "two classes carry the name: none is guessed");
+        assert!(!classes.values().any(|c| c == "PLACEHOLDER_X"));
     }
 
     #[test]

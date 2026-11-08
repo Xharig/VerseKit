@@ -16,11 +16,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! The thread that reads the Game.log and keeps the collection, like the
-//! `Watcher` of the Python version: first the kept logs are read back
+//! watcher of the Python version: first the kept logs are read back
 //! (quietly, at most ten rows), then the running log is followed in the
 //! interval of the settings. Only this thread writes the collection; a
 //! request to read everything again is handed to it.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::time::{Duration, Instant};
@@ -36,7 +37,7 @@ use versekit_core::given::GivenBy;
 use versekit_core::graphics_apply;
 use versekit_core::jsonio::{self, Map};
 use versekit_core::language::{self, Arg, Phrase};
-use versekit_core::live_contracts::{Check, Line, Live, Out, Section, SectionScan, hidden_load};
+use versekit_core::live_contracts::{Check, Line, Live, Out, Section, SectionScan, StartLog, hidden_load};
 use versekit_core::logscan::Extra;
 use versekit_core::logsource::{ContractScan, Gap, LogSource, LogTail, ReadState};
 use versekit_core::mission_log::{ContractBlueprints, ini_files};
@@ -47,7 +48,6 @@ use versekit_core::phrases::{self, BackRoute, NoArchive};
 use versekit_core::refinery_jobs;
 use versekit_core::shard::Joins;
 use versekit_core::stock_journal;
-use versekit_core::text::decode_ignore;
 use versekit_core::watchlist;
 use versekit_core::writeguard;
 
@@ -58,6 +58,8 @@ pub enum News {
     Row(Row),
     /// A new blueprint: open, sound.
     Found,
+    /// A short sound that nothing opens for: a refinery job that is done.
+    Beep,
     /// Something happened that may open the overlay, if the player chose it (no sound).
     Opens(Event),
     /// Writes the lock refused in this thread.
@@ -310,23 +312,23 @@ impl Contracts {
         self.reset(run);
     }
 
-    /// What is open according to the running Game.log, read once as a whole. Gives the text read, for the shard.
-    fn at_start(&mut self, run: &Run) -> Option<String> {
+    /// What is open according to the running Game.log, read once as a whole, a piece at a time. Gives what was
+    /// read, for the shard and the handle.
+    fn at_start(&mut self, run: &Run) -> Option<StartLog> {
         // ⚠ Only the running file: after a restart of the game a fresh one begins, and
         // what the kept ones say may long be over.
         let file = run.paths.game_log(None)?;
-        let bytes = match std::fs::read(&file) {
-            Ok(bytes) => bytes,
+        let log = match StartLog::read(&file) {
+            Ok(log) => log,
             Err(e) => {
                 versekit_core::errors::record("watcher.auftraege_start", &e);
                 return None;
             }
         };
-        let log = decode_ignore(&bytes);
         let has = |n: &str| collection::contains(&run.data, n);
         let check = Check { blueprints: &self.blueprints, has: &has };
         let mut out = Vec::new();
-        self.live.at_start(&log, &self.patterns, &check, &hidden_load(run.paths), &mut out);
+        self.live.at_start_log(&log, &self.patterns, &check, &hidden_load(run.paths), &mut out);
         run.tell_all(out);
         Some(log)
     }
@@ -530,7 +532,8 @@ impl Periodic {
         }
     }
 
-    /// Every refinery job that became over is told once: a hint and a message of the system.
+    /// Every refinery job and every job of the fabricator that became over is told once: a hint and a message of the
+    /// system.
     fn refinery(&mut self, run: &Run) {
         if Instant::now() < self.refinery_next {
             return;
@@ -542,6 +545,16 @@ impl Periodic {
             run.tell(News::Row(Row::Hint { text: text.clone().into(), contract: None }));
             run.tell(News::System(Phrase::new("ov_a_raffinerie_titel"), text));
             run.tell(News::Opens(Event::Refinery));
+            // The sound of this job is the player's choice of its own, apart from the one for a new blueprint.
+            if versekit_core::sound::refinery_on(run.paths) {
+                run.tell(News::Beep);
+            }
+        }
+        // The jobs of the fabricator, looked at as often: a hint and a message of the system each, once.
+        for job in versekit_core::workbench_jobs::announce_due(run.paths, now) {
+            let text = Phrase::new("s_wb_fertig_hinweis").with("0", versekit_core::workbench_jobs::label(&job));
+            run.tell(News::Row(Row::Hint { text: text.clone().into(), contract: None }));
+            run.tell(News::System(Phrase::new("ov_a_werkbank_titel"), text));
         }
     }
 
@@ -665,7 +678,7 @@ pub(crate) fn keep_signatures_with(
 /// of the patch and the location row the names of the patch, without the main window having been open. Each is read
 /// from the game data only when the archive changed. `paths` are those of the thread ([`thread_paths`]).
 pub fn keep_signatures(paths: Paths, guard: writeguard::State) {
-    let started = std::thread::Builder::new().name("signatures".into()).spawn(move || {
+    let started = std::thread::Builder::new().name("signatures".into()).spawn_with_language(move || {
         writeguard::adopt(&guard);
         keep_signatures_with(&paths, versekit_gamedata::mineables::keep_current);
         versekit_gamedata::quality_goods::keep(&paths);
@@ -715,7 +728,7 @@ pub(crate) fn keep_stock_once(
 /// the build of the running game, and the goods list when it is due for that build. On a copy of the data, whose
 /// lock refuses the writes, the thread ends after telling them. `paths` are those of the thread ([`thread_paths`]).
 pub fn keep_stock(paths: Paths, guard: writeguard::State, news: Sender<News>, wake: impl Fn() + Send + 'static) {
-    let started = std::thread::Builder::new().name("lagerlisten".into()).spawn(move || {
+    let started = std::thread::Builder::new().name("lagerlisten".into()).spawn_with_language(move || {
         writeguard::adopt(&guard);
         let user_agent = versekit_core::basetool::config::user_agent(env!("CARGO_PKG_VERSION"));
         let fetch = versekit_core::stock_fetch::live_fetcher(&user_agent);
@@ -756,7 +769,7 @@ pub fn keep_texts(paths: Paths, guard: writeguard::State, news: Sender<News>, wa
 pub fn keep_texts_alone(window: &Paths, guard: writeguard::State, overlay_runs: impl Fn() -> bool + Send + 'static) {
     let (news, told) = std::sync::mpsc::channel::<News>();
     // The receiver lives as long as the program: the thread of the texts ends when nobody takes its news.
-    let drained = std::thread::Builder::new().name("spieltexte-fenster-meldungen".into()).spawn(move || {
+    let drained = std::thread::Builder::new().name("spieltexte-fenster-meldungen".into()).spawn_with_language(move || {
         for _ in told {}
     });
     if let Err(error) = drained {
@@ -808,7 +821,7 @@ fn keep_texts_while(
     use std::sync::Arc;
     use versekit_core::game_texts::watch::Watch as TextsWatch;
     use versekit_core::translation;
-    let started = std::thread::Builder::new().name("spieltexte-wache".into()).spawn(move || {
+    let started = std::thread::Builder::new().name("spieltexte-wache".into()).spawn_with_language(move || {
         writeguard::adopt(&guard);
         let paths = Arc::new(paths);
         let net = Arc::new(versekit_core::net::Web::new(
@@ -865,7 +878,7 @@ fn keep_texts_while(
 pub fn start(start: Start, news: Sender<News>, asks: Receiver<Ask>, wake: impl Fn() + Send + 'static) {
     std::thread::Builder::new()
         .name("watcher".into())
-        .spawn(move || {
+        .spawn_with_language(move || {
             writeguard::adopt(&start.guard);
             if start.counter_write {
                 let outside = std::env::temp_dir().join("versekit-gegenprobe-schreiben.txt");
@@ -969,13 +982,21 @@ fn run(
     run.seen = collection::keys_seen_in_game(&run.data).into_iter().collect();
     let mut tail = LogTail::new(&source, state, pattern);
     let mut contracts = Contracts::new(paths, &mut tail);
-    tail.new_names();
-    // What this first look read belongs to nobody: the state comes from the whole log.
-    SectionScan::taken(&contracts.section);
+    // What this first look read belongs to nobody: the state comes from the whole log. One block at a time, to
+    // the end of the log.
+    loop {
+        tail.new_names();
+        SectionScan::taken(&contracts.section);
+        if !tail.behind {
+            break;
+        }
+    }
     let mut shards = Shards::default();
     if let Some(log) = contracts.at_start(&run) {
-        shards.whole(&run, &log);
-        tell_own_handle(&run, &log);
+        shards.whole(&run, log.lines());
+        if let Some(handle) = log.handle() {
+            run.tell(News::OwnHandle(handle));
+        }
     }
     run.tell(News::Status(run.status(tail.path.is_some())));
     let denied = writeguard::take_denied();
@@ -1040,6 +1061,10 @@ fn run(
             if changed {
                 run.save();
             }
+        }
+        // A block was read and the log goes on: the next look comes at once, not after the interval.
+        if tail.behind {
+            next = Instant::now();
         }
         // After the blueprints: a blueprint just received stands in the collection when the contract is checked.
         contracts.report(&run, &tail.last_text);
@@ -1507,7 +1532,7 @@ mod tests {
 
     #[test]
     fn the_phrase_of_an_unknown_client_is_learned_from_the_catalog_names_and_said_once() {
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (home, paths) = foreign_game("sprache-lernen");
         let catalog = catalog_of(&["Attrition-5 Repeater", "Singe Cannon (S2)"]);
         let sources = LogSource::sources_of(&paths);
@@ -1523,7 +1548,7 @@ mod tests {
 
     #[test]
     fn the_start_learns_the_phrase_before_it_reads_the_kept_logs() {
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (home, paths) = foreign_game("sprache-start");
         let catalog = catalog_of(&["Attrition-5 Repeater", "Singe Cannon (S2)", "10-Series Greatsword Cannon"]);
         let cache = paths.app_file(versekit_core::catalog_cache::CACHE_FILE);
@@ -1650,7 +1675,7 @@ mod tests {
 
     #[test]
     fn graphics_settings_kept_for_the_end_of_the_game_are_written_when_it_is_quiet_and_told_once() {
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (home, _) = home("grafik-vorgemerkt");
         let game = format!("{home}/StarCitizen/LIVE");
         let profile = format!("{game}/USER/Client/0/Profiles/default");
@@ -1716,6 +1741,77 @@ mod tests {
         periodic.graphics_next = Instant::now();
         periodic.graphics(&run);
         assert!(told.try_recv().is_err(), "told once");
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    /// A job that is over, kept as the main window keeps it.
+    fn write_due_job(paths: &Paths, material: &str) {
+        let text =
+            format!(r#"{{"version": 1, "auftraege": [{{"materials": ["{material}"], "total": "12", "ends": 1.0}}]}}"#);
+        let file = paths.app_file(refinery_jobs::FILE);
+        std::fs::create_dir_all(std::path::Path::new(&file).parent().expect("folder")).expect("folder");
+        std::fs::write(file, text).expect("jobs");
+    }
+
+    /// What `Periodic::refinery` told, in kinds: hint rows, system messages, opening and sounds.
+    fn told_by_refinery(paths: &Paths) -> Vec<&'static str> {
+        let names = BackRoute { paths, archive: &NoArchive };
+        let collection = Collection {
+            paths,
+            catalog: &collection::NoCatalog,
+            names: &names,
+            exports: &collection::NoExports,
+            clock: collection::now_text,
+        };
+        let (news, told) = std::sync::mpsc::channel();
+        let data = collection.load();
+        let run = Run {
+            paths,
+            collection,
+            data,
+            stamp: None,
+            seen: HashSet::new(),
+            meta: HashMap::new(),
+            pattern: regex::Regex::new("x").expect("pattern"),
+            news,
+            wake: Box::new(|| {}),
+            said: false,
+        };
+        let mut periodic = Periodic::new(Duration::from_secs(3600));
+        periodic.refinery_next = Instant::now();
+        periodic.refinery(&run);
+        let mut kinds = Vec::new();
+        while let Ok(item) = told.try_recv() {
+            kinds.push(match item {
+                News::Row(_) => "hint",
+                News::System(..) => "system",
+                News::Opens(_) => "opens",
+                News::Beep => "beep",
+                _ => "other",
+            });
+        }
+        kinds
+    }
+
+    #[test]
+    fn a_refinery_job_that_is_done_makes_a_sound_of_its_own_unless_it_is_switched_off() {
+        language::set_thread_language(language::Choice::De);
+        let (home, paths) = home("raffinerie-ton");
+        write_due_job(&paths, "Gold");
+        // On without a setting: hint, message of the system, opening, and the sound.
+        assert_eq!(told_by_refinery(&paths), ["hint", "system", "opens", "beep"]);
+        // Told once: the job is marked.
+        assert!(told_by_refinery(&paths).is_empty());
+        // Switched off: everything else is told, the sound is not. The sound for a new blueprint does not matter.
+        assert!(paths.set_setting(versekit_core::sound::REFINERY_SETTING, versekit_core::jsonio::Value::Bool(false)));
+        assert!(paths.set_setting(keys::SOUND, versekit_core::jsonio::Value::Bool(true)));
+        write_due_job(&paths, "Quantainium");
+        assert_eq!(told_by_refinery(&paths), ["hint", "system", "opens"]);
+        // And the other way round: the sound of the refinery on, the one for a blueprint off.
+        assert!(paths.set_setting(versekit_core::sound::REFINERY_SETTING, versekit_core::jsonio::Value::Bool(true)));
+        assert!(paths.set_setting(keys::SOUND, versekit_core::jsonio::Value::Bool(false)));
+        write_due_job(&paths, "Taranite");
+        assert_eq!(told_by_refinery(&paths), ["hint", "system", "opens", "beep"]);
         let _ = std::fs::remove_dir_all(home);
     }
 
@@ -1874,7 +1970,7 @@ mod tests {
         };
         let mut shards = Shards::default();
         let log = contracts.at_start(&run).expect("the running log");
-        shards.whole(&run, &log);
+        shards.whole(&run, log.lines());
         assert_eq!(said(&told), [vec![first.to_string()]]);
         // The same join once more and a new one: the line follows, each join once.
         let second = "pub_euw1b_33334444_2";
@@ -2041,7 +2137,7 @@ mod tests {
 
     #[test]
     fn a_test_channel_gets_its_hint_once_and_again_after_a_change() {
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let mut told = None;
         assert!(channel_hint(&mut told, None).is_none());
         assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\LIVE")).is_none(), "LIVE says nothing");
@@ -2058,7 +2154,7 @@ mod tests {
 
     #[test]
     fn the_code_says_class_size_and_grade() {
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         assert_eq!(code(Some("Military"), Some(2), Some('A')), "Militär · S2 · A");
         assert_eq!(code(None, Some(1), None), "S1");
         assert_eq!(code(Some("Unbekannt"), None, None), "Unbekannt");

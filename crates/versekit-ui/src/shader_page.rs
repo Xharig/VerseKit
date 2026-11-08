@@ -192,7 +192,7 @@ impl ShaderState {
         self.measured_at = Some(now);
         let (sender, receiver) = mpsc::channel();
         let copy = paths.working_copy();
-        std::thread::spawn(move || {
+        versekit_core::language::spawn_with_language(move || {
             let branches = Branches::read(&copy);
             let places = shader_cache::find_places(
                 &shader_cache::sc_cache_roots(&copy),
@@ -482,7 +482,7 @@ pub fn show_body(ui: &mut Ui, scheme: &Scheme, state: &mut ShaderState, paths: &
             None => {
                 let (sender, receiver) = mpsc::channel();
                 let copy = paths.working_copy();
-                std::thread::spawn(move || {
+                versekit_core::language::spawn_with_language(move || {
                     let branches = Branches::read(&copy);
                     let places = shader_cache::find_places(
                         &shader_cache::sc_cache_roots(&copy),
@@ -507,7 +507,7 @@ pub fn show_body(ui: &mut Ui, scheme: &Scheme, state: &mut ShaderState, paths: &
                 let (sender, receiver) = mpsc::channel();
                 let copy = paths.working_copy();
                 let (places, picked, scope) = (asked.places.clone(), asked.picked(), asked.scope);
-                std::thread::spawn(move || {
+                versekit_core::language::spawn_with_language(move || {
                     // "Nur alte": the installed versions are read again, the core empties only what is old now.
                     let branches = (scope == Scope::OnlyOld).then(|| Branches::read(&copy));
                     let _ = sender.send(shader_cache::clear_places(&asked.places, &picked, branches.as_ref()));

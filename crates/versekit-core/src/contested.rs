@@ -380,7 +380,7 @@ pub fn minutes_seconds(seconds: i64) -> String {
 
 /// The local time of day of a moment as `HH:MM`.
 pub fn clock(seconds: i64) -> String {
-    formats::local_time(seconds).map(|time| formats::strftime("%H:%M", &time)).unwrap_or_default()
+    formats::local_time(seconds).map(|time| formats::strftime_shown("%H:%M", &time)).unwrap_or_default()
 }
 
 /// A moment in local time for a list: `today 22:15` on the day of `now`, else day and time (`24.10. 22:15`, in
@@ -390,13 +390,13 @@ pub fn when(lang: Lang, seconds: i64, now: i64) -> String {
         return String::new();
     };
     if (at.year, at.month, at.day) == (today.year, today.month, today.day) {
-        return tf("s_sp_heute", &[("0", Arg::from(formats::strftime("%H:%M", &at)))]);
+        return tf("s_sp_heute", &[("0", Arg::from(formats::strftime_shown("%H:%M", &at)))]);
     }
     let format = match lang {
         Lang::De => "%d.%m. %H:%M",
         Lang::En => "%m-%d %H:%M",
     };
-    formats::strftime(format, &at)
+    formats::strftime_shown(format, &at)
 }
 
 /// The compact line of the overlay: the short name, the lamps, and what the hangar does next.

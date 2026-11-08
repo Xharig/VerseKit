@@ -25,6 +25,7 @@
 //! system and `js2` in the game), and the name is spelled differently in all three places. What joins them is
 //! the id, never the name.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
 
@@ -188,7 +189,7 @@ impl JoystickState {
             let copy = paths.working_copy();
             let source = Arc::clone(&self.source);
             let before = self.look.as_ref().map(|look| Arc::clone(&look.files));
-            let spawned = std::thread::Builder::new().name("joysticks-look".into()).spawn(move || {
+            let spawned = std::thread::Builder::new().name("joysticks-look".into()).spawn_with_language(move || {
                 let _ = sender.send(read_look(&copy, &*source, before));
             });
             match spawned {
@@ -1004,7 +1005,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         guard
     }
 

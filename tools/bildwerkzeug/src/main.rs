@@ -497,6 +497,89 @@ fn touch(name: &str, english: bool, s: &mut Shots) {
         s.steps(8);
         return;
     }
+    if name == "meinlager" || name == "bergbau" || name == "herstellung" {
+        // What is new on the page, unfolded: the yield of the refinery with its storage place, the nine methods of
+        // the refinery side by side, the jobs at the fabricator. A folded head is found by the start of its text.
+        let head = match name {
+            "meinlager" => versekit_core::language::t("s_rf_titel"),
+            "bergbau" => versekit_core::language::t("s_rm_alle"),
+            _ => versekit_core::language::t("s_wb_titel"),
+        };
+        let found = s
+            .harness
+            .query_all_by(|n| n.label().or_else(|| n.value()).is_some_and(|v| v.starts_with(&head)))
+            .map(|n| n.rect())
+            .next();
+        match found {
+            Some(fold) => s.click(fold.center()),
+            None => println!("{name}: Klappe „{head}“ nicht gefunden"),
+        }
+        s.steps(12);
+        if name != "herstellung" {
+            return;
+        }
+        // The recipe of one blueprint open beside the list: typed into the search of the blueprints (the wide field;
+        // the narrow one above it is the name of a new job), then the hit below the field.
+        let fields = sorted(s.harness.query_all_by_role(Role::TextInput).map(|n| n.rect()).collect());
+        let Some(field) = fields.iter().find(|f| f.min.x > 240.0 && f.width() > 300.0).copied() else {
+            println!("{name}: Suchfeld nicht gefunden, Seite ohne Auswahl");
+            return;
+        };
+        s.click(field.center());
+        // A cooler of the game data on the made-up installation, the cooler of the sample data on the sample page.
+        for word in ["Glacier", "Frostline"] {
+            s.type_text(word);
+            s.steps(8);
+            let hit = s
+                .harness
+                .query_all_by(|n| n.label().or_else(|| n.value()).is_some_and(|v| v.contains(word)))
+                .map(|n| n.rect())
+                .find(|r| r.min.y > field.max.y + 10.0);
+            if let Some(hit) = hit {
+                s.click(hit.center());
+                s.steps(8);
+                return;
+            }
+            for _ in 0..word.len() {
+                s.harness.key_press(egui::Key::Backspace);
+            }
+            s.steps(4);
+        }
+        println!("{name}: kein Kühler gefunden, Seite ohne Auswahl");
+        return;
+    }
+    if name == "beziehungen" {
+        // One of the made-up handles marked as watched, so that all four stances stand in the list.
+        use versekit_core::language::{Arg, t, tf};
+        let label =
+            tf("s_hq_handle_als", &[("haltung", Arg::Text(t("s_hq_beobachten"))), ("org", Arg::Text("Vex".into()))]);
+        // The marks of the rows top to bottom; the handle Vex stands last.
+        match s.named(&label).last().copied() {
+            Some(mark) => s.click(mark.center()),
+            None => println!("{name}: Markierung „{label}“ nicht gefunden"),
+        }
+        s.steps(8);
+        return;
+    }
+    if name == "laeden" {
+        // The shops of one place: the field "Ort oder Shop" below the search, then the cursor out of it.
+        let fields = sorted(s.harness.query_all_by_role(Role::TextInput).map(|n| n.rect()).collect());
+        let Some(field) = fields.iter().filter(|f| f.min.x > 240.0).nth(1).copied() else {
+            println!("{name}: Feld „Ort oder Shop“ nicht gefunden");
+            return;
+        };
+        s.click(field.center());
+        s.type_text("Area 18");
+        s.steps(8);
+        s.harness.key_press(egui::Key::Escape);
+        s.steps(4);
+        let lead = versekit_core::language::t("s_ld_ort");
+        if let Some(line) = s.texts(&lead).first().copied() {
+            s.click(line.center());
+        }
+        s.steps(8);
+        return;
+    }
     if name == "hangar" {
         // The loadout of the first ship unfolded: its slots from the game data.
         let title = versekit_core::language::t("s_wk_titel");
@@ -520,7 +603,6 @@ fn touch(name: &str, english: bool, s: &mut Shots) {
         return;
     }
     let search = match name {
-        "laeden" => "CF-337 Panther",
         "bergung" => "Cutlass Black",
         "zerlegen" => "Aves Helmet",
         _ => return,
@@ -597,19 +679,6 @@ fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>,
         let mut s = Shots { dir: dir.to_string(), harness };
         s.steps(12);
         touch(name, english, &mut s);
-        // A page that only lists shows more with the first entry open.
-        if name == "herstellung" {
-            let first = s
-                .harness
-                .query_all_by(|n| n.label().or_else(|| n.value()).is_some_and(|v| v.contains("Frostline")))
-                .map(|n| n.rect())
-                .next();
-            match first {
-                Some(first) => s.click(first.center()),
-                None => println!("Herstellung: Frostline nicht gefunden, Seite ohne Auswahl"),
-            }
-            s.steps(8);
-        }
         s.harness.remove_cursor();
         s.steps(3);
         let image = (0..5)
@@ -684,7 +753,7 @@ fn review_pictures(dir: &str) {
 /// (`install.rs`): the window model on real data, with nothing of the computer touched. Named as the website takes
 /// them, like [`website_pictures`].
 fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&std::path::Path>) {
-    let pages: [(&str, &str); 18] = [
+    let pages: [(&str, &str); 19] = [
         ("hangar", "hf_hangar"),
         ("bergung", "hf_bergung"),
         ("zerlegen", "hf_bergung"),
@@ -703,8 +772,25 @@ fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&s
         ("verkauf", "hf_verkauf"),
         ("bestand", "hf_sichern"),
         ("ueber", "hf_ueber"),
+        // The jobs at the fabricator are kept in the data folder: the page needs the made-up installation. Last,
+        // because opening it folds groups of the menu, and the folding is kept for the pages after it.
+        ("herstellung", "hf_herstellung"),
     ];
     let (tmp, host) = install::build(SETTINGS_OF_4_12, market);
+    {
+        // Three made-up jobs at the fabricator, entered a while ago: two run, one waits.
+        let paths = versekit_core::paths::Paths::new(host.clone());
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0.0, |d| d.as_secs_f64());
+        for (job, minutes, ago) in
+            [("Arclight Pistol", 45, 30.0), ("Pembroke Helmet", 90, 25.0), ("Morozov-SH Helmet", 30, 20.0)]
+        {
+            if let Err(e) = versekit_core::workbench_jobs::add(&paths, job, minutes * 60, now - ago * 60.0) {
+                println!("Fabrikator-Auftrag {job} nicht eingetragen: {e:?}");
+            }
+        }
+    }
     for (name, key) in pages {
         if only.is_some_and(|only| only != name) {
             continue;

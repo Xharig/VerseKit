@@ -22,6 +22,7 @@
 //! net.
 
 pub mod cache;
+pub mod iris;
 pub mod log_monitor;
 pub mod members;
 pub mod org;
@@ -68,6 +69,7 @@ impl From<FetchError> for Failure {
             FetchError::Missing => Failure::NotFound,
             FetchError::Offline => Failure::Offline,
             FetchError::Refused => Failure::Failed("HTTP 403".to_string()),
+            FetchError::RateLimited(_) => Failure::Failed("HTTP 429".to_string()),
             FetchError::Failed(what) => Failure::Failed(what),
         }
     }

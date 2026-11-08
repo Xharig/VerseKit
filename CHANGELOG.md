@@ -6,89 +6,242 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.1 - 2026-11-08
+
+> Shops nach Ort, Fabrikator-Aufträge und Markierungen wie IRIS sind neu.
+> Der Raffinerie-Scan setzt die Station als Lagerort, die Verfahren kommen
+> aus den Spieldaten. Der Abgleich mit dem Basetool sendet nur noch, was
+> sich geändert hat, und im Hangar passen nur noch Teile des eigenen Schiffs.
+
+### Neu
+
+- **Hinweis nach einem Absturz.** Ist VerseKit beim letzten Mal
+  abgestürzt, sagt es das beim nächsten Start einmal. „Bericht ansehen“
+  öffnet „Fehler melden“. Dort liest du den Bericht und sendest ihn nur,
+  wenn du willst. „Nicht senden“ verwirft den Absturz. Wunsch von
+  Blackd0g84
+- **Einsatzbereit und Einkaufsliste gehören zusammen.** Stellst du ein
+  Schiff auf Einsatzbereit, fragt VerseKit, ob die offenen Posten seiner
+  Einkaufsliste als eingebaut abgehakt werden sollen. Hakst du den letzten
+  Posten eines Schiffs ab, steht es von selbst auf Einsatzbereit.
+  Schaltest du es aus, bleibt es aus, bis ein neuer Posten dazukommt und
+  abgehakt ist. Wunsch von Aeternitas26 [KRT]
+- **Markierungen wie IRIS.** Neben Freundlich, Neutral und Feindlich gibt
+  es „Beobachtet“. Beziehungen übernimmt VerseKit auch aus TOML-Listen im
+  Format sc-social-overlay, die Farben werden zu Haltungen. Eine Org kann
+  ihre Liste unter einer https-Adresse teilen. „Liste laden“ holt sie auf
+  Klick und ergänzt nur neue Namen, deine eigenen Markierungen bleiben.
+  Wunsch von Kuehlwagen [KRT]
+- **Fabrikator-Aufträge.** Auf der Seite Herstellung trägst du ein, was
+  am Fabrikator läuft, mit der Zeit aus dem Spiel. Zwei laufen
+  gleichzeitig, die übrigen rücken nach. VerseKit zeigt die Restzeit,
+  meldet „fertig“ und zeigt die Aufträge auf Wunsch im Overlay.
+- **Shops nach Ort und Shop.** Unter Shops wählst du einen Ort und siehst
+  seine Shops. Ein Klick zeigt das ganze Angebot eines Shops mit Preis,
+  von dort geht es wie gewohnt in die Einkaufsliste. Einen Shop wie
+  CenterMass findest du auch direkt über seinen Namen im Feld „Ort oder
+  Shop“. Wunsch von Blackd0g84
+- **Raffinerie-Verfahren aus den Spieldaten.** Ausbeute, Tempo und Kosten
+  der neun Verfahren liest VerseKit jetzt aus deiner Data.p4k, so wie das
+  Terminal sie zeigt. Fünf Verfahren hatten in der alten Tabelle
+  vertauschte Werte, die Empfehlung stimmt jetzt mit dem Spiel überein.
+  Ohne gelesene Daten gilt weiter die Tabelle.
+- **Geänderte Spielwerte: größte Änderungen und ungelesene Patches.** Zum
+  gewählten Patch zeigt eine Karte, welche Werte am stärksten gestiegen
+  und gefallen sind. Der Zähler nennt jetzt auch, was unverändert blieb.
+  Neue Patches seit deinem letzten Besuch sind als ungelesen markiert, ein
+  Knopf markiert alle als gelesen.
+- **Verletzungen in der Statistik.** Meldet das Spiel eine Verletzung im
+  Protokoll, zählt die Statistik sie nach leicht, mittel und schwer, auf
+  Deutsch und Englisch.
+
+### Verbessert
+
+- **Basetool: nur senden, was sich geändert hat.** Ohne Änderung schickt
+  VerseKit keine Anfrage mehr. Ein Posten, den das Basetool abgelehnt hat,
+  geht erst wieder raus, wenn er sich ändert, du den Abgleich-Knopf
+  drückst oder ein Tag vergangen ist. Meldet das Basetool ein volles
+  Budget, wartet VerseKit die genannte Zeit ab, auch über einen Neustart,
+  und sendet danach. Hinweis von greluc
+- **Basetool: Pause sichtbar.** Bittet das Basetool VerseKit um eine
+  Pause, zeigt die Verbindungsseite, bis wann und warum. Danach gleicht
+  VerseKit von selbst weiter ab.
+- **Raffinerie-Ort aus dem Terminal.** „Bildschirm lesen“ erkennt auch
+  die Station oben im Raffinerie-Terminal und setzt sie als Lagerort, wenn
+  sie sicher in der Ortsliste steht. Sonst bleibt der zuletzt benutzte
+  Ort. Du kannst ihn jederzeit ändern.
+- **Raffinerie-Ausbeute: Lagerort.** Das Feld startet mit dem zuletzt
+  benutzten Ort. Ist es leer, wird es markiert, und der Eintragen-Knopf
+  führt dich dorthin, bevor ohne Ort gespeichert wird.
+- **Übersetzung schont das Abruflimit von GitHub.** Die Prüfung auf eine
+  neue Fassung merkt sich die letzte Antwort und fragt nur noch, ob sich
+  etwas geändert hat. Ist das Limit erreicht, pausiert sie bis zur
+  genannten Zeit.
+- **Vier Einstellungen wirken.** Auf der Seite Allgemein tun jetzt alle
+  vier, was sie sagen: „Grafikkarte nutzen“ (nach einem Neustart), die
+  24-Stunden-Uhr für alle Uhrzeiten, der Ton „Raffinerie fertig“ und die
+  Lautstärke aller Töne. Unter Windows klingt der Ton bei neuen Bauplänen
+  jetzt wie der eingebaute Ton von VerseKit.
+- **Spielbild mit Wartezeit und Tastenkürzel.** „Spielbild holen“ wartet
+  5, 10, 20 oder 30 Sekunden (ab Werk 10) und zählt sichtbar herunter.
+  So kannst du im Spiel erst den Scanner anschalten und scannen. „Warten
+  abbrechen“ hält es an. Im Spiel nimmt Alt+Umschalt+B das Bild sofort
+  auf, einstellbar unter Overlay bei den Tastenkürzeln.
+- **Startmenü unter Windows.** Die Zeile „Eintrag im Startmenü“ steht
+  jetzt auch unter Windows. Dort legt der Installer den Eintrag an.
+- **Testfassung erkennbar.** Läuft VerseKit als Testfassung oder auf
+  einer Testkopie der Daten, sagt das die Kopfzeile neben der Version.
+  So verwechselst du es nicht mit deinem echten VerseKit.
+- **Testkanal-Hinweis genauer.** Seiten mit Spieldaten aus PTU, EPTU oder
+  TECH-PREVIEW nennen den Kanal und sagen, dass sich die Daten bis LIVE
+  noch ändern können. Auch Mein Hangar zeigt den Hinweis jetzt.
+- **Kräftigeres Rot in allen Farbschemata.** Fehler, Absagen und
+  Gefahrenknöpfe stehen jetzt in einem klar erkennbaren Rot, das sich von
+  Gold, Gelb und Orange deutlich abhebt. Meldung von Parsul [KRT]
+- **Menü am Symbol neben der Uhr in VerseKit-Farben.** Ein Rechtsklick
+  öffnet das Menü dunkel in den Farben von VerseKit, der Eintrag unter
+  der Maus leuchtet grün. Es öffnet und schließt wie gewohnt und stört das
+  Spiel nicht.
+- **Notizen: Zettelliste mit Eckwinkeln.** Die Liste der Zettel trägt die
+  Eckwinkel wie die anderen großen Listen.
+- **Handle-Suche: Das Kürzel markiert den letzten Handle.** Du kannst
+  gleich drübertippen. Wunsch von Kuehlwagen [KRT]
+
+### Behoben
+
+- **Basetool: Items über den Klassennamen.** Schiffsteile und Geräte wie
+  CoverAll, MegaFlux, Mirage, Okunis, AD6B Ballistic Gatling oder M5A
+  Cannon gehen mit ihrem Klassennamen ohne Anzeigenamen ins Basetool und
+  werden nicht mehr als mehrdeutig abgelehnt. Rohstoffe bleiben wie sie
+  sind. Hinweis von greluc
+- **Teilen ins Lager der Einheit.** Klappt das Teilen gerade nicht (Netz,
+  volles Budget beim Basetool), bleibt der Posten bei dir eingetragen und
+  VerseKit holt das Teilen selbst nach, auch nach einem Neustart. Neu
+  eintragen musst du nichts, die Meldung sagt das. Geteilt
+  wird dabei nur einmal, auch wenn die erste Antwort unterwegs verloren
+  ging.
+- **„Was ist neu“ fasste Versionen zusammen.** Die Seite zeigte 5.1.0 bis
+  5.1.4 als einen Eintrag „v5.1“. Jetzt steht jede Version für sich. Im
+  Kopf steht nur noch die Versionsnummer, ohne Datum. Die Texte sind in
+  kürzeren Sätzen gesetzt.
+- **„Was ist neu“ mischte die Sprachen.** Die Versionen 4.12.1 bis 4.12.5
+  standen auf der deutschen Seite auf Englisch und auf der englischen Seite
+  auf Deutsch. Beide Fassungen sind jetzt im Programm, und die Seite wählt
+  den Text der GitHub-Releases nach der Sprache richtig.
+- **Alter Name in den Kennungen.** Übersetzung, Update-Prüfung und
+  Rangliste melden sich bei den Servern als VerseKit mit Versionsnummer,
+  nicht mehr mit dem alten Namen.
+- **Datenschutzerklärung vollständig.** Sie nennt jetzt auch „Liste
+  laden“, die Handle-Suche und den Takt der Contested Zones, und UEX mit
+  der Adresse, die wirklich gefragt wird.
+- **Mein Lager: Abzeichen über dem Ort.** Bei langen Namen mit Kürzel
+  ragten die Abzeichen in der Items-Liste in die Spalte Ort. Was nicht
+  passt, steht jetzt im Abzeichen „+n“.
+- **Hangar: Flight Blades nur fürs eigene Schiff.** Der Platz für das
+  Flight Blade bietet nur noch die Blades des eigenen Schiffs an, nicht
+  mehr die aller Schiffe.
+- **Hangar: Lacke nur fürs eigene Schiff.** Der Lack-Platz bietet nur noch
+  die Lacke des eigenen Schiffs an. Wo die Spieldaten das nicht sagen,
+  gibt es keine Auswahl statt einer falschen.
+- **Titel der Testkopie übersetzt.** Das Fenster einer Testkopie heißt
+  auf Englisch jetzt „test copy“.
+- **scmdb nur über https.** Eine Umleitung auf eine unverschlüsselte
+  Adresse wird nicht mehr befolgt.
+- **Mein Lager sagt, warum ein Posten nicht geteilt werden kann.** Wo der
+  Knopf „Ins Lager der Einheit“ fehlte, steht jetzt ein grauer Knopf mit
+  dem Grund. Etwa kennt das Basetool den Posten noch nicht, nennt keine
+  Aufteilung, oder du bist in keiner Einheit.
+- **Speicher beim Start und in der Statistik.** Beim Start des Overlays
+  und bei der Spielzeit las VerseKit ein sehr großes Spielprotokoll noch
+  einmal ganz ein, bei 500 MB bis zu 1 GB. Jetzt liest es in Stücken und
+  bleibt bei wenigen MB. Das gilt auch für den Auftragsverlauf und für
+  das Mitlesen nach einer langen Pause.
+
 ## v5.2.0 - 2026-11-07
 
-> Die Ausstattung im Hangar kommt jetzt aus den Spieldaten, mit jedem
-> Steckplatz einzeln, und lässt sich teilen. Dazu liest der
+> Die Ausstattung im Hangar kommt jetzt aus den Spieldaten. Jeder Steckplatz
+> steht einzeln da, und die Ausstattung lässt sich teilen. Dazu liest der
 > Raffinerie-Scan das deutsche Terminal und lange Listen.
 
 ### Neu
 
-- **Steckplätze aus den Spieldaten** — Jedes Schiff zeigt seine Plätze bis
-  ganz unten: Turm und Waffen, Gestell und Raketen, Bergbaukopf und Module.
-  Gelesen wird nur, wenn Star Citizen geschlossen ist.
-- **Jeder Platz einzeln** — Gleiche Plätze stehen in einer Zeile, der Pfeil
+- **Steckplätze aus den Spieldaten.** Jedes Schiff zeigt seine Plätze bis
+  ganz unten. Das sind Turm und Waffen, Gestell und Raketen, Bergbaukopf und
+  Module. Gelesen wird nur, wenn Star Citizen geschlossen ist.
+- **Jeder Platz einzeln.** Gleiche Plätze stehen in einer Zeile. Der Pfeil
   am Ende öffnet jeden Platz für sich. Jede Liste endet mit „Leer lassen“.
-- **Ausstattung teilen** — Als Code für Discord oder als Datei. Beim
-  Einfügen siehst du vorher, was ankommt. Die Ausstattung eines anderen
+- **Ausstattung teilen.** Du teilst sie als Code für Discord oder als Datei.
+  Beim Einfügen siehst du vorher, was ankommt. Die Ausstattung eines anderen
   Schiffs desselben Typs lässt sich übernehmen.
-- **Schiffe verschieben** — Zwischen Geplant und Mein Hangar, samt
-  Ausstattung, Name und Notiz.
-- **Fest verbaute Teile** — Plätze, die man im Spiel nicht umrüsten kann,
-  stehen mit ihrem Teil und „fest verbaut“ da, ohne Auswahl und ohne
-  Warenkorb.
-- **Raffinerie: lange Listen** — Scannen, im Terminal scrollen, noch einmal
-  scannen: Beide Scans werden ein Auftrag, doppelte Zeilen zählen einmal.
+- **Schiffe verschieben.** Du verschiebst Schiffe zwischen Geplant und Mein
+  Hangar, samt Ausstattung, Name und Notiz.
+- **Fest verbaute Teile.** Plätze, die man im Spiel nicht umrüsten kann,
+  stehen mit ihrem Teil und „fest verbaut“ da. Dort gibt es keine Auswahl
+  und keinen Warenkorb.
+- **Lange Listen in der Raffinerie.** Du scannst, scrollst im Terminal und
+  scannst noch einmal. Beide Scans werden ein Auftrag. Doppelte Zeilen
+  zählen einmal.
 
 ### Verbessert
 
-- **Ausstattung nach Turm getrennt** — Die Waffen von Nasen- und Kugelturm
+- **Ausstattung nach Turm getrennt.** Die Waffen von Nasen- und Kugelturm
   der F7C-M stehen in eigenen Zeilen.
-- **Bergbau** — Die aufgeklappten Fundorte haben Streifen, die Anteile
-  rechts bleiben bei ihrem Ort.
+- **Bergbau.** Die aufgeklappten Fundorte haben Streifen. Die Anteile rechts
+  bleiben bei ihrem Ort.
 
 ### Behoben
 
-- **Meteor ohne Flügelgestelle** — Raketengestelle, die Erkul nicht als
-  tauschbar führt, fehlten in der Ausstattung (gemeldet von Aeternitas26
-  [KRT]).
-- **Raven EX doppelt** — Ein Schiff, das UEX zweimal führt, steht nur noch
-  einmal in der Liste (gemeldet von Aeternitas26 [KRT]).
-- **Raffinerie-Scan las im deutschen Spiel nichts** — Den gekürzten Kopf
-  „AUSBEU“ und die eng gesetzten Spaltenköpfe erkennt VerseKit jetzt, die
+- **Meteor ohne Flügelgestelle.** Raketengestelle, die Erkul nicht als
+  tauschbar führt, fehlten in der Ausstattung. Gemeldet von Aeternitas26
+  [KRT]
+- **Raven EX doppelt.** Ein Schiff, das UEX zweimal führt, steht nur noch
+  einmal in der Liste. Gemeldet von Aeternitas26 [KRT]
+- **Raffinerie-Scan las im deutschen Spiel nichts.** Den gekürzten Kopf
+  „AUSBEU“ und die eng gesetzten Spaltenköpfe erkennt VerseKit jetzt. Die
   Spalte „ANZ.“ beim Einrichten rutscht nicht mehr in die Ausbeute.
-- **Herstellung** — Der Klick auf ein Material führte bei breitem Fenster
+- **Herstellung.** Der Klick auf ein Material führte bei breitem Fenster
   nicht zum Bergbau.
 
 ## v5.1.4 - 2026-11-06
 
-> Ein einheitliches Bild auf allen Seiten, eine eigene Titelleiste, neue
-> Seiten für Übersetzung und Achsen, dazu ein Fix für das Mining-HUD.
+> Alle Seiten sehen einheitlich aus. VerseKit hat eine eigene Titelleiste.
+> Übersetzung und Achsen sind neue Seiten. Dazu kommt ein Fix für das
+> Mining-HUD.
 
 ### Neu
 
-- **Eigene Titelleiste** — VerseKit zeichnet die Leiste oben selbst, mit
+- **Eigene Titelleiste.** VerseKit zeichnet die Leiste oben selbst, mit
   größerem Namen und eigenen Knöpfen. Unter Windows 11 erscheinen die
   Snap-Layouts am Maximieren-Knopf.
-- **Übersetzung neu** — Je Kanal eine Karte mit Sprachliste und Quellen.
-  Testkanäle und HOTFIX können „Wie LIVE“ folgen, die eigene Adresse ist
-  ein Knopf.
-- **Achsen & Kurven neu** — Geräte als Reiter, die Achsenliste links, rechts
-  die gewählte Achse mit großer Kurve. „In die Belegungsdatei schreiben“
-  steht fest unten.
-- **Shader-Cache auf der Seite Grafik** — Die Karte zeigt die Größe, wann
+- **Übersetzung neu.** Je Kanal gibt es eine Karte mit Sprachliste und
+  Quellen. Testkanäle und HOTFIX können „Wie LIVE“ folgen. Die eigene
+  Adresse ist ein Knopf.
+- **Achsen & Kurven neu.** Geräte sind Reiter. Links steht die Achsenliste,
+  rechts die gewählte Achse mit großer Kurve. „In die Belegungsdatei
+  schreiben“ steht fest unten.
+- **Shader-Cache auf der Seite Grafik.** Die Karte zeigt die Größe, wann
   zuletzt geleert wurde und ob seit dem letzten Patch geleert wurde.
-- **„Nutzung zählen lassen“ wieder abschaltbar** — Der Schalter steht unter
+- **„Nutzung zählen lassen“ wieder abschaltbar.** Der Schalter steht unter
   Einstellungen › Allgemein › Datenschutz. Aus heißt: nichts wird gesendet.
 
 ### Verbessert
 
-- **Alle Seiten aus einem Guss** — Karten im Raster, kürzere Texte,
+- **Alle Seiten aus einem Guss.** Karten im Raster, kürzere Texte,
   einheitliche Schriftgrößen, nichts abgeschnitten. Overlay, Handle-Suche
   und das Signaturfenster sind neu aufgeteilt.
-- **Mein Lager** — Der Abgleich braucht einen Ort, der letzte Ort bleibt
-  stehen, neue Posten gehen sofort hinaus, und Ausgelassenes wird genannt.
+- **Mein Lager.** Der Abgleich braucht einen Ort. Der letzte Ort bleibt
+  stehen. Neue Posten gehen sofort hinaus. Ausgelassenes wird genannt.
 - **„Fehler melden“** zählt nur neue Fehler dieser Version.
-- **Star Citizen 5.0** — Orte und das Spielprotokoll sind vorbereitet, ein
+- **Star Citizen 5.0.** Orte und das Spielprotokoll sind vorbereitet. Ein
   Auftrag nach einem Verbindungsabbruch gilt nicht mehr als offen.
 - **Spieldaten** werden nicht gelesen, solange das Spiel läuft.
 
 ### Behoben
 
-- **Mining-HUD unlesbar** — Bei drei Bergbau-Modulen landeten die
+- **Mining-HUD unlesbar.** Bei drei Bergbau-Modulen landeten die
   Bauplan-Angaben in der Namenszeile, die das Spiel im Cockpit zeigt. Sie
   stehen jetzt in der Beschreibung. Gemeldet von greluc
-- **Hauptfenster oben aus dem Bild** — Bei Bildschirmen mit verschiedener
+- **Hauptfenster oben aus dem Bild.** Bei Bildschirmen mit verschiedener
   Skalierung lag das Fenster teils außerhalb. Es bleibt jetzt sichtbar.
   Gemeldet von greluc
 - **„Keine Übersetzung“** nimmt VerseKits Angaben jetzt zuerst aus dem Kanal.
@@ -96,38 +249,38 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v5.1.3 - 2026-11-06
 
-> Kürzel gehen jetzt auch mit einer einzelnen Taste wie F13, dazu kleine
-> Korrekturen rund um Overlay und Tastenkürzel.
+> Kürzel gehen jetzt auch mit einer einzelnen Taste wie F13. Dazu kommen
+> kleine Korrekturen rund um Overlay und Tastenkürzel.
 
 ### Neu
 
-- **Kürzel ohne Zusatztaste** — Ein Kürzel geht jetzt auch ohne Strg, Alt
-  oder Umschalt, wenn die Taste nie getippt wird: F1 bis F24, Pause,
-  Rollen, Einfg und Num / * - +, etwa F13 allein für die Handle-Suche.
-  Buchstaben und Ziffern brauchen weiter eine Zusatztaste, damit das
-  Tippen im Spiel nicht abgefangen wird. Angeregt von Kuehlwagen
-- **Kürzel der Handle-Suche ab Werk an** — Alt+Umschalt+H springt direkt
-  in die Handle-Suche der Info-Leiste, auch im laufenden Spiel. Ändern
-  oder ausschalten unter Overlay › „Tastenkombination: Handle-Suche“.
+- **Kürzel ohne Zusatztaste.** Ein Kürzel geht jetzt auch ohne Strg, Alt
+  oder Umschalt, wenn die Taste nie getippt wird. Das sind F1 bis F24,
+  Pause, Rollen, Einfg und Num / * - +. Ein Beispiel ist F13 allein für die
+  Handle-Suche. Buchstaben und Ziffern brauchen weiter eine Zusatztaste,
+  damit das Tippen im Spiel nicht abgefangen wird. Angeregt von Kuehlwagen
+- **Kürzel der Handle-Suche ab Werk an.** Alt+Umschalt+H springt direkt in
+  die Handle-Suche der Info-Leiste, auch im laufenden Spiel. Du änderst oder
+  schaltest es aus unter Overlay › „Tastenkombination: Handle-Suche“.
 
 ### Behoben
 
-- **Speicher bei vollem Spielprotokoll** — Schreibt das Spiel sein Log mit
-  Meldungen voll (etwa Millionen Zeilen „Überwachter Raum ausgefallen“),
+- **Speicher bei vollem Spielprotokoll.** Schreibt das Spiel sein Log mit
+  Meldungen voll, etwa mit Millionen Zeilen „Überwachter Raum ausgefallen“,
   wuchs VerseKit auf viele Gigabyte. Jetzt liest es nur noch das Neue und
   bleibt klein.
-- **„In die Mitte holen“ ohne Spiel** — Hast du „Auch ohne laufendes
+- **„In die Mitte holen“ ohne Spiel.** Hast du „Auch ohne laufendes
   Spiel zeigen“ ausgeschaltet, holte der Knopf das Overlay zurück, man sah
   aber nichts. Jetzt sagt er, warum, und wie du es trotzdem einblendest.
   Gemeldet von Morkhan
-- **Tastenkürzel der Handle-Suche nach Klick ins Spiel** — Wer mit der Maus
+- **Tastenkürzel der Handle-Suche nach Klick ins Spiel.** Wer mit der Maus
   zurück ins Spiel klickte statt Esc zu drücken, konnte das Kürzel danach
   nicht mehr nutzen. Jetzt greift es wieder. Gemeldet von Kuehlwagen
-- **Hauptfenster größer als der Bildschirm** — War das Fenster zuletzt
-  größer gemerkt, als der Bildschirm jetzt Platz hat (andere Skalierung,
-  andere Oberflächengröße), lag die Titelleiste außer Reichweite. Jetzt
-  öffnet es höchstens so groß wie der Bildschirm und ganz darauf.
-  Gemeldet von greluc
+- **Hauptfenster größer als der Bildschirm.** Das Fenster war zuletzt größer
+  gemerkt, als der Bildschirm jetzt Platz hat. Das kam von anderer
+  Skalierung oder Oberflächengröße. Dann lag die Titelleiste außer
+  Reichweite. Jetzt öffnet es höchstens so groß wie der Bildschirm und ganz
+  darauf. Gemeldet von greluc
 
 ## v5.1.2 - 2026-11-05
 
@@ -135,223 +288,223 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Behoben
 
-- **Overlay ohne Spiel wieder sichtbar** — Seit 5.1.1 wartete das Overlay
+- **Overlay ohne Spiel wieder sichtbar.** Seit 5.1.1 wartete das Overlay
   ohne laufendes Star Citizen unsichtbar, viele hielten es für
   verschwunden. Jetzt ist „Auch ohne laufendes Spiel zeigen“ ab Werk an.
   Wer es ausgeschaltet hat, behält seine Wahl. Gemeldet von Morkhan und
   Rhino
-- **Linux: kein totes Fenster in der Taskleiste** — Wartete das Overlay
+- **Kein totes Fenster in der Taskleiste unter Linux.** Wartete das Overlay
   verborgen, stand es als leeres Fenster in der Taskleiste und ließ sich
   nicht anklicken. Jetzt verschwindet es dort ganz. Gemeldet von Rhino
 
 ## v5.1.1 - 2026-11-05
 
-> Handle-Suche und Beziehungen liegen auf einer Seite, der Notizblock
-> formatiert mit einer Knopfleiste, unter Module schaltest du
-> Herstellung, Bergbau und Beschaffung getrennt, und das Overlay wartet
-> ohne laufendes Spiel verborgen.
+> Handle-Suche und Beziehungen liegen auf einer Seite. Der Notizblock
+> formatiert mit einer Knopfleiste. Unter Module schaltest du Herstellung,
+> Bergbau und Beschaffung getrennt. Das Overlay wartet ohne laufendes Spiel
+> verborgen.
 
 ### Neu
 
-- **Handle-Suche mit zwei Reitern** — Handle-Suche und Beziehungen sind
+- **Handle-Suche mit zwei Reitern.** Handle-Suche und Beziehungen sind
   jetzt eine Seite mit den Reitern „Suche“ und „Beziehungen“. Der alte
   Menüpunkt Beziehungen führt direkt auf seinen Reiter.
-- **Notizblock mit Knopfleiste** — Fett, Kursiv, Unterstrichen,
-  Durchgestrichen, Aufzählung, Nummerierung und kleine Tabellen per Knopf
-  oder mit Strg+B, Strg+I und Strg+U. Die Formatierung siehst du direkt,
-  Markdown-Zeichen tauchen im Text nicht auf.
-- **Raffinerie je Erz einklappbar** — Unter Bergbau lässt sich jedes Erz
-  einer Raffinerie zuklappen, lange Aufträge bleiben übersichtlich.
-- **Overlay wartet ohne Spiel verborgen** — Läuft Star Citizen nicht, ist
+- **Notizblock mit Knopfleiste.** Die Knopfleiste kennt Fett, Kursiv,
+  Unterstrichen, Durchgestrichen, Aufzählung, Nummerierung und kleine
+  Tabellen. Dazu gibt es Strg+B, Strg+I und Strg+U. Die Formatierung siehst
+  du direkt. Markdown-Zeichen tauchen im Text nicht auf.
+- **Raffinerie je Erz einklappbar.** Unter Bergbau lässt sich jedes Erz
+  einer Raffinerie zuklappen. Lange Aufträge bleiben übersichtlich.
+- **Overlay wartet ohne Spiel verborgen.** Läuft Star Citizen nicht, ist
   das Overlay unsichtbar und fängt keine Klicks ab. Wer es trotzdem sehen
   will, schaltet unter Einstellungen › Overlay „Auch ohne laufendes Spiel
   zeigen“ ein. Gemeldet von fok
 
 ### Verbessert
 
-- **Overlay ohne reine Zustandszeilen** — Der wartende Streifen ist nur
+- **Overlay ohne reine Zustandszeilen.** Der wartende Streifen ist nur
   noch das Auge. „Star Citizen läuft nicht“, der Countdown, „Bleibt,
   solange …“ und „Warte auf neue Baupläne“ fallen weg. Gemeldet von fok
-- **Einkaufsroute bleibt im System** — Gibt es ein Teil in einem System,
-  das du ohnehin anfliegst, nimmt die Route diesen Laden, statt für einen
-  etwas günstigeren Preis in ein anderes System zu springen.
-- **Spielkanäle neben „Start des Spiels“** — Unter Installation & Pfade
+- **Einkaufsroute bleibt im System.** Gibt es ein Teil in einem System, das
+  du ohnehin anfliegst, nimmt die Route diesen Laden. Sie springt nicht für
+  einen etwas günstigeren Preis in ein anderes System.
+- **Spielkanäle neben „Start des Spiels“.** Unter Installation & Pfade
   steht die Karte Spielkanäle jetzt in derselben Reihe wie die anderen.
-- **Pinnadel für Handle-Suche und Beziehungen** — Beide Seiten haben
+- **Pinnadel für Handle-Suche und Beziehungen.** Beide Seiten haben
   oben neben dem Titel die Pinnadel wie die anderen Seiten. Ein Klick
   heftet sie als Karte auf die Übersicht, ein zweiter löst sie wieder.
-- **Herstellung und Bergbau getrennt** — Unter Einstellungen › Module ist
-  „Herstellen, Bergbau & Raffinerien“ jetzt zwei Module: „Herstellung“
-  (mit „Was ich farmen muss“) und „Bergbau & Raffinerien“. Wer nur minen
-  will, blendet die Herstellung aus und umgekehrt. Hattest du das alte
-  Modul aus, bleiben beide aus.
-- **Info-Leiste rastet am Rand ein** — Wie das Overlay springt die
+- **Herstellung und Bergbau getrennt.** Unter Einstellungen › Module gibt es
+  jetzt zwei Module statt „Herstellen, Bergbau & Raffinerien“. Das eine
+  heißt „Herstellung“ (mit „Was ich farmen muss“), das andere „Bergbau &
+  Raffinerien“. Wer nur minen will, blendet die Herstellung aus und
+  umgekehrt. Hattest du das alte Modul aus, bleiben beide aus.
+- **Info-Leiste rastet am Rand ein.** Wie das Overlay springt die
   Info-Leiste an den Bildschirmrand, wenn du sie knapp davor loslässt, und
   bleibt ganz auf dem Bildschirm. Angeregt von Kuehlwagen
-- **Modul Beschaffung** — Einkaufsliste und Contested Zones lassen sich
-  jetzt zusammen ausblenden. Die Einkaufsliste hing bisher am Modul
-  Schiffe; hattest du das aus, bleibt auch Beschaffung aus.
-- **Karten auf mehr Seiten** — „Sichern & Zurücksetzen“, „Spiel“, „Achsen &
+- **Modul Beschaffung.** Einkaufsliste und Contested Zones lassen sich jetzt
+  zusammen ausblenden. Die Einkaufsliste hing bisher am Modul Schiffe.
+  Hattest du das aus, bleibt auch Beschaffung aus.
+- **Karten auf mehr Seiten.** „Sichern & Zurücksetzen“, „Spiel“, „Achsen &
   Kurven“ und „Update & Über“ zeigen jeden Block in einer eigenen Karte, wie
   „Installation & Pfade“. Große Zwischenüberschriften sind Kartentitel
-  geworden, nichts steht mehr lose zwischen den Karten.
-- **Einheitliche Kartenüberschriften** — Jede Karte trägt ihren Titel gleich:
-  fett, grün, eine Stufe größer als der Text darunter und in normaler
-  Schreibweise statt in kleinen grünen Großbuchstaben.
-- **Raffinerie-Tabelle wächst mit dem Fenster** — Die Spalten teilen sich
-  die ganze Breite, die Zeilen werden bei Platz bis zum unteren Rand höher.
-  Die Erznamen stehen so groß wie die Werte daneben.
-- **Bayrisch in der Reihe von Deutsch** — Unter Übersetzung steht die
+  geworden. Nichts steht mehr lose zwischen den Karten.
+- **Einheitliche Kartenüberschriften.** Jede Karte trägt ihren Titel gleich.
+  Er ist fett und grün, eine Stufe größer als der Text darunter und in
+  normaler Schreibweise statt in kleinen grünen Großbuchstaben.
+- **Raffinerie-Tabelle wächst mit dem Fenster.** Die Spalten teilen sich die
+  ganze Breite. Bei Platz werden die Zeilen höher, bis zum unteren Rand. Die
+  Erznamen stehen so groß wie die Werte daneben.
+- **Bayrisch in der Reihe von Deutsch.** Unter Übersetzung steht die
   bayrische Fassung von Luftwerft jetzt in derselben Reihe wie die
-  deutschen, heißt „Bayrisch (Luftwerft) [FUN]“ und trägt direkt daneben
+  deutschen. Sie heißt „Bayrisch (Luftwerft) [FUN]“ und trägt direkt daneben
   den Hinweis „work in progress“.
 
 ### Behoben
 
-- **Grafik-Seite zuckte** — Lag zwischen zwei Bildern eine kurze Pause,
+- **Grafik-Seite zuckte.** Lag zwischen zwei Bildern eine kurze Pause,
   las die Seite den Rechner neu ein und klappte den Kasten „Dein Rechner
   laut Spiel“ kurz zusammen. Alles darunter sprang. Jetzt bleibt die
   Anzeige stehen, bis die neuen Werte da sind.
-- **Einstufung des Spiels fehlte** — VerseKit suchte die Einstufung
+- **Einstufung des Spiels fehlte.** VerseKit suchte die Einstufung
   („Final rating“) nur in den 40 neuesten Spiel-Logs. Wer seit der
   letzten Einstufung öfter gespielt hat, sah „Noch nicht eingestuft“.
   Jetzt wird jedes alte Log einmal durchsucht, danach nur noch die neuen.
-- **Vorschau „Lage des Fensters“ winzig** — Ohne Spielbild zeigte die
-  Vorschau die gemerkte Stelle der Signatur maßstabsgetreu, auf breiten
-  Bildschirmen kaum zu sehen. Jetzt steht dort wie beim Suchrahmen eine gut
-  lesbare Signatur; mit Spielbild bleibt es die echte Stelle.
-- **Handle-Suche vergaß nichts** — „Gefundene Handles speichern, Tage“
+- **Vorschau „Lage des Fensters“ winzig.** Ohne Spielbild zeigte die
+  Vorschau die gemerkte Stelle der Signatur maßstabsgetreu. Auf breiten
+  Bildschirmen war sie kaum zu sehen. Jetzt steht dort wie beim Suchrahmen
+  eine gut lesbare Signatur. Mit Spielbild bleibt es die echte Stelle.
+- **Handle-Suche vergaß nichts.** „Gefundene Handles speichern, Tage“
   galt nur für die Frage an die RSI-Seite. „Zuletzt gesucht“ zeigte
   trotzdem ältere Handles. Jetzt verschwinden Handles nach den eingestellten
   Tagen aus der Liste und aus dem Speicher. Die Liste zeigt höchstens 5
   Handles statt 8.
-- **Spielkanäle in Mini-Schrift** — Unter Installation & Pfade steht der
+- **Spielkanäle in Mini-Schrift.** Unter Installation & Pfade steht der
   Block „Spielkanäle“ jetzt als Karte wie die anderen, in normaler Schrift.
-- **Lange Menüs der Herstellung liefen aus dem Fenster** — Die Auswahl
+- **Lange Menüs der Herstellung liefen aus dem Fenster.** Die Auswahl
   „Für Schiff“ und die Kategorien sind jetzt höchstens so hoch wie das
   Fenster und lassen sich scrollen.
-- **Erzkapseln passten angeblich in jedes Bergbauschiff** — „Passt in“
+- **Erzkapseln passten angeblich in jedes Bergbauschiff.** „Passt in“
   verglich nur Art und Größe. Jetzt passt eine Kapsel nur in Schiffe ihres
-  Herstellers: Argo in die MOLE, MISC in die Prospector, Drake und GOLEM in
-  die Golem. Die „MISC Enhanced Ore Pod“ baut Argo, sie passt in MOLE und
-  Prospector. Die Zeile heißt dazu „Passt in deine Schiffe“.
-- **„Für Schiff“ fand bei manchen Schiffen keine Komponenten** — Bei
-  Schiffen wie F7C-M Super Hornet Mk II, F8C, Arrow, Eclipse oder Polaris
-  zeigte die Herstellung mit „Für Schiff“ nur Waffen, aber keine Kühler,
-  Kraftwerke, Schilde oder Quantenantriebe. Ihre Steckplätze werden jetzt
-  vollständig gezählt, auch bei „Passt in dein Schiff“.
+  Herstellers. Argo passt in die MOLE, MISC in die Prospector, Drake und
+  GOLEM in die Golem. Die „MISC Enhanced Ore Pod“ baut Argo, sie passt in
+  MOLE und Prospector. Die Zeile heißt dazu „Passt in deine Schiffe“.
+- **„Für Schiff“ fand bei manchen Schiffen keine Komponenten.** Bei Schiffen
+  wie F7C-M Super Hornet Mk II, F8C, Arrow, Eclipse oder Polaris zeigte die
+  Herstellung mit „Für Schiff“ nur Waffen. Kühler, Kraftwerke, Schilde und
+  Quantenantriebe fehlten. Ihre Steckplätze werden jetzt vollständig
+  gezählt, auch bei „Passt in dein Schiff“.
 
 ## v5.1.0 - 2026-11-05
 
-> Das Overlay zeigt mehr und lässt sich genauer einstellen, Mein Lager
-> kennt Verkäufe und den Umzug nach dem Patch, und die Übersetzung gilt
-> jetzt in jedem Spielkanal.
+> Das Overlay zeigt mehr und lässt sich genauer einstellen. Mein Lager kennt
+> Verkäufe und den Umzug nach dem Patch. Die Übersetzung gilt jetzt in jedem
+> Spielkanal.
 
 ### Neu
 
-- **Herstellbare Module je Schiff** — In der Herstellung wählst du unter
+- **Herstellbare Module je Schiff.** In der Herstellung wählst du unter
   „Für Schiff“ eines deiner Schiffe aus Mein Hangar. Die Liste zeigt dann
   nur Teile, die in eine Halterung des Schiffs passen, mit und ohne
   Bauplan. Auf der Schiffskarte im Hangar springt „Herstellbare Teile“
   direkt dorthin. Vorgeschlagen von LunaticSmile [KRT]
-- **Verkäufe im Laden als Vorschlag in Mein Lager** — Was du im Spiel im
-  Laden verkaufst, schlägt Mein Lager unter „Laut Log neu“ zum Abbuchen
-  vor. Du buchst oder verwirfst jeden Verkauf einzeln oder alle auf
-  einmal mit „Alle buchen“ und kannst es zurücknehmen. Warenverkäufe am
-  Handelsterminal erkennt VerseKit nicht, und die Statistik zählt
-  Verkäufe nicht mit.
-- **Umzug nach dem Patch** — Mein Lager › „Umziehen“ bringt alle Posten an
-  deinen neuen Heimatort und entfernt, was der Patch nicht sichert:
-  Nahrung, Getränke, Pens und Injektoren, Magazine. Welche Arten gehen,
-  stellst du vorher ein; Erze und Minerale bleiben ab Werk. Beide Lager
-  werden vorher gesichert, danach zeigt VerseKit die entfernten Posten
-  zum Abgleich im Spiel, und der Umzug lässt sich rückgängig machen.
-- **Orgs suchen** — Das Suchfeld in der Info-Leiste und auf der Seite
+- **Verkäufe im Laden als Vorschlag in Mein Lager.** Was du im Spiel im
+  Laden verkaufst, schlägt Mein Lager unter „Laut Log neu“ zum Abbuchen vor.
+  Du buchst oder verwirfst jeden Verkauf einzeln. Mit „Alle buchen“ geht es
+  auch auf einmal. Du kannst es zurücknehmen. Warenverkäufe am
+  Handelsterminal erkennt VerseKit nicht. Die Statistik zählt Verkäufe nicht
+  mit.
+- **Umzug nach dem Patch.** Mein Lager › „Umziehen“ bringt alle Posten an
+  deinen neuen Heimatort. Es entfernt, was der Patch nicht sichert, nämlich
+  Nahrung, Getränke, Pens und Injektoren sowie Magazine. Welche Arten gehen,
+  stellst du vorher ein. Erze und Minerale bleiben ab Werk. Beide Lager
+  werden vorher gesichert. Danach zeigt VerseKit die entfernten Posten zum
+  Abgleich im Spiel. Der Umzug lässt sich rückgängig machen.
+- **Orgs suchen.** Das Suchfeld in der Info-Leiste und auf der Seite
   Handle-Suche nimmt jetzt auch die SID oder den ganzen Namen einer Org.
-- **Seite Beziehungen** — In der Info-Gruppe verwaltest du deine
+- **Seite Beziehungen.** In der Info-Gruppe verwaltest du deine
   markierten Handles und Orgs, mit Export und Import. Die Handle-Suche
   zeigt „Zuletzt gesucht“ und hat den Knopf „Beziehungen verwalten“. Ein
   markierter Handle lässt sich einzeln löschen, mit Rückgängig.
-- **Tastenkürzel für die Handle-Suche** — Ein Druck setzt den Cursor ins
-  Suchfeld der Info-Leiste. Enter sucht, Esc gibt die Tastatur ans Spiel
-  zurück. Ab Werk ist es aus (Alt+Umschalt+H); du schaltest es unter
-  Einstellungen › Overlay ein. Vorgeschlagen von Kuehlwagen
-- **Block „Anzeigen im Overlay“** — Unter Einstellungen › Overlay schaltest
+- **Tastenkürzel für die Handle-Suche.** Ein Druck setzt den Cursor ins
+  Suchfeld der Info-Leiste. Enter sucht. Esc gibt die Tastatur ans Spiel
+  zurück. Ab Werk ist es aus, die Tasten sind Alt+Umschalt+H. Du schaltest
+  es unter Einstellungen › Overlay ein. Vorgeschlagen von Kuehlwagen
+- **Block „Anzeigen im Overlay“.** Unter Einstellungen › Overlay schaltest
   du Server, Ort, laufende Aufträge, Raffinerie-Aufträge und den
   Update-Hinweis einzeln ein und aus. Ab Werk ist alles an. Der Schalter
   „Auftrags-Hinweis“ klappt das Overlay nur noch auf.
-- **Raffinerie-Aufträge im Overlay** — Unter den Aufträgen stehen deine
+- **Raffinerie-Aufträge im Overlay.** Unter den Aufträgen stehen deine
   Raffinerie-Aufträge mit der Restzeit. Fertige sind hervorgehoben.
-- **Übersetzung in jedem Spielkanal** — PTU, Tech-Preview und EPTU
+- **Übersetzung in jedem Spielkanal.** PTU, Tech-Preview und EPTU
   bekommen wie LIVE die Textdatei, die Sprache und die Bauplan-Angaben in
   den Beschreibungen.
 
 ### Verbessert
 
-- **„Die Einheit sucht: …“ beim Scannen** — Unter der Signatur-Zeile im
+- **„Die Einheit sucht: …“ beim Scannen.** Unter der Signatur-Zeile im
   Overlay steht wieder, was deine Einheit von den Erzen hinter der
   Signatur braucht, wie in 4.12.
-- **„In die Mitte holen“ samt Größe** — Der Knopf setzt das Overlay jetzt
+- **„In die Mitte holen“ samt Größe.** Der Knopf setzt das Overlay jetzt
   auch auf die Startgröße zurück, nicht nur in die Mitte.
-- **Anlernen von Signaturen** — Ein angelerntes Bild hilft jetzt auch bei
+- **Anlernen von Signaturen.** Ein angelerntes Bild hilft jetzt auch bei
   leicht anderer Darstellung der Zahl (heller, verschoben, unscharf).
-- **Auftragszähler „3/10“** — Der Kopf der Aufträge im Overlay zählt
+- **Auftragszähler „3/10“.** Der Kopf der Aufträge im Overlay zählt
   laufende Aufträge gegen die Höchstzahl. Die Höchstzahl stellst du im
   Block „Anzeigen im Overlay“ ein, ab Werk 10.
-- **Overlay ab 2 Zeilen** — Die Zeilenzahl lässt sich bis auf 2 senken,
+- **Overlay ab 2 Zeilen.** Die Zeilenzahl lässt sich bis auf 2 senken,
   vorher ging es nur bis 5.
-- **Info-Leiste ab Werk im Spiel an** — Sie steht über dem laufenden
+- **Info-Leiste ab Werk im Spiel an.** Sie steht über dem laufenden
   Spiel. Ohne Spiel bleibt sie aus. Wer sie schon ein- oder
   ausgeschaltet hat, behält seine Wahl.
-- **Signaturfenster beim Bergbau** — Du wählst, ob es „Über der Signatur“
-  steht oder „In der Info-Leiste“. Die Info-Leiste bleibt dabei an,
-  vorher blieb das Fenster zu. Die Größe stellst du per Schieberegler
-  ein, deutlich kleiner als bisher; ab Werk ist es etwa halb so groß wie
-  früher „Mittel“, eine gewählte Größe bleibt. Die Anzeige bleibt 5 bis
-  15 Sekunden stehen, nachdem die Zahl im Spiel verschwunden ist,
-  vorher 1,5. Angeregt von P6
-- **Overlay rastet am Bildschirmrand ein** — Du kannst es nicht mehr aus
+- **Signaturfenster beim Bergbau.** Du wählst, ob es „Über der Signatur“
+  steht oder „In der Info-Leiste“. Die Info-Leiste bleibt dabei an. Vorher
+  blieb das Fenster zu. Die Größe stellst du per Schieberegler ein. Es ist
+  deutlich kleiner als bisher. Ab Werk ist es etwa halb so groß wie früher
+  „Mittel“. Eine gewählte Größe bleibt. Die Anzeige bleibt 5 bis 15 Sekunden
+  stehen, nachdem die Zahl im Spiel verschwunden ist. Vorher waren es 1,5.
+  Angeregt von P6
+- **Overlay rastet am Bildschirmrand ein.** Du kannst es nicht mehr aus
   dem Bildschirm ziehen. Lässt du es knapp vor einem Rand los, springt es
   an den Rand. Angeregt von Kuehlwagen
-- **Tasten F13 bis F24 für die Tastenkürzel** — Die Auswahl der Kürzel
+- **Tasten F13 bis F24 für die Tastenkürzel.** Die Auswahl der Kürzel
   reicht jetzt bis F24. Angeregt von Kuehlwagen
-- **Notizen mit Überschrift** — Die erste Zeile steht im Feld als
+- **Notizen mit Überschrift.** Die erste Zeile steht im Feld als
   Überschrift, weil sie der Name der Notiz ist.
-- **Fehlerbericht fragt nach einem Satz** — Ohne Satz fragt der erste
+- **Fehlerbericht fragt nach einem Satz.** Ohne Satz fragt der erste
   Klick auf „Absenden“ danach. Der zweite Klick schickt den Bericht
   trotzdem.
-- **Übersetzung: Stand der Datei zuerst** — Die Statuszeile nennt zuerst
-  den Stand der Datei, zum Beispiel „Stand 04.11.2026 13:09 für
-  4.10.2-live…“, dann die Abholzeit. Die Menüzeile im Spiel heißt
+- **Übersetzung zeigt den Stand der Datei zuerst.** Die Statuszeile nennt
+  zuerst den Stand der Datei, zum Beispiel „Stand 04.11.2026 13:09 für
+  4.10.2-live…“. Danach kommt die Abholzeit. Die Menüzeile im Spiel heißt
   „VerseKit“ ohne Bindestrich.
-- **Übersetzung bleibt, wie du sie gewählt hast** — Überschreibt ein
-  anderes Programm wie SCDL die Textdatei oder die Sprache, stellt
-  VerseKit sie zurück: beim Start, alle 5 Minuten, nach dem Spiel und vor
-  dem Spielstart aus VerseKit. Das Hauptfenster sieht auch ohne Overlay
-  alle 5 Minuten nach.
-- **Spanisch von Luftwerft statt Thord82** — Die spanische Übersetzung
-  von Thord82 wird nicht mehr angeboten. Hattest du sie gewählt, wechselt
-  VerseKit auf die spanische Übersetzung von Luftwerft. Thord82 bleibt
-  auf der Danke-Seite, Luftwerft steht dort bei den Übersetzungen vorn.
-- **Abschnittstitel in der Akzentfarbe** — Die kleinen Titel über den
+- **Übersetzung bleibt, wie du sie gewählt hast.** Überschreibt ein anderes
+  Programm wie SCDL die Textdatei oder die Sprache, stellt VerseKit sie
+  zurück. Das passiert beim Start, alle 5 Minuten, nach dem Spiel und vor
+  dem Spielstart aus VerseKit. Das Hauptfenster sieht auch ohne Overlay alle
+  5 Minuten nach.
+- **Spanisch von Luftwerft statt Thord82.** Die spanische Übersetzung von
+  Thord82 wird nicht mehr angeboten. Hattest du sie gewählt, wechselt
+  VerseKit auf die spanische Übersetzung von Luftwerft. Thord82 bleibt auf
+  der Danke-Seite. Luftwerft steht dort bei den Übersetzungen vorn.
+- **Abschnittstitel in der Akzentfarbe.** Die kleinen Titel über den
   Karten haben jetzt die Akzentfarbe des Farbschemas.
-- **Linux: Startmenü und Ablagesymbol** — Der Startmenü-Eintrag steht nur
-  noch unter „Spiele“. Der Hilfetext zum Ablagesymbol sagt, dass Schließen
-  dort das Hauptfenster beendet.
+- **Startmenü und Ablagesymbol unter Linux.** Der Startmenü-Eintrag steht
+  nur noch unter „Spiele“. Der Hilfetext zum Ablagesymbol sagt, dass
+  Schließen dort das Hauptfenster beendet.
 
 ### Behoben
 
-- **Fremde Textdatei wird ersetzt** — Lag eine fremde global.ini im
+- **Fremde Textdatei wird ersetzt.** Lag eine fremde global.ini im
   Spielordner, zum Beispiel selbst geladene StarStrings, ließ VerseKit sie
   liegen. Jetzt ersetzt es sie durch die gewählte Datei und sichert die
   fremde daneben. Gemeldet von SirFrog [KRT]
-- **Englisch aus dem Spiel** — Die Auswahl holt immer die englische
+- **Englisch aus dem Spiel.** Die Auswahl holt immer die englische
   Originaldatei, auch wenn schon eine andere englische Datei im
   Spielordner lag. Die alte Datei bleibt als Sicherung daneben.
-- **Mausrad über der Contested-Karte** — Das Mausrad scrollt die Seite
-  wieder. Strg + Mausrad zoomt die Karte; nach einem Klick in die Karte
-  zoomt das Mausrad allein, bis der Zeiger sie verlässt.
-  Gemeldet von |TSA* Shockwave
+- **Mausrad über der Contested-Karte.** Das Mausrad scrollt die Seite
+  wieder. Strg + Mausrad zoomt die Karte. Nach einem Klick in die Karte
+  zoomt das Mausrad allein, bis der Zeiger sie verlässt. Gemeldet von |TSA*
+  Shockwave
 
 ## v5.0.2 - 2026-11-04
 
@@ -641,6 +794,99 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   der Knopf bisher nicht dorthin.
 - **Suchfeld nach dem Einblenden:** Nach Aus- und Einblenden der
   Info-Leiste ließ sich nicht mehr ins Suchfeld klicken.
+
+## v4.12.5 - 2026-10-30
+
+> Auf der Seite Übersetzung gibt es zwei neue Sprachen von Luftwerft:
+> Nederlands und Português, für die Hauptinstallation und das PTU. Wer im
+> Fehlerbericht ein Bild anhängt, schaltet die Zustimmung zum Senden gleich
+> mit ein. Und die Bauplan-Liste bleibt nach einem Sprung aus dem
+> Fortschritt nicht mehr leer.
+
+### Neu
+
+- **Zwei neue Übersetzungen von Luftwerft** — Nederlands und Português, je
+  für die Hauptinstallation und das PTU, wählbar unter „Übersetzung“. Weil
+  das Spiel nur seine eigenen Sprachen lädt, tritt Nederlands an die Stelle
+  von Englisch und Português an die von Português (Brasil).
+
+### Behoben
+
+- **Bilder im Fehlerbericht** — wer ein Bild anhängt, schaltet damit den
+  Schalter „Ich möchte den Bericht an den Entwickler senden“ gleich mit ein.
+  Ohne Zustimmung nennt der Hinweis jetzt den Schalter statt eines Hakens.
+  Gemeldet von John-Red
+- **Auswahllisten bleiben offen** — eine aufgeklappte Liste (etwa Art oder
+  Größe in der Bauplan-Liste) schließt sich nicht mehr von selbst, wenn sich
+  im Fenster etwas auffrischt, sondern erst bei einer Wahl, einem Klick
+  daneben oder wenn das Fenster bewegt wird.
+- **Einbuchen ins Lager der Einheit** — nach der Wahl eines Gegenstands kommt
+  die getippte Menge zuverlässig in der Buchung an, und alle Knöpfe des
+  Formulars reagieren.
+- **Leere Bauplan-Liste nach dem Fortschritt** — wer aus dem
+  Bauplan-Fortschritt in die Liste springt und danach eine Art wählt
+  (etwa „Ausrüstung“), sieht wieder deren Baupläne statt einer leeren Liste.
+
+## v4.12.4 - 2026-10-29
+
+> Wer seinen Spielernamen gewechselt hat, bekommt seine Baupläne wieder
+> gezählt, auch die seitdem verpassten. Baupläne aus Sitzungen eines anderen
+> Accounts zeigt die Seite Erkennung jetzt als Zahl an. Dazu liest der
+> Signatur-Scanner blasse Werte, an denen er bisher scheiterte.
+
+### Behoben
+
+- **Baupläne nach einem neuen Spielernamen** — nach einem Wechsel des
+  Spielernamens (Handle) zählt VerseKit die Baupläne wieder, auch die schon
+  verpassten. Der Account wird an seiner festen Kennung erkannt, ein
+  Zweitaccount bleibt getrennt. Wurden Baupläne aus Sitzungen eines anderen
+  Accounts nicht gezählt, sagt das ein Hinweis auf der Seite Erkennung,
+  samt dem Weg über „Alle Accounts“. Gemeldet von Bushwick4711 (KRT)
+- **Signatur-Scanner liest blasse Werte** — findet er bei einem blassen
+  Ortungssymbol keine sichere Zahl (etwa wenn eine 6 wie eine 8 aussieht),
+  versucht er es mit strengeren Einstellungen erneut, statt nichts zu
+  zeigen. Gemeldet von Bushwick4711 (KRT)
+
+## v4.12.3 - 2026-10-28
+
+> Der Signatur-Scanner liest die Zahl wie seit 4.12.1. Findet er dabei
+> nichts Sicheres, liest er sie zusätzlich so wie bis 4.12.0. Wo er seit
+> 4.12.1 schlechter las, erkennt er die Zahl so wieder. Sonst ändert sich
+> nichts.
+
+### Behoben
+
+- **Signatur-Scanner liest wieder zuverlässig** — findet der Scanner keine
+  sichere Zahl, liest er sie zusätzlich auf die Art von 4.12.0. Was er
+  schon sicher liest, bleibt wie bisher, auch kleine Ziffern auf sehr
+  breiten Bildschirmen. Neu angelernte Ziffern speichert er je Lesart
+  getrennt. Was vor 4.12.1 angelernt wurde, gilt nur noch für die Lesart
+  von 4.12.0, aus der es stammt, und stört die neue nicht mehr.
+  Gemeldet von Bushwick4712 (KRT), Vorschlag von ProCodeX
+
+## v4.12.2 - 2026-10-25
+
+> Das Profit Basetool hat seine Anmelde-Adresse geändert. Mit dieser Fassung
+> verbindet sich VerseKit wieder. Einmal neu anmelden ist nötig, alte
+> Anmeldungen nimmt das Basetool nicht mehr an. Sonst ändert sich nichts.
+
+### Behoben
+
+- **Basetool verbindet sich wieder** — VerseKit nutzt die neue
+  Anmelde-Adresse des Profit Basetools. Nach dem Update einmal auf der Seite
+  Basetool neu anmelden.
+
+## v4.12.1 - 2026-10-25
+
+> Der Signatur-Scanner liest kleine Ziffern jetzt auch auf sehr breiten
+> Bildschirmen richtig: Eine „56,000" wird nicht mehr als „16,000" gelesen.
+> Sonst ändert sich in dieser Fassung nichts.
+
+### Behoben
+
+- **Signatur-Scanner liest kleine Ziffern richtig** — auf sehr breiten
+  Bildschirmen (etwa 3840 × 1080) wurden kleine Ziffern verwechselt, zum
+  Beispiel 56,000 als 16,000. Jetzt stimmen die Werte. Gemeldet von ProCodeX
 
 ## v4.12.0 - 2026-10-19
 
@@ -3494,16 +3740,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v3.50.3 - 2026-09-17
 
-> **Der Launcher ist raus aus Anzeige und Katalog.** Oben im Overlay steht
-> nicht mehr „mit Launcher", und welche Baupläne es gibt, kommt aus den
-> aktuellen Craftdaten statt aus der alten Launcher-Datei.
+> **Das Zusatzprogramm ist raus aus Anzeige und Katalog.** Oben im Overlay
+> steht kein Hinweis mehr darauf, und welche Baupläne es gibt, kommt aus den
+> aktuellen Craftdaten statt aus der alten Datei des Zusatzprogramms.
 
 ### Behoben
 
-- **Overlay:** „mit Launcher" in der Kopfzeile ist weg — die Angabe stimmte
+- **Overlay:** der Hinweis auf das Zusatzprogramm in der Kopfzeile ist weg — die Angabe stimmte
   seit Langem nicht mehr
 - **Katalog:** Neue Baupläne eines Patches kommen aus den aktuellen
-  Craftdaten, nicht mehr aus der stillstehenden Launcher-Datei
+  Craftdaten, nicht mehr aus der stillstehenden Datei des Zusatzprogramms
 
 ## v3.50.2 - 2026-09-17
 
@@ -7492,8 +7738,8 @@ auf das nicht nachgeführte Auftrags-Protokoll.
 
 > **Wer seinen LIVE-Ordner in HOTFIX umbenennt, wird nicht mehr im Stich
 > gelassen.** Kommt eine ausgebesserte Fassung neben LIVE, lädt kaum jemand das
-> Spiel neu — man benennt den vorhandenen Ordner um, damit der Launcher nur die
-> Unterschiede holt. Damit war der eingetragene Spielordner weg, und der Watcher
+> Spiel neu — man benennt den vorhandenen Ordner um, damit der RSI Launcher nur
+> die Unterschiede holt. Damit war der eingetragene Spielordner weg, und der Watcher
 > meldete „Star Citizen nicht gefunden", obwohl in den Einstellungen ein Pfad
 > steht. Jetzt fällt ihm das auf und er fragt kurz nach.
 
@@ -8320,7 +8566,7 @@ sonst zurückfragen müsste: greift die Log-Erkennung überhaupt?
   | 462 · **0** durchgesehen · 0 daraus | die Nachlese lief nie |
   | 462 · 462 durchgesehen · 380 daraus | alles in Ordnung |
 
-  Gezählt werden nur Funde **aus Protokollen**. Was vom Launcher, von Hand oder
+  Gezählt werden nur Funde **aus Protokollen**. Was vom Zusatzprogramm, von Hand oder
   aus den Startbauplänen kam, sagt über die Log-Erkennung nichts aus.
 
 
@@ -8888,7 +9134,7 @@ jetzt in einem Rutsch ab statt in 24 Feldern.
   schließende angeglichen, das öffnende nicht.
 
   Betroffen sind die drei `SW16BR…`-Repeater. Wer sie aus einer anderen Quelle
-  hatte — Log, Launcher, Import —, bei dem galten sie dauerhaft als **fehlend**,
+  hatte — Log, Zusatzprogramm, Import —, bei dem galten sie dauerhaft als **fehlend**,
   obwohl sie im Bestand standen.
 
   Aufgefallen beim Abgleich einer von Hand geführten Liste gegen den Katalog,
@@ -11364,7 +11610,7 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
   auf Knopfdruck — wer einmal geklickt hatte, hielt sie für aktuell, dabei
   standen sie für immer auf dem Stand jenes Klicks. Jetzt hängt das Schreiben am
   Bestand selbst: Jeder Fund im Spiel, jede Nachlese beim Start, jede Bestätigung
-  durch den Launcher und jeder Import ziehen die Dateien mit.
+  durch das Zusatzprogramm und jeder Import ziehen die Dateien mit.
   - **Feste Dateinamen in der Ablage.** Mit Datum im Namen wären dort täglich
     drei neue Dateien entstanden, und niemand wüsste, welche die aktuelle ist.
     Der Speichern-Dialog schlägt weiterhin einen Namen mit Datum vor — wer von
@@ -11383,7 +11629,7 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
   jedem versteckten Ordner, kein Sortieren, keine Vorschau. Jetzt öffnet sich der
   Dialog des Schreibtischs (`kdialog` unter KDE, sonst `zenity`), überall dort,
   wo eine Datei oder ein Ordner gewählt wird: Bestand einlesen, Bestand
-  speichern, Spielordner, Launcher-Ordner, eigener Ordner und der
+  speichern, Spielordner, Ordner des Zusatzprogramms, eigener Ordner und der
   Einrichtungs-Assistent. Fehlt beides, bleibt der Tk-Dialog als Rückfall —
   **nichts hängt davon ab.** Unter Windows und macOS ändert sich nichts, dort
   reicht Tk schon den echten Systemdialog durch.
@@ -11849,7 +12095,7 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
   System — dort sucht niemand seinen Bauplan-Bestand. Beim ersten Start werden sie
   **kopiert**, der alte Ordner bleibt als Rückweg liegen.
 - **Vorhandenen Bestand einlesen** — aus dem KRT Profit Basetool, von scmdb.net, aus der
-  Launcher-Datei oder einer eigenen Sicherung. Das Format wird am Inhalt erkannt, du
+  Datei des Zusatzprogramms oder einer eigenen Sicherung. Das Format wird am Inhalt erkannt, du
   wählst nur eine Datei. Zusammengeführt, nie ersetzt.
 - **Fehler melden mit einem Klick.** „Fehler melden" öffnet ein fertig ausgefülltes
   Formular; du schreibst nur noch dazu, was passiert ist. Der Bericht enthält keine Namen
@@ -11868,7 +12114,7 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
 
 ### Geändert
 
-- **„Pfade" ist zu den Fortgeschrittenen gewandert.** Spielordner und Launcher
+- **„Pfade" ist zu den Fortgeschrittenen gewandert.** Spielordner und Zusatzprogramm
   werden gesucht und gefunden; wer doch nachhelfen muss, wird vom
   Einrichtungsassistenten geführt, der erklärt, was die Seite nur als Felder
   zeigt. Ein Reiter, den fast niemand braucht, stand oben nur im Weg.
@@ -11950,11 +12196,11 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
   zwangsläufig mit weg. Ihn stattdessen rechtzeitig auszublenden hat dreimal
   nicht verlässlich geklappt: Ein Zustand, der sich aus dem Aufbau ergibt, ist
   verlässlicher als einer, den man nachträglich herstellt.
-- **Bauplan-Namen waren ohne Launcher unlesbar** — „Golemmc4Orepod" statt
+- **Bauplan-Namen waren ohne Zusatzprogramm unlesbar** — „Golemmc4Orepod" statt
   „GOLEM MC-4 Ore Pod". Der Rückfall war `.title()` auf den Vergleichsschlüssel,
   in dem es keine Wortgrenzen mehr gibt; der lesbare Name lag die ganze Zeit
   daneben im Zwischenspeicher. Betraf **jeden Linux-Nutzer**, weil es dort nie
-  einen Launcher gibt.
+  das Zusatzprogramm gibt.
 - **Das Selbst-Update unter Windows kam nie an.** Wer auf „holen" klickte, bekam
   eine Warnung und danach passierte nichts — außer 14 MB verwaister Datei im
   Programmordner, bei jedem Versuch aufs Neue. Dahinter steckten **zwei**
@@ -12009,7 +12255,7 @@ Die vollständige Liste jeder einzelnen Änderung steht in den Abschnitten
 
 - **Das Overlay blieb beim Umschalten auf Englisch deutsch.** Wer die Sprache
   wechselte, bekam ein englisches Fenster und eine deutsche Melde-Leiste:
-  „8 Baupläne · Log ✓ · ohne Launcher · geprüft", dazu „Warte auf neue
+  „8 Baupläne · Log ✓ · ohne Zusatzprogramm · geprüft", dazu „Warte auf neue
   Baupläne …" und der Autostart-Text. Die englischen Versionen dieser Sätze
   gab es längst — benutzt hat sie niemand, der Code setzte die deutschen
   weiter fest zusammen. Zusätzlich erfuhr das Overlay vom Sprachwechsel
@@ -12296,14 +12542,14 @@ geworden.** Der Bauplan-Bestand wird selbst geführt, und zu den meisten Bauplä
 
 
 - **Läuft unter Linux.** Eine Codebasis für beide Systeme, keine zweite Version. Wo die Dateien liegen, entscheidet der neue Baustein `scbp/pfade.py`: unter Windows `%APPDATA%` und `C:\Program Files`, unter Linux `~/.config` und das Wine-Präfix (gesucht wird an den Stellen, an denen lug-helper, Lutris, Bottles und Heroic ihre Installationen ablegen). Eigene Wege gehen über `SC_BP_HOME`, `SC_INSTALL_DIR` und `SC_BP_LAUNCHER`.
-- **Eigener Bauplan-Bestand** (`bestand.json` im eigenen Ordner). Jeder Fund wird dauerhaft festgehalten, mit Herkunft (Log, Nachlese, Launcher, von Hand). Geschrieben wird über eine Nebendatei und Umbenennen, damit ein Absturz mitten im Speichern nichts zerreißt; die Vorgängerfassung bleibt als `bestand.bak.json` liegen.
+- **Eigener Bauplan-Bestand** (`bestand.json` im eigenen Ordner). Jeder Fund wird dauerhaft festgehalten, mit Herkunft (Log, Nachlese, Zusatzprogramm, von Hand). Geschrieben wird über eine Nebendatei und Umbenennen, damit ein Absturz mitten im Speichern nichts zerreißt; die Vorgängerfassung bleibt als `bestand.bak.json` liegen.
 - **Nachlese beim Start.** Die aufgehobenen Logs vergangener Sitzungen (`logbackups/`) werden durchgesehen und still in den Bestand übernommen — wer ohne laufenden Watcher gespielt hat, verliert nichts mehr. Beim allerersten Start wird auch die **laufende** Game.log von vorn gelesen, sonst wäre ausgerechnet die gerade laufende Sitzung ein Loch.
 - **Ehrlicher Lückenhinweis.** Reichen die vorhandenen Sicherungen nicht bis zum letzten bekannten Stand zurück, sagt der Watcher das als eigene Zeile (ℹ) — statt eine unvollständige Liste als Bestand auszugeben. Dafür gibt es die Liste zum Abhaken.
 - **Lesestand übersteht Neustarts** (`logstand.json`). Wer den Watcher neu startet, während Star Citizen läuft, verliert die Baupläne dieser Sitzung nicht mehr.
 - **Spracherkennung statt fester deutscher Phrase** (`scbp/phrasen.py`). Gesucht wird nach einer Tabelle deutscher und englischer Formulierungen; liegt eine entpackte `global.ini` vor, wird der Wortlaut daraus exakt übernommen (Schlüssel `crafting_hud_notification_received_blueprint`). Eigene Ergänzungen gehen in `phrasen.json`. Bis v1.5.0 griff die Sofort-Meldung bei englischem Client gar nicht — unter Linux spielen die meisten auf Englisch.
 - **Autostart auf beiden Systemen** (`scbp/autostart.py`): unter Windows wie bisher der Registry-Wert, unter Linux eine `.desktop`-Datei in `~/.config/autostart/`.
 - **Startskript für Linux** (`SC-BP-Watcher starten.sh`) als Gegenstück zur `.bat` — prüft vorher, ob `tkinter` da ist, und nennt sonst den passenden Paketbefehl je Distribution.
-- **Eigene Pfade eintragbar** (`einstellungen.json` im eigenen Ordner). Wer Star Citizen oder den Launcher woanders liegen hat, trägt den Ordner dort ein, statt auf die Suche angewiesen zu sein. Findet der Watcher das Spiel nicht, legt er die Datei beim Start selbst an und nennt sie in der Fehlermeldung. Rangfolge: Umgebungsvariable → Einstellungsdatei → Suche an den üblichen Stellen.
+- **Eigene Pfade eintragbar** (`einstellungen.json` im eigenen Ordner). Wer Star Citizen oder das Zusatzprogramm woanders liegen hat, trägt den Ordner dort ein, statt auf die Suche angewiesen zu sein. Findet der Watcher das Spiel nicht, legt er die Datei beim Start selbst an und nennt sie in der Fehlermeldung. Rangfolge: Umgebungsvariable → Einstellungsdatei → Suche an den üblichen Stellen.
   - **Die durchsuchten Orte werden genannt** — ausgegraut im Fenster und als Zeile direkt unter dem jeweiligen Feld in der Datei. Ohne dieses Vorbild müsste man den einzutragenden Pfad raten; gerade wenn nichts gefunden wurde, hat man ja keinen zum Abschauen. Findet der Rechner keinen einzigen Wine-Präfix, werden trotzdem die typischen Orte gezeigt statt einer leeren Liste.
 - **Selbsttest** (`tools/selbsttest.py`). Baut eine Spielinstallation im Wegwerf-Ordner nach und prüft die Erkennung samt ihrer bekannten Fallstricke.
 
@@ -12311,21 +12557,21 @@ geworden.** Der Bauplan-Bestand wird selbst geführt, und zu den meisten Bauplä
 
 - **Der Watcher wäre unter Linux beim Start abgestürzt.** Der Mauszeiger `size_nw_se` am Größengriff gibt es nur unter Windows; auf anderen Systemen wirft Tk dafür einen Fehler, bevor das Fenster überhaupt erscheint.
 - **Fensterlage vom fremden Rechner.** Die gemerkte Position wurde ungeprüft übernommen. Auf einem Rechner mit anderem Monitoraufbau stand das Fenster damit außerhalb jedes Bildschirms — unsichtbar, unter macOS mit Absturz. Sie wird jetzt auf Plausibilität geprüft; die Vorgabe im Code enthält **gar keine Position** mehr, sondern nur noch eine Größe. Wo das Fenster stehen soll, zieht sich jeder selbst hin.
-- **Endlosschleife ohne Launcher.** Beim Start wartete der Watcher, bis die Launcher-Datei lesbar war — ohne Launcher also ewig. Unter Linux wäre er nie hochgekommen.
-- **Katalog-Wache lief ohne Launcher ins Leere.** „Was ist im Spiel neu craftbar" hing an einer Launcher-Datei. Fehlt sie, treten jetzt die scmdb-Craftdaten an ihre Stelle, die ohnehin schon vorliegen.
+- **Endlosschleife ohne Zusatzprogramm.** Beim Start wartete der Watcher, bis dessen Datei lesbar war — ohne Zusatzprogramm also ewig. Unter Linux wäre er nie hochgekommen.
+- **Katalog-Wache lief ohne Zusatzprogramm ins Leere.** „Was ist im Spiel neu craftbar" hing an einer Datei des Zusatzprogramms. Fehlt sie, treten jetzt die scmdb-Craftdaten an ihre Stelle, die ohnehin schon vorliegen.
 - **Signalton ohne `winsound`.** Unter Linux gibt es das Modul nicht; dort klingelt jetzt tkinter selbst.
 
 ### Geändert
 
 - **Markenfarbe auf `#9ce430` gezogen.** Das Overlay lief noch mit `#47aa42` — der Xharig-Farbe von vor dem Logo-Wechsel. Betrifft `ACCENT` im Overlay und `GREEN` im Icon-Werkzeug. Für helle Flächen (README-Badges) bleibt es beim Text-Grün `#5fa522`.
-- **Die Statuszeile zeigt den eigenen Bestand**, nicht mehr die Launcher-Zahl, und dazu, ob mit oder ohne Launcher gearbeitet wird. Grund: Der Launcher zählt nachweislich zu niedrig — ihm fehlt die P4-AR Rifle, obwohl sie im Fabricator als „im Besitz" steht (gemessen 11.08.2026). Startbaupläne wurden nie „erhalten" und stehen in keinem Log.
-- **Startbedingung.** Der Watcher verlangt beim Start nicht mehr die Launcher-Datei, sondern nur noch, dass Star Citizen selbst gefunden wird.
+- **Die Statuszeile zeigt den eigenen Bestand**, nicht mehr die Zahl des Zusatzprogramms, und dazu, ob mit oder ohne Zusatzprogramm gearbeitet wird. Grund: Das Zusatzprogramm zählt nachweislich zu niedrig — ihm fehlt die P4-AR Rifle, obwohl sie im Fabricator als „im Besitz" steht (gemessen 11.08.2026). Startbaupläne wurden nie „erhalten" und stehen in keinem Log.
+- **Startbedingung.** Der Watcher verlangt beim Start nicht mehr die Datei des Zusatzprogramms, sondern nur noch, dass Star Citizen selbst gefunden wird.
 
 ## v1.5.0 - 2026-08-11
 
 ### Hinzugefügt
 
-- **Werte-Rückfall über scmdb.net.** Kennt der Launcher-Katalog einen Gegenstand nicht, holt der Watcher Art, Größe, Gütegrad, Klasse und Hersteller jetzt aus den Craftdaten von scmdb (`versions.json` → `crafting_items-<version>.json`). Damit bekommen auch Baupläne ein Kürzel, die im Katalog fehlen — z. B. **QuadraCell**, **FR-66** und die Skin-Varianten. Reines `urllib` aus der Standardbibliothek, kein Zusatzpaket.
+- **Werte-Rückfall über scmdb.net.** Kennt der Katalog des Zusatzprogramms einen Gegenstand nicht, holt der Watcher Art, Größe, Gütegrad, Klasse und Hersteller jetzt aus den Craftdaten von scmdb (`versions.json` → `crafting_items-<version>.json`). Damit bekommen auch Baupläne ein Kürzel, die im Katalog fehlen — z. B. **QuadraCell**, **FR-66** und die Skin-Varianten. Reines `urllib` aus der Standardbibliothek, kein Zusatzpaket.
   - Zwischenspeicher: `%APPDATA%\sc-bp-watcher\scmdb-items.json`; neu geholt wird nur bei einer **neuen Spielversion** (Prüfung alle 6 Stunden).
   - Ohne Netz gilt der letzte Stand, ohne Zwischenspeicher läuft alles wie vor v1.5.0 — der Watcher bricht nie deswegen ab.
   - Abschaltbar über die Umgebungsvariable `SC_BP_NO_NET=1`.
@@ -12336,7 +12582,7 @@ geworden.** Der Bauplan-Bestand wird selbst geführt, und zu den meisten Bauplä
 
 ### Wissenswert
 
-- **Rangfolge der Quellen:** `bp-overrides.json` → Launcher-Katalog/Spieldaten → scmdb. scmdb füllt nur Lücken und überschreibt nie. Grund: Ein Abgleich am 11.08.2026 gegen 56 Meldungen aus der Spiel-Log ergab **55 exakte Treffer** bei Größe, Gütegrad und Klasse — beim Kühler **Elsen** nennt scmdb aber Grad A, während die Spiel-Log *und* `components.ini` übereinstimmend B sagen (auch der Hersteller stimmt dort nicht). Sehr gute Quelle, aber keine unfehlbare.
+- **Rangfolge der Quellen:** `bp-overrides.json` → Katalog des Zusatzprogramms/Spieldaten → scmdb. scmdb füllt nur Lücken und überschreibt nie. Grund: Ein Abgleich am 11.08.2026 gegen 56 Meldungen aus der Spiel-Log ergab **55 exakte Treffer** bei Größe, Gütegrad und Klasse — beim Kühler **Elsen** nennt scmdb aber Grad A, während die Spiel-Log *und* `components.ini` übereinstimmend B sagen (auch der Hersteller stimmt dort nicht). Sehr gute Quelle, aber keine unfehlbare.
 - **Die scmdb-Daten werden bewusst NICHT mitgeliefert**, sondern auf dem Rechner des Nutzers direkt bei scmdb.net geholt — so wie es ein Browser täte. scmdb steht unter CC BY-NC-ND 4.0; eine mitgelieferte Kopie wäre eine Weitergabe und würde sowohl dieser Lizenz als auch der GPL dieses Projekts widersprechen. Der Abruf trägt eine ehrliche Kennung (`SC-BP-Watcher/<Version>` mit Projektadresse), damit der Betreiber sieht, wer abruft. Dank an scmdb steht in der `README.en.md`.
 - **Rüstung und FPS-Waffen bekommen weiterhin kein Kürzel.** scmdb vergibt `size` und `grade` an jeden Gegenstand, auch an Helme — ungefiltert übernommen stünde hinter jedem Rüstungsteil ein erfundenes „Grade A, Size 1". Klasse und Gütegrad werden deshalb nur übernommen, wenn scmdb eine `componentClass` führt (echte Schiffskomponenten); Schiffswaffen bekommen nur die Größe.
 
@@ -12349,7 +12595,7 @@ geworden.** Der Bauplan-Bestand wird selbst geführt, und zu den meisten Bauplä
 
 ### Behoben
 
-- **Fest verdrahteter lokaler Pfad entfernt.** `OVERRIDES_FILE` zeigte auf ein Verzeichnis, das es nur auf dem Rechner des Entwicklers gibt — bei allen anderen lief die Datei ins Leere, und mit der Offenlegung wäre der Pfad öffentlich geworden. Die optionale Overrides-Datei wird jetzt unter `%APPDATA%\sc-bp-watcher\bp-overrides.json` gesucht; ein abweichender Ort lässt sich über die Umgebungsvariable `SC_BP_OVERRIDES` angeben. Fehlt beides, gilt der Launcher-Katalog unverändert.
+- **Fest verdrahteter lokaler Pfad entfernt.** `OVERRIDES_FILE` zeigte auf ein Verzeichnis, das es nur auf dem Rechner des Entwicklers gibt — bei allen anderen lief die Datei ins Leere, und mit der Offenlegung wäre der Pfad öffentlich geworden. Die optionale Overrides-Datei wird jetzt unter `%APPDATA%\sc-bp-watcher\bp-overrides.json` gesucht; ein abweichender Ort lässt sich über die Umgebungsvariable `SC_BP_OVERRIDES` angeben. Fehlt beides, gilt der Katalog des Zusatzprogramms unverändert.
 
 ## v1.3.0 - 2026-07-31
 
@@ -12374,10 +12620,10 @@ geworden.** Der Bauplan-Bestand wird selbst geführt, und zu den meisten Bauplä
 
 ### Hinzugefügt
 
-- **Sofort-Meldung aus der `Game.log`:** Der Watcher liest die Star-Citizen-Log jetzt zusätzlich selbst mit und zeigt einen neuen Bauplan **in Sekunden** an, statt auf den Export des Launchers zu warten. Hintergrund: Die Exportdatei wird nur alle paar Minuten neu geschrieben — gemessen am 30.07.2026 lagen zwischen Freischaltung im Spiel (21:23:49) und Export (21:26:24) **2,5 Minuten**. Genau diese Lücke schließt die Log-Mitlesung.
-- **Zwei-Stufen-Anzeige:** Frisch aus der Log gemeldete Baupläne stehen als 🟡 **vorläufig** in der Liste; sobald der Launcher nachzieht, wird die Zeile auf 🟢 bestätigt und mit dessen Daten aufgefrischt. Die Launcher-Datei bleibt die verbindliche Quelle — Art, Size/Grade/Klasse kommen weiterhin aus dem Launcher-Katalog.
-- **Namens-Abgleich Log ↔ Launcher:** Schiffskomponenten stehen im Log mit Zusatz (`7CA 'Nargun' (Civ/3/A)`), beim Launcher ohne — der Zusatz wird abgeschnitten (und dient als Rückfall fürs `M/A/1`-Kürzel, falls ein Item nach einem SC-Patch noch nicht im Katalog steht). Echte Namens-Klammern wie `(30 cap)` oder `Singe Cannon (S2)` bleiben unangetastet. Weichen die Übersetzungen ab (gesehen: `(12 Schuss)` im Log vs. `(12 cap)` beim Launcher), greift ein Notfall-Abgleich ohne Klammer-Zusatz — aber nur, wenn er eindeutig ist. Geprüft gegen alle 127 vorhandenen Log-Backups: 148 Bauplan-Meldungen, 147 exakte Treffer, der eine Rest über den Notfall-Abgleich.
-- **Automatische Log-Findung** über den eingetragenen Installationsordner, ersatzweise über den Lesestand des Launchers (`scan-state.json`) oder den Standard-Installationspfad. Spiel-Neustart (rotierte Log) wird erkannt.
+- **Sofort-Meldung aus der `Game.log`:** Der Watcher liest die Star-Citizen-Log jetzt zusätzlich selbst mit und zeigt einen neuen Bauplan **in Sekunden** an, statt auf den Export des Zusatzprogramms zu warten. Hintergrund: Die Exportdatei wird nur alle paar Minuten neu geschrieben — gemessen am 30.07.2026 lagen zwischen Freischaltung im Spiel (21:23:49) und Export (21:26:24) **2,5 Minuten**. Genau diese Lücke schließt die Log-Mitlesung.
+- **Zwei-Stufen-Anzeige:** Frisch aus der Log gemeldete Baupläne stehen als 🟡 **vorläufig** in der Liste; sobald das Zusatzprogramm nachzieht, wird die Zeile auf 🟢 bestätigt und mit dessen Daten aufgefrischt. Die Datei des Zusatzprogramms bleibt die verbindliche Quelle — Art, Size/Grade/Klasse kommen weiterhin aus dem Katalog des Zusatzprogramms.
+- **Namens-Abgleich Log ↔ Zusatzprogramm:** Schiffskomponenten stehen im Log mit Zusatz (`7CA 'Nargun' (Civ/3/A)`), beim Zusatzprogramm ohne — der Zusatz wird abgeschnitten (und dient als Rückfall fürs `M/A/1`-Kürzel, falls ein Item nach einem SC-Patch noch nicht im Katalog steht). Echte Namens-Klammern wie `(30 cap)` oder `Singe Cannon (S2)` bleiben unangetastet. Weichen die Übersetzungen ab (gesehen: `(12 Schuss)` im Log vs. `(12 cap)` beim Zusatzprogramm), greift ein Notfall-Abgleich ohne Klammer-Zusatz — aber nur, wenn er eindeutig ist. Geprüft gegen alle 127 vorhandenen Log-Backups: 148 Bauplan-Meldungen, 147 exakte Treffer, der eine Rest über den Notfall-Abgleich.
+- **Automatische Log-Findung** über den eingetragenen Installationsordner, ersatzweise über den Lesestand des Zusatzprogramms (`scan-state.json`) oder den Standard-Installationspfad. Spiel-Neustart (rotierte Log) wird erkannt.
 - **Statuszeile** zeigt jetzt auch, ob die Log mitgelesen wird: `Überwache 377 BPs · Log ✓ · geprüft 21:26:27`.
 
 ### Behoben
@@ -12388,14 +12634,14 @@ geworden.** Der Bauplan-Bestand wird selbst geführt, und zu den meisten Bauplä
 
 ### Hinweise
 
-- Die Log-Mitlesung erkennt die **deutsche** Spielmeldung (`Bauplan erhalten: <Name>: `). Bei anderer Spielsprache greift sie nicht — dann verhält sich das Tool wie bisher (Meldung, sobald der Launcher exportiert hat). Weitere Sprachen lassen sich in `LOG_PHRASES` ergänzen.
+- Die Log-Mitlesung erkennt die **deutsche** Spielmeldung (`Bauplan erhalten: <Name>: `). Bei anderer Spielsprache greift sie nicht — dann verhält sich das Tool wie bisher (Meldung, sobald das Zusatzprogramm exportiert hat). Weitere Sprachen lassen sich in `LOG_PHRASES` ergänzen.
 - Weiterhin nur lesend: die `Game.log` wird ausschließlich gelesen, nie verändert.
 
 ## v1.1.0 - 2026-07-19
 
 ### Hinzugefügt
 
-- **Size / Grade / Klasse je Bauplan** als Kompakt-Kürzel `Klasse/Grade/Size`, z. B. `M/A/1` (Military · Grade A · Size 1). Kürzel: **M** Military, **S** Stealth, **I** Industrial, **C** Civilian, **K** Competition. Schiffswaffen haben nur Size → `–/–/2`; FPS-Waffen und Rüstung haben nichts davon → kein Kürzel. Datenbasis: Launcher-Katalog `catalog\components.ini` + `items_raw.ini`, plus manuelle Korrekturen aus `bp-overrides.json` (Vorrang).
+- **Size / Grade / Klasse je Bauplan** als Kompakt-Kürzel `Klasse/Grade/Size`, z. B. `M/A/1` (Military · Grade A · Size 1). Kürzel: **M** Military, **S** Stealth, **I** Industrial, **C** Civilian, **K** Competition. Schiffswaffen haben nur Size → `–/–/2`; FPS-Waffen und Rüstung haben nichts davon → kein Kürzel. Datenbasis: Katalog des Zusatzprogramms `catalog\components.ini` + `items_raw.ini`, plus manuelle Korrekturen aus `bp-overrides.json` (Vorrang).
 - **Fenster merkt sich Position & Größe:** beim Verschieben, Skalieren und Beenden wird die Lage in `%APPDATA%\sc-bp-watcher\watcher.json` gespeichert und beim nächsten Start wiederhergestellt.
 
 ### Geändert

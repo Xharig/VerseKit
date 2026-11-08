@@ -50,10 +50,48 @@ pub fn backends() -> wgpu::Backends {
     }
 }
 
+/// The setting: the windows are drawn by the graphics card (on without a setting). Off, the software renderer
+/// draws them where there is one; it takes effect with the next start.
+pub const GPU_SETTING: &str = "grafikkarte";
+
+/// Is the graphics card used?
+pub fn use_card(paths: &Paths) -> bool {
+    paths.setting_bool(GPU_SETTING, true)
+}
+
+/// How soon an adapter comes without the graphics card: the software renderer first, a card built into the
+/// processor next, a separate one last.
+pub fn rank_without_card(kind: wgpu::DeviceType) -> u8 {
+    match kind {
+        wgpu::DeviceType::Cpu => 0,
+        wgpu::DeviceType::IntegratedGpu => 1,
+        wgpu::DeviceType::VirtualGpu => 2,
+        wgpu::DeviceType::Other => 3,
+        wgpu::DeviceType::DiscreteGpu => 4,
+    }
+}
+
+/// The adapter chosen without the graphics card: [`rank_without_card`], the first of equal rank.
+#[cfg(not(windows))]
+fn prefer_software(adapters: &[wgpu::Adapter], _surface: Option<&wgpu::Surface<'_>>) -> Result<wgpu::Adapter, String> {
+    adapters
+        .iter()
+        .min_by_key(|adapter| rank_without_card(adapter.get_info().device_type))
+        .cloned()
+        .ok_or_else(|| "no adapter".to_string())
+}
+
 /// A new wgpu instance on [`backends`]; wgpu chooses the adapter, a graphics card before the software renderer.
+/// Without the graphics card ([`use_card`]) the software renderer comes first where there is one; on Windows the
+/// [`ladder_for`] does that.
 pub fn setup() -> WgpuSetupCreateNew {
     let mut setup = WgpuSetupCreateNew::without_display_handle();
     setup.instance_descriptor.backends = backends();
+    #[cfg(not(windows))]
+    if !use_card(versekit_core::paths::global()) {
+        setup.power_preference = wgpu::PowerPreference::LowPower;
+        setup.native_adapter_selector = Some(std::sync::Arc::new(prefer_software));
+    }
     setup
 }
 
@@ -165,6 +203,18 @@ pub fn ladder(look: Look) -> Vec<Stage> {
         Look::Transparent => vec![card_composed, software_composed, card, software],
         Look::Opaque => vec![card, software, card_composed, software_composed],
     }
+}
+
+/// [`ladder`] for the setting of the graphics card: off, the stages of the software renderer come first (the
+/// graphics card stays as the way out when the software renderer does not work).
+pub fn ladder_for(look: Look, card: bool) -> Vec<Stage> {
+    let ladder = ladder(look);
+    if card {
+        return ladder;
+    }
+    let (software, hardware): (Vec<Stage>, Vec<Stage>) =
+        ladder.into_iter().partition(|s| s.adapter == Adapter::Software);
+    software.into_iter().chain(hardware).collect()
 }
 
 /// `ladder` with the stages of `failed` moved to its end, in their order.
@@ -351,6 +401,52 @@ mod tests {
             assert!(!opened.intersects(wgpu::Backends::GL | wgpu::Backends::VULKAN));
         }
         assert_eq!(options.wgpu_options.surface, surface, "the surface of eframe stays");
+    }
+
+    /// "Use the graphics card" off: the software renderer comes first, the card stays behind it as the way out.
+    #[test]
+    fn without_the_graphics_card_the_software_renderer_is_tried_first_and_the_card_last() {
+        for look in [Look::Transparent, Look::Opaque] {
+            let with_card = ladder_for(look, true);
+            assert_eq!(with_card, ladder(look), "on: as it was");
+            assert_eq!(with_card[0].adapter, Adapter::Hardware);
+            let without = ladder_for(look, false);
+            assert_eq!(without.len(), 4);
+            assert_eq!(without[..2].iter().map(|s| s.adapter).collect::<Vec<_>>(), [Adapter::Software; 2]);
+            assert_eq!(without[2..].iter().map(|s| s.adapter).collect::<Vec<_>>(), [Adapter::Hardware; 2]);
+            // Within the two halves the order of the ladder stays (a transparent window stays transparent first).
+            let first_software = ladder(look).into_iter().find(|s| s.adapter == Adapter::Software).unwrap();
+            assert_eq!(without[0].present, first_software.present);
+        }
+        // The software renderer failing on a real window sends the window to the card at the end.
+        let failed = [Stage::ALL[1], Stage::ALL[3]];
+        let order = order(&ladder_for(Look::Transparent, false), &failed);
+        assert_eq!(order[0].adapter, Adapter::Hardware);
+    }
+
+    #[test]
+    fn the_adapter_without_the_card_is_the_software_renderer_before_the_processor_before_a_separate_card() {
+        use wgpu::DeviceType::{Cpu, DiscreteGpu, IntegratedGpu, Other, VirtualGpu};
+        let mut kinds = [DiscreteGpu, Other, VirtualGpu, IntegratedGpu, Cpu];
+        kinds.sort_by_key(|k| rank_without_card(*k));
+        assert_eq!(kinds, [Cpu, IntegratedGpu, VirtualGpu, Other, DiscreteGpu]);
+    }
+
+    #[test]
+    fn the_card_is_used_without_a_setting_and_the_setting_turns_it_off() {
+        let root = std::env::temp_dir().join(format!("versekit-karte-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let home = root.to_string_lossy().into_owned();
+        let paths = Paths::new(versekit_core::paths::Host::new(
+            versekit_core::pypath::Flavor::native(),
+            &[(versekit_core::legacy::ENV_HOME, home.as_str())],
+            &home,
+        ));
+        assert!(use_card(&paths));
+        paths.set_setting(GPU_SETTING, Value::Bool(false));
+        assert!(!use_card(&paths));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     /// The software renderer and the window without DirectComposition stand in for what fails, before the program

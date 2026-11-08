@@ -108,6 +108,33 @@ const LOG: &str = "# Changelog\n\nSome text above.\n\n\
 ## v4.12.0 - 2026-01-01\n- a double\n";
 
 #[test]
+fn the_summary_tells_which_language_the_block_holds_and_which_one_stands_above() {
+    // The GitHub texts since 3.x: German above, English in the block with the summary „English“.
+    let german_above =
+        "Deutscher Text\n\n---\n\n<details>\n<summary><b>English</b></summary>\n\nEnglish text\n\n</details>";
+    assert_eq!(language_part(german_above, Lang::De), "Deutscher Text");
+    assert_eq!(language_part(german_above, Lang::En), "English text");
+    // The older ones: English above, German in the block.
+    let english_above =
+        "English text\n\n---\n\n<details>\n<summary><b>Deutsch</b></summary>\n\nDeutscher Text\n\n</details>";
+    assert_eq!(language_part(english_above, Lang::De), "Deutscher Text");
+    assert_eq!(language_part(english_above, Lang::En), "English text");
+    // A missing part is made up by the other one.
+    let only_english = "<details><summary>English</summary>English only</details>";
+    assert_eq!(language_part(only_english, Lang::De), "English only");
+}
+
+#[test]
+fn a_release_from_github_with_the_german_text_above_shows_german_on_the_german_page() {
+    let text = "> Deutscher Vorspann\n\n### Behoben\n- Deutsch\n\n---\n\n<details>\n<summary><b>English</b></summary>\n\n> English lead\n\n### Fixed\n- English\n\n</details>";
+    let releases = [release("v9.9.9", "2026-12-01", text)];
+    let german = history_of("", Lang::De, &releases);
+    assert_eq!(intro(&german[0].text), "Deutscher Vorspann");
+    let english = history_of("", Lang::En, &releases);
+    assert_eq!(intro(&english[0].text), "English lead");
+}
+
+#[test]
 fn the_blocks_of_a_log_are_read_by_version_and_the_unreleased_one_and_a_double_are_left_out() {
     let entries = parse(LOG);
     let names: Vec<_> = entries.iter().map(|e| (e.version.as_str(), e.date.as_str())).collect();
@@ -179,19 +206,87 @@ fn a_bilingual_release_text_shows_one_language() {
 }
 
 #[test]
-fn a_series_becomes_one_entry_with_the_lead_of_the_newest_and_a_finished_version_hides_its_test_versions() {
-    let entries = group(history_of(LOG, Lang::De, &[]));
+fn a_finished_version_hides_its_test_versions_and_every_version_keeps_its_own_lead() {
+    let entries = without_finished_tests(history_of(LOG, Lang::De, &[]));
     let names: Vec<_> = entries.iter().map(|e| e.version.as_str()).collect();
     // The test versions of 4.10.0 are gone, the ones of 4.11.0 stay (there is no finished 4.11.0).
-    assert_eq!(names, ["v5.0", "v4.12", "v4.11.0-rc13", "v4.11.0-rc1", "v4.10"]);
-    let series = &entries[1];
-    assert_eq!(series.date, "2026-10-20", "the date of the newest");
-    assert!(series.text.starts_with("> Lead of the newest"), "the lead of the newest");
-    assert_eq!(
-        lines(&points_by_kind(&series.text)),
-        [(Kind::Fix, "b"), (Kind::New, "a")],
-        "the points of every version stand below"
-    );
+    assert_eq!(names, ["v5.0.0", "v4.12.1", "v4.12.0", "v4.11.0-rc13", "v4.11.0-rc1", "v4.10.0"]);
+    let newest = &entries[1];
+    assert_eq!(intro(&newest.text), "Lead of the newest");
+    assert_eq!(lines(&points_by_kind(&newest.text)), [(Kind::Fix, "b")], "only the points of this version");
+}
+
+#[test]
+fn patch_versions_of_a_series_stay_single_entries() {
+    let names = |entries: &[Entry]| entries.iter().map(|e| e.version.clone()).collect::<Vec<_>>();
+    let entries = listed(Lang::De, &[]);
+    let shown = names(&entries);
+    for version in ["v5.1.0", "v5.1.1", "v5.1.2", "v5.1.3", "v5.1.4", "v5.2.0"] {
+        assert!(shown.iter().any(|name| name == version), "{version} is listed: {shown:?}");
+    }
+    // The page never shows a series name like `v5.1`: every finished version has all three numbers.
+    for entry in &entries {
+        let finished = !is_prerelease(&entry.version);
+        assert!(!finished || entry.version.matches('.').count() == 2, "{} is a series name", entry.version);
+    }
+    // Both languages list the same versions.
+    assert_eq!(shown, names(&listed(Lang::En, &[])));
+}
+
+/// The first version whose text is kept free of dashes (en dash and em dash).
+const FIRST_WITHOUT_DASHES: (u64, u64, u64) = (5, 1, 0);
+
+#[test]
+fn the_texts_from_5_1_0_on_have_no_dashes_in_either_language() {
+    for (name, log) in [("German", GERMAN), ("English", ENGLISH)] {
+        for entry in parse(log).iter().filter(|e| parts(&e.version) >= FIRST_WITHOUT_DASHES) {
+            for (number, line) in entry.text.lines().enumerate() {
+                assert!(
+                    !line.contains('\u{2013}') && !line.contains('\u{2014}'),
+                    "{name} {} line {}: a dash in `{line}`",
+                    entry.version,
+                    number + 1
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn the_patch_versions_of_4_12_are_in_both_built_in_logs() {
+    // 4.12.1 to 4.12.5 were released from the Python line and were missing here: the page then took their text
+    // from GitHub, in the wrong language.
+    for (name, log) in [("German", GERMAN), ("English", ENGLISH)] {
+        let versions: Vec<_> = parse(log).into_iter().map(|e| e.version).collect();
+        for patch in 0..=5 {
+            let wanted = format!("v4.12.{patch}");
+            assert!(versions.contains(&wanted), "{name} log has no section {wanted}");
+        }
+    }
+}
+
+#[test]
+fn every_version_has_a_section_in_german_and_in_english_and_each_reads_in_its_own_language() {
+    // Words that only one of the two languages uses; a section needs more of its own than of the other.
+    const GERMAN_WORDS: [&str; 8] = [" und ", " der ", " die ", " nicht ", " wird ", " ist ", " mit ", " das "];
+    const ENGLISH_WORDS: [&str; 8] = [" the ", " and ", " not ", " is ", " with ", " of ", " to ", " are "];
+    let count = |text: &str, words: &[&str]| {
+        let padded = format!(" {} ", text.to_lowercase().replace(['\n', ',', '.', '(', ')'], " "));
+        words.iter().map(|w| padded.matches(w).count()).sum::<usize>()
+    };
+    let german = parse(GERMAN);
+    let english = parse(ENGLISH);
+    let key = |e: &Entry| updater::version_key(&e.version);
+    for entry in &german {
+        assert!(english.iter().any(|e| key(e) == key(entry)), "{} has no English section", entry.version);
+        let (own, other) = (count(&entry.text, &GERMAN_WORDS), count(&entry.text, &ENGLISH_WORDS));
+        assert!(own >= other, "German {} reads like English ({own} German words, {other} English)", entry.version);
+    }
+    for entry in &english {
+        assert!(german.iter().any(|e| key(e) == key(entry)), "{} has no German section", entry.version);
+        let (own, other) = (count(&entry.text, &ENGLISH_WORDS), count(&entry.text, &GERMAN_WORDS));
+        assert!(own >= other, "English {} reads like German ({own} English words, {other} German)", entry.version);
+    }
 }
 
 #[test]

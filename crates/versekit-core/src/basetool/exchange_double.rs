@@ -207,6 +207,12 @@ struct World {
     unit_refusals: Vec<(String, String)>,
     /// Quantity changes of a material or item (lower case name) that are refused, with the reason.
     material_refusals: Vec<(String, String)>,
+    /// The class of an item in the catalogue (`scRecord`, lower case) and its `bt`.
+    records: Vec<(String, String)>,
+    /// The answers to change sets by their `Idempotency-Key`.
+    replays: Vec<(String, Response)>,
+    /// The next change set on each of these routes is applied, but its answer is lost on the way back.
+    lose_answers: Vec<String>,
 }
 
 type Touch = Box<dyn FnOnce() + Send>;
@@ -280,8 +286,24 @@ impl ExchangeDouble {
                 touch: Vec::new(),
                 unit_refusals: Vec::new(),
                 material_refusals: Vec::new(),
+                records: Vec::new(),
+                replays: Vec::new(),
+                lose_answers: Vec::new(),
             }),
         }
+    }
+
+    /// The next change set on `route` is applied, but VerseKit gets a 503 instead of the answer.
+    pub fn lose_next_answer(&self, route: &str) {
+        self.world().lose_answers.push(route.into());
+    }
+
+    /// An item of the catalogue under `name` (which may be another than the game's) and its class: `catalog/resolve`
+    /// of kind `ITEM` finds it by `scRecord` before the name.
+    pub fn add_item(&self, bt: &str, name: &str, record: &str) {
+        let mut world = self.world();
+        world.materials.push((bt.into(), name.into(), true));
+        world.records.push((lower(record), bt.into()));
     }
 
     /// The connection to it: a key and a refresh token in memory, nothing in
@@ -894,7 +916,9 @@ impl World {
             .iter()
             .enumerate()
             .map(|(index, reference)| {
-                let by_bt = reference.get("bt").and_then(Value::as_str);
+                let record = lower(&text_of(reference.get("scRecord")));
+                let by_record = self.records.iter().find(|(r, _)| kind == "ITEM" && *r == record).map(|(_, b)| b.as_str());
+                let by_bt = reference.get("bt").and_then(Value::as_str).or(by_record);
                 let name = lower(&text_of(reference.get("name")));
                 let hits: Vec<&(String, String)> =
                     catalog.iter().filter(|(bt, n)| by_bt.map_or(lower(n) == name, |wanted| wanted == bt)).collect();
@@ -1281,8 +1305,30 @@ impl ExchangeDouble {
 }
 
 impl Transport for ExchangeDouble {
+    /// A change set with an `Idempotency-Key` seen before gets the answer of that time again, as the Basetool keeps
+    /// it for 24 hours; nothing is applied a second time.
     fn send(&self, request: &Request) -> Result<Response, ApiError> {
-        Ok(self.respond(&request.method, &request.url, request.body.as_deref(), ISSUER, API))
+        let key = crate::basetool::proof::header(&request.headers, "Idempotency-Key").map(str::to_string);
+        if let Some(key) = &key {
+            let known = self.world().replays.iter().find(|(k, _)| k == key).map(|(_, r)| r.clone());
+            if let Some(known) = known {
+                self.world().seen.push(format!("{} {} (replay)", request.method, request.url));
+                return Ok(known);
+            }
+        }
+        let response = self.respond(&request.method, &request.url, request.body.as_deref(), ISSUER, API);
+        let mut world = self.world();
+        if let Some(key) = key
+            && (200..300).contains(&response.status)
+        {
+            world.replays.push((key, response.clone()));
+            let route = request.url.strip_prefix(API).unwrap_or_default().to_string();
+            if let Some(at) = world.lose_answers.iter().position(|r| *r == route) {
+                world.lose_answers.remove(at);
+                return Ok(problem(503, "SERVICE_UNAVAILABLE"));
+            }
+        }
+        Ok(response)
     }
 }
 

@@ -293,9 +293,12 @@ fn by_rule(sources: &Sources, kind: &str, slot: &SlotInfo) -> Vec<Choice> {
     let craft = craftable(sources, kind, None);
     let shop: HashMap<&str, &ShopPart> =
         sources.shop.iter().filter(|p| !p.code.is_empty()).map(|p| (p.code.as_str(), p)).collect();
-    // UEX has wares without an entity identifier, only with `id:…` (the flight blades): found by the full name.
-    let shop_by_name: HashMap<String, &ShopPart> =
-        sources.shop.iter().filter(|p| p.code.starts_with("id:")).map(|p| (p.name.trim().to_lowercase(), p)).collect();
+    // UEX has wares without an entity identifier, only with `id:…` (the flight blades): found by the full name,
+    // where that name stands once. "Flight Blade" is the name of many factory blades, each of another ship.
+    let mut shop_by_name: HashMap<String, Option<&ShopPart>> = HashMap::new();
+    for part in sources.shop.iter().filter(|p| p.code.starts_with("id:")) {
+        shop_by_name.entry(part.name.trim().to_lowercase()).and_modify(|seen| *seen = None).or_insert(Some(part));
+    }
     let stock = slot.factory.as_ref().map(|(reference, _)| reference.as_str());
     let in_craft = |reference: &str| craft.iter().find(|c| c.reference == reference);
 
@@ -325,8 +328,10 @@ fn by_rule(sources: &Sources, kind: &str, slot: &SlotInfo) -> Vec<Choice> {
         let mut reference = part.reference.clone();
         let mut shop_hit: Option<&ShopPart> = shop.get(reference.as_str()).copied();
         let craft_hit = in_craft(&reference);
+        // The factory part keeps its own identifier: a ware of the same name may be the blade of another ship.
         if shop_hit.is_none()
-            && let Some(found) = shop_by_name.get(&part.name.trim().to_lowercase())
+            && Some(part.reference.as_str()) != stock
+            && let Some(Some(found)) = shop_by_name.get(&part.name.trim().to_lowercase())
         {
             // The identifier of the shop, so that price and shop are found.
             reference.clone_from(&found.code);
@@ -359,17 +364,27 @@ fn by_rule(sources: &Sources, kind: &str, slot: &SlotInfo) -> Vec<Choice> {
 }
 
 /// `cart.choices`: which parts go into a slot of this kind and size, alphabetical. With `slot` the rule of
-/// the game replaces kind and size for racks, missiles, bombs and paints.
+/// the game replaces kind and size for racks, missiles, bombs and paints, and for a ship-bound slot
+/// ([`crate::erkul_slots::SHIP_BOUND`]) the factory part does where the slot has no rule of its own.
+///
+/// ⚠⚠ A flight blade belongs to one ship: by kind and size alone the blade slot of the F8C Lightning offered
+/// the blades of every ship (the shop lists them all as "Flight Blade", size 1).
 pub fn choices(sources: &Sources, kind: &str, size: Option<i64>, slot: Option<&SlotInfo>) -> Vec<Choice> {
     if kind.is_empty() {
         return Vec::new();
     }
     if let Some(slot) = slot
-        && slot.fit.is_some()
         && PART_KINDS.contains(&kind)
         && !sources.parts.is_empty()
+        && (slot.fit.is_some() || sources.parts.bound_stock(slot).is_some())
     {
         return by_rule(sources, kind, slot);
+    }
+    // A ship-bound slot whose factory part is not known has no rule to go by: no list rather than the parts of
+    // every ship (the page still offers the factory part). A paint port empty at the factory, of a ship neither
+    // the Record nor erkul gives the rule of, is one.
+    if crate::erkul_slots::SHIP_BOUND.contains(&kind) && slot.is_some_and(|s| s.fit.is_none()) {
+        return Vec::new();
     }
     let found = craftable(sources, kind, size);
     let groups: Vec<&str> = GROUP_TO_KIND.iter().filter(|(_, k)| *k == kind).map(|(g, _)| *g).collect();
@@ -421,4 +436,137 @@ pub fn choices(sources: &Sources, kind: &str, size: Option<i64>, slot: Option<&S
     result.extend(extra);
     result.sort_by_cached_key(|c| c.name.to_lowercase());
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::erkul_slots::Part;
+
+    fn blade(reference: &str, name: &str, class: &str, tags: &[&str]) -> Part {
+        Part {
+            reference: reference.into(),
+            name: name.into(),
+            kind: "FlightController".into(),
+            size: Some(1),
+            tags: tags.iter().map(|s| (*s).to_string()).collect(),
+            class: class.into(),
+            ..Part::default()
+        }
+    }
+
+    fn shop(code: &str, name: &str) -> ShopPart {
+        ShopPart { code: code.into(), name: name.into(), group: "Flight Blade".into(), size: "1".into(), ..ShopPart::default() }
+    }
+
+    fn slot(factory: Option<(&str, &str)>) -> SlotInfo {
+        SlotInfo {
+            path: "hardpoint_controller_flight".into(),
+            kind: "FlightController".into(),
+            size: Some(1),
+            fit: None,
+            factory: factory.map(|(r, n)| (r.to_string(), n.to_string())),
+            fixed: false,
+        }
+    }
+
+    fn names(found: &[Choice]) -> Vec<&str> {
+        found.iter().map(|c| c.name.as_str()).collect()
+    }
+
+    /// The F8C Lightning in the hangar: its blade slot sits right on the ship (no rule of its own in the game
+    /// data), and the shop lists the blades of every ship as "Flight Blade" of size 1.
+    #[test]
+    fn the_blade_slot_of_a_ship_offers_its_own_blades_and_not_those_of_every_ship() {
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let parts = ErkulParts::from_parts(vec![
+            blade("f8c", "Flight Blade", "Controller_Flight_ANVL_Lightning_F8C", &["ANVL_Lighting_Blade"]),
+            blade("f8", "Flight Blade", "Controller_Flight_ANVL_Lightning_F8", &["ANVL_Lighting_Blade"]),
+            blade("glad", "Gladius Standard Flight Blade", "Controller_Flight_AEGS_Gladius", &["AEGS_Gladius_Blade"]),
+            blade("glad-hnd", "Gladius PHB Flight Blade", "Controller_Flight_AEGS_Gladius_Blade_HND", &["AEGS_Gladius_Blade"]),
+            blade("asgard", "Anvil Asgard Standard Flight Blade", "Controller_Flight_ANVL_Asgard", &["ANVL_Asgard_Blade"]),
+            blade("stalker", "Avenger Stalker PHB Flight Blade", "Controller_Flight_AEGS_Avenger_Stalker_Flight_Blade_HND", &["AEGS_Avenger_Blade"]),
+        ]);
+        let wares = [
+            shop("id:1", "Anvil Asgard Standard Flight Blade"),
+            shop("id:2", "Arrow Standard Flight Blade"),
+            shop("id:3", "Gladius PHB Flight Blade"),
+            shop("id:4", "Avenger Stalker PHB Flight Blade"),
+            // Two wares of the factory name of many ships: neither gives its identifier to the F8C's blade.
+            shop("id:5", "Flight Blade"),
+            shop("id:6", "Flight Blade"),
+        ];
+        let traits = HashMap::new();
+        let sources = Sources { craft: &[], traits: &traits, shop: &wares, parts: &parts };
+        // The F8C: only its factory blade (the F8's has the same name and becomes one with it).
+        let f8c = choices(&sources, "FlightController", Some(1), Some(&slot(Some(("f8c", "Flight Blade")))));
+        assert_eq!(names(&f8c), ["Flight Blade"]);
+        assert_eq!(f8c[0].reference, "f8c", "the factory blade wins among those of the same name");
+        assert_eq!(f8c[0].origin, Origin::ShipOnly, "no shop ware of the same name lends it price and shop");
+        // The Gladius: its own two, the one in the shop with the shop's identifier and origin.
+        let gladius =
+            choices(&sources, "FlightController", Some(1), Some(&slot(Some(("glad", "Gladius Standard Flight Blade")))));
+        assert_eq!(names(&gladius), ["Gladius PHB Flight Blade", "Gladius Standard Flight Blade"]);
+        let bought = gladius.iter().find(|c| c.name == "Gladius PHB Flight Blade").expect("in the list");
+        assert_eq!((bought.reference.as_str(), bought.origin), ("id:3", Origin::Buyable));
+        // Counter-check: without the slot (no ship known) kind and size decide, and every ship's blade stands there.
+        let loose = choices(&sources, "FlightController", Some(1), None);
+        assert!(names(&loose).contains(&"Arrow Standard Flight Blade"), "{:?}", names(&loose));
+        // A slot whose factory blade is unknown gets no list instead of every ship's blades.
+        assert!(choices(&sources, "FlightController", Some(1), Some(&slot(Some(("lost", "Flight Blade"))))).is_empty());
+        assert!(choices(&sources, "FlightController", Some(1), Some(&slot(None))).is_empty());
+        // Other kinds without a rule of their own keep kind and size.
+        let cooler = SlotInfo { kind: "Cooler".into(), ..slot(None) };
+        let coolers = [ShopPart { group: "Coolers".into(), ..shop("id:9", "Bracer") }];
+        let sources = Sources { shop: &coolers, ..sources };
+        assert_eq!(names(&choices(&sources, "Cooler", Some(1), Some(&cooler))), ["Bracer"]);
+    }
+
+    /// The paint slot of a ship sits right on the ship and is empty at the factory: without a rule of its own the
+    /// list held every paint of the game (1064 at 4.10.2).
+    #[test]
+    fn the_paint_slot_offers_the_paints_of_its_ship_and_not_those_of_every_ship() {
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let paint = |reference: &str, name: &str, needs: &str| Part {
+            reference: reference.into(),
+            name: name.into(),
+            kind: "Paints".into(),
+            size: Some(1),
+            tags: vec![needs.to_string(), format!("@{reference}")],
+            required: vec![needs.to_string()],
+            ..Part::default()
+        };
+        let parts = ErkulParts::from_parts(vec![
+            paint("pirate", "Gladius Pirate Livery", "Paint_Gladius"),
+            paint("valiant", "Gladius Valiant Livery", "Paint_Gladius"),
+            paint("platinum", "Lightning Platinum Livery", "Paint_Lightning"),
+            paint("cutter", "Cutter Rust Livery", "Paint_Cutter"),
+        ]);
+        let traits = HashMap::new();
+        let sources = Sources { craft: &[], traits: &traits, shop: &[], parts: &parts };
+        let slot = |factory: Option<(&str, &str)>, fit: Option<crate::erkul_slots::Fit>| SlotInfo {
+            path: "hardpoint_paint".into(),
+            kind: "Paints".into(),
+            size: None,
+            fit,
+            factory: factory.map(|(r, n)| (r.to_string(), n.to_string())),
+            fixed: false,
+        };
+        // Empty at the factory, no rule: no list.
+        assert!(choices(&sources, "Paints", None, Some(&slot(None, None))).is_empty());
+        // With the factory paint of a Gladius: the Gladius paints.
+        let gladius = choices(&sources, "Paints", None, Some(&slot(Some(("pirate", "Gladius Pirate Livery")), None)));
+        assert_eq!(names(&gladius), ["Gladius Pirate Livery", "Gladius Valiant Livery"]);
+        // With the rule of the port (erkul's or the ship Record's): the paints of that family.
+        let lightning = vec!["Paint_Lightning".to_string()];
+        let fit = crate::erkul_slots::Fit {
+            types: vec![("Paints".into(), Vec::new())],
+            port_tags: lightning.clone(),
+            required: lightning,
+            ..Default::default()
+        };
+        assert_eq!(names(&choices(&sources, "Paints", None, Some(&slot(None, Some(fit))))), ["Lightning Platinum Livery"]);
+        // Counter-check: without the slot every paint stands there.
+        assert_eq!(choices(&sources, "Paints", None, None).len(), 4);
+    }
 }

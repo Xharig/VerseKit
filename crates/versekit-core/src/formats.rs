@@ -211,8 +211,62 @@ pub fn local_time(seconds: i64) -> Option<LocalTime> {
     }
 }
 
-/// `strftime` for the directives the texts use: `%d %m %Y %y %H %M %S %%`.
-/// Anything else stays as it is.
+/// The setting: the clock is written with 24 hours (`18:30`), else with 12 and AM/PM (`6:30 PM`).
+pub const CLOCK_24_SETTING: &str = "uhr_24h";
+
+static CLOCK_24: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+/// Switches the clock of every time of day shown in the program ([`shown`]); the default is 24 hours.
+pub fn set_clock_24(on: bool) {
+    CLOCK_24.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Is the clock written with 24 hours?
+pub fn clock_24() -> bool {
+    CLOCK_24.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Reads the setting of the clock and switches it; true when it is the 24-hour clock.
+pub fn apply_clock(paths: &crate::paths::Paths) -> bool {
+    let on = paths.setting_bool(CLOCK_24_SETTING, true);
+    set_clock_24(on);
+    on
+}
+
+/// The format `format` for a time shown to the player: with the 12-hour clock `%H:%M:%S` and `%H:%M` become
+/// `%l:%M:%S %p` and `%l:%M %p`. Formats of stored or exchanged stamps never go through here.
+pub fn shown(format: &str) -> std::borrow::Cow<'_, str> {
+    shown_with(format, clock_24())
+}
+
+/// [`shown`] for a clock given.
+pub fn shown_with(format: &str, clock_24: bool) -> std::borrow::Cow<'_, str> {
+    if clock_24 || !format.contains("%H:%M") {
+        return std::borrow::Cow::Borrowed(format);
+    }
+    std::borrow::Cow::Owned(format.replace("%H:%M:%S", "%l:%M:%S %p").replace("%H:%M", "%l:%M %p"))
+}
+
+/// A full hour of the day for the player: `14:00`, or `2 PM` with the 12-hour clock.
+pub fn hour_label(hour: u32) -> String {
+    hour_label_with(hour, clock_24())
+}
+
+/// [`hour_label`] for a clock given.
+pub fn hour_label_with(hour: u32, clock_24: bool) -> String {
+    if clock_24 {
+        return format!("{hour:02}:00");
+    }
+    format!("{} {}", if hour.is_multiple_of(12) { 12 } else { hour % 12 }, if hour % 24 < 12 { "AM" } else { "PM" })
+}
+
+/// [`strftime`] of a format shown to the player ([`shown`]).
+pub fn strftime_shown(format: &str, time: &LocalTime) -> String {
+    strftime(&shown(format), time)
+}
+
+/// `strftime` for the directives the texts use: `%d %m %Y %y %H %M %S %%`, and for the 12-hour clock `%l` (hour
+/// 1 to 12, no zero in front) and `%p` (`AM`, `PM`). Anything else stays as it is.
 pub fn strftime(format: &str, time: &LocalTime) -> String {
     let mut out = String::with_capacity(format.len() + 8);
     let mut chars = format.chars();
@@ -229,6 +283,8 @@ pub fn strftime(format: &str, time: &LocalTime) -> String {
             Some('H') => out.push_str(&format!("{:02}", time.hour)),
             Some('M') => out.push_str(&format!("{:02}", time.minute)),
             Some('S') => out.push_str(&format!("{:02}", time.second)),
+            Some('l') => out.push_str(&(if time.hour.is_multiple_of(12) { 12 } else { time.hour % 12 }).to_string()),
+            Some('p') => out.push_str(if time.hour < 12 { "AM" } else { "PM" }),
             Some('%') => out.push('%'),
             Some(other) => {
                 out.push('%');
@@ -246,7 +302,7 @@ pub fn strftime(format: &str, time: &LocalTime) -> String {
 /// Empty if the time stamp cannot be converted (Python raises there).
 pub fn moment(lang: Lang, timestamp: f64, key: &str) -> String {
     let format = language::t_in(lang, key);
-    floor_seconds(timestamp).and_then(local_time).map(|time| strftime(&format, &time)).unwrap_or_default()
+    floor_seconds(timestamp).and_then(local_time).map(|time| strftime_shown(&format, &time)).unwrap_or_default()
 }
 
 /// Date of the error report (`b_datum`), as `datetime.fromtimestamp(…)`.
@@ -261,7 +317,7 @@ pub fn date_time(lang: Lang, timestamp: f64) -> String {
         Lang::De => "%d.%m.%Y %H:%M",
         Lang::En => "%Y-%m-%d %H:%M",
     };
-    floor_seconds(timestamp).and_then(local_time).map(|time| strftime(format, &time)).unwrap_or_default()
+    floor_seconds(timestamp).and_then(local_time).map(|time| strftime_shown(format, &time)).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -320,5 +376,45 @@ mod tests {
         assert_eq!(strftime("%d.%m.%Y, %H:%M", &time), "09.03.2026, 07:05");
         assert_eq!(strftime("%Y-%m-%d %y %S %% %q", &time), "2026-03-09 26 04 % %q");
         assert!(local_time(0).is_some());
+    }
+
+    #[test]
+    fn the_12_hour_clock_writes_am_and_pm_without_a_zero_in_front() {
+        let at = |hour| LocalTime { year: 2026, month: 3, day: 9, hour, minute: 5, second: 4 };
+        let twelve = |format: &str, hour| strftime(&shown_with(format, false), &at(hour));
+        let full = |format: &str, hour| strftime(&shown_with(format, true), &at(hour));
+        assert_eq!(twelve("%H:%M", 0), "12:05 AM");
+        assert_eq!(twelve("%H:%M", 6), "6:05 AM");
+        assert_eq!(twelve("%H:%M", 12), "12:05 PM");
+        assert_eq!(twelve("%H:%M", 18), "6:05 PM");
+        assert_eq!(twelve("%H:%M", 23), "11:05 PM");
+        assert_eq!(twelve("%d.%m. %H:%M:%S", 18), "09.03. 6:05:04 PM");
+        assert_eq!(full("%H:%M", 18), "18:05");
+        assert_eq!(full("%d.%m. %H:%M:%S", 7), "09.03. 07:05:04");
+        // Without a time of day nothing changes, and a stamp that is stored is written as it is.
+        assert_eq!(twelve("%d.%m.%Y", 18), "09.03.2026");
+        assert_eq!(strftime("%Y-%m-%d %H:%M:%S", &at(18)), "2026-03-09 18:05:04");
+        assert_eq!(hour_label_with(14, true), "14:00");
+        assert_eq!(hour_label_with(0, true), "00:00");
+        assert_eq!(hour_label_with(14, false), "2 PM");
+        assert_eq!(hour_label_with(0, false), "12 AM");
+        assert_eq!(hour_label_with(12, false), "12 PM");
+    }
+
+    #[test]
+    fn the_clock_is_read_from_its_setting_and_is_24_hours_without_one() {
+        let root = std::env::temp_dir().join(format!("versekit-uhr-{}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let home = root.to_string_lossy().into_owned();
+        let paths = crate::paths::Paths::new(crate::paths::Host::new(
+            crate::pypath::Flavor::native(),
+            &[(crate::legacy::ENV_HOME, home.as_str())],
+            &home,
+        ));
+        assert!(paths.setting_bool(CLOCK_24_SETTING, true), "24 hours without a setting");
+        assert!(apply_clock(&paths));
+        assert!(clock_24());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

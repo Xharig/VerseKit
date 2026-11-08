@@ -20,6 +20,7 @@
 //! comes from the page contestedzonetimers.com (fetched in the background, at most every six hours) or
 //! from a value typed by hand. The self timers run on the clock, so they go on while another page is open.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
 
@@ -159,7 +160,7 @@ impl ContestedState {
         let side = u32::try_from(ctx.input(|input| input.max_texture_side)).unwrap_or(MAP_SIDE).min(MAP_SIDE);
         let (sender, receiver) = std::sync::mpsc::channel();
         let bytes = MAPS[wanted].bytes;
-        let started = std::thread::Builder::new().name("contested-map".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("contested-map".into()).spawn_with_language(move || {
             let _ = sender.send(decode_map(bytes, side));
         });
         if started.is_ok() {
@@ -345,7 +346,7 @@ fn sub(scheme: &Scheme, text: impl Into<String>) -> RichText {
 /// The color a phase is drawn in.
 fn phase_color(scheme: &Scheme, phase: Phase) -> egui::Color32 {
     color(match phase {
-        Phase::Closed => scheme.red,
+        Phase::Closed => scheme.red_text(),
         Phase::Open => scheme.accent,
         Phase::Resetting => scheme.gold,
     })
@@ -861,7 +862,7 @@ fn start_card(ui: &mut Ui, scheme: &Scheme, state: &mut ContestedState) {
                 }
             });
             if state.hand_wrong {
-                ui.label(RichText::new(t("s_cz_hand_falsch")).small().color(color(scheme.red)));
+                ui.label(RichText::new(t("s_cz_hand_falsch")).small().color(color(scheme.red_text())));
             }
             ui.add(egui::Label::new(sub(scheme, t("s_cz_hand_hilfe"))).wrap());
         });
@@ -955,7 +956,7 @@ fn timer_box(ui: &mut Ui, scheme: &Scheme, name: &str, id: &str, entry: &mut Ent
 mod tests {
     use super::*;
     use egui::Rect;
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
     use versekit_core::net::Fake;
 
     fn texts(shapes: &[egui::epaint::ClippedShape]) -> Vec<String> {
@@ -1013,7 +1014,7 @@ mod tests {
     #[test]
     fn the_page_shows_the_phase_the_openings_the_source_and_every_timer() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = ContestedState::sample(contested::now(), 2_500);
         for width in [640.0, 900.0, 1800.0] {
@@ -1037,13 +1038,13 @@ mod tests {
             assert_eq!(shown.iter().filter(|s| *s == "15:00").count(), 8, "eight timers of 15 minutes");
             assert_eq!(shown.iter().filter(|s| *s == "30:00").count(), 9, "nine of 30");
         }
-        set_language(Choice::Auto);
+        set_thread_language(Choice::Auto);
     }
 
     #[test]
     fn without_a_start_the_page_says_so_instead_of_showing_times() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = ContestedState::default();
         let (shown, over) = frame(&ctx, &mut state, 900.0);
@@ -1053,7 +1054,7 @@ mod tests {
             assert!(!shown.contains(&t(key)), "{key} must not show without a start: {shown:?}");
         }
         assert!(shown.contains(&t("s_cz_nie")), "{shown:?}");
-        set_language(Choice::Auto);
+        set_thread_language(Choice::Auto);
     }
 
     #[test]
@@ -1172,7 +1173,7 @@ mod tests {
     #[test]
     fn the_source_and_the_age_of_the_start_stand_under_the_hangar() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = ContestedState::sample(contested::now(), 2_500);
         let (shown, _) = frame(&ctx, &mut state, 900.0);
@@ -1185,7 +1186,7 @@ mod tests {
         assert!(shown.contains(&t("s_cz_hand_weg")), "{shown:?}");
         assert!(shown.contains(&t("s_cz_offen")), "{shown:?}");
         assert!(shown.iter().any(|s| s.contains(contested::SOURCE_NAME)), "the page stays named: {shown:?}");
-        set_language(Choice::Auto);
+        set_thread_language(Choice::Auto);
     }
 
     #[test]
@@ -1278,20 +1279,20 @@ mod tests {
     #[test]
     fn a_map_that_cannot_be_made_is_told_on_the_page() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let mut state = ContestedState { maps_on: true, map_failed: Some(0), ..ContestedState::default() };
         let (shown, over) = frame(&ctx, &mut state, 900.0);
         assert_eq!(over, 0.0);
         assert!(shown.contains(&t("s_cz_karte_fehlt")), "{shown:?}");
         assert!(state.map_job.is_none(), "no new try at every frame");
-        set_language(Choice::Auto);
+        set_thread_language(Choice::Auto);
     }
 
     #[test]
     fn the_tabs_switch_the_maps_under_them_with_their_maker_and_the_choice_is_kept() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let ctx = context();
         let (paths, dir) = paths_in("karten", true);
         let mut state = ContestedState::with_net(&paths, None);
@@ -1313,7 +1314,7 @@ mod tests {
         assert!(paths.set_setting(SETTING_MAP, Value::str("gibt-es-nicht")));
         assert_eq!(ContestedState::with_net(&paths, None).map, 0, "an unknown map is the first");
         let _ = std::fs::remove_dir_all(&dir);
-        set_language(Choice::Auto);
+        set_thread_language(Choice::Auto);
     }
 
     #[test]

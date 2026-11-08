@@ -324,7 +324,7 @@ fn the_own_account_is_found_by_its_words_and_the_jump_frames_its_row_on_the_gene
 #[test]
 fn the_account_words_find_the_own_account_and_not_the_card_the_connection_page_shows_only_now_and_then() {
     let _language = crate::language_lock();
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let general = format!("{} › {}", t("hf_allgemein"), t("s_er_acc"));
     for filter in ["acc", "handl", "konto", "spielername"] {
         let hits = super::nav_hits_in(filter, "hf_gruppe_einst", "hf_allgemein", false);
@@ -335,10 +335,10 @@ fn the_account_words_find_the_own_account_and_not_the_card_the_connection_page_s
     // On the sample page the row of the made-up connection page stays findable.
     let sample = super::nav_hits_in("acc", "hf_gruppe_einst", "k_basetool_verbindung", true);
     assert!(sample.iter().any(|h| h.contains(&t("s_btv_konto"))), "{sample:?}");
-    language::set_language(language::Choice::En);
+    language::set_thread_language(language::Choice::En);
     let hits = super::nav_hits_in("player name", "hf_gruppe_einst", "hf_allgemein", false);
     assert!(hits.contains(&format!("{} › {}", t("hf_allgemein"), t("s_er_acc"))), "{hits:?}");
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
 }
 
 /// While blueprints of another account did not count, the blueprint tile of the overview leads to the own account

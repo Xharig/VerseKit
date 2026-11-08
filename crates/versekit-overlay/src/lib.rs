@@ -68,6 +68,7 @@ mod afk;
 mod app;
 mod files;
 mod fps;
+mod picture;
 #[cfg(windows)]
 mod probe;
 mod probe_x11;
@@ -77,6 +78,8 @@ mod scan_window;
 mod scanner;
 #[cfg(windows)]
 mod tray;
+#[cfg(windows)]
+mod tray_look;
 mod watcher;
 #[cfg(windows)]
 mod win;

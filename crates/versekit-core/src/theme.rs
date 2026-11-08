@@ -15,10 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Color schemes (`scbp/theme.py`), the one place where the program's colors
+//! Color schemes (as in `theme.py` of 4.12), the one place where the program's colors
 //! live.
 //!
-//! Values: all schemes from `scbp/theme.py` of pull request 12 (commit
+//! Values: all schemes from `theme.py` of pull request 12 (commit
 //! `204c964d`), which `tools/parity_theme.py` reads and compares.
 //!
 //! Slimmed down compared to Python:
@@ -105,6 +105,8 @@ impl Color {
     }
 }
 
+/// Contrast text needs after WCAG 2.x (what [`Scheme::red_text`] reaches).
+const RED_TEXT_CONTRAST: f64 = 4.5;
 /// How far the border of a search line goes from the field to the accent.
 const SEARCH_BORDER_SHARE: f64 = 0.75;
 /// How far the ground of a search line goes from the field to white.
@@ -184,6 +186,19 @@ impl Scheme {
     /// Ground of a search line: the field, a little lighter.
     pub fn search_ground(&self) -> Color {
         self.field.mix(Color { r: 255, g: 255, b: 255 }, SEARCH_GROUND_SHARE)
+    }
+
+    /// The red for text on the boxes, fields, bars and the fill of a danger button: `red` itself where that reads
+    /// at 4.5:1 on all of them (every scheme but `krt`, whose boxes are light), else `red` mixed towards white just
+    /// far enough, so it keeps the hue and is as strong as the contrast allows. Dots, borders, fills and the text on
+    /// the overlay ground keep the strong `red`.
+    pub fn red_text(&self) -> Color {
+        let grounds = [self.bg, self.surface, self.field, self.bar, self.danger_fill];
+        let white = Color { r: 255, g: 255, b: 255 };
+        (0..=100)
+            .map(|step| self.red.mix(white, f64::from(step) / 100.0))
+            .find(|text| grounds.iter().all(|ground| text.contrast(*ground) >= RED_TEXT_CONTRAST))
+            .unwrap_or(white)
     }
 
     /// Text color of a hovered button.
@@ -312,10 +327,12 @@ const fn krt() -> Scheme {
         "s_da_krt",
         [
             "#202020", "#35393d", "#2a2d31", "#dadbde", "#b0b3b7", "#fb8a28", "#404145", "#2d3337", "#ffd23f",
-            "#ff7a70", "#d98a82", "#eeb64b", "#473321", "#3f474c", "#3f474c", "#784a23", "#594839", "#3a1a1c",
+            "#fe3d51", "#d98a82", "#eeb64b", "#473321", "#3f474c", "#3f474c", "#784a23", "#594839", "#3a1a1c",
             "#35393d", "#8f9399", "#eeb64b",
         ],
     );
+    // The red is the strong one of the other schemes (#fe3d51): dots, borders and the overlay show it in full.
+    // Text on the light boxes reads at 4.5:1 only in a lighter red: `Scheme::red_text`.
     // Controls have their own fill and a visible border; hovered button text
     // is the light accent.
     s.control = Some(Color::hex("#3f474c"));
@@ -338,11 +355,12 @@ static SCHEMES: [Scheme; 6] = [
     rounded(
         "original",
         "s_da_original",
-        // Red 1 % lighter than Python's #e05252, so error text on boxes reaches
-        // 4.5:1. Listed in CHANGED of `tools/parity_theme.py`.
+        // Red stronger than Python's #e05252 (the error color of the dark schemes below too): error text reaches
+        // 4.5:1 on every ground, and the red is clearly apart from gold, yellow and the orange of the brand buttons
+        // (`versekit-ui/tests/red_check.rs`). Listed in CHANGED of `tools/parity_theme.py`.
         [
             "#10141c", "#161c28", "#1b2230", "#e6edf3", "#8b98a5", "#9ce430", "#232c3d", "#0c1017", "#e8c353",
-            "#e05454", "#c98a8a", "#d8a03a", "#1d2a14", "#222b3b", "#2b3547", "#2a3a1c", "#1d2634", "#2a1414",
+            "#fe3d51", "#c98a8a", "#d8a03a", "#1d2a14", "#222b3b", "#2b3547", "#2a3a1c", "#1d2634", "#2a1414",
             "#0b0e14", "#5a6b85", "#7d90ad",
         ],
     ),
@@ -354,7 +372,7 @@ static SCHEMES: [Scheme; 6] = [
             "s_da_eis",
             [
                 "#0b1219", "#111b25", "#15212d", "#e3f1f7", "#86a0ae", "#38d6f5", "#1d2c3a", "#081017", "#e8c353",
-                "#e05252", "#c98a8a", "#d8a03a", "#0e2a33", "#1b2836", "#243446", "#12394a", "#162633", "#2a1414",
+                "#fe3d51", "#c98a8a", "#d8a03a", "#0e2a33", "#1b2836", "#243446", "#12394a", "#162633", "#2a1414",
                 "#070c11", "#4f7184", "#78a6bb",
             ],
         ),
@@ -365,17 +383,19 @@ static SCHEMES: [Scheme; 6] = [
         "s_da_nebel",
         [
             "#131020", "#1a1629", "#201b32", "#ece8f5", "#9a93ad", "#a78bfa", "#2a2440", "#0e0c18", "#e8c353",
-            "#e05252", "#c98a8a", "#d8a03a", "#241c3d", "#262040", "#2f2847", "#352a5c", "#221c36", "#2a1418",
+            "#fe3d51", "#c98a8a", "#d8a03a", "#241c3d", "#262040", "#2f2847", "#352a5c", "#221c36", "#2a1418",
             "#0c0a14", "#6b6190", "#8f84b6",
         ],
     ),
-    // Red is the accent here, so the error color is yellow-orange.
+    // Red is the accent here, so the error color is a rose red: it is clearly apart from gold and yellow (the
+    // warnings) and no longer the orange that was hardly told from them. Its pale shade and the fill of a danger
+    // button follow it.
     rounded(
         "glut",
         "s_da_glut",
         [
             "#151515", "#1c1c1d", "#222223", "#ebe6e4", "#9d9592", "#ff5a4f", "#2c2a2a", "#0f0f0f", "#e8c353",
-            "#ffa53a", "#d9a870", "#d8a03a", "#3a1614", "#2a2727", "#353131", "#4a1d1a", "#2a2222", "#2e1d08",
+            "#ff4a7a", "#d98a9a", "#d8a03a", "#3a1614", "#2a2727", "#353131", "#4a1d1a", "#2a2222", "#2e0f18",
             "#0c0c0c", "#6a6260", "#9a8e8a",
         ],
     ),
@@ -385,7 +405,7 @@ static SCHEMES: [Scheme; 6] = [
             "s_da_kontrast",
             [
                 "#000000", "#0d0d0d", "#141414", "#ffffff", "#c8c8c8", "#ffd400", "#5a5a5a", "#000000", "#ffb000",
-                "#ff6b6b", "#ffa3a3", "#ffb000", "#332b00", "#262626", "#444444", "#665500", "#2b2600", "#330000",
+                "#ff3b3b", "#ffa3a3", "#ffb000", "#332b00", "#262626", "#444444", "#665500", "#2b2600", "#330000",
                 "#000000", "#9a9a9a", "#ffffff",
             ],
         ),
@@ -540,6 +560,20 @@ mod tests {
         assert_eq!(current().id, "glut");
         assert!(set_current("krt"));
         assert_eq!(current().accent.to_hex(), "#fb8a28");
+    }
+
+    #[test]
+    fn red_text_is_the_red_where_it_reads_and_lighter_on_the_light_krt_boxes() {
+        for s in schemes() {
+            let grounds = [s.bg, s.surface, s.field, s.bar, s.danger_fill];
+            assert!(grounds.iter().all(|g| s.red_text().contrast(*g) >= 4.5), "{}", s.id);
+            if s.id == "krt" {
+                assert_eq!(s.red.to_hex(), "#fe3d51");
+                assert_ne!(s.red_text(), s.red);
+            } else {
+                assert_eq!(s.red_text(), s.red, "{}", s.id);
+            }
+        }
     }
 
     #[test]

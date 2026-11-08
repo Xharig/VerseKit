@@ -273,7 +273,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
     let empty = widgets::card(ui, scheme, |ui| {
         widgets::card_title(ui, scheme, &head);
         if state.save_failed {
-            ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red)));
+            ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red_text())));
         }
         // The note struck last can be taken back for a few seconds.
         let now = ui.input(|i| i.time);
@@ -613,7 +613,7 @@ fn note_material(ui: &mut Ui, scheme: &Scheme, crafting: &CraftingState, note: &
 mod tests {
     use super::*;
     use egui::{Rect, vec2};
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
 
     /// A mining file with two ores that lie at two places together.
     const MINING: &str = r#"{"format": 1, "locations": [
@@ -671,7 +671,7 @@ mod tests {
     #[test]
     fn quantities_read_whole_and_small_ones_exactly() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert_eq!(number(4.0), "4");
         assert_eq!(number(0.64), "0,64");
         assert_eq!(number(0.5), "0,5");
@@ -679,17 +679,17 @@ mod tests {
         assert_eq!(number(12.34), "12,3");
         assert_eq!(number(3.999), "4");
         // The decimal mark follows the language.
-        set_language(Choice::En);
+        set_thread_language(Choice::En);
         assert_eq!(number(0.64), "0.64");
         assert_eq!(number(12.34), "12.3");
         assert_eq!(amount_text(0.5), "0.5");
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
     }
 
     #[test]
     fn the_notes_show_their_material_and_a_count_change_is_written() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut crafting = CraftingState::default();
         let mut state = FarmState::default();
         let (shown, over) = draw(&context(), &mut state, &mut crafting, 900.0);
@@ -710,7 +710,7 @@ mod tests {
         let mut state = FarmState { mining: mining(), ..FarmState::default() };
         // Iron and Gold are missing (the sample stock is small); the stock covers nothing of Agricium.
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             let (shown, over) = draw(&context(), &mut state, &mut crafting, 900.0);
             assert_eq!(over, 0.0, "{lang:?}");
             assert!(shown.contains(&t("s_fl_sammel_kopf")), "{lang:?}: {shown:?}");
@@ -718,13 +718,13 @@ mod tests {
             assert!(shown.iter().any(|s| s.starts_with(&t("s_fl_fundorte").replace("{0}", ""))), "{lang:?}");
             assert!(shown.iter().any(|s| s.contains("SCU")), "units follow the numbers: {shown:?}");
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
     }
 
     #[test]
     fn the_empty_page_has_one_way_and_a_struck_note_can_be_taken_back() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let mut crafting = CraftingState::default();
         let mut state = FarmState::default();
         let names: Vec<String> = notepad::notes(&state.notes).iter().map(|n| n.name.clone()).collect();
@@ -884,7 +884,7 @@ mod tests {
     #[test]
     fn a_part_on_build_of_a_ship_is_farmed_without_any_note() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let paths = folder("hangar");
         // Grand Core takes Taranite; the cooler is bought, the shield is ticked off: only the core counts.
         std::fs::write(
@@ -910,7 +910,7 @@ mod tests {
     #[test]
     fn mining_data_fetched_after_the_start_bring_the_places() {
         let _language = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let paths = folder("bergbau");
         std::fs::write(
             paths.app_file(NOTES_FILE),
@@ -936,7 +936,7 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
-            set_language(lang);
+            set_thread_language(lang);
             for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
                 for width in [380.0, 520.0, 900.0] {
                     let ctx = context();
@@ -958,7 +958,7 @@ mod tests {
                 }
             }
         }
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 }

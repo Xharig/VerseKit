@@ -19,7 +19,7 @@ bleibt grün.
 keiner Ausgabe; Fehlertexte laufen durch `_clean()`.
 
 ⚠⚠ **Die angehängte Zeile ist keine Aufzählung und hat keine Überschrift.**
-`scbp/updater.py` liest den Release-Text, und `points_by_kind()` macht aus
+`crates/versekit-core/src/changelog.rs` liest den Release-Text, und `points_by_kind` macht aus
 jeder Zeile „- …" einen Punkt der zuletzt gesehenen Art — ein
 VirusTotal-Ergebnis stünde in „Was ist neu" sonst als Fehlerbehebung.
 """

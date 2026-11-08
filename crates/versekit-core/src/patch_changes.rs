@@ -625,6 +625,115 @@ pub fn field_text(change: &FieldChange) -> (String, Tone) {
     }
 }
 
+/// How many items of a kept patch stayed the same: the `unchanged` of its summary, else the sum of its areas;
+/// `None` when the file says neither.
+pub fn unchanged(paths: &Paths, version: &str) -> Option<i64> {
+    let data = load(paths, version)?;
+    let said = |value: Option<&Value>| value.filter(|v| !matches!(v, Value::Null)).map(|v| count(Some(v)));
+    let from_summary = field(&data, "summary").and_then(Value::as_object).and_then(|s| said(field(s, "unchanged")));
+    if from_summary.is_some() {
+        return from_summary;
+    }
+    // The sum of the areas only when every area says it: a part would read as the whole.
+    let Some(Value::Array(categories)) = field(&data, "categories") else { return None };
+    let numbers: Option<Vec<i64>> =
+        categories.iter().filter_map(Value::as_object).map(|c| said(field(c, "unchanged"))).collect();
+    numbers.filter(|n| !n.is_empty()).map(|n| n.iter().sum())
+}
+
+/// One number of a patch that rose or fell, with how much in percent of the old value.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Move {
+    pub kind: String,
+    pub name: String,
+    pub path: String,
+    pub old: Value,
+    pub new: Value,
+    /// `(new - old) / old * 100`, the old value above 0.
+    pub share: f64,
+}
+
+/// The numbers of the changed items that rose most and that fell most, each at most `at_most`, the largest first.
+/// Only numbers with an old value above 0 count (a share of a negative base reads wrong), and only a change of half
+/// a percent and more (what [`percent`] writes); truth values, texts, nested values and new items do not.
+pub fn largest_moves(changes: &[Change], at_most: usize) -> (Vec<Move>, Vec<Move>) {
+    let mut moves: Vec<Move> = Vec::new();
+    for change in changes.iter().filter(|c| c.fate == Fate::Changed) {
+        for field in &change.fields {
+            let (Some(a), Some(b)) = (real(field.old.as_ref()), real(field.new.as_ref())) else { continue };
+            if a <= 0.0 || !b.is_finite() {
+                continue;
+            }
+            let share = (b - a) / a * 100.0;
+            // A tiny base can make the share endless; it has no length a bar could show.
+            if !share.is_finite() || share.abs() < 0.5 {
+                continue;
+            }
+            let (Some(old), Some(new)) = (field.old.clone(), field.new.clone()) else { continue };
+            moves.push(Move {
+                kind: change.kind.clone(),
+                name: change.name.clone(),
+                path: field.path.clone(),
+                old,
+                new,
+                share,
+            });
+        }
+    }
+    // A stable sort: of two equal moves the one listed first stays first.
+    moves.sort_by(|x, y| y.share.abs().total_cmp(&x.share.abs()));
+    let (mut rises, mut falls): (Vec<Move>, Vec<Move>) = moves.into_iter().partition(|m| m.share > 0.0);
+    rises.truncate(at_most);
+    falls.truncate(at_most);
+    (rises, falls)
+}
+
+/// How much a value changed, as a short text: `+20 %`, from three times on `×3.5`; empty as with [`percent`].
+pub fn share_text(old: Option<&Value>, new: Option<&Value>) -> String {
+    percent(old, new).trim().trim_start_matches('(').trim_end_matches(')').to_string()
+}
+
+/// The file of the patches already looked at.
+pub const SEEN_FILE: &str = "patches-gelesen.json";
+
+fn seen_file(paths: &Paths) -> String {
+    paths.host.flavor.join(&paths.app_folder(), SEEN_FILE)
+}
+
+/// Whether the file of the patches looked at is there, read or not.
+pub fn seen_exists(paths: &Paths) -> bool {
+    std::path::Path::new(&seen_file(paths)).exists()
+}
+
+/// The versions already looked at; `None` before the page was ever opened with patches in its list, or when the
+/// file cannot be read.
+pub fn seen(paths: &Paths) -> Option<BTreeSet<String>> {
+    let map = read_file(&seen_file(paths))?;
+    let versions = match field(&map, "gelesen") {
+        Some(Value::Array(list)) => list.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+        _ => BTreeSet::new(),
+    };
+    Some(versions)
+}
+
+/// Keeps the versions looked at.
+///
+/// # Errors
+///
+/// When the file cannot be written.
+pub fn set_seen(paths: &Paths, versions: &BTreeSet<String>) -> std::io::Result<()> {
+    let list = versions.iter().map(|v| Value::str(v.as_str())).collect();
+    let mut map = Map::new();
+    jsonio::map_set(&mut map, "gelesen", Value::Array(list));
+    let text = jsonio::dumps(&Value::Object(map), Some(2), false);
+    jsonio::write_text_atomic(&seen_file(paths), &text, jsonio::Newline::Keep)
+}
+
+/// The patches of the list with changes that were not looked at yet, newest first.
+pub fn unread(list: &[Patch], seen: &BTreeSet<String>) -> Vec<String> {
+    list.iter().filter(|p| !p.empty && !seen.contains(&p.version)).map(|p| p.version.clone()).collect()
+}
+
 /// The counter of a patch: „3 neu · 0 weg · 12 geändert“.
 pub fn counter_text(summary: &Summary) -> String {
     tf(

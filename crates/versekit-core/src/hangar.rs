@@ -725,19 +725,85 @@ fn loadout(entry: &Map) -> &[(String, Value)] {
     }
 }
 
+/// Whether an entry of the plan is a part to get: it names a part. A slot left empty on purpose
+/// ([`crate::cart::EMPTIED`]) has none, is not in the shopping list and cannot be ticked off, so it is nothing open.
+fn is_part_to_get(part: &Map) -> bool {
+    !text(part, "ref").is_empty()
+}
+
 /// `cart.open_count`: planned parts not ticked off yet.
 pub fn open_count(entry: &Map) -> usize {
-    loadout(entry).iter().filter(|(_, part)| matches!(part, Value::Object(p) if !truthy(get(p, "erledigt")))).count()
+    loadout(entry)
+        .iter()
+        .filter(|(_, part)| matches!(part, Value::Object(p) if is_part_to_get(p) && !truthy(get(p, "erledigt"))))
+        .count()
 }
 
 /// `cart.fully_fitted`: something planned and all of it ticked off.
 pub fn fully_fitted(entry: &Map) -> bool {
-    let values = loadout(entry);
-    !values.is_empty()
-        && values.iter().all(|(_, part)| match part {
-            Value::Object(p) => truthy(get(p, "erledigt")),
-            _ => true,
-        })
+    let mut parts = loadout(entry).iter().filter_map(|(_, part)| part.as_object()).filter(|p| is_part_to_get(p));
+    let mut any = false;
+    parts.all(|p| {
+        any = true;
+        truthy(get(p, "erledigt"))
+    }) && any
+}
+
+/// Ticks off every planned part of the ship that is not ticked off yet; how many it ticked. What is ticked
+/// stays, nothing is taken away.
+pub fn tick_all(entry: &mut Map) -> usize {
+    let Some((_, Value::Object(plan))) = entry.iter_mut().find(|(k, _)| k == "belegung") else { return 0 };
+    let mut ticked = 0;
+    for (_, part) in plan.iter_mut() {
+        if let Value::Object(fields) = part
+            && is_part_to_get(fields)
+            && !truthy(get(fields, "erledigt"))
+        {
+            map_set(fields, "erledigt", Value::Bool(true));
+            ticked += 1;
+        }
+    }
+    ticked
+}
+
+/// The parts of the plan, slot and part: what the ship is "complete" for. A part that comes in or is swapped
+/// makes it another plan; ticking does not.
+fn plan_signature(entry: &Map) -> String {
+    let mut parts: Vec<String> = loadout(entry)
+        .iter()
+        .filter_map(|(slot, part)| part.as_object().filter(|p| is_part_to_get(p)).map(|p| format!("{slot}={}", text(p, "ref"))))
+        .collect();
+    parts.sort();
+    parts.join(";")
+}
+
+/// The key under which a ship remembers the plan it was complete for when the player switched it off again (or it
+/// went on by itself), so that it does not go on again for the same plan.
+const READY_PLAN: &str = "einsatz_stand";
+
+/// Call when the player switches a ship off: a ship whose plan is complete then stays off for this plan.
+pub fn note_switched_off(entry: &mut Map) {
+    if fully_fitted(entry) {
+        let signature = plan_signature(entry);
+        map_set(entry, READY_PLAN, Value::str(&signature));
+    }
+}
+
+/// A ship whose plan was ticked off completely by the last change (`was_fitted` says it was not before) goes on
+/// ready by itself; true when it did. It happens at the moment the last part is ticked, and only for a plan that
+/// the ship did not go on ready for before: whoever switched it off again finds it off, also after a tick taken
+/// back and set again, until a part came in (or was swapped) and everything is ticked anew.
+pub fn ready_when_fitted(entry: &mut Map, was_fitted: bool) -> bool {
+    if was_fitted || !fully_fitted(entry) || field_true(entry, "einsatzbereit") {
+        return false;
+    }
+    let signature = plan_signature(entry);
+    if text(entry, READY_PLAN) == signature {
+        return false;
+    }
+    map_set(entry, "einsatzbereit", Value::Bool(true));
+    map_set(entry, READY_PLAN, Value::str(&signature));
+    true
 }
 
 // ------------------------------------------------------------ same ship
@@ -2300,5 +2366,100 @@ mod tests {
         assert_eq!(split_maker("Aegis Idris-P"), ("Aegis".into(), "AEGS".into(), "Idris-P".into()));
         assert_eq!(usd(Some(&Value::int(475))), "$475.00 USD");
         assert_eq!(usd(Some(&Value::Bool(true))), "");
+    }
+
+    fn ship_of(json: &str) -> Map {
+        match jsonio::loads(json) {
+            Ok(Value::Object(m)) => m,
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn ticking_the_whole_plan_takes_what_is_open_and_nothing_else() {
+        let mut ship = ship_of(
+            r#"{"name": "Gladius", "einsatzbereit": false, "belegung": {
+                "a": {"ref": "x", "name": "X", "erledigt": true},
+                "b": {"ref": "y", "name": "Y"},
+                "c": {"ref": "z", "name": "Z"}}}"#,
+        );
+        assert_eq!((open_count(&ship), fully_fitted(&ship)), (2, false));
+        assert_eq!(tick_all(&mut ship), 2);
+        assert_eq!((open_count(&ship), fully_fitted(&ship)), (0, true), "the status says fitted now");
+        assert!(!field_true(&ship, "einsatzbereit"), "the switch is the page's, not this function's");
+        assert_eq!(tick_all(&mut ship), 0, "nothing is open any more");
+        // A ship without a plan has nothing to tick.
+        assert_eq!(tick_all(&mut ship_of(r#"{"name": "Bare"}"#)), 0);
+    }
+
+    #[test]
+    fn a_slot_left_empty_is_nothing_to_get() {
+        let mut ship = ship_of(
+            r#"{"name": "Gladius", "belegung": {
+                "a": {"ref": "x", "name": "X", "erledigt": true},
+                "b": {"ref": "", "name": "", "leer": true}}}"#,
+        );
+        assert_eq!((open_count(&ship), fully_fitted(&ship)), (0, true), "the empty slot cannot be ticked off");
+        assert_eq!(tick_all(&mut ship), 0);
+        assert!(get(plan_part_mut(&mut ship, "b"), "erledigt").is_none(), "left as it was");
+        // Only empty slots: nothing is planned that could be complete.
+        let only_empty = ship_of(r#"{"name": "G", "belegung": {"b": {"ref": "", "leer": true}}}"#);
+        assert_eq!((open_count(&only_empty), fully_fitted(&only_empty)), (0, false));
+    }
+
+    #[test]
+    fn a_ship_switched_off_stays_off_for_the_same_plan_also_after_a_tick_taken_back_and_set_again() {
+        let mut ship = ship_of(
+            r#"{"name": "Gladius", "belegung": {"a": {"ref": "x", "erledigt": true}, "b": {"ref": "y"}}}"#,
+        );
+        // The last tick puts it on ready by itself...
+        map_set(plan_part_mut(&mut ship, "b"), "erledigt", Value::Bool(true));
+        assert!(ready_when_fitted(&mut ship, false));
+        // ...the player switches it off with the plan complete...
+        map_set(&mut ship, "einsatzbereit", Value::Bool(false));
+        note_switched_off(&mut ship);
+        // ...a tick taken back and set again does not bring it back...
+        pop(plan_part_mut(&mut ship, "a"), "erledigt");
+        assert!(!fully_fitted(&ship));
+        map_set(plan_part_mut(&mut ship, "a"), "erledigt", Value::Bool(true));
+        assert!(!ready_when_fitted(&mut ship, false), "same plan, switched off: it stays off");
+        // ...and a part that comes in and is ticked off does.
+        map_set(plan_mut(&mut ship), "c", Value::Object(vec![("ref".to_string(), Value::str("z"))]));
+        assert!(!fully_fitted(&ship));
+        map_set(plan_part_mut(&mut ship, "c"), "erledigt", Value::Bool(true));
+        assert!(ready_when_fitted(&mut ship, false), "another plan: once more");
+        // Switched off with parts open, it is not held back for the plan that is complete later.
+        let mut open = ship_of(r#"{"name": "G", "belegung": {"a": {"ref": "x"}}}"#);
+        note_switched_off(&mut open);
+        assert_eq!(text(&open, READY_PLAN), "", "nothing remembered for a plan that is not complete");
+        map_set(plan_part_mut(&mut open, "a"), "erledigt", Value::Bool(true));
+        assert!(ready_when_fitted(&mut open, false));
+    }
+
+    fn plan_mut(ship: &mut Map) -> &mut Map {
+        match ship.iter_mut().find(|(k, _)| k == "belegung") {
+            Some((_, Value::Object(plan))) => plan,
+            _ => panic!("no plan"),
+        }
+    }
+
+    fn plan_part_mut<'a>(ship: &'a mut Map, slot: &str) -> &'a mut Map {
+        match plan_mut(ship).iter_mut().find(|(k, _)| k == slot) {
+            Some((_, Value::Object(part))) => part,
+            _ => panic!("no slot {slot}"),
+        }
+    }
+
+    #[test]
+    fn a_ship_goes_on_ready_when_it_becomes_fitted_and_not_when_it_was() {
+        let mut ship = ship_of(r#"{"name": "Gladius", "belegung": {"a": {"ref": "x", "erledigt": true}}}"#);
+        assert!(!ready_when_fitted(&mut ship, true), "it was complete already");
+        assert!(ready_when_fitted(&mut ship, false));
+        assert!(field_true(&ship, "einsatzbereit"));
+        assert!(!ready_when_fitted(&mut ship, false), "ready already: nothing to switch");
+        let mut open = ship_of(r#"{"name": "Gladius", "belegung": {"a": {"ref": "x"}}}"#);
+        assert!(!ready_when_fitted(&mut open, false), "a part is open");
+        let mut without_plan = ship_of(r#"{"name": "Bare"}"#);
+        assert!(!ready_when_fitted(&mut without_plan, false), "nothing planned is not complete");
     }
 }

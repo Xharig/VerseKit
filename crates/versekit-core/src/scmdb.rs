@@ -50,6 +50,8 @@ pub enum FetchError {
     Missing,
     /// The server refused (HTTP 403): asking again does not help.
     Refused,
+    /// The server's hourly limit is used up (HTTP 403 or 429 with a limit header): the seconds to wait.
+    RateLimited(u64),
     /// Another answer or a network error, with what it was.
     Failed(String),
 }
@@ -60,6 +62,7 @@ impl std::fmt::Display for FetchError {
             Self::Offline => write!(f, "fetching is switched off ({ENV_NO_NET})"),
             Self::Missing => write!(f, "the file is not there"),
             Self::Refused => write!(f, "the server refused the request"),
+            Self::RateLimited(wait) => write!(f, "rate limit reached, try again in {wait} s"),
             Self::Failed(what) => write!(f, "{what}"),
         }
     }
@@ -79,6 +82,8 @@ pub(crate) fn agent(user_agent: &str) -> ureq::Agent {
         .build();
     ureq::Agent::config_builder()
         .http_status_as_error(false)
+        // Every address is https; a redirect must not lead to plain http.
+        .https_only(true)
         .timeout_global(Some(TIMEOUT))
         .user_agent(user_agent)
         .tls_config(tls)
@@ -131,6 +136,14 @@ pub fn fetch_file(name: &str, user_agent: &str) -> Result<Vec<u8>, FetchError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plain_http_is_refused_before_anything_is_asked() {
+        // `https_only` holds for every hop, so a redirect to http dies the same way as a direct http address.
+        let error = fetch_from(&agent("VerseKit/0"), "http://127.0.0.1:9/data.json").unwrap_err();
+        let FetchError::Failed(what) = error else { panic!("{error:?}") };
+        assert!(what.to_lowercase().contains("https"), "refused for the scheme, not for the connection: {what}");
+    }
 
     #[test]
     fn a_path_is_no_file_name() {

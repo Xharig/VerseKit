@@ -69,7 +69,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
     let releases = releases(&python);
     let mut result = serde_json::Map::new();
     for (code, lang) in [("de", Lang::De), ("en", Lang::En)] {
-        let mut entries: Vec<Value> = changelog::grouped(lang, &releases).iter().map(entry_json).collect();
+        let mut entries: Vec<Value> = changelog::listed(lang, &releases).iter().map(entry_json).collect();
         if gegenprobe && code == "de" {
             // A version dropped and a kind swapped.
             entries.remove(2);

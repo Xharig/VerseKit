@@ -16,7 +16,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! The running contracts of the overlay, like the contract part of the
-//! `Watcher` of 4.12 (`_auftraege_beim_start`, `_auftraege_melden`,
+//! watcher of 4.12 (`_auftraege_beim_start`, `_auftraege_melden`,
 //! `_unklar_tick`, `auftrag_wegklicken`) and `contract_hidden.py`.
 //!
 //! One state, no history: what is open right now, with the line that says how
@@ -25,18 +25,26 @@
 //! as [`Out`] in the order the original put it into its queue.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::io;
+use std::sync::{Arc, LazyLock, Mutex};
+
+use regex::Regex;
 
 use crate::contracts::{
-    Event, Kind, MissionKeys, ObjectiveEvent, Objectives, Patterns, contracts_from_text, events_from_text,
-    objective_events_from_text, server_change_silence, state_from_text, which_ended,
+    Event, Kind, MissionKeys, ObjectiveEvent, Objectives, Patterns, Silence, SilenceScan, TEXT_MARKERS,
+    contracts_from_text, events_from_text, objective_events_from_text, server_change_silence, state_from_text,
+    which_ended,
 };
 use crate::jsonio::{self, Newline, Value};
 use crate::language::{Phrase, tf};
+use crate::logread;
+use crate::logscan::HandleScan;
 use crate::logsource::ContractScan;
+use crate::logtime::candidate_lines;
 use crate::mission_log::{ContractBlueprints, clean};
 use crate::overlay::Message;
 use crate::paths::Paths;
+use crate::text::decode_ignore;
 
 /// The contracts the player hid by hand, by mission id.
 pub const HIDDEN_FILE: &str = "auftraege-ausgeblendet.json";
@@ -220,6 +228,98 @@ pub struct Check<'a> {
     pub has: &'a dyn Fn(&str) -> bool,
 }
 
+/// What the start of the overlay needs of the running Game.log.
+trait StartText {
+    /// The lines worth a look (it may hold more): the answers of the `*_from_text` functions come from them.
+    fn lines(&self) -> &str;
+    /// Whether the log holds any text.
+    fn is_empty(&self) -> bool;
+    /// [`server_change_silence`] for the whole log.
+    fn silence(&self, mission_ids: &[String]) -> Silence;
+}
+
+/// A log given as one text.
+struct WholeText<'a>(&'a str);
+
+impl StartText for WholeText<'_> {
+    fn lines(&self) -> &str {
+        self.0
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    fn silence(&self, mission_ids: &[String]) -> Silence {
+        server_change_silence(self.0, mission_ids)
+    }
+}
+
+/// The lines of the running Game.log the start of the overlay keeps: the contract lines, the lines of the
+/// objectives and markers, and the joins of the shard. The handle is searched in every piece.
+static START_LINES: LazyLock<Regex> = LazyLock::new(|| {
+    let literals: Vec<String> =
+        TEXT_MARKERS.iter().chain(&[crate::shard::JOIN_MARK]).map(|literal| regex::escape(literal)).collect();
+    Regex::new(&literals.join("|")).expect("aus maskierten Teilen gebaut")
+});
+
+/// The running Game.log for the start of the overlay, read a piece at a time (see [`crate::logread`]): only the
+/// lines worth a look stay in memory, whatever the size of the log. The ids of the missions are looked up in the
+/// whole file by a second reading ([`server_change_silence`]), and only when something is open.
+pub struct StartLog {
+    path: String,
+    lines: String,
+    empty: bool,
+    handle: HandleScan,
+}
+
+impl StartLog {
+    /// Reads the log. An error is the one of opening or reading the file.
+    pub fn read(path: &str) -> io::Result<StartLog> {
+        let (mut lines, mut empty, mut handle) = (String::new(), true, HandleScan::default());
+        logread::read_all(path, |bytes| {
+            let piece = decode_ignore(bytes);
+            empty &= piece.is_empty();
+            handle.piece(&piece);
+            for line in candidate_lines(&piece, &START_LINES) {
+                lines.push_str(line);
+                lines.push('\n');
+            }
+        })?;
+        Ok(StartLog { path: path.to_string(), lines, empty, handle })
+    }
+
+    /// The lines worth a look, each ended by `\n`; the joins of the shard stand among them.
+    pub fn lines(&self) -> &str {
+        &self.lines
+    }
+
+    /// The handle the log names as logged in ([`account_from_text`](crate::logscan::account_from_text) of the
+    /// whole log); the streamer mode learns it.
+    pub fn handle(&self) -> Option<String> {
+        self.handle.handle()
+    }
+}
+
+impl StartText for StartLog {
+    fn lines(&self) -> &str {
+        &self.lines
+    }
+
+    fn is_empty(&self) -> bool {
+        self.empty
+    }
+
+    fn silence(&self, mission_ids: &[String]) -> Silence {
+        let mut scan = SilenceScan::new(mission_ids);
+        // A log that cannot be read any more says nothing about the ids: no contract turns grey.
+        match logread::read_all(&self.path, |bytes| scan.piece(&decode_ignore(bytes))) {
+            Ok(()) => scan.finish(),
+            Err(_) => (false, HashSet::new(), HashSet::new()),
+        }
+    }
+}
+
 /// The state of the running contracts.
 #[derive(Default)]
 pub struct Live {
@@ -308,7 +408,7 @@ impl Live {
         Phrase::new("auftrag_zeile").with("0", plain).into()
     }
 
-    /// What is open according to the running Game.log; the state only, no rows.
+    /// What is open according to the running Game.log, given as a whole text; the state only, no rows.
     pub fn at_start(
         &mut self,
         text: &str,
@@ -317,6 +417,30 @@ impl Live {
         hidden: &HashSet<String>,
         out: &mut Vec<Out>,
     ) {
+        self.start(&WholeText(text), patterns, check, hidden, out);
+    }
+
+    /// [`at_start`](Self::at_start) for the log read a piece at a time: the same state as for the whole text.
+    pub fn at_start_log(
+        &mut self,
+        log: &StartLog,
+        patterns: &Patterns,
+        check: &Check,
+        hidden: &HashSet<String>,
+        out: &mut Vec<Out>,
+    ) {
+        self.start(log, patterns, check, hidden, out);
+    }
+
+    fn start(
+        &mut self,
+        log: &dyn StartText,
+        patterns: &Patterns,
+        check: &Check,
+        hidden: &HashSet<String>,
+        out: &mut Vec<Out>,
+    ) {
+        let text = log.lines();
         let (open, missions) = state_from_text(text, patterns);
         // The ids too: when a contract ends later, the mission id is often the only link.
         for (id, key) in missions.iter() {
@@ -344,7 +468,7 @@ impl Live {
             let line = self.line_for(check, title, &plain).unwrap_or_else(|| Live::bare_line(&plain));
             set_open(&mut self.open, &plain, line);
         }
-        self.silence(Some(text), "", out);
+        self.silence_by(!log.is_empty(), &|ids| log.silence(ids), out);
         if !self.open.is_empty() {
             out.push(Out::Stand(self.stand()));
         }
@@ -356,6 +480,13 @@ impl Live {
     ///
     /// ⚠ A contract without mission id never turns grey.
     pub fn silence(&mut self, text: Option<&str>, section_text: &str, out: &mut Vec<Out>) -> bool {
+        let text = text.unwrap_or(section_text);
+        self.silence_by(!text.is_empty(), &|ids| server_change_silence(text, ids), out)
+    }
+
+    /// [`silence`](Self::silence) with the log given as whether it holds a text and the way to look the mission
+    /// ids up in it ([`server_change_silence`]).
+    fn silence_by(&mut self, has_text: bool, look_up: &dyn Fn(&[String]) -> Silence, out: &mut Vec<Out>) -> bool {
         let mut changed = false;
         if self.clear_unclear {
             self.clear_unclear = false;
@@ -370,14 +501,13 @@ impl Live {
             }
             self.unclear.clear();
         }
-        let text = text.unwrap_or(section_text);
-        if !text.is_empty() && !self.open.is_empty() {
+        if has_text && !self.open.is_empty() {
             let mut per_title: HashMap<String, Vec<String>> = HashMap::new();
             for (id, title) in self.missions.iter() {
                 per_title.entry(title.clone()).or_default().push(id.clone());
             }
             let all: Vec<String> = per_title.values().flatten().cloned().collect();
-            let (changed_server, silent, reported) = server_change_silence(text, &all);
+            let (changed_server, silent, reported) = look_up(&all);
             for (title, _) in &self.open {
                 let ids = per_title.get(title).cloned().unwrap_or_default();
                 if ids.is_empty() {
@@ -568,7 +698,7 @@ impl Live {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::language::{Choice, set_language};
+    use crate::language::{Choice, set_thread_language};
 
     fn patterns() -> Patterns {
         Patterns::of(&crate::contracts::start_phrases(&[]), &crate::contracts::end_phrases(&[]))
@@ -614,7 +744,7 @@ mod tests {
 
     #[test]
     fn an_accepted_contract_gets_its_line_and_goes_with_its_end() {
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths("annahme");
         let catalog = blueprints();
         let have = |n: &str| n == "A";
@@ -641,7 +771,7 @@ mod tests {
 
     #[test]
     fn an_unknown_contract_stays_a_bare_title() {
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths("unbekannt");
         let catalog = blueprints();
         let have = |_: &str| false;
@@ -658,7 +788,7 @@ mod tests {
 
     #[test]
     fn a_silent_end_leaving_the_world_and_hiding_by_hand() {
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths("weg");
         let catalog = blueprints();
         let have = |_: &str| false;
@@ -690,7 +820,7 @@ mod tests {
 
     #[test]
     fn taking_the_hiding_back_lets_the_contract_show_again() {
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths("zurueck");
         let catalog = blueprints();
         let have = |_: &str| false;
@@ -746,7 +876,7 @@ mod tests {
 
     #[test]
     fn objectives_and_the_silence_after_a_change_of_server() {
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         let (paths, dir) = paths("ziele");
         let catalog = blueprints();
         let have = |_: &str| false;

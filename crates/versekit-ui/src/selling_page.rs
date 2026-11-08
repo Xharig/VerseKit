@@ -707,7 +707,7 @@ fn place_card(
                 }
                 let (text, tone) = match hit.fill {
                     Some((key, warning)) => {
-                        (format!("{}  {}", hit.good, t(key)), if warning { scheme.red } else { scheme.yellow })
+                        (format!("{}  {}", hit.good, t(key)), if warning { scheme.red_text() } else { scheme.yellow })
                     }
                     None => (hit.good.clone(), scheme.sub),
                 };
@@ -733,7 +733,7 @@ fn place_card(
         }
         if let Some(profit) = profit {
             let sign = if profit > 0.0 { "+" } else { "" };
-            let tone = if profit >= 0.0 { scheme.accent } else { scheme.red };
+            let tone = if profit >= 0.0 { scheme.accent } else { scheme.red_text() };
             totals(
                 ui,
                 &tf("s_vk_gewinn", &[("summe", Arg::from(format!("{sign}{}", trade::plain(lang, profit))))]),
@@ -864,7 +864,7 @@ fn buy_places(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState, name: &str
                         );
                     }
                     let tone: Color = match grade {
-                        "warnung" => scheme.red,
+                        "warnung" => scheme.red_text(),
                         "hinweis" => scheme.yellow,
                         _ => scheme.sub,
                     };

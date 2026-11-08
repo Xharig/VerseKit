@@ -290,7 +290,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState) {
 mod tests {
     use super::*;
     use std::sync::Mutex;
-    use versekit_core::language::{Choice, set_language};
+    use versekit_core::language::{Choice, set_thread_language};
 
     static OPENED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
@@ -305,7 +305,7 @@ mod tests {
     /// German and held: the language is one for the whole process.
     fn german() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
-        set_language(Choice::De);
+        set_thread_language(Choice::De);
         guard
     }
 

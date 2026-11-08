@@ -222,7 +222,7 @@ impl ToolsState {
                         error = None;
                     }
                     if let Some(text) = &error {
-                        ui.add(egui::Label::new(RichText::new(text).small().color(crate::color(scheme.red))).wrap());
+                        ui.add(egui::Label::new(RichText::new(text).small().color(crate::color(scheme.red_text()))).wrap());
                     }
                     if !existing.is_empty() {
                         ui.add_space(8.0);

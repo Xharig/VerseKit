@@ -49,6 +49,7 @@ use std::time::Instant;
 use regex::Regex;
 
 use crate::jsonio::{self, Map, Value};
+use crate::logread;
 pub use crate::logscan::Identity;
 use crate::logscan::{self, Find, account_from_text, account_id_from_text, names_from_text};
 use crate::paths::{Paths, mtime_seconds, nanos, now_seconds};
@@ -1184,6 +1185,8 @@ pub struct LogTail<'s, 'p> {
     pub account_id: Option<String>,
     /// The text of the last section, only with a contract module.
     pub last_text: String,
+    /// The last reading took a whole block and more may follow: the next one should not wait.
+    pub behind: bool,
     pub contracts: Option<Box<dyn ContractScan + 's>>,
 }
 
@@ -1198,6 +1201,7 @@ impl<'s, 'p> LogTail<'s, 'p> {
             account: None,
             account_id: None,
             last_text: String::new(),
+            behind: false,
             contracts: None,
         }
     }
@@ -1230,12 +1234,17 @@ impl<'s, 'p> LogTail<'s, 'p> {
     }
 
     /// New blueprints since the last call: list of (name, suffix).
+    ///
+    /// ⚠ At most one block ([`logread::BLOCK`]) of the log is read per call, so a log that grew by gigabytes
+    /// while nobody read it is never in memory whole. A section is then one block of whole lines; while
+    /// [`behind`](Self::behind) is set, the next call goes on from there.
     pub fn new_names(&mut self) -> Vec<Find> {
         // ⚠ Clear first, before any early return.
         if let Some(contracts) = &mut self.contracts {
             contracts.clear();
         }
         self.last_text.clear();
+        self.behind = false;
         let Some(path) = self.locate() else { return Vec::new() };
         let Some(size) = file_size(&path).map(i128::from) else { return Vec::new() };
         if size < self.offset {
@@ -1248,9 +1257,15 @@ impl<'s, 'p> LogTail<'s, 'p> {
             return Vec::new();
         }
         let Ok(chunk) = read_from(&path, self.offset) else { return Vec::new() };
-        // The partially written last line is left for the next call.
-        let Some(cut) = chunk.iter().rposition(|&b| b == b'\n') else { return Vec::new() };
-        self.offset += cut as i128 + 1;
+        // The partially written last line is left for the next call. A line that fills the whole block is
+        // handed over in parts.
+        let (cut, skip) = match chunk.iter().rposition(|&b| b == b'\n') {
+            Some(cut) => (cut, cut + 1),
+            None if chunk.len() >= logread::BLOCK => (chunk.len(), chunk.len()),
+            None => return Vec::new(),
+        };
+        self.behind = chunk.len() >= logread::BLOCK;
+        self.offset += skip as i128;
         self.state.set_active(&path, self.offset, &*self.src.clock);
         self.state.save();
         let text = decode_ignore(&chunk[..cut]);
@@ -1280,13 +1295,13 @@ impl<'s, 'p> LogTail<'s, 'p> {
     }
 }
 
-/// Everything from `offset` to the end of the file.
+/// The bytes from `offset` to the end of the file, at most one block.
 fn read_from(path: &str, offset: i128) -> io::Result<Vec<u8>> {
     let start = u64::try_from(offset).map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
     let mut file = File::open(path)?;
     file.seek(SeekFrom::Start(start))?;
     let mut chunk = Vec::new();
-    file.read_to_end(&mut chunk)?;
+    file.take(logread::BLOCK as u64).read_to_end(&mut chunk)?;
     Ok(chunk)
 }
 
@@ -1709,6 +1724,71 @@ mod tests {
         fs::write(lab.game_log(), bp("Kurz")).unwrap();
         let mut tail = LogTail::new(&src, ReadState::open(&paths), rx());
         assert_eq!(names(&tail.new_names()), ["Kurz"]);
+    }
+
+    #[test]
+    fn a_log_that_grew_by_many_blocks_is_read_a_block_at_a_time_and_finds_what_the_whole_text_has() {
+        struct Sections(Arc<Mutex<Vec<usize>>>);
+        impl ContractScan for Sections {
+            fn clear(&mut self) {}
+            fn scan(&mut self, text: &str) {
+                self.0.lock().unwrap().push(text.len());
+            }
+        }
+        let lab = Lab::new("viele-bloecke");
+        let paths = lab.paths();
+        let src = LogSource::with_clock(&paths, Sources::default(), clock().1);
+        let flood = "<2026-11-05T22:30:00.123Z> [Notice] <Monitored Space> \"Überwachter Raum ausgefallen: \" [4711]\n";
+        let mut text = login("Spieler");
+        for round in 0..10 {
+            text.push_str(&bp(&format!("Teil {round}")));
+            text.push_str(&flood.repeat(logread::BLOCK / 3 / flood.len()));
+        }
+        // The line at the very end has no end yet.
+        text.push_str("<SHUDEvent_OnNotification> Added notification \"Bauplan erhalten: Offen");
+        let mut tail = LogTail::new(&src, ReadState::open(&paths), rx());
+        let sections = Arc::new(Mutex::new(Vec::new()));
+        tail.contracts = Some(Box::new(Sections(Arc::clone(&sections))));
+        assert!(tail.new_names().is_empty());
+        fs::write(lab.game_log(), &text).unwrap();
+        // The tail started at the end of the empty log: everything is new.
+        let mut found = Vec::new();
+        let mut calls = 0;
+        loop {
+            found.extend(tail.new_names());
+            calls += 1;
+            assert!(calls < 50);
+            if !tail.behind {
+                break;
+            }
+        }
+        let whole = names_from_text(&text, &rx(), &Sources::default());
+        assert_eq!(found, whole, "the same names as the whole text gives, in the same order");
+        assert_eq!(whole.len(), 10);
+        assert!(calls >= 3, "{calls}");
+        assert!(sections.lock().unwrap().iter().all(|len| *len <= logread::BLOCK), "{:?}", sections.lock().unwrap());
+        // Only the unended line is left, and it is not read before it ends.
+        assert!(tail.offset < text.len() as i128);
+        lab.append(": \" [1]\n");
+        assert_eq!(names(&tail.new_names()), ["Offen"]);
+        assert!(!tail.behind);
+    }
+
+    #[test]
+    fn a_line_longer_than_a_block_does_not_make_the_tail_wait_for_ever() {
+        let lab = Lab::new("lange-zeile");
+        let paths = lab.paths();
+        let src = LogSource::with_clock(&paths, Sources::default(), clock().1);
+        let mut tail = LogTail::new(&src, ReadState::open(&paths), rx());
+        assert!(tail.new_names().is_empty());
+        let long = "x".repeat(logread::BLOCK + 10);
+        lab.append(&format!("{long}\n{}", bp("Danach")));
+        let mut found = Vec::new();
+        for _ in 0..5 {
+            found.extend(tail.new_names());
+        }
+        assert_eq!(names(&found), ["Danach"]);
+        assert!(!tail.behind);
     }
 
     #[test]

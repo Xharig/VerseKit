@@ -941,6 +941,83 @@ fn run_part(part: usize) {
     report(&format!("part-{part}"), &findings);
 }
 
+/// The page in a window of [`USUAL_WINDOW`] at the normal size: right of the menu, below the bar of the updates and
+/// the title of the page, above the bar at the foot. What lies outside belongs to the window, not to the page.
+const PAGE_AREA: Rect = Rect::from_min_max(Pos2::new(225.0, 118.0), Pos2::new(USUAL_WINDOW.x, USUAL_WINDOW.y - 40.0));
+
+/// The lines of a page that stand in no card and no frame of a list ([`drawn_cards`]), in a usual window at the
+/// normal size in German: the parts of a page that rule 8.17 still wants in a card. Each as `y: text`.
+fn loose_lines(key: &str) -> Vec<String> {
+    let mut harness = harness(key);
+    set_thread_language(Choice::De);
+    theme::set_thread_current("krt");
+    settle(&mut harness, 1, USUAL_WINDOW);
+    drawn_cards::take_lists();
+    drawn_cards::take_marked_lists();
+    let frame = frame_of(&mut harness, USUAL_WINDOW);
+    // The frame of the window itself (it begins left of the menu) is no list of the page.
+    let lists: Vec<Rect> =
+        drawn_cards::take_lists().into_iter().filter(|list| list.min.x >= PAGE_AREA.min.x - 30.0).collect();
+    let marked = drawn_cards::take_marked_lists();
+    // A big list on the page, outside every card, without the corner brackets (rule 8.17).
+    let unmarked: Vec<String> = lists
+        .iter()
+        .filter(|list| list.height() >= 150.0)
+        .filter(|list| !frame.cards.iter().any(|(card, _)| card.expand(1.0).contains_rect(**list)))
+        .filter(|list| {
+            !marked.iter().any(|m| m.distance_to_pos(list.center()) == 0.0 && (m.min - list.min).length() < 1.0)
+        })
+        .map(|list| format!("{:.0}: Liste ohne Eckwinkel {:.0}x{:.0}", list.min.y, list.width(), list.height()))
+        .collect();
+    let inside = |rect: Rect, of: Rect| of.expand(1.0).contains_rect(rect);
+    let held = |rect: Rect| {
+        frame.cards.iter().any(|(card, _)| inside(rect, *card))
+            || frame.floating.iter().any(|(card, _)| inside(rect, *card))
+            || lists.iter().any(|list| inside(rect, *list))
+    };
+    if std::env::var_os("LOSE_TEILE_ZAEHLEN").is_some() {
+        let area = frame.lines.iter().filter(|line| PAGE_AREA.contains_rect(line.rect)).count();
+        println!(
+            "{key}: {} Zeilen, {area} im Bereich, Karten {:?}, Listen {lists:?}",
+            frame.lines.len(),
+            places(&frame.cards)
+        );
+    }
+    frame
+        .lines
+        .iter()
+        .filter(|line| PAGE_AREA.contains_rect(line.rect) && line.rect.intersects(line.clip) && !held(line.rect))
+        .map(|line| format!("{:.0}: {}", line.rect.min.y, line.text.trim()))
+        .chain(unmarked)
+        .collect()
+}
+
+/// A survey, no check: the pages with parts outside a card, most first, written to the temporary folder
+/// (`versekit-layout-guard/lose-teile.txt`). Run on demand: `cargo test -p versekit-ui --test layout_guard --
+/// --ignored the_pages_with_parts_outside_a_card --nocapture`.
+#[test]
+#[ignore = "a survey on demand, no check"]
+fn the_pages_with_parts_outside_a_card() {
+    let mut pages: Vec<(&str, Vec<String>)> =
+        page_keys().into_iter().map(|key| (key, loose_lines(key))).filter(|(_, lines)| !lines.is_empty()).collect();
+    // A page the sample does not reach (its module is off) shows another one: it stands once, under that one.
+    let mut seen: Vec<Vec<String>> = Vec::new();
+    pages.retain(|(_, lines)| {
+        let again = seen.contains(lines);
+        seen.push(lines.clone());
+        !again
+    });
+    pages.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then(a.0.cmp(b.0)));
+    drawn_cards::record(false);
+    set_thread_language(Choice::Auto);
+    let text: Vec<String> =
+        pages.iter().map(|(key, lines)| format!("{key} ({}):\n  {}", lines.len(), lines.join("\n  "))).collect();
+    let dir = std::env::temp_dir().join("versekit-layout-guard");
+    let _ = std::fs::create_dir_all(&dir);
+    let _ = std::fs::write(dir.join("lose-teile.txt"), text.join("\n"));
+    println!("{}", pages.iter().map(|(k, l)| format!("{k}: {}", l.len())).collect::<Vec<_>>().join("\n"));
+}
+
 /// Writes every find to the temporary folder and fails with the first ones.
 fn report(name: &str, findings: &[String]) {
     let dir = std::env::temp_dir().join("versekit-layout-guard");

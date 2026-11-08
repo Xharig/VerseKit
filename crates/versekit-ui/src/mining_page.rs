@@ -74,6 +74,9 @@ pub struct MiningState {
     /// The axes chosen for the processing method (0 = none).
     first: usize,
     second: usize,
+    /// The levels of the processing methods: read from the game data where they were kept, else the table.
+    methods: refining::Methods,
+    methods_seen: Option<SystemTime>,
     /// The fetch of the mining data that runs, and what the last one said (and whether it failed).
     fetch: Option<Job<Fetched>>,
     said: Option<(String, bool)>,
@@ -144,6 +147,8 @@ impl Default for MiningState {
             signature: String::new(),
             first: 0,
             second: 0,
+            methods: refining::Methods::table(),
+            methods_seen: None,
             fetch: None,
             said: None,
             scanner: crate::scanner_ui::ScannerState::default(),
@@ -168,6 +173,16 @@ impl MiningState {
         let file = paths.app_file(mining_data::FILE);
         self.seen = file_time(&file);
         self.mining = MiningData::load(&file);
+        self.reload_methods();
+    }
+
+    /// Reads the levels of the processing methods the reading of the game data keeps; without them, or when they do
+    /// not fit, the table.
+    fn reload_methods(&mut self) {
+        let Some(paths) = &self.paths else { return };
+        let file = paths.app_file(refining::GAME_FILE);
+        self.methods_seen = file_time(&file);
+        self.methods = refining::Methods::from_game_file(&file).unwrap_or_else(refining::Methods::table);
     }
 
     /// Reads the mining data again when the file changed on disk.
@@ -180,6 +195,8 @@ impl MiningState {
         let Some(paths) = &self.paths else { return };
         if file_time(&paths.app_file(mining_data::FILE)) != self.seen {
             self.reload();
+        } else if file_time(&paths.app_file(refining::GAME_FILE)) != self.methods_seen {
+            self.reload_methods();
         }
     }
 
@@ -485,16 +502,37 @@ fn axis_word(axis: &str) -> String {
 }
 
 /// The line of levels of a method: yield, speed, costs in words.
-fn method_line(key: &str) -> String {
+fn method_line(methods: &refining::Methods, key: &str) -> String {
     let size = |level: u8| t(["s_rm_s_gering", "s_rm_s_moderat", "s_rm_s_hoch"][usize::from(level.clamp(1, 3) - 1)]);
     let speed = t(["s_rm_t_sehr", "s_rm_t_langsam", "s_rm_t_mittel", "s_rm_t_schnell"]
-        [usize::from(refining::level(key, "tempo").min(3))]);
+        [usize::from(methods.level(key, "tempo").min(3))]);
     // A high cost advantage means low costs: the word is turned round.
-    let costs = size(4 - refining::level(key, "kosten").clamp(1, 3));
+    let costs = size(4 - methods.level(key, "kosten").clamp(1, 3));
     tf(
         "s_rm_zeile",
-        &[("0", Arg::from(size(refining::level(key, "ertrag")))), ("1", Arg::from(speed)), ("2", Arg::from(costs))],
+        &[("0", Arg::from(size(methods.level(key, "ertrag")))), ("1", Arg::from(speed)), ("2", Arg::from(costs))],
     )
+}
+
+/// Where the levels come from: the table with the patch it was read in, or the game data with their build, and
+/// for a channel of test builds what the pages that read the archive say of it.
+fn methods_origin(methods: &refining::Methods) -> Vec<String> {
+    match &methods.origin {
+        refining::Origin::Table => {
+            vec![tf("s_rm_stand", &[("0", Arg::from(refining::PATCH)), ("1", Arg::from(refining::READ_ON))])]
+        }
+        refining::Origin::Game { build, channel } => {
+            let notes = versekit_core::archive_lock::test_channel_notes(channel);
+            let read = if build.is_empty() {
+                t("s_rm_stand_spiel_ohne")
+            } else {
+                tf("s_rm_stand_spiel", &[("0", Arg::from(build.as_str()))])
+            };
+            std::iter::once(read)
+                .chain(notes.iter().map(|key| tf(key, &[("0", Arg::from(channel.as_str()))])))
+                .collect()
+        }
+    }
 }
 
 /// "Which processing method?": two axes to choose, the method that suits them and all nine in a fold.
@@ -512,14 +550,15 @@ fn method_box(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
         widgets::filter_bar(card, "methode", &[&first, &second], &mut chosen);
         [state.first, state.second] = chosen;
         let axis = |i: usize| i.checked_sub(1).and_then(|i| refining::AXES.get(i)).copied();
-        let (best, all) = refining::recommend(axis(state.first), axis(state.second));
+        let methods = &state.methods;
+        let (best, all) = methods.recommend(axis(state.first), axis(state.second));
         card.add_space(4.0);
         card.label(
             widgets::bold(card, tf("s_rm_nimm", &[("0", Arg::from(refining::name(best)))]), egui::TextStyle::Body)
                 .color(color(scheme.accent)),
         );
-        card.label(sub(scheme, method_line(best)));
-        if refining::level(best, "tempo") <= 1 {
+        card.label(sub(scheme, method_line(methods, best)));
+        if methods.level(best, "tempo") <= 1 {
             card.label(sub(scheme, t("s_rm_zeit_laeuft")));
         }
         widgets::collapsing(&t("s_rm_alle")).id_salt("methoden-vergleich").show(card, |inner| {
@@ -536,12 +575,12 @@ fn method_box(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
                             left.label(RichText::new(refining::name(key)).color(color(tone)));
                         },
                         |right| {
-                            right.label(sub(scheme, method_line(key)));
+                            right.label(sub(scheme, method_line(methods, key)));
                         },
                     );
                 });
             }
-            let mut beaten = refining::dominated();
+            let mut beaten = methods.dominated();
             beaten.sort_unstable();
             for (worse, better) in beaten {
                 let said = tf(
@@ -550,8 +589,9 @@ fn method_box(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) {
                 );
                 inner.label(sub(scheme, said));
             }
-            let stand = tf("s_rm_stand", &[("0", Arg::from(refining::PATCH)), ("1", Arg::from(refining::READ_ON))]);
-            inner.label(sub(scheme, stand));
+            for line in methods_origin(methods) {
+                inner.label(sub(scheme, line));
+            }
         });
     });
 }

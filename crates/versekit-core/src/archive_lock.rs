@@ -29,7 +29,7 @@ use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use crate::game_start::run_state;
-use crate::paths::{CHANNELS, ENV_TEST_MACHINE, Paths};
+use crate::paths::{ENV_TEST_MACHINE, FOLLOWS_LIVE, Paths, TEST_CHANNELS, UNDER_AGREEMENT};
 
 /// How often a waiting reading looks whether the game is closed now.
 pub const POLL: Duration = Duration::from_secs(5);
@@ -114,14 +114,33 @@ pub fn wait(paths: &Paths) {
     wait_with(&|| may_read(paths), POLL);
 }
 
-/// Whether `archive` lies in a channel of test builds (every channel of [`CHANNELS`] but `LIVE`, `HOTFIX` included,
+/// Whether `archive` lies in a channel of test builds (every channel of `paths::CHANNELS` but `LIVE`, `HOTFIX` included,
 /// whose archives are confidential), told by the name of the folder that holds it.
 pub fn is_test_archive(archive: &Path) -> bool {
-    archive
-        .parent()
-        .and_then(Path::file_name)
-        .map(|name| name.to_string_lossy().to_uppercase())
-        .is_some_and(|name| name != "LIVE" && CHANNELS.contains(&name.as_str()))
+    test_channel_of(archive).is_some()
+}
+
+/// The channel of test builds `archive` lies in ([`is_test_archive`]: every channel of [`CHANNELS`] but LIVE,
+/// that is [`FOLLOWS_LIVE`]), by its name there.
+pub fn test_channel_of(archive: &Path) -> Option<&'static str> {
+    let name = archive.parent().and_then(Path::file_name)?.to_string_lossy().to_uppercase();
+    FOLLOWS_LIVE.iter().copied().find(|channel| *channel == name)
+}
+
+/// What the pages that read the game archive say of an archive in the channel `channel` ([`test_channel_of`]):
+/// the text keys, the first with the channel as `{0}`. A channel of test versions ([`TEST_CHANNELS`]) can still
+/// change before LIVE, one under the agreement of the Evocati ([`UNDER_AGREEMENT`]) says that besides; the
+/// other one that follows LIVE (the build of LIVE in HOTFIX) is confidential all the same. LIVE says nothing.
+pub fn test_channel_notes(channel: &str) -> &'static [&'static str] {
+    if !FOLLOWS_LIVE.contains(&channel) {
+        &[]
+    } else if !TEST_CHANNELS.contains(&channel) {
+        &["s_ak_hotfix"]
+    } else if UNDER_AGREEMENT.contains(&channel) {
+        &["s_ak_testkanal", "s_ak_eptu"]
+    } else {
+        &["s_ak_testkanal"]
+    }
 }
 
 #[cfg(test)]
@@ -186,5 +205,30 @@ mod tests {
             assert!(!is_test_archive(Path::new(&format!("C:/Games/StarCitizen/{channel}/Data.p4k"))), "{channel}");
         }
         assert!(!is_test_archive(Path::new("Data.p4k")));
+        assert_eq!(test_channel_of(Path::new("D:/SC/tech-preview/Data.p4k")), Some("TECH-PREVIEW"));
+        assert_eq!(test_channel_of(Path::new("D:/SC/LIVE/Data.p4k")), None);
+    }
+
+    /// The test versions say that their data can still change before LIVE (EPTU also its agreement); HOTFIX only
+    /// that its data are confidential. Every text is there in both languages, without a leftover placeholder.
+    #[test]
+    fn a_test_channel_says_its_data_can_change_before_live_and_hotfix_only_that_they_are_confidential() {
+        use crate::language::{Arg, Lang, tf_in};
+        use crate::paths::CHANNELS;
+        assert_eq!(test_channel_notes("PTU"), ["s_ak_testkanal"]);
+        assert_eq!(test_channel_notes("TECH-PREVIEW"), ["s_ak_testkanal"]);
+        assert_eq!(test_channel_notes("EPTU"), ["s_ak_testkanal", "s_ak_eptu"]);
+        assert_eq!(test_channel_notes("HOTFIX"), ["s_ak_hotfix"]);
+        assert!(test_channel_notes("LIVE").is_empty() && test_channel_notes("Anything").is_empty(), "nothing to say");
+        for channel in CHANNELS.iter().filter(|c| **c != "LIVE") {
+            for key in test_channel_notes(channel) {
+                for lang in [Lang::De, Lang::En] {
+                    let text = tf_in(lang, key, &[("0", Arg::from(*channel))]);
+                    assert!(!text.is_empty() && !text.contains('{') && text != *key, "{key} {lang:?}: {text}");
+                }
+            }
+        }
+        let de = tf_in(Lang::De, "s_ak_testkanal", &[("0", Arg::from("PTU"))]);
+        assert!(de.contains("PTU") && de.contains("LIVE"), "{de}");
     }
 }

@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The relations of the player: a handle or an organization marked friendly, neutral or hostile, so that the
-//! search and the log monitor colour it. Kept only on this computer (`beziehungen.json` in `Intern`); the same
+//! The relations of the player: a handle or an organization marked friendly, neutral, to watch or hostile, so that
+//! the search and the log monitor colour it. Kept only on this computer (`beziehungen.json` in `Intern`); the same
 //! text goes out and comes in as a file, so that players can hand their lists on.
 //!
 //! A mark on the handle counts before a mark on one of its organizations; of those, the main one first.
@@ -32,23 +32,42 @@ pub const FORMAT: &str = "versekit-beziehungen";
 const VERSION: i64 = 1;
 /// The most relations kept.
 pub const MAX: usize = 5000;
+/// The setting that keeps the address of a list loaded last.
+pub const LIST_ADDRESS_SETTING: &str = "beziehungen_liste_adresse";
+/// The largest list taken from an address, in bytes.
+pub const LIST_LIMIT: usize = 1024 * 1024;
+
+/// The address of a list as it is asked: only `https://` with a host and without a name and password in it, no
+/// spaces; `None` for anything else.
+pub fn list_address(text: &str) -> Option<String> {
+    let text = text.trim();
+    let rest = text.get(..8).filter(|scheme| scheme.eq_ignore_ascii_case("https://")).map(|_| &text[8..])?;
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    if host.is_empty() || host.contains('@') || text.chars().any(char::is_whitespace) {
+        return None;
+    }
+    Some(format!("https://{rest}"))
+}
 
 /// How the player stands to a handle or an organization.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Stance {
     Friendly,
     Neutral,
+    /// Not hostile yet, but kept an eye on.
+    Watch,
     Hostile,
 }
 
 impl Stance {
-    pub const ALL: [Stance; 3] = [Stance::Friendly, Stance::Neutral, Stance::Hostile];
+    pub const ALL: [Stance; 4] = [Stance::Friendly, Stance::Neutral, Stance::Watch, Stance::Hostile];
 
     /// The word in the file.
     pub fn word(self) -> &'static str {
         match self {
             Stance::Friendly => "freundlich",
             Stance::Neutral => "neutral",
+            Stance::Watch => "beobachten",
             Stance::Hostile => "feindlich",
         }
     }
@@ -58,6 +77,7 @@ impl Stance {
         match word.trim().to_lowercase().as_str() {
             "freundlich" | "friendly" => Some(Stance::Friendly),
             "neutral" => Some(Stance::Neutral),
+            "beobachten" | "watch" => Some(Stance::Watch),
             "feindlich" | "hostile" => Some(Stance::Hostile),
             _ => None,
         }
@@ -68,6 +88,7 @@ impl Stance {
         match self {
             Stance::Friendly => "s_hq_freundlich",
             Stance::Neutral => "s_hq_neutral",
+            Stance::Watch => "s_hq_beobachten",
             Stance::Hostile => "s_hq_feindlich",
         }
     }
@@ -242,15 +263,45 @@ impl Relations {
     }
 
     /// Takes a list handed on: its relations are added, a stance it sets replaces the one here. How many relations
-    /// changed.
+    /// changed. A list of the other marking tool (`super::iris`) is taken too, its colours as stances.
     ///
     /// # Errors
     ///
     /// [`ImportError`] when the text is no list of relations; nothing is changed then.
     pub fn import_text(&mut self, text: &str) -> Result<usize, ImportError> {
-        let data = jsonio::loads(text.trim_start_matches('\u{feff}')).map_err(|_| ImportError::NotJson)?;
-        let other = Relations::from_value(&data)?;
-        Ok(other.list.iter().filter(|r| self.set(r.kind, &r.name, Some(r.stance))).count())
+        let other = Relations::parse(text)?;
+        Ok(self.take(&other, true))
+    }
+
+    /// The relations of a list handed on, without taking them: a list of VerseKit, else one of the other marking
+    /// tool (`super::iris`). At most [`MAX`] are read.
+    ///
+    /// # Errors
+    ///
+    /// [`ImportError`] when the text is no list of relations.
+    pub fn parse(text: &str) -> Result<Relations, ImportError> {
+        let text = text.trim_start_matches('\u{feff}');
+        match jsonio::loads(text) {
+            Ok(data) => Relations::from_value(&data),
+            Err(_) => {
+                let marks = super::iris::read(text).ok_or(ImportError::NotJson)?;
+                let mut other = Relations::default();
+                for (kind, name, stance) in marks.into_iter().take(MAX) {
+                    other.set(kind, &name, Some(stance));
+                }
+                Ok(other)
+            }
+        }
+    }
+
+    /// Takes the relations of `other`: with `replace` a stance there replaces the one here, else only the names not
+    /// marked here are added. How many relations changed.
+    pub fn take(&mut self, other: &Relations, replace: bool) -> usize {
+        other
+            .list
+            .iter()
+            .filter(|r| (replace || self.of(r.kind, &r.name).is_none()) && self.set(r.kind, &r.name, Some(r.stance)))
+            .count()
     }
 
     /// Writes the list to hand on into `path`.
@@ -414,6 +465,73 @@ mod tests {
             assert_eq!(Stance::from_word(stance.word()), Some(stance));
         }
         assert_eq!(Stance::from_word(" Friendly "), Some(Stance::Friendly));
+        assert_eq!(Stance::from_word("Watch"), Some(Stance::Watch));
         assert_eq!(Stance::from_word("unbekannt"), None);
+    }
+
+    #[test]
+    fn only_an_https_address_with_a_host_is_asked() {
+        assert_eq!(list_address(" https://example.org/liste.toml "), Some("https://example.org/liste.toml".into()));
+        assert_eq!(list_address("HTTPS://example.org/x"), Some("https://example.org/x".into()));
+        for wrong in [
+            "http://example.org/liste.toml",
+            "ftp://example.org/x",
+            "https://",
+            "https:///pfad",
+            "https://name:geheim@example.org/x",
+            "https://example.org/eine liste",
+            "example.org/liste",
+            "",
+        ] {
+            assert_eq!(list_address(wrong), None, "{wrong}");
+        }
+    }
+
+    /// Taken without replacing (a list from an address): only names not marked here come in, the own marks stay.
+    #[test]
+    fn a_list_taken_without_replacing_keeps_the_own_marks() {
+        let mut mine = Relations::default();
+        mine.set(Kind::Handle, "Kumpel", Some(Stance::Friendly));
+        let mut theirs = Relations::default();
+        theirs.set(Kind::Handle, "Kumpel", Some(Stance::Hostile));
+        theirs.set(Kind::Org, "NEU", Some(Stance::Watch));
+        assert_eq!(mine.take(&theirs, false), 1);
+        assert_eq!(mine.of(Kind::Handle, "Kumpel"), Some(Stance::Friendly), "the own mark stays");
+        assert_eq!(mine.of(Kind::Org, "NEU"), Some(Stance::Watch));
+        assert_eq!(mine.take(&theirs, true), 1, "replacing: the stance there wins");
+        assert_eq!(mine.of(Kind::Handle, "Kumpel"), Some(Stance::Hostile));
+    }
+
+    /// To watch is kept and handed on like the other stances, under its own word.
+    #[test]
+    fn to_watch_is_kept_and_handed_on() {
+        let dir = Dir::new("beziehungen-beobachten");
+        let paths = paths(&dir);
+        let mut relations = Relations::default();
+        relations.set(Kind::Handle, "Schatten", Some(Stance::Watch));
+        assert!(relations.save(&paths));
+        assert_eq!(Relations::load(&paths).of(Kind::Handle, "schatten"), Some(Stance::Watch));
+        let text = relations.export_text();
+        assert!(text.contains("\"beobachten\""), "{text}");
+        let mut other = Relations::default();
+        assert_eq!(other.import_text(&text), Ok(1));
+        assert_eq!(other.of(Kind::Handle, "Schatten"), Some(Stance::Watch));
+    }
+
+    /// A list of the other marking tool is taken through the same import: its players and organizations with the
+    /// stance of their colour; a text that is neither stays refused.
+    #[test]
+    fn a_list_of_the_other_tool_is_taken_with_its_colours_as_stances() {
+        let mut mine = Relations::default();
+        mine.set(Kind::Handle, "Beispiel_Pilot", Some(Stance::Friendly));
+        let list = "format = \"sc-social-overlay\"\nformat_version = 1\n\
+                    [[players]]\nhandle = \"Beispiel_Pilot\"\ncolor = \"red\"\n\
+                    [[orgs]]\nsid = \"BEISPIEL\"\npriority = 1\ncolor = \"purple\"\n";
+        assert_eq!(mine.import_text(list), Ok(2));
+        assert_eq!(mine.of(Kind::Handle, "Beispiel_Pilot"), Some(Stance::Hostile), "its stance replaces mine");
+        assert_eq!(mine.of(Kind::Org, "BEISPIEL"), Some(Stance::Watch));
+        let before = mine.clone();
+        assert_eq!(mine.import_text("format = \"anderes\"\nformat_version = 1\n"), Err(ImportError::NotJson));
+        assert_eq!(mine, before);
     }
 }

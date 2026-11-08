@@ -64,8 +64,8 @@ use windows_sys::Win32::Graphics::Gdi::{
     GetStockObject, GetWindowRgn, GetWindowRgnBox, HBRUSH, HDC, HGDIOBJ, HRGN, NULLREGION, PtInRegion, ReleaseDC,
     SIMPLEREGION, SelectObject, SetWindowRgn,
 };
+use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_MEMORY, SND_NODEFAULT, SND_SYNC};
 use windows_sys::Win32::Storage::Xps::{PRINT_WINDOW_FLAGS, PrintWindow};
-use windows_sys::Win32::System::Diagnostics::Debug::MessageBeep;
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
@@ -77,7 +77,7 @@ use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWi
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CURSOR_SHOWING, CURSORINFO, CreateWindowExW, DestroyWindow, GWL_EXSTYLE, GetClientRect, GetCursorInfo,
     GetForegroundWindow, GetLayeredWindowAttributes, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
-    HTCLIENT, HWND_TOPMOST, LAYERED_WINDOW_ATTRIBUTES_FLAGS, MA_NOACTIVATE, MB_ICONASTERISK, MB_ICONEXCLAMATION, MB_OK,
+    HTCLIENT, HWND_TOPMOST, LAYERED_WINDOW_ATTRIBUTES_FLAGS, MA_NOACTIVATE, MB_ICONEXCLAMATION, MB_OK,
     MB_SETFOREGROUND, MessageBoxW, PostMessageW, RI_KEY_BREAK, STYLESTRUCT, SWP_FRAMECHANGED, SWP_NOACTIVATE,
     SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetForegroundWindow, SetLayeredWindowAttributes,
     SetWindowLongPtrW, SetWindowPos, WM_ACTIVATE, WM_DWMCOMPOSITIONCHANGED, WM_ERASEBKGND, WM_LBUTTONDOWN,
@@ -683,10 +683,19 @@ pub fn game_process() -> Option<bool> {
     Some(found)
 }
 
-/// The short system sound on a find; `loud` for one that must not be missed.
-pub fn beep(loud: bool) {
-    // SAFETY: plays a system sound, nothing else.
-    unsafe { MessageBeep(if loud { MB_ICONEXCLAMATION } else { MB_ICONASTERISK }) };
+/// The short sound on a find at `volume` percent; `loud` for one that must not be missed. The sound is made in
+/// memory ([`versekit_core::sound::tone`]) and played by a thread of its own, so nothing waits for it. At 0 % there
+/// is no sound.
+pub fn beep(loud: bool, volume: i64) {
+    if volume <= 0 {
+        return;
+    }
+    let wav = versekit_core::sound::tone(loud, volume);
+    std::thread::spawn(move || {
+        // SAFETY: the memory holds a whole WAV file and stays alive until the call returns (SND_SYNC); no
+        // module, no resource.
+        unsafe { PlaySoundW(wav.as_ptr().cast(), std::ptr::null_mut(), SND_MEMORY | SND_SYNC | SND_NODEFAULT) };
+    });
 }
 
 /// Shows a message box of the system without an owner window and waits until the player closes it.

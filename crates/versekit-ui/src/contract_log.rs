@@ -131,7 +131,7 @@ impl LogData {
         }
         let (slot, host, ctx) = (Arc::clone(&self.scan), paths.host.clone(), ctx.cloned());
         let (reader, lock) = (Arc::clone(&self.reader), versekit_core::writeguard::state());
-        std::thread::spawn(move || {
+        versekit_core::language::spawn_with_language(move || {
             // The slot falls back to idle even when this thread dies half way.
             struct Release(Arc<Mutex<ScanSlot>>, Option<ScanSlot>);
             impl Drop for Release {
@@ -258,7 +258,7 @@ impl LogData {
             return;
         };
         let (lookups, languages, host) = (Arc::clone(&self.lookups), Arc::clone(&self.languages), paths.host.clone());
-        std::thread::spawn(move || {
+        versekit_core::language::spawn_with_language(move || {
             let paths = Paths::new(host);
             let files = match &*languages {
                 Languages::Installation => log::ini_files(&paths),
@@ -850,7 +850,7 @@ mod tests {
     fn toggles_count_over_the_search_and_running_reads_still_open() {
         // The words are compared with the language in force: another test that switches it must not run meanwhile.
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let mut data = LogData::sample();
         let ctx = egui::Context::default();
         crate::install(&ctx);

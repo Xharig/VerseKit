@@ -66,6 +66,7 @@ mod filter_jump;
 mod handle_tabs;
 #[cfg(test)]
 mod nav_groups;
+mod crash_hint;
 mod first_backup_hint;
 mod glance;
 mod glance_tiles;
@@ -340,6 +341,8 @@ pub struct SamplePage {
     /// Graphics card: as set, and as Verse-Kit started with.
     gpu: bool,
     gpu_started: bool,
+    /// The 24-hour clock (`formats::CLOCK_24_SETTING`); off, the times of day are written with AM and PM.
+    clock_24: bool,
     /// The later choice in the restart bar: hidden until the next change.
     restart_later: bool,
     mangohud: bool,
@@ -479,6 +482,11 @@ pub struct SamplePage {
     search_modifiers: [bool; 3],
     search_key: usize,
     search_hotkey_on: bool,
+    /// The hotkey of the picture of the game for the signature window (`hotkey_bild`) and whether it is used
+    /// (`hotkey_bild_an`).
+    picture_modifiers: [bool; 3],
+    picture_key: usize,
+    picture_hotkey_on: bool,
     /// Whether the overlay runs: it registers the hotkeys, so only then a new one counts as registered.
     overlay_runs: fn() -> bool,
     /// The window shows a test build (sample page: a click on the version).
@@ -551,6 +559,10 @@ pub struct SamplePage {
     first_backup_hint: Option<String>,
     /// The note was drawn and written down as told.
     first_backup_told: bool,
+    /// The crash of the last run, while the note about it waits or is open, and whether it was drawn and written
+    /// down as told.
+    crash_hint: Option<versekit_core::crash::Untold>,
+    crash_told: bool,
     /// The folders a test asked to open (nothing opens in a test).
     #[cfg(test)]
     folders_opened: Vec<String>,
@@ -1290,6 +1302,7 @@ impl SamplePage {
             frame_overflow_y: 0.0,
             gpu: true,
             gpu_started: true,
+            clock_24: true,
             restart_later: false,
             mangohud: false,
             streamer: false,
@@ -1367,6 +1380,10 @@ impl SamplePage {
                 .map_or([false, true, true], |h| h.0),
             search_key: parse_hotkey(versekit_core::overlay::DEFAULT_SEARCH_HOTKEY).map_or(7, |h| h.1),
             search_hotkey_on: true,
+            picture_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_PICTURE_HOTKEY)
+                .map_or([false, true, true], |h| h.0),
+            picture_key: parse_hotkey(versekit_core::overlay::DEFAULT_PICTURE_HOTKEY).map_or(1, |h| h.1),
+            picture_hotkey_on: true,
             overlay_runs: || versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some(),
             test_build: false,
             news_index: 0,
@@ -1403,6 +1420,8 @@ impl SamplePage {
             backup: backup_flow::BackupFlow::default(),
             first_backup_hint: None,
             first_backup_told: false,
+            crash_hint: None,
+            crash_told: false,
             #[cfg(test)]
             folders_opened: Vec::new(),
             overlay_place: settings::OverlayPlace::TopRight,
@@ -1821,6 +1840,7 @@ impl SamplePage {
         self.show_setup(ui.ctx(), scheme);
         self.show_backup(ui.ctx(), scheme);
         self.show_first_backup_hint(ui.ctx(), scheme);
+        self.show_crash_hint(ui.ctx(), scheme);
         self.data_folder.dialogs(ui.ctx(), scheme, self.store.as_ref().map(|store| &store.paths));
         if self.dialog_open {
             let (answered, close) = widgets::dialog(ui.ctx(), scheme, "musterdialog", |ui| {
@@ -2202,6 +2222,12 @@ impl SamplePage {
         self.group_order = group_order_from(paths.settings().iter().find(|(k, _)| k == GROUP_ORDER_SETTING).map(|(_, v)| v));
         self.groups_language = None;
         self.sounds[0] = paths.setting_bool("signalton", true);
+        self.sounds[1] = versekit_core::sound::refinery_on(paths);
+        self.volume = versekit_core::sound::volume(paths);
+        // The card as the program started with it is the stored choice: only a change in this run asks for a restart.
+        self.gpu = crate::renderer::use_card(paths);
+        self.gpu_started = self.gpu;
+        self.clock_24 = versekit_core::formats::apply_clock(paths);
         self.desktop.load(paths);
         self.mangohud = paths.setting_bool("mangohud", false);
         self.streamer = versekit_core::streamer::load(paths);
@@ -2256,6 +2282,12 @@ impl SamplePage {
                 (self.search_modifiers, self.search_key) = (modifiers, key);
             }
             self.search_hotkey_on = overlay::search_hotkey_on(paths);
+            let stored =
+                paths.setting(keys::HOTKEY_PICTURE).unwrap_or_else(|| overlay::DEFAULT_PICTURE_HOTKEY.to_string());
+            if let Some((modifiers, key)) = parse_hotkey(&stored) {
+                (self.picture_modifiers, self.picture_key) = (modifiers, key);
+            }
+            self.picture_hotkey_on = overlay::picture_hotkey_on(paths);
         }
         if let Some(place) = paths.setting("overlay_ecke").as_deref().and_then(corner_of) {
             self.overlay_place = place;
@@ -2322,6 +2354,10 @@ impl SamplePage {
                 }),
             ),
             ("signalton", Value::Bool(self.sounds[0])),
+            (versekit_core::sound::REFINERY_SETTING, Value::Bool(self.sounds[1])),
+            (versekit_core::sound::VOLUME_SETTING, Value::int(self.volume)),
+            (crate::renderer::GPU_SETTING, Value::Bool(self.gpu)),
+            (versekit_core::formats::CLOCK_24_SETTING, Value::Bool(self.clock_24)),
             ("mangohud", Value::Bool(self.mangohud)),
             (versekit_core::streamer::SETTING, Value::Bool(self.streamer)),
             (versekit_core::usage::SETTING, Value::Bool(self.usage_on)),
@@ -2371,6 +2407,10 @@ impl SamplePage {
             values.push((versekit_core::overlay::keys::HOTKEY_SEARCH, Value::str(hotkey)));
         }
         values.push((versekit_core::overlay::keys::HOTKEY_SEARCH_ON, Value::Bool(self.search_hotkey_on)));
+        if let Some(hotkey) = hotkey_text(self.picture_modifiers, self.picture_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_PICTURE, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_PICTURE_ON, Value::Bool(self.picture_hotkey_on)));
         if let Some(window) = &self.window {
             values.extend(window.values());
         }
@@ -2834,15 +2874,17 @@ impl SamplePage {
         // so a drag on it moves the window.
         let name_size = egui::TextStyle::Body.resolve(left.style()).size + 2.0;
         left.add(egui::Label::new(RichText::new(t("hf_titel")).strong().size(name_size)).selectable(false));
-        let test_word = t("s_ul_testversion");
-        let (version, word) = if self.real() {
-            (env!("CARGO_PKG_VERSION"), self.test_build.then_some(test_word.as_str()))
-        } else if self.test_build {
-            (concat!(env!("CARGO_PKG_VERSION"), "-rc2"), Some(test_word.as_str()))
+        let test_run =
+            self.real() && self.store.as_ref().is_some_and(|store| versekit_core::language::test_run(&store.paths.host));
+        let word_key = head_word(self.real(), self.test_build, test_run);
+        let word = word_key.map(t);
+        let version = if !self.real() && self.test_build {
+            concat!(env!("CARGO_PKG_VERSION"), "-rc2")
         } else {
-            (env!("CARGO_PKG_VERSION"), None)
+            env!("CARGO_PKG_VERSION")
         };
-        let mark = widgets::version_mark(&mut left, scheme, version, word);
+        let mark = widgets::version_mark(&mut left, scheme, version, word.as_deref());
+        let mark = if test_run { mark.on_hover_text(t("s_kopf_testfassung_h")) } else { mark };
         // Sample page only: a click on the version switches stable and test build.
         if !self.real() {
             let click = left.interact(mark.rect, left.scope_id().with("version"), egui::Sense::click());
@@ -2892,17 +2934,22 @@ impl SamplePage {
             note(page, t("s_ak_wartet"));
             page.ctx().request_repaint_after(std::time::Duration::from_secs(2));
         }
-        if self.store.is_some() && ARCHIVE_PAGES.contains(&self.page.as_str()) && self.test_archive(page.ctx()) {
-            note(page, t("s_ak_testkanal"));
+        if self.store.is_some()
+            && ARCHIVE_PAGES.contains(&self.page.as_str())
+            && let Some(channel) = self.test_archive(page.ctx())
+        {
+            for key in versekit_core::archive_lock::test_channel_notes(channel) {
+                note(page, versekit_core::language::tf(key, &[("0", Arg::from(channel))]));
+            }
         }
     }
 
-    /// Whether the archive in use lies in a channel of test builds; looked at every few seconds, not every frame.
-    fn test_archive(&self, ctx: &egui::Context) -> bool {
-        let Some(store) = &self.store else { return false };
+    /// The channel of test builds the archive in use lies in, if any; looked at every few seconds, not every frame.
+    fn test_archive(&self, ctx: &egui::Context) -> Option<&'static str> {
+        let store = self.store.as_ref()?;
         let id = egui::Id::unique("archiv-testkanal");
         let now = ctx.input(|i| i.time);
-        if let Some((at, answer)) = ctx.data(|d| d.get_temp::<(f64, bool)>(id))
+        if let Some((at, answer)) = ctx.data(|d| d.get_temp::<(f64, Option<&'static str>)>(id))
             && now - at < 5.0
         {
             return answer;
@@ -2910,7 +2957,7 @@ impl SamplePage {
         let answer = store
             .paths
             .archive_file()
-            .is_some_and(|archive| versekit_core::archive_lock::is_test_archive(std::path::Path::new(&archive)));
+            .and_then(|archive| versekit_core::archive_lock::test_channel_of(std::path::Path::new(&archive)));
         ctx.data_mut(|d| d.insert_temp(id, (now, answer)));
         answer
     }
@@ -3339,7 +3386,7 @@ impl SamplePage {
                             self.start_done.0.clone(),
                             store.paths.working_copy(),
                         );
-                        std::thread::spawn(move || {
+                        versekit_core::language::spawn_with_language(move || {
                             let _ = done.send(game_start::start_game(&paths, &spawner));
                         });
                     } else {
@@ -3807,9 +3854,16 @@ impl SamplePage {
                             };
                             match settings::restart_bar(page, scheme, &texts) {
                                 Some(settings::UpdateChoice::Update) => {
-                                    self.gpu_started = self.gpu;
-                                    let now = page.input(|i| i.time);
-                                    self.pin_notice = Some((now, t("s_pf_startet_neu")));
+                                    if self.real() {
+                                        // The window starts again and closes; a refused start is said and the bar stays.
+                                        if self.restart_now(page.ctx()) {
+                                            self.gpu_started = self.gpu;
+                                        }
+                                    } else {
+                                        self.gpu_started = self.gpu;
+                                        let now = page.input(|i| i.time);
+                                        self.pin_notice = Some((now, t("s_pf_startet_neu")));
+                                    }
                                 }
                                 Some(settings::UpdateChoice::News) => self.restart_later = true,
                                 None => {}
@@ -3841,6 +3895,8 @@ impl SamplePage {
                         let (english, volume) = (&mut self.general_english, &mut self.volume);
                         let language_auto = &mut self.language_auto;
                         let (gpu, later, mangohud) = (&mut self.gpu, &mut self.restart_later, &mut self.mangohud);
+                        let clock_24 = &mut self.clock_24;
+                        let mut clock_changed = false;
                         let streamer = &mut self.streamer;
                         let usage_on = &mut self.usage_on;
                         let mut streamer_changed = false;
@@ -3887,10 +3943,11 @@ impl SamplePage {
                                             autostart_wanted = Some(*autostart_on);
                                         }
                                     }
-                                    // Real data: what has no effect yet says so, not a switch that does nothing.
-                                    // Start with the system, graphics card, the second sound, the volume and the clock.
-                                    (0, 0 | 1) | (1, 1) | (2, 1 | 2) if real => {
-                                        row.label(RichText::new(glance::not_yet()).color(color(scheme.sub)));
+                                    // The clock of every time of day: at once, in the whole program.
+                                    (1, 1) => {
+                                        if row.add(widgets::Toggle::new(clock_24, scheme)).changed() {
+                                            clock_changed = true;
+                                        }
                                     }
                                     // MangoHud starts the game with an overlay: only where the game is started that way.
                                     (4, 0) if real && !cfg!(target_os = "linux") => {
@@ -4000,6 +4057,10 @@ impl SamplePage {
                                 }
                             });
                         });
+                        if clock_changed {
+                            versekit_core::formats::set_clock_24(self.clock_24);
+                            page.ctx().request_repaint();
+                        }
                         if play_head_changed && let Some(store) = &self.store {
                             store.paths.set_setting(
                                 versekit_core::overview::PLAYTIME_HEAD_SETTING,
@@ -4070,32 +4131,38 @@ impl SamplePage {
                     }
                     "hf_ueber" => {
                         let infos = page_infos("hf_ueber");
-                        page.horizontal_wrapped(|row| {
-                            let button = widgets::Button::new(&infos[0], ButtonKind::Strong, scheme);
-                            if row.add(button).clicked() && self.loading.is_none() && self.update_waits() {
-                                let version = [("version", Arg::from(self.update_version.as_str()))];
-                                let loading = tf("s_ul_laedt", &version);
-                                self.loading = Some((row.input(|i| i.time), loading, 5.0));
-                                self.loading_update = true;
-                            }
-                            // Copied: the notice at the top right.
-                            let copy = widgets::Button::new(&infos[1], ButtonKind::Normal, scheme).icon("copy");
-                            if row.add(copy).clicked() {
-                                row.ctx().copy_text(format!("{} 5.0.0", t("hf_titel")));
-                                self.copied_at = Some(row.input(|i| i.time));
-                            }
-                            // The way back into the assistant, as in 4.12 beside the buttons of the page.
-                            let label = t("s_ub_einrichtung");
-                            let again = widgets::Button::new(&label, ButtonKind::Normal, scheme);
-                            if row.add(again.icon("wand-sparkles")).clicked() {
-                                self.open_setup();
+                        // The buttons and the link in a card, as on the page with own data.
+                        widgets::card(page, scheme, |page| {
+                            page.set_width(page.available_width());
+                            widgets::card_title(page, scheme, &t("hf_update"));
+                            page.horizontal_wrapped(|row| {
+                                let button =
+                                    widgets::Button::new(&infos[0], ButtonKind::Strong, scheme).icon("download");
+                                if row.add(button).clicked() && self.loading.is_none() && self.update_waits() {
+                                    let version = [("version", Arg::from(self.update_version.as_str()))];
+                                    let loading = tf("s_ul_laedt", &version);
+                                    self.loading = Some((row.input(|i| i.time), loading, 5.0));
+                                    self.loading_update = true;
+                                }
+                                // Copied: the notice at the top right.
+                                let copy = widgets::Button::new(&infos[1], ButtonKind::Normal, scheme).icon("copy");
+                                if row.add(copy).clicked() {
+                                    row.ctx().copy_text(format!("{} 5.0.0", t("hf_titel")));
+                                    self.copied_at = Some(row.input(|i| i.time));
+                                }
+                                // The way back into the assistant, as in 4.12 beside the buttons of the page.
+                                let label = t("s_ub_einrichtung");
+                                let again = widgets::Button::new(&label, ButtonKind::Normal, scheme);
+                                if row.add(again.icon("wand-sparkles")).clicked() {
+                                    self.open_setup();
+                                }
+                            });
+                            page.add_space(4.0);
+                            // A link out of Verse-Kit carries the symbol.
+                            if widgets::external_link(page, scheme, &infos[2]).clicked() {
+                                page.ctx().open_url(egui::OpenUrl::new_tab("https://versekit.xharig.com"));
                             }
                         });
-                        page.add_space(4.0);
-                        // A link out of Verse-Kit carries the symbol.
-                        if widgets::external_link(page, scheme, &infos[2]).clicked() {
-                            page.ctx().open_url(egui::OpenUrl::new_tab("https://versekit.xharig.com"));
-                        }
                         page.add_space(GAP);
                         let rows = settings_of("hf_ueber");
                         let groups = group_sizes(rows);
@@ -4142,8 +4209,15 @@ impl SamplePage {
                             (&mut self.search_modifiers, &mut self.search_key, &mut self.search_hotkey_on);
                         let search_before = search_on.then(|| hotkey_text(*search_modifiers, *search_key)).flatten();
                         let mut search_refused = false;
+                        let (picture_modifiers, picture_key, picture_on) =
+                            (&mut self.picture_modifiers, &mut self.picture_key, &mut self.picture_hotkey_on);
+                        let picture_before =
+                            picture_on.then(|| hotkey_text(*picture_modifiers, *picture_key)).flatten();
+                        let mut picture_refused = false;
                         // The refinery scan reads the screen: only where that works.
                         let scan_possible = versekit_core::refinery_scan::screen::supported();
+                        // The picture of the game grabs the screen: only where that works.
+                        let picture_possible = versekit_core::screen_grab::supported();
                         let (auto, opacity) = (&mut self.overlay_auto, &mut self.overlay_opacity);
                         let opaque = self.overlay_opaque;
                         let (popup, seconds) = (&mut self.overlay_popup, &mut self.overlay_seconds);
@@ -4247,10 +4321,16 @@ impl SamplePage {
                                         match r {
                                             0 => (None, &mut *modifiers, &mut *key, "overlay"),
                                             1 => (Some(&mut *scan_on), &mut *scan_modifiers, &mut *scan_key, "overlay-scan"),
-                                            _ => (Some(&mut *search_on), &mut *search_modifiers, &mut *search_key, "overlay-suche"),
+                                            2 => (Some(&mut *search_on), &mut *search_modifiers, &mut *search_key, "overlay-suche"),
+                                            _ => (Some(&mut *picture_on), &mut *picture_modifiers, &mut *picture_key, "overlay-bild"),
                                         };
-                                    // The refinery scan reads the screen: only where that works.
-                                    let possible = r != 1 || scan_possible;
+                                    // The refinery scan and the picture of the game read the screen: only where that
+                                    // works.
+                                    let possible = match r {
+                                        1 => scan_possible,
+                                        3 => picture_possible,
+                                        _ => true,
+                                    };
                                     let before = (*held, *chosen);
                                     // The keys only while the shortcut is on.
                                     let switch = possible.then_some(switch).flatten();
@@ -4273,7 +4353,8 @@ impl SamplePage {
                                     match r {
                                         0 => hotkey_refused |= refused,
                                         1 => scan_refused |= refused,
-                                        _ => search_refused |= refused,
+                                        2 => search_refused |= refused,
+                                        _ => picture_refused |= refused,
                                     }
                                     if r == 0 {
                                         // Under Wayland: the way through a shortcut of the desktop.
@@ -4289,6 +4370,12 @@ impl SamplePage {
                                     // models side by side or one below the other (the frame has no row of its own), its
                                     // size and the extra line in the overlay.
                                     if r == 0 {
+                                        // The hotkey of the picture as the hint under its button names it, while it is
+                                        // on and can be had.
+                                        scanner.hotkey = (*picture_on && picture_possible)
+                                            .then(|| hotkey_text(*picture_modifiers, *picture_key))
+                                            .flatten()
+                                            .map(|text| glance_tiles::hotkey_in(language::current(), &text));
                                         let frame_row = rows[g].1[3];
                                         let (frame_name, frame_hint) = (label(frame_row.0), label(frame_row.1));
                                         scanner_ui::model_cards(
@@ -4328,6 +4415,20 @@ impl SamplePage {
                                                 settings::slider_with_value(row, scheme, &name, linger, range, false, |n| {
                                                     format!("{n} s")
                                                 });
+                                            }
+                                            // The seconds between "Spielbild holen" and the picture.
+                                            6 if !picture_possible => {
+                                                let reason = language::t("s_nicht_moegl");
+                                                row.label(RichText::new(reason).color(color(scheme.sub)));
+                                            }
+                                            6 => {
+                                                for seconds in versekit_core::game_picture::DELAYS {
+                                                    let chosen = scanner.delay == seconds;
+                                                    if widgets::radio(row, scheme, chosen, &format!("{seconds} s")).clicked()
+                                                    {
+                                                        scanner.delay = seconds;
+                                                    }
+                                                }
                                             }
                                             _ => {}
                                         });
@@ -4416,6 +4517,7 @@ impl SamplePage {
                             (hotkey_refused, self.hotkey_modifiers, self.hotkey_key),
                             (scan_refused, self.scan_modifiers, self.scan_key),
                             (search_refused, self.search_modifiers, self.search_key),
+                            (picture_refused, self.picture_modifiers, self.picture_key),
                         ] {
                             if refused {
                                 let saved = hotkey_text(modifiers, key).unwrap_or_default();
@@ -4424,17 +4526,24 @@ impl SamplePage {
                             }
                         }
                         // A new hotkey: the running overlay takes it with the settings (it registers all of them). The
-                        // one of the handle search counts only while it is on, so switching it on says it too.
+                        // ones of the handle search and of the picture count only while they are on, so switching
+                        // one on says it too.
                         let search_now = self
                             .search_hotkey_on
                             .then(|| hotkey_text(self.search_modifiers, self.search_key))
+                            .flatten();
+                        let picture_now = self
+                            .picture_hotkey_on
+                            .then(|| hotkey_text(self.picture_modifiers, self.picture_key))
                             .flatten();
                         let now_hotkeys = [
                             hotkey_text(self.hotkey_modifiers, self.hotkey_key),
                             hotkey_text(self.scan_modifiers, self.scan_key),
                             search_now,
+                            picture_now,
                         ];
-                        for (before, now) in [hotkey_before, scan_before, search_before].into_iter().zip(now_hotkeys) {
+                        let before_hotkeys = [hotkey_before, scan_before, search_before, picture_before];
+                        for (before, now) in before_hotkeys.into_iter().zip(now_hotkeys) {
                             if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
                                 && (self.overlay_runs)()
                             {
@@ -4789,7 +4898,7 @@ impl SamplePage {
                     "k_basetool_verbindung" if self.real() => {
                         // The connection could not be made: say so instead of a made-up state.
                         let (title, text) = (language::t("s_btv_ohne"), language::t("s_btv_ohne_h"));
-                        widgets::status_box(page, scheme, scheme.red, "shield-alert", &title, &text);
+                        widgets::status_box(page, scheme, scheme.red_text(), "shield-alert", &title, &text);
                     }
                     "k_basetool_verbindung" => {
                         let infos = page_infos("k_basetool_verbindung");
@@ -5213,7 +5322,7 @@ impl SamplePage {
         ui.add_space(6.0);
         ui.label(RichText::new(t("s_mu_gelb")).color(color(scheme.yellow)));
         ui.label(RichText::new(t("s_mu_blau")).color(color(scheme.blue)));
-        ui.label(RichText::new(t("s_mu_rot")).color(color(scheme.red)));
+        ui.label(RichText::new(t("s_mu_rot")).color(color(scheme.red_text())));
         ui.label(RichText::new(t("s_mu_gedaempft")).color(color(scheme.sub)));
     }
 
@@ -5481,7 +5590,7 @@ const TOPIC_PAGES: [(&str, &[&str]); 5] = [
 ];
 
 /// The pages whose data come out of the game archive: where the data of a test channel are marked as preliminary.
-const ARCHIVE_PAGES: [&str; 8] = [
+const ARCHIVE_PAGES: [&str; 9] = [
     "hf_liste",
     "hf_fortschritt",
     "hf_herstellung",
@@ -5490,6 +5599,7 @@ const ARCHIVE_PAGES: [&str; 8] = [
     "hf_uebersetzung",
     "hf_joysticks",
     "hf_erkennung",
+    "hf_hangar",
 ];
 
 const NAV: [(&str, &[(&str, &str)]); 10] = [
@@ -5635,13 +5745,14 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_dauer", "ov_s_dauer_h", &["s_ov_sek_sichtbar"]),
                 ],
             ),
-            // The three shortcuts, one line each: switch, name, modifier keys, key.
+            // The four shortcuts, one line each: switch, name, modifier keys, key.
             (
                 "s_ov_gruppe_kuerzel",
                 &[
                     ("s_ei_ov_taste", "s_ei_ov_taste_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_scan", "s_hk_scan_h_2", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_suche", "s_hk_suche_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_bild", "s_hk_bild_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             // The events that open the folded or waiting overlay, one switch each (the order of
@@ -5665,6 +5776,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_zeige_ort", "s_ov_zeige_ort_h", &[]),
                     ("s_ov_zeige_auftraege", "s_ov_zeige_auftraege_h", &[]),
                     ("s_ov_zeige_raffinerie", "s_ov_zeige_raffinerie_h", &[]),
+                    ("s_ov_zeige_werkbank", "s_ov_zeige_werkbank_h", &[]),
                     ("s_ov_zeige_update", "s_ov_zeige_update_h", &[]),
                     // After the switches: the most contracts for the count in the head of the bar.
                     ("s_ov_auftraege_max", "s_ov_auftraege_max_h", &[]),
@@ -5700,6 +5812,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     // From here on rows of their own after the frame (row 3 is drawn inside the model).
                     ("s_sg_ort", "s_sg_ort_h", &["s_sg_ort_signatur", "s_sg_ort_leiste"]),
                     ("s_sg_nachlauf", "s_sg_nachlauf_h", &[]),
+                    ("s_sg_bild_wartezeit", "s_sg_bild_wartezeit_h", &[]),
                 ],
             ),
         ],
@@ -5946,8 +6059,9 @@ fn corner_name(place: settings::OverlayPlace) -> &'static str {
 
 /// The settings of a page, empty for a page without any.
 fn settings_of(page: &str) -> Groups {
-    // Where the system has no application menu, the page General has no row for an entry in it.
-    if page == "hf_allgemein" && !versekit_core::desktop_entry::available() {
+    // Where the system has no application menu, the page General has no row for an entry in it; on Windows the row
+    // stays and says that the installer makes the entry.
+    if page == "hf_allgemein" && !versekit_core::desktop_entry::available() && !cfg!(windows) {
         return GENERAL_WITHOUT_MENU;
     }
     PAGE_SETTINGS.iter().find(|(p, _)| *p == page).map_or(&[], |(_, groups)| *groups)
@@ -6388,6 +6502,7 @@ fn base_infos(page: &str) -> Vec<String> {
             "s_hq_freundlich",
             "s_hq_neutral",
             "s_hq_feindlich",
+            "s_hq_beobachten",
             "s_hqs_unbekannt",
         ]),
         "hf_contested" => texts(&[
@@ -6794,12 +6909,24 @@ fn tone_color(scheme: &Scheme, tone: glance::Tone) -> egui::Color32 {
         glance::Tone::Muted => color(scheme.sub),
         glance::Tone::Good => color(scheme.accent),
         glance::Tone::Warn => color(scheme.gold),
-        glance::Tone::Bad => color(scheme.red),
+        glance::Tone::Bad => color(scheme.red_text()),
     }
 }
 
 /// Height of the line under the head bar in the square scheme.
 const HEAD_LINE_HEIGHT: f32 = 2.0;
+
+/// The word of the yellow mark next to the version in the head bar, as a text key; `None` for the plain version.
+/// On real data a run for testing (`language::test_run`: a test build, a copy of the data) says "Testfassung"
+/// before anything else, else a version of the test channel of the updates says so; the sample page shows the
+/// test version by its switch.
+fn head_word(real: bool, test_build: bool, test_run: bool) -> Option<&'static str> {
+    match (real, test_run, test_build) {
+        (true, true, _) => Some("s_kopf_testfassung"),
+        (_, _, true) => Some("s_ul_testversion"),
+        _ => None,
+    }
+}
 
 /// The accent line along the lower edge of the head bar `bar`, in the square scheme only; it lies inside the
 /// bar, so the bar keeps its height.
@@ -6924,6 +7051,23 @@ fn quality_error(text: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A run for testing says "Testfassung" in the head bar before the test channel of the updates, and only on
+    /// real data; the sample page keeps its switch.
+    #[test]
+    fn the_head_bar_says_test_build_for_a_run_for_testing() {
+        assert_eq!(head_word(true, false, false), None, "the player's own data: the plain version");
+        assert_eq!(head_word(true, false, true), Some("s_kopf_testfassung"));
+        assert_eq!(head_word(true, true, true), Some("s_kopf_testfassung"), "the test run comes first");
+        assert_eq!(head_word(true, true, false), Some("s_ul_testversion"));
+        assert_eq!(head_word(false, true, false), Some("s_ul_testversion"), "the sample page and its switch");
+        assert_eq!(head_word(false, false, true), None);
+        for key in ["s_kopf_testfassung", "s_kopf_testfassung_h"] {
+            for lang in [versekit_core::language::Lang::De, versekit_core::language::Lang::En] {
+                assert!(versekit_core::language::text_in(lang, key).is_some_and(|t| !t.is_empty()), "{key} {lang:?}");
+            }
+        }
+    }
 
     /// The overlay closes the main window with itself, and a signal is done
     /// once: the frames after it close nothing.
@@ -7293,7 +7437,7 @@ mod tests {
     fn the_head_bar_is_the_title_bar_with_three_buttons_that_do_what_they_say() {
         use egui::ViewportCommand as C;
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (ctx, mut page, rects) = framed_page();
         assert_eq!(rects.len(), 3, "minimize, maximize, close");
         // As wide as asked and as high as the bar, side by side to the right edge of the window.
@@ -7318,7 +7462,7 @@ mod tests {
     fn the_maximize_button_tells_the_system_where_it_is_and_takes_its_click() {
         use egui::ViewportCommand as C;
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let ctx = egui::Context::default();
         crate::install(&ctx);
         let button = versekit_core::snap_layouts::MaxButton::new();
@@ -7349,7 +7493,7 @@ mod tests {
     fn a_drag_on_the_free_bar_moves_the_window_and_one_on_a_button_does_not() {
         use egui::ViewportCommand as C;
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (ctx, mut page, rects) = framed_page();
         let y = rects[0].center().y;
         let drag = |ctx: &egui::Context, page: &mut SamplePage, from: egui::Pos2, time: f64| {
@@ -7445,7 +7589,7 @@ mod tests {
         use std::time::Duration;
 
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let mut page = SamplePage::preview();
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -8205,10 +8349,10 @@ mod tests {
             output.shapes.iter().for_each(|clipped| walk(&clipped.shape, &mut colors, &mut bars));
         }
         let color_of = |text: &str| colors.iter().find(|(t, _)| t.contains(text)).map(|(_, c)| *c);
-        assert_eq!(color_of("ZEILE EINS"), Some(color(scheme.red)));
+        assert_eq!(color_of("ZEILE EINS"), Some(color(scheme.red_text())));
         assert_eq!(color_of("gut"), Some(color(scheme.accent)));
         assert_eq!(color_of("achtung"), Some(color(scheme.gold)));
-        assert_eq!(color_of("schlecht"), Some(color(scheme.red)));
+        assert_eq!(color_of("schlecht"), Some(color(scheme.red_text())));
         assert_eq!(color_of("schlicht"), Some(color(scheme.fg)));
         // The track and the filled part: the filled one is half as wide as the track.
         let height = tiles::BAR_HEIGHT;
@@ -8794,7 +8938,7 @@ mod tests {
     #[test]
     fn the_report_page_works_in_the_window_with_own_data() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let dir = std::env::temp_dir().join(format!("versekit-fenster-bericht-{}", versekit_core::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("Ordner");
@@ -9045,7 +9189,7 @@ mod tests {
                 _ => {}
             }
             for lang in [language::Choice::De, language::Choice::En] {
-                language::set_language(lang);
+                language::set_thread_language(lang);
                 for id in ["original", "krt"] {
                     theme::set_thread_current(id);
                     for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
@@ -9073,7 +9217,7 @@ mod tests {
                 }
             }
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let _ = std::fs::remove_dir_all(&root);
         assert!(findings.is_empty(), "abgeschnitten ({}):\n{}", findings.len(), findings.join("\n"));
     }
@@ -9151,6 +9295,16 @@ mod tests {
             let pixels = points * pixels_per_point;
             assert!(widgets::COMMUNITY_SIZES.contains(&(pixels.round() as u32)), "{pixels_per_point}: {pixels}");
             assert!(points <= 72.0 + 0.01, "{pixels_per_point}: {points}");
+        }
+    }
+
+    /// Every page that waits for a reading of the game archive shows its data, so it marks those of a test channel.
+    #[test]
+    fn every_page_that_reads_the_archive_marks_the_data_of_a_test_channel() {
+        for (topic, pages) in TOPIC_PAGES {
+            for page in pages {
+                assert!(ARCHIVE_PAGES.contains(page), "{page} ({topic}) reads the archive but says nothing of a test channel");
+            }
         }
     }
 }

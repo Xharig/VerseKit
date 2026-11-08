@@ -24,6 +24,7 @@
 //! runs in a thread of its own. The hotkey of the overlay reads at once and hands its reading over
 //! ([`take_handed_over`]).
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 
@@ -104,7 +105,7 @@ pub(super) fn start(state: &mut StockState, ctx: &egui::Context) {
     let (tx, rx) = mpsc::channel();
     state.scan.events = Some(rx);
     let (lock, ctx) = (writeguard::state(), ctx.clone());
-    let started = std::thread::Builder::new().name("raffinerie-lesen".into()).spawn(move || {
+    let started = std::thread::Builder::new().name("raffinerie-lesen".into()).spawn_with_language(move || {
         writeguard::adopt(&lock);
         let event =
             match screen::wait_for_game(Duration::from_secs(15), Duration::from_millis(250), &std::thread::sleep) {
@@ -161,8 +162,9 @@ pub(super) fn show_jobs(state: &mut StockState, jobs: Vec<ScannedJob>, kept: boo
     state.scan.choice.clear();
     if jobs.len() <= 1 {
         let job = jobs.into_iter().next();
-        let (text, unsure, cells) = job.map_or_else(Default::default, |j| (j.text, j.unsure, j.cells));
-        result(state, &text, &unsure, kept, cells);
+        let (text, unsure, cells, station) =
+            job.map_or_else(Default::default, |j| (j.text, j.unsure, j.cells, j.station));
+        result(state, &text, &unsure, kept, cells, &station);
         return;
     }
     state.scan.reading = false;
@@ -171,10 +173,16 @@ pub(super) fn show_jobs(state: &mut StockState, jobs: Vec<ScannedJob>, kept: boo
     state.scan.choice = jobs;
 }
 
-/// `lese_ergebnis`: what was read goes into the field; nothing is booked here.
-fn result(state: &mut StockState, text: &str, unsure: &[String], kept: bool, cells: Vec<Cell>) {
+/// `lese_ergebnis`: what was read goes into the field; nothing is booked here. A station read at the top of the
+/// terminal that the list of places knows goes into the field of the place; without one the field keeps the
+/// place it held.
+fn result(state: &mut StockState, text: &str, unsure: &[String], kept: bool, cells: Vec<Cell>, station: &str) {
     state.scan.reading = false;
     let mut parts = Vec::new();
+    if let Some(place) = state.data.official_place(station).filter(|p| !p.is_empty()) {
+        parts.push(tf("s_rf_ort_gelesen", &[("0", Arg::from(place.clone()))]));
+        state.refinery_place = place;
+    }
     // The same job read again after scrolling: its lines join those waiting in the field.
     let joined = (!text.is_empty()).then(|| versekit_core::refinery_scan::join_scrolled(&state.refinery_text, text)).flatten();
     if let Some((all, added)) = joined {
@@ -252,7 +260,7 @@ pub(super) fn notes(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
             Tone::Plain => scheme.sub,
             Tone::Good => scheme.accent,
             Tone::Warn => scheme.gold,
-            Tone::Bad => scheme.red,
+            Tone::Bad => scheme.red_text(),
         };
         let reading = state.scan.reading;
         ui.horizontal(|row| {
@@ -275,7 +283,7 @@ pub(super) fn notes(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         let job = state.scan.choice.swap_remove(i);
         state.scan.choice.clear();
         let kept = state.scan.kept;
-        result(state, &job.text, &job.unsure, kept, job.cells);
+        result(state, &job.text, &job.unsure, kept, job.cells, &job.station);
     }
 }
 
@@ -329,7 +337,52 @@ mod tests {
             state: State::Running,
             remaining: None,
             cells: Vec::new(),
+            station: String::new(),
         }
+    }
+
+    fn at(station: &str, job: ScannedJob) -> ScannedJob {
+        ScannedJob { station: station.into(), ..job }
+    }
+
+    #[test]
+    fn a_station_the_list_knows_fills_the_place_and_the_message_says_so() {
+        let (mut state, paths, folder) = page("lager-scan-station");
+        state.refinery_place = "Levski".into();
+        // Read without a sure station: the field keeps the last place.
+        show_jobs(&mut state, vec![job("Gold 553 122 cSCU", &[], &["Gold"], "")], false);
+        assert_eq!(state.refinery_place, "Levski");
+        let (text, _) = state.scan.message.clone().expect("message");
+        assert!(!text.contains("Ort aus dem Terminal"), "{text}");
+        // A station the list does not know changes nothing either.
+        show_jobs(&mut state, vec![at("Port Olisar", job("Gold 553 122 cSCU", &[], &["Gold"], ""))], false);
+        assert_eq!(state.refinery_place, "Levski");
+        // A known one goes into the field as the list writes it, and the message names it first.
+        show_jobs(&mut state, vec![at("seraphim STATION", job("Gold 553 122 cSCU", &[], &["Gold"], ""))], false);
+        assert_eq!(state.refinery_place, "Seraphim Station");
+        let (text, tone) = state.scan.message.clone().expect("message");
+        assert_eq!(tone, Tone::Good);
+        assert!(text.starts_with("Ort aus dem Terminal gelesen: Seraphim Station.\n"), "{text}");
+        assert_eq!(state.refinery_text, "Gold 553 122 cSCU", "the lines are handled as before");
+        // The player changes it; the next reading without a station leaves the change alone.
+        state.refinery_place = "Orison".into();
+        show_jobs(&mut state, vec![job("Gold 553 122 cSCU", &[], &["Gold"], "")], false);
+        assert_eq!(state.refinery_place, "Orison");
+        // The reading of the hotkey and a job chosen among several carry their station as well.
+        assert!(screen::hand_over(&paths, &[at("Area18", job("Gold 553 122 cSCU", &[], &["Gold"], ""))], false));
+        assert!(take_handed_over(&mut state));
+        assert_eq!(state.refinery_place, "Area18");
+        let jobs = vec![
+            at("Levski", job("Gold 553 122 cSCU", &[], &["Gold"], "1.22")),
+            at("Levski", job("Ouratite 553 122 cSCU", &[], &["Ouratite"], "1.22")),
+        ];
+        show_jobs(&mut state, jobs, false);
+        assert_eq!(state.refinery_place, "Area18", "nothing changes before a job is chosen");
+        let chosen = state.scan.choice.swap_remove(1);
+        state.scan.choice.clear();
+        result(&mut state, &chosen.text, &chosen.unsure, false, chosen.cells, &chosen.station);
+        assert_eq!(state.refinery_place, "Levski");
+        let _ = std::fs::remove_dir_all(folder);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 einstellungen-4-12-beispiel.json
 
-Herkunft: die Einstellungsdatei einer echten Installation von SC BP Watcher 4.12 (Linux; die Zahl 3.58.0 in
+Herkunft: die Einstellungsdatei einer echten Installation von VerseKit 4.12 (Linux; die Zahl 3.58.0 in
 `inj_bestand` ist die Spielversion), im Aufbau unverändert: dieselben Schlüssel in derselben Reihenfolge, auch
 die Erklärzeilen mit Unterstrich.
 Bereinigt: Ordner und Konto sind erfunden (Pfade /spiele/…, Konto „Beispielspieler“), der Fingerabdruck des

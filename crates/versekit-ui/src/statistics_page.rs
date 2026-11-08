@@ -184,6 +184,7 @@ impl Report {
                 jumps: 460,
                 deaths: 17,
                 last_death: Some(1_792_300_000),
+                injuries: [23, 8, 2],
                 lost: 6,
                 most_lost: Some("AEGS_Gladius".to_string()),
                 recorded: 40,
@@ -418,7 +419,7 @@ impl StatsState {
             last_run: self.last_run,
             first: self.report.is_none(),
         };
-        std::thread::spawn(move || {
+        versekit_core::language::spawn_with_language(move || {
             writeguard::adopt(&lock);
             run(&request, &shared, &ctx);
         });
@@ -897,6 +898,15 @@ fn overview(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, report: &Repor
     // Ten figures stand five and five or two and two; never a row that is half empty.
     let wide = cards.len() > 4 && ui.available_width() >= 5.0 * TILE_MIN + 4.0 * GAP;
     tiles(ui, scheme, &cards, if wide { 5 } else { 2 });
+    // The injuries under the figures, once the log told of one: light, moderate, severe.
+    if recorded && data.injuries.iter().any(|n| *n > 0) {
+        let [light, moderate, severe] = data.injuries.map(count);
+        let line = tf(
+            "s_sx_verletzungen",
+            &[("0", Arg::from(light)), ("1", Arg::from(moderate)), ("2", Arg::from(severe))],
+        );
+        small(ui, scheme, &line);
+    }
     if recorded {
         let title = t("s_sx_wann");
         section(ui, scheme, &title, "");
@@ -905,8 +915,9 @@ fn overview(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, report: &Repor
         let rows: Vec<Vec<f64>> = data.heat.iter().map(|row| row.iter().map(|n| *n as f64).collect()).collect();
         let cell = |row: usize, hour: usize, seconds: f64| {
             format!(
-                "{} {hour:02}:00, {}",
+                "{} {}, {}",
                 labels.get(row).copied().unwrap_or_default(),
+                formats::hour_label(hour as u32),
                 playtime::as_text(seconds as i64)
             )
         };
@@ -1216,7 +1227,7 @@ mod tests {
             paths,
             "statistik.json",
             &format!(
-                r#"{{"format": 4, "gelesen": {{"a.log": 10, "b.log": 20, "c.log": 30, "d.log": 40}}, "stand": {b}.5, "sitzungen": {{
+                r#"{{"format": {format}, "gelesen": {{"a.log": 10, "b.log": 20, "c.log": 30, "d.log": 40}}, "stand": {b}.5, "sitzungen": {{
 "{a}": {{"von": {a}, "bis": {a_end}, "sauber": true, "account": "Xharig", "auftraege": 4, "fehlgeschlagen": 1, "abgebrochen": 2,
   "spruenge": 10, "schiffe": ["AEGS_Sabre"], "verloren": ["AEGS_Sabre"], "tode": [{a}], "waffen": {{"ruecken": {{"behr_rifle": 2}}}},
   "zielwahlen": 12, "ziele": {{"rs_ext_pyro6_leo": 5, "NavPoint_Dynamic": 2}}, "starts": {{"Stanton": 3}}, "absturz": false,
@@ -1236,6 +1247,7 @@ mod tests {
                 c_end = c + 1800,
                 d_end = d + 1800,
                 d_second = d + 100,
+                format = versekit_core::play_stats::FORMAT,
             ),
         );
         write(
@@ -1787,6 +1799,27 @@ mod tests {
         assert!(has(&shown, "noch nie"), "never evaluated: {shown:?}");
         assert!(shown.iter().any(|text| text == NONE), "no file yet");
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// The injuries stand in a line under the figures once there is one, in both languages; without any the line
+    /// stays away.
+    #[test]
+    fn the_injuries_stand_under_the_figures_only_when_there_are_some() {
+        for choice in [Choice::De, Choice::En] {
+            set_thread_language(choice);
+            let mut state = StatsState::sample();
+            let (shown, _) = draw(&mut state, Page::Overview, 900.0);
+            let line = tf("s_sx_verletzungen", &[("0", Arg::from("23")), ("1", Arg::from("8")), ("2", Arg::from("2"))]);
+            assert!(shown.contains(&line), "{choice:?}: {line} in {shown:?}");
+            let mut calm = Report::sample();
+            calm.summary.injuries = [0; 3];
+            state.report = Some(Arc::new(calm));
+            let (shown, _) = draw(&mut state, Page::Overview, 900.0);
+            let start = t("s_sx_verletzungen");
+            let head = start.split('{').next().unwrap_or_default();
+            assert!(!shown.iter().any(|text| text.starts_with(head)), "{choice:?}: no line without injuries");
+        }
+        set_thread_language(Choice::De);
     }
 
     #[test]

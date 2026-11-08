@@ -47,6 +47,7 @@
 //! comes from this device's own observation, see
 //! `versekit_core::patch_history`.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -516,7 +517,7 @@ impl Pending {
         let (lock, thread_wake, thread_denied) = (writeguard::state(), Arc::clone(&wake), Arc::clone(&denied));
         std::thread::Builder::new()
             .name("catalog-build".into())
-            .spawn(move || {
+            .spawn_with_language(move || {
                 writeguard::adopt(&lock);
                 let built = catch_unwind(AssertUnwindSafe(build)).unwrap_or(None);
                 thread_denied.lock().unwrap_or_else(|e| e.into_inner()).extend(writeguard::take_denied());
@@ -1929,5 +1930,31 @@ mod tests {
         assert_eq!((way.kind.as_str(), way.reward), ("", Some(5)));
         let place = way.place.as_ref().unwrap();
         assert_eq!((place.system.as_str(), place.places.as_slice(), place.more), ("", &["Hurston".to_string()][..], 0));
+    }
+
+    /// The build thread reads the language of the thread that started it,
+    /// whichever language the program reads.
+    #[test]
+    fn the_build_thread_reads_the_language_of_its_starter() {
+        use std::time::Duration;
+        use versekit_core::language::{Choice, Lang, current, set_thread_language, t, t_in};
+        let program = std::thread::spawn(current).join().unwrap();
+        let (other, choice) = if program == Lang::En { (Lang::De, Choice::De) } else { (Lang::En, Choice::En) };
+        set_thread_language(choice);
+        let seen = Arc::new(Mutex::new(None));
+        let pending = {
+            let seen = Arc::clone(&seen);
+            Pending::spawn(move || {
+                *seen.lock().unwrap() = Some((current(), t("bauplaene")));
+                None
+            })
+            .unwrap()
+        };
+        let started = std::time::Instant::now();
+        while matches!(pending.poll(), Progress::Waiting) && started.elapsed() < Duration::from_secs(60) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(*seen.lock().unwrap(), Some((other, t_in(other, "bauplaene"))));
+        set_thread_language(Choice::Auto);
     }
 }

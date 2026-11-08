@@ -123,7 +123,7 @@ mod tests {
 
     fn page_on(dir: &Path) -> SamplePage {
         versekit_core::theme::set_current("original");
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         SamplePage::with_settings(Paths::new(host_apart(dir)))
     }
 

@@ -27,6 +27,7 @@
 //! so that the window keeps drawing; the program starts anew afterwards (`take_restart`), because the modules
 //! hold their data in memory and would write it over the files just restored.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use egui::RichText;
@@ -215,7 +216,7 @@ impl SamplePage {
         let guard = writeguard::state();
         let (tx, rx) = mpsc::channel();
         let ctx = ctx.clone();
-        let started = std::thread::Builder::new().name("sicherung".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("sicherung".into()).spawn_with_language(move || {
             writeguard::adopt(&guard);
             let _ = tx.send(done(work(&paths)));
             ctx.request_repaint();
@@ -604,7 +605,7 @@ mod tests {
         let live = game.to_string_lossy().into_owned();
         let vars = [(versekit_core::paths::ENV_INSTALL_DIR, live.as_str()), (game_start::ENV_NO_PROCESS, "1")];
         versekit_core::theme::set_current("original");
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let mut page = SamplePage::with_settings(Paths::new(host_in(&data, &vars)));
         page.offer_restart(true);
         (page, folder, data, game)
@@ -800,7 +801,7 @@ mod tests {
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
             for width in [900.0_f32, 1300.0] {
-                language::set_language(lang);
+                language::set_thread_language(lang);
                 page.backup.phase = Phase::Idle;
                 let behind = draw(&mut page, width);
                 let restored = || Restored {
@@ -879,7 +880,7 @@ mod tests {
                 }
             }
         }
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let _ = std::fs::remove_dir_all(folder);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
@@ -959,7 +960,7 @@ mod tests {
     #[test]
     fn the_player_is_told_what_became_of_the_controls_and_what_was_switched_off() {
         let _language = crate::language_lock();
-        versekit_core::language::set_language(versekit_core::language::Choice::De);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         let done = Restored {
             count: 3,
             fallback: None,

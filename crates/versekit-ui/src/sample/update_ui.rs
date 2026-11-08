@@ -625,6 +625,20 @@ fn only_the_newest_version_is_open_and_the_head_opens_and_closes_one() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Updates come almost daily: the head of a version names the version only, for the eye and for a screen reader.
+#[test]
+fn the_head_of_a_version_shows_no_date_and_names_only_the_version() {
+    let _language = crate::language_lock();
+    let (mut bench, dir) = news_window("news-ohne-datum", vec![entry("v4.2", TEXT_ONE), entry("v4.1", TEXT_TWO)]);
+    let texts = bench.settle();
+    assert!(shows(&texts, "v4.2") && shows(&texts, "v4.1"), "the versions are listed");
+    assert!(!shows(&texts, "2026-10-19") && !shows(&texts, "2026"), "no date in the head: {texts:?}");
+    assert_eq!(bench.named("v4.2").len(), 1, "a screen reader hears the version only");
+    assert_eq!(bench.named("v4.1").len(), 1);
+    assert!(bench.named("v4.2 2026-10-19").is_empty(), "and not the date");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn a_newest_version_without_changes_does_not_leave_the_whole_page_closed() {
     let _language = crate::language_lock();
@@ -722,15 +736,14 @@ fn on_real_data_the_page_reads_the_built_in_log_in_the_language_of_the_window() 
     bench.page.go_to("hf_wasistneu");
     let german = bench.settle();
     assert!(shows(&german, &t("s_wn_lead")));
-    // The series of the program itself (`v5.1` for 5.1.0) stands first.
-    let version = env!("CARGO_PKG_VERSION");
-    let series = format!("v{}", version.rsplit_once('.').map_or(version, |(series, _)| series));
-    assert!(shows(&german, &series), "the series of the program is the first: {series}");
+    // The version of the program itself (`v5.2.0`), not its series, is listed.
+    let series = format!("v{}", env!("CARGO_PKG_VERSION"));
+    assert!(shows(&german, &series), "the version of the program is listed: {series}");
     versekit_core::language::set_thread_language(versekit_core::language::Choice::En);
     let english = bench.settle();
     assert!(shows(&english, &t("s_wn_lead")) && shows(&english, &series));
     let first = |lang| {
-        let entries = versekit_core::changelog::grouped(lang, &[]);
+        let entries = versekit_core::changelog::listed(lang, &[]);
         let points = versekit_core::changelog::points_by_kind(&entries[0].text);
         versekit_core::changelog::clean_row(&points[0].1)
     };

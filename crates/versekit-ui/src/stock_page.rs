@@ -74,6 +74,8 @@ const SETTING_REFINERY_OPEN: &str = "lager_raffinerie_offen";
 const SETTING_PANEL_OPEN: &str = "meinlager_sichern_offen";
 const SETTING_PANEL: &str = "meinlager_sichern_teil";
 const SETTING_RAW_PLACE: &str = "lager_ort";
+/// The place of the last refinery yield that was booked.
+const SETTING_REFINERY_PLACE: &str = "lager_raffinerie_ort";
 const SETTING_UNIT: &str = "lager_einheit";
 const SETTING_TRADE_PLACE: &str = "handel_ort";
 const SETTING_SUGGESTIONS_OPEN: &str = "lager_vorschlaege_offen";
@@ -296,6 +298,14 @@ pub struct StockState {
     refinery_cscu: bool,
     refinery_place: String,
     refinery_error: Option<String>,
+    /// The place of the last refinery yield booked (`lager_raffinerie_ort`); the field starts on it.
+    refinery_last: String,
+    /// The booking button was pressed with the place empty: the field got the focus and the next press books anyway.
+    refinery_asked: bool,
+    /// The place field of the refinery block takes the focus and scrolls into view in the next frame.
+    refinery_focus: bool,
+    /// The widget id of that field, as drawn last.
+    refinery_field: Option<egui::Id>,
     /// The panel of a rare action open under the tab row.
     panel: Option<Panel>,
     confirm: Option<Part>,
@@ -365,6 +375,10 @@ impl Default for StockState {
             refinery_cscu: true,
             refinery_place: String::new(),
             refinery_error: None,
+            refinery_last: String::new(),
+            refinery_asked: false,
+            refinery_focus: false,
+            refinery_field: None,
             panel: None,
             confirm: None,
             message: None,
@@ -493,6 +507,26 @@ impl StockState {
         book_refinery(self);
     }
 
+    /// Types `text` and `place` into the refinery block and presses its booking button (tests).
+    #[cfg(test)]
+    pub(crate) fn press_refinery_with(&mut self, text: &str, place: &str) {
+        self.refinery_text = text.into();
+        self.refinery_place = place.into();
+        self.press_refinery(&egui::Context::default());
+    }
+
+    /// Whether the last press of the booking button led to the place field (tests).
+    #[cfg(test)]
+    pub(crate) fn refinery_leads_to_place(&self) -> bool {
+        self.refinery_focus
+    }
+
+    /// The hint under the place field while there is something to book (tests).
+    #[cfg(test)]
+    pub(crate) fn refinery_note_key(&self) -> Option<&'static str> {
+        self.refinery_place_note(true)
+    }
+
     /// The click on the line above the list (tests).
     #[cfg(test)]
     pub(crate) fn click_gap_line(&mut self) {
@@ -571,7 +605,13 @@ impl StockState {
         state.raw_form.place = state.raw_place.clone();
         state.trade_form.place = state.trade_place.clone();
         state.item_form.place = state.trade_place.clone();
-        state.refinery_place = state.raw_place.clone();
+        // The place of the last yield as long as the list still knows it, otherwise the one of the last material.
+        let last = paths.setting(SETTING_REFINERY_PLACE).unwrap_or_default();
+        if !last.trim().is_empty() && state.data.knows_place(&last) {
+            state.refinery_last = last;
+        }
+        state.refinery_place =
+            if state.refinery_last.is_empty() { state.raw_place.clone() } else { state.refinery_last.clone() };
         state.sugg.open = paths.setting_bool(SETTING_SUGGESTIONS_OPEN, true);
         state.scan = scan::Scan::new(paths);
         state.connect_journal(paths);
@@ -647,6 +687,7 @@ impl StockState {
             (SETTING_UNIT, Value::str(if self.raw_form.cscu { "cscu" } else { "scu" })),
             (SETTING_RAW_PLACE, Value::str(self.raw_place.clone())),
             (SETTING_TRADE_PLACE, Value::str(self.trade_place.clone())),
+            (SETTING_REFINERY_PLACE, Value::str(self.refinery_last.clone())),
             (SETTING_SUGGESTIONS_OPEN, Value::Bool(self.sugg.open)),
             (SETTING_MOVED_SEEN, Value::Bool(self.moved_seen)),
         ]
@@ -1570,7 +1611,7 @@ fn cells(state: &StockState, scheme: &Scheme, lang: Lang, line: &Line, columns: 
                     let tone = if p > 0.0 {
                         scheme.accent
                     } else if p < 0.0 {
-                        scheme.red
+                        scheme.red_text()
                     } else {
                         scheme.sub
                     };
@@ -1799,7 +1840,7 @@ fn field_label(ui: &mut Ui, text: &str) {
 
 fn field_error(ui: &mut Ui, scheme: &Scheme, error: &Option<String>) {
     if let Some(error) = error {
-        ui.add(egui::Label::new(RichText::new(error).color(color(scheme.red))).wrap());
+        ui.add(egui::Label::new(RichText::new(error).color(color(scheme.red_text()))).wrap());
     }
 }
 
@@ -1815,14 +1856,31 @@ fn suggest_field(
     entries: &[String],
     error: &mut Option<String>,
 ) -> bool {
+    suggest_field_marked(ui, scheme, salt, hint, text, entries, error, None).0
+}
+
+/// [`suggest_field`] that can also mark a field left empty: a border in the warning color and `note` below it
+/// (an error shows red instead). Returns whether Enter was pressed in it, and the response of the field.
+#[allow(clippy::too_many_arguments)]
+fn suggest_field_marked(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    salt: &str,
+    hint: &str,
+    text: &mut String,
+    entries: &[String],
+    error: &mut Option<String>,
+    note: Option<&str>,
+) -> (bool, egui::Response) {
     let more = |n: usize| tf("s_mlg_mehr", &[("n", Arg::from(n))]);
     let shown_error = error.clone();
     let out = ui
         .scope(|ui| {
-            if shown_error.is_some() {
-                let red = egui::Stroke::new(1.0, color(scheme.red));
+            let border = if shown_error.is_some() { Some(scheme.red) } else { note.map(|_| scheme.gold) };
+            if let Some(tone) = border {
+                let stroke = egui::Stroke::new(1.0, color(tone));
                 let w = &mut ui.visuals_mut().widgets;
-                (w.inactive.bg_stroke, w.hovered.bg_stroke) = (red, red);
+                (w.inactive.bg_stroke, w.hovered.bg_stroke) = (stroke, stroke);
             }
             widgets::SuggestField::new(salt, hint, scheme, &more).width(ui.available_width()).show(ui, text, entries)
         })
@@ -1831,7 +1889,11 @@ fn suggest_field(
         *error = None;
     }
     field_error(ui, scheme, error);
-    out.picked.is_none() && out.response.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter))
+    if let (None, Some(note)) = (error.as_ref(), note) {
+        ui.add(egui::Label::new(RichText::new(note).small().color(color(scheme.gold))).wrap());
+    }
+    let enter = out.picked.is_none() && out.response.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
+    (enter, out.response)
 }
 
 /// A plain field with an error below, gone as soon as the input changes.
@@ -2059,7 +2121,7 @@ fn trade_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         let before = state.editing.as_ref().map_or(0.0, |e| stock::number_of(&e.entry, "menge"));
         let (text, tone) = match stock::calculate(&raw, before) {
             None => (t("s_hl_rechnung_kaputt"), scheme.gold),
-            Some(v) if v <= 0.0 => (t("s_mlg_unter_null"), scheme.red),
+            Some(v) if v <= 0.0 => (t("s_mlg_unter_null"), scheme.red_text()),
             Some(v) => (tf("s_hl_ergibt", &[("menge", Arg::from(number_only(language::current(), v)))]), scheme.sub),
         };
         ui.label(RichText::new(text).small().color(color(tone)));
@@ -2145,7 +2207,10 @@ fn refinery_section(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         });
         field_label(ui, &t("s_rf_ort"));
         let places = state.data.places().to_vec();
-        let enter = suggest_field(
+        let readable =
+            !stock::refinery_lines(&state.refinery_text, state.refinery_cscu, &state.data).entries.is_empty();
+        let note = state.refinery_place_note(readable).map(t);
+        let (enter, field) = suggest_field_marked(
             ui,
             scheme,
             "lager-raffinerieort",
@@ -2153,7 +2218,17 @@ fn refinery_section(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
             &mut state.refinery_place,
             &places,
             &mut state.refinery_error,
+            note.as_deref(),
         );
+        state.refinery_field = Some(field.id);
+        // A place in the field ends the question; emptying it again starts it anew.
+        if !state.refinery_place.trim().is_empty() {
+            state.refinery_asked = false;
+        }
+        if std::mem::take(&mut state.refinery_focus) {
+            field.request_focus();
+            field.scroll_to_me(Some(Align::Center));
+        }
         ui.add_space(4.0);
         let area = widgets::text_area(&mut state.refinery_text, &t("s_mlg_rf_feld"), scheme)
             .desired_rows(7)
@@ -2204,21 +2279,48 @@ fn refinery_section(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
             scan::read_button(row, scheme, state);
             if !read.entries.is_empty() {
                 let label = tf("s_rf_knopf", &[("0", Arg::Int(read.entries.len() as i64))]);
-                let missing = t("s_ml_ort_fehlt");
-                let no_place = state.lacks_place(&state.refinery_place);
-                let button = widgets::Button::new(&label, ButtonKind::Strong, scheme)
-                    .blocked(no_place.then_some(missing.as_str()));
-                book = row.add(button).clicked() || enter;
-                if no_place {
-                    row.label(RichText::new(&missing).small().color(color(scheme.gold)));
-                }
+                // Never grey: with the place empty the press leads to the field (see `press_refinery`).
+                book = row.add(widgets::Button::new(&label, ButtonKind::Strong, scheme)).clicked() || enter;
             }
         });
         scan::notes(ui, scheme, state);
     });
     state.refinery_open = open;
     if book {
-        book_refinery(state);
+        state.press_refinery(ui.ctx());
+    }
+}
+
+impl StockState {
+    /// The hint under the place field of the refinery block while it is empty and there is something to book:
+    /// the text key, `None` when the field needs no mark.
+    fn refinery_place_note(&self, readable: bool) -> Option<&'static str> {
+        if !readable || !self.refinery_place.trim().is_empty() {
+            return None;
+        }
+        Some(if self.split.place_required() {
+            "s_rf_ort_leer_pflicht"
+        } else if self.refinery_asked {
+            "s_rf_ort_leer_nochmal"
+        } else {
+            "s_rf_ort_leer"
+        })
+    }
+
+    /// The press of the booking button (or Enter in the place field). With the place empty the press leads to the
+    /// field instead of booking: with the stock sync on every time, otherwise the first time; the next press books
+    /// without a place.
+    fn press_refinery(&mut self, ctx: &egui::Context) {
+        let empty = self.refinery_place.trim().is_empty();
+        let required = self.split.place_required();
+        if empty && (required || !self.refinery_asked) {
+            self.refinery_asked = !required;
+            self.refinery_error = None;
+            self.refinery_focus = true;
+            ctx.request_repaint();
+            return;
+        }
+        book_refinery(self);
     }
 }
 
@@ -2234,7 +2336,8 @@ fn book_refinery(state: &mut StockState) {
         return;
     }
     state.reload();
-    let place = state.refinery_place.trim().to_string();
+    let typed = state.refinery_place.trim().to_string();
+    let place = state.data.official_place(&typed).unwrap_or(typed);
     state.counted.push("lager_raffinerie");
     let read = stock::refinery_lines(&state.refinery_text, state.refinery_cscu, &state.data);
     for y in &read.entries {
@@ -2246,6 +2349,12 @@ fn book_refinery(state: &mut StockState) {
         }
         let typed: Vec<(String, f64, i64)> = read.entries.iter().map(|y| (y.material.clone(), y.amount, y.quality)).collect();
         scan::learn_from_booking(state, &typed);
+        // A place that was left empty remembers nothing: the field starts on the last real one.
+        if !place.is_empty() {
+            state.refinery_last = place.clone();
+            state.refinery_place = place;
+        }
+        state.refinery_asked = false;
         let left: Vec<String> = read.errors.iter().map(|(line, _)| line.clone()).collect();
         state.refinery_text = left.join("\n");
         state.say(tf("s_rf_fertig", &[("0", Arg::Int(read.entries.len() as i64))]));
@@ -2627,10 +2736,22 @@ fn draw_line(
     let name_right = if table.compact { actions.min.x } else { actions.min.x - table.widths.iter().sum::<f32>() };
     let name_rect = Rect::from_min_max(inner.min, egui::pos2(name_right, inner.min.y + line_height + 2.0));
     let mut cell = ui.new_child(UiBuilder::new().max_rect(name_rect).layout(Layout::left_to_right(Align::Center)));
+    cell.set_clip_rect(name_rect.intersect(ui.clip_rect()));
     cell.add_space(indent);
-    let marks_width: f32 = marks.iter().take(2).map(|(m, _)| text_width(&cell, m, false) * 0.85 + 16.0).sum::<f32>()
-        + if marks.len() > 2 { 30.0 } else { 0.0 };
     let tag_width = tag.as_ref().map_or(0.0, |tag| text_width(&cell, tag, false) * 0.85 + 8.0);
+    // As many badges as fit beside the name and the tag; the others go into the `+n` badge.
+    let badge_width = |m: &str| text_width(&cell, m, false) * 0.85 + 16.0;
+    let name_least = if nested { 0.0 } else { (text_width(&cell, &name, true) + 4.0).min(90.0) };
+    let full = (0..=marks.len().min(2))
+        .rev()
+        .find(|&k| {
+            let shown: f32 = marks.iter().take(k).map(|(m, _)| badge_width(m)).sum();
+            let rest = if marks.len() > k { 30.0 } else { 0.0 };
+            name_least + tag_width + shown + rest <= cell.available_width()
+        })
+        .unwrap_or(0);
+    let marks_width: f32 = marks.iter().take(full).map(|(m, _)| badge_width(m)).sum::<f32>()
+        + if marks.len() > full { 30.0 } else { 0.0 };
     if !nested {
         let room = (cell.available_width() - marks_width - tag_width).max(40.0);
         cell.scope(|c| {
@@ -2643,7 +2764,7 @@ fn draw_line(
         cell.label(RichText::new(tag).small().color(color(scheme.sub)));
     }
     let refs: Vec<(&str, Color)> = marks.iter().map(|(m, c)| (m.as_str(), *c)).collect();
-    widgets::badges(&mut cell, scheme, &refs);
+    widgets::badges_within(&mut cell, scheme, &refs, full);
     if !extra.is_empty() {
         cell.add(egui::Label::new(RichText::new(&extra).small().color(color(scheme.sub))).truncate());
     }
@@ -2700,6 +2821,7 @@ fn draw_line(
             // Of a part of the lot only sharing and taking back count; edit and delete are for the whole row.
             let whole = state.split.whole(row);
             let pending = state.split.pending(row);
+            let missing = state.split.share_missing(row);
             if hovered && whole {
                 if named_icon(&mut buttons, scheme, "trash-2", &t("s_lg_weg")).clicked() {
                     act = Some(Act::Delete(row.store, row.index));
@@ -2707,7 +2829,7 @@ fn draw_line(
                 if named_icon(&mut buttons, scheme, "pencil", &t("s_ml_bearbeiten")).clicked() {
                     act = Some(Act::Edit(row.store, row.index));
                 }
-            } else if pending && whole {
+            } else if (pending || missing.is_some()) && whole {
                 // The place of the edit and delete buttons, which show on hover.
                 buttons.add_space(2.0 * (widgets::ICON_BUTTON_SIZE + buttons.spacing().item_spacing.x));
             }
@@ -2725,6 +2847,10 @@ fn draw_line(
             // Sharing waits for the lot at the Basetool: the button is there from the start, greyed, and says so.
             if pending {
                 widgets::icon_button_blocked(&mut buttons, scheme, "users", &t("s_ml_abgleich"));
+            }
+            // Without the button the row still says why it cannot go into the unit's storage.
+            if let Some(reason) = &missing {
+                widgets::icon_button_blocked(&mut buttons, scheme, "users", reason);
             }
             if act.is_none() && whole && response.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 act = Some(Act::Edit(row.store, row.index));
@@ -2752,7 +2878,7 @@ fn summaries(ui: &mut Ui, scheme: &Scheme, state: &StockState, shown: &[Row], la
     }
     if let Some(p) = profit {
         let sign = if p > 0.0 { "+" } else { "" };
-        let tone = if p >= 0.0 { scheme.accent } else { scheme.red };
+        let tone = if p >= 0.0 { scheme.accent } else { scheme.red_text() };
         let sum = format!("{sign}{}", formats::money(lang, p));
         right(ui, tf("s_hl_gewinn_gesamt", &[("summe", Arg::from(sum))]), tone);
     }
@@ -2806,7 +2932,7 @@ fn action_panel(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
                         let count = state.count(*part);
                         if state.confirm == Some(*part) {
                             let question = tf("s_mlg_frage", &[("n", Arg::from(count))]);
-                            row.label(RichText::new(question).color(color(scheme.red)));
+                            row.label(RichText::new(question).color(color(scheme.red_text())));
                             let sure = t("s_mlg_bestaetigen");
                             if row.add(widgets::Button::new(&sure, ButtonKind::Danger, scheme)).clicked() {
                                 run = Some(*part);
@@ -2957,7 +3083,7 @@ mod tests {
     #[test]
     fn whoever_has_entries_sees_once_where_both_stores_went_and_the_cross_hides_it_for_good() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let title = t("s_ml_umzug_titel");
         let (paths, home) = moved_world("einmal", SAMPLE_RAW, "{}");
         let mut state = StockState::with_files(&paths);
@@ -3034,7 +3160,7 @@ mod tests {
         let scheme = versekit_core::theme::by_id("original").expect("original");
         let (paths, home) = moved_world("schmal", SAMPLE_RAW, "{}");
         for choice in [language::Choice::De, language::Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             let (title, cross) = (t("s_ml_umzug_titel"), t("s_ml_umzug_weg"));
             for width in [240.0, 420.0, 1000.0] {
                 let mut state = StockState::with_files(&paths);
@@ -3073,7 +3199,7 @@ mod tests {
                 assert!(!cross_rect.intersects(title_rect), "{width}: cross {cross_rect:?} on title {title_rect:?}");
             }
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let _ = std::fs::remove_dir_all(&home);
     }
 
@@ -3085,7 +3211,7 @@ mod tests {
         crate::install(&ctx);
         let (paths, home) = moved_world("patch", SAMPLE_RAW, "{\"lager_umzug_gesehen\": true}");
         for choice in [language::Choice::De, language::Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             let hint = t("s_mlg_patch_hilfe");
             let mut state = StockState::with_files(&paths);
             state.panel = Some(Panel::Clear);
@@ -3095,7 +3221,7 @@ mod tests {
             let (texts, _) = moved_frames(&ctx, &mut state, None);
             assert!(!texts.contains(&hint), "only with the part clear: {texts:?}");
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let _ = std::fs::remove_dir_all(&home);
     }
 
@@ -3295,6 +3421,154 @@ mod tests {
         state.refinery_place = String::new();
         book_refinery(&mut state);
         assert_eq!(state.take_counted(), vec!["lager_raffinerie"], "an empty place is allowed");
+    }
+
+    use versekit_core::stock_data::PLACES_FILE;
+
+    const EMPTY_STORE: &str = r#"{"format": 1, "posten": []}"#;
+
+    /// Runs `frames` frames of the page on `ctx`; the texts painted in the last one.
+    fn run_frames(ctx: &egui::Context, state: &mut StockState, frames: usize) -> Vec<String> {
+        fn collect(shape: &egui::Shape, into: &mut Vec<String>) {
+            match shape {
+                egui::Shape::Text(text) => into.push(text.galley.text().to_string()),
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| collect(s, into)),
+                _ => {}
+            }
+        }
+        let scheme = versekit_core::theme::current();
+        let mut texts = Vec::new();
+        for _ in 0..frames {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 2000.0))),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+            output.textures_delta.clear();
+            texts.clear();
+            output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut texts));
+        }
+        texts
+    }
+
+    #[test]
+    fn the_refinery_place_starts_on_the_last_one_booked_and_survives_a_restart() {
+        let (mut state, folder) = with_scratch("raffinerie-ort-merken", EMPTY_STORE, EMPTY_STORE);
+        state.raw_place = "Orison".into();
+        state.book_refinery_lines("Iron 295 188", "levski");
+        assert_eq!(state.refinery_last, "Levski", "the place as the list spells it");
+        assert_eq!(state.refinery_place, "Levski");
+        // A yield booked without a place remembers nothing and leaves the last place alone.
+        state.book_refinery_lines("Iron 10 100", "");
+        assert_eq!(state.refinery_last, "Levski");
+        // An unknown place books nothing and is not remembered.
+        state.book_refinery_lines("Iron 10 100", "Nirgendwo am Rand");
+        assert_eq!(state.refinery_last, "Levski");
+        assert!(state.setting_values().contains(&(SETTING_REFINERY_PLACE, Value::str("Levski"))));
+        let stored = jsonio::dumps(
+            &Value::Object(state.setting_values().into_iter().map(|(k, v)| (k.to_string(), v)).collect()),
+            None,
+            false,
+        );
+        let places = r#"{"format": 1, "orte": ["Levski", "Orison"]}"#;
+        let (paths, home) =
+            data_folder("raffinerie-ort-neustart", &[("einstellungen.json", &stored), (PLACES_FILE, places)]);
+        let again = StockState::with_files(&paths);
+        assert_eq!(again.refinery_place, "Levski", "the field starts on the last yield's place, not the material's");
+        assert_eq!(again.raw_place, "Orison");
+        // A place the list no longer knows is not offered: the field falls back to the material's place.
+        let gone = r#"{"format": 1, "orte": ["Area18", "Orison"]}"#;
+        let (paths2, home2) =
+            data_folder("raffinerie-ort-weg", &[("einstellungen.json", &stored), (PLACES_FILE, gone)]);
+        assert_eq!(StockState::with_files(&paths2).refinery_place, "Orison");
+        // Nothing remembered yet (an old settings file): the place of the last material, as before.
+        let old = r#"{"lager_ort": "Area18"}"#;
+        let (paths3, home3) = data_folder("raffinerie-ort-alt", &[("einstellungen.json", old)]);
+        assert_eq!(StockState::with_files(&paths3).refinery_place, "Area18");
+        for dir in [&folder, &home, &home2, &home3] {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+
+    #[test]
+    fn an_empty_refinery_place_is_led_to_first_and_booked_anyway_with_the_second_press() {
+        let (mut state, folder) = with_scratch("raffinerie-ort-fuehren", EMPTY_STORE, EMPTY_STORE);
+        assert!(!state.split.place_required());
+        // Nothing to book yet, or a place typed: no mark.
+        assert_eq!(state.refinery_place_note(false), None);
+        state.refinery_place = "Levski".into();
+        assert_eq!(state.refinery_place_note(true), None);
+        state.refinery_place = String::new();
+        assert_eq!(state.refinery_note_key(), Some("s_rf_ort_leer"));
+        // First press: nothing booked, the field is asked for, the hint says what the next press does.
+        state.press_refinery_with("Iron 295 188", "");
+        assert!(state.raw.is_empty(), "the first press books nothing");
+        assert!(state.refinery_leads_to_place());
+        assert_eq!(state.refinery_note_key(), Some("s_rf_ort_leer_nochmal"));
+        assert!(state.take_counted().is_empty());
+        // Second press: booked without a place.
+        state.refinery_focus = false;
+        state.press_refinery_with("Iron 295 188", "");
+        assert_eq!(state.raw.len(), 1, "the second press books");
+        assert!(!state.refinery_leads_to_place());
+        assert_eq!(state.take_counted(), vec!["lager_raffinerie"]);
+        assert_eq!(state.refinery_last, "", "no place, nothing remembered");
+        // With a place the first press books at once.
+        state.press_refinery_with("Iron 100 150", "Levski");
+        assert_eq!(state.raw.len(), 2);
+        assert!(!state.refinery_leads_to_place());
+        assert_eq!(state.refinery_last, "Levski");
+        let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    #[test]
+    fn typing_a_place_takes_back_the_first_press() {
+        let (mut state, folder) = with_scratch("raffinerie-ort-tippen", EMPTY_STORE, EMPTY_STORE);
+        let _language = crate::language_lock();
+        language::set_thread_language(language::Choice::De);
+        state.refinery_open = true;
+        state.refinery_text = "Iron 295 188".into();
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        state.press_refinery(&ctx);
+        assert!(state.refinery_asked);
+        state.refinery_place = "Levski".into();
+        run_frames(&ctx, &mut state, 2);
+        assert!(!state.refinery_asked, "a typed place ends the question");
+        state.refinery_place = String::new();
+        run_frames(&ctx, &mut state, 2);
+        state.press_refinery(&ctx);
+        assert!(state.raw.is_empty(), "emptied again: the first press leads to the field once more");
+        let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    #[test]
+    fn the_empty_refinery_place_is_marked_and_the_press_puts_the_cursor_into_it() {
+        let _language = crate::language_lock();
+        language::set_thread_language(language::Choice::De);
+        let mut state = StockState { form_open: false, refinery_open: true, ..StockState::default() };
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        ctx.all_styles_mut(|style| style.animation_time = 0.0);
+        // Nothing typed: the empty field is not nagged.
+        let texts = run_frames(&ctx, &mut state, 2);
+        assert!(!texts.iter().any(|s| s.contains(&t("s_rf_ort_leer"))), "{texts:?}");
+        // Something to book and no place: the hint stands below the field.
+        state.refinery_text = "Iron 295 188".into();
+        let texts = run_frames(&ctx, &mut state, 2);
+        assert!(texts.iter().any(|s| s == &t("s_rf_ort_leer")), "{texts:?}");
+        let field = state.refinery_field.expect("the field was drawn");
+        assert!(!ctx.memory(|m| m.has_focus(field)));
+        // The press: the hint changes, the field has the cursor.
+        state.press_refinery(&ctx);
+        let texts = run_frames(&ctx, &mut state, 3);
+        assert!(texts.iter().any(|s| s == &t("s_rf_ort_leer_nochmal")), "{texts:?}");
+        assert!(ctx.memory(|m| m.has_focus(field)), "the place field has the focus");
+        assert!(!state.refinery_leads_to_place(), "the request is used up");
+        // A place typed: the mark is gone.
+        state.refinery_place = "Levski".into();
+        let texts = run_frames(&ctx, &mut state, 2);
+        assert!(!texts.iter().any(|s| s.starts_with(&t("s_rf_ort_leer"))), "{texts:?}");
     }
 
     #[test]
@@ -3576,12 +3850,71 @@ mod tests {
         texts
     }
 
+    /// A long item name with its tag and its badges stays left of the place column, also in a narrow window:
+    /// badges that do not fit go into the `+n` badge instead of being painted over the place.
+    #[test]
+    fn the_badges_of_an_item_never_reach_into_the_place_column() {
+        let _language = crate::language_lock();
+        language::set_thread_language(language::Choice::De);
+        let catalog = r#"{"version": "4.3", "geholt": "", "bauplaene": {
+          "snowblind": {"n": "Snowblind Shield Generator Deluxe", "a": "Shield", "s": 1, "g": 1, "c": "Stealth"}}}"#;
+        let trade = r#"{"format": 1, "posten": [
+          {"ware": "Snowblind Shield Generator Deluxe", "menge": 2.0, "ort": "Checkmate Station",
+           "gestohlen": true, "stueck": true, "einkauf": 20190.0}]}"#;
+        let (paths, home) = data_folder(
+            "abzeichen-breite",
+            &[(versekit_core::catalog_cache::CACHE_FILE, catalog), (stock::RAW_FILE, EMPTY_STORE), (stock::TRADE_FILE, trade)],
+        );
+        let mut state = StockState::with_files(&paths);
+        state.items = true;
+        let kind = t(&state.kind_of(&state.rows()[0]).text_key());
+        let scheme = versekit_core::theme::current();
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut found: Vec<(String, egui::Rect, egui::Rect)> = Vec::new();
+        for width in [760.0, 800.0, 840.0, 880.0, 920.0, 1000.0, 1400.0] {
+            for _ in 0..3 {
+                let input = egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 2000.0))),
+                    ..Default::default()
+                };
+                let mut output = ctx.run_ui(input, |ui| show_page(ui, scheme, &mut state));
+                output.textures_delta.clear();
+                found = output
+                    .shapes
+                    .iter()
+                    .filter_map(|clipped| match &clipped.shape {
+                        egui::Shape::Text(text) => Some((
+                            text.galley.text().to_string(),
+                            text.galley.rect.translate(text.pos.to_vec2()),
+                            clipped.clip_rect,
+                        )),
+                        _ => None,
+                    })
+                    .collect();
+            }
+            let place = found.iter().find(|(text, ..)| text == "Checkmate Station").map(|(_, rect, _)| *rect);
+            let place = place.unwrap_or_else(|| panic!("place painted at {width}: {:?}", found));            for (text, rect, clip) in &found {
+                let same_row = (rect.center().y - place.center().y).abs() < place.height();
+                if !same_row || text == "Checkmate Station" || rect.min.x >= place.min.x {
+                    continue;
+                }
+                let seen_right = rect.max.x.min(clip.max.x);
+                assert!(seen_right <= place.min.x + 0.5, "{text:?} reaches into the place at {width}: {rect:?} {place:?}");
+            }
+            let shown = found.iter().any(|(text, ..)| *text == kind);
+            let folded = found.iter().any(|(text, ..)| text.starts_with('+'));
+            assert!(shown || folded, "the kind is shown or folded into +n at {width}");
+        }
+        let _ = std::fs::remove_dir_all(home);
+    }
+
     /// Items show the tag of the blueprint catalog behind the name, raw materials how they are mined, both
     /// only in the first row of a group; read from the data folder.
     #[test]
     fn items_show_their_tag_and_raw_materials_how_they_are_mined() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let catalog = r#"{"version": "4.3", "geholt": "", "bauplaene": {
           "fr-66": {"n": "FR-66", "a": "Shield", "s": 2, "g": 1, "c": "Military"},
           "p4-ar": {"n": "P4-AR", "a": "WeaponPersonal", "c": "Ballistic"},

@@ -26,6 +26,7 @@
 //! are written once), on the button, and at the latest when the page state
 //! goes (`pages._ship_names`, `spaeter_einspielen`).
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver};
@@ -240,7 +241,7 @@ impl ShipNames {
         let lock = versekit_core::writeguard::state();
         let started = std::thread::Builder::new()
             .name("schiffsnamen-schreiben".into())
-            .spawn(move || {
+            .spawn_with_language(move || {
                 versekit_core::writeguard::adopt(&lock);
                 let _ = send.send(writer());
             })
@@ -295,7 +296,7 @@ impl ShipNames {
             let flag = Arc::downgrade(&wanted);
             let started = std::thread::Builder::new()
                 .name("schiffsnamen".into())
-                .spawn(move || watch_table(host, flag, send))
+                .spawn_with_language(move || watch_table(host, flag, send))
                 .is_ok();
             self.watch = started.then_some(Watch { news, wanted });
         }
@@ -496,7 +497,7 @@ impl ShipNames {
         if !found.key.is_empty()
             && let Some(note) = self.note.as_ref().filter(|n| n.key == found.key)
         {
-            small(ui, &note.text, if note.bad { scheme.red } else { scheme.sub });
+            small(ui, &note.text, if note.bad { scheme.red_text() } else { scheme.sub });
         }
     }
 

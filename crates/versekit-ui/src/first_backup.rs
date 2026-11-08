@@ -22,6 +22,7 @@
 //! The backup runs in a thread of its own under the lock of writing the run has (`writeguard`), so the window
 //! keeps drawing.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use egui::RichText;
@@ -88,7 +89,7 @@ impl FailedBackup {
             (self.paths.working_copy(), self.version.clone(), self.folder.clone(), self.guard.clone());
         let (tx, rx) = mpsc::channel();
         let ctx = ctx.clone();
-        let started = std::thread::Builder::new().name("erststart-sicherung".into()).spawn(move || {
+        let started = std::thread::Builder::new().name("erststart-sicherung".into()).spawn_with_language(move || {
             writeguard::adopt(&guard);
             let _ = tx.send(first_backup::ensure(&paths, &version, folder.as_deref()));
             ctx.request_repaint();
@@ -308,7 +309,7 @@ mod tests {
     fn the_window_says_why_and_offers_three_ways_in_both_languages() {
         let _language = crate::language_lock();
         for lang in [language::Choice::De, language::Choice::En] {
-            language::set_language(lang);
+            language::set_thread_language(lang);
             let (window, _dir, _root) = failed("texte");
             let mut bench = Bench::new(window);
             let texts = bench.settle();
@@ -318,13 +319,13 @@ mod tests {
             assert!(shows(&texts, "besetzt"), "the folder is named: {texts:?}");
             assert!(bench.window.answer().is_none() && !bench.closed, "nothing goes on by itself");
         }
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
     }
 
     #[test]
     fn quitting_ends_without_a_backup_and_without_a_mark() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (window, _dir, root) = failed("beenden");
         let paths = window.paths.working_copy();
         let mut bench = Bench::new(window);
@@ -338,7 +339,7 @@ mod tests {
     #[test]
     fn closing_the_window_ends_the_program_too() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (window, _dir, _root) = failed("schliessen");
         let mut bench = Bench::new(window);
         bench.settle();
@@ -353,7 +354,7 @@ mod tests {
     #[test]
     fn trying_again_makes_the_backup_once_the_way_is_free_and_then_goes_on() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (mut window, _dir, root) = failed("erneut");
         // Still blocked: the window stays and says it again.
         window.folder = Some(window.failure.folder().to_string());
@@ -375,7 +376,7 @@ mod tests {
     #[test]
     fn a_folder_picked_by_the_player_takes_the_backup() {
         let _language = crate::language_lock();
-        language::set_language(language::Choice::De);
+        language::set_thread_language(language::Choice::De);
         let (window, dir, _root) = failed("waehlen");
         let mut bench = Bench::new(window);
         file_dialog::stand_in::start();

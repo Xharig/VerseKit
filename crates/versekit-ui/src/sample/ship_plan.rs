@@ -204,7 +204,7 @@ fn the_ship_view_and_the_section_stick_out_nowhere_in_both_languages() {
     let _language = crate::language_lock();
     let (mut page, dir) = page("schiff-rand", r#"{"format": 1, "schiffe": []}"#);
     for english in [false, true] {
-        language::set_language(if english { language::Choice::En } else { language::Choice::De });
+        language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
         for width in [880.0, 1100.0, 1600.0] {
             // The button, then the line with the way to the section (planned in the first round).
             page.shops.close_detail();
@@ -224,6 +224,6 @@ fn the_ship_view_and_the_section_stick_out_nowhere_in_both_languages() {
             draw_clicking(&mut page, 1100.0, 820.0, &[&t("s_ld_vormerken")]);
         }
     }
-    language::set_language(language::Choice::De);
+    language::set_thread_language(language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
 }

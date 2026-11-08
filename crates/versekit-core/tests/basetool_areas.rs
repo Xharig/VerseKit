@@ -82,16 +82,28 @@ fn build(name: &str, switches: &[&str], on_names: Option<Arc<dyn Fn() + Send + S
         assert!(paths.set_setting(switch, Value::Bool(true)));
     }
     let double = Arc::new(ExchangeDouble::new());
+    let skew = Arc::new(AtomicU64::new(0));
+    let sync = sync_for(&paths, &double, &skew, on_names, guard);
+    Bench { dir: data, paths, double, sync, skew }
+}
+
+/// A sync over the files of `paths` and the stand-in, as the program makes it at its start.
+fn sync_for(
+    paths: &Arc<Paths>,
+    double: &Arc<ExchangeDouble>,
+    skew: &Arc<AtomicU64>,
+    on_names: Option<Arc<dyn Fn() + Send + Sync>>,
+    guard: Option<u32>,
+) -> SyncHandle {
     let units = OrgUnitsArea::default();
     let host = Arc::new(FileBlueprintHost::new(paths.clone(), Arc::new(NoCatalog)));
-    let skew = Arc::new(AtomicU64::new(0));
     let clock: versekit_core::basetool::connection::Clock = {
         let (base, skew) = (system_clock(), skew.clone());
         Arc::new(move || base() + skew.load(Ordering::SeqCst) as f64)
     };
     let mut ships = ShipArea::new(units.units.clone());
     ships.on_names = on_names;
-    let sync = SyncHandle::without_worker(Setup {
+    SyncHandle::without_worker(Setup {
         conn: Arc::new(double.connection(clock.clone()).with_write_guard(guard)),
         paths: paths.clone(),
         clock,
@@ -99,11 +111,24 @@ fn build(name: &str, switches: &[&str], on_names: Option<Arc<dyn Fn() + Send + S
         own_account: Arc::new(|| Some("PlayerOne".to_string())),
         waker: Arc::new(|| {}),
         areas: vec![Box::new(BlueprintArea::new(host)), Box::new(StockArea), Box::new(units.clone()), Box::new(ships)],
-    });
-    Bench { dir: data, paths, double, sync, skew }
+    })
 }
 
 impl Bench {
+    /// The program starts anew over the same files: only what the state holds is known.
+    fn restart(&mut self) {
+        self.sync = sync_for(&self.paths, &self.double, &self.skew, None, None);
+    }
+
+    /// The clock runs `seconds` further.
+    fn later(&self, seconds: u64) {
+        self.skew.fetch_add(seconds, Ordering::SeqCst);
+    }
+
+    /// How many change sets came in on `route`, accepted or not.
+    fn posts(&self, route: &str) -> usize {
+        self.double.seen().iter().filter(|line| line.starts_with(&format!("POST {route}"))).count()
+    }
     fn pass(&self) {
         self.sync.pass_now().expect("a pass");
     }
@@ -766,6 +791,161 @@ fn a_held_stock_send_waits_and_remembers_the_hold_for_the_confirmation() {
     assert_eq!(b.sync.confirm_link(ROUTE_STOCK).as_deref(), Some(CONFIRM_URL));
     let held = b.state().iter().find(|(k, _)| k == "held").map(|(_, v)| v.clone()).expect("held");
     assert!(held.get(ROUTE_STOCK).is_some());
+}
+
+fn rejected_of(b: &Bench) -> Vec<(String, String)> {
+    let state = b.state();
+    let stock = state.iter().find(|(k, _)| k == "stock").map(|(_, v)| v.clone()).expect("stock state");
+    match stock.get("rejected") {
+        Some(Value::Object(entries)) => {
+            entries.iter().map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_string())).collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+#[test]
+fn a_refused_lot_goes_out_once_and_again_only_when_it_changes_a_restart_changes_nothing_and_the_button_sends() {
+    let mut b = bench("stock-sparsam", &[SETTING_STOCK]);
+    b.save_stock(&[raw_row("Iron", 3.0, 500, "Orbituary"), raw_row("Gold", 1.0, 100, "Lorville")], &[]);
+    b.double.refuse_material("Gold", "AMBIGUOUS");
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), 1, "both lots in one change set");
+    assert_eq!(b.double.lot_amount("Iron", "Orbituary", 500, false), 3.0);
+    let gold = ("bt-gold|lorville|100|0".to_string(), "AMBIGUOUS".to_string());
+    assert_eq!(rejected_of(&b), std::slice::from_ref(&gold));
+    // Nothing changed here: no request at all, and the refusal still stands for the page.
+    for _ in 0..3 {
+        b.pass();
+    }
+    assert_eq!(b.posts(ROUTE_STOCK), 1, "a steady stock with a refused lot sends nothing");
+    assert_eq!(rejected_of(&b), std::slice::from_ref(&gold));
+    assert_eq!(count(&b.counts("stock"), "rejected"), 1);
+    // A restart knows it from the state.
+    b.restart();
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), 1, "nothing goes out after a restart either");
+    // The amount changes here: that change goes out once.
+    b.save_stock(&[raw_row("Iron", 3.0, 500, "Orbituary"), raw_row("Gold", 2.0, 100, "Lorville")], &[]);
+    b.pass();
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), 2);
+    // The Basetool takes it now, but only a sync button or a day later sends the same again.
+    b.double.heal();
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), 2);
+    b.sync.release_held(&[]);
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), 3);
+    assert_eq!(b.double.lot_amount("Gold", "Lorville", 100, false), 2.0);
+    assert!(rejected_of(&b).is_empty());
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), 3, "and steady again");
+}
+
+#[test]
+fn a_refused_lot_goes_out_again_after_a_day() {
+    let b = bench("stock-tag", &[SETTING_STOCK]);
+    b.save_stock(&[raw_row("Gold", 1.0, 100, "Lorville")], &[]);
+    b.double.refuse_material("Gold", "AMBIGUOUS");
+    b.pass();
+    b.double.heal();
+    b.later(3600);
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), 1);
+    b.later(24 * 3600);
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), 2);
+    assert_eq!(b.double.lot_amount("Gold", "Lorville", 100, false), 1.0);
+}
+
+#[test]
+fn a_full_budget_waits_for_retry_after_on_every_route_also_over_a_restart_and_then_sends() {
+    let mut b = bench("stock-budget", &[SETTING_STOCK, SETTING_SHIPS, SETTING_BLUEPRINTS]);
+    b.save_stock(&[raw_row("Iron", 3.0, 500, "Orbituary")], &[]);
+    b.double.fail(ROUTE_STOCK, 503, "EXCHANGE_BUDGET_EXHAUSTED", Some(127), 1);
+    b.pass();
+    assert_eq!(b.sync.status().get().1.expect("status").phase, Phase::Ok, "a full budget is no error of the pass");
+    assert_eq!(count(&b.counts("stock"), "waiting"), 1);
+    assert_eq!(b.double.lot_amount("Iron", "Orbituary", 500, false), 0.0);
+    // Meanwhile a ship and a blueprint come in here; nothing goes out on any route until the time is over.
+    b.save_hangar(vec![ship("Avenger Titan", "Aegis Dynamics", "pledge")]);
+    b.add_local("Aether Rifle", "hand");
+    let posts = |b: &Bench| (b.posts(ROUTE_STOCK), b.posts(ROUTE_SHIPS), b.posts(ROUTE_BLUEPRINTS));
+    let before = posts(&b);
+    b.later(60);
+    b.pass();
+    assert_eq!(posts(&b), before, "not before Retry-After");
+    assert_eq!(count(&b.counts("ships"), "waiting"), 1);
+    b.restart();
+    b.later(60);
+    b.pass();
+    assert_eq!(posts(&b), before, "a restart does not shorten the wait");
+    b.later(7);
+    b.pass();
+    assert_eq!(b.double.lot_amount("Iron", "Orbituary", 500, false), 3.0, "after the wait it goes out");
+    assert_eq!(b.double.ships().len(), 1);
+    assert_eq!(b.double.blueprint_names(), ["Aether Rifle"]);
+    assert_eq!(count(&b.counts("stock"), "waiting"), 0);
+    assert!(!b.state().iter().any(|(k, _)| k == versekit_core::basetool::pacing::WAIT), "the wait is gone");
+}
+
+/// The game values with the class of each item, as the program keeps them.
+fn game_values(b: &Bench, items: &[(&str, &str)]) {
+    let entries: Vec<(String, Value)> = items
+        .iter()
+        .enumerate()
+        .map(|(n, (class, name))| {
+            (format!("guid-{n}"), Value::Object(vec![("class_name".into(), Value::str(*class)), ("name".into(), Value::str(*name))]))
+        })
+        .collect();
+    let values = Value::Object(vec![("values".into(), Value::Object(vec![("items".into(), Value::Object(entries))]))]);
+    let path = b.paths.app_file(versekit_core::stock_journal::names::VALUES_FILE);
+    std::fs::write(path, versekit_core::jsonio::dumps(&values, None, false)).expect("values");
+}
+
+#[test]
+fn an_item_goes_out_by_its_class_without_its_name_and_one_the_basetool_names_otherwise_is_found_by_it() {
+    let b = bench("stock-klasse", &[SETTING_STOCK]);
+    game_values(&b, &[("SHLD_GODI_S02_CoverAll_SCItem", "CoverAll"), ("BEHR_BallisticGatling_S6", "AD6B Ballistic Gatling")]);
+    b.double.add_item("bt-coverall", "CoverAll", "SHLD_GODI_S02_CoverAll_SCItem");
+    b.double.add_item("bt-ad6b", "Breakneck S4 Gatling", "BEHR_BallisticGatling_S6");
+    // While a name stands in the change, the Basetool takes it for a near material.
+    b.double.refuse_material("CoverAll", "AMBIGUOUS");
+    b.save_stock(
+        &[raw_row("Iron", 3.0, 500, "Orbituary")],
+        &[trade_row("CoverAll", 1, "Orbituary", true), trade_row("AD6B Ballistic Gatling", 2, "Orbituary", true)],
+    );
+    b.pass();
+    let counts = b.counts("stock");
+    assert_eq!((count(&counts, "rejected"), count(&counts, "skipped_material")), (0, 0), "{counts:?}");
+    let amount_of = |bt: &str| b.double.lots().iter().find(|l| l.bt == bt).map(|l| l.amount);
+    assert_eq!(amount_of("bt-coverall"), Some(1.0));
+    assert_eq!(amount_of("bt-ad6b"), Some(2.0), "found by its class, not by the name of the Basetool");
+    let ops = b.double.ops_sent(ROUTE_STOCK).concat();
+    let material = |bt: &str| {
+        ops.iter()
+            .find_map(|op| op.get("material").filter(|m| m.get("bt").and_then(Value::as_str) == Some(bt)).cloned())
+            .expect(bt)
+    };
+    assert_eq!(material("bt-coverall").get("scRecord").and_then(Value::as_str), Some("SHLD_GODI_S02_CoverAll_SCItem"));
+    assert_eq!(material("bt-coverall").get("name"), None, "no name for an item");
+    assert_eq!(material("bt-ad6b").get("scRecord").and_then(Value::as_str), Some("BEHR_BallisticGatling_S6"));
+    assert_eq!(material("bt-iron").get("name").and_then(Value::as_str), Some("Iron"), "a raw material stays as it is");
+}
+
+#[test]
+fn without_the_class_an_item_the_basetool_names_otherwise_stays_unknown() {
+    let b = bench("stock-ohne-klasse", &[SETTING_STOCK]);
+    b.double.add_item("bt-ad6b", "Breakneck S4 Gatling", "BEHR_BallisticGatling_S6");
+    b.save_stock(&[], &[trade_row("AD6B Ballistic Gatling", 2, "Orbituary", true)]);
+    b.pass();
+    assert_eq!(count(&b.counts("stock"), "skipped_material"), 1);
+    // The class becomes known (new game values): the miss of before is asked again at once.
+    game_values(&b, &[("BEHR_BallisticGatling_S6", "AD6B Ballistic Gatling")]);
+    b.pass();
+    assert_eq!(count(&b.counts("stock"), "skipped_material"), 0);
+    assert_eq!(b.double.lots().iter().find(|l| l.bt == "bt-ad6b").map(|l| l.amount), Some(2.0));
 }
 
 // ----------------------------------------------------------------- hangar

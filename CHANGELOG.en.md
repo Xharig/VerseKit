@@ -6,88 +6,230 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## v5.2.0 - 2026-11-07
+## v5.2.1 - 2026-11-08
 
-> The loadout in the hangar now comes from the game data, every slot on
-> its own, and can be shared. And the refinery scan reads the German
-> terminal and long lists.
+> Shops by place, fabricator jobs and marks like IRIS are new. The
+> refinery scan puts the station in as the storage location, and the
+> methods come from the game data. The Basetool sync sends only what
+> changed, and in the hangar only parts of that ship fit.
 
 ### New
 
-- **Slots from the game data** — Every ship shows its slots all the way
-  down: turret and guns, rack and missiles, mining head and modules. They
-  are read only while Star Citizen is closed.
-- **Every slot on its own** — Alike slots stand in one line, the arrow at
-  its end opens each slot by itself. Every list ends with “Leave empty”.
-- **Share a loadout** — As a code for Discord or as a file. When pasting
-  you see first what arrives. The loadout of another ship of the same type
-  can be taken over.
-- **Move ships** — Between Planned and My hangar, with loadout, name and
-  note.
-- **Built-in parts** — Slots that cannot be refitted in the game show their
-  part with “built in”, without a choice and without a cart.
-- **Refinery: long lists** — Scan, scroll in the terminal, scan again: both
-  scans become one job, lines read twice count once.
+- **Note after a crash.** If VerseKit crashed last time, the next start
+  says so once. “View report” opens “Report a problem”. There you read the
+  report and send it only if you want to. “Don't send” discards the crash.
+  Suggested by Blackd0g84
+- **Ready and the shopping list go together.** When you set a ship to
+  Ready, VerseKit asks whether the open items of its shopping list should
+  be ticked off as fitted. When you tick off the last item of a ship, it is
+  set to Ready by itself. If you switch it off, it stays off until a new
+  item comes in and is ticked off. Suggested by Aeternitas26 [KRT]
+- **Marks like IRIS.** Besides friendly, neutral and hostile there is
+  “watched”. VerseKit also takes relations from TOML lists in the
+  sc-social-overlay form, their colours become stances. An org can share
+  its list at an https address. “Load list” fetches it on a click and only
+  adds new names, your own marks stay. Suggested by Kuehlwagen [KRT]
+- **Fabricator jobs.** On the Crafting page you enter what runs at the
+  fabricator, with the time from the game. Two run at once, the others
+  move up. VerseKit shows the time left, tells you when one is done and
+  shows the jobs in the overlay if you like.
+- **Shops by place and shop.** Under Shops you pick a place and see its
+  shops. A click shows a shop's whole offer with prices, and from there
+  parts go into the shopping list as usual. You can also find a shop like
+  CenterMass directly by its name in the field “Location or shop”.
+  Suggested by Blackd0g84
+- **Refining methods from the game data.** VerseKit now reads the yield,
+  speed and cost of the nine methods from your Data.p4k, as the terminal
+  shows them. Five methods had swapped values in the old table, so the
+  advice now matches the game. Without data read, the table still applies.
+- **Changed game values: biggest changes and unread patches.** For the
+  chosen patch a card shows which values rose and fell the most. The
+  counter now also shows what stayed the same. New patches since your last
+  visit are marked unread, and one button marks them all as read.
+- **Injuries in the statistics.** When the game reports an injury in its
+  log, the statistics count it as minor, moderate or severe, in German and
+  English.
 
 ### Improved
 
-- **Loadout split by turret** — The guns of the nose and the ball turret of
+- **Basetool: send only what changed.** Without a change VerseKit sends
+  no request any more. An entry the Basetool refused goes out again only
+  when it changes, when you press the sync button or after a day. When the
+  Basetool reports a full budget, VerseKit waits the time it names, also
+  across a restart, and sends afterwards. Hint by greluc
+- **Basetool: pause shown.** When the Basetool asks VerseKit for a pause,
+  the connection page shows until when and why. After that VerseKit
+  carries on syncing by itself.
+- **Refinery place from the terminal.** “Read screen” also reads the
+  station at the top of the refinery terminal and puts it in as the
+  storage location when it is surely in the list of places. Otherwise the
+  last place used stays. You can always change it.
+- **Refinery yield: storage location.** The field starts on the location
+  used last. When it is empty it is marked, and the add button takes you
+  there before saving without one.
+- **The translation spares GitHub's request limit.** The check for a new
+  version remembers the last answer and only asks whether anything
+  changed. When the limit is reached, it pauses for the time GitHub names.
+- **Four settings now work.** On the General page all four do what they
+  say: “Use the graphics card” (after a restart), the 24-hour clock for
+  every time of day, the “Refinery done” sound and the volume of all
+  sounds. On Windows the sound for a new blueprint is now the built-in
+  VerseKit tone.
+- **Game picture with a wait and a shortcut.** “Get game picture” waits 5,
+  10, 20 or 30 seconds (10 by default) and counts down. So you can turn
+  the scanner on and scan in the game first. “Stop waiting” cancels it. In
+  the game, Alt+Shift+B takes the picture at once, set under Overlay with
+  the shortcuts.
+- **Start menu on Windows.** The row “Entry in the application menu” now
+  shows on Windows too. There the installer makes the entry.
+- **Test build at a glance.** When VerseKit runs as a test build or on a
+  test copy of the data, the head bar says so next to the version. So you
+  do not mix it up with your real VerseKit.
+- **Clearer test channel note.** Pages with game data from PTU, EPTU or
+  TECH-PREVIEW name the channel and say that the data can still change
+  before LIVE. My Hangar shows the note now too.
+- **A stronger red in all colour schemes.** Errors, refusals and danger
+  buttons are now drawn in a clearly visible red that stands well apart
+  from gold, yellow and orange. Reported by Parsul [KRT]
+- **Menu at the icon next to the clock in VerseKit colours.** A right
+  click opens the menu dark in VerseKit's colours, with the entry under the
+  pointer in green. It opens and closes as before and leaves the game
+  alone.
+- **Notes: note list with corner brackets.** The list of notes carries the
+  corner brackets like the other big lists.
+- **Handle search: the hotkey selects the last handle.** Just type over
+  it. Wish of Kuehlwagen [KRT]
+
+### Fixed
+
+- **Basetool: items by class name.** Ship parts and gadgets such as
+  CoverAll, MegaFlux, Mirage, Okunis, AD6B Ballistic Gatling or M5A Cannon
+  go to the Basetool by their class name without the display name and are
+  no longer refused as ambiguous. Raw materials stay as they are. Hint by
+  greluc
+- **Sharing into unit storage.** When sharing does not get through right
+  now (network, full budget at the Basetool), the entry stays with you and
+  VerseKit catches up on the sharing by itself, also after a restart. You
+  need not enter it again, the message says so. It is
+  shared only once, even if the first answer got lost on the way.
+- **“What's new” merged versions.** The page showed 5.1.0 to 5.1.4 as one
+  entry “v5.1”. Now every version stands on its own. The head shows only
+  the version number, without a date. The texts are set in shorter
+  sentences.
+- **“What's new” mixed the languages.** Versions 4.12.1 to 4.12.5 showed in
+  English on the German page and in German on the English page. Both
+  versions are now built into the program, and the page picks the language
+  of the GitHub release texts correctly.
+- **Old name in the identification.** The translation, the update check
+  and the rank list identify themselves to servers as VerseKit with the
+  version number, no longer with the old name.
+- **Complete privacy page.** It now also names “Load list”, the handle
+  search and the Contested Zones cycle, and UEX under the address that is
+  actually asked.
+- **My Inventory: badges over the place.** With long names and a tag, the
+  badges in the items list reached into the place column. What does not
+  fit now goes into the “+n” badge.
+- **Hangar: flight blades only for their own ship.** The flight blade slot
+  now offers only the blades of that ship, no longer those of every ship.
+- **Hangar: paints only for their own ship.** The paint slot now offers
+  only the paints of that ship. Where the game data do not say, there is
+  no choice rather than a wrong one.
+- **Test copy title translated.** The window of a test copy is now called
+  “test copy” in English.
+- **scmdb over https only.** A redirect to an unencrypted address is no
+  longer followed.
+- **My Inventory says why an entry cannot be shared.** Where the button
+  “Into unit storage” was missing, a greyed button now gives the reason.
+  For example the Basetool does not know the entry yet, sends no split, or
+  you are in no unit.
+- **Memory at the overlay start and in the statistics.** At the start of
+  the overlay and when counting play time, VerseKit still read a very
+  large game log whole, up to 1 GB for a 500 MB log. It now reads it in
+  pieces and stays at a few MB. This also holds for the contract history
+  and for following the log after a long pause.
+
+## v5.2.0 - 2026-11-07
+
+> The loadout in the hangar now comes from the game data. Every slot stands
+> on its own, and the loadout can be shared. The refinery scan also reads
+> the German terminal and long lists.
+
+### New
+
+- **Slots from the game data.** Every ship shows its slots all the way down.
+  These are turret and guns, rack and missiles, mining head and modules.
+  They are read only while Star Citizen is closed.
+- **Every slot on its own.** Alike slots stand in one line. The arrow at its
+  end opens each slot by itself. Every list ends with “Leave empty”.
+- **Share a loadout.** You share it as a code for Discord or as a file. When
+  pasting, you see first what arrives. The loadout of another ship of the
+  same type can be taken over.
+- **Move ships.** You move ships between Planned and My hangar, with
+  loadout, name and note.
+- **Built-in parts.** Slots that cannot be refitted in the game show their
+  part with “built in”. There is no choice and no cart.
+- **Long lists in the refinery.** You scan, scroll in the terminal and scan
+  again. Both scans become one job. Lines read twice count once.
+
+### Improved
+
+- **Loadout split by turret.** The guns of the nose and the ball turret of
   the F7C-M stand in lines of their own.
-- **Mining** — The opened places are striped, the shares at the right stay
+- **Mining.** The opened places are striped. The shares at the right stay
   with their place.
 
 ### Fixed
 
-- **Meteor without its wing racks** — Missile racks that Erkul does not list
-  as swappable were missing from the loadout (reported by Aeternitas26
-  [KRT]).
-- **Raven EX twice** — A ship UEX lists twice stands in the list once (reported
-  by Aeternitas26 [KRT]).
-- **Refinery scan read nothing in the German game** — VerseKit now finds the
-  shortened head “AUSBEU” and the closely set column heads, and the “ANZ.”
+- **Meteor without its wing racks.** Missile racks that Erkul does not list
+  as swappable were missing from the loadout. Reported by Aeternitas26 [KRT]
+- **Raven EX twice.** A ship UEX lists twice stands in the list once.
+  Reported by Aeternitas26 [KRT]
+- **Refinery scan read nothing in the German game.** VerseKit now finds the
+  shortened head “AUSBEU” and the closely set column heads. The “ANZ.”
   column while setting up no longer slips into the yield.
-- **Crafting** — Clicking a material did not lead to mining in a wide
+- **Crafting.** Clicking a material did not lead to mining in a wide
   window.
 
 ## v5.1.4 - 2026-11-06
 
-> One consistent look on every page, an own title bar, new pages for
-> translation and axes, plus a fix for the mining HUD.
+> One consistent look on every page. VerseKit has its own title bar.
+> Translation and axes are new pages. There is also a fix for the mining
+> HUD.
 
 ### New
 
-- **Own title bar** — VerseKit draws the bar at the top itself, with a
+- **Own title bar.** VerseKit draws the bar at the top itself, with a
   larger name and buttons of its own. On Windows 11 the snap layouts appear
   at the maximize button.
-- **Translation reworked** — One card per channel with a language list and
-  sources. Test channels and HOTFIX can follow “Same as LIVE”, the own
-  address is a button.
-- **Axes & curves reworked** — Devices as tabs, the axis list on the left,
-  the chosen axis with a large curve on the right. “Write to the bindings
-  file” stays at the bottom.
-- **Shader cache on the Graphics page** — The card shows the size, when it
+- **Translation reworked.** There is one card per channel with a language
+  list and sources. Test channels and HOTFIX can follow “Same as LIVE”. The
+  own address is a button.
+- **Axes & curves reworked.** Devices are tabs. The axis list is on the
+  left, the chosen axis with a large curve on the right. “Write to the
+  bindings file” stays at the bottom.
+- **Shader cache on the Graphics page.** The card shows the size, when it
   was last cleared and whether it was cleared since the last patch.
-- **“Count usage” can be switched off again** — The switch is under
+- **“Count usage” can be switched off again.** The switch is under
   Settings › General › Privacy. Off means nothing is sent.
 
 ### Improved
 
-- **Every page of one piece** — Cards in a grid, shorter texts, consistent
+- **Every page of one piece.** Cards in a grid, shorter texts, consistent
   text sizes, nothing cut off. Overlay, handle search and the signature
   window are laid out anew.
-- **My inventory** — The sync needs a place, the last place stays, new
-  items go out at once, and skipped ones are named.
+- **My inventory.** The sync needs a place. The last place stays. New items
+  go out at once. Skipped ones are named.
 - **“Report a problem”** counts only new errors of this version.
-- **Star Citizen 5.0** — Places and the game log are prepared, a contract
+- **Star Citizen 5.0.** Places and the game log are prepared. A contract
   after a disconnect no longer counts as open.
 - **Game data** is not read while the game is running.
 
 ### Fixed
 
-- **Mining HUD unreadable** — For three mining modules the blueprint notes
+- **Mining HUD unreadable.** For three mining modules the blueprint notes
   went into the name line the game shows in the cockpit. They now go into
   the description. Reported by greluc
-- **Main window off the top of the screen** — With screens of different
+- **Main window off the top of the screen.** With screens of different
   scaling the window could lie partly outside. It now stays visible.
   Reported by greluc
 - **“No translation”** now takes VerseKit's notes out of the channel first.
@@ -95,37 +237,36 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v5.1.3 - 2026-11-06
 
-> Hotkeys now work on a single key like F13, plus small fixes around the
-> overlay and the hotkeys.
+> Hotkeys now work on a single key like F13. There are also small fixes
+> around the overlay and the hotkeys.
 
 ### New
 
-- **Hotkeys without a modifier** — A shortcut now also works without Ctrl,
-  Alt or Shift when the key is never typed: F1 to F24, Pause, Scroll Lock,
-  Insert and Num / * - +, for example F13 on its own for the handle
-  search. Letters and digits still need a modifier, so typing in the game
-  is not caught. Suggested by Kuehlwagen
-- **Handle search hotkey on out of the box** — Alt+Shift+H jumps straight
-  into the handle search of the info bar, also during the game. Change or
-  switch it off under Overlay › "Keyboard shortcut: handle search".
+- **Hotkeys without a modifier.** A shortcut now also works without Ctrl,
+  Alt or Shift when the key is never typed. These are F1 to F24, Pause,
+  Scroll Lock, Insert and Num / * - +. An example is F13 on its own for the
+  handle search. Letters and digits still need a modifier, so typing in the
+  game is not caught. Suggested by Kuehlwagen
+- **Handle search hotkey on out of the box.** Alt+Shift+H jumps straight
+  into the handle search of the info bar, also during the game. You change
+  it or switch it off under Overlay › “Keyboard shortcut: handle search”.
 
 ### Fixed
 
-- **Memory with a flooded game log** — When the game flooded its log with
-  messages (millions of “monitored space down” lines, for example),
-  VerseKit grew to many gigabytes. It now reads only what is new and stays
-  small.
-- **“Move to the middle” without the game** — With “Show without the game
+- **Memory with a flooded game log.** When the game flooded its log with
+  messages, for example millions of “monitored space down” lines, VerseKit
+  grew to many gigabytes. It now reads only what is new and stays small.
+- **“Move to the middle” without the game.** With “Show without the game
   running too” switched off, the button brought the overlay back, but
   nothing could be seen. Now it says why and how to show it anyway.
   Reported by Morkhan
-- **Handle search hotkey after a click into the game** — If you clicked
+- **Handle search hotkey after a click into the game.** If you clicked
   back into the game with the mouse instead of pressing Esc, the hotkey
   stopped working. Now it works again. Reported by Kuehlwagen
-- **Main window larger than the screen** — If the window was last
-  remembered larger than the screen has room for now (another scaling,
-  another interface size), its title bar lay out of reach. Now it opens
-  at most as large as the screen and fully on it. Reported by greluc
+- **Main window larger than the screen.** The window was last remembered
+  larger than the screen has room for now. That came from another scaling or
+  interface size. Then its title bar lay out of reach. Now it opens at most
+  as large as the screen and fully on it. Reported by greluc
 
 ## v5.1.2 - 2026-11-05
 
@@ -133,219 +274,215 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Fixed
 
-- **Overlay visible without the game again** — Since 5.1.1 the overlay
+- **Overlay visible without the game again.** Since 5.1.1 the overlay
   waited hidden while Star Citizen was not running, and many took it for
   gone. Now “Show without the game running too” is on by default. If you
   switched it off, your choice stays. Reported by Morkhan and Rhino
-- **Linux: no dead window in the task bar** — While the overlay waited
+- **No dead window in the task bar on Linux.** While the overlay waited
   hidden, it stood in the task bar as an empty window that could not be
   clicked. Now it leaves the task bar entirely. Reported by Rhino
 
 ## v5.1.1 - 2026-11-05
 
-> Handle search and Relations share one page, the notepad formats with a
-> button bar, under Modules you switch crafting, mining and procurement
-> on their own, and the overlay waits hidden while the game is not
-> running.
+> Handle search and Relations share one page. The notepad formats with a
+> button bar. Under Modules you switch crafting, mining and procurement on
+> their own. The overlay waits hidden while the game is not running.
 
 ### New
 
-- **Handle search with two tabs** — Handle search and Relations are now
+- **Handle search with two tabs.** Handle search and Relations are now
   one page with the tabs “Search” and “Relations”. The old Relations menu
   entry leads straight to its tab.
-- **Notepad button bar** — Bold, italic, underline, strikethrough,
-  bullets, numbering and small tables by button or with Ctrl+B, Ctrl+I and
-  Ctrl+U. You see the formatting directly, no Markdown characters show up
-  in the text.
-- **Refinery per ore collapsible** — Under Mining, every ore of a refinery
-  can be folded away, so long jobs stay easy to read.
-- **Overlay waits hidden without the game** — While Star Citizen is not
+- **Notepad button bar.** The button bar has bold, italic, underline,
+  strikethrough, bullets, numbering and small tables. Ctrl+B, Ctrl+I and
+  Ctrl+U work too. You see the formatting directly. No Markdown characters
+  show up in the text.
+- **Refinery per ore collapsible.** Under Mining, every ore of a refinery
+  can be folded away. Long jobs stay easy to read.
+- **Overlay waits hidden without the game.** While Star Citizen is not
   running, the overlay is invisible and catches no clicks. To see it
   anyway, switch on “Show without the game running too” under
   Settings › Overlay. Reported by fok
 
 ### Improved
 
-- **Overlay without lines that only tell its state** — The waiting strip
+- **Overlay without lines that only tell its state.** The waiting strip
   is just the eye. “Star Citizen is not running”, the countdown, “stays
   while …” and “waiting for new blueprints” are gone. Reported by fok
-- **Shopping route stays in the system** — If a part is available in a
-  system you fly to anyway, the route takes that shop instead of jumping to
-  another system for a slightly lower price.
-- **Game channels next to “Game start”** — Under Installation & paths, the
+- **Shopping route stays in the system.** If a part is available in a system
+  you fly to anyway, the route takes that shop. It does not jump to another
+  system for a slightly lower price.
+- **Game channels next to “Game start”.** Under Installation & paths, the
   Game channels card now sits in the same row as the others.
-- **Pin for the handle search and Relations** — Both pages now have the
+- **Pin for the handle search and Relations.** Both pages now have the
   pin next to the title, like the other pages. One click pins them as a
   card to the overview, a second one takes it off again.
-- **Crafting and mining apart** — Under Settings › Modules, “Crafting,
-  mining & refineries” is now two modules: “Crafting” (with “What to
-  farm”) and “Mining & refineries”. If you only mine, you hide
-  crafting, and the other way round. If you had the old module off, both
-  stay off.
-- **The info bar snaps to the screen edge** — Like the overlay, the info
+- **Crafting and mining apart.** Under Settings › Modules there are now two
+  modules instead of “Crafting, mining & refineries”. One is “Crafting”
+  (with “What to farm”), the other “Mining & refineries”. If you only mine,
+  you hide crafting, and the other way round. If you had the old module off,
+  both stay off.
+- **The info bar snaps to the screen edge.** Like the overlay, the info
   bar jumps onto the screen edge when you let go of it close to it, and
   stays wholly on the screen. Suggested by Kuehlwagen
-- **Procurement module** — The shopping list and Contested Zones can now
-  be hidden together. The shopping list used to belong to the ships
-  module; if you had that off, procurement stays off too.
-- **Cards on more pages** — “Backup & reset”, “Game”, “Axes & curves” and
-  “Update & about” show each block in a card of its own, like
-  “Installation & paths”. Large in-between headings became card titles,
-  nothing stands loose between the cards any more.
-- **Uniform card titles** — Every card carries its title the same way:
-  bold, green, one step larger than the text below it and written as is,
+- **Procurement module.** The shopping list and Contested Zones can now be
+  hidden together. The shopping list used to belong to the ships module. If
+  you had that off, procurement stays off too.
+- **Cards on more pages.** “Backup & reset”, “Game”, “Axes & curves” and
+  “Update & about” show each block in a card of its own, like “Installation
+  & paths”. Large in-between headings became card titles. Nothing stands
+  loose between the cards any more.
+- **Uniform card titles.** Every card carries its title the same way. It is
+  bold and green, one step larger than the text below it and written as is,
   instead of small green capitals.
-- **The refinery table grows with the window** — The columns share the
-  whole width, and with room the rows get taller down to the bottom edge.
-  The ore names are as large as the values beside them.
-- **Bavarian in the row of German** — Under Translation, Luftwerft's
-  Bavarian version now stands in the same row as the German ones, is
-  called “Bayrisch (Luftwerft) [FUN]” and carries the note “work in
-  progress” right beside it.
+- **The refinery table grows with the window.** The columns share the whole
+  width. With room, the rows get taller down to the bottom edge. The ore
+  names are as large as the values beside them.
+- **Bavarian in the row of German.** Under Translation, Luftwerft's Bavarian
+  version now stands in the same row as the German ones. It is called
+  “Bayrisch (Luftwerft) [FUN]” and carries the note “work in progress” right
+  beside it.
 
 ### Fixed
 
-- **The graphics page twitched** — After a short pause between two
+- **The graphics page twitched.** After a short pause between two
   frames, the page read the computer again and folded the box “Your PC
   according to the game” for a moment. Everything below it
   jumped. Now the box stays as it is until the new values are there.
-- **The rating of the game was missing** — VerseKit looked for the rating
+- **The rating of the game was missing.** VerseKit looked for the rating
   (“Final rating”) only in the 40 newest game logs. Whoever played more
   often since the last rating saw “Not rated yet”. Now every old log is
   searched once, after that only the new ones.
-- **The preview “Place of the window” was tiny** — Without a game
-  picture, the preview showed the remembered place of the signature true
-  to scale, hard to see on wide screens. Now it shows a well readable
-  signature like the search frame does; with a game picture it stays the
-  real place.
-- **The handle search forgot nothing** — “Keep found handles, days” only
+- **The preview “Place of the window” was tiny.** Without a game picture,
+  the preview showed the remembered place of the signature true to scale. It
+  was hard to see on wide screens. Now it shows a well readable signature
+  like the search frame does. With a game picture it stays the real place.
+- **The handle search forgot nothing.** “Keep found handles, days” only
   counted for asking the RSI site again. “Searched lately” still showed
   older handles. Now handles leave the list and the store after the days
   set. The list shows at most 5 handles instead of 8.
-- **Game channels in tiny print** — Under Installation & paths the block
+- **Game channels in tiny print.** Under Installation & paths the block
   “Game channels” is now a card like the others, in normal print.
-- **Long menus in Crafting ran out of the window** — The “For ship”
+- **Long menus in Crafting ran out of the window.** The “For ship”
   choice and the categories are now at most as tall as the window and
   scroll.
-- **Ore pods supposedly fitted every mining ship** — “Fits” compared only
-  kind and size. Now a pod fits only ships of its maker: Argo into the
-  MOLE, MISC into the Prospector, Drake and GOLEM into the Golem. The
-  “MISC Enhanced Ore Pod” is made by Argo and fits the MOLE and the
-  Prospector. The line is now called “Fits your ships”.
-- **“For ship” found no components on some ships** — On ships such as the
+- **Ore pods supposedly fitted every mining ship.** “Fits” compared only
+  kind and size. Now a pod fits only ships of its maker. Argo fits into the
+  MOLE, MISC into the Prospector, Drake and GOLEM into the Golem. The “MISC
+  Enhanced Ore Pod” is made by Argo and fits the MOLE and the Prospector.
+  The line is now called “Fits your ships”.
+- **“For ship” found no components on some ships.** On ships such as the
   F7C-M Super Hornet Mk II, F8C, Arrow, Eclipse or Polaris, Crafting with
-  “For ship” showed only weapons, but no coolers, power plants, shields or
-  quantum drives. Their slots are now counted in full, in “Fits your
+  “For ship” showed only weapons. Coolers, power plants, shields and quantum
+  drives were missing. Their slots are now counted in full, in “Fits your
   ship” too.
 
 ## v5.1.0 - 2026-11-05
 
-> The overlay shows more and is easier to tune, My Inventory knows sales
-> and the move after a patch, and the translation now works in every game
-> channel.
+> The overlay shows more and is easier to tune. My Inventory knows sales and
+> the move after a patch. The translation now works in every game channel.
 
 ### New
 
-- **Craftable modules per ship** — In Crafting you pick one of your ships
+- **Craftable modules per ship.** In Crafting you pick one of your ships
   from My Hangar under “For ship”. The list then shows only parts that fit
   a mount of that ship, with and without a blueprint. On the ship card in
   the hangar, “Craftable parts” jumps straight there.
   Suggested by LunaticSmile [KRT]
-- **Shop sales as suggestions in My Inventory** — What you sell in a shop
-  in the game, My Inventory offers under “New according to the log” to
-  take out. You book or dismiss each sale one by one or all at once with
-  “Book all” and can undo it. VerseKit does not detect commodity sales
-  at the trading terminal, and the statistics do not count sales.
-- **Moving home after a patch** — My Inventory › “Move home” brings every
-  entry to your new home location and removes what the patch does not
-  keep: food, drinks, pens and injectors, magazines. You choose beforehand
-  which kinds go; ores and minerals stay by default. Both stocks are
-  backed up first, afterwards VerseKit lists the removed entries to
-  compare in the game, and the move can be undone.
-- **Search orgs** — The search field in the info bar and on the handle
+- **Shop sales as suggestions in My Inventory.** What you sell in a shop in
+  the game, My Inventory offers under “New according to the log” to take
+  out. You book or dismiss each sale one by one. With “Book all” it works
+  all at once too. You can undo it. VerseKit does not detect commodity sales
+  at the trading terminal. The statistics do not count sales.
+- **Moving home after a patch.** My Inventory › “Move home” brings every
+  entry to your new home location. It removes what the patch does not keep,
+  namely food, drinks, pens and injectors, and magazines. You choose
+  beforehand which kinds go. Ores and minerals stay by default. Both stocks
+  are backed up first. Afterwards VerseKit lists the removed entries to
+  compare in the game. The move can be undone.
+- **Search orgs.** The search field in the info bar and on the handle
   search page now also takes the SID or the full name of an org.
-- **Relations page** — In the Info group you manage your marked handles
+- **Relations page.** In the Info group you manage your marked handles
   and orgs, with export and import. The handle search shows “Recently
   searched” and has the button “Manage relations”. A marked handle can be
   deleted on its own, with undo.
-- **Hotkey for the handle search** — One press puts the cursor into the
-  search field of the info bar. Enter searches, Esc gives the keyboard
-  back to the game. It is off by default (Alt+Shift+H); you switch it on
-  under Settings › Overlay. Suggested by Kuehlwagen
-- **“Shown in the overlay” block** — Under Settings › Overlay you switch
+- **Hotkey for the handle search.** One press puts the cursor into the
+  search field of the info bar. Enter searches. Esc gives the keyboard back
+  to the game. It is off by default, the keys are Alt+Shift+H. You switch it
+  on under Settings › Overlay. Suggested by Kuehlwagen
+- **“Shown in the overlay” block.** Under Settings › Overlay you switch
   server, location, running contracts, refinery jobs and the update notice
   on or off one by one. Everything is on by default. The “Contract
   notice” switch now only opens the overlay.
-- **Refinery jobs in the overlay** — Your refinery jobs stand below the
+- **Refinery jobs in the overlay.** Your refinery jobs stand below the
   contracts with the time left. Finished ones are highlighted.
-- **Translation in every game channel** — PTU, Tech Preview and EPTU get
+- **Translation in every game channel.** PTU, Tech Preview and EPTU get
   the text file, the language and the blueprint details in descriptions,
   just like LIVE.
 
 ### Improved
 
-- **“Your unit wants: …” while scanning** — Below the signature line in
+- **“Your unit wants: …” while scanning.** Below the signature line in
   the overlay it says again what your unit needs of the ores behind the
   signature, as in 4.12.
-- **“Move to the middle” with the size** — The button now also resets
+- **“Move to the middle” with the size.** The button now also resets
   the overlay to its starting size, not only to the middle.
-- **Teaching signatures** — A taught picture now also helps when the
+- **Teaching signatures.** A taught picture now also helps when the
   number looks a little different (brighter, shifted, blurred).
-- **Contract counter “3/10”** — The contracts header in the overlay counts
+- **Contract counter “3/10”.** The contracts header in the overlay counts
   running contracts against the maximum. You set the maximum in the
   “Shown in the overlay” block, 10 by default.
-- **Overlay from 2 rows** — The number of rows can go down to 2, before it
+- **Overlay from 2 rows.** The number of rows can go down to 2, before it
   stopped at 5.
-- **Info bar on by default in the game** — It stands over the running
+- **Info bar on by default in the game.** It stands over the running
   game. Without the game it stays off. If you already switched it on or
   off, your choice stays.
-- **Signature window while mining** — You choose whether it sits “Above
-  the signature” or “In the info bar”. The info bar stays on, before the
-  window stayed closed. You set the size with a slider, much smaller than
-  before; by default it is about half as big as the old “Medium”, and a
-  size you chose stays. The display stays 5 to 15 seconds after the number
-  disappears in the game, before it was 1.5. Suggested by P6
-- **Overlay snaps to the screen edge** — You can no longer drag it off
+- **Signature window while mining.** You choose whether it sits “Above the
+  signature” or “In the info bar”. The info bar stays on. Before, the window
+  stayed closed. You set the size with a slider. It is much smaller than
+  before. By default it is about half as big as the old “Medium”. A size you
+  chose stays. The display stays 5 to 15 seconds after the number disappears
+  in the game. Before, it was 1.5. Suggested by P6
+- **Overlay snaps to the screen edge.** You can no longer drag it off
   the screen. Let go close to an edge and it jumps onto that edge.
   Suggested by Kuehlwagen
-- **Keys F13 to F24 for the hotkeys** — The choice of keys now goes up to
+- **Keys F13 to F24 for the hotkeys.** The choice of keys now goes up to
   F24. Suggested by Kuehlwagen
-- **Notes with a heading** — The first line stands in the field as a
+- **Notes with a heading.** The first line stands in the field as a
   heading, because it is the name of the note.
-- **Bug report asks for a sentence** — Without a sentence, the first click
+- **Bug report asks for a sentence.** Without a sentence, the first click
   on “Send” asks for one. The second click sends the report anyway.
-- **Translation: state of the file first** — The status line names the
-  state of the file first, for example “State 04.11.2026 13:09 for
-  4.10.2-live…”, then the download time. The menu line in the game is
+- **Translation shows the state of the file first.** The status line names
+  the state of the file first, for example “State 04.11.2026 13:09 for
+  4.10.2-live…”. Then comes the download time. The menu line in the game is
   called “VerseKit” without a hyphen.
-- **Translation stays as you chose it** — If another program such as SCDL
-  overwrites the text file or the language, VerseKit puts it back: at
-  start, every 5 minutes, after the game and before you start the game
-  from VerseKit. The main window also checks every 5 minutes without the
-  overlay.
-- **Spanish by Luftwerft instead of Thord82** — The Spanish translation
-  by Thord82 is no longer offered. If you had picked it, VerseKit
-  switches to the Spanish translation by Luftwerft. Thord82 stays on the
-  thanks page, and Luftwerft stands first among the translations there.
-- **Section titles in the accent colour** — The small titles above the
+- **Translation stays as you chose it.** If another program such as SCDL
+  overwrites the text file or the language, VerseKit puts it back. This
+  happens at start, every 5 minutes, after the game and before you start the
+  game from VerseKit. The main window also checks every 5 minutes without
+  the overlay.
+- **Spanish by Luftwerft instead of Thord82.** The Spanish translation by
+  Thord82 is no longer offered. If you had picked it, VerseKit switches to
+  the Spanish translation by Luftwerft. Thord82 stays on the thanks page.
+  Luftwerft stands first among the translations there.
+- **Section titles in the accent colour.** The small titles above the
   cards now use the accent colour of the colour scheme.
-- **Linux: application menu and tray icon** — The application menu entry
+- **Application menu and tray icon on Linux.** The application menu entry
   appears only under “Games”. The help text of the tray icon says that
   closing there ends the main window.
 
 ### Fixed
 
-- **A foreign text file is replaced** — If a foreign global.ini lay in the
+- **A foreign text file is replaced.** If a foreign global.ini lay in the
   game folder, for example StarStrings you loaded yourself, VerseKit left
   it alone. Now it replaces it with the file you chose and keeps the
   foreign one beside it as a backup. Reported by SirFrog [KRT]
-- **English from the game** — The choice always fetches the original
+- **English from the game.** The choice always fetches the original
   English file, even when another English file already lay in the game
   folder. The old file stays beside it as a backup.
-- **Mouse wheel over the Contested map** — The wheel scrolls the page
-  again. Ctrl + wheel zooms the map; after a click in the map the wheel
-  alone zooms until the pointer leaves it.
-  Reported by |TSA* Shockwave
+- **Mouse wheel over the Contested map.** The wheel scrolls the page again.
+  Ctrl + wheel zooms the map. After a click in the map the wheel alone zooms
+  until the pointer leaves it. Reported by |TSA* Shockwave
 
 ## v5.0.2 - 2026-11-04
 
@@ -628,6 +765,98 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   the button did not lead there before.
 - **Search field after showing the bar:** After hiding and showing the
   info bar the search field could no longer be clicked.
+
+## v4.12.5 - 2026-10-30
+
+> The Translation page has two new languages from Luftwerft: Dutch and
+> Portuguese, for the main installation and the PTU. Attaching an image to
+> the error report now also turns on the consent to send it. And the
+> blueprint list no longer stays empty after a jump from the progress.
+
+### New
+
+- **Two new translations from Luftwerft** — Dutch (Nederlands) and
+  Portuguese (Português), each for the main installation and the PTU,
+  selectable under “Translation”. As the game only loads its own languages,
+  Dutch takes the place of English and Portuguese that of Português
+  (Brasil).
+
+### Fixed
+
+- **Images in the error report** — attaching an image now also turns on the
+  switch “I want to send the report to the developer”. Without consent, the
+  hint now names the switch instead of a tick box. Reported by John-Red
+- **Drop-down lists stay open** — an opened list (such as kind or size in
+  the blueprint list) no longer closes by itself when something in the
+  window refreshes, only on a choice, a click elsewhere or when the window
+  is moved.
+- **Booking into the unit's stock** — after picking an item, the quantity
+  typed in reliably reaches the booking, and every button of the form
+  responds.
+- **Empty blueprint list after the progress** — jumping from the blueprint
+  progress into the list and then picking a kind (say “Gear”) shows its
+  blueprints again instead of an empty list.
+
+## v4.12.4 - 2026-10-29
+
+> If you changed your player name, your blueprints are counted again,
+> including the ones missed since. Blueprints from sessions of another
+> account are now shown as a number on the Detection page. The signature
+> scanner also reads faint values it used to miss.
+
+### Fixed
+
+- **Blueprints after a new player name** — after a change of the player
+  name (handle), VerseKit counts the blueprints again, including the ones
+  already missed. The account is recognised by its fixed ID, a second
+  account stays separate. If blueprints from sessions of another account
+  were not counted, a note on the Detection page says so, along with the
+  way via “All accounts”. Reported by Bushwick4711 (KRT)
+- **Signature scanner reads faint values** — if it finds no certain number
+  next to a faint location symbol (say a 6 that looks like an 8), it tries
+  again with stricter settings instead of showing nothing. Reported by
+  Bushwick4711 (KRT)
+
+## v4.12.3 - 2026-10-28
+
+> The signature scanner reads the number as since 4.12.1. If that finds
+> nothing certain, it also reads it the way it did up to 4.12.0. Where it
+> has read worse since 4.12.1, it recognises the number again this way.
+> Nothing else changes.
+
+### Fixed
+
+- **The signature scanner reads reliably again** — if the scanner finds no
+  certain number, it also reads it the 4.12.0 way. What it already reads
+  with certainty stays as before, small digits on very wide screens
+  included. Newly learned digits are stored separately for each way of
+  reading. Digits learned before 4.12.1 now only count for the 4.12.0 way
+  of reading they came from and no longer get in the way of the new one.
+  Reported by Bushwick4712 (KRT), suggested by ProCodeX
+
+## v4.12.2 - 2026-10-25
+
+> The Profit Basetool changed its sign-in address. With this version
+> VerseKit connects again. You need to sign in once more, the Basetool no
+> longer accepts old sign-ins. Nothing else changes.
+
+### Fixed
+
+- **The Basetool connects again** — VerseKit uses the new sign-in address
+  of the Profit Basetool. After the update, sign in once more on the
+  Basetool page.
+
+## v4.12.1 - 2026-10-25
+
+> The signature scanner now reads small digits correctly on very wide
+> screens too: a "56,000" is no longer read as "16,000". Nothing else
+> changes in this version.
+
+### Fixed
+
+- **The signature scanner reads small digits correctly** — on very wide
+  screens (such as 3840 × 1080) small digits were mixed up, for example
+  56,000 read as 16,000. The values now match. Reported by ProCodeX
 
 ## v4.12.0 - 2026-10-19
 
@@ -3391,16 +3620,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v3.50.3 - 2026-09-17
 
-> **The launcher is gone from the display and the catalogue.** The overlay
-> no longer says "with launcher", and which blueprints exist comes from the
-> current crafting data instead of the old launcher file.
+> **The helper program is gone from the display and the catalogue.** The overlay
+> no longer mentions it, and which blueprints exist comes from the
+> current crafting data instead of the old file of the helper program.
 
 ### Fixed
 
-- **Overlay:** "with launcher" in the header is gone — it had not been true
+- **Overlay:** the mention of the helper program in the header is gone — it had not been true
   for a long time
 - **Catalogue:** new blueprints from a patch come from the current crafting
-  data, no longer from the frozen launcher file
+  data, no longer from the frozen file of the helper program
 
 ## v3.50.2 - 2026-09-17
 
@@ -7222,7 +7451,7 @@ not refreshing.
 
 > **Renaming your LIVE folder to HOTFIX no longer leaves you stranded.** When a
 > patched build appears alongside LIVE, hardly anyone downloads the game again —
-> you rename the folder you already have so the launcher only fetches the
+> you rename the folder you already have so the RSI Launcher only fetches the
 > differences. That made the game folder you had set disappear, and the watcher
 > reported "Star Citizen not found" even though a path was sitting right there
 > in the settings. Now it notices and asks you briefly.
@@ -8017,7 +8246,7 @@ to ask back: does log detection work at all?
   | 462 · **0** read · 0 from them | the catch-up never ran |
   | 462 · 462 read · 380 from them | all fine |
 
-  Only finds **from logs** are counted. What came from the launcher, by hand or
+  Only finds **from logs** are counted. What came from the helper program, by hand or
   from the starter blueprints says nothing about log detection.
 
 
@@ -8563,7 +8792,7 @@ instead of across 24 fields.
   became `sw16br1 “buzzsaw' repeater`, closing levelled, opening not.
 
   Affected are the three `SW16BR…` repeaters. Anyone who had them from another
-  source — log, launcher, import — saw them as permanently **missing**, even
+  source — log, helper program, import — saw them as permanently **missing**, even
   though they were in the inventory.
 
   Found by comparing a hand-kept list against the catalogue, not through a
@@ -10860,7 +11089,7 @@ sections below.
   button press — anyone who had clicked once assumed they were current, while
   they stayed frozen at the moment of that click. Writing is now tied to the
   inventory itself: every find in the game, every catch-up at startup, every
-  confirmation from the launcher and every import carries the files along.
+  confirmation from the helper program and every import carries the files along.
   - **Fixed file names in the folder.** With a date in the name, three new files
     would appear there every day and nobody would know which one is current. The
     save dialog still suggests a name with a date — saving by hand means
@@ -10878,7 +11107,7 @@ sections below.
 - **The file chooser on Linux was the old Tk box** — a column list showing every
   hidden folder, no sorting, no preview. It now opens the desktop's own dialog
   (`kdialog` on KDE, otherwise `zenity`), everywhere a file or folder is chosen:
-  import inventory, save inventory, game folder, launcher folder, own folder and
+  import inventory, save inventory, game folder, folder of the helper program, own folder and
   the setup assistant. If neither is present, the Tk dialog remains as a
   fallback — **nothing depends on it.** Nothing changes on Windows and macOS,
   where Tk already passes through the real system dialog.
@@ -11312,7 +11541,7 @@ sections below.
   there for their blueprint inventory. On first start they are **copied**, the old folder
   stays as a way back.
 - **Import an existing inventory** — from the KRT Profit Basetool, from scmdb.net, from
-  the launcher file or from your own backup. The format is recognised by its content, you
+  the file of the helper program or from your own backup. The format is recognised by its content, you
   just pick a file. Merged, never replaced.
 - **Report a problem with one click.** "Report a problem" opens a pre-filled form; all
   you add is what happened. The report contains no names and no paths with your user name.
@@ -11330,7 +11559,7 @@ sections below.
 
 ### Changed
 
-- **"Paths" moved to the advanced section.** The game folder and the launcher
+- **"Paths" moved to the advanced section.** The game folder and the helper program
   are found automatically; anyone who does need to step in is guided by the
   setup assistant, which explains what the page only shows as fields. A tab
   almost nobody needs was just in the way at the top.
@@ -11406,11 +11635,11 @@ sections below.
   so the grip is necessarily gone with it. Hiding it in time instead failed
   three times: a state that follows from how things are built is more reliable
   than one restored afterwards.
-- **Blueprint names were unreadable without the launcher** — "Golemmc4Orepod"
+- **Blueprint names were unreadable without the helper program** — "Golemmc4Orepod"
   instead of "GOLEM MC-4 Ore Pod". The fallback ran `.title()` on the comparison
   key, which has no word boundaries left; the readable name sat right next to it
-  in the cache the whole time. This affected **every Linux user**, because there
-  is never a launcher there.
+  in the cache the whole time. This affected **every Linux user**, because the helper
+  program never runs there.
 - **Self-update never arrived on Windows.** Clicking "get it" produced a warning
   and then nothing at all — except an orphaned 14 MB file in the program folder,
   once per attempt. Two separate bugs were behind it, either of which would have
@@ -11462,7 +11691,7 @@ sections below.
 
 - **The overlay stayed German when you switched to English.** Changing the
   language gave you an English window and a German status bar:
-  „8 Baupläne · Log ✓ · ohne Launcher · geprüft", plus the waiting message and
+  „8 Baupläne · Log ✓ · ohne Zusatzprogramm · geprüft", plus the waiting message and
   the autostart text. English versions of those strings had existed all along —
   nobody used them, the code kept assembling the German ones. On top of that
   the overlay never heard about a language change at all; only the settings
@@ -11667,7 +11896,7 @@ English client.
   The bundled Python looked for its certificate store under the Ubuntu path
   `/usr/lib/ssl`, which does not exist there — **every** HTTPS connection failed
   silently. No blueprint catalogue, no translation, no update notice; the program
-  started but could load nothing. The launcher now looks for the store in all the usual
+  started but could load nothing. The program now looks for the store in all the usual
   places. On Ubuntu and Debian this never showed up.
 - **Nothing third-party is bundled.** The blueprint catalogue (scmdb), the translation
   and StarStrings are fetched at runtime, from their own addresses, on your machine.
@@ -11710,14 +11939,14 @@ blueprint inventory is kept by the tool itself, and for most blueprints it now s
 
 - **The watcher would have crashed on start under Linux.** The `size_nw_se` mouse cursor on the resize handle only exists on Windows; elsewhere Tk raises an error before the window ever appears.
 - **Window position from someone else's machine.** The remembered position was applied unchecked. On a machine with a different monitor setup the window sat outside every screen — invisible, and on macOS it took the program down with it. It is now checked for plausibility, and the built-in default carries **no position at all**, only a size. Where the overlay belongs is something everyone drags into place themselves.
-- **Endless loop without the launcher.** On start the watcher waited until the launcher file became readable — without a launcher, forever. Under Linux it would never have come up.
-- **The catalogue watch did nothing without the launcher.** "What became newly craftable" depended on a launcher file. Without it, the scmdb data now takes over.
+- **Endless loop without the helper program.** On start the watcher waited until its file became readable — without the helper program, forever. Under Linux it would never have come up.
+- **The catalogue watch did nothing without the helper program.** "What became newly craftable" depended on a file of the helper program. Without it, the scmdb data now takes over.
 - **Sound without `winsound`.** That module does not exist on Linux; tkinter rings the bell there instead.
 
 ### Changed
 
-- **The status line shows your own inventory**, not the launcher's count, and whether it is working with or without the launcher. Reason: the launcher demonstrably counts too low — the P4-AR Rifle is missing from it although the Fabricator lists it as owned. Starter blueprints were never "received" and appear in no log. Its number is a lower bound, not an inventory.
-- **Starting no longer requires the launcher file**, only that Star Citizen itself is found. If it is not, the wizard **asks** — instead of showing a message and quitting, which would have meant editing a JSON file by hand and restarting. Nobody does that.
+- **The status line shows your own inventory**, not the helper program's count, and whether it is working with or without the helper program. Reason: the helper program demonstrably counts too low — the P4-AR Rifle is missing from it although the Fabricator lists it as owned. Starter blueprints were never "received" and appear in no log. Its number is a lower bound, not an inventory.
+- **Starting no longer requires the file of the helper program**, only that Star Citizen itself is found. If it is not, the wizard **asks** — instead of showing a message and quitting, which would have meant editing a JSON file by hand and restarting. Nobody does that.
 - **Brand colour** moved to `#9ce430`; the overlay was still running on the pre-logo-change green.
 
 ### Removed
@@ -11728,7 +11957,7 @@ blueprint inventory is kept by the tool itself, and for most blueprints it now s
 
 ### Added
 
-- **Value fallback via scmdb.net.** When the launcher catalogue does not know an item, the watcher now takes type, size, grade, class and manufacturer from scmdb's crafting data (`versions.json` → `crafting_items-<version>.json`). Blueprints missing from the catalogue finally get a tag too — QuadraCell, FR-66 and the skin variants among them. Plain `urllib` from the standard library, no extra package.
+- **Value fallback via scmdb.net.** When the catalogue of the helper program does not know an item, the watcher now takes type, size, grade, class and manufacturer from scmdb's crafting data (`versions.json` → `crafting_items-<version>.json`). Blueprints missing from the catalogue finally get a tag too — QuadraCell, FR-66 and the skin variants among them. Plain `urllib` from the standard library, no extra package.
   - Cached locally; refetched only when a **new game version** appears (checked every 6 hours).
   - Without a connection the last state applies, without a cache everything behaves as before v1.5.0 — the watcher never aborts over it.
   - Can be switched off with `SC_BP_NO_NET=1`.
@@ -11738,7 +11967,7 @@ blueprint inventory is kept by the tool itself, and for most blueprints it now s
 
 ### Worth knowing
 
-- **Order of precedence:** `bp-overrides.json` → launcher catalogue / game data → scmdb. scmdb only fills gaps and never overrides. Reason: a comparison against 56 messages from the game log produced **55 exact matches** on size, grade and class — but for the *Elsen* cooler scmdb says grade A while both the game log *and* `components.ini` agree on B (the manufacturer is wrong there too). An excellent source, but not an infallible one.
+- **Order of precedence:** `bp-overrides.json` → catalogue of the helper program / game data → scmdb. scmdb only fills gaps and never overrides. Reason: a comparison against 56 messages from the game log produced **55 exact matches** on size, grade and class — but for the *Elsen* cooler scmdb says grade A while both the game log *and* `components.ini` agree on B (the manufacturer is wrong there too). An excellent source, but not an infallible one.
 - **The scmdb data is deliberately NOT bundled.** It is fetched on the user's machine directly from scmdb.net, the way a browser would. scmdb is licensed CC BY-NC-ND 4.0; shipping a copy would be redistribution and would conflict with that licence as well as this project's GPL. Requests carry an honest identifier so the operator can see who is asking.
 - **Armour and FPS weapons still get no tag.** scmdb assigns `size` and `grade` to every item, helmets included — taken at face value, every piece of armour would carry an invented "Grade A, Size 1". Class and grade are therefore only used when scmdb lists a `componentClass` (actual ship components); ship weapons get size only.
 
@@ -11751,7 +11980,7 @@ blueprint inventory is kept by the tool itself, and for most blueprints it now s
 
 ### Fixed
 
-- **Hard-coded local path removed.** `OVERRIDES_FILE` pointed at a directory that only exists on the developer's machine — for everybody else it led nowhere, and opening the source would have made the path public. The optional overrides file is now looked for in the user's own folder; a different location can be given via `SC_BP_OVERRIDES`. With neither, the launcher catalogue applies unchanged.
+- **Hard-coded local path removed.** `OVERRIDES_FILE` pointed at a directory that only exists on the developer's machine — for everybody else it led nowhere, and opening the source would have made the path public. The optional overrides file is now looked for in the user's own folder; a different location can be given via `SC_BP_OVERRIDES`. With neither, the catalogue of the helper program applies unchanged.
 
 ## v1.3.0 - 2026-07-31
 
@@ -11776,9 +12005,9 @@ blueprint inventory is kept by the tool itself, and for most blueprints it now s
 
 ### Added
 
-- **Instant reporting from `Game.log`:** the watcher now reads Star Citizen's log itself and shows a new blueprint **within seconds** instead of waiting for the launcher's export. Background: the export file is rewritten only every few minutes — measured on 2026-07-30, **2.5 minutes** passed between the unlock in game (21:23:49) and the export (21:26:24). Reading the log closes exactly that gap.
-- **Two-stage display:** blueprints freshly read from the log appear as 🟡 **provisional**; once the launcher catches up, the line is confirmed to 🟢 and refreshed with its data. The launcher file remains the authoritative source — type, size, grade and class still come from its catalogue.
-- **Name matching between log and launcher:** ship components appear in the log with a suffix (`7CA 'Nargun' (Civ/3/A)`) and without it in the launcher — the suffix is stripped (and doubles as a fallback for the `M/A/1` tag if an item is not yet in the catalogue after a patch). Genuine name brackets such as `(30 cap)` or `Singe Cannon (S2)` are left alone. Where translations differ (seen: `(12 Schuss)` in the log versus `(12 cap)` in the launcher), a fallback match without the bracket applies — but only when it is unambiguous. Verified against all 127 stored log backups: 148 blueprint messages, 147 exact matches, the remaining one via the fallback.
+- **Instant reporting from `Game.log`:** the watcher now reads Star Citizen's log itself and shows a new blueprint **within seconds** instead of waiting for the export of the helper program. Background: the export file is rewritten only every few minutes — measured on 2026-07-30, **2.5 minutes** passed between the unlock in game (21:23:49) and the export (21:26:24). Reading the log closes exactly that gap.
+- **Two-stage display:** blueprints freshly read from the log appear as 🟡 **provisional**; once the helper program catches up, the line is confirmed to 🟢 and refreshed with its data. The file of the helper program remains the authoritative source — type, size, grade and class still come from its catalogue.
+- **Name matching between log and helper program:** ship components appear in the log with a suffix (`7CA 'Nargun' (Civ/3/A)`) and without it in the helper program — the suffix is stripped (and doubles as a fallback for the `M/A/1` tag if an item is not yet in the catalogue after a patch). Genuine name brackets such as `(30 cap)` or `Singe Cannon (S2)` are left alone. Where translations differ (seen: `(12 Schuss)` in the log versus `(12 cap)` in the helper program), a fallback match without the bracket applies — but only when it is unambiguous. Verified against all 127 stored log backups: 148 blueprint messages, 147 exact matches, the remaining one via the fallback.
 - **Automatic log discovery** and detection of a game restart (rotated log).
 - **Status line** now also shows whether the log is being read.
 
@@ -11797,7 +12026,7 @@ blueprint inventory is kept by the tool itself, and for most blueprints it now s
 
 ### Added
 
-- **Size / grade / class per blueprint** as a compact `class/grade/size` tag, e.g. `M/A/1` (Military · Grade A · Size 1). Letters: **M** Military, **S** Stealth, **I** Industrial, **C** Civilian, **K** Competition. Ship weapons only have a size → `–/–/2`; FPS weapons and armour have none of it → no tag. Data from the launcher catalogue plus manual corrections from `bp-overrides.json` (which take precedence).
+- **Size / grade / class per blueprint** as a compact `class/grade/size` tag, e.g. `M/A/1` (Military · Grade A · Size 1). Letters: **M** Military, **S** Stealth, **I** Industrial, **C** Civilian, **K** Competition. Ship weapons only have a size → `–/–/2`; FPS weapons and armour have none of it → no tag. Data from the catalogue of the helper program plus manual corrections from `bp-overrides.json` (which take precedence).
 - **The window remembers position and size:** on moving, resizing and closing, the geometry is saved and restored on the next start.
 
 ### Changed

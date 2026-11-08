@@ -27,11 +27,14 @@
 //! The form stands above the list, not in it: the list holds fixed row
 //! heights and draws only what is in view.
 
+use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver};
 
 use egui::{RichText, Ui};
-use versekit_core::basetool::error::error_text;
+use versekit_core::basetool::connection::new_idempotency_key;
+use versekit_core::basetool::error::{Action, error_text};
+use versekit_core::basetool::pacing;
 use versekit_core::basetool::orgunits::{OrgUnit, label as unit_label};
 use versekit_core::basetool::scopes::SETTING_STOCK;
 use versekit_core::basetool::stock_split::{
@@ -81,6 +84,75 @@ struct Sending {
     answer: Receiver<Result<(), Failure>>,
     /// Sent because a booking asked for it: a refusal leaves the booking personal.
     booked: bool,
+    op: Value,
+    /// The `Idempotency-Key` it went out under.
+    key: String,
+    /// It is a [`Later`] going out again.
+    again: bool,
+}
+
+/// A share or a taking back that did not get through (no answer, a full budget at the Basetool). It goes out again
+/// by itself, the same op under the same `Idempotency-Key`: should the first one have arrived after all, the Basetool
+/// only answers again and nothing is given twice. Kept in the sync state, so a restart does not lose it.
+#[derive(Clone, Debug, PartialEq)]
+struct Later {
+    kind: Kind,
+    op: Value,
+    key: String,
+    /// Not before this time (time of the sync).
+    due: f64,
+    /// When it failed first.
+    since: f64,
+    booked: bool,
+}
+
+/// The key of the [`Later`] list in the sync state.
+const LATER_STATE: &str = "share_later";
+/// The pause before the next attempt when the Basetool named none (seconds).
+const LATER_PAUSE: f64 = 60.0;
+/// How long it is tried: less than the 24 hours the Basetool keeps the answer to a key (seconds).
+const LATER_FOR: f64 = 23.0 * 3600.0;
+
+impl Later {
+    fn to_value(&self) -> Value {
+        Value::Object(vec![
+            ("kind".into(), Value::str(self.kind.op())),
+            ("op".into(), self.op.clone()),
+            ("key".into(), Value::str(&self.key)),
+            ("due".into(), Value::Float(self.due)),
+            ("since".into(), Value::Float(self.since)),
+            ("booked".into(), Value::Bool(self.booked)),
+        ])
+    }
+
+    fn from_value(value: &Value) -> Option<Later> {
+        let number = |key: &str| match value.get(key) {
+            Some(Value::Float(x)) => Some(*x),
+            Some(Value::Int(n)) => n.parse().ok(),
+            _ => None,
+        };
+        let kind = match value.get("kind").and_then(Value::as_str)? {
+            "share" => Kind::Share,
+            "unshare" => Kind::Unshare,
+            _ => return None,
+        };
+        let key = value.get("key").and_then(Value::as_str).filter(|k| !k.is_empty())?.to_string();
+        Some(Later {
+            kind,
+            op: value.get("op").filter(|op| matches!(op, Value::Object(_)))?.clone(),
+            key,
+            due: number("due")?,
+            since: number("since")?,
+            booked: matches!(value.get("booked"), Some(Value::Bool(true))),
+        })
+    }
+
+    fn load(state: &versekit_core::jsonio::Map) -> Vec<Later> {
+        match state.iter().find(|(k, _)| k == LATER_STATE).map(|(_, v)| v) {
+            Some(Value::Array(items)) => items.iter().filter_map(Later::from_value).collect(),
+            _ => Vec::new(),
+        }
+    }
 }
 
 /// A booking that waits for its lot at the Basetool to give a part of it into a unit.
@@ -212,6 +284,12 @@ pub struct Split {
     said: Option<String>,
     /// The rows booked or changed lately that the Basetool has no lot for yet.
     fresh: Vec<Fresh>,
+    /// What goes out again by itself, oldest first.
+    later: Vec<Later>,
+    /// Whether `later` was taken from the sync state.
+    later_loaded: bool,
+    /// Until when the sync waits for `Retry-After`, as the last pass left it.
+    send_wait: Option<f64>,
     /// How often a booking asked the sync for a pass (tests).
     #[cfg(test)]
     asked: usize,
@@ -253,7 +331,13 @@ impl Split {
             self.fresh.clear();
         } else if self.seen != Some(generation) || self.snapshot.is_none() {
             self.seen = Some(generation);
-            self.snapshot = link.sync.state().and_then(|state| stock_split::snapshot(&state));
+            let state = link.sync.state();
+            self.snapshot = state.as_ref().and_then(stock_split::snapshot);
+            self.send_wait = state.as_ref().and_then(|state| pacing::wait_until(state, link.sync.now()));
+            if let Some(state) = state.as_ref().filter(|_| !self.later_loaded) {
+                self.later = Later::load(state);
+                self.later_loaded = true;
+            }
         }
         let (_, list) = link.units.get();
         self.units_fetched = list.is_some();
@@ -361,12 +445,14 @@ impl Split {
 
     /// The booking waiting for its lot: when the Basetool has the lot and it holds the part, give it into the unit.
     fn fire_wish(&mut self, ctx: &egui::Context, link: &Link, rows: &[Row]) {
-        if self.sending.is_some() {
+        if self.sending.is_some() || self.fire_later(ctx, link) {
             return;
         }
         let now = link.sync.now();
         let before = self.wishes.len();
-        self.wishes.retain(|wish| now - wish.since <= WISH_WAIT_SECONDS);
+        // While the sync waits for `Retry-After` the lot cannot come: the booking waits that much longer.
+        let waits_until = self.send_wait.unwrap_or(0.0);
+        self.wishes.retain(|wish| now - wish.since <= WISH_WAIT_SECONDS || now < waits_until + WISH_WAIT_SECONDS);
         if self.wishes.len() < before {
             self.said = Some(t("s_ml_fuer_spaeter"));
         }
@@ -391,10 +477,38 @@ impl Split {
         if let Some((at, op)) = ready {
             self.wishes.remove(at);
             // A send that cannot start leaves the booking personal: the page says it can be given by hand later.
-            if !self.dispatch(ctx, link, Kind::Share, op, true) {
+            if !self.dispatch(ctx, link, Kind::Share, op, true, None) {
                 self.said = Some(t("s_ml_fuer_spaeter"));
             }
         }
+    }
+
+    /// Sends the oldest [`Later`] that is due again; gives up one that was tried too long. True when one went out.
+    fn fire_later(&mut self, ctx: &egui::Context, link: &Link) -> bool {
+        let now = link.sync.now();
+        let before = self.later.len();
+        self.later.retain(|later| now - later.since <= LATER_FOR);
+        if self.later.len() < before {
+            self.said = Some(t("s_ml_nachholen_aufgegeben"));
+            self.save_later(link);
+        }
+        if self.send_wait.is_some_and(|until| now < until) {
+            return false;
+        }
+        let Some(later) = self.later.iter().find(|later| now >= later.due).cloned() else { return false };
+        self.dispatch(ctx, link, later.kind, later.op, later.booked, Some(later.key))
+    }
+
+    /// The [`Later`] list into the sync state.
+    fn save_later(&self, link: &Link) {
+        let list = Value::Array(self.later.iter().map(Later::to_value).collect());
+        link.sync.decide(std::sync::Arc::new(move |state: &mut versekit_core::jsonio::Map| {
+            if matches!(&list, Value::Array(items) if items.is_empty()) {
+                state.retain(|(k, _)| k != LATER_STATE);
+            } else {
+                versekit_core::jsonio::map_set(state, LATER_STATE, list.clone());
+            }
+        }));
     }
 
     fn lot_of(&self, row: &Row) -> Option<&Value> {
@@ -469,6 +583,29 @@ impl Split {
             && self.fresh.iter().any(|fresh| fresh.is(row))
             && self.shares.get(&(row.store, row.index)).is_some_and(|share| share.lot.is_none())
             && self.gap(row).is_none()
+    }
+
+    /// Why a row with a place has no button for the unit's storage, in words: nothing where it has one, waits for its
+    /// lot, carries a mark of its own (no place, unknown place or part, refused), lies wholly in a unit already, or
+    /// the view shows only what is shared.
+    pub fn share_missing(&self, row: &Row) -> Option<String> {
+        if !self.available()
+            || self.scope == Scope::Shared
+            || versekit_core::text::py_strip(&row.place).is_empty()
+            || self.pending(row)
+            || self.gap(row).is_some()
+            || self.actions(row).contains(&Kind::Share)
+        {
+            return None;
+        }
+        let key = match self.lot_of(row) {
+            None => "s_ml_w_kein_posten",
+            Some(lot) if !matches!(lot.get("split"), Some(Value::Object(_))) => "s_ml_w_keine_aufteilung",
+            Some(lot) if split_of(lot).0 <= 0.0 => return None,
+            Some(_) if !self.units_fetched => "s_ml_w_einheiten_laden",
+            Some(_) => "s_ml_w_keine_einheit",
+        };
+        Some(t(key))
     }
 
     /// Why the pass leaves this row out of the Basetool, once the stock was synced.
@@ -610,11 +747,33 @@ impl Split {
                 return Some(t("s_sl_r_abgebrochen"));
             }
         };
-        let (kind, booked) = (sending.kind, sending.booked);
+        let (kind, booked, again) = (sending.kind, sending.booked, sending.again);
+        let (op, key) = (sending.op.clone(), sending.key.clone());
         self.sending = None;
         // The new split arrives with the feed of the next pass.
         if let Some(link) = &self.link {
             link.sync.request_now();
+        }
+        // No answer or a full budget: the posting stays, the same op goes out again later under the same key.
+        if let Err(Failure::Api(error)) = &outcome
+            && error.action() == Action::Retry
+            && let Some(link) = self.link.clone()
+        {
+            let now = link.sync.now();
+            let since = self.later.iter().find(|l| l.key == key).map_or(now, |l| l.since);
+            let due = now + error.retry_after.map_or(LATER_PAUSE, |s| s as f64);
+            self.later.retain(|l| l.key != key);
+            self.later.push(Later { kind, op, key, due, since, booked });
+            self.save_later(&link);
+            self.form = None;
+            if again {
+                return None;
+            }
+            return Some(t(if kind == Kind::Share { "s_ml_teilen_nachholen" } else { "s_ml_zurueck_nachholen" }));
+        }
+        if again && let Some(link) = self.link.clone() {
+            self.later.retain(|l| l.key != key);
+            self.save_later(&link);
         }
         let why = match outcome {
             Ok(()) => {
@@ -705,7 +864,7 @@ impl Split {
             Kind::Share => share_op(&lot, &unit, value),
             Kind::Unshare => unshare_op(&lot, &unit, value),
         };
-        if self.dispatch(ctx, &link, kind, op, false)
+        if self.dispatch(ctx, &link, kind, op, false, None)
             && let Some(form) = self.form.as_mut()
         {
             form.error = None;
@@ -713,16 +872,26 @@ impl Split {
     }
 
     /// Sends an op in a thread of its own; `booked`: it belongs to a booking that asked for it, so a refusal
-    /// says the booking stays personal. False when no thread could be started.
-    fn dispatch(&mut self, ctx: &egui::Context, link: &Link, kind: Kind, op: Value, booked: bool) -> bool {
+    /// says the booking stays personal. `again`: the key of a [`Later`] that goes out once more. False when no thread
+    /// could be started.
+    fn dispatch(
+        &mut self,
+        ctx: &egui::Context,
+        link: &Link,
+        kind: Kind,
+        op: Value,
+        booked: bool,
+        again: Option<String>,
+    ) -> bool {
         let (send, answer) = mpsc::channel();
-        let (ctx, link) = (ctx.clone(), link.clone());
-        let started = std::thread::Builder::new().name("teilen".into()).spawn(move || {
-            let _ = send.send(stock_split::send(&link.sync, &op));
+        let key = again.clone().unwrap_or_else(new_idempotency_key);
+        let (ctx, link, sent, sent_key) = (ctx.clone(), link.clone(), op.clone(), key.clone());
+        let started = std::thread::Builder::new().name("teilen".into()).spawn_with_language(move || {
+            let _ = send.send(stock_split::send_keyed(&link.sync, &sent, &sent_key));
             ctx.request_repaint();
         });
         if started.is_ok() {
-            self.sending = Some(Sending { kind, answer, booked });
+            self.sending = Some(Sending { kind, answer, booked, op, key, again: again.is_some() });
         } else {
             versekit_core::errors::record("my_stock_page.teilen", &"no thread");
         }
@@ -785,7 +954,7 @@ impl Split {
                     );
                 });
                 if let Some(error) = &form.error {
-                    ui.label(RichText::new(error).color(color(scheme.red)));
+                    ui.label(RichText::new(error).color(color(scheme.red_text())));
                 }
                 ui.add_space(6.0);
                 ui.horizontal_wrapped(|row| {
@@ -840,6 +1009,20 @@ impl Split {
     pub(crate) fn age_wish(&mut self, seconds: f64) {
         for wish in &mut self.wishes {
             wish.since -= seconds;
+        }
+    }
+
+    /// Test seam: how many shares wait to go out again.
+    #[cfg(test)]
+    pub(crate) fn later_waiting(&self) -> usize {
+        self.later.len()
+    }
+
+    /// Test seam: the shares that wait are due `seconds` earlier.
+    #[cfg(test)]
+    pub(crate) fn age_later(&mut self, seconds: f64) {
+        for later in &mut self.later {
+            later.due -= seconds;
         }
     }
 
@@ -995,7 +1178,7 @@ mod tests {
     #[test]
     fn a_row_knows_its_shared_part_and_shares_and_takes_back_through_the_form() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("teilen");
         let row = b.row();
         assert!(b.state.split.available());
@@ -1043,7 +1226,7 @@ mod tests {
     #[test]
     fn a_wrong_amount_sends_nothing_and_a_refusal_is_said_with_its_reason() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("grund");
         let row = b.row();
         let sent = b.double.ops_sent(ROUTE_STOCK).len();
@@ -1067,7 +1250,7 @@ mod tests {
     #[test]
     fn a_form_closes_when_its_row_is_gone_and_the_view_goes_back_to_all_without_the_connection() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("zu");
         let row = b.row();
         b.state.split.open(&row, Kind::Share);
@@ -1134,7 +1317,7 @@ mod tests {
     #[test]
     fn a_booking_for_a_unit_is_made_and_goes_into_the_unit_as_soon_as_the_basetool_has_it() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("fuer");
         assert!(b.state.split.offered());
         // The whole booked amount: the booking is there at once, the unit gets it with the pass that fetches the lot.
@@ -1166,23 +1349,24 @@ mod tests {
     fn a_send_that_ended_without_an_answer_says_so_in_the_words_of_the_language_file() {
         let _language = crate::language_lock();
         for choice in [Choice::De, Choice::En] {
-            language::set_language(choice);
+            language::set_thread_language(choice);
             let mut split = Split::default();
             let (send, answer) = mpsc::channel();
             drop(send);
-            split.sending = Some(Sending { kind: Kind::Share, answer, booked: false });
+            split.sending =
+                Some(Sending { kind: Kind::Share, answer, booked: false, op: Value::Null, key: "k".into(), again: false });
             let said = split.poll().expect("an answer");
             assert_eq!(said, t("s_sl_r_abgebrochen"));
             assert!(!said.contains("Disconnected") && !said.contains("{0}"), "{said}");
             assert!(split.sending.is_none());
         }
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
     }
 
     #[test]
     fn two_bookings_for_a_unit_before_the_first_pass_both_go_into_the_unit() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("fuer-zwei");
         b.state.split.set_for("u1", "");
         b.state.book_raw("Iron", "3", "420", "Area18");
@@ -1205,7 +1389,7 @@ mod tests {
     #[test]
     fn a_wrong_amount_for_the_unit_books_nothing_and_a_refusal_leaves_the_booking_personal_with_its_reason() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("fuer-falsch");
         b.state.split.set_for("u1", "9");
         b.state.book_raw("Iron", "2", "420", "Area18");
@@ -1300,7 +1484,7 @@ mod tests {
     #[test]
     fn a_booking_that_the_basetool_never_gets_says_so_after_the_waiting_time() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("fuer-spaet");
         b.state.split.set_for("u1", "");
         b.state.book_raw("Iron", "2", "420", "Area18");
@@ -1352,7 +1536,7 @@ mod tests {
     fn with_the_sync_on_a_booking_needs_a_place_and_the_form_says_so() {
         use versekit_core::language::{Lang, with_language};
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("ort-pflicht");
         b.ctx.all_styles_mut(|style| style.animation_time = 0.0);
         b.state.open_forms();
@@ -1402,7 +1586,7 @@ mod tests {
     #[test]
     fn the_refinery_booking_needs_a_place_with_the_sync_on() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("raffinerie-ort");
         b.state.book_refinery_lines("Iron 295 188", "");
         assert_eq!(b.raw().len(), 1, "nothing booked without a place");
@@ -1414,9 +1598,34 @@ mod tests {
     }
 
     #[test]
+    fn with_the_sync_on_the_refinery_button_leads_to_an_empty_place_every_time_and_is_never_grey() {
+        let _language = crate::language_lock();
+        language::set_thread_language(Choice::De);
+        let mut b = bench("raffinerie-fuehren");
+        b.state.open_forms();
+        assert!(b.state.split.place_required());
+        let before = b.raw().len();
+        for _ in 0..2 {
+            b.state.press_refinery_with("Iron 295 188", "");
+            assert!(b.state.refinery_leads_to_place(), "the press leads to the field");
+            assert_eq!(b.raw().len(), before, "nothing is booked without a place");
+            assert_eq!(b.state.refinery_note_key(), Some("s_rf_ort_leer_pflicht"));
+        }
+        let seen = b.texts();
+        assert!(seen.iter().any(|s| s == &t("s_rf_ort_leer_pflicht").to_lowercase()), "{seen:?}");
+        let label = versekit_core::language::tf("s_rf_knopf", &[("0", versekit_core::language::Arg::Int(1))]);
+        let buttons = b.buttons();
+        assert_eq!(buttons.iter().find(|(l, _)| l == &label).map(|(_, grey)| *grey), Some(false), "{buttons:?}");
+        // With a place the press books and the place is kept for the next start.
+        b.state.press_refinery_with("Iron 295 188", "Area18");
+        assert_eq!(b.raw().len(), before + 1);
+        assert!(!b.state.refinery_leads_to_place());
+    }
+
+    #[test]
     fn a_booking_or_a_change_asks_for_a_pass_at_once_and_the_row_waits_until_the_basetool_has_its_lot() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("abgleich");
         let asked = b.state.split.passes_asked();
         b.state.book_raw("Iron", "3", "420", "Area18");
@@ -1453,7 +1662,7 @@ mod tests {
     #[test]
     fn a_row_gives_up_waiting_after_a_while_and_nothing_waits_without_the_sync() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("abgleich-spaet");
         b.state.book_raw("Iron", "3", "420", "Area18");
         b.frame();
@@ -1474,7 +1683,7 @@ mod tests {
     fn rows_the_basetool_does_not_get_are_counted_marked_and_filtered_by_a_click() {
         use versekit_core::language::{Lang, with_language};
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("luecken");
         // One entry booked while the sync was off has no place; the others come with it on.
         assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(false)));
@@ -1540,7 +1749,7 @@ mod tests {
     #[test]
     fn a_row_edited_to_a_place_leaves_the_list_of_left_out_rows_at_once() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("luecke-bearbeitet");
         assert!(b.wire.sync.set_setting(SETTING_STOCK, Value::Bool(false)));
         b.frame();
@@ -1561,7 +1770,7 @@ mod tests {
     #[test]
     fn a_row_the_basetool_refuses_is_counted_marked_and_says_what_the_basetool_answered() {
         let _language = crate::language_lock();
-        language::set_language(Choice::De);
+        language::set_thread_language(Choice::De);
         let mut b = bench("abgelehnt");
         b.double.refuse_material("Iron", "AMBIGUOUS");
         b.state.book_raw("Iron", "3", "420", "Area18");
@@ -1578,12 +1787,160 @@ mod tests {
         );
         assert_eq!(b.state.split.gap(&b.row_of("Titanium", "Area18")), None, "the other rows are in");
         assert!(has_text(&b.texts(), "s_ml_b_abgelehnt"));
-        // The Basetool takes it later: the mark goes and the button works.
+        // The Basetool takes it later: the same change goes out again with the sync button (or a day later), the
+        // mark goes and the button works.
         b.double.heal();
+        b.wire.sync.release_held(&[]);
         b.settle();
         let row = b.row_of("Iron", "Area18");
         assert_eq!(b.state.split.gap(&row), None);
         assert_eq!(b.state.split.actions(&row), vec![Kind::Share]);
+    }
+
+    /// An item of the trade stock with a place, as "Mirage" (shield S1): after the pass the button is there.
+    fn mirage(b: &mut Bench, place: &str) {
+        let row = Value::Object(vec![
+            ("ware".into(), Value::str("Mirage")),
+            ("menge".into(), Value::Float(1.0)),
+            ("ort".into(), Value::str(place)),
+            ("gestohlen".into(), Value::Bool(false)),
+            ("stueck".into(), Value::Bool(true)),
+        ]);
+        assert!(stock::save(&b.wire.sync.paths().app_file(stock::TRADE_FILE), &[row], "test"));
+        b.state.follow_files();
+        b.settle();
+        b.settle();
+    }
+
+    #[test]
+    fn an_item_with_a_place_gets_the_button_for_the_unit_storage() {
+        let _language = crate::language_lock();
+        language::set_thread_language(Choice::De);
+        let mut b = bench("item-teilen");
+        b.double.add_item("bt-mirage", "Mirage", "SHLD_GODI_S01_Mirage_SCItem");
+        mirage(&mut b, "Area18");
+        let row = b.row_of("Mirage", "Area18");
+        assert_eq!(b.state.split.gap(&row), None);
+        assert!(b.double.lots().iter().any(|lot| lot.bt == "bt-mirage"), "{:?}", b.double.lots());
+        assert_eq!(b.state.split.actions(&row), vec![Kind::Share]);
+        assert_eq!(b.state.split.share_missing(&row), None);
+    }
+
+    #[test]
+    fn a_row_with_a_place_but_without_the_button_for_the_unit_storage_says_why() {
+        let _language = crate::language_lock();
+        language::set_thread_language(Choice::De);
+        let mut b = bench("item-ohne-knopf");
+        b.double.add_item("bt-mirage", "Mirage", "SHLD_GODI_S01_Mirage_SCItem");
+        // The send waits for the confirmation in the browser: the Basetool never gets the lot.
+        b.double.hold_next(ROUTE_STOCK);
+        mirage(&mut b, "Area18");
+        let row = b.row_of("Mirage", "Area18");
+        assert!(b.double.lots().iter().all(|lot| lot.bt != "bt-mirage"), "{:?}", b.double.lots());
+        assert_eq!((b.state.split.gap(&row), b.state.split.pending(&row)), (None, false));
+        assert!(b.state.split.actions(&row).is_empty());
+        assert_eq!(b.state.split.share_missing(&row), Some(t("s_ml_w_kein_posten")));
+        b.state.show_items_tab(true);
+        let buttons = b.buttons();
+        assert!(buttons.contains(&(t("s_ml_w_kein_posten"), true)), "the greyed button says why: {buttons:?}");
+        b.state.show_items_tab(false);
+        // A lot over there, but no unit to give it into.
+        let titanium = b.row_of("Titanium", "Area18");
+        assert_eq!(b.state.split.share_missing(&titanium), None);
+        b.double.set_units(&[]);
+        b.settle();
+        let titanium = b.row_of("Titanium", "Area18");
+        assert!(b.state.split.actions(&titanium).is_empty());
+        assert_eq!(b.state.split.share_missing(&titanium), Some(t("s_ml_w_keine_einheit")));
+        // The view of the shared part has no button to give and asks for none.
+        b.state.split.set_scope_index(2);
+        assert_eq!(b.state.split.share_missing(&b.row_of("Mirage", "Area18")), None);
+    }
+
+    impl Bench {
+        /// The next thing the page or the send says, whichever takes it.
+        fn next_said(&mut self) -> Option<String> {
+            for _ in 0..500 {
+                if let Some(text) = self.state.take_message_text().or_else(|| self.state.split.poll()) {
+                    return Some(text);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            None
+        }
+    }
+
+    #[test]
+    fn a_share_whose_answer_got_lost_stays_with_you_goes_out_again_by_itself_and_is_not_given_twice() {
+        let _language = crate::language_lock();
+        language::set_thread_language(Choice::De);
+        let mut b = bench("teilen-verloren");
+        let row = b.row();
+        b.double.lose_next_answer(ROUTE_STOCK);
+        b.state.split.open(&row, Kind::Share);
+        let ctx = b.ctx.clone();
+        b.state.split.type_and_send(&ctx, "u1", "4");
+        assert_eq!(b.state.split.wait().expect("answer"), t("s_ml_teilen_nachholen"));
+        assert!(!b.state.split.form_is_open(), "nothing is left to do in the form");
+        assert_eq!(b.double.lots()[0].pools, vec![("u1".to_string(), 4.0)], "it arrived, only the answer was lost");
+        assert_eq!(b.state.split.later_waiting(), 1);
+        // Not before its time.
+        let posts = b.double.ops_sent(ROUTE_STOCK).len();
+        b.frame();
+        assert_eq!((b.double.ops_sent(ROUTE_STOCK).len(), b.state.split.later_waiting()), (posts, 1));
+        // Then the same op under the same key: the Basetool answers again, nothing is given twice.
+        b.state.split.age_later(LATER_PAUSE + 1.0);
+        b.frame();
+        assert_eq!(b.next_said(), Some(t("s_ml_geteilt_ok")));
+        assert_eq!(b.double.lots()[0].pools, vec![("u1".to_string(), 4.0)], "given once");
+        assert!(b.double.seen().iter().any(|line| line.ends_with("(replay)")), "{:?}", b.double.seen());
+        assert_eq!(b.state.split.later_waiting(), 0);
+    }
+
+    #[test]
+    fn a_booking_for_a_unit_with_a_full_budget_stays_booked_and_is_shared_after_retry_after_also_after_a_restart() {
+        let _language = crate::language_lock();
+        language::set_thread_language(Choice::De);
+        let mut b = bench("fuer-budget");
+        b.state.split.set_for("u1", "");
+        b.state.book_raw("Iron", "3", "420", "Area18");
+        b.wire.sync.pass_now().expect("the lot is made");
+        b.double.fail(ROUTE_STOCK, 503, "EXCHANGE_BUDGET_EXHAUSTED", Some(1), 1);
+        assert_eq!(b.until_shared(2), Some(t("s_ml_teilen_nachholen")));
+        assert_eq!(b.raw().len(), 2, "the booking stays with you");
+        assert!(b.iron_in_the_unit("Area18").is_empty());
+        assert_eq!(b.state.split.later_waiting(), 1);
+        // The page starts anew: what waits comes from the sync state.
+        b.state.connect(Some(Link::from_wire(&b.wire)));
+        b.frame();
+        assert_eq!(b.state.split.later_waiting(), 1);
+        std::thread::sleep(std::time::Duration::from_millis(1200));
+        assert_eq!(b.until_shared(3), Some(t("s_ml_geteilt_ok")));
+        assert_eq!(b.iron_in_the_unit("Area18"), vec![("u1".to_string(), 3.0)]);
+        assert_eq!(b.raw().len(), 2, "booked once, shared once");
+        assert_eq!(b.state.split.later_waiting(), 0);
+        let state = b.wire.sync.state().expect("state");
+        assert!(!state.iter().any(|(k, _)| k == LATER_STATE), "nothing is left in the state");
+    }
+
+    #[test]
+    fn a_share_that_never_gets_through_is_given_up_after_a_day_and_says_so() {
+        let _language = crate::language_lock();
+        language::set_thread_language(Choice::De);
+        let mut b = bench("teilen-aufgegeben");
+        let row = b.row();
+        b.double.fail(ROUTE_STOCK, 503, "SERVICE_UNAVAILABLE", None, 1);
+        b.state.split.open(&row, Kind::Share);
+        let ctx = b.ctx.clone();
+        b.state.split.type_and_send(&ctx, "u1", "4");
+        assert_eq!(b.state.split.wait().expect("answer"), t("s_ml_teilen_nachholen"));
+        for later in &mut b.state.split.later {
+            later.since -= LATER_FOR + 1.0;
+        }
+        b.frame();
+        assert_eq!(b.next_said(), Some(t("s_ml_nachholen_aufgegeben")));
+        assert_eq!(b.state.split.later_waiting(), 0);
+        assert!(b.double.lots()[0].pools.is_empty());
     }
 
     #[test]

@@ -97,7 +97,7 @@ impl ChannelQuestion {
             self.started = true;
             let (sender, receiver) = mpsc::channel();
             let copy = paths.working_copy();
-            std::thread::spawn(move || {
+            versekit_core::language::spawn_with_language(move || {
                 let look = copy.channel_mismatch().map(|(entered, _used, channels)| Mismatch { entered, channels });
                 let _ = sender.send(look);
             });
@@ -310,7 +310,7 @@ mod tests {
     fn setup() -> std::sync::MutexGuard<'static, ()> {
         let guard = crate::language_lock();
         theme::set_current("original");
-        language::set_language(Language::De);
+        language::set_thread_language(Language::De);
         guard
     }
 

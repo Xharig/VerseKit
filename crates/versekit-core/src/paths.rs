@@ -62,6 +62,8 @@ pub const TEST_CHANNELS: [&str; 3] = ["PTU", "EPTU", "TECH-PREVIEW"];
 /// The channels whose translation can follow that of LIVE ("Wie LIVE"): the test channels and HOTFIX. HOTFIX is a
 /// build of LIVE and no test channel: it is not confidential and takes the LIVE version of a source.
 pub const FOLLOWS_LIVE: [&str; 4] = ["HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
+/// The test channels whose content is under the non-disclosure agreement of the Evocati besides the terms of service.
+pub const UNDER_AGREEMENT: [&str; 1] = ["EPTU"];
 
 /// ⚠⚠ Only these two share a blueprint collection. The test environments
 /// run on separate save data; reading them too would claim a collection

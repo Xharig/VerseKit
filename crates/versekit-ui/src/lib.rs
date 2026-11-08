@@ -53,7 +53,6 @@ pub mod first_backup;
 pub mod fleet_analysis_view;
 pub mod fonts;
 pub mod gallery_page;
-pub mod game_picture;
 pub mod game_texts_page;
 pub mod grafik_page;
 pub mod handle_page;
@@ -104,6 +103,7 @@ pub mod update_page;
 pub mod viewport_zoom;
 pub mod widgets;
 pub mod window_look;
+pub mod workbench_ui;
 
 use egui::{Color32, CornerRadius, Stroke, Theme, Visuals};
 use versekit_core::font_size;
@@ -279,7 +279,7 @@ pub fn visuals(scheme: &Scheme) -> Visuals {
     v.weak_text_color = Some(color(scheme.sub));
     v.hyperlink_color = color(scheme.accent);
     v.warn_fg_color = color(scheme.yellow);
-    v.error_fg_color = color(scheme.red);
+    v.error_fg_color = color(scheme.red_text());
     v.selection.bg_fill = color(scheme.accent_dark);
     // Also the border of a field while typing in it: 2 points.
     v.selection.stroke = Stroke::new(2.0, color(scheme.accent));
