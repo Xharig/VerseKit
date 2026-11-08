@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.6 - 2026-11-08
+
+> Das Linux-AppImage startet jetzt auch auf schlanken Systemen ohne die
+> Tastatur-Bibliotheken.
+
+### Behoben
+
+- **Linux: AppImage startete nicht ohne libxkbcommon.** Fehlten auf dem
+  System die Tastatur-Bibliotheken, brach VerseKit gleich beim Start ab.
+  Das AppImage bringt sie jetzt selbst mit, und jedes Release wird vor dem
+  Veröffentlichen ohne sie gestartet.
+
 ## v5.2.5 - 2026-11-08
 
 > Die Ausstattung im Hangar zeigt Gimbals mit ihren Waffen, getauschte

@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 #
 # Starts the program inside the AppImage with all arguments. The program checks certificates with the store of
-# the system it runs on, so nothing has to be set here.
+# the system it runs on. The keyboard libraries the program opens at run time lie in usr/lib; that folder goes
+# into the library path (the program takes it out again for the programs it starts).
 HERE="$(dirname "$(readlink -f "$0")")"
+LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH
 exec "$HERE/usr/bin/versekit" "$@"

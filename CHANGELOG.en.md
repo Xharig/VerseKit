@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.6 - 2026-11-08
+
+> The Linux AppImage now also starts on lean systems without the keyboard
+> libraries.
+
+### Fixed
+
+- **Linux: the AppImage did not start without libxkbcommon.** When the
+  keyboard libraries were missing on the system, VerseKit stopped right at
+  the start. The AppImage now brings them itself, and every release is
+  started without them before it is published.
+
 ## v5.2.5 - 2026-11-08
 
 > The hangar loadout shows gimbals with their guns, swapped turrets with

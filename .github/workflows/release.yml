@@ -169,6 +169,26 @@ jobs:
       - name: Pack the AppImage
         run: bash packaging/appimage.sh --pack
 
+      # The packed AppImage has to start where the keyboard libraries of the system are missing (the check of the
+      # AppImage catalog runs so): they are removed here, after the build, and the AppImage brings its own.
+      - name: Start check of the AppImage without the keyboard libraries of the system
+        run: |
+          apt-get remove -y -qq libxkbcommon-x11-0 libxkbcommon0 libxcb-xkb1 > /dev/null
+          if ldconfig -p | grep -E 'libxkbcommon(-x11)?\.so\.0|libxcb-xkb\.so\.1'; then
+            echo "the keyboard libraries are still on the system" >&2
+            exit 1
+          fi
+          data="$(mktemp -d)"
+          xvfb-run -a dist/VerseKit-x86_64.AppImage --appimage-extract-and-run --daten "$data" > appimage-start.log 2>&1 &
+          started=$!
+          sleep 10
+          if ! kill -0 "$started" 2>/dev/null; then
+            cat appimage-start.log
+            echo "the AppImage ended within ten seconds of its start" >&2
+            exit 1
+          fi
+          kill "$started"
+
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: linux

@@ -13,7 +13,8 @@
 #   --all     the three in this order
 #
 # AppImageTool and its runtime are fetched in fixed versions and checked against the checksums below before
-# they are used; the program file may only depend on the C library of the system (checked with ldd).
+# they are used; the program file may only depend on the C library of the system (checked with ldd). The keyboard
+# libraries it opens at run time come along in usr/lib (BUNDLED_LIBRARIES).
 
 set -euo pipefail
 
@@ -28,6 +29,9 @@ OUT='dist/VerseKit-x86_64.AppImage'
 # The libraries the program file may be linked against; everything else it opens at run time when it is there
 # (graphics, windows, keyboard), so that a missing one does not stop the start.
 ALLOWED_LIBRARIES='linux-vdso|ld-linux-x86-64|libc\.so|libm\.so|libgcc_s\.so|libpthread\.so|libdl\.so|librt\.so|libutil\.so'
+# The keyboard libraries the program opens at run time and many lean systems lack: without them it stops at the
+# start ("Library libxkbcommon-x11.so could not be loaded"). They go into usr/lib, AppRun adds that folder.
+BUNDLED_LIBRARIES='libxkbcommon.so.0 libxkbcommon-x11.so.0 libxcb-xkb.so.1'
 
 tools() {
     export DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC
@@ -63,6 +67,20 @@ check_libraries() {
     fi
 }
 
+bundle_libraries() {
+    local target="$1" lib source
+    mkdir -p "$target"
+    for lib in $BUNDLED_LIBRARIES; do
+        source="$(ldconfig -p | awk -v name="$lib" '$1 == name && /x86-64/ { print $NF; exit }')"
+        if [ -z "$source" ]; then
+            echo "missing library to bundle: $lib" >&2
+            return 1
+        fi
+        install -m 644 "$(readlink -f "$source")" "$target/$lib"
+    done
+    ls -l "$target"
+}
+
 fetch_checked() {
     local url="$1" file="$2" sum="$3"
     wget -q -O "$file" "$url"
@@ -77,6 +95,7 @@ pack() {
     appdir="$work/VerseKit.AppDir"
     mkdir -p "$appdir/usr/bin" "$(dirname "$OUT")"
     install -m 755 "$binary" "$appdir/usr/bin/versekit"
+    bundle_libraries "$appdir/usr/lib"
     install -m 644 assets/icon.png "$appdir/versekit.png"
     install -m 644 packaging/versekit.desktop "$appdir/versekit.desktop"
     install -m 755 packaging/AppRun "$appdir/AppRun"
