@@ -813,6 +813,53 @@ fn literal_false(paths: &Paths, key: &str) -> bool {
     paths.settings().iter().any(|(k, v)| k == key && *v == Value::Bool(false))
 }
 
+/// The four shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
+/// press would do both (5.2.1: the overlay and the picture of the game on Alt+Umschalt+B).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shortcut {
+    Overlay,
+    Scan,
+    Search,
+    Picture,
+}
+
+impl Shortcut {
+    pub const ALL: [Shortcut; 4] = [Shortcut::Overlay, Shortcut::Scan, Shortcut::Search, Shortcut::Picture];
+
+    /// Its name in the start trail, where it holds the key another one wanted.
+    pub fn trail_name(self) -> &'static str {
+        match self {
+            Shortcut::Overlay => "Overlay-Hotkey",
+            Shortcut::Scan => "Scan-Hotkey",
+            Shortcut::Search => "Such-Hotkey",
+            Shortcut::Picture => "Bild-Hotkey",
+        }
+    }
+
+    /// The text key of its name in the settings of the overlay.
+    pub fn label_key(self) -> &'static str {
+        match self {
+            Shortcut::Overlay => "s_ei_ov_taste",
+            Shortcut::Scan => "s_hk_scan",
+            Shortcut::Search => "s_hk_suche",
+            Shortcut::Picture => "s_hk_bild",
+        }
+    }
+
+    /// Its setting, its default and the switch that turns it off.
+    fn setting(self) -> (&'static str, &'static str, &'static str) {
+        match self {
+            Shortcut::Overlay => (keys::HOTKEY, DEFAULT_HOTKEY, keys::HOTKEY_ON),
+            Shortcut::Scan => (keys::HOTKEY_SCAN, DEFAULT_SCAN_HOTKEY, keys::HOTKEY_SCAN_ON),
+            Shortcut::Search => (keys::HOTKEY_SEARCH, DEFAULT_SEARCH_HOTKEY, keys::HOTKEY_SEARCH_ON),
+            Shortcut::Picture => (keys::HOTKEY_PICTURE, DEFAULT_PICTURE_HOTKEY, keys::HOTKEY_PICTURE_ON),
+        }
+    }
+}
+
+/// The keys a shortcut left at its default takes, in this order, where an earlier one holds its default.
+pub const SPARE_HOTKEYS: [&str; 4] = ["Alt+Umschalt+N", "Alt+Umschalt+J", "Alt+Umschalt+K", "Alt+Umschalt+L"];
+
 /// What the settings make of the hotkey that shows the bar, before it is registered.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HotkeyChoice {
@@ -822,52 +869,116 @@ pub enum HotkeyChoice {
     /// two keys, a key it does not know): the text as it stands.
     Wrong(String),
     Combination(Hotkey),
+    /// The combination an earlier shortcut holds already: not registered.
+    Taken(Hotkey, Shortcut),
 }
 
 impl HotkeyChoice {
+    /// The four shortcuts in the order of [`Shortcut::ALL`], as the overlay registers them: each from its setting,
+    /// its default where none is set. A later one whose combination an earlier one holds is [`HotkeyChoice::Taken`];
+    /// one left at its default takes the first of [`SPARE_HOTKEYS`] no other shortcut holds instead.
+    ///
+    /// ⚠ A setting equal to the default counts as left at the default: the settings page of 5.2.1 wrote every
+    /// shortcut into the settings, the untouched ones with their default.
+    pub fn read_all(paths: &Paths) -> [HotkeyChoice; 4] {
+        // The refinery scan and the picture of the game are registered only where the screen can be read.
+        let registered = [
+            true,
+            crate::refinery_scan::screen::supported(),
+            true,
+            crate::screen_grab::supported(),
+        ];
+        let read = Shortcut::ALL.map(|shortcut| {
+            let (key, default, switch) = shortcut.setting();
+            // The switch of the overlay's own shortcut is off only by a literal `false`, as the others.
+            if literal_false(paths, switch) {
+                return (HotkeyChoice::Off, false);
+            }
+            let stored = paths.setting(key);
+            let text = stored.clone().unwrap_or_else(|| default.to_string());
+            let factory = stored.is_none() || Hotkey::parse(&text).is_some_and(|h| Hotkey::parse(default) == Some(h));
+            (Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination), factory)
+        });
+        resolve(read, registered)
+    }
+
     /// The hotkey of the settings, [`DEFAULT_HOTKEY`] where none is set.
     pub fn read(paths: &Paths) -> HotkeyChoice {
-        if literal_false(paths, keys::HOTKEY_ON) {
-            return HotkeyChoice::Off;
-        }
-        let text = paths.setting(keys::HOTKEY).unwrap_or_else(|| DEFAULT_HOTKEY.to_string());
-        Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination)
+        let [overlay, ..] = HotkeyChoice::read_all(paths);
+        overlay
     }
 
     /// The hotkey of the refinery scan, [`DEFAULT_SCAN_HOTKEY`] where none is set.
     pub fn read_scan(paths: &Paths) -> HotkeyChoice {
-        if !scan_hotkey_on(paths) {
-            return HotkeyChoice::Off;
-        }
-        let text = paths.setting(keys::HOTKEY_SCAN).unwrap_or_else(|| DEFAULT_SCAN_HOTKEY.to_string());
-        Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination)
+        let [_, scan, ..] = HotkeyChoice::read_all(paths);
+        scan
     }
 
-    /// The hotkey of the handle search in the info bar, [`DEFAULT_SEARCH_HOTKEY`] where none is set; off unless
-    /// switched on.
+    /// The hotkey of the handle search in the info bar, [`DEFAULT_SEARCH_HOTKEY`] where none is set.
     pub fn read_search(paths: &Paths) -> HotkeyChoice {
-        if !search_hotkey_on(paths) {
-            return HotkeyChoice::Off;
-        }
-        let text = paths.setting(keys::HOTKEY_SEARCH).unwrap_or_else(|| DEFAULT_SEARCH_HOTKEY.to_string());
-        Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination)
+        let [_, _, search, _] = HotkeyChoice::read_all(paths);
+        search
     }
 
     /// The hotkey of the picture of the game, [`DEFAULT_PICTURE_HOTKEY`] where none is set.
     pub fn read_picture(paths: &Paths) -> HotkeyChoice {
-        if !picture_hotkey_on(paths) {
-            return HotkeyChoice::Off;
-        }
-        let text = paths.setting(keys::HOTKEY_PICTURE).unwrap_or_else(|| DEFAULT_PICTURE_HOTKEY.to_string());
-        Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination)
+        let [.., picture] = HotkeyChoice::read_all(paths);
+        picture
     }
 
+    /// The combination that is registered; none where it is off, wrong or taken.
     pub fn hotkey(&self) -> Option<Hotkey> {
         match self {
             HotkeyChoice::Combination(hotkey) => Some(*hotkey),
+            HotkeyChoice::Off | HotkeyChoice::Wrong(_) | HotkeyChoice::Taken(..) => None,
+        }
+    }
+
+    /// The combination the settings hold, taken or not.
+    pub fn combination(&self) -> Option<Hotkey> {
+        match self {
+            HotkeyChoice::Combination(hotkey) | HotkeyChoice::Taken(hotkey, _) => Some(*hotkey),
             HotkeyChoice::Off | HotkeyChoice::Wrong(_) => None,
         }
     }
+}
+
+/// The shortcuts as read (the order of [`Shortcut::ALL`], each with whether it is left at its default) as they are
+/// registered: see [`HotkeyChoice::read_all`]. Only one that is `registered` on this system holds its key.
+pub fn resolve(read: [(HotkeyChoice, bool); 4], registered: [bool; 4]) -> [HotkeyChoice; 4] {
+    let wanted: Vec<Option<Hotkey>> =
+        read.iter().zip(registered).map(|((choice, _), on)| choice.hotkey().filter(|_| on)).collect();
+    let mut done: Vec<HotkeyChoice> = Vec::with_capacity(read.len());
+    for (at, (choice, factory)) in read.into_iter().enumerate() {
+        let holder = |hotkey: Hotkey, done: &[HotkeyChoice]| {
+            done.iter().zip(registered).position(|(c, on)| on && c.hotkey() == Some(hotkey))
+        };
+        let next = match choice {
+            HotkeyChoice::Combination(hotkey) => match holder(hotkey, &done) {
+                None => HotkeyChoice::Combination(hotkey),
+                Some(by) => {
+                    // A spare no earlier shortcut holds and no later one wants.
+                    let spare = SPARE_HOTKEYS.iter().filter_map(|text| Hotkey::parse(text)).find(|spare| {
+                        holder(*spare, &done).is_none() && !wanted[at + 1..].contains(&Some(*spare))
+                    });
+                    match spare.filter(|_| factory) {
+                        Some(spare) => HotkeyChoice::Combination(spare),
+                        None => HotkeyChoice::Taken(hotkey, Shortcut::ALL[by]),
+                    }
+                }
+            },
+            other => other,
+        };
+        done.push(next);
+    }
+    let mut all = done.into_iter();
+    std::array::from_fn(|_| all.next().unwrap_or(HotkeyChoice::Off))
+}
+
+/// Whether the hotkey of the overlay is to be registered: off only by a literal `false` (`hotkey_an`). The settings
+/// page has no switch for it, but a hotkey switched off holds no key.
+pub fn overlay_hotkey_on(paths: &Paths) -> bool {
+    !literal_false(paths, keys::HOTKEY_ON)
 }
 
 /// Whether the hotkey of the refinery scan is to be registered: off only by a literal `false` (`hotkey_scan_an`).
@@ -890,6 +1001,9 @@ fn trail_line(name: &str, choice: &HotkeyChoice, registered: Result<(), String>)
     match (choice, registered) {
         (HotkeyChoice::Off, _) => format!("{name}: ausgeschaltet"),
         (HotkeyChoice::Wrong(text), _) => format!("{name}: entfaellt (ungueltig: {text})"),
+        (HotkeyChoice::Taken(hotkey, by), _) => {
+            format!("{name}: {} entfaellt (belegt durch {})", hotkey.text(), by.trail_name())
+        }
         (HotkeyChoice::Combination(hotkey), Ok(())) => format!("{name}: {} angemeldet (ok)", hotkey.text()),
         (HotkeyChoice::Combination(_), Err(reason)) => format!("{name}: entfaellt ({reason})"),
     }
@@ -1053,7 +1167,7 @@ impl Settings {
         let bar = paths.setting(keys::BAR);
         // Switched off only by a literal `false`, as 4.12 reads both.
         let off = |key: &str| literal_false(paths, key);
-        let hotkey = HotkeyChoice::read(paths).hotkey();
+        let [hotkey, scan_hotkey, search_hotkey, picture_hotkey] = HotkeyChoice::read_all(paths).map(|c| c.hotkey());
         // The overlay follows the clock of the main window the next time it reads its settings.
         crate::formats::apply_clock(paths);
         Settings {
@@ -1061,9 +1175,9 @@ impl Settings {
             auto_through: !off(keys::AUTO_THROUGH),
             rows: paths.setting_int(keys::ROWS, ROWS_DEFAULT, Some(ROWS_RANGE.0), Some(ROWS_RANGE.1)) as usize,
             hotkey,
-            scan_hotkey: HotkeyChoice::read_scan(paths).hotkey(),
-            search_hotkey: HotkeyChoice::read_search(paths).hotkey(),
-            picture_hotkey: HotkeyChoice::read_picture(paths).hotkey(),
+            scan_hotkey,
+            search_hotkey,
+            picture_hotkey,
             layout: Layout {
                 corner: Corner::from_setting(corner.as_deref()),
                 bar: BarSide::from_settings(bar.as_deref(), corner.as_deref()),
@@ -2095,6 +2209,64 @@ mod tests {
         paths.set_setting(keys::HOTKEY_PICTURE, Value::str("B"));
         assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Wrong("B".into()), "a letter needs a modifier");
         assert_eq!(Settings::read(&paths).picture_hotkey, None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// No key is registered twice (5.2.1: the overlay on Alt+Umschalt+B, the picture of the game on its default
+    /// Alt+Umschalt+B, one press did both). A shortcut set by the player whose key an earlier one holds is not
+    /// registered, and the trail names the holder; one left at its default takes the first free spare.
+    #[test]
+    fn no_key_is_registered_for_two_shortcuts() {
+        let (paths, dir) = events_paths("doppelt");
+        let b = Hotkey::parse("Alt+Umschalt+B").unwrap();
+        let n = Hotkey::parse(SPARE_HOTKEYS[0]).unwrap();
+        // The case of 5.2.1: the overlay on the default of the picture, the picture left at its default.
+        paths.set_setting(keys::HOTKEY, Value::str("Alt+Umschalt+B"));
+        let all = HotkeyChoice::read_all(&paths);
+        assert_eq!(all[0], HotkeyChoice::Combination(b));
+        assert_eq!(all[3], HotkeyChoice::Combination(n), "the spare instead of the default");
+        assert_eq!(Settings::read(&paths).picture_hotkey, Some(n));
+        assert_eq!(picture_hotkey_trail(&all[3], Ok(())), "Bild-Hotkey: Alt+Umschalt+N angemeldet (ok)");
+        // The settings page of 5.2.1 wrote the default into the settings: it still counts as the default.
+        paths.set_setting(keys::HOTKEY_PICTURE, Value::str("Umschalt+Alt+B"));
+        assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Combination(n));
+        // A spare a later shortcut is set to is skipped, so the later one keeps it.
+        paths.set_setting(keys::HOTKEY_SCAN, Value::str("Alt+Umschalt+B"));
+        paths.set_setting(keys::HOTKEY_PICTURE, Value::str(SPARE_HOTKEYS[0]));
+        let all = HotkeyChoice::read_all(&paths);
+        assert_eq!(all[1], HotkeyChoice::Taken(b, Shortcut::Overlay), "set by the player: not moved, not registered");
+        assert_eq!(all[3], HotkeyChoice::Combination(n));
+        assert_eq!(Settings::read(&paths).scan_hotkey, None);
+        let trail = hotkey_trail(&all[0], Ok(()), Some((&all[1], Ok(()))));
+        assert_eq!(trail[1], "Scan-Hotkey: Alt+Umschalt+B entfaellt (belegt durch Overlay-Hotkey)");
+        // The picture set by the player to the key of the search: taken, said so.
+        paths.set_setting(keys::HOTKEY_SCAN, Value::str(DEFAULT_SCAN_HOTKEY));
+        paths.set_setting(keys::HOTKEY_PICTURE, Value::str("Strg+F9"));
+        paths.set_setting(keys::HOTKEY_SEARCH, Value::str("Strg+F9"));
+        let f9 = Hotkey::parse("Strg+F9").unwrap();
+        let all = HotkeyChoice::read_all(&paths);
+        assert_eq!(all[3], HotkeyChoice::Taken(f9, Shortcut::Search));
+        assert_eq!(all[3].combination(), Some(f9));
+        assert_eq!(picture_hotkey_trail(&all[3], Ok(())), "Bild-Hotkey: Strg+F9 entfaellt (belegt durch Such-Hotkey)");
+        // Switched off, the search holds nothing: the picture is registered.
+        paths.set_setting(keys::HOTKEY_SEARCH_ON, Value::Bool(false));
+        assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Combination(f9));
+        // Every default and every spare apart: nothing moves without a collision.
+        let defaults = Shortcut::ALL.map(|s| (HotkeyChoice::Combination(Hotkey::parse(s.setting().1).unwrap()), true));
+        let fresh = resolve(defaults.clone(), [true; 4]);
+        assert_eq!(
+            fresh.clone().map(|c| c.hotkey().map(Hotkey::text)),
+            Shortcut::ALL.map(|s| Some(s.setting().1.to_string()))
+        );
+        // Where the refinery scan cannot be registered (no screen to read), it holds no key: the search keeps its own.
+        let mut read = defaults;
+        read[1] = (HotkeyChoice::Combination(f9), false);
+        read[2] = (HotkeyChoice::Combination(f9), false);
+        assert_eq!(resolve(read.clone(), [true; 4])[2], HotkeyChoice::Taken(f9, Shortcut::Scan));
+        assert_eq!(resolve(read, [true, false, true, true])[2], HotkeyChoice::Combination(f9));
+        let spares: Vec<Hotkey> = SPARE_HOTKEYS.iter().filter_map(|s| Hotkey::parse(s)).collect();
+        assert_eq!(spares.len(), SPARE_HOTKEYS.len());
+        assert!(fresh.iter().all(|c| !spares.contains(&c.hotkey().unwrap())));
         let _ = std::fs::remove_dir_all(dir);
     }
 

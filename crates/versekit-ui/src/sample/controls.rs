@@ -1175,6 +1175,71 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// No key for two shortcuts (5.2.1: the overlay and the picture of the game both on Alt+Umschalt+B). The picture
+    /// left at its default shows the spare it takes; a key another shortcut holds is refused in the picker and said
+    /// with the holder; one read so from the settings says in its line by which it is taken.
+    #[test]
+    fn a_key_another_shortcut_holds_is_refused_and_said() {
+        let _language = crate::language_lock();
+        // The case of 5.2.1: the overlay on the default of the picture, the picture never touched.
+        let (page, dir) = real_page("taste-doppelt", r#"{"hotkey": "Alt+Umschalt+B"}"#, &[]);
+        assert_eq!(hotkey_text(page.hotkey_modifiers, page.hotkey_key).as_deref(), Some("Alt+Umschalt+B"));
+        let picture = hotkey_text(page.picture_modifiers, page.picture_key);
+        assert_eq!(picture.as_deref(), Some(versekit_core::overlay::SPARE_HOTKEYS[0]), "the spare, not the overlay's");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // The overlay on Alt+H; Umschalt added would make it the key of the handle search: refused, said, kept.
+        let (page, dir) = real_page("taste-doppelt-wahl", r#"{"hotkey": "Alt+H"}"#, &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.overlay_runs = || true;
+        bench.page.go_to("hf_overlay");
+        bench.settle();
+        let search = hotkey_text(bench.page.search_modifiers, bench.page.search_key);
+        assert_eq!(search.as_deref(), Some("Alt+Umschalt+H"));
+        bench.click_nth(&language::t("s_ei_taste_umschalt"), 0);
+        bench.settle();
+        assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Alt+H"), "kept");
+        let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
+        let holder = language::t("s_hk_suche");
+        let expected = language::tf(
+            "s_hk_doppelt",
+            &[("0", language::Arg::from("Alt+Umschalt+H")), ("1", language::Arg::from(holder.as_str()))],
+        );
+        assert_eq!(said, Some(expected));
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(!stored.contains("\"hotkey\": \"Alt+Umschalt+H\""), "{stored}");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // Read so from the settings: the search set on the key of the overlay says by which it is taken.
+        let settings = r#"{"hotkey": "Strg+F9", "hotkey_suche": "Strg+F9"}"#;
+        let (page, dir) = real_page("taste-doppelt-zeile", settings, &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_ei_ov_taste")))]);
+        assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // The overlay's own hotkey switched off in the settings file (`hotkey_an`) holds no key, as in the overlay:
+        // the search on the same key is registered, its line says nothing of a holder, and the picker of the
+        // overlay may take the key of the search.
+        let settings = r#"{"hotkey_an": false, "hotkey": "Strg+F9", "hotkey_suche": "Strg+F9"}"#;
+        let (page, dir) = real_page("taste-doppelt-aus", settings, &[]);
+        let paths =
+            page.store.as_ref().map(|store| versekit_core::paths::Paths::new(store.paths.host.clone())).unwrap();
+        let f9 = versekit_core::overlay::Hotkey::parse("Strg+F9").unwrap();
+        let read = versekit_core::overlay::HotkeyChoice::read_search(&paths);
+        assert_eq!(read, versekit_core::overlay::HotkeyChoice::Combination(f9), "the overlay registers the search");
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        assert!(!texts.iter().any(|(t, _)| *t == line), "no holder while the overlay's hotkey is off: {texts:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// The seconds before the picture of the game, in the card of the signature window: ten at first, a click on
     /// another choice keeps it in `spielbild_wartezeit`.
     #[test]

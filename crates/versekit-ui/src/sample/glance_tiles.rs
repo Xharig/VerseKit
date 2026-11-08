@@ -343,14 +343,17 @@ fn history_line(day: &machine_info::history::Day, lang: Lang) -> String {
 }
 
 /// The refinery tile with its link "Scannen" where the screen can be read: the jobs, or without any the short
-/// explanation that the hotkey at the terminal starts the time (the combination as the settings hold it).
+/// explanation that the hotkey at the terminal starts the time: the combination as the overlay registers it (a spare
+/// where an earlier shortcut holds the default), none where it is off or taken.
 pub(super) fn refinery_tile_with_scan(paths: &Paths, lang: Lang, now: i64) -> Glance {
     let tile = refinery_tile(paths, lang, now).unwrap_or_else(|| {
-        let combination = paths
-            .setting(versekit_core::overlay::keys::HOTKEY_SCAN)
-            .unwrap_or_else(|| versekit_core::overlay::DEFAULT_SCAN_HOTKEY.to_string());
-        let shown = hotkey_in(lang, &combination);
-        glance(tf_in(lang, "s_uv_raff_leer", &[("0", Arg::from(shown))]), Vec::new())
+        match versekit_core::overlay::HotkeyChoice::read_scan(paths).hotkey() {
+            Some(hotkey) => {
+                let shown = hotkey_in(lang, &hotkey.text());
+                glance(tf_in(lang, "s_uv_raff_leer", &[("0", Arg::from(shown))]), Vec::new())
+            }
+            None => glance(t_in(lang, "s_uv_raff_leer_ohne"), Vec::new()),
+        }
     });
     let action = versekit_core::refinery_scan::screen::supported().then_some(TileAction::RefineryScan);
     Glance { action, ..tile }
@@ -818,6 +821,33 @@ mod tests {
         assert_eq!(hotkey_in(Lang::En, "Strg+Alt+R"), "Ctrl+Alt+R");
         assert_eq!(hotkey_in(Lang::En, "umschalt+strg+f9"), "Ctrl+Shift+F9");
         assert_eq!(hotkey_in(Lang::En, "R"), "R");
+    }
+
+    /// The empty refinery tile names the combination the overlay registers: the spare where the overlay holds the
+    /// default, nothing where it is taken or off (no dead key).
+    #[test]
+    fn the_empty_refinery_tile_names_the_key_the_overlay_registers() {
+        use versekit_core::jsonio::Value;
+        use versekit_core::overlay::keys;
+        let dir = std::env::temp_dir().join(format!("versekit-raff-taste-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let paths = Paths::new(super::super::real_data::host_apart(&dir));
+        let line = |paths: &Paths| refinery_tile_with_scan(paths, DE, 0).line;
+        let with = |key: &str| tf_in(DE, "s_uv_raff_leer", &[("0", Arg::from(key))]);
+        assert_eq!(line(&paths), with("Alt+Umschalt+R"), "the default");
+        // The overlay on the default of the scan: the scan moves aside, the tile says where to.
+        paths.set_setting(keys::HOTKEY, Value::str("Alt+Umschalt+R"));
+        assert_eq!(line(&paths), with(versekit_core::overlay::SPARE_HOTKEYS[0]));
+        // Set by the player on the overlay's key: not registered, no key on the tile.
+        paths.set_setting(keys::HOTKEY_SCAN, Value::str("Strg+F9"));
+        paths.set_setting(keys::HOTKEY, Value::str("Strg+F9"));
+        assert_eq!(line(&paths), t_in(DE, "s_uv_raff_leer_ohne"));
+        // Off: no key either.
+        paths.set_setting(keys::HOTKEY, Value::str("Alt+Umschalt+V"));
+        paths.set_setting(keys::HOTKEY_SCAN_ON, Value::Bool(false));
+        assert_eq!(line(&paths), t_in(DE, "s_uv_raff_leer_ohne"));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// Blueprints of another account that did not count stand first on the blueprint tile, in gold, and the line

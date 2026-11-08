@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.2 - 2026-11-08
+
+> Zwei schnelle Korrekturen zu 5.2.1: kein falscher Absturz-Hinweis nach
+> dem Update und keine Taste mehr für zwei Kürzel.
+
+### Behoben
+
+- **Absturz-Hinweis nach dem Update.** Hatte die alte Fassung 4.x einmal
+  einen Absturz festgehalten, meldete 5.2.1 ihn nach dem Update als neu.
+  Der Hinweis kommt jetzt nur für einen Absturz aus 5.0 oder neuer, der
+  vom letzten Start stammt oder höchstens sieben Tage alt ist. Der
+  Fehlerbericht zeigt einen alten Absturz weiter, mit dem Hinweis, dass er
+  aus einer alten Fassung stammt.
+- **Spielbild und Overlay auf derselben Taste.** Lag dein Overlay-Kürzel
+  auf Alt+Umschalt+B, nahm das neue Spielbild-Kürzel dieselbe Taste, und
+  ein Druck tat beides. Jetzt bekommt keine Taste zwei Kürzel. Ein
+  unverändertes Kürzel weicht auf eine freie Taste aus (zuerst
+  Alt+Umschalt+N). Ein selbst gewähltes, schon belegtes Kürzel wird nicht
+  angemeldet, und die Zeile in den Overlay-Einstellungen sagt, wer die
+  Taste hat. Die Auswahl nimmt keine belegte Taste mehr an.
+
 ## v5.2.1 - 2026-11-08
 
 > Shops nach Ort, Fabrikator-Aufträge und Markierungen wie IRIS sind neu.

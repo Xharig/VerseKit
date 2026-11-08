@@ -681,8 +681,11 @@ fn crash_section(page: &mut Page, facts: &Facts, title: &str, crash: &Crash<'_>,
     page.row(INDENT, &text(lang, "bf_c_wann"), &[date]);
     // ⚠ The mark states, it does not judge: the file outlives any number of
     // clean runs, so the version stands next to the date.
+    // Without a version, or of 4.x: from the old program, whose crash file stayed on after the update.
     let (version, note) = if crash.version.is_empty() {
-        (text(lang, "bf_c_ohne_fassung"), Some(text(lang, "bf_ohne_fassung")))
+        (text(lang, "bf_c_ohne_fassung"), Some(text(lang, "bf_c_alte_fassung")))
+    } else if !crate::crash::recorded_by_v5(crash.version) {
+        (crash.version.to_string(), Some(text(lang, "bf_c_alte_fassung")))
     } else {
         let old = !facts.version.is_empty() && crash.version != facts.version;
         (crash.version.to_string(), old.then(|| text(lang, "bf_alt")))
@@ -1324,7 +1327,7 @@ Von                     Tester
         let block = text.split("## Harter Abbruch\n").nth(1).unwrap_or_default();
         let block = block.split("\n\n").next().unwrap_or_default();
         assert!(block.contains("  Fassung               4.12.0\n"), "{text}");
-        assert!(block.contains("  Hinweis               Nicht aus der laufenden Fassung."), "{text}");
+        assert!(block.contains("  Hinweis               Aus einer alten Fassung vor 5.0."), "{text}");
         assert!(block.contains("  Ablauf\n    Windows fatal exception: access violation\n"), "{text}");
         // The guilty thread first, its lines one step deeper than the heading of the thread.
         assert!(
@@ -1346,9 +1349,14 @@ Von                     Tester
         all.crash_version = String::new();
         let unknown = built(&all);
         assert!(
-            unknown.contains("nicht festgehalten") && unknown.contains("Prüfen, ob es ihn noch gibt."),
+            unknown.contains("nicht festgehalten") && unknown.contains("Aus einer alten Fassung vor 5.0."),
             "{unknown}"
         );
+        // Of an older v5: not the running version, but not the old program either.
+        all.version = "5.2.2".into();
+        all.crash_version = "5.2.1".into();
+        let older = built(&all);
+        assert!(older.contains("Nicht aus der laufenden Fassung.") && !older.contains("vor 5.0"), "{older}");
     }
 
     #[test]

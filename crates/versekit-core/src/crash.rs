@@ -79,6 +79,9 @@ pub const LEARN: Files = Files {
 /// The open crash file for the whole run; the dump is written into it.
 static STREAM: Mutex<Option<File>> = Mutex::new(None);
 
+/// The set-aside files this process put there at its start: the crash of the run just before.
+static SET_ASIDE_NOW: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
 /// [`install_files`] with the files of the main window.
 pub fn install(paths: &Paths, version: &str) -> bool {
     install_files(paths, &MAIN, version)
@@ -93,7 +96,12 @@ pub fn install_files(paths: &Paths, files: &Files, version: &str) -> bool {
     let version_previous = paths.app_file(files.version_previous);
     // What stands in it from the last run is a crash. The first step that
     // fails ends this part, like Python's single `try`.
-    let _ = set_aside(&current, &previous, &version_current, &version_previous);
+    if set_aside(&current, &previous, &version_current, &version_previous).unwrap_or(false)
+        && let Ok(mut now) = SET_ASIDE_NOW.lock()
+        && !now.contains(&previous)
+    {
+        now.push(previous.clone());
+    }
     let _ = jsonio::write_new(&version_current, version.as_bytes());
     let Ok(file) = open_fresh(&current) else { return false };
     keep_stream(file);
@@ -164,7 +172,8 @@ fn is_file(path: &str) -> bool {
     fs::metadata(path).is_ok_and(|m| m.is_file())
 }
 
-fn set_aside(current: &str, previous: &str, version_current: &str, version_previous: &str) -> std::io::Result<()> {
+/// True when a crash was set aside.
+fn set_aside(current: &str, previous: &str, version_current: &str, version_previous: &str) -> std::io::Result<bool> {
     if is_file(current) && fs::metadata(current)?.len() > 0 {
         if is_file(previous) {
             jsonio::remove_file(previous)?;
@@ -176,10 +185,11 @@ fn set_aside(current: &str, previous: &str, version_current: &str, version_previ
         } else if is_file(version_previous) {
             jsonio::remove_file(version_previous)?;
         }
+        return Ok(true);
     } else if is_file(current) {
         jsonio::remove_file(current)?;
     }
-    Ok(())
+    Ok(false)
 }
 
 fn open_fresh(path: &str) -> std::io::Result<File> {
@@ -371,13 +381,49 @@ fn crash_mark(paths: &Paths) -> i64 {
     crash_time(paths).map_or(0, |at| (at * 1000.0).round() as i64)
 }
 
+/// A crash older than this many days is not told any more, unless it is the one of the run just before.
+pub const TOLD_DAYS: f64 = 7.0;
+
+/// Whether `version` is one of v5 or later, which write the version next to the crash file. A crash without a
+/// version, or of 4.x, comes from the old Python program: its file can lie there for months.
+pub fn recorded_by_v5(version: &str) -> bool {
+    let major = version.trim().split(['.', '-', '+']).next().unwrap_or_default();
+    major.parse::<u32>().is_ok_and(|major| major >= 5)
+}
+
+/// Whether this process set the crash of the main window aside at its start: then it is the one of the run just
+/// before, however old.
+fn set_aside_now(paths: &Paths) -> bool {
+    let previous = paths.app_file(PREVIOUS);
+    SET_ASIDE_NOW.lock().is_ok_and(|now| now.contains(&previous))
+}
+
 /// The set-aside crash of the main window, where the player was not told of it yet; `None` without one.
+///
+/// ⚠ Only a crash a v5 version wrote down ([`recorded_by_v5`]) and that is the one of the run just before or at
+/// most [`TOLD_DAYS`] old: the crash file of the Python program of 4.x stayed on and was told as new after the
+/// update (5.2.1). The report still shows any crash under "Harter Abbruch".
 pub fn untold(paths: &Paths) -> Option<Untold> {
+    let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+    untold_at(paths, now)
+}
+
+/// [`untold`] at the time `now` (seconds since 1970).
+pub fn untold_at(paths: &Paths, now: f64) -> Option<Untold> {
     let first = last_crash(paths).into_iter().next()?;
     if paths.setting_int(TOLD_SETTING, -1, None, None) == crash_mark(paths) {
         return None;
     }
-    Some(Untold { first, at: crash_time(paths), version: crash_version(paths) })
+    let version = crash_version(paths);
+    if !recorded_by_v5(&version) {
+        return None;
+    }
+    let at = crash_time(paths);
+    let recent = at.is_some_and(|at| now - at <= TOLD_DAYS * 86_400.0);
+    if !recent && !set_aside_now(paths) {
+        return None;
+    }
+    Some(Untold { first, at, version })
 }
 
 /// Notes that the player was told of the set-aside crash: [`untold`] has nothing until the next crash.
@@ -449,6 +495,63 @@ mod tests {
         assert_eq!(untold(&paths), None);
         assert!(last_crash(&paths).is_empty());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The crash file of the Python program of 4.x (no version next to it, months old) is no news after the update
+    /// to v5: no note, neither left from before nor set aside at this start. The report keeps it.
+    #[test]
+    fn an_old_python_crash_without_a_version_is_not_told() {
+        let (paths, dir) = paths_in("python-alt");
+        let python = "Windows fatal exception: code 0xc0000374\n\nCurrent thread 0x1 (most recent call first):\n  File \"scbp\\eingabe.py\", line 9 in lesen\n";
+        fs::write(dir.join(PREVIOUS), python).unwrap();
+        let at = crash_time(&paths).unwrap();
+        assert_eq!(untold_at(&paths, at + 60.0), None, "no version: from the old program");
+        assert_eq!(last_crash(&paths).len(), 3, "the report still has it");
+        // Of 4.x with a version: no note either.
+        fs::write(dir.join(VERSION_PREVIOUS), "4.12.0").unwrap();
+        assert_eq!(untold_at(&paths, at + 60.0), None, "4.x");
+        // Left in the crash file and set aside at this start: still no version, still no note.
+        let _ = fs::remove_file(dir.join(VERSION_PREVIOUS));
+        fs::write(dir.join(FILE), python).unwrap();
+        assert!(install(&paths, "5.2.2"));
+        assert_eq!(crash_version(&paths), "");
+        assert_eq!(untold(&paths), None, "set aside now, but without a version");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The crash of the run just before, written down by v5, is told however long ago that run was.
+    #[test]
+    fn a_v5_crash_of_the_run_before_is_told_however_old() {
+        let (paths, dir) = paths_in("v5-letzte");
+        fs::write(dir.join(FILE), "Fatal error: panic: eben\n").unwrap();
+        fs::write(dir.join(VERSION_FILE), "5.2.1").unwrap();
+        assert!(install(&paths, "5.2.2"));
+        let at = crash_time(&paths).unwrap();
+        assert_eq!(untold_at(&paths, at + 60.0).map(|u| u.version).as_deref(), Some("5.2.1"));
+        assert!(untold_at(&paths, at + 30.0 * 86_400.0).is_some(), "the last run, weeks ago: still told");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A v5 crash that was set aside at an earlier start and never told is told for [`TOLD_DAYS`], then not any more.
+    #[test]
+    fn a_v5_crash_set_aside_earlier_is_told_only_for_a_week() {
+        let (paths, dir) = paths_in("v5-alt");
+        fs::write(dir.join(PREVIOUS), "Fatal error: panic: frueher\n").unwrap();
+        fs::write(dir.join(VERSION_PREVIOUS), "5.2.0").unwrap();
+        let at = crash_time(&paths).unwrap();
+        assert!(untold_at(&paths, at + 6.0 * 86_400.0).is_some(), "six days: told");
+        assert_eq!(untold_at(&paths, at + 8.0 * 86_400.0), None, "eight days: too old");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn only_a_version_of_v5_or_later_counts_as_recorded_by_v5() {
+        for version in ["5.0.0", "5.2.1", "5.0.1-test", " 6.0.0\n", "10.1.0"] {
+            assert!(recorded_by_v5(version), "{version:?}");
+        }
+        for version in ["", "4.12.0", "4.9.9", "nicht festgehalten", "v5.0.0"] {
+            assert!(!recorded_by_v5(version), "{version:?}");
+        }
     }
 
     #[test]

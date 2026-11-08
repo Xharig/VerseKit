@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.2 - 2026-11-08
+
+> Two quick fixes for 5.2.1: no false crash note after the update, and no
+> key for two shortcuts any more.
+
+### Fixed
+
+- **Crash note after the update.** If the old version 4.x had once
+  recorded a crash, 5.2.1 told it as new after the update. The note now
+  comes only for a crash of 5.0 or newer that is from the last start or
+  at most seven days old. The error report still shows an old crash,
+  with a note that it is from an old version.
+- **Game picture and overlay on the same key.** With your overlay
+  shortcut on Alt+Shift+B, the new game picture shortcut took the same
+  key, and one press did both. Now no key gets two shortcuts. A shortcut
+  left as it came moves to a free key (Alt+Shift+N first). One you chose
+  that is already taken is not registered, and its line in the overlay
+  settings says which shortcut holds the key. The picker no longer takes
+  a key that is in use.
+
 ## v5.2.1 - 2026-11-08
 
 > Shops by place, fabricator jobs and marks like IRIS are new. The

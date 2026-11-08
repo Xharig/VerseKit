@@ -478,6 +478,8 @@ pub struct SamplePage {
     scan_modifiers: [bool; 3],
     scan_key: usize,
     scan_hotkey_on: bool,
+    /// The overlay's own hotkey is registered (`hotkey_an`, only a literal `false` switches it off; no switch here).
+    hotkey_on: bool,
     /// The hotkey of the handle search in the info bar (`hotkey_suche`) and whether it is used (`hotkey_suche_ein`).
     search_modifiers: [bool; 3],
     search_key: usize,
@@ -1376,6 +1378,7 @@ impl SamplePage {
             scan_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_SCAN_HOTKEY).map_or([true, true, false], |h| h.0),
             scan_key: parse_hotkey(versekit_core::overlay::DEFAULT_SCAN_HOTKEY).map_or(0, |h| h.1),
             scan_hotkey_on: true,
+            hotkey_on: true,
             search_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_SEARCH_HOTKEY)
                 .map_or([false, true, true], |h| h.0),
             search_key: parse_hotkey(versekit_core::overlay::DEFAULT_SEARCH_HOTKEY).map_or(7, |h| h.1),
@@ -2270,20 +2273,28 @@ impl SamplePage {
             (self.hotkey_modifiers, self.hotkey_key) = (modifiers, key);
         }
         {
-            use versekit_core::overlay::{self, DEFAULT_SCAN_HOTKEY, keys};
-            let stored = paths.setting(keys::HOTKEY_SCAN).unwrap_or_else(|| DEFAULT_SCAN_HOTKEY.to_string());
+            use versekit_core::overlay::{self, DEFAULT_SCAN_HOTKEY, HotkeyChoice, keys};
+            // As the overlay registers them: one left at its default whose key an earlier one holds shows the spare
+            // it takes instead.
+            let [_, scan, search, picture] = HotkeyChoice::read_all(paths).map(|c| c.combination().map(|h| h.text()));
+            let stored = scan
+                .or_else(|| paths.setting(keys::HOTKEY_SCAN))
+                .unwrap_or_else(|| DEFAULT_SCAN_HOTKEY.to_string());
             if let Some((modifiers, key)) = parse_hotkey(&stored) {
                 (self.scan_modifiers, self.scan_key) = (modifiers, key);
             }
             self.scan_hotkey_on = overlay::scan_hotkey_on(paths);
-            let stored =
-                paths.setting(keys::HOTKEY_SEARCH).unwrap_or_else(|| overlay::DEFAULT_SEARCH_HOTKEY.to_string());
+            self.hotkey_on = overlay::overlay_hotkey_on(paths);
+            let stored = search
+                .or_else(|| paths.setting(keys::HOTKEY_SEARCH))
+                .unwrap_or_else(|| overlay::DEFAULT_SEARCH_HOTKEY.to_string());
             if let Some((modifiers, key)) = parse_hotkey(&stored) {
                 (self.search_modifiers, self.search_key) = (modifiers, key);
             }
             self.search_hotkey_on = overlay::search_hotkey_on(paths);
-            let stored =
-                paths.setting(keys::HOTKEY_PICTURE).unwrap_or_else(|| overlay::DEFAULT_PICTURE_HOTKEY.to_string());
+            let stored = picture
+                .or_else(|| paths.setting(keys::HOTKEY_PICTURE))
+                .unwrap_or_else(|| overlay::DEFAULT_PICTURE_HOTKEY.to_string());
             if let Some((modifiers, key)) = parse_hotkey(&stored) {
                 (self.picture_modifiers, self.picture_key) = (modifiers, key);
             }
@@ -4236,6 +4247,10 @@ impl SamplePage {
                         let scanner = &mut self.mining.scanner;
                         let mut reset = false;
                         let mut hotkey_refused = false;
+                        // A key another shortcut holds: the row that holds it.
+                        let mut hotkey_taken: Option<usize> = None;
+                        // Switched off in the settings file, the overlay's own hotkey holds no key either.
+                        let overlay_on = self.hotkey_on;
                         let (desktop, mut shortcut_copied) = (&self.desktop, false);
                         settings::settings_page_wide(
                             page,
@@ -4317,6 +4332,13 @@ impl SamplePage {
                                     let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
                                     let keys = hotkey_names();
                                     let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
+                                    // The four as the overlay registers them, before this frame's change.
+                                    let rows_before = [
+                                        (*modifiers, *key, overlay_on),
+                                        (*scan_modifiers, *scan_key, *scan_on && scan_possible),
+                                        (*search_modifiers, *search_key, *search_on),
+                                        (*picture_modifiers, *picture_key, *picture_on && picture_possible),
+                                    ];
                                     let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
                                         match r {
                                             0 => (None, &mut *modifiers, &mut *key, "overlay"),
@@ -4355,6 +4377,42 @@ impl SamplePage {
                                         1 => scan_refused |= refused,
                                         2 => search_refused |= refused,
                                         _ => picture_refused |= refused,
+                                    }
+                                    // A key another shortcut that is on holds already: the change goes back (a switch
+                                    // turned on goes off again), and the reason is said below the page. One press must
+                                    // not do two things.
+                                    let rows_now = [
+                                        (*modifiers, *key, overlay_on),
+                                        (*scan_modifiers, *scan_key, *scan_on && scan_possible),
+                                        (*search_modifiers, *search_key, *search_on),
+                                        (*picture_modifiers, *picture_key, *picture_on && picture_possible),
+                                    ];
+                                    let changed = (rows_now[r].0, rows_now[r].1) != before;
+                                    let turned_on = rows_now[r].2 && !rows_before[r].2;
+                                    let holder = any_holder(r, &active_hotkeys(rows_now));
+                                    if (changed || turned_on)
+                                        && let Some(by) = holder
+                                    {
+                                        let (held, chosen, on) = match r {
+                                            0 => (&mut *modifiers, &mut *key, None),
+                                            1 => (&mut *scan_modifiers, &mut *scan_key, Some(&mut *scan_on)),
+                                            2 => (&mut *search_modifiers, &mut *search_key, Some(&mut *search_on)),
+                                            _ => (&mut *picture_modifiers, &mut *picture_key, Some(&mut *picture_on)),
+                                        };
+                                        if changed {
+                                            (*held, *chosen) = before;
+                                        } else if let Some(on) = on {
+                                            *on = false;
+                                        }
+                                        hotkey_taken = Some(by);
+                                    } else if let Some(by) = earlier_holder(r, &active_hotkeys(rows_now)) {
+                                        // Read so from the settings: not registered, and the line says by which.
+                                        let by = language::t(versekit_core::overlay::Shortcut::ALL[by].label_key());
+                                        let text = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(by))]);
+                                        ui.horizontal(|line| {
+                                            line.add_space(widgets::TOGGLE_SIZE.x + line.spacing().item_spacing.x);
+                                            line.add(egui::Label::new(RichText::new(text).color(color(scheme.yellow))).wrap());
+                                        });
                                     }
                                     if r == 0 {
                                         // Under Wayland: the way through a shortcut of the desktop.
@@ -4524,6 +4582,23 @@ impl SamplePage {
                                 let text = language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from(saved))]);
                                 self.pin_notice = Some((page.input(|i| i.time), text));
                             }
+                        }
+                        // A key another shortcut holds: which one, and that the key stays as it was.
+                        if let Some(by) = hotkey_taken {
+                            let rows = [
+                                (self.hotkey_modifiers, self.hotkey_key),
+                                (self.scan_modifiers, self.scan_key),
+                                (self.search_modifiers, self.search_key),
+                                (self.picture_modifiers, self.picture_key),
+                            ];
+                            let (modifiers, key) = rows[by];
+                            let combination = hotkey_text(modifiers, key).unwrap_or_default();
+                            let by = language::t(versekit_core::overlay::Shortcut::ALL[by].label_key());
+                            let text = language::tf(
+                                "s_hk_doppelt",
+                                &[("0", language::Arg::from(combination)), ("1", language::Arg::from(by))],
+                            );
+                            self.pin_notice = Some((page.input(|i| i.time), text));
                         }
                         // A new hotkey: the running overlay takes it with the settings (it registers all of them). The
                         // ones of the handle search and of the picture count only while they are on, so switching
@@ -6038,6 +6113,24 @@ fn keep_hotkey(modifiers: &mut [bool; 3], key: &mut usize, before: ([bool; 3], u
         (*modifiers, *key) = before;
     }
     refused
+}
+
+/// The combinations of the four shortcuts of the overlay (the order of `overlay::Shortcut::ALL`: modifiers, key and
+/// whether it is on and can be had here) that are registered; `None` for one that is not.
+fn active_hotkeys(rows: [([bool; 3], usize, bool); 4]) -> [Option<String>; 4] {
+    rows.map(|(modifiers, key, on)| on.then(|| hotkey_text(modifiers, key)).flatten())
+}
+
+/// The earlier shortcut that holds the combination of row `r`: the overlay does not register a later one on it.
+fn earlier_holder(r: usize, active: &[Option<String>; 4]) -> Option<usize> {
+    let mine = active.get(r)?.as_ref()?;
+    active[..r].iter().position(|other| other.as_ref() == Some(mine))
+}
+
+/// Any other shortcut that holds the combination of row `r`: the picker gives no key to two of them.
+fn any_holder(r: usize, active: &[Option<String>; 4]) -> Option<usize> {
+    let mine = active.get(r)?.as_ref()?;
+    (0..active.len()).find(|&i| i != r && active[i].as_ref() == Some(mine))
 }
 
 /// The overlay corners as stored.

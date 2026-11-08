@@ -20,6 +20,9 @@
 //! crash at its top is read and sent only by the box and a click, as every report. "Nicht senden" removes the crash,
 //! so no later report carries it. Closing the note keeps the crash for a report later. Nothing is sent from here.
 //!
+//! Only a crash a v5 version wrote down and that is recent comes as a note (`crash::untold`): the crash file of the
+//! Python program of 4.x stays in the report only.
+//!
 //! The note waits while the assistant, a backup or the note about the backup of the first start is open, and it
 //! counts as told when it is drawn the first time.
 
@@ -201,6 +204,20 @@ mod tests {
         assert!(crash::last_crash(&paths).is_empty(), "cleared");
         assert_eq!(crash::untold(&paths), None);
         assert!(!page_on(&paths).open_crash_hint());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The crash file the Python program of 4.x left behind (no version next to it) is no news after the update to
+    /// v5: no note, and the report keeps it (5.2.1 told a crash of September after the update).
+    #[test]
+    fn an_old_crash_of_the_python_program_gives_no_note() {
+        let _language = crate::language_lock();
+        let dir = folder("absturz-python");
+        let paths = Paths::new(host_apart(&dir));
+        std::fs::write(paths.app_file(crash::FILE), "Windows fatal exception: code 0xc0000374\n").unwrap();
+        assert!(crash::install(&paths, "5.2.2"));
+        assert!(!page_on(&paths).open_crash_hint());
+        assert!(!crash::last_crash(&paths).is_empty(), "the report keeps it");
         let _ = std::fs::remove_dir_all(dir);
     }
 
