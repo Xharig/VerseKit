@@ -32,7 +32,7 @@ use p4kx_export::{CatalogOptions, Filter};
 use serde::Deserialize;
 
 /// The record path part that selects the contract generators.
-const CONTRACT_GENERATORS: &str = "records/contracts/contractgenerator/";
+pub(crate) const CONTRACT_GENERATORS: &str = "records/contracts/contractgenerator/";
 
 /// The `source` of a blueprint reward that a mission modifier lends.
 const TEMPORARY: &str = "temporaryModifier";
@@ -118,13 +118,13 @@ impl ContractFacts {
     }
 }
 
-/// The Basetool catalog of the contract generators of `archive`, as JSON.
+/// The Basetool catalog of the records of `archive` whose path matches `filter`, as JSON.
 ///
 /// # Errors
 ///
 /// When p4kx cannot read the DataForge or the texts of the archive.
-pub fn catalog_json(archive: &Archive) -> Result<Vec<u8>, p4kx_export::CatalogError> {
-    let filter = Filter::new(CONTRACT_GENERATORS);
+pub fn catalog_json(archive: &Archive, filter: &str) -> Result<Vec<u8>, p4kx_export::CatalogError> {
+    let filter = Filter::new(filter);
     let options = CatalogOptions { filter: Some(&filter), ..CatalogOptions::new(SystemTime::UNIX_EPOCH) };
     p4kx_export::build_catalog(archive, &options).map(|built| built.into_parts().0)
 }

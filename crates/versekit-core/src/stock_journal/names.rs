@@ -20,8 +20,9 @@
 //!
 //! ⚠ An item is named by the first source that knows it: `item_Name<class>`
 //! of the original `global.ini`, the GUID in the catalog of the shops, the
-//! GUID or the class in the game values. Without a name the class stays as it
-//! is and the item cannot be taken over into the stock.
+//! GUID or the class in the game values, last the GUID in the names of the
+//! goods (`waren-namen.json`, what a commodity terminal sold). Without a name
+//! the class stays as it is and the item cannot be taken over into the stock.
 //!
 //! ⚠ A place is named by `orte-gelernt.json` (number → key) and
 //! `orte-namen.json` (key → name). The list of the stock (`orte.json` with the
@@ -45,6 +46,8 @@ use crate::stock_data;
 
 /// The game values read from the `Data.p4k` (GUID → class and name).
 pub const VALUES_FILE: &str = "werte-spieldaten.json";
+/// The English names of the goods by the GUID of their `ResourceType`, read from the `Data.p4k`.
+pub const COMMODITY_NAMES_FILE: &str = "waren-namen.json";
 /// The key of the original `global.ini` in front of the class of an item.
 const NAME_KEY: &str = "item_Name";
 
@@ -117,6 +120,8 @@ pub struct Items {
     by_value_guid: HashMap<String, String>,
     /// Class in lower case → name, from the game values.
     by_value_class: HashMap<String, String>,
+    /// GUID in lower case → name of a good, from `waren-namen.json`.
+    by_goods_guid: HashMap<String, String>,
 }
 
 impl Items {
@@ -149,6 +154,16 @@ impl Items {
         items
     }
 
+    /// The same sources with the names of the goods (`GUID`, `name`) as the last one.
+    pub fn with_goods(mut self, goods: impl IntoIterator<Item = (String, String)>) -> Items {
+        for (guid, name) in goods {
+            if usable(&name) {
+                self.by_goods_guid.entry(guid.to_lowercase()).or_insert_with(|| name.trim().to_string());
+            }
+        }
+        self
+    }
+
     /// From the stored files; a missing or unreadable one gives no names.
     pub fn load(paths: &Paths) -> Items {
         let original = match jsonio::read_json(&paths.app_file(asop::NAMES_FILE)) {
@@ -171,7 +186,14 @@ impl Items {
             },
             None => Vec::new(),
         };
-        Items::from_parts(original, shop_parts, values)
+        let goods: Vec<(String, String)> =
+            match jsonio::read_json(&paths.app_file(COMMODITY_NAMES_FILE)).ok().as_ref().and_then(|d| d.get("waren")) {
+                Some(Value::Object(map)) => {
+                    map.iter().filter_map(|(guid, name)| name.as_str().map(|n| (guid.clone(), n.to_string()))).collect()
+                }
+                _ => Vec::new(),
+            };
+        Items::from_parts(original, shop_parts, values).with_goods(goods)
     }
 
     /// Every name the sources give an item, the first source first; a name that two sources share stands once.
@@ -183,6 +205,7 @@ impl Items {
             self.by_shop_guid.get(&guid_key),
             self.by_value_guid.get(&guid_key),
             self.by_value_class.get(&class_key),
+            self.by_goods_guid.get(&guid_key),
         ]
         .into_iter()
         .flatten()
@@ -243,7 +266,8 @@ static CLASSES: std::sync::Mutex<Option<(ClassStamp, HashMap<String, String>)>> 
 /// [`classes_from`] out of the stored files: the game values, the journal and the names of the journal. Read again
 /// only when one of the files changed.
 pub fn classes_by_name(paths: &Paths) -> HashMap<String, String> {
-    let files = [VALUES_FILE, crate::stock_journal::FILE, asop::NAMES_FILE, crate::shops::CATALOG_CACHE];
+    let files =
+        [VALUES_FILE, crate::stock_journal::FILE, asop::NAMES_FILE, crate::shops::CATALOG_CACHE, COMMODITY_NAMES_FILE];
     let stamp: ClassStamp = files
         .iter()
         .map(|name| {

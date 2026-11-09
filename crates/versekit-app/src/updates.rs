@@ -91,6 +91,14 @@ pub(crate) fn round(world: &World<'_>) -> Round {
     let offer = checked.offer;
     (world.tell)(Tell::Known(offer.as_ref().map(|r| r.version.clone())));
     let failed = offer.as_ref().is_some_and(|r| update_run::failed_recently(world.paths, &r.version, world.now));
+    // After a failed download of the offered version no new try before the pause is over, whichever process or
+    // start tried last. Another version offered fetches at once.
+    if let Some(release) = &offer
+        && !failed
+        && let Some(left) = update_run::download_pause_left(world.paths, &release.version, world.now)
+    {
+        return Round::Sleep(Duration::from_secs_f64(left.clamp(1.0, auto_update::CHECK_INTERVAL.as_secs_f64())));
+    }
     match auto_update::next_step(offer.as_ref(), world.now, world.game_running, failed) {
         Step::Nothing => Round::Sleep(auto_update::CHECK_INTERVAL),
         Step::NotYet(seconds) => Round::Sleep(Duration::from_secs(seconds.max(1))),
@@ -460,6 +468,58 @@ mod tests {
         w.tell = &tell;
         assert_eq!(round(&w), Round::Quit);
         assert_eq!(*log.borrow(), [known(), Tell::Installing("v5.0.1".into())]);
+    }
+
+    /// GitHub on a day it is disturbed: the list comes, the checksums of the release answer with a gateway error.
+    struct Disturbed(Fake);
+
+    impl versekit_core::net::Net for Disturbed {
+        fn get(&self, url: &str) -> Result<Vec<u8>, versekit_core::net::FetchError> {
+            let body = self.0.get(url);
+            if url.ends_with(updater::CHECKSUM_FILE) {
+                return Err(versekit_core::net::FetchError::Failed("HTTP 504".into()));
+            }
+            body
+        }
+
+        fn head(&self, url: &str) -> Result<versekit_core::net::Headers, versekit_core::net::FetchError> {
+            self.0.head(url)
+        }
+    }
+
+    /// 23 looks in 61 minutes, each from a fresh process (an overlay started again, a second one, the window): after
+    /// a failed download the next try comes ten minutes later at the earliest, and each further failure waits longer.
+    #[test]
+    fn after_a_failed_download_no_process_and_no_new_start_tries_again_within_ten_minutes() {
+        let dir = Dir::new("updates-504");
+        let paths = paths_in(dir.path());
+        let appimage = dir.path().join("VerseKit-x86_64.AppImage");
+        fs::write(&appimage, b"alt").unwrap();
+        let text = appimage.to_string_lossy().into_owned();
+        let never = |_: &Path| -> io::Result<Box<dyn Started>> { panic!("nothing is started") };
+        let net = Disturbed(github("2026-11-20T09:00:00Z", b"neu"));
+        let start = auto_update::parse_moment("2026-11-20T10:00:00Z").unwrap();
+        let checksums = format!("{BASE}/{}", updater::CHECKSUM_FILE);
+        let mut tries = Vec::new();
+        for look in 0..23 {
+            let now = start + f64::from(look) * 166.0;
+            let before = net.0.asked().iter().filter(|url| **url == checksums).count();
+            let fresh = Paths::new(paths.host.clone());
+            let mut w = world(&fresh, &net.0, "5.0.0", Some(&text), dir.path(), &appimage, &never);
+            w.download_net = &net;
+            w.now = now;
+            let Round::Sleep(time) = round(&w) else { panic!("nothing is installed") };
+            assert!(time <= auto_update::CHECK_INTERVAL, "look {look}: {time:?}");
+            if net.0.asked().iter().filter(|url| **url == checksums).count() > before {
+                tries.push(now - start);
+            }
+        }
+        assert!(tries.windows(2).all(|pair| pair[1] - pair[0] >= 600.0), "ten minutes at least: {tries:?}");
+        assert_eq!(tries, [0.0, 4.0 * 166.0, 12.0 * 166.0], "tries at 0, 11 and 33 minutes");
+        assert_eq!(fs::read(&appimage).unwrap(), b"alt");
+        // The report tells these tries from clicks.
+        let log = fs::read_to_string(paths.app_file(update_run::LOG_FILE)).unwrap();
+        assert_eq!(log.matches("Download of v5.0.1 (automatic) failed").count(), 3, "{log}");
     }
 
     #[test]

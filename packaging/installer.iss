@@ -7,7 +7,9 @@
 ; Output: dist\VerseKit-Setup.exe
 ;
 ; The installer puts the program into the user's own program folder (no administrator, also not for the
-; silent update) and never touches the player's data folder, neither when installing nor when uninstalling.
+; silent update) and never touches the player's data when installing. Uninstalling by hand asks whether the
+; player's data go too (default: no); the program removes them itself (`data_removal::SWITCH`), only its own
+; files. A silent uninstall never removes them.
 ;
 ; The values below are defaults; a check of the installer on a working computer gives each of them its own
 ; value (/DTestRun=1 and the others), so that it never meets the real installation, its start menu entries,
@@ -109,6 +111,20 @@ deutsch.AutostartTask=Mit Windows starten
 deutsch.AfterInstallGroup=Nach der Installation:
 english.AutostartTask=Start with Windows
 english.AfterInstallGroup=After installation:
+deutsch.StillRunning=VerseKit läuft noch und lässt sich nicht beenden – wahrscheinlich wurde es als Administrator gestartet.%n%nBitte beende VerseKit selbst: Rechtsklick auf das VerseKit-Symbol im Infobereich neben der Uhr, dann „Beenden“ (oder im Task-Manager). Klicke danach auf „Wiederholen“.
+english.StillRunning=VerseKit is still running and cannot be closed – it was probably started as administrator.%n%nPlease close VerseKit yourself: right-click the VerseKit icon in the notification area next to the clock, then "Quit" (or use Task Manager). Then click "Retry".
+deutsch.StillRunningSilent=VerseKit läuft noch und lässt sich nicht beenden.
+english.StillRunningSilent=VerseKit is still running and cannot be closed.
+deutsch.CannotCheck=Es lässt sich nicht prüfen, ob VerseKit noch läuft.%n%nBitte beende VerseKit selbst, falls es läuft: Rechtsklick auf das VerseKit-Symbol im Infobereich neben der Uhr, dann „Beenden“. Klicke danach auf „Wiederholen“.
+english.CannotCheck=It cannot be checked whether VerseKit is still running.%n%nPlease close VerseKit yourself if it runs: right-click the VerseKit icon in the notification area next to the clock, then "Quit". Then click "Retry".
+deutsch.NetworkStays=Dein Datenordner auf dem Netzlaufwerk wird nicht angefasst und bleibt liegen:%n%n%1
+english.NetworkStays=Your data folder on the network drive is not touched and stays:%n%n%1
+deutsch.DeleteDataQuestion=Sollen auch deine VerseKit-Daten gelöscht werden?%n%nDazu gehören deine Baupläne, dein Lager, deine Einstellungen und alles andere, was VerseKit gespeichert hat. Gelöscht werden VerseKits Ordner und Dateien mit VerseKits Dateinamen an diesen Orten:%n%n%1%nAndere Dateien bleiben.%n%n%2Auch VerseKits eigene Sicherungen (vom ersten Start und vor Updates) werden gelöscht. Das lässt sich nicht rückgängig machen. Wähle „Nein“, wenn du VerseKit später wieder installieren und deine Daten behalten willst.
+english.DeleteDataQuestion=Also delete your VerseKit data?%n%nThis includes your blueprints, your inventory, your settings and everything else VerseKit has saved. VerseKit's folders and the files with VerseKit's file names are deleted, at these places:%n%n%1%nOther files stay.%n%n%2VerseKit's own backups (from the first start and before updates) are deleted too. This cannot be undone. Choose "No" if you want to install VerseKit again later and keep your data.
+deutsch.DeletingData=VerseKit-Daten werden gelöscht …
+english.DeletingData=Deleting VerseKit data …
+deutsch.DeleteDataFailed=Ein Teil deiner VerseKit-Daten konnte nicht gelöscht werden (vielleicht ist eine Datei noch geöffnet). Er liegt noch an den genannten Orten und kann von Hand gelöscht werden.
+english.DeleteDataFailed=Part of your VerseKit data could not be deleted (perhaps a file is still open). It is still at the places shown and can be deleted by hand.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -180,6 +196,14 @@ const
   LIFE_SIGN = 'Installer started';
   { The exit code written when the program did not end by itself (as the helper of 5.2.2 and earlier). }
   CODE_OLD_STUCK = 91;
+  { How long a program ended by force may take to leave the process list, and how often it is asked, in
+    milliseconds. }
+  PROCESS_WAIT = 5000;
+  PROCESS_POLL = 200;
+  { What the process list says of the program. }
+  PROGRAM_GONE = 0;
+  PROGRAM_RUNS = 1;
+  PROGRAM_UNKNOWN = 2;
 
 var
   WasInstalled: Boolean;
@@ -188,6 +212,8 @@ var
   Installing: Boolean;
   Installed: Boolean;
   Stuck: Boolean;
+  { The program was ended and checked at the start of the uninstall. }
+  UninstallStarted: Boolean;
 
 function OpenProcess(DesiredAccess: DWORD; InheritHandle: BOOL; ProcessId: DWORD): THandle;
   external 'OpenProcess@kernel32.dll stdcall'; { privacy-ok: a function of a Windows library, no address }
@@ -197,6 +223,10 @@ function CloseHandle(Handle: THandle): BOOL;
   external 'CloseHandle@kernel32.dll stdcall'; { privacy-ok: a function of a Windows library, no address }
 function GetTickCount(): DWORD;
   external 'GetTickCount@kernel32.dll stdcall'; { privacy-ok: a function of a Windows library, no address }
+function GetCurrentProcessId(): DWORD;
+  external 'GetCurrentProcessId@kernel32.dll stdcall'; { privacy-ok: a function of a Windows library, no address }
+function ProcessIdToSessionId(ProcessId: DWORD; var SessionId: DWORD): BOOL;
+  external 'ProcessIdToSessionId@kernel32.dll stdcall'; { privacy-ok: a function of a Windows library, no address }
 
 function IsNewInstallation(): Boolean;
 begin
@@ -362,23 +392,147 @@ begin
   end;
 end;
 
-{ Ends every process of the program file once; returns the exit code of taskkill. }
+{ The filter for taskkill and tasklist that keeps them to the Windows session of this process: the installation is
+  the user's own, and the program of another user signed in on this computer is none of its business. Empty when
+  the session cannot be asked. }
+function SessionFilter(): String;
+var
+  Session: DWORD;
+begin
+  Result := '';
+  if ProcessIdToSessionId(GetCurrentProcessId(), Session) then
+    Result := '/FI "SESSION eq ' + IntToStr(Session) + '" ';
+end;
+
+{ Ends every process of the program file in this session once; returns the exit code of taskkill. }
 function EndProgram(): Integer;
 var
   Code: Integer;
 begin
   Result := -1;
-  if Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#ProgramFile}', '', SW_HIDE, ewWaitUntilTerminated, Code) then
+  if Exec(ExpandConstant('{sys}\taskkill.exe'), '/F ' + SessionFilter() + '/IM {#ProgramFile}', '', SW_HIDE,
+      ewWaitUntilTerminated, Code) then
     Result := Code;
+end;
+
+{ Ends the program three times with a short pause: the start with Windows can bring it up again right after. }
+procedure EndProgramThrice();
+var
+  I: Integer;
+begin
+  for I := 1 to 3 do
+  begin
+    EndProgram();
+    if I < 3 then
+      Sleep(600);
+  end;
+end;
+
+{ Is a switch on the command line (without regard to case)? }
+function HasSwitch(const Name: String): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), Name) = 0 then
+    begin
+      Result := True;
+      Exit;
+    end;
+end;
+
+{ Does a process of the program file still run in this session? Asks the process list, which also shows processes
+  this one may not end, such as one started as administrator. PROGRAM_UNKNOWN when the list cannot be had. A check
+  setup takes the answer from /VKLAEUFTNOCH (runs, as a program it may not end) and /VKLISTEFEHLT (unknown). }
+function ProgramState(): Integer;
+var
+  List: String;
+  Code: Integer;
+  Lines: AnsiString;
+begin
+#ifdef TestRun
+  if HasSwitch('/VKLAEUFTNOCH') then
+  begin
+    Result := PROGRAM_RUNS;
+    Exit;
+  end;
+  if HasSwitch('/VKLISTEFEHLT') then
+  begin
+    Result := PROGRAM_UNKNOWN;
+    Exit;
+  end;
+  { The program came back after the check at the start of the uninstall. }
+  if HasSwitch('/VKLAEUFTWIEDER') and UninstallStarted then
+  begin
+    Result := PROGRAM_RUNS;
+    Exit;
+  end;
+#endif
+  Result := PROGRAM_UNKNOWN;
+  List := ExpandConstant('{tmp}\processes.csv');
+  DeleteFile(List);
+  if Exec(ExpandConstant('{cmd}'), '/C ""' + ExpandConstant('{sys}\tasklist.exe') + '" ' + SessionFilter() +
+      '/FI "IMAGENAME eq {#ProgramFile}" /FO CSV /NH > "' + List + '""', '', SW_HIDE, ewWaitUntilTerminated, Code)
+    and (Code = 0) and LoadStringFromFile(List, Lines) then
+  begin
+    if Pos('"' + Lowercase('{#ProgramFile}') + '"', Lowercase(String(Lines))) > 0 then
+      Result := PROGRAM_RUNS
+    else
+      Result := PROGRAM_GONE;
+  end;
+end;
+
+{ The state once the program has had time to go: asks again every PROCESS_POLL milliseconds for at most
+  PROCESS_WAIT while it still runs, since a process ended by force takes a moment to leave the list. }
+function StateAfterEnd(): Integer;
+var
+  Started: DWORD;
+begin
+  Started := GetTickCount();
+  Result := ProgramState();
+  while (Result = PROGRAM_RUNS) and (GetTickCount() - Started < PROCESS_WAIT) do
+  begin
+    Sleep(PROCESS_POLL);
+    Result := ProgramState();
+  end;
+end;
+
+{ Ends the program and makes sure it has ended. While it still runs (it was started as administrator, and this
+  process may not end it), and with `UnknownStops` also while nobody can tell, the user is asked to end it and
+  retry; a silent run gets the default answer and stops. True once it has ended, or nobody can tell and
+  `UnknownStops` is not set. }
+function ProgramEnded(UnknownStops: Boolean): Boolean;
+var
+  State: Integer;
+  Text: String;
+begin
+  EndProgramThrice();
+  State := StateAfterEnd();
+  while (State = PROGRAM_RUNS) or ((State = PROGRAM_UNKNOWN) and UnknownStops) do
+  begin
+    if State = PROGRAM_RUNS then
+      Text := CustomMessage('StillRunning')
+    else
+      Text := CustomMessage('CannotCheck');
+    if SuppressibleMsgBox(Text, mbError, MB_RETRYCANCEL, IDCANCEL) <> IDRETRY then
+    begin
+      Result := False;
+      Exit;
+    end;
+    EndProgramThrice();
+    State := StateAfterEnd();
+  end;
+  Result := True;
 end;
 
 { Right before the files are copied. In an update the program started: first the wait until its processes have
   ended by themselves; one that has not ended after WAIT_MILLISECONDS stops the update (it is never ended by
-  force: it may be writing). Then, only over an existing installation, the program is ended three times with a
-  short pause, because the start with Windows can bring it up again after the Restart Manager closed it. }
+  force: it may be writing). Then, over an existing installation or while the program runs, the program is ended
+  three times with a short pause, because the start with Windows can bring it up again after the Restart Manager
+  closed it. One that still runs then (started as administrator: neither this process nor the Restart Manager may
+  end it) stops Setup before any file is copied, after the user was asked to end it. }
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  I: Integer;
 begin
   Result := '';
   if IsUpdateRun() then
@@ -395,26 +549,137 @@ begin
     end;
   end;
   WasInstalled := FileExists(ExpandConstant('{app}\{#ProgramFile}'));
-  if WasInstalled then
-    for I := 1 to 3 do
-    begin
-      EndProgram();
-      if I < 3 then
-        Sleep(600);
-    end;
+  { A process list that cannot be read does not stop Setup or the update: the program was ended as always, and only
+    one that is seen to run on stops it. }
+  if (WasInstalled or (ProgramState() = PROGRAM_RUNS)) and not ProgramEnded(False) then
+  begin
+    { The file of a running program cannot be replaced (access denied): stopped here, nothing is half installed. }
+    if IsUpdateRun() then
+      UpdateLog('The program does not exit (started as administrator?) - nothing installed');
+    Stuck := True;
+    Result := CustomMessage('StillRunningSilent');
+    Exit;
+  end;
   Prepared := True;
 end;
 
-{ Uninstalling removes the start with Windows under every name the program and the installers wrote, whoever
-  wrote it; only the values, never the Run key. }
+{ Removes the start with Windows under every name the program and the installers wrote, whoever wrote it; only
+  the values, never the Run key. }
+procedure RemoveStartWithWindows();
+begin
+  RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, '{#RunValue}');
+#ifndef TestRun
+  RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, 'Verse-Kit');
+  RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, 'SC BP Watcher');
+#endif
+end;
+
+{ Runs the installed program with `Switch` on the player's data and returns its exit code, -1 when it could not be
+  started. A check setup runs it only on the copy of the data named by /VKDATEN (`--daten`, writing locked to it),
+  never on the data of the computer it runs on, and not at all without it. }
+function RunOnData(const Switch: String): Integer;
+var
+  Arguments: String;
+  Code: Integer;
+begin
+  Result := -1;
+  Arguments := Switch;
+#ifdef TestRun
+  if ExpandConstant('{param:VKDATEN|}') = '' then
+    Exit;
+  Arguments := Arguments + ' --daten ' + AddQuotes(ExpandConstant('{param:VKDATEN|}'));
+#endif
+  if Exec(ExpandConstant('{app}\{#ProgramFile}'), Arguments, ExpandConstant('{app}'), SW_HIDE,
+      ewWaitUntilTerminated, Code) then
+    Result := Code;
+end;
+
+{ The places with the player's own data, as the program finds them (`data_removal::PLACES_SWITCH`), one per line
+  and indented for the question: `Clear` the ones it clears, `Kept` the data folders on the network it leaves
+  (a line that begins with `data_removal::NETWORK_MARK`). Empty both when the program cannot name them (the data
+  folder named from outside). }
+procedure DataPlaces(var Clear, Kept: String);
+var
+  List, Line: String;
+  Lines: TArrayOfString;
+  I: Integer;
+begin
+  Clear := '';
+  Kept := '';
+  List := ExpandConstant('{tmp}\places.txt');
+  if (RunOnData('--eigene-daten-orte ' + AddQuotes(List)) <> 0) or not LoadStringsFromFile(List, Lines) then
+    Exit;
+  for I := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    Line := Trim(Lines[I]);
+    if Line = '' then
+      Continue;
+    if Copy(Line, 1, 1) = '-' then
+      Kept := Kept + '    ' + Copy(Line, 2, Length(Line) - 1) + #13#10
+    else
+      Clear := Clear + '    ' + Line + #13#10;
+  end;
+end;
+
+{ The question whether the player's own data go too, with their places; asked only when uninstalling by hand,
+  "No" is the default. A silent uninstall never removes them. A check setup takes the answer "yes" from
+  /VKDATENLOESCHEN, without a question. Then the program removes them itself, only its own files
+  (`data_removal::SWITCH`); it runs from the installation folder while its file is still there, so this comes
+  before the files of the installation go. }
+procedure OfferDataRemoval();
+var
+  Clear, Kept, Note: String;
+  Chosen: Boolean;
+begin
+  Chosen := False;
+#ifdef TestRun
+  Chosen := HasSwitch('/VKDATENLOESCHEN');
+#endif
+  if UninstallSilent() and not Chosen then
+    Exit;
+  DataPlaces(Clear, Kept);
+  Note := '';
+  if Kept <> '' then
+    Note := FmtMessage(CustomMessage('NetworkStays'), [Kept]) + #13#10;
+  if Clear = '' then
+  begin
+    { Nothing to remove; a data folder on the network is named so the user knows it stays. }
+    if (Note <> '') and not Chosen then
+      MsgBox(Note, mbInformation, MB_OK);
+    Exit;
+  end;
+  if not Chosen then
+    Chosen := MsgBox(FmtMessage(CustomMessage('DeleteDataQuestion'), [Clear, Note]), mbConfirmation,
+      MB_YESNO or MB_DEFBUTTON2) = IDYES;
+  if not Chosen then
+    Exit;
+  UninstallProgressForm.StatusLabel.Caption := CustomMessage('DeletingData');
+  if RunOnData('--eigene-daten-loeschen') <> 0 then
+    SuppressibleMsgBox(CustomMessage('DeleteDataFailed'), mbInformation, MB_OK, IDOK);
+end;
+
+{ At the start of the uninstall: the program ended and checked to have ended, since the file of a running program
+  cannot be removed (access denied) and would stay behind. A program that still runs, or a process list that cannot
+  be read, stops the uninstall before anything is removed (False here is the documented way to stop it). }
+function InitializeUninstall(): Boolean;
+begin
+  Result := ProgramEnded(True);
+  UninstallStarted := Result;
+end;
+
+{ Before the files go: the program ended and checked once more (the start with Windows may have brought it back
+  while the user confirmed); one that runs again and cannot be ended stops the uninstall here, before anything is
+  removed (Inno's help on Abort names this step). Then the start with Windows removed, and the question about the
+  player's data. After the files: the start with Windows once more. }
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  if CurUninstallStep = usPostUninstall then
+  if CurUninstallStep = usUninstall then
   begin
-    RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, '{#RunValue}');
-#ifndef TestRun
-    RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, 'Verse-Kit');
-    RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, 'SC BP Watcher');
-#endif
-  end;
+    if not ProgramEnded(True) then
+      Abort;
+    RemoveStartWithWindows();
+    OfferDataRemoval();
+  end
+  else if CurUninstallStep = usPostUninstall then
+    RemoveStartWithWindows();
 end;

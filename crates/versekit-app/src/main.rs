@@ -91,6 +91,13 @@ fn main() -> eframe::Result {
     if refuses(&args) {
         return Ok(());
     }
+    // The uninstaller's look at the own data and their removal: no window, no diagnostics, only the exit code.
+    if let Some(at) = args.iter().position(|a| a == versekit_core::data_removal::PLACES_SWITCH) {
+        std::process::exit(name_own_data(data_folder(&args), args.get(at + 1).map(String::as_str)));
+    }
+    if args.iter().any(|a| a == versekit_core::data_removal::SWITCH) {
+        std::process::exit(remove_own_data(data_folder(&args)));
+    }
     // One program per data folder: a start on another copy of the data is a program of its own, and neither
     // finds the windows of the other.
     let home = std::env::var(versekit_core::legacy::ENV_HOME).ok();
@@ -190,6 +197,34 @@ fn main() -> eframe::Result {
         overlay.main_args = main_window_args(overlay.data.as_deref());
     }
     versekit_overlay::run(overlay)
+}
+
+/// Writes the places of the own data of the run (`data_removal::places`) into `target`, one per line, for the
+/// uninstaller's question. Returns 0, or `EXIT_REFUSED` when nothing may be removed or the file cannot be written.
+fn name_own_data(data: Option<&str>, target: Option<&str>) -> i32 {
+    use versekit_core::data_removal::{self, EXIT_REFUSED};
+    let (Some(paths), Some(target)) = (run_paths(data), target.filter(|t| !t.starts_with("--"))) else {
+        return EXIT_REFUSED;
+    };
+    match data_removal::places(&paths) {
+        // The file lies in the uninstaller's own temporary folder, outside the data.
+        Ok(places) => match std::fs::write(target, data_removal::places_text(&places)) {
+            Ok(()) => 0,
+            Err(_) => EXIT_REFUSED,
+        },
+        Err(_) => EXIT_REFUSED,
+    }
+}
+
+/// Removes the own data of the run (`data_removal::remove`): the copy after `--daten` (writing locked to it), else
+/// the user's own data. Returns the exit code of the switch.
+fn remove_own_data(data: Option<&str>) -> i32 {
+    use versekit_core::data_removal::{self, EXIT_REFUSED};
+    let Some(paths) = run_paths(data) else { return EXIT_REFUSED };
+    match data_removal::remove(&paths) {
+        Ok(removal) => removal.exit_code(),
+        Err(_) => EXIT_REFUSED,
+    }
 }
 
 /// What a window started by the overlay (or by hand) does before it is built: the backup of what the older version

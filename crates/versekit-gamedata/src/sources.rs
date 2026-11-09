@@ -155,6 +155,118 @@ pub(crate) fn collect(
     found
 }
 
+/// The text keys a contract entry shows as title and description, where they differ from the keys it names: every
+/// string of the organisation with the tag the placeholder asks for, of which the game shows one. Empty where the key
+/// it names stays.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ShownKeys {
+    pub title: Vec<String>,
+    pub description: Vec<String>,
+}
+
+/// The key of a contract entry in [`shown_keys`]: the `id` of the contract and of the sub contract in lower case,
+/// `<contract>|<sub>`, the sub empty for the contract itself.
+pub fn entry_key(contract: &str, sub: Option<&str>) -> String {
+    format!("{}|{}", contract.to_ascii_lowercase(), sub.unwrap_or_default().to_ascii_lowercase())
+}
+
+/// For every contract entry of every generator (no filter on rewards), the keys of its title and description whose
+/// English text is no more than one placeholder `~mission(Token|Variant)`: the key of the text the game puts in its
+/// place, e.g. the string variant of the contractor organisation (`@blackbox_recover_title_E_001`, whose text is
+/// `~mission(Contractor|BlackBoxRecoverTitleEasy)`, shows `@Hockrow_BlackBox_space_E_Title_001`). An entry whose
+/// keys stay as they are is left out.
+pub(crate) fn shown_keys(
+    trees: &mut Trees<'_, '_>,
+    generators: &[Guid],
+    texts: &Localization,
+) -> HashMap<String, ShownKeys> {
+    let mut found = HashMap::new();
+    for &guid in generators {
+        let Some(tree) = trees.get(guid) else { continue };
+        for handler in structs(Some(tree.root()), "generators") {
+            for list in CONTRACT_LISTS {
+                for contract in structs(Some(handler), list) {
+                    let Some(id) = identity(contract) else { continue };
+                    let template = trees.follow(Some(contract), "template");
+                    let template_root = template.as_deref().map(RecordTree::root);
+                    let display = structure(template_root, "contractDisplayInfo");
+                    for sub in std::iter::once(None).chain(structs(Some(contract), "subContracts").map(Some)) {
+                        let sub_id = match sub {
+                            Some(sub) => match identity(sub) {
+                                Some(sub_id) => Some(sub_id),
+                                None => continue,
+                            },
+                            None => None,
+                        };
+                        let layers = layers(handler, contract, sub);
+                        let title = layered_param(&layers, "Title")
+                            .or_else(|| elements(display, "displayString").first().and_then(key_value));
+                        let description = layered_param(&layers, "Description");
+                        let mut resolve = |key: Option<&str>| {
+                            let Some(key) = key else { return Vec::new() };
+                            let shown = shown_keys_of(key, &layers, template_root, trees, texts);
+                            if shown.iter().all(|one| one == key) { Vec::new() } else { shown }
+                        };
+                        let keys = ShownKeys { title: resolve(title), description: resolve(description) };
+                        if keys != ShownKeys::default() {
+                            let sub_text = sub_id.map(|sub| sub.to_string());
+                            found.entry(entry_key(&id.to_string(), sub_text.as_deref())).or_insert(keys);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    found
+}
+
+/// The keys that stand in for `key` when its English text is one placeholder of an organisation's strings (every one
+/// with the tag asked for) or of a fixed choice ([`placeholder`]); empty when it is something else.
+fn shown_keys_of(
+    key: &str,
+    layers: &[&StructValue<'_>],
+    template: Option<&StructValue<'_>>,
+    trees: &mut Trees<'_, '_>,
+    texts: &Localization,
+) -> Vec<String> {
+    let Some(text) = Text::resolve(Some(key), texts).text else { return Vec::new() };
+    let Some(inner) = py_strip(&text).strip_prefix("~mission(").and_then(|rest| rest.strip_suffix(')')).map(String::from)
+    else {
+        return Vec::new();
+    };
+    if inner.contains('(') || inner.contains(')') {
+        return Vec::new();
+    }
+    let (name, variant) = inner.split_once('|').map_or((inner.as_str(), None), |(name, variant)| (name, Some(variant)));
+    let Some(value) = property(layers, template, name) else { return Vec::new() };
+    match value.type_name() {
+        "MissionPropertyValue_StringHash" => structs(Some(value), "options")
+            .next()
+            .and_then(|option| locale_key(Some(option), "textId"))
+            .map(String::from)
+            .into_iter()
+            .collect(),
+        "MissionPropertyValue_Organization" => organization_strings(value, variant.unwrap_or("Name"), trees),
+        _ => Vec::new(),
+    }
+}
+
+/// The localisation keys of every string variant tagged `variant` of the first organisation the property `value`
+/// names, in stored order.
+fn organization_strings(value: &StructValue<'_>, variant: &str, trees: &mut Trees<'_, '_>) -> Vec<String> {
+    let Some(organization) = organization(value).and_then(|guid| trees.get(guid)) else { return Vec::new() };
+    let mut found = Vec::new();
+    for entry in structs(structure(Some(organization.root()), "stringVariants"), "variants") {
+        let tag = trees.follow(Some(entry), "tag");
+        if tag.as_deref().and_then(|tag| text(Some(tag.root()), "tagName")).is_some_and(|name| name == variant)
+            && let Some(key) = locale_key(Some(entry), "string")
+        {
+            found.push(key.to_string());
+        }
+    }
+    found
+}
+
 /// Corrects the pool `pool` where the data list one blueprint twice: the
 /// second place takes the blueprint that was meant, or goes when none is
 /// known.

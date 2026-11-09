@@ -1077,8 +1077,10 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("such-taste", "", &[]);
         let mut bench = Bench::new(page);
         bench.page.overlay_runs = || true;
-        // The hotkey of the picture of the game below it without its picker: the one of the search is the last.
+        // The hotkeys of the picture of the game and of the main window below it without their pickers: the one of
+        // the search is the last.
         bench.page.picture_hotkey_on = false;
+        bench.page.main_hotkey_on = false;
         bench.page.go_to("hf_overlay");
         // A little down the page, so that the picker below the last row of the first group stands in the window.
         bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
@@ -1172,6 +1174,53 @@ pub(in crate::sample) mod tests {
         let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
         assert!(stored.contains("\"hotkey_bild_an\": false"), "{stored}");
         assert_eq!(bench.page.mining.scanner.hotkey, None, "switched off: the hint names no hotkey");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The hotkey of the main window on the overlay page: on at first with its default, the last of the shortcuts; a
+    /// change is said while the overlay runs and kept in `hotkey_hauptfenster`, switched off `hotkey_hauptfenster_an`
+    /// keeps `false`, and set on the key of the overlay its line says by which it is taken.
+    #[test]
+    fn the_hotkey_of_the_main_window_is_on_at_first_changed_switched_off_and_said_when_taken() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("haupt-taste", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.overlay_runs = || true;
+        // The search and the picture without their pickers: the one of the main window is the third of the page.
+        bench.page.search_hotkey_on = false;
+        bench.page.picture_hotkey_on = false;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
+        assert!(shown(&texts, &language::t("s_hk_haupt")), "the row: {texts:?}");
+        assert!(bench.page.main_hotkey_on, "on at first");
+        let current = |page: &SamplePage| hotkey_text(page.main_modifiers, page.main_key);
+        assert_eq!(current(&bench.page).as_deref(), Some(versekit_core::overlay::DEFAULT_MAIN_HOTKEY));
+        let strg = language::t("s_ei_taste_strg");
+        let scan_pickers = usize::from(versekit_core::refinery_scan::screen::supported());
+        bench.click_nth(&strg, 1 + scan_pickers);
+        bench.settle();
+        assert_eq!(current(&bench.page).as_deref(), Some("Strg+Alt+Umschalt+F"));
+        let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
+        assert_eq!(said, Some(language::tf("s_hk_ok", &[("0", language::Arg::from("Strg+Alt+Umschalt+F"))])));
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_hauptfenster\": \"Strg+Alt+Umschalt+F\""), "{stored}");
+        bench.page.main_hotkey_on = false;
+        bench.settle();
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_hauptfenster_an\": false"), "{stored}");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // Set by the player on the key of the overlay: its line says by which it is taken.
+        let settings = r#"{"hotkey_hauptfenster": "Alt+Umschalt+V"}"#;
+        let (page, dir) = real_page("haupt-taste-belegt", settings, &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_ei_ov_taste")))]);
+        assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

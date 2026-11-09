@@ -905,7 +905,7 @@ mod tests {
         let blocks = build(&lines, &missions, &[item], &shops, &[], false, &ItemTexts::new(), &ctx);
         let block = &blocks["item_DescCOOL_JSPN_S01_FrostStar"];
         assert!(block.ends_with(
-            "VERSE-KIT: BAUPLAN & HERSTELLUNG</EM4>\\nBauplan: [  ] fehlt — aus \"Wartungsauftrag\", ab Rang Junior\\nHerstellen: 3 Zutaten · 4 min\\nIm Laden: New Babbage · 12.400 aUEC"
+            "VERSEKIT: BAUPLAN & HERSTELLUNG</EM4>\\nBauplan: [  ] fehlt — aus \"Wartungsauftrag\", ab Rang Junior\\nHerstellen: 3 Zutaten · 4 min\\nIm Laden: New Babbage · 12.400 aUEC"
         ), "{block}");
     }
 

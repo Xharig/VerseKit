@@ -21,10 +21,25 @@
 //! ⚠ The log has no stock, only events. A purchase is certain: a request with
 //! amount, class and total price, and an answer that says it went through. A
 //! sale at a kiosk is the same request with `Sell` and an answer of the type
-//! `Selling`; a sale of goods at a commodity terminal has no answer line and is
-//! not read. A
-//! move only says where a piece went; the stock before it is not in the log,
-//! so the moves are a hint, never a sum.
+//! `Selling`. A move only says where a piece went; the stock before it is not
+//! in the log, so the moves are a hint, never a sum.
+//!
+//! ⚠ A sale of goods at a commodity terminal has no answer line, only the
+//! request (`SShopCommoditySellRequest`: shop, total, the GUID of the good, SCU
+//! and its boxes). It is kept as `Requested`. The terminal lists the boxes of the
+//! player (`AddPlayerCommodityItem`, a line per good with one or more pairs of box
+//! size and count, all in one second) when it opens and again a few seconds after
+//! a sale. A box names no good, so the boxes are counted per size: when the first
+//! list after the requests (a later second than theirs) holds exactly as many
+//! boxes of each size fewer as they sold, they are `BoxGone`; of fewer gone, the
+//! oldest as far as the boxes reach; of more gone (boxes moved away besides), none.
+//! A list that does not come (the terminal was closed, or the player had no box
+//! left, which writes no line) leaves them `Requested`.
+//! ⚠ The same request again within [`REPEAT_SECONDS`] of the first while that is
+//! still `Requested` (the line twice, a second click) is the same sale; without
+//! boxes only in the same second. ⚠ With `transactionMode[ResourceContainer]` the
+//! SCU must be the sum of size × count of its boxes, else the line is not read and
+//! the error log says so.
 //!
 //! ⚠ A move is read from its `Queued` line alone: the `New` line is mostly
 //! missing, often has source and target swapped and no usable class.
@@ -51,6 +66,7 @@ pub mod names;
 pub mod spending;
 pub mod suggestions;
 
+use crate::errors;
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::location;
 use crate::logread;
@@ -64,8 +80,15 @@ use crate::pypath::Flavor;
 use crate::text::decode_replace;
 
 pub const FILE: &str = "lagerjournal.json";
-/// 2 holds the sales (`verkaeufe`); an older journal reads every log once more.
-pub const FORMAT: i64 = 2;
+/// 2 holds the sales (`verkaeufe`), 3 also the sales at a commodity terminal (`nachweis`); an older journal reads
+/// every log once more.
+pub const FORMAT: i64 = 3;
+/// A request at a commodity terminal that equals one this many seconds before it, still unproven, is the same sale.
+pub const REPEAT_SECONDS: i64 = 120;
+/// The list of the boxes before a request counts when it is at most this old.
+const LIST_BEFORE_SECONDS: i64 = 600;
+/// The list of the boxes after a request counts when it starts at most this long after it.
+const LIST_AFTER_SECONDS: i64 = 120;
 /// The setting that switches the reading of the stock lines on (on by default).
 pub const SETTING: &str = "lager_aus_log";
 
@@ -137,15 +160,52 @@ impl Endpoint {
     }
 }
 
-/// A purchase or a sale the shop confirmed.
+/// What says that a deal went through.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Proof {
+    /// The shop answered with success (a kiosk).
+    Answer,
+    /// A commodity terminal: the sold box was gone from the next list of the player's boxes.
+    BoxGone,
+    /// A commodity terminal: only the request is in the log.
+    Requested,
+}
+
+impl Proof {
+    /// The word of the journal; an answered deal has none.
+    fn word(self) -> Option<&'static str> {
+        match self {
+            Proof::Answer => None,
+            Proof::BoxGone => Some("kiste_weg"),
+            Proof::Requested => Some("angefragt"),
+        }
+    }
+
+    /// The proof of a word of the journal: none is an answer, a word nobody knows counts as a request.
+    fn from_word(word: Option<&str>) -> Proof {
+        match word {
+            None => Proof::Answer,
+            Some("kiste_weg") => Proof::BoxGone,
+            Some(_) => Proof::Requested,
+        }
+    }
+
+    /// Does the log show that it went through?
+    pub fn confirmed(self) -> bool {
+        self != Proof::Requested
+    }
+}
+
+/// A purchase or a sale: confirmed by the shop, or at a commodity terminal as its [`Proof`] says.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Deal {
     /// Seconds since 1970 (UTC), the stamp of the request.
     pub time: i64,
-    /// The class of the item (`behr_lmg_ballistic_01_mag`), not the name shown in the game.
+    /// The class of the item (`behr_lmg_ballistic_01_mag`), not the name shown in the game; empty for goods.
     pub class: String,
-    /// The entity GUID the shop lists the item under.
+    /// The entity GUID the shop lists the item under; for goods the GUID of their `ResourceType`.
     pub guid: String,
+    /// Pieces; for goods SCU.
     pub quantity: u32,
     /// The price of the request for all pieces together: paid for a purchase, received for a sale.
     pub price_total: f64,
@@ -153,17 +213,23 @@ pub struct Deal {
     pub place: Option<String>,
     /// The name of the shop (`SCShop_CargoOfficePyroStation`).
     pub shop: String,
+    pub proof: Proof,
 }
 
 /// A purchase the shop confirmed.
 pub type Purchase = Deal;
-/// A sale the shop confirmed.
+/// A sale the shop confirmed or a commodity terminal was asked for.
 pub type Sale = Deal;
 
 impl Deal {
-    /// The price of one piece; a fraction when the total does not divide.
+    /// The price of one piece (of one SCU for goods); a fraction when the total does not divide.
     pub fn unit_price(&self) -> f64 {
         self.price_total / f64::from(self.quantity.max(1))
+    }
+
+    /// Goods of a commodity terminal, counted in SCU?
+    pub fn goods(&self) -> bool {
+        self.proof != Proof::Answer
     }
 }
 
@@ -223,6 +289,24 @@ static ANSWER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<CEntityComponent(ShopUI|Shopping)Provider::RmShopFlowResponse>.*?result\[(\w+)\]").expect("pattern")
 });
 static ANSWER_TYPE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"type\[(\w+)\]").expect("pattern"));
+static COMMODITY_SELL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(concat!(
+        r"<CEntityComponentCommodityUIProvider::SendCommoditySellRequest> Sending SShopCommoditySellRequest - ",
+        r"playerId\[(\d+)\] shopId\[[^\]]*\] shopName\[([^\]]*)\] kioskId\[[^\]]*\] amount\[([^\]]*)\] ",
+        r"resourceGUID\[([^\]]*)\] autoLoading\[[^\]]*\] quantity\[([^\]]*)\] transactionMode\[(\w*)\]"
+    ))
+    .expect("pattern")
+});
+static PLAYER_BOX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(concat!(
+        r"<CEntityComponentCommodityUIProvider::AddPlayerCommodityItem> AddingCommodityBox - ",
+        r"playerId\[(\d+)\] shopId\[[^\]]*\] shopName\[([^\]]*)\]"
+    ))
+    .expect("pattern")
+});
+/// One kind of box in the cargo box data of a terminal line; a line may hold several.
+static BOX_PAIR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"boxSize\[([^\]]*)\] \| unitAmount\[([^\]]*)\]").expect("pattern"));
 /// The number at the end of the name of a single entity: `Fuse_subItem_standard_468366566217` → `Fuse_subItem_standard`.
 static SERIAL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"_\d{6,}$").expect("pattern"));
 
@@ -233,6 +317,8 @@ static MARKERS: LazyLock<Regex> = LazyLock::new(|| {
         "<Player Inventory Request Complete>",
         "SShopBuyRequest",
         "SShopSellRequest",
+        "SShopCommoditySellRequest",
+        "AddPlayerCommodityItem",
         "RmShopFlowResponse",
         "<Update Inventory Location>",
     ];
@@ -256,6 +342,70 @@ struct Pending {
     player: String,
 }
 
+/// The boxes of a terminal line: per size in SCU (as bits of the number) how many boxes, sorted by size. The
+/// terminal names no good for a box, only its size.
+type Boxes = Vec<(u64, u64)>;
+
+/// The boxes of the cargo box data of `text`; `None` when a size or a number cannot be read.
+fn boxes_in(text: &str) -> Option<Boxes> {
+    let mut boxes: Boxes = Vec::new();
+    for c in BOX_PAIR.captures_iter(text) {
+        let size: f64 = c[1].trim().parse().ok().filter(|s: &f64| s.is_finite() && *s > 0.0)?;
+        let count: u64 = c[2].trim().parse().ok()?;
+        match boxes.iter_mut().find(|(known, _)| *known == size.to_bits()) {
+            Some((_, n)) => *n += count,
+            None => boxes.push((size.to_bits(), count)),
+        }
+    }
+    boxes.sort_unstable_by(|a, b| f64::from_bits(a.0).total_cmp(&f64::from_bits(b.0)));
+    Some(boxes)
+}
+
+/// The SCU of `boxes`.
+fn scu_of(boxes: &Boxes) -> f64 {
+    boxes.iter().map(|(size, count)| f64::from_bits(*size) * *count as f64).sum()
+}
+
+/// One list of the player's boxes at a commodity terminal: per size how many boxes in all its lines.
+struct Listing {
+    shop: String,
+    player: String,
+    first: i64,
+    last: i64,
+    boxes: HashMap<u64, u64>,
+}
+
+impl Listing {
+    fn count(&self, size: u64) -> u64 {
+        self.boxes.get(&size).copied().unwrap_or(0)
+    }
+}
+
+/// A sale at a commodity terminal that waits for the next list of the player's boxes.
+struct Awaiting {
+    /// Index into `events`.
+    index: usize,
+    time: i64,
+    shop: String,
+    player: String,
+    boxed: Boxes,
+    /// Per size of its boxes, how many boxes of that size the list before the request held.
+    before: Vec<(u64, u64)>,
+}
+
+/// A request at a commodity terminal, to know it again when it comes once more.
+struct Asked {
+    /// Index into `events`.
+    index: usize,
+    time: i64,
+    player: String,
+    shop: String,
+    guid: String,
+    quantity: u32,
+    price: u64,
+    boxed: Boxes,
+}
+
 #[derive(Default)]
 struct Reading {
     events: Vec<(Event, Option<String>)>,
@@ -268,6 +418,14 @@ struct Reading {
     /// The sell requests waiting for an answer.
     selling: VecDeque<Pending>,
     landing: Option<String>,
+    /// The list of the player's boxes being read now.
+    listing: Option<Listing>,
+    /// The last complete list of the player's boxes, by shop and player number.
+    listed: HashMap<(String, String), Listing>,
+    /// The sales at a commodity terminal waiting for the next list of boxes.
+    awaiting: Vec<Awaiting>,
+    /// The recent requests at a commodity terminal.
+    asked: Vec<Asked>,
 }
 
 impl Reading {
@@ -280,6 +438,10 @@ impl Reading {
             self.buy(line);
         } else if line.contains("SShopSellRequest") {
             self.sell(line);
+        } else if line.contains("SShopCommoditySellRequest") {
+            self.commodity_sell(line);
+        } else if line.contains("AddPlayerCommodityItem") {
+            self.player_box(line);
         } else if line.contains("RmShopFlowResponse") {
             self.answer(line);
         } else if line.contains("<Update Inventory Location>")
@@ -348,8 +510,148 @@ impl Reading {
             price_total,
             place: self.landing.clone(),
             shop: field(1).to_string(),
+            proof: Proof::Answer,
         };
         Some(Pending { deal, player: field(0).to_string() })
+    }
+
+    /// A sell request at a commodity terminal: kept at once as `Requested`, or added to the same request a moment
+    /// before it. A request that cannot be read is noted in the error log (its time only).
+    fn commodity_sell(&mut self, line: &str) {
+        self.close_listing();
+        let Some(c) = COMMODITY_SELL.captures(line) else { return };
+        let Some(time) = seconds(time_of(line)) else { return };
+        let skip = |why: &str| errors::record("stock_journal.terminal_sale", &format!("{why} ({})", time_of(line)));
+        let (Ok(price_total), Ok(scu)) = (c[3].trim().parse::<f64>(), c[5].trim().parse::<f64>()) else {
+            return skip("price or quantity unreadable");
+        };
+        if !price_total.is_finite() || price_total < 0.0 || !scu.is_finite() || scu < 1.0 || scu.fract() != 0.0 {
+            return skip("price or quantity out of range");
+        }
+        let Some(boxed) = boxes_in(&line[c.get(0).map_or(0, |m| m.end())..]) else {
+            return skip("box data unreadable");
+        };
+        if &c[6] == "ResourceContainer" && (boxed.is_empty() || (scu_of(&boxed) - scu).abs() > 1e-6) {
+            return skip("the boxes do not hold the quantity");
+        }
+        let quantity = scu as u32;
+        let (player, shop, guid) = (c[1].to_string(), c[2].to_string(), c[4].to_string());
+        self.asked.retain(|a| time - a.time <= REPEAT_SECONDS);
+        let price = price_total.to_bits();
+        // The window counts from the first request; a request without boxes is the same only in the same second.
+        let repeated = self.asked.iter().find(|a| {
+            (&a.player, &a.shop, &a.guid, a.quantity, a.price, &a.boxed) == (&player, &shop, &guid, quantity, price, &boxed)
+                && (!boxed.is_empty() || a.time == time)
+                && matches!(&self.events[a.index].0, Event::Sale(deal) if deal.proof == Proof::Requested)
+        });
+        let index = match repeated {
+            Some(earlier) => earlier.index,
+            None => {
+                let deal = Deal {
+                    time,
+                    class: String::new(),
+                    guid: guid.clone(),
+                    quantity,
+                    price_total,
+                    place: self.landing.clone(),
+                    shop: shop.clone(),
+                    proof: Proof::Requested,
+                };
+                self.events.push((Event::Sale(deal), Some(player.clone())));
+                let index = self.events.len() - 1;
+                self.asked.push(Asked {
+                    index,
+                    time,
+                    player: player.clone(),
+                    shop: shop.clone(),
+                    guid,
+                    quantity,
+                    price,
+                    boxed: boxed.clone(),
+                });
+                index
+            }
+        };
+        if boxed.is_empty() || self.awaiting.iter().any(|a| a.index == index) {
+            return;
+        }
+        let Some(list) = self.listed.get(&(shop.clone(), player.clone())) else { return };
+        if time - list.last > LIST_BEFORE_SECONDS {
+            return;
+        }
+        let before: Vec<(u64, u64)> = boxed.iter().map(|(size, _)| (*size, list.count(*size))).collect();
+        // A list that did not hold the boxes sold can prove nothing about them.
+        if before.iter().zip(&boxed).all(|((_, held), (_, sold))| held >= sold) {
+            self.awaiting.push(Awaiting { index, time, shop, player, boxed, before });
+        }
+    }
+
+    /// One line of the player's list at a commodity terminal, with all its boxes; a line of another shop, player or
+    /// second starts a new list.
+    fn player_box(&mut self, line: &str) {
+        let Some(c) = PLAYER_BOX.captures(line) else { return };
+        let Some(time) = seconds(time_of(line)) else { return };
+        let Some(boxed) = boxes_in(&line[c.get(0).map_or(0, |m| m.end())..]).filter(|b| !b.is_empty()) else {
+            return;
+        };
+        let (player, shop) = (&c[1], &c[2]);
+        if self.listing.as_ref().is_some_and(|l| l.shop != shop || l.player != player || time - l.last > 1) {
+            self.close_listing();
+        }
+        let listing = self.listing.get_or_insert_with(|| Listing {
+            shop: shop.to_string(),
+            player: player.to_string(),
+            first: time,
+            last: time,
+            boxes: HashMap::new(),
+        });
+        listing.last = time;
+        for (size, count) in boxed {
+            *listing.boxes.entry(size).or_default() += count;
+        }
+    }
+
+    /// Ends the list being read and settles the sales of its shop and player from a second before it on: per size,
+    /// the boxes gone since the list before them must not be more than these sales asked for, or something else
+    /// took boxes away and none of them is proven. Of fewer boxes gone, the oldest sales are `BoxGone` as far as the
+    /// boxes reach. A list in the second of a request may come before its answer: the sale waits on.
+    fn close_listing(&mut self) {
+        let Some(list) = self.listing.take() else { return };
+        let (mut settled, waiting): (Vec<Awaiting>, Vec<Awaiting>) = std::mem::take(&mut self.awaiting)
+            .into_iter()
+            .partition(|a| a.shop == list.shop && a.player == list.player && a.time < list.first);
+        self.awaiting = waiting;
+        settled.retain(|a| list.first - a.time <= LIST_AFTER_SECONDS);
+        settled.sort_by_key(|a| (a.time, a.index));
+        let mut asked: HashMap<u64, u64> = HashMap::new();
+        let mut held: HashMap<u64, u64> = HashMap::new();
+        for a in &settled {
+            for (size, count) in &a.boxed {
+                *asked.entry(*size).or_default() += count;
+            }
+            for (size, before) in &a.before {
+                held.entry(*size).or_insert(*before);
+            }
+        }
+        let mut gone: HashMap<u64, u64> =
+            held.iter().map(|(size, before)| (*size, before.saturating_sub(list.count(*size)))).collect();
+        let unclear = gone.iter().any(|(size, n)| *n > asked.get(size).copied().unwrap_or(0));
+        if !unclear {
+            for a in &settled {
+                if !a.boxed.iter().all(|(size, count)| gone.get(size).copied().unwrap_or(0) >= *count) {
+                    break;
+                }
+                for (size, count) in &a.boxed {
+                    if let Some(left) = gone.get_mut(size) {
+                        *left -= count;
+                    }
+                }
+                if let Event::Sale(deal) = &mut self.events[a.index].0 {
+                    deal.proof = Proof::BoxGone;
+                }
+            }
+        }
+        self.listed.insert((list.shop.clone(), list.player.clone()), list);
     }
 
     fn buy(&mut self, line: &str) {
@@ -396,6 +698,7 @@ pub fn parse_text(text: &str, account: Option<&str>) -> Vec<Event> {
     for line in candidate_lines(text, &MARKERS) {
         reading.line(line, &own);
     }
+    reading.close_listing();
     let Reading { events, handles, .. } = reading;
     events
         .into_iter()
@@ -438,10 +741,10 @@ fn text_of<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
 }
 
 impl Deal {
-    /// The entry of the journal: `zeit`, `klasse`, `guid`, `menge`, `preis` (the total), `ort` (empty in flight)
-    /// and `laden`.
+    /// The entry of the journal: `zeit`, `klasse`, `guid`, `menge`, `preis` (the total), `ort` (empty in flight),
+    /// `laden` and, for a commodity terminal, `nachweis` (`angefragt` or `kiste_weg`).
     pub fn to_value(&self) -> Value {
-        Value::Object(vec![
+        let mut fields = vec![
             ("zeit".into(), Value::int(self.time)),
             ("klasse".into(), Value::str(&self.class)),
             ("guid".into(), Value::str(&self.guid)),
@@ -449,7 +752,11 @@ impl Deal {
             ("preis".into(), Value::Float(self.price_total)),
             ("ort".into(), Value::str(self.place.clone().unwrap_or_default())),
             ("laden".into(), Value::str(&self.shop)),
-        ])
+        ];
+        if let Some(word) = self.proof.word() {
+            fields.push(("nachweis".into(), Value::str(word)));
+        }
+        Value::Object(fields)
     }
 
     /// The deal of an entry of the journal; `None` when a field is missing.
@@ -467,6 +774,7 @@ impl Deal {
             price_total,
             place: Some(text_of(value, "ort")?.to_string()).filter(|p| !p.is_empty()),
             shop: text_of(value, "laden")?.to_string(),
+            proof: Proof::from_word(text_of(value, "nachweis")),
         })
     }
 }
@@ -902,15 +1210,258 @@ mod tests {
         assert!(parse_text(&none, Some(WHO)).is_empty());
     }
 
+    /// A sell request at a commodity terminal in the form of the game.
+    fn terminal_sell(player: &str, amount: &str, guid: &str, quantity: &str, mode: &str, size: &str, count: u32) -> String {
+        format!(
+            "[Notice] <CEntityComponentCommodityUIProvider::SendCommoditySellRequest> Sending SShopCommoditySellRequest - \
+             playerId[{player}] shopId[99] shopName[SCShop_AdminOffice_GrimHex] kioskId[77] amount[{amount}] \
+             resourceGUID[{guid}] autoLoading[0] quantity[{quantity}] transactionMode[{mode}] Cargo Box Data:  \
+             [boxSize[{size}] | unitAmount[{count}]] [Team_CoreGameplayFeatures][Shops][UI]"
+        )
+    }
+
+    const GOLD: &str = "21825507-7923-4683-9bf3-9cfe316940e3";
+    const STIMS: &str = "f4c68747-fa77-4c42-aff5-c3d72b8c8388";
+
+    fn gold_sold() -> String {
+        terminal_sell("4711", "1810296.000000", GOLD, "68", "ResourceContainer", "2", 34)
+    }
+
+    fn stims_sold() -> String {
+        terminal_sell("4711", "664687.000000", STIMS, "154", "Location", "2", 77)
+    }
+
+    /// One box of the player's list at the terminal.
+    fn player_box(size: &str, count: u32) -> String {
+        player_boxes(&format!("[boxSize[{size}] | unitAmount[{count}]]"))
+    }
+
+    /// One line of the player's list at the terminal with this cargo box data.
+    fn player_boxes(data: &str) -> String {
+        format!(
+            "[Notice] <CEntityComponentCommodityUIProvider::AddPlayerCommodityItem> AddingCommodityBox - playerId[4711] \
+             shopId[99] shopName[SCShop_AdminOffice_GrimHex] commodityName[] Cargo Box Data:  \
+             {data} [Team_CoreGameplayFeatures][Shops][UI]"
+        )
+    }
+
+    /// A sell request of the player with this cargo box data in place of the one box of [`terminal_sell`].
+    fn sell_with(amount: &str, guid: &str, quantity: &str, mode: &str, data: &str) -> String {
+        let one = terminal_sell("4711", amount, guid, quantity, mode, "1", 1);
+        one.replace("[boxSize[1] | unitAmount[1]]", data)
+    }
+
+    fn proofs(events: &[Event]) -> Vec<(&str, u32, Proof)> {
+        sales(events).iter().map(|s| (s.guid.as_str(), s.quantity, s.proof)).collect()
+    }
+
     #[test]
-    fn a_sale_of_goods_at_a_terminal_is_not_read() {
+    fn a_sale_at_a_terminal_is_read_as_requested_with_good_scu_total_and_place() {
+        let landing = "[Notice] <Update Inventory Location> Player [Spieler] is changing location. Landing [0] -> [1105]. Location [0] -> [1105]. Pending [0]";
+        let text = [at(1, landing), at(2, &gold_sold())].concat();
+        let events = parse_text(&text, Some(WHO));
+        let sold = sales(&events);
+        assert_eq!(sold.len(), 1);
+        let sale = sold[0];
+        assert_eq!((sale.guid.as_str(), sale.class.as_str(), sale.quantity), (GOLD, "", 68));
+        assert_eq!((sale.place.as_deref(), sale.shop.as_str()), (Some("1105"), "SCShop_AdminOffice_GrimHex"));
+        assert_eq!(sale.proof, Proof::Requested);
+        assert!(sale.goods() && !sale.proof.confirmed());
+        assert!((sale.price_total - 1_810_296.0).abs() < f64::EPSILON);
+        assert!((sale.unit_price() - 26_622.0).abs() < 1e-9, "the price of one SCU");
+    }
+
+    #[test]
+    fn a_kiosk_answer_takes_no_terminal_sale_and_a_terminal_sale_takes_no_answer() {
         let text =
             [at(1, COMMODITY_SOLD), at(2, ANSWER_SOLD), at(3, &sell_line("5.000000", "kiosk", 1)), at(4, ANSWER_SOLD)]
                 .concat();
         let events = parse_text(&text, Some(WHO));
-        let sold: Vec<&str> = sales(&events).iter().map(|s| s.class.as_str()).collect();
-        assert_eq!(sold, ["kiosk"], "the terminal line waits for no answer and takes none");
-        assert_eq!(events.len(), 1);
+        let sold: Vec<(&str, Proof)> = sales(&events).iter().map(|s| (s.class.as_str(), s.proof)).collect();
+        assert_eq!(sold, [("", Proof::Requested), ("kiosk", Proof::Answer)]);
+    }
+
+    #[test]
+    fn a_box_gone_from_the_next_list_proves_the_sale_and_a_box_still_there_or_no_list_does_not() {
+        // The log of the 9th of November: two boxes listed, gold sold, the list again without it, then the stims
+        // sold and no list after them (the player had no box left).
+        let real = [
+            at(1, &player_box("2", 34)),
+            at(1, &player_box("2", 77)),
+            at(40, &gold_sold()),
+            at(44, &player_box("2", 77)),
+            at(59, &stims_sold()),
+        ]
+        .concat();
+        assert_eq!(
+            proofs(&parse_text(&real, Some(WHO))),
+            [(GOLD, 68, Proof::BoxGone), (STIMS, 154, Proof::Requested)]
+        );
+        // The box still in the list: only requested.
+        let kept = [at(1, &player_box("2", 34)), at(40, &gold_sold()), at(44, &player_box("2", 34))].concat();
+        assert_eq!(proofs(&parse_text(&kept, Some(WHO))), [(GOLD, 68, Proof::Requested)]);
+        // Two boxes of the kind before, one after: one went.
+        let two = [
+            at(1, &player_box("2", 34)),
+            at(1, &player_box("2", 34)),
+            at(40, &gold_sold()),
+            at(44, &player_box("2", 34)),
+        ]
+        .concat();
+        assert_eq!(proofs(&parse_text(&two, Some(WHO))), [(GOLD, 68, Proof::BoxGone)]);
+        // No list before the request: nothing to compare.
+        let blind = [at(40, &gold_sold()), at(44, &player_box("2", 77))].concat();
+        assert_eq!(proofs(&parse_text(&blind, Some(WHO))), [(GOLD, 68, Proof::Requested)]);
+        // A list long after the request does not count.
+        let late = [at(1, &player_box("2", 34)), at(40, &gold_sold()), at(40 + 180, &player_box("2", 77))].concat();
+        assert_eq!(proofs(&parse_text(&late, Some(WHO))), [(GOLD, 68, Proof::Requested)]);
+    }
+
+    #[test]
+    fn the_same_request_twice_is_one_sale_and_another_box_of_the_kind_is_another() {
+        // The line twice and a second click a few seconds later: one sale.
+        let twice = [at(10, &gold_sold()), at(10, &gold_sold()), at(25, &gold_sold())].concat();
+        assert_eq!(proofs(&parse_text(&twice, Some(WHO))), [(GOLD, 68, Proof::Requested)]);
+        // The repeat that took the box proves the one sale.
+        let proven = [
+            at(1, &player_box("2", 34)),
+            at(10, &gold_sold()),
+            at(14, &player_box("2", 34)),
+            at(20, &gold_sold()),
+            at(24, &player_box("1", 5)),
+        ]
+        .concat();
+        assert_eq!(proofs(&parse_text(&proven, Some(WHO))), [(GOLD, 68, Proof::BoxGone)]);
+        // Long after the first: a sale of its own.
+        let later = [at(10, &gold_sold()), at(10 + REPEAT_SECONDS as u32 + 1, &gold_sold())].concat();
+        assert_eq!(proofs(&parse_text(&later, Some(WHO))).len(), 2);
+        // The first proven, the same request again sells the second box of that kind.
+        let second_box = [
+            at(1, &player_box("2", 34)),
+            at(1, &player_box("2", 34)),
+            at(10, &gold_sold()),
+            at(14, &player_box("2", 34)),
+            at(20, &gold_sold()),
+            at(24, &player_box("1", 5)),
+        ]
+        .concat();
+        assert_eq!(
+            proofs(&parse_text(&second_box, Some(WHO))),
+            [(GOLD, 68, Proof::BoxGone), (GOLD, 68, Proof::BoxGone)]
+        );
+        // The window counts from the first request and does not slide with the repeats.
+        let sliding = [at(10, &gold_sold()), at(100, &gold_sold()), at(200, &gold_sold())].concat();
+        assert_eq!(proofs(&parse_text(&sliding, Some(WHO))).len(), 2);
+        // A request without boxes is the same only in the same second.
+        let bare = sell_with("100.000000", STIMS, "5", "Location", "");
+        assert_eq!(proofs(&parse_text(&[at(10, &bare), at(10, &bare)].concat(), Some(WHO))).len(), 1);
+        assert_eq!(proofs(&parse_text(&[at(10, &bare), at(15, &bare)].concat(), Some(WHO))).len(), 2);
+    }
+
+    #[test]
+    fn several_sales_of_one_size_are_proven_only_as_far_as_the_boxes_gone_reach() {
+        let other_gold = terminal_sell("4711", "1810000.000000", GOLD, "68", "ResourceContainer", "2", 34);
+        let before = [at(1, &player_box("2", 34)), at(1, &player_box("2", 34)), at(10, &gold_sold()), at(12, &other_gold)];
+        // One of the two kinds of 34 boxes gone: the older sale is proven, the younger only requested.
+        let one_gone = [before.concat(), at(16, &player_box("2", 34))].concat();
+        assert_eq!(
+            proofs(&parse_text(&one_gone, Some(WHO))),
+            [(GOLD, 68, Proof::BoxGone), (GOLD, 68, Proof::Requested)]
+        );
+        // Both gone: both proven.
+        let both_gone = [before.concat(), at(16, &player_box("1", 5))].concat();
+        assert_eq!(
+            proofs(&parse_text(&both_gone, Some(WHO))),
+            [(GOLD, 68, Proof::BoxGone), (GOLD, 68, Proof::BoxGone)]
+        );
+        // More boxes gone than sold (boxes moved away besides): nothing is proven.
+        let moved = [
+            at(1, &player_box("2", 34)),
+            at(1, &player_box("2", 34)),
+            at(10, &gold_sold()),
+            at(14, &player_box("1", 5)),
+        ]
+        .concat();
+        assert_eq!(proofs(&parse_text(&moved, Some(WHO))), [(GOLD, 68, Proof::Requested)]);
+    }
+
+    #[test]
+    fn a_line_of_several_boxes_counts_all_of_them_and_a_list_in_the_second_of_the_request_waits() {
+        // A box of 1 SCU four times and of 4 SCU twice: 12 SCU, in the list as one line.
+        let mixed = "[boxSize[1] | unitAmount[4]] [boxSize[4] | unitAmount[2]]";
+        let sold = sell_with("1200.000000", GOLD, "12", "ResourceContainer", mixed);
+        let text = [at(1, &player_boxes(mixed)), at(10, &sold), at(14, &player_box("8", 1))].concat();
+        assert_eq!(proofs(&parse_text(&text, Some(WHO))), [(GOLD, 12, Proof::BoxGone)]);
+        // A box that cannot be read: the request is left out.
+        let unreadable = sell_with("1200.000000", GOLD, "12", "ResourceContainer", "[boxSize[x] | unitAmount[4]]");
+        assert!(parse_text(&at(1, &unreadable), Some(WHO)).is_empty());
+        // The terminal lists the boxes once more in the second of the request, before the sale took them: the sale
+        // waits for the next list.
+        let early = [
+            at(1, &player_box("2", 34)),
+            at(10, &gold_sold()),
+            at(10, &player_box("2", 34)),
+            at(14, &player_box("1", 5)),
+        ]
+        .concat();
+        assert_eq!(proofs(&parse_text(&early, Some(WHO))), [(GOLD, 68, Proof::BoxGone)]);
+    }
+
+    #[test]
+    fn a_container_sale_whose_scu_is_not_its_boxes_is_not_read_and_a_location_sale_needs_no_boxes() {
+        let wrong = terminal_sell("4711", "100.000000", GOLD, "70", "ResourceContainer", "2", 34);
+        assert!(parse_text(&at(1, &wrong), Some(WHO)).is_empty());
+        let location = terminal_sell("4711", "100.000000", STIMS, "5", "Location", "2", 77);
+        assert_eq!(proofs(&parse_text(&at(1, &location), Some(WHO))), [(STIMS, 5, Proof::Requested)]);
+        for quantity in ["0", "2.5", "x"] {
+            let odd = terminal_sell("4711", "100.000000", STIMS, quantity, "Location", "2", 77);
+            assert!(parse_text(&at(1, &odd), Some(WHO)).is_empty(), "{quantity}");
+        }
+    }
+
+    #[test]
+    fn a_terminal_sale_of_another_player_counts_nothing() {
+        // The queued line of the other player tells whose number 999 is.
+        let other = [
+            at(0, &queued(1, "Store", "INVALID", "4711:Container:0", "NULL", 0, "x"))
+                .replace(&format!("for '{WHO}'"), "for 'Zweit'")
+                .replace("[4711]", "[999]"),
+            at(5, &terminal_sell("999", "100.000000", STIMS, "5", "Location", "2", 77)),
+            at(6, &stims_sold()),
+        ]
+        .concat();
+        assert_eq!(proofs(&parse_text(&other, Some(WHO))), [(STIMS, 154, Proof::Requested)]);
+    }
+
+    #[test]
+    fn a_terminal_sale_reads_back_with_its_proof_and_an_old_entry_is_an_answered_one() {
+        let text = [
+            at(1, &player_box("2", 34)),
+            at(1, &player_box("2", 77)),
+            at(40, &gold_sold()),
+            at(44, &player_box("2", 77)),
+            at(59, &stims_sold()),
+        ]
+        .concat();
+        let events = parse_text(&text, Some(WHO));
+        let entry = session_entry(&text, &events).expect("entry");
+        let written = jsonio::dumps(&Value::Object(entry.clone()), None, false);
+        assert!(written.contains("\"nachweis\": \"kiste_weg\"") && written.contains("\"nachweis\": \"angefragt\""));
+        for secret in [WHO, "4711", "shopId", "kioskId", "playerId", "[99]", "[77]"] {
+            assert!(!written.contains(secret), "{secret} is in {written}");
+        }
+        let start = seconds("2026-10-01T10:00:01").expect("stamp");
+        let data: Map = vec![("sitzungen".into(), Value::Object(vec![(start.to_string(), Value::Object(entry))]))];
+        assert_eq!(sessions(&data)[0].sales.iter().collect::<Vec<_>>(), sales(&events));
+        // A sale of the journal before the terminal was read has no `nachweis`: the kiosk answered it.
+        let old = jsonio::loads(
+            r#"{"zeit": 5, "klasse": "mag", "guid": "g", "menge": 1, "preis": 9.0, "ort": "", "laden": "SCShop_Kiosk"}"#,
+        )
+        .expect("json");
+        let deal = Deal::from_value(&old).expect("deal");
+        assert_eq!(deal.proof, Proof::Answer);
+        assert!(!deal.goods() && deal.proof.confirmed());
+        assert_eq!(deal.to_value(), old, "written back unchanged");
     }
 
     #[test]
@@ -1364,6 +1915,38 @@ mod tests {
             assert_eq!(sessions(&reloaded).len(), 1);
             assert_eq!(catch_up(&src, std::slice::from_ref(&file)), 0, "read again, the session was there");
             assert_eq!(number(get(&load(&setup.paths), "format")), Some(FORMAT as f64));
+        }
+
+        #[test]
+        fn a_journal_of_version_5_2_6_reads_its_logs_again_and_gets_the_terminal_sales() {
+            let setup = Setup::new("format2");
+            let text = [login(WHO), at(1, &sell_line("62.000000", "mag", 1)), at(2, ANSWER_SOLD), at(9, &gold_sold())]
+                .concat();
+            let file = setup.log("a.log", &text);
+            let size = fs::metadata(&file).expect("log").len();
+            // The journal as 5.2.6 left it: format 2, the log read, its session with the kiosk sale only.
+            let start = seconds("2026-10-01T10:00:00").expect("stamp");
+            let old = format!(
+                r#"{{"format": 2, "sitzungen": {{"{start}": {{"von": {start}, "bis": {}, "kaeufe": [], "verkaeufe": [
+                {{"zeit": {}, "klasse": "mag", "guid": "0b6c7d2e-1f3a-4c5b-9d8e-7a6b5c4d3e2f", "menge": 1,
+                  "preis": 62.0, "ort": "", "laden": "SCShop_Pharmacy"}}], "bewegungen": []}}}},
+                  "gelesen": {{"a.log": {size}}}}}"#,
+                start + 9,
+                start + 1
+            );
+            fs::write(setup.paths.app_file(FILE), old).expect("file");
+            let before = setup.sessions();
+            assert_eq!(before[0].sales.len(), 1);
+            assert_eq!(before[0].sales[0].proof, Proof::Answer, "an old sale reads as answered");
+            assert_eq!(get(&load(&setup.paths), "gelesen"), Some(&Value::Object(Vec::new())), "read again");
+            let src = LogSource::new(&setup.paths, LogSource::sources_of(&setup.paths));
+            assert_eq!(catch_up(&src, std::slice::from_ref(&file)), 0, "the same session, replaced");
+            let after = setup.sessions();
+            let sold: Vec<(&str, Proof)> = after[0].sales.iter().map(|s| (s.class.as_str(), s.proof)).collect();
+            assert_eq!(sold, [("mag", Proof::Answer), ("", Proof::Requested)]);
+            assert_eq!(number(get(&load(&setup.paths), "format")), Some(FORMAT as f64));
+            assert_eq!(FORMAT, 3);
+            assert_eq!(catch_up(&src, std::slice::from_ref(&file)), 0);
         }
 
         #[test]

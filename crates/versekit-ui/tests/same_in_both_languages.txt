@@ -45,6 +45,10 @@ Arclight Pistol
 Morozov-SH Core
 Morozov-SH Helmet
 
+# Commodities and places of the income sample of the statistics page, as the game names them.
+Medical Supplies
+Grim HEX
+
 # Section names of the game data. They are looked up as they are and shown through a language key.
 Personal Weapons
 Vehicle Weapons

@@ -32,6 +32,7 @@ use versekit_core::net::Fake;
 use versekit_core::paths::Paths;
 use versekit_core::theme::Scheme;
 use versekit_core::update_flow::{Env, Runner, State};
+use versekit_core::update_run;
 use versekit_core::update_swap::Started;
 use versekit_core::updater::{self, Packaging, Release};
 use versekit_core::version::is_prerelease;
@@ -84,8 +85,7 @@ impl Channel {
     /// finished one stays open. `source`: the running program is a build of the source, which no fetch replaces.
     pub fn of(releases: &[Release], with_prerelease: bool, own: &str, source: bool) -> Channel {
         let Some(release) = updater::latest(releases, with_prerelease) else { return Channel::default() };
-        let (shown, own_shown) = (updater::shown_version(&release.version), updater::shown_version(own));
-        let relation = if shown == own_shown {
+        let relation = if versekit_core::update_flow::same_version(&release.version, own) {
             Relation::Same
         } else if source {
             if versekit_core::version::is_newer(&release.version, own) { Relation::Source } else { Relation::Ahead }
@@ -118,6 +118,10 @@ impl Channel {
     }
 }
 
+/// The head button „get latest version“ fetches from the test channel: the newest of all, test versions included.
+/// Whether it is greyed out follows the same channel.
+const HEAD_FETCH_PRERELEASE: bool = true;
+
 /// What the remembered list says.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct View {
@@ -136,6 +140,13 @@ impl View {
             stable: Channel::of(releases, false, own, source),
             test: Channel::of(releases, true, own, source),
         }
+    }
+
+    /// Does the newest release of the channel the head button fetches from run already? Then it has nothing to
+    /// fetch.
+    pub fn runs_newest(&self) -> bool {
+        let channel = if HEAD_FETCH_PRERELEASE { &self.test } else { &self.stable };
+        channel.relation == Relation::Same
     }
 }
 
@@ -219,6 +230,8 @@ pub struct UpdateUi {
     next_look: f64,
     note: Option<Look>,
     question: Option<Question>,
+    /// Seconds a click still waits after a failed download, as of the last frame of the page.
+    manual_wait: Option<f64>,
 }
 
 /// An environment that fetches nothing: the pages of a window without an updater (and every check of this
@@ -255,7 +268,17 @@ impl UpdateUi {
             next_look: 0.0,
             note: None,
             question: None,
+            manual_wait: None,
         }
+    }
+
+    /// Why a click cannot fetch right now: a fetch is under way, or a download failed a moment ago (in any process
+    /// of the program). `None` when it can.
+    fn held(&self) -> Option<String> {
+        if self.is_busy() {
+            return Some(t("up_laeuft_schon"));
+        }
+        self.manual_wait.map(|left| tf("s_up_warte", &[("0", Arg::Int(left.ceil() as i64))]))
     }
 
     /// The version that runs, as the tag would write it.
@@ -320,9 +343,14 @@ impl UpdateUi {
         (self.runner.take_said(), self.runner.state() == State::Quit)
     }
 
-    /// Fetches the newest version of the channel. `false`: a fetch is under way.
-    pub fn start(&mut self, paths: &Paths, with_prerelease: bool) -> bool {
-        self.runner.start(&self.env, paths.host.clone(), with_prerelease)
+    /// Fetches the newest version of the channel. Otherwise the sentence that says why not: a fetch is under way,
+    /// or a download failed a moment ago.
+    pub fn start(&mut self, paths: &Paths, with_prerelease: bool) -> Result<(), String> {
+        self.manual_wait = update_run::manual_wait_left(paths, updater::now());
+        if let Some(why) = self.held() {
+            return Err(why);
+        }
+        if self.runner.start(&self.env, paths.host.clone(), with_prerelease) { Ok(()) } else { Err(t("up_laeuft_schon")) }
     }
 
     /// The click on „update“ in the bar: the question before the version is installed. A build of the source
@@ -371,8 +399,8 @@ impl UpdateUi {
         });
         if now_clicked {
             self.question = None;
-            if !self.start(paths, question.with_prerelease) {
-                return Some(t("up_laeuft_schon"));
+            if let Err(why) = self.start(paths, question.with_prerelease) {
+                return Some(why);
             }
         } else if other_clicked {
             self.question = None;
@@ -385,6 +413,11 @@ impl UpdateUi {
     /// Looks at GitHub from the open page: at once when the page opens, then every five minutes, in a thread of
     /// its own. The result shows in the boxes (the list is read again) and, if it went wrong, in a line.
     pub fn look(&mut self, ctx: &egui::Context, paths: &Paths, now: f64, test_on: bool) {
+        self.manual_wait = update_run::manual_wait_left(paths, updater::now());
+        if self.manual_wait.is_some() {
+            // The seconds on the hint count down.
+            ctx.request_repaint_after(std::time::Duration::from_secs(1));
+        }
         let finished = {
             let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
             slot.result.take()
@@ -430,8 +463,8 @@ impl UpdateUi {
         let packaging = updater::packaging(self.env.appimage.as_deref(), &self.env.own_version);
         about_card(ui, scheme, facts);
         ui.add_space(GAP);
-        let busy = self.is_busy();
-        let blocked = busy.then(|| t("up_laeuft_schon"));
+        let held = self.held();
+        let fetch_blocked = held.clone().or_else(|| self.view.runs_newest().then(|| t("s_up_sofort_aktuell")));
         widgets::card(ui, scheme, |ui| {
             ui.set_width(ui.available_width());
             widgets::card_title(ui, scheme, &t("hf_update"));
@@ -440,9 +473,9 @@ impl UpdateUi {
             let fetch_word = t("s_up_sofort");
             let fetch = widgets::Button::new(&fetch_word, ButtonKind::Strong, scheme)
                 .icon("download")
-                .blocked(blocked.as_deref());
+                .blocked(fetch_blocked.as_deref());
             if ui.add(fetch).clicked() {
-                out.fetch = Some(true);
+                out.fetch = Some(HEAD_FETCH_PRERELEASE);
             }
             if packaging == Packaging::Source {
                 ui.add_space(4.0);
@@ -465,7 +498,7 @@ impl UpdateUi {
         ui.add_space(GAP);
         widgets::card(ui, scheme, |ui| {
             ui.set_width(ui.available_width());
-            self.channels(ui, scheme, facts.test_on, busy, &mut out);
+            self.channels(ui, scheme, facts.test_on, held.as_deref(), &mut out);
             if let Some(note) = self.note.and_then(|look| look.note()) {
                 ui.add_space(GAP);
                 small(ui, &note, color(scheme.yellow));
@@ -474,7 +507,7 @@ impl UpdateUi {
         out
     }
 
-    fn channels(&self, ui: &mut Ui, scheme: &Scheme, on: bool, busy: bool, out: &mut PageOut) {
+    fn channels(&self, ui: &mut Ui, scheme: &Scheme, on: bool, held: Option<&str>, out: &mut PageOut) {
         widgets::card_title(ui, scheme, &t("s_ub_kanal"));
         small(ui, &t("s_ub_kanal_h"), color(scheme.sub));
         ui.add_space(6.0);
@@ -494,7 +527,7 @@ impl UpdateUi {
                 ui.columns(2, |columns| {
                     for (column, (texts, channel, chosen, with_prerelease)) in columns.iter_mut().zip(&mut boxes) {
                         let shown =
-                            channel_box(column, scheme, texts, channel, *chosen, busy, *with_prerelease, height, out);
+                            channel_box(column, scheme, texts, channel, *chosen, held, *with_prerelease, height, out);
                         taller = taller.max(shown);
                     }
                 });
@@ -504,7 +537,7 @@ impl UpdateUi {
                 if i > 0 {
                     ui.add_space(GAP);
                 }
-                let shown = channel_box(ui, scheme, texts, channel, *chosen, busy, *with_prerelease, height, out);
+                let shown = channel_box(ui, scheme, texts, channel, *chosen, held, *with_prerelease, height, out);
                 taller = taller.max(shown);
             }
         }
@@ -580,7 +613,7 @@ fn channel_box(
     texts: &BoxTexts,
     channel: &Channel,
     chosen: bool,
-    busy: bool,
+    held: Option<&str>,
     with_prerelease: bool,
     min_height: f32,
     out: &mut PageOut,
@@ -612,12 +645,11 @@ fn channel_box(
                     small(ui, &texts.hint, color(scheme.sub));
                     ui.add_space(6.0);
                     if channel.can_fetch() {
-                        let blocked = busy.then(|| t("up_laeuft_schon"));
                         let label = channel.label();
                         let button = widgets::Button::new(&label, ButtonKind::Normal, scheme)
                             .icon("download")
                             .wrapping()
-                            .blocked(blocked.as_deref());
+                            .blocked(held);
                         if ui.add(button).clicked() {
                             out.fetch = Some(with_prerelease);
                         }
@@ -757,5 +789,19 @@ mod tests {
         let packaged = Channel::of(&releases, false, "5.0.0", false);
         assert_eq!((packaged.relation, packaged.can_fetch()), (Relation::Older, true));
         assert_eq!(Channel::of(&releases, false, "4.12.3", true).relation, Relation::Same);
+    }
+
+    /// A test version written in capitals is the same as the running one in small letters; the head button is
+    /// greyed out by the channel it fetches from.
+    #[test]
+    fn a_test_version_in_capitals_is_the_running_one_and_the_head_button_follows_its_channel() {
+        let releases = vec![release("v5.1.0-RC2", true), release("v5.0.1", false)];
+        let view = View::of(&releases, "5.1.0-rc2", true, false);
+        assert_eq!(view.test.relation, Relation::Same);
+        assert!(view.runs_newest());
+        // The newest finished version runs, a test version is newer: the head button fetches it.
+        let stable = View::of(&releases, "5.0.1", false, false);
+        assert_eq!((stable.stable.relation, stable.test.relation), (Relation::Same, Relation::Newer));
+        assert!(!stable.runs_newest(), "the head button fetches the test version");
     }
 }

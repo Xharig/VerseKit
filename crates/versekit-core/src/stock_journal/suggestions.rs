@@ -26,6 +26,11 @@
 //! is removed. When the stock holds fewer pieces than were sold, what is there is taken; when it holds none, the
 //! sale cannot be taken over. Its key starts with `verkauf:`, so a sale and a purchase never share one.
 //!
+//! ⚠ A sale at a commodity terminal (`Proposal::goods`) is goods in SCU: it takes from the goods stacks (not the
+//! items) the same way, in parts of an SCU. When the stock holds none of it, taking it over only marks the sale as
+//! taken over and changes no stack; the stock never goes below zero. It carries its proof (`Requested` or
+//! `BoxGone`), which the page shows.
+//!
 //! ⚠ A purchase has no number of its own. Its key is the start of the session, the second of the request,
 //! the class, the amount and the count of equal purchases before it in that session, so two purchases of one
 //! second stay two suggestions and a re-read of a log gives the same keys.
@@ -38,13 +43,13 @@
 use std::collections::BTreeMap;
 
 use super::names::{Items, PlaceName, Places};
-use super::{Deal, Purchase, Sale, Session};
+use super::{Deal, Proof, Purchase, Sale, Session};
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::paths::Paths;
 pub use crate::places::OwnPlace;
 use crate::playtime::write_beside;
 use crate::stock::{self, Refused};
-use crate::stock_data::StockData;
+use crate::stock_data::{StockData, lower};
 
 pub const FILE: &str = "lagervorschlaege.json";
 pub const FORMAT: i64 = 1;
@@ -74,10 +79,20 @@ impl Decision {
 }
 
 /// The decisions by the key of the purchase.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub struct Decisions {
     by_key: BTreeMap<String, Decision>,
+    /// What was decided or opened again here since the last load or save: a decision, or `None` for opened again.
+    changed: BTreeMap<String, Option<Decision>>,
 }
+
+impl PartialEq for Decisions {
+    fn eq(&self, other: &Decisions) -> bool {
+        self.by_key == other.by_key
+    }
+}
+
+impl Eq for Decisions {}
 
 impl Decisions {
     /// From `lagervorschlaege.json`; a missing, damaged or foreign file gives no decisions, an entry with a
@@ -95,15 +110,30 @@ impl Decisions {
             .iter()
             .filter_map(|(key, word)| Some((key.clone(), Decision::from_word(word.as_str()?)?)))
             .collect();
-        Decisions { by_key }
+        Decisions { by_key, changed: BTreeMap::new() }
     }
 
-    /// Writes the file first beside, then renames; reports a failure.
-    pub fn save(&self, paths: &Paths) -> bool {
-        let entries: Map = self.by_key.iter().map(|(key, d)| (key.clone(), Value::str(d.word()))).collect();
+    /// Writes the file first beside, then renames; reports a failure. Under the write lock of the processes the file
+    /// is read again and only what was changed here goes into it, so the decisions of another process stay; these
+    /// decisions then hold the whole file.
+    pub fn save(&mut self, paths: &Paths) -> bool {
+        let _guard = jsonio::lock_saves();
+        let mut merged = Decisions::load(paths).by_key;
+        for (key, change) in &self.changed {
+            match change {
+                Some(decision) => merged.insert(key.clone(), *decision),
+                None => merged.remove(key),
+            };
+        }
+        let entries: Map = merged.iter().map(|(key, d)| (key.clone(), Value::str(d.word()))).collect();
         let mut data: Map = Vec::new();
         map_set(&mut data, "entscheidungen", Value::Object(entries));
-        write_beside(paths, FILE, &mut data, FORMAT, "suggestions.save")
+        let saved = write_beside(paths, FILE, &mut data, FORMAT, "suggestions.save");
+        if saved {
+            self.by_key = merged;
+            self.changed.clear();
+        }
+        saved
     }
 
     pub fn get(&self, key: &str) -> Option<Decision> {
@@ -122,6 +152,7 @@ impl Decisions {
     pub fn set(&mut self, keys: &[String], decision: Decision) {
         for key in keys {
             self.by_key.insert(key.clone(), decision);
+            self.changed.insert(key.clone(), Some(decision));
         }
     }
 
@@ -129,6 +160,7 @@ impl Decisions {
     pub fn forget(&mut self, keys: &[String]) {
         for key in keys {
             self.by_key.remove(key);
+            self.changed.insert(key.clone(), None);
         }
     }
 }
@@ -139,6 +171,9 @@ pub struct Proposal {
     pub key: String,
     /// A sale: taking it over takes the pieces out of the stock instead of booking them in.
     pub sold: bool,
+    /// Goods of a commodity terminal: SCU of the goods stacks instead of pieces of the items.
+    pub goods: bool,
+    pub proof: Proof,
     /// Seconds since 1970 (UTC) of the request.
     pub time: i64,
     pub class: String,
@@ -164,9 +199,10 @@ impl Proposal {
         self.stock_name.is_some() && self.quantity >= 1
     }
 
-    /// May it be booked into or out of this stock? A sale needs at least one piece of its item there.
+    /// May it be booked into or out of this stock? A sale of items needs at least one piece of its item there; a
+    /// sale of goods is only marked when the stock holds none.
     pub fn bookable(&self, trade: &[Value]) -> bool {
-        self.adoptable() && (!self.sold || take_plan(trade, self).pieces > 0)
+        self.adoptable() && (!self.sold || self.goods || take_plan(trade, self).pieces > 0.0)
     }
 
     /// The place to book it at (for a sale: the place it was sold at); empty for a deal without a place.
@@ -191,13 +227,14 @@ impl Proposal {
     }
 }
 
-/// Where the pieces of a sale come from.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// Where the pieces (or SCU) of a sale come from.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Take {
     /// The index of a stack in the trade list and the pieces taken from it, in the order they are taken.
-    pub parts: Vec<(usize, u32)>,
-    /// All pieces taken; fewer than were sold when the stock holds fewer.
-    pub pieces: u32,
+    pub parts: Vec<(usize, f64)>,
+    /// All pieces taken (whole for items, parts of an SCU for goods); fewer than were sold when the stock holds
+    /// fewer.
+    pub pieces: f64,
     /// Some of them come from a stack without a place.
     pub without_place: bool,
 }
@@ -207,7 +244,8 @@ fn same_text(a: &str, b: &str) -> bool {
 }
 
 /// The stacks a sale takes its pieces from: the item at the place of the sale, then the item without a place,
-/// the ones not marked stolen first in each; empty for a purchase or an item the stock list does not know.
+/// the ones not marked stolen first in each; empty for a purchase or an item the stock list does not know. A sale
+/// of goods takes from the goods stacks of that name, in parts of an SCU.
 pub fn take_plan(trade: &[Value], proposal: &Proposal) -> Take {
     let mut plan = Take::default();
     let Some(name) = proposal.stock_name.as_deref().filter(|_| proposal.sold) else { return plan };
@@ -216,7 +254,7 @@ pub fn take_plan(trade: &[Value], proposal: &Proposal) -> Take {
     let mut stacks: Vec<(u8, bool, usize)> = trade
         .iter()
         .enumerate()
-        .filter(|(_, e)| stock::is_pieces(e) && same_text(&text(e, "ware"), name))
+        .filter(|(_, e)| stock::is_pieces(e) != proposal.goods && same_text(&text(e, "ware"), name))
         .filter_map(|(i, e)| {
             let at = text(e, "ort");
             let tier = if !place.trim().is_empty() && same_text(&at, place) {
@@ -230,14 +268,17 @@ pub fn take_plan(trade: &[Value], proposal: &Proposal) -> Take {
         })
         .collect();
     stacks.sort_unstable();
-    let mut left = proposal.quantity;
+    let mut left = f64::from(proposal.quantity);
     for (tier, _, index) in stacks {
-        if left == 0 {
+        if left <= 0.0 {
             break;
         }
-        let there = stock::number_of(&trade[index], "menge").max(0.0).floor();
-        let taken = if there >= f64::from(left) { left } else { there as u32 };
-        if taken == 0 {
+        let mut there = stock::number_of(&trade[index], "menge").max(0.0);
+        if !proposal.goods {
+            there = there.floor();
+        }
+        let taken = there.min(left);
+        if taken <= 0.0 {
             continue;
         }
         plan.parts.push((index, taken));
@@ -303,7 +344,14 @@ impl Lookup<'_> {
             out.unnamed += 1;
             return;
         };
-        let choice = candidates.iter().find_map(|name| self.data.item_choice(name));
+        let goods = deal.goods();
+        let choice = candidates.iter().find_map(|name| {
+            if goods {
+                self.data.choices().get(&lower(name)).filter(|c| c.material.is_some())
+            } else {
+                self.data.item_choice(name)
+            }
+        });
         let place = match &deal.place {
             Some(number) => self.places.place(number),
             None => PlaceName::Unknown(String::new()),
@@ -315,6 +363,8 @@ impl Lookup<'_> {
         out.list.push(Proposal {
             key,
             sold,
+            goods,
+            proof: deal.proof,
             time: deal.time,
             class: deal.class.clone(),
             quantity: deal.quantity,
@@ -322,7 +372,7 @@ impl Lookup<'_> {
             unit_price: deal.unit_price(),
             stock_name: choice.map(|c| c.name.clone()),
             name: choice.map_or_else(|| (*first).to_string(), |c| c.name.clone()),
-            uex: choice.and_then(|c| uex_of(c.item.as_ref())),
+            uex: choice.filter(|_| !goods).and_then(|c| uex_of(c.item.as_ref())),
             place,
             system,
         });
@@ -355,24 +405,26 @@ pub fn proposals(
 }
 
 /// The suggestions that booking them one after the other, oldest first, would book: a sale counts the pieces
-/// the purchases before it booked in. The trade list itself stays as it is.
+/// the purchases before it booked in. A sale the log shows only as a request is booked one by one, never with
+/// all. The trade list itself stays as it is.
 pub fn batch<'a>(trade: &[Value], chosen: &'a [Proposal]) -> Vec<&'a Proposal> {
-    let mut order: Vec<&Proposal> = chosen.iter().filter(|p| p.adoptable()).collect();
+    let mut order: Vec<&Proposal> = chosen.iter().filter(|p| p.adoptable() && p.proof.confirmed()).collect();
     order.sort_by(|a, b| a.time.cmp(&b.time).then_with(|| a.key.cmp(&b.key)));
     let mut trial = trade.to_vec();
     order.into_iter().filter(|p| adopt(&mut trial, p).is_ok()).collect()
 }
 
-/// Takes the pieces of a sale out of the stock as [`take_plan`] finds them; a stack that runs empty is removed.
+/// Takes the pieces of a sale out of the stock as [`take_plan`] finds them; a stack that runs empty is removed. A
+/// sale of goods the stock holds none of changes nothing and is still done.
 fn take_out(trade: &mut Vec<Value>, proposal: &Proposal) -> Result<(), Refused> {
     let plan = take_plan(trade, proposal);
-    if plan.pieces == 0 {
-        return Err(Refused::Gone);
+    if plan.pieces <= 0.0 {
+        return if proposal.goods { Ok(()) } else { Err(Refused::Gone) };
     }
     let mut empty = Vec::new();
     for (index, taken) in plan.parts {
-        let left = stock::number_of(&trade[index], "menge") - f64::from(taken);
-        if left < 1.0 {
+        let left = stock::number_of(&trade[index], "menge") - taken;
+        if (proposal.goods && left <= 1e-9) || (!proposal.goods && left < 1.0) {
             empty.push(index);
         } else if let Value::Object(entry) = &mut trade[index] {
             map_set(entry, "menge", Value::Float(left));
@@ -423,6 +475,7 @@ mod tests {
             price_total,
             place: place.map(str::to_string),
             shop: "SCShop_Kiosk".into(),
+            proof: Proof::Answer,
         }
     }
 
@@ -497,13 +550,113 @@ mod tests {
             stack("FBL-8a Arms Arctic Digital", 3.0, "Levski", false),
         ];
         let plan = take_plan(&trade, sale);
-        assert_eq!(plan.parts, vec![(3, 2), (2, 1), (1, 2)], "place before no place, not stolen before stolen");
-        assert_eq!((plan.pieces, plan.without_place), (5, true));
+        assert_eq!(plan.parts, vec![(3, 2.0), (2, 1.0), (1, 2.0)], "place before no place, not stolen before stolen");
+        assert_eq!((plan.pieces, plan.without_place), (5.0, true));
         assert!(sale.bookable(&trade));
         assert_eq!(adopt(&mut trade, sale), Ok(()));
         // The emptied stacks are gone; the stack at another place and the other item stay as they were.
         assert_eq!(amounts(&trade), vec![("Area 18".to_string(), 4.0), ("Levski".to_string(), 3.0)]);
         assert_eq!(trade[1].get("ware"), Some(&Value::str("FBL-8a Arms Arctic Digital")));
+    }
+
+    const GOLD: &str = "21825507-7923-4683-9bf3-9cfe316940e3";
+
+    /// Gold sold at a commodity terminal at Levski: 68 SCU for 1 810 296.
+    fn gold_sale(proof: Proof) -> Proposal {
+        let deal = Deal {
+            time: 150,
+            class: String::new(),
+            guid: GOLD.into(),
+            quantity: 68,
+            price_total: 1_810_296.0,
+            place: Some("1".into()),
+            shop: "SCShop_AdminOffice_GrimHex".into(),
+            proof,
+        };
+        let items = items().with_goods([(GOLD.to_uppercase(), "Gold".to_string())]);
+        let found = proposals(&[sold(100, vec![deal])], &Decisions::default(), &items, &places(), &data());
+        assert_eq!(found.list.len(), 1);
+        found.list[0].clone()
+    }
+
+    /// A goods stack of the stock.
+    fn goods_stack(name: &str, amount: f64, place: &str) -> Value {
+        Value::Object(vec![
+            ("ware".into(), Value::str(name)),
+            ("menge".into(), Value::Float(amount)),
+            ("ort".into(), Value::str(place)),
+            ("gestohlen".into(), Value::Bool(true)),
+        ])
+    }
+
+    #[test]
+    fn a_terminal_sale_is_a_sale_of_goods_named_by_its_guid_with_its_proof() {
+        let p = gold_sale(Proof::Requested);
+        assert!(p.sold && p.goods);
+        assert_eq!(p.proof, Proof::Requested);
+        assert_eq!((p.name.as_str(), p.stock_name.as_deref(), p.quantity), ("Gold", Some("Gold"), 68));
+        assert!((p.unit_price - 26_622.0).abs() < 1e-9);
+        assert_eq!((p.uex, p.place.clone()), (None, PlaceName::Listed("Levski".into())));
+        assert!(p.key.starts_with("verkauf:"));
+        assert_eq!(gold_sale(Proof::BoxGone).proof, Proof::BoxGone);
+        // Without the names of the goods nothing names it.
+        let deal = Deal { class: String::new(), guid: GOLD.into(), proof: Proof::Requested, ..purchase(150, "", 68, 1.0, None) };
+        assert_eq!(open(&[sold(100, vec![deal])], &Decisions::default()).unnamed, 1);
+    }
+
+    #[test]
+    fn a_terminal_sale_takes_scu_from_the_goods_and_never_from_an_item_of_that_name() {
+        let p = gold_sale(Proof::Requested);
+        let mut trade = vec![
+            stack("Gold", 5.0, "Levski", false),
+            goods_stack("Gold", 50.5, ""),
+            goods_stack("Gold", 36.0, "Levski"),
+            goods_stack("Gold", 9.0, "Area 18"),
+        ];
+        let plan = take_plan(&trade, &p);
+        assert_eq!(plan.parts, vec![(2, 36.0), (1, 32.0)], "the place first, then no place, never the item");
+        assert!((plan.pieces - 68.0).abs() < 1e-9 && plan.without_place);
+        assert_eq!(adopt(&mut trade, &p), Ok(()));
+        assert_eq!(
+            amounts(&trade),
+            vec![("Levski".to_string(), 5.0), (String::new(), 18.5), ("Area 18".to_string(), 9.0)]
+        );
+        // Less than sold: what is there goes, never below zero.
+        let mut little = vec![goods_stack("Gold", 0.5, "Levski")];
+        assert_eq!(adopt(&mut little, &p), Ok(()));
+        assert!(little.is_empty());
+    }
+
+    #[test]
+    fn a_terminal_sale_the_stock_does_not_hold_is_only_marked() {
+        let p = gold_sale(Proof::Requested);
+        let mut trade = vec![stack("Gold", 5.0, "Levski", false), goods_stack("Gold", 9.0, "Area 18")];
+        let before = trade.clone();
+        assert_eq!(take_plan(&trade, &p).pieces, 0.0);
+        assert!(p.bookable(&trade), "it can be taken over");
+        assert_eq!(adopt(&mut trade, &p), Ok(()));
+        assert_eq!(trade, before, "nothing changes");
+        assert!(batch(&trade, std::slice::from_ref(&p)).is_empty(), "a requested sale is booked one by one only");
+        let proven = gold_sale(Proof::BoxGone);
+        assert_eq!(batch(&trade, std::slice::from_ref(&proven)).len(), 1, "a proven sale is booked with all");
+    }
+
+    #[test]
+    fn two_windows_keep_the_decisions_of_each_other() {
+        let (home, paths) = scratch("zwei-fenster");
+        let (mut one, mut two) = (Decisions::load(&paths), Decisions::load(&paths));
+        one.set(&["a".to_string()], Decision::Adopted);
+        assert!(one.save(&paths));
+        two.set(&["b".to_string()], Decision::Discarded);
+        assert!(two.save(&paths));
+        let disk = Decisions::load(&paths);
+        assert_eq!((disk.get("a"), disk.get("b")), (Some(Decision::Adopted), Some(Decision::Discarded)));
+        assert_eq!(two, disk, "the window that saved holds the whole file");
+        one.forget(&["a".to_string()]);
+        assert!(one.save(&paths));
+        let disk = Decisions::load(&paths);
+        assert_eq!((disk.get("a"), disk.get("b")), (None, Some(Decision::Discarded)), "only what was opened again");
+        let _ = std::fs::remove_dir_all(home);
     }
 
     #[test]
@@ -518,7 +671,7 @@ mod tests {
         assert_eq!(cost_of(&big[0]), Some(30.0), "what was paid for the rest stays");
         // Fewer in stock than sold: what is there is taken.
         let mut small = vec![stack("Venture Arms", 1.0, "Levski", false)];
-        assert_eq!(take_plan(&small, sale).pieces, 1);
+        assert_eq!(take_plan(&small, sale).pieces, 1.0);
         assert_eq!(adopt(&mut small, sale), Ok(()));
         assert!(small.is_empty());
     }

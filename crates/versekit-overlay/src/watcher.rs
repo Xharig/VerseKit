@@ -674,9 +674,10 @@ pub(crate) fn keep_signatures_with(
     Some(outcome)
 }
 
-/// Starts the keeping of the scan signatures, of the goods with a quality and of the names of the places in a thread
-/// of its own, so that the scanner knows the asteroid types and the signatures of the game data, the stock the goods
-/// of the patch and the location row the names of the patch, without the main window having been open. Each is read
+/// Starts the keeping of the scan signatures, of the goods with a quality, of the names of the places and of the names
+/// of the goods in a thread of its own, so that the scanner knows the asteroid types and the signatures of the game
+/// data, the stock the goods of the patch, the location row the names of the patch and the stock journal the goods a
+/// commodity terminal sold, without the main window having been open. Each is read
 /// from the game data only when the archive changed. `paths` are those of the thread ([`thread_paths`]).
 pub fn keep_signatures(paths: Paths, guard: writeguard::State) {
     let started = std::thread::Builder::new().name("signatures".into()).spawn_with_language(move || {
@@ -684,6 +685,7 @@ pub fn keep_signatures(paths: Paths, guard: writeguard::State) {
         keep_signatures_with(&paths, versekit_gamedata::mineables::keep_current);
         versekit_gamedata::quality_goods::keep(&paths);
         versekit_gamedata::place_names::keep(&paths);
+        versekit_gamedata::commodity_names::keep(&paths);
     });
     if let Err(error) = started {
         errors::record("signatures.thread", &error);

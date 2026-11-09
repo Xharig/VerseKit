@@ -127,7 +127,7 @@ fn english_ini(s: &Setup) -> String {
 fn switching_to_the_original_resets_the_old_file_and_writes_the_new_one() {
     let s = Setup::new("switch");
     s.set_up_german();
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     assert!(injection::is_applied(&s.ini()));
     let done = switch_source(&s.paths, &Fake::default(), &FakeArchive::default(), ORIGINAL, "", &|_| {}).unwrap();
     assert_eq!(done.fetched, "1.0 MB");
@@ -160,7 +160,7 @@ fn a_kept_foreign_file_is_no_original_and_switched_off_notes_stay_out() {
 fn the_original_in_a_side_channel_leaves_the_main_note_alone() {
     let s = Setup::new("side");
     s.set_up_german();
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     let note = injection::load_origtext(&s.paths);
     let ptu = format!("{}/StarCitizen/PTU", s.root);
     fs::create_dir_all(&ptu).unwrap();
@@ -180,14 +180,14 @@ fn the_original_in_a_side_channel_leaves_the_main_note_alone() {
 fn a_restored_copy_brings_its_original_texts_back() {
     let s = Setup::new("restore");
     s.set_up_german();
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     let with_notes = fs::read_to_string(s.ini()).unwrap();
     // A new translation replaces the file with notes, as a fetch does.
     let backup = translation::backup_game_file(&s.paths, &s.ini()).unwrap().unwrap();
     assert!(game_ini::is_file(&format!("{backup}.urtext.json")), "the note travels with the copy");
     fs::write(s.ini(), "Bounty_title_001=Kopfgeld zwei\nBounty_desc_001=Fang ihn jetzt.\n").unwrap();
     injection::discard_origtext_for(&s.paths, &s.ini());
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     // Compared as paths: the listing joins with the system's separator, the
     // copy was spelt with the test's.
     let listed: Vec<std::path::PathBuf> = translation::backups_of(&s.ini()).into_iter().map(Into::into).collect();
@@ -206,20 +206,20 @@ fn a_restored_copy_brings_its_original_texts_back() {
 fn the_original_texts_of_another_file_never_go_into_this_one() {
     let s = Setup::new("otherfile");
     s.set_up_german();
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     // The English file comes beside it, the German one with its notes stays.
     let english = english_ini(&s);
     fs::create_dir_all(std::path::Path::new(&english).parent().unwrap()).unwrap();
     fs::write(&english, ENGLISH).unwrap();
     s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str(ORIGINAL));
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     let text = fs::read_to_string(&english).unwrap();
     assert!(text.starts_with("Bounty_title_001=Bounty <EM4>[BP]</EM4>\n"), "{text}");
     assert!(!text.contains("Kopfgeld"), "{text}");
     // A copy put back keeps the note of a file that is still there.
     fs::write(&english, ENGLISH).unwrap();
     s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("dymerz_de"));
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     let note = injection::load_origtext(&s.paths);
     translation::backup_game_file(&s.paths, &english).unwrap();
     translation::restore_backup(&s.paths, &english, true).unwrap();
@@ -235,7 +235,7 @@ fn a_run_stores_the_original_names_before_it_writes() {
     s.set_up_german();
     let archive =
         FakeArchive { names: Some(r#"{"vehicle_NameRSI_Ursa_Rover": "Ursa Rover"}"#), ..FakeArchive::default() };
-    let outcome = apply(&s.paths, &Fake::default(), &archive, "");
+    let outcome = apply(&s.paths, &archive, "");
     assert!(matches!(outcome, Outcome::Done(_)), "{outcome:?}");
     assert_eq!(*archive.names_refreshed.lock().unwrap(), 1);
     let text = fs::read_to_string(s.ini()).unwrap();
@@ -320,7 +320,7 @@ fn on_a_copy_of_the_data_the_background_only_looks_and_no_inner_name_reaches_the
     crate::writeguard::allow_under(Some(&format!("{}/data", s.root)));
     let job = Job { channels: Vec::new(), source: Some(source.into()), own_original: false, stock_only: false };
     run(&job, &s.paths, &net, &FakeArchive::default(), "");
-    let applied = apply(&s.paths, &net, &FakeArchive::default(), "");
+    let applied = apply(&s.paths, &FakeArchive::default(), "");
     let denied = crate::writeguard::take_denied();
     crate::writeguard::deny(false);
     crate::writeguard::allow_under(None);
@@ -523,7 +523,7 @@ fn removing_and_status() {
     let s = Setup::new("status");
     s.set_up_german();
     assert!(!status(&s.paths).applied);
-    let outcome = apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    let outcome = apply(&s.paths, &FakeArchive::default(), "");
     assert!(matches!(outcome, Outcome::Done(_)), "{outcome:?}");
     let now = status(&s.paths);
     assert!(now.applied);
@@ -581,7 +581,7 @@ fn luftwerft_file(box_text: &str) -> String {
 fn a_side_channel_gets_its_language_and_the_notes_like_the_main_installation() {
     let s = Setup::new("ptu-wie-live");
     s.set_up_german();
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     let live_note = injection::load_origtext(&s.paths);
     let ptu = s.ptu_with_scdl_leftovers();
     let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
@@ -615,7 +615,7 @@ fn leaving_a_channel_alone_takes_the_notes_out_first() {
     let ptu = s.ptu_with_scdl_leftovers();
     let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
     let before = fs::read_to_string(&german).unwrap();
-    assert!(matches!(apply(&s.paths, &Fake::default(), &FakeArchive::default(), ""), Outcome::Done(_)));
+    assert!(matches!(apply(&s.paths, &FakeArchive::default(), ""), Outcome::Done(_)));
     assert!(fs::read_to_string(&german).unwrap().contains("Kopfgeld <EM4>[BP]</EM4>"));
     let spots = leave_alone(&s.paths, Some("PTU"), &ptu);
     assert!(spots > 0, "the spots that went are counted");
@@ -636,7 +636,7 @@ fn removing_also_reaches_a_channel_left_alone_that_still_holds_notes() {
     let ptu = s.ptu_with_scdl_leftovers();
     let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
     let before = fs::read_to_string(&german).unwrap();
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     assert!(injection::is_applied(&german));
     translation::set_channel_source(&s.paths, "PTU", "");
     assert!(side_channels(&s.paths, s.paths.game_folder().as_deref()).is_empty(), "the channel is no longer tended");
@@ -654,7 +654,7 @@ fn inserting_again_and_choosing_a_source_write_the_notes_into_the_side_channel()
     s.set_up_german();
     let ptu = s.ptu_with_scdl_leftovers();
     let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
-    assert!(matches!(apply(&s.paths, &Fake::default(), &FakeArchive::default(), ""), Outcome::Done(_)));
+    assert!(matches!(apply(&s.paths, &FakeArchive::default(), ""), Outcome::Done(_)));
     assert!(fs::read_to_string(&german).unwrap().contains("Kopfgeld <EM4>[BP]</EM4>"));
     remove(&s.paths);
     // TECH-PREVIEW takes a source of its own: the test version of Luftwerft, the language, the notes.
@@ -806,8 +806,27 @@ fn the_report_line_tells_state_switches_source_and_language() {
     let before = injection_line(&s.paths, Lang::De);
     assert!(before.starts_with("NICHT eingetragen · Auffrischen automatisch · dymerz_de v1 "), "{before}");
     assert!(before.ends_with(" · german_(germany) / Spiel: —"), "{before}");
-    apply(&s.paths, &Fake::default(), &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::default(), "");
     s.paths.set_setting(SETTING_ON, Value::Bool(false));
     let after = injection_line(&s.paths, Lang::En);
     assert!(after.starts_with("in place · writing them is switched off · refreshes automatically"), "{after}");
+}
+
+/// The reputation and terms of another build than the game's do not go into the text file: after a patch, until the
+/// catalog is built anew, the notes name none. Without a known game version they count.
+#[test]
+fn the_reputation_of_another_build_is_not_written() {
+    let s = Setup::new("ruf-build");
+    let table = injection::reputation::Table {
+        version: "4.10.2-live.12913470".into(),
+        contracts: vec![("bounty_title_001".into(), Value::Array(vec![]))],
+        terms: vec![("bounty_title_001".into(), Value::Object(vec![("warte".into(), Value::int(45))]))],
+        terms_source: injection::reputation::TERMS_FROM_GAME.into(),
+        ..injection::reputation::Table::default()
+    };
+    injection::reputation::save(&s.paths, &table);
+    let archive = FakeArchive::default();
+    assert_eq!(prepare(&s.paths, &archive, "4.10.2").reputation.terms.len(), 1, "the same build");
+    assert_eq!(prepare(&s.paths, &archive, "").reputation.terms.len(), 1, "no known version");
+    assert!(prepare(&s.paths, &archive, "4.11.0").reputation.terms.is_empty(), "another build");
 }

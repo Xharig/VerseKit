@@ -430,7 +430,6 @@ mod tests {
             super::USER_AGENT.to_string(),
             crate::translation::USER_AGENT.to_string(),
             crate::updater::USER_AGENT.to_string(),
-            crate::injection::ranks::USER_AGENT.to_string(),
             user_agent(env!("CARGO_PKG_VERSION")),
             user_agent(""),
         ];

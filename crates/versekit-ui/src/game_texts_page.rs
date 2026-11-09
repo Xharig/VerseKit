@@ -71,6 +71,9 @@ impl Archive for GameArchive {
     fn refresh_names(&self, paths: &Paths) {
         game_text::names_or_fetch(paths, None);
     }
+    fn refresh_ranks(&self, paths: &Paths, game_version: &str) {
+        versekit_gamedata::reputation_ranks::refresh(paths, game_version);
+    }
 }
 
 fn megabytes(bytes: usize) -> String {
@@ -316,9 +319,9 @@ impl GameTextsState {
 
     /// `_inj_refresh`: write the notes anew.
     fn apply_now(&mut self) {
-        self.start(|paths, net, archive, out| {
+        self.start(|paths, _, archive, out| {
             let version = versekit_core::stock_fetch::live_build(paths);
-            let said = outcome_text(&game_texts::apply(paths, net, archive, &version));
+            let said = outcome_text(&game_texts::apply(paths, archive, &version));
             let _ = out.send(Message::Done(said.0, said.1));
         });
     }
@@ -1127,6 +1130,7 @@ fn card_body(
     let mut check = false;
     let mut restore = false;
     let mut own = false;
+    let own_open = state.custom_of(&card_key, paths, channel).open;
     c.horizontal_wrapped(|row| {
         // Without a source there is nothing to look for.
         let sourceless = (current.is_empty() || current == ORIGINAL).then(|| t("s_tq_pruefen_keine"));
@@ -1139,12 +1143,13 @@ fn card_body(
         restore = row
             .add(widgets::Button::new(&t("s_tq_zurueck"), ButtonKind::Normal, scheme).blocked(reason.as_deref()))
             .clicked();
-        own = row
-            .add(widgets::Button::new(&t("s_sp_q_eigen"), ButtonKind::Normal, scheme))
-            .clicked();
+        // The button opens and closes the field of the own address; while it is open it stands out.
+        let kind = if own_open { ButtonKind::Strong } else { ButtonKind::Normal };
+        own = row.add(widgets::Button::new(&t("s_sp_q_eigen"), kind, scheme)).clicked();
     });
     if own {
-        state.custom_of(&card_key, paths, channel).open = true;
+        let custom = state.custom_of(&card_key, paths, channel);
+        custom.open = !custom.open;
     }
     if check {
         state.check_channel(&current, channel, root);
@@ -1955,6 +1960,23 @@ mod tests {
         assert!(english.contains("\nk5000=v\n"));
         assert_eq!(translation::installed(&game.paths, CUSTOM, None).as_deref(), Some("etag:own-1"));
         assert!(fs::read_to_string(format!("{}/user.cfg", game.live)).unwrap().contains("g_language = english"));
+    }
+
+    #[test]
+    fn the_own_address_closes_again_with_a_second_click() {
+        let game = Game::new("customclose");
+        let mut state =
+            GameTextsState::with_parts(&game.paths, Arc::new(Fake::default()), Arc::new(game_texts::NoArchive));
+        let page = Page::new();
+        let take = t("s_tq_uebernehmen");
+        let shows = |state: &mut GameTextsState| {
+            page.frame(&Which::Translation, state, Vec::new()).0.iter().any(|(r, l, _)| *r == Role::Button && *l == take)
+        };
+        assert!(!shows(&mut state), "closed at first");
+        assert!(page.own_address(&Which::Translation, &mut state, 0));
+        assert!(shows(&mut state), "the first click opens the field");
+        assert!(page.own_address(&Which::Translation, &mut state, 0));
+        assert!(!shows(&mut state), "the second click closes it again");
     }
 
     #[test]

@@ -362,6 +362,9 @@ pub fn evaluate(paths: &Paths, own_version: &str, now: f64) -> Option<Outcome> {
                 code.map_or_else(|| "–".to_string(), |c| c.to_string())
             ),
         );
+    } else {
+        // The new version runs: a pause from failed downloads before has nothing left to hold.
+        clear_download_failures(paths);
     }
     Some(Outcome {
         kind,
@@ -396,6 +399,88 @@ pub fn failed_recently(paths: &Paths, version: &str, now: f64) -> bool {
         return false;
     }
     stamp.parse::<f64>().is_ok_and(|stamp| (0.0..FAILED_PAUSE).contains(&(now - stamp)))
+}
+
+// ------------------------------------------------------------ pause after a failed download
+
+/// Holds the version whose download failed, when the last try failed and how many automatic tries failed in a row
+/// (`update-pause.json`). A file of its own, read by every process of the program: the overlay, the main window
+/// and a program started again all keep the same pause.
+pub const PAUSE_FILE: &str = "update-pause.json";
+/// The pause after the first failed download.
+pub const PAUSE_FIRST: f64 = 10.0 * 60.0;
+/// The longest pause: each further failure doubles it up to this.
+pub const PAUSE_MAX: f64 = 60.0 * 60.0;
+
+/// The pause after `failures` failed downloads in a row: [`PAUSE_FIRST`], doubled each time, at most
+/// [`PAUSE_MAX`].
+pub fn pause_after(failures: u32) -> f64 {
+    let doublings = failures.saturating_sub(1).min(16);
+    (PAUSE_FIRST * f64::from(1u32 << doublings)).min(PAUSE_MAX)
+}
+
+/// What [`PAUSE_FILE`] holds.
+struct PauseMark {
+    /// The version whose download failed, normalized.
+    version: String,
+    /// Failed automatic downloads of it in a row.
+    failures: u32,
+    /// The moment of the last failed download, by hand or automatic.
+    at: f64,
+}
+
+fn pause_read(paths: &Paths) -> Option<PauseMark> {
+    let data = json_read(&paths.app_file(PAUSE_FILE))?;
+    let version = data.get("version").and_then(Value::as_str).map(norm)?;
+    let failures = data.get("fehlschlaege").and_then(Value::as_u64).and_then(|n| u32::try_from(n).ok())?;
+    let at = data.get("zeit").and_then(Value::as_f64)?;
+    Some(PauseMark { version, failures, at })
+}
+
+/// Remember a failed download of `version` at `now`. An automatic one counts towards the pause; one by hand only
+/// sets the moment (for the half minute a click waits), so clicking never lengthens the automatic pause. The count
+/// starts again for another version or when the last failure is longer ago than [`PAUSE_MAX`]. Returns the pause
+/// until the automatic update tries again, `None` when it does not wait or the file could not be written.
+pub fn remember_download_failure(paths: &Paths, version: &str, now: f64, automatic: bool) -> Option<f64> {
+    let version = norm(version);
+    let before = pause_read(paths)
+        .filter(|mark| mark.version == version && (0.0..=PAUSE_MAX).contains(&(now - mark.at)))
+        .map_or(0, |mark| mark.failures);
+    let failures = if automatic { before.saturating_add(1) } else { before };
+    let mark = json!({"version": version, "fehlschlaege": failures, "zeit": now});
+    if let Err(error) = json_write(&paths.app_file(PAUSE_FILE), &mark) {
+        errors::record("update_run.remember_download_failure", &error);
+        return None;
+    }
+    (failures > 0).then(|| pause_after(failures))
+}
+
+/// A download worked: the pause and its count go.
+pub fn clear_download_failures(paths: &Paths) {
+    remove(&paths.app_file(PAUSE_FILE));
+}
+
+/// How long a click waits after a failed download: the player may try again, but not every second.
+pub const MANUAL_PAUSE: f64 = 30.0;
+
+/// Seconds until a click may fetch again after the last failed download, of any process; `None` when it may now.
+pub fn manual_wait_left(paths: &Paths, now: f64) -> Option<f64> {
+    let at = pause_read(paths)?.at;
+    let left = MANUAL_PAUSE - (now - at);
+    (now >= at && left > 0.0).then_some(left)
+}
+
+/// Seconds until the automatic update may fetch `version` again after failed downloads of it; `None` when it may
+/// now. Another version offered does not wait. ⚠ A moment of the last failure in the future (a clock set back)
+/// ends the pause: it must never hold for days.
+pub fn download_pause_left(paths: &Paths, version: &str, now: f64) -> Option<f64> {
+    let mark = pause_read(paths)?;
+    let since = now - mark.at;
+    if mark.version != norm(version) || mark.failures == 0 || since < 0.0 {
+        return None;
+    }
+    let left = pause_after(mark.failures) - since;
+    (left > 0.0).then_some(left)
 }
 
 /// Does the start after an update open the main window? After an update by click, after an automatic one right

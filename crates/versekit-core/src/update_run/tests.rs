@@ -631,3 +631,93 @@ fn the_helpers_log_keeps_the_try_before() {
     let new = fs::read_to_string(&log).unwrap();
     assert!(old.ends_with(" first\r\n") && new.ends_with(" second\r\n") && !new.contains("first"), "{old:?} {new:?}");
 }
+
+#[test]
+fn the_pause_after_failed_downloads_doubles_up_to_an_hour() {
+    let minutes: Vec<f64> = (0..=7).map(|n| pause_after(n) / 60.0).collect();
+    assert_eq!(minutes, [10.0, 10.0, 20.0, 40.0, 60.0, 60.0, 60.0, 60.0]);
+    assert_eq!(pause_after(u32::MAX), PAUSE_MAX);
+}
+
+#[test]
+fn the_pause_holds_in_the_data_folder_ends_by_itself_and_never_for_days() {
+    let (_dir, paths) = paths_in("update-pause");
+    let now = 1_800_000_000.0;
+    let v = "v5.0.1";
+    assert_eq!(download_pause_left(&paths, v, now), None);
+    assert_eq!(remember_download_failure(&paths, v, now, true), Some(PAUSE_FIRST));
+    // Another process reads the same file, and the version is compared as the tag would write it.
+    let other = Paths::new(paths.host.clone());
+    assert_eq!(download_pause_left(&other, "5.0.1 ", now + 60.0), Some(PAUSE_FIRST - 60.0));
+    assert_eq!(download_pause_left(&other, v, now + PAUSE_FIRST), None);
+    assert_eq!(remember_download_failure(&other, v, now + PAUSE_FIRST, true), Some(2.0 * PAUSE_FIRST));
+    // A clock set back by a day ends the pause instead of holding it.
+    assert_eq!(download_pause_left(&paths, v, now - 86_400.0), None);
+    // A broken file is no pause.
+    fs::write(paths.app_file(PAUSE_FILE), b"{kaputt").unwrap();
+    assert_eq!(download_pause_left(&paths, v, now), None);
+    assert_eq!(remember_download_failure(&paths, v, now, true), Some(PAUSE_FIRST), "counts from one again");
+    clear_download_failures(&paths);
+    assert_eq!(download_pause_left(&paths, v, now), None);
+}
+
+#[test]
+fn the_pause_holds_only_for_the_version_that_failed() {
+    let (_dir, paths) = paths_in("update-pause-version");
+    let now = 1_800_000_000.0;
+    remember_download_failure(&paths, "v5.0.1", now, true);
+    remember_download_failure(&paths, "v5.0.1", now + 1.0, true);
+    assert_eq!(download_pause_left(&paths, "v5.0.1", now + 1.0), Some(2.0 * PAUSE_FIRST));
+    // A newer version offered meanwhile fetches at once.
+    assert_eq!(download_pause_left(&paths, "v5.0.2", now + 1.0), None);
+    // Its own failure counts from one.
+    assert_eq!(remember_download_failure(&paths, "v5.0.2", now + 2.0, true), Some(PAUSE_FIRST));
+}
+
+#[test]
+fn the_count_starts_again_after_an_hour_without_a_failure() {
+    let (_dir, paths) = paths_in("update-pause-verfall");
+    let now = 1_800_000_000.0;
+    for n in 0..4 {
+        remember_download_failure(&paths, "v5.0.1", now + f64::from(n), true);
+    }
+    assert_eq!(download_pause_left(&paths, "v5.0.1", now + 3.0), Some(PAUSE_MAX));
+    // The last failure is longer ago than the longest pause: the next one is a first one again.
+    let later = now + 3.0 + PAUSE_MAX + 1.0;
+    assert_eq!(remember_download_failure(&paths, "v5.0.1", later, true), Some(PAUSE_FIRST));
+}
+
+#[test]
+fn a_failed_click_waits_half_a_minute_but_does_not_lengthen_the_automatic_pause() {
+    let (_dir, paths) = paths_in("update-pause-klick");
+    let now = 1_800_000_000.0;
+    // Clicks alone: half a minute for the next click, no pause for the automatic update.
+    for n in 0..5 {
+        assert_eq!(remember_download_failure(&paths, "v5.0.1", now + f64::from(n) * 40.0, false), None);
+    }
+    let last = now + 160.0;
+    assert_eq!(manual_wait_left(&paths, last + 10.0), Some(MANUAL_PAUSE - 10.0));
+    assert_eq!(download_pause_left(&paths, "v5.0.1", last + 10.0), None);
+    // An automatic failure counts, clicks after it do not add to it.
+    assert_eq!(remember_download_failure(&paths, "v5.0.1", last + 20.0, true), Some(PAUSE_FIRST));
+    assert_eq!(remember_download_failure(&paths, "v5.0.1", last + 80.0, false), Some(PAUSE_FIRST));
+    assert_eq!(remember_download_failure(&paths, "v5.0.1", last + 140.0, false), Some(PAUSE_FIRST));
+    assert_eq!(download_pause_left(&paths, "v5.0.1", last + 140.0), Some(PAUSE_FIRST));
+}
+
+#[test]
+fn a_new_version_that_started_ends_the_pause() {
+    let (_dir, paths) = paths_in("update-pause-neustart");
+    let now = 2_000_000.0;
+    remember_download_failure(&paths, "v5.0.1", now - 120.0, true);
+    begin_run(&paths, &mark("v5.0.1", "5.0.0", now - 60.0)).unwrap();
+    write_result(&paths, 0).unwrap();
+    assert_eq!(evaluate(&paths, "5.0.1", now).map(|o| o.kind), Some(Kind::Done));
+    assert!(!Path::new(&paths.app_file(PAUSE_FILE)).exists(), "the pause file is gone");
+    // An update that did not arrive keeps it.
+    remember_download_failure(&paths, "v5.0.2", now - 120.0, true);
+    begin_run(&paths, &mark("v5.0.2", "5.0.1", now - 60.0)).unwrap();
+    write_result(&paths, 1).unwrap();
+    assert_eq!(evaluate(&paths, "5.0.1", now).map(|o| o.kind), Some(Kind::Failed));
+    assert!(download_pause_left(&paths, "v5.0.2", now).is_some());
+}

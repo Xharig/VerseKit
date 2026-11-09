@@ -1773,11 +1773,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     tabs(ui, scheme, state, &rows);
     ui.add_space(GAP);
     gap_line(ui, scheme, state, &rows);
-    if state.items {
-        let now = ui.input(|i| i.time);
-        state.look_at_suggestions(now, false);
-        suggestions::show_block(ui, scheme, state);
-    }
+    let now = ui.input(|i| i.time);
+    state.look_at_suggestions(now, false);
+    suggestions::show_block(ui, scheme, state);
     state.split.show_form(ui, scheme);
     // Filters and search stand right above the table they narrow.
     filters(ui, scheme, state, &rows);

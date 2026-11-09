@@ -6,6 +6,76 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.7 - 2026-11-09
+
+> Verkäufe am Terminal und Einnahmen in der Statistik, Wartezeit, Buy-in und
+> Ruf für jeden Auftrag, ein Tastenkürzel fürs Hauptfenster, ein Deinstaller,
+> der sauber aufräumt, und die Raffinerie liest deutlich mehr.
+
+### Neu
+
+- **Tastenkürzel für das Hauptfenster:** Alt+Umschalt+F holt das Hauptfenster
+  nach vorn, auch aus dem laufenden Spiel, und öffnet es wieder, wenn es
+  geschlossen ist. Unter Overlay › Tastenkürzel änderbar und abschaltbar.
+- **Verkäufe am Warenterminal:** VerseKit liest Verkäufe am Terminal aus dem
+  Log und schlägt sie fürs Lager vor. „Bestätigt“ heißt: genau die verkauften
+  Kisten fehlen danach. Sonst steht der Verkauf als „angefragt“ da und wird
+  nur per Einzelklick gebucht, nicht mit „Alle buchen“.
+- **Einnahmen in der Statistik:** Die Statistik zeigt jetzt auch, was du
+  einnimmst, nach Ware und Ort, und stellt es den Ausgaben gegenüber.
+  Geschätzte Summen tragen „ca.“. Aufträge zählen mit Betrag nur, wenn das
+  Spiel eine feste Auszahlung vorgibt (selten), sonst nur als Anzahl.
+- **Auftragsangaben für jeden Auftrag:** Jeder Auftrag zeigt im Spiel
+  Wartezeit, Buy-in, Ruf und Rang, gelesen aus deinen eigenen Spieldaten,
+  nicht mehr nur Aufträge mit Bauplänen. Die Rangschwellen im Ruf kommen
+  ebenfalls aus der Data.p4k.
+
+### Verbessert
+
+- **Raffinerie lesen: abgekürzte Namen.** Kürzt das Terminal einen Namen ab
+  („HEPH (RAW)“), zählt er, wenn genau ein Rohstoff so beginnt
+  (Hephaestanite).
+
+### Behoben
+
+- **Raffinerie lesen: englisches Terminal.** Las die Texterkennung die
+  Spaltenüberschrift „YIELD“ leicht falsch („YIELO“, „YtELD“), fand VerseKit
+  die Tabelle nicht oder schrieb die eingesetzte Menge (QTY) ins Feld der
+  Ausbeute. Die Überschrift wird jetzt auch so erkannt. Eine Überschrift, die
+  nur eine der vier Lesungen erkennt, gilt für alle. QTY und ANZ. landen nie
+  mehr in der Ausbeute. Ohne Überschrift bleibt die Ausbeute lieber leer („?“).
+- **Raffinerie lesen: Null mit Schrägstrich.** Das Terminal schreibt die Null
+  durchgestrichen. Las die Texterkennung sie als „Ø“ oder „e“, blieb die Zahl
+  leer oder verlor eine Ziffer (330 wurde 33); las sie eine 8 vorne als 0,
+  fiel die Ziffer weg (874 wurde 74). Jetzt zählen solche Zeichen als 0 bzw.
+  vorne als 8 und laufen durch die Prüfung von 0 und 8.
+- **Raffinerie lesen: Station ohne Tabelle.** Der Ort über dem Stationsprofil
+  wird auch übernommen, wenn die Tabelle selbst nicht lesbar war.
+- **Selbst-Update: Pause nach einem gescheiterten Download.** Nach einem
+  gescheiterten Download versucht VerseKit es frühestens nach 10 Minuten
+  wieder, danach in wachsendem Abstand bis zu einer Stunde, auch über
+  Neustarts hinweg. Ein Klick wartet 30 Sekunden und sagt, warum.
+  Gemeldet von Morkhan [KRT]
+- **„Neueste Version holen“** ist ausgegraut, wenn die neueste Version
+  schon läuft, und lädt sie nicht noch einmal.
+- **GitHub gestört statt „offline“:** Antwortet GitHub mit einer Störung
+  (z. B. HTTP 504), steht jetzt „GitHub ist gerade gestört“ statt
+  „vermutlich offline“.
+- **Fehlerbericht:** zeigt unter „Letzter Update-Versuch“ auch gescheiterte
+  Downloads, mit Grund und ob von Hand oder automatisch. Gemeldet von
+  Aeternitas26 [KRT]
+- **Deinstallieren: VerseKit wird vorher beendet, auf Wunsch samt Daten.**
+  Lief VerseKit noch, blieb die Programmdatei beim Deinstallieren liegen
+  („Zugriff verweigert“). Der Deinstaller beendet VerseKit jetzt selbst.
+  Läuft es als Administrator und lässt sich nicht beenden, sagt er das,
+  statt halb fertig liegenzubleiben, und das Setup ebenso. Beim
+  Deinstallieren von Hand fragt er außerdem, ob auch deine VerseKit-Daten
+  gelöscht werden sollen (ab Werk „Nein“). Gelöscht wird nur, was VerseKit
+  selbst angelegt hat. Meldung und Wunsch von Keendary [KRT]
+- **Handle-Suche: Zahl der Organisationen.** Wer „Organisationen zeigen“ im
+  Hauptfenster änderte, sah in der Info-Leiste weiter die alte Zahl, bis
+  VerseKit neu startete. Jetzt gilt die neue Zahl sofort.
+
 ## v5.2.6 - 2026-11-08
 
 > Das Linux-AppImage startet jetzt auch auf schlanken Systemen ohne die

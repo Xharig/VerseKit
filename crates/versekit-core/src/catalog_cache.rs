@@ -171,7 +171,7 @@ pub struct CatalogCache {
     pub missions: Vec<Mission>,
     /// Whom the contracts credit reputation, where scmdb's contract file was
     /// read (`auftragsruf.json`); never written into the catalog file.
-    pub reputation: Option<crate::injection::reputation::Table>,
+    pub reputation: Option<Box<crate::injection::reputation::Table>>,
 }
 
 fn int(value: Option<&Value>) -> Option<i64> {

@@ -714,14 +714,14 @@ fn a_confusable_value_is_confirmed_at_the_learned_digits_of_the_picture() {
     }
     let passes = vec![words.clone(), words];
     let checks = Checks {
-        confirm: Some(confirmer(&picture, &passes, &learned, &index)),
-        reread: Some(rereader(&picture, &passes, &learned, &index)),
+        confirm: Some(confirmer(&picture, &passes, &learned, &index, None)),
+        reread: Some(rereader(&picture, &passes, &learned, &index, None)),
     };
     let merged = merge_passes(&passes, &index, None, &checks, false);
     assert_eq!(merged.found, found(&[("Gold", 508, 122)]));
     // Counter-check: without learned digits the value stays unsure.
     let none = Digits::default();
-    let checks = Checks { confirm: Some(confirmer(&picture, &passes, &none, &index)), reread: None };
+    let checks = Checks { confirm: Some(confirmer(&picture, &passes, &none, &index, None)), reread: None };
     assert!(merge_passes(&passes, &index, None, &checks, false).found.is_empty());
 }
 
@@ -854,4 +854,228 @@ fn every_job_of_a_reading_carries_the_station_above_it() {
         read_image((5120, 1440), None, &mut ocr, &index_of(&["Gold", "Tungsten", "Iron", "Torite"]), &Digits::default(), None)
             .expect("read");
     assert!(jobs.iter().all(|j| j.station.is_empty()));
+}
+
+/// A row of the set-up card: name, quality, quantity and yield (`None`: the cell shows `--`).
+type SetupRow<'a> = (&'a str, Int, Int, Option<Int>);
+
+/// The set-up card of the English terminal as the recognition reads it: the heads `QUALITY QTY <yield> REFINE`
+/// (`heads` false leaves the row of heads out), then one row per entry.
+fn setup_card(yield_head: &str, heads: bool, values: &[SetupRow]) -> Vec<Word> {
+    let mut words = Vec::new();
+    if heads {
+        words.extend([
+            sized("MATERIALS", 1000.0, 400.0, 60.0, 9.0),
+            sized("SELECTED", 1065.0, 400.0, 55.0, 9.0),
+            sized("QUALITY", 1180.0, 400.0, 45.0, 9.0),
+            sized("QTY", 1250.0, 400.0, 22.0, 9.0),
+            sized(yield_head, 1300.0, 400.0, 35.0, 9.0),
+            sized("REFINE", 1360.0, 400.0, 40.0, 9.0),
+        ]);
+    }
+    for (i, (name, quality, quantity, yield_)) in values.iter().enumerate() {
+        let y = 440.0 + i as f64 * 40.0;
+        words.push(sized(name, 1030.0, y, 70.0, 12.0));
+        words.push(sized("(ORE)", 1105.0, y, 35.0, 12.0));
+        words.push(sized(&quality.to_string(), 1190.0, y + 2.0, 18.0, 9.0));
+        words.push(sized(&quantity.to_string(), 1252.0, y + 2.0, 24.0, 9.0));
+        match yield_ {
+            Some(value) => words.push(sized(&value.to_string(), 1308.0, y + 2.0, 18.0, 9.0)),
+            None => words.push(sized("--", 1312.0, y + 2.0, 10.0, 9.0)),
+        }
+    }
+    words
+}
+
+const SETUP: [SetupRow; 3] =
+    [("TUNGSTEN", 363, 947, Some(452)), ("IRON", 664, 246, Some(115)), ("GOLD", 553, 42, None)];
+
+#[test]
+fn an_english_head_of_the_yield_read_with_wrong_letters_still_finds_the_table() {
+    let index = index_of(&["Gold", "Tungsten", "Iron"]);
+    for head in ["YIELD", "YIELO", "YtELD", "YlELD", "Y1ELD", "YiELD"] {
+        let words = setup_card(head, true, &SETUP);
+        assert_eq!(find_tables(&words, 5120, 1440).len(), 1, "{head}");
+        let mut ocr = FakeOcr { words, calls: 0 };
+        let (jobs, _) = read_image((5120, 1440), None, &mut ocr, &index, &Digits::default(), None).expect("read");
+        assert_eq!(
+            jobs.iter().map(|j| j.text.as_str()).collect::<Vec<_>>(),
+            ["Tungsten 363 452 cSCU\nIron 664 115 cSCU\nGold 553 ? cSCU"],
+            "{head}: the quantity stays out of the yield"
+        );
+    }
+    // The head of the processing card names the yield left of the quality (`MATERIALS YIELDED`): that is no column
+    // of the yield.
+    let processing = rows(&[
+        sized("MATERIALS", 1000.0, 400.0, 60.0, 9.0),
+        sized("YIELDED", 1065.0, 400.0, 50.0, 9.0),
+        sized("(CSCU)", 1120.0, 400.0, 40.0, 9.0),
+        sized("QUALITY", 1180.0, 400.0, 45.0, 9.0),
+        sized("YIELD", 1250.0, 400.0, 35.0, 9.0),
+        sized("TO", 1300.0, 400.0, 14.0, 9.0),
+        sized("DO", 1316.0, 400.0, 14.0, 9.0),
+        sized("DONE", 1350.0, 400.0, 30.0, 9.0),
+    ]);
+    let heads = header_columns(&processing).expect("heads");
+    assert_eq!(heads[..2], [1202.5, 1267.5]);
+    // Counter-check: neither the German heads nor words of the screen that are no head become a yield.
+    assert_eq!(find_tables(&cut_heads(true), 5120, 1440).len(), 1);
+    for other in ["FIELD", "SHIELD", "YELLOW"] {
+        assert!(find_tables(&setup_card(other, true, &SETUP), 5120, 1440).is_empty(), "{other}");
+    }
+}
+
+#[test]
+fn a_head_read_in_one_reading_holds_for_the_readings_without_it() {
+    let index = index_of(&["Gold", "Tungsten", "Iron"]);
+    let with_heads = setup_card("YIELD", true, &SETUP);
+    let without = setup_card("YIELD", false, &SETUP);
+    let passes = vec![with_heads, without.clone(), without.clone(), without];
+    let merged = merge_passes(&passes, &index, None, &Checks::default(), true);
+    assert_eq!(
+        merged.found,
+        vec![
+            ("Tungsten".to_string(), Some(363), Some(452)),
+            ("Iron".to_string(), Some(664), Some(115)),
+            ("Gold".to_string(), Some(553), None),
+        ]
+    );
+    // Only Gold, whose yield shows `--`, stays unsure; without guessing it stays out.
+    assert_eq!(merged.unsure, ["Gold"]);
+    let sure = merge_passes(&passes, &index, None, &Checks::default(), false);
+    assert_eq!(sure.found, found(&[("Tungsten", 363, 452), ("Iron", 664, 115)]));
+}
+
+#[test]
+fn a_reading_with_the_head_of_the_yield_wins_over_one_that_only_read_the_quantity() {
+    let index = index_of(&["Gold", "Tungsten", "Iron"]);
+    // The first reading missed the head of the yield and takes the head right of the quantity (REFINE) for it.
+    let quantity_only: Vec<Word> = setup_card("YIELD", true, &SETUP).into_iter().filter(|w| w.t != "YIELD").collect();
+    let with_heads = setup_card("YIELD", true, &SETUP);
+    let without = setup_card("YIELD", false, &SETUP);
+    let passes = vec![quantity_only, with_heads, without.clone(), without];
+    let merged = merge_passes(&passes, &index, None, &Checks::default(), false);
+    assert_eq!(merged.found, found(&[("Tungsten", 363, 452), ("Iron", 664, 115)]));
+    assert_eq!(merged.unsure, ["Gold"]);
+}
+
+/// A recognition whose search over the whole picture reads `search` and whose readings of a table read `parts`.
+struct SearchAndParts {
+    search: Vec<Word>,
+    parts: Vec<Word>,
+    calls: usize,
+}
+
+impl Ocr for SearchAndParts {
+    fn read(&mut self, jobs: &[Job]) -> Result<Vec<Vec<Word>>, ScanError> {
+        self.calls += 1;
+        let words = if self.calls == 1 { &self.search } else { &self.parts };
+        Ok(jobs.iter().map(|j| inside(j.area, words)).collect())
+    }
+}
+
+#[test]
+fn heads_only_the_search_read_hold_for_the_readings_of_the_table() {
+    let index = index_of(&["Gold", "Tungsten", "Iron"]);
+    let mut ocr = SearchAndParts {
+        search: setup_card("YIELD", true, &SETUP),
+        parts: setup_card("YIELD", false, &SETUP),
+        calls: 0,
+    };
+    let (jobs, _) = read_image((5120, 1440), None, &mut ocr, &index, &Digits::default(), None).expect("read");
+    assert_eq!(ocr.calls, 2);
+    assert_eq!(
+        jobs.iter().map(|j| j.text.as_str()).collect::<Vec<_>>(),
+        ["Tungsten 363 452 cSCU\nIron 664 115 cSCU\nGold 553 ? cSCU"]
+    );
+}
+
+#[test]
+fn three_columns_of_numbers_without_heads_give_no_yield() {
+    let index = index_of(&["Gold", "Tungsten", "Iron"]);
+    // Quality, quantity and yield, or quality, yield and to do: without heads the second column is not sure.
+    let without = setup_card("YIELD", false, &SETUP);
+    let parsed = parse_rows(&rows(&without), &index);
+    assert_eq!(
+        parsed.iter().map(|r| (r.quality, r.amount)).collect::<Vec<_>>(),
+        [(Some(363), None), (Some(664), None), (Some(553), None)]
+    );
+    // A head of the quantity with a head of the yield the reading cannot name: the head right of the quantity is
+    // the yield.
+    let unnamed = setup_card("Y|EL0", true, &SETUP);
+    let parsed = parse_rows(&rows(&unnamed), &index);
+    assert_eq!(parsed.iter().map(|r| r.amount).collect::<Vec<_>>(), [Some(452), Some(115), None]);
+    let german: Vec<Word> = setup_card("XX", true, &SETUP)
+        .into_iter()
+        .map(|w| if w.t == "QTY" { Word { t: "ANZ.".into(), ..w } } else { w })
+        .collect();
+    assert_eq!(parse_rows(&rows(&german), &index)[0].amount, Some(452));
+}
+
+#[test]
+fn a_slashed_zero_is_a_zero() {
+    assert_eq!(number("53ø", false), Some(530));
+    assert_eq!(number("1Ø4", false), Some(104));
+    assert_eq!(number("øø", true), Some(0));
+    assert_eq!(number("ø", false), None);
+    // The symbol in front of a name read as Ø is no number and no part of the name.
+    let index = index_of(&["Tungsten"]);
+    let row = rows(&[
+        sized("Ø", 1000.0, 440.0, 9.0, 12.0),
+        sized("TUNGSTEN", 1030.0, 440.0, 70.0, 12.0),
+        sized("53ø", 1190.0, 442.0, 18.0, 9.0),
+        sized("1431", 1252.0, 442.0, 24.0, 9.0),
+    ]);
+    let found = material_rows(&row, &index);
+    assert_eq!(found[0].material, "Tungsten");
+    assert_eq!(found[0].numbers.iter().map(|(_, v)| *v).collect::<Vec<_>>(), [530, 1431]);
+}
+
+#[test]
+fn a_zero_read_as_e_and_an_eight_read_as_a_leading_zero_are_put_right() {
+    // The slashed zero read as `e`, an 8 read as a zero in front: no value of the terminal begins with 0.
+    assert_eq!(number("33e", false), Some(330));
+    assert_eq!(number("074", false), Some(874));
+    assert_eq!(number("e74", false), Some(874));
+    // A single zero stays; without a real digit `e` is no digit, and a name with `e` ends no name.
+    assert_eq!(number("0", false), Some(0));
+    assert_eq!(number("see", true), None);
+    assert_eq!(number("ee", true), None);
+    // The value put right counts only when confirmed, as every 0 and 8.
+    assert!(needs_confirm(number("074", false)));
+    // Only a 0 the recognition read as a digit is an 8: a letter in front stays the stroke or frame it was.
+    assert_eq!(number("O122", false), Some(122));
+    assert_eq!(number("Q553", false), Some(553));
+    assert_eq!(number("D553", false), Some(553));
+    assert_eq!(number("Ø553", false), Some(553));
+    assert_eq!(number("0553", false), Some(8553));
+}
+
+#[test]
+fn a_name_cut_short_is_the_one_material_it_begins() {
+    let index = index_of(&["Hephaestanite", "Tungsten", "Taraxium"]);
+    assert_eq!(match_material("HEPH (RAW)", &index).as_deref(), Some("Hephaestanite"));
+    assert_eq!(match_material("e HEPH [RAW]", &index).as_deref(), Some("Hephaestanite"));
+    assert_eq!(match_material("TUNGS", &index).as_deref(), Some("Tungsten"));
+    // Two materials begin so, or too few letters: none.
+    assert_eq!(match_material("TARA", &index), None);
+    assert_eq!(match_material("HEP", &index), None);
+    assert_eq!(match_material("INERT MATERIALS", &index), None);
+    assert_eq!(match_material("TOTAL COST", &index), None);
+    // A further word longer than the kind is no part of a name cut short; the kind is.
+    assert_eq!(match_material("TUNGS MATERIALS", &index), None);
+    assert_eq!(match_material("TUNGS ORE", &index).as_deref(), Some("Tungsten"));
+}
+
+#[test]
+fn the_station_is_read_also_when_no_table_was_found() {
+    let index = index_of(&["Gold"]).with_places(&places(&PLACES));
+    let mut ocr = FakeOcr { words: terminal_top(&["ARC-L1", "WIDE", "FOREST", "STATION"], "PROFIL"), calls: 0 };
+    let (jobs, _) = read_image((5120, 1440), None, &mut ocr, &index, &Digits::default(), None).expect("read");
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].station, "ARC-L1 Wide Forest Station");
+    assert!(jobs[0].text.is_empty() && jobs[0].materials.is_empty() && jobs[0].state == State::Unknown);
+    // Without a station and without a table there is no job.
+    let mut nothing = FakeOcr { words: vec![word("HANGAR", 10.0, 10.0)], calls: 0 };
+    assert!(read_image((5120, 1440), None, &mut nothing, &index, &Digits::default(), None).expect("read").0.is_empty());
 }

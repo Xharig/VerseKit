@@ -96,7 +96,7 @@ pub fn from_merged(merged: &Value, build: &str, issues: &[Correction]) -> Catalo
         fetched: String::new(),
         blueprints: blueprints(merged, &pools, &fixes),
         missions,
-        reputation: Some(crate::contract_info::reputation(merged, build, issues, "")),
+        reputation: Some(Box::new(crate::contract_info::reputation(merged, build, issues, ""))),
     }
 }
 

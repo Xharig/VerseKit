@@ -237,8 +237,10 @@ jobs:
           test "$(wc -l < SHA256SUMS.txt)" = "2"
           if grep -q '/' SHA256SUMS.txt; then echo "a path in SHA256SUMS.txt" >&2; exit 1; fi
 
+      # A fault of GitHub during the upload (5xx) does not end the job here: the next step repairs and checks.
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
-        id: freigabe
+        id: hochladen
+        continue-on-error: true
         with:
           prerelease: ${{ steps.art.outputs.vorab }}
           body_path: release-text.md
@@ -246,6 +248,44 @@ jobs:
             dateien/windows/VerseKit-Setup.exe
             dateien/linux/VerseKit-x86_64.AppImage
             SHA256SUMS.txt
+
+      # Every attachment is fetched back and compared with the built file; a missing or different one is created or
+      # uploaded again, up to six times with a growing pause. The job only passes when all three match.
+      - name: Attachments fetched back and checked
+        id: freigabe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VORAB: ${{ steps.art.outputs.vorab }}
+        run: |
+          set -u
+          files="dateien/windows/VerseKit-Setup.exe dateien/linux/VerseKit-x86_64.AppImage SHA256SUMS.txt"
+          for attempt in 1 2 3 4 5 6; do
+            if ! gh release view "$TAG" > /dev/null 2>&1; then
+              flag=""
+              if [ "$VORAB" = "true" ]; then flag="--prerelease"; fi
+              gh release create "$TAG" $flag --verify-tag --notes-file release-text.md || true
+            fi
+            bad=""
+            back="$(mktemp -d)"
+            for file in $files; do
+              name="$(basename "$file")"
+              if gh release download "$TAG" --pattern "$name" --dir "$back" --clobber > /dev/null 2>&1 \
+                && cmp -s "$file" "$back/$name"; then
+                echo "ok: $name"
+              else
+                echo "missing or different: $name"
+                bad="$bad $file"
+              fi
+            done
+            rm -rf "$back"
+            if [ -z "$bad" ]; then exit 0; fi
+            if [ "$attempt" = 6 ]; then break; fi
+            gh release upload "$TAG" $bad --clobber || true
+            sleep $((attempt * 30))
+          done
+          echo "the attachments of $TAG are not complete after six attempts" >&2
+          exit 1
 
       # The two files at VirusTotal, the result attached to the release text. Never turns the release red.
       - name: VirusTotal

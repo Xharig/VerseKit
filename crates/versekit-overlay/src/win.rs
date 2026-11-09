@@ -234,20 +234,7 @@ pub fn allow_typing(hwnd: isize, on: bool) -> bool {
             }
             TYPING.store(hwnd, Ordering::Relaxed);
             SetWindowLongPtrW(window, GWL_EXSTYLE, (current & !WS_EX_NOACTIVATE) as isize);
-            if SetForegroundWindow(window) != 0 {
-                return true;
-            }
-            // Windows gives the front only to the program the last input went to, which a hotkey read by raw
-            // input is not: joined to the input of the window in front for the call, the program may take it.
-            use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
-            let theirs = GetWindowThreadProcessId(GetForegroundWindow(), std::ptr::null_mut());
-            let ours = GetCurrentThreadId();
-            if theirs == 0 || theirs == ours || AttachThreadInput(ours, theirs, 1) == 0 {
-                return false;
-            }
-            let done = SetForegroundWindow(window) != 0;
-            AttachThreadInput(ours, theirs, 0);
-            done
+            take_front(window)
         } else {
             let _ = TYPING.compare_exchange(hwnd, 0, Ordering::Relaxed, Ordering::Relaxed);
             if GUARD.load(Ordering::Relaxed) {
@@ -260,6 +247,33 @@ pub fn allow_typing(hwnd: isize, on: bool) -> bool {
             true
         }
     }
+}
+
+/// Makes `window` the foreground window, with the keyboard. Windows gives the front only to the program the last
+/// input went to, which a hotkey read by raw input is not: joined to the input of the window in front for the call,
+/// the program may take it. No key is sent to anyone.
+fn take_front(window: HWND) -> bool {
+    use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+    // SAFETY: plain calls on a window handle and on thread ids; joined input is undone before returning.
+    unsafe {
+        if GetForegroundWindow() == window || SetForegroundWindow(window) != 0 {
+            return true;
+        }
+        let theirs = GetWindowThreadProcessId(GetForegroundWindow(), std::ptr::null_mut());
+        let ours = GetCurrentThreadId();
+        if theirs == 0 || theirs == ours || AttachThreadInput(ours, theirs, 1) == 0 {
+            return false;
+        }
+        let done = SetForegroundWindow(window) != 0;
+        AttachThreadInput(ours, theirs, 0);
+        done
+    }
+}
+
+/// Gives the main window of the program (`hwnd`, a window of another process found by its role) the front and the
+/// keyboard after a press of its hotkey, so that the player can use it at once.
+pub fn give_front(hwnd: isize) -> bool {
+    take_front(hwnd as HWND)
 }
 
 /// The top-level window of this process with the title `title`; 0 where there is none.

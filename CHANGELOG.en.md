@@ -6,6 +6,75 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.7 - 2026-11-09
+
+> Terminal sales and income in the statistics, cooldown, buy-in and
+> reputation for every contract, a shortcut for the main window, an
+> uninstaller that cleans up properly, and the refinery reads much more.
+
+### New
+
+- **Shortcut for the main window:** Alt+Shift+F brings the main window to
+  the front, also from the running game, and opens it again when it is
+  closed. Change or turn it off under Overlay › Shortcuts.
+- **Sales at the commodity terminal:** VerseKit reads terminal sales from
+  the log and offers them for the stock. “Confirmed” means exactly the sold
+  boxes are gone afterwards. Otherwise the sale shows as “requested” and is
+  only booked by a single click, not by “Book all”.
+- **Income in the statistics:** The statistics now also show what you earn,
+  by commodity and place, set against the spending. Estimated sums are
+  marked “approx.”. Contracts count with an amount only when the game sets
+  a fixed payout (rare), otherwise only as a number.
+- **Contract terms for every contract:** Every contract now shows cooldown,
+  buy-in, reputation and rank in the game, read from your own game data,
+  no longer only contracts with blueprints. Rank thresholds come from the
+  Data.p4k too.
+
+### Improved
+
+- **Refinery reading: shortened names.** When the terminal cuts a name short
+  (“HEPH (RAW)”), it counts if exactly one material begins that way
+  (Hephaestanite).
+
+### Fixed
+
+- **Refinery reading: English terminal.** When the text recognition misread
+  the column heading “YIELD” slightly (“YIELO”, “YtELD”), VerseKit did not
+  find the table or put the quantity (QTY) into the yield. The heading is now
+  recognised that way too. A heading only one of the four readings sees now
+  holds for all of them. QTY and ANZ. never end up in the yield; without a
+  heading the yield rather stays empty (“?”).
+- **Refinery reading: slashed zero.** The terminal writes the zero with a
+  slash. When the text recognition read it as “Ø” or “e”, the number stayed
+  empty or lost a digit (330 became 33); when it read an 8 in front as 0, the
+  digit fell away (874 became 74). Such characters now count as 0, or as 8 in
+  front, and go through the check of 0 and 8.
+- **Refinery reading: station without a table.** The place above the station
+  profile is taken over even when the table itself could not be read.
+- **Self-update: a pause after a failed download.** After a failed download
+  VerseKit waits at least 10 minutes before trying again, then longer each
+  time up to an hour, also across restarts. A click waits 30 seconds and
+  says why. Reported by Morkhan [KRT]
+- **"Get latest version"** is greyed out while the newest version runs and
+  no longer downloads it again.
+- **GitHub trouble instead of "offline":** when GitHub answers with a fault
+  (e.g. HTTP 504), it now says GitHub is having trouble instead of
+  "probably offline".
+- **Error report:** shows failed downloads under "Last update attempt", with
+  the reason and whether it was started by hand or automatically. Reported
+  by Aeternitas26 [KRT]
+- **Uninstalling: VerseKit is closed first, and on request its data go
+  too.** If VerseKit was still running, uninstalling left its program file
+  behind ("access denied"). The uninstaller now closes VerseKit itself. If
+  it runs as administrator and cannot be closed, the uninstaller and the
+  setup say so instead of stopping halfway. Uninstalling by hand also asks
+  whether your VerseKit data should be deleted too (default "No"); only
+  what VerseKit created itself is removed. Reported and suggested by
+  Keendary [KRT]
+- **Handle search: number of organizations.** Changing “Show organizations”
+  in the main window left the info bar at the old number until VerseKit was
+  restarted. The new number now holds at once.
+
 ## v5.2.6 - 2026-11-08
 
 > The Linux AppImage now also starts on lean systems without the keyboard

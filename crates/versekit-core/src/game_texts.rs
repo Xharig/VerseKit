@@ -34,7 +34,7 @@ use std::collections::BTreeSet;
 
 use crate::errors;
 use crate::game_ini;
-use crate::injection::{self, Inputs, Outcome, item_info, ranks, sources};
+use crate::injection::{self, Inputs, Outcome, item_info, sources};
 use crate::jsonio::{self, Value};
 use crate::net::Net;
 use crate::paths::Paths;
@@ -78,6 +78,8 @@ pub trait Archive: Send + Sync {
     fn fetch_original(&self, paths: &Paths, root: &str, set_language: bool) -> Result<Placed, String>;
     /// The stored original names, renewed from the archive when needed.
     fn refresh_names(&self, paths: &Paths);
+    /// The stored rank thresholds ([`injection::ranks::refresh`]), read from the archive when they do not fit `game_version`.
+    fn refresh_ranks(&self, _paths: &Paths, _game_version: &str) {}
 }
 
 /// What placing the original texts did.
@@ -171,12 +173,21 @@ pub fn catalog_stand(paths: &Paths) -> String {
     }
 }
 
-/// Everything the writing reads, the rank thresholds fetched when they do
-/// not fit the game version.
-pub fn prepare(paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_version: &str) -> Inputs {
-    ranks::refresh(paths, net, game_version);
+/// Everything the writing reads, the rank thresholds read when they do
+/// not fit the game version. The reputation and terms of the contracts only for the build they were read from: after a patch, until the
+/// catalog is built anew, the notes name none rather than those of the build before.
+pub fn prepare(paths: &Paths, archive: &dyn Archive, game_version: &str) -> Inputs {
+    archive.refresh_ranks(paths, game_version);
     archive.refresh_names(paths);
-    sources::inputs(paths, &catalog_file(paths), version())
+    let mut inputs = sources::inputs(paths, &catalog_file(paths), version());
+    let table = &inputs.reputation;
+    if !game_version.is_empty()
+        && !table.version.is_empty()
+        && !injection::reputation::same_build(&table.version, game_version)
+    {
+        inputs.reputation = injection::reputation::Table::default();
+    }
+    inputs
 }
 
 /// `injection.ini_file` as the pages show it.
@@ -187,13 +198,13 @@ pub fn choice(paths: &Paths) -> game_ini::IniChoice {
 /// `injection.setup`: write the notes into the file that counts, and into the text file of every other channel whose
 /// translation VerseKit keeps ([`side_channels`]). How the file of the main installation went decides, the spots of
 /// all files count together; without a file there, the other channels decide.
-pub fn apply(paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_version: &str) -> Outcome {
+pub fn apply(paths: &Paths, archive: &dyn Archive, game_version: &str) -> Outcome {
     let choice = choice(paths);
     let sides = side_files(paths);
     if choice.path.is_none() && sides.is_empty() {
         return Outcome::NoFile;
     }
-    let inputs = prepare(paths, net, archive, game_version);
+    let inputs = prepare(paths, archive, game_version);
     let mut outcome = choice
         .path
         .as_deref()
@@ -531,7 +542,7 @@ pub fn switch_source(
     if cleaned.is_some() {
         injection::discard_origtext(paths);
     }
-    let applied = paths.setting_bool(SETTING_ON, true).then(|| apply(paths, net, archive, game_version));
+    let applied = paths.setting_bool(SETTING_ON, true).then(|| apply(paths, archive, game_version));
     Ok(Switched { fetched, cleaned, applied })
 }
 
@@ -575,7 +586,7 @@ pub fn switch_side(
         fetched_text(source, channel, placed.bytes)
     };
     let kept = Kept { channel: Some(channel.to_string()), root: root.to_string(), source: source.to_string() };
-    let Some(applied) = side_notes(paths, net, archive, &kept, &crate::stock_fetch::live_build(paths)) else {
+    let Some(applied) = side_notes(paths, archive, &kept, &crate::stock_fetch::live_build(paths)) else {
         return Ok(said);
     };
     use crate::language::{Arg, tf};
@@ -591,7 +602,7 @@ pub fn switch_side(
 /// The notes in the text file of a side channel after its source changed: the old file of the channel (another
 /// language folder) gets its wording back first, then the new one is written. `None` while notes are switched off
 /// or there is no file.
-fn side_notes(paths: &Paths, net: &dyn Net, archive: &dyn Archive, kept: &Kept, version: &str) -> Option<Outcome> {
+fn side_notes(paths: &Paths, archive: &dyn Archive, kept: &Kept, version: &str) -> Option<Outcome> {
     if !paths.setting_bool(SETTING_ON, true) {
         return None;
     }
@@ -599,7 +610,7 @@ fn side_notes(paths: &Paths, net: &dyn Net, archive: &dyn Archive, kept: &Kept, 
     if injection::clean_leftover(paths, Some(&target)).is_some() {
         injection::discard_origtext_for(paths, &target);
     }
-    let inputs = prepare(paths, net, archive, version);
+    let inputs = prepare(paths, archive, version);
     Some(injection::apply_texts(paths, &target, &kept.language(paths), &inputs, false))
 }
 
@@ -859,7 +870,7 @@ pub fn run(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_
             if !paths.setting_bool(SETTING_ON, true) || !(fresh || marks_new || !injection::is_applied(&target)) {
                 continue;
             }
-            let inputs = inputs.get_or_insert_with(|| prepare(paths, net, archive, game_version));
+            let inputs = inputs.get_or_insert_with(|| prepare(paths, archive, game_version));
             match injection::apply_texts(paths, &target, &kept.language(paths), inputs, false) {
                 Outcome::Done(_) => side_written = Some((mark.clone(), stand.clone())),
                 other => errors::record("watcher.kanaele", &format!("{other:?}")),
@@ -985,7 +996,7 @@ fn reconcile(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, gam
         mark = Some(now);
     }
     if needed && game_ini::is_file(&target) {
-        let inputs = prepare(paths, net, archive, game_version);
+        let inputs = prepare(paths, archive, game_version);
         if let Outcome::Done(count) = injection::apply_texts(paths, &target, &folder, &inputs, false) {
             ran.notices.push(Notice::Applied(count));
             paths.set_setting(SETTING_STOCK_MARK, Value::str(mark.unwrap_or_else(|| stock_mark(paths, &owned))));

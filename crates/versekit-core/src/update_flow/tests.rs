@@ -345,6 +345,164 @@ fn each_checksum_problem_has_its_own_sentence_and_no_fragment_stays() {
     assert_eq!(sentences.len(), 4, "four different sentences");
 }
 
+/// GitHub that answers the addresses ending in `broken` with a gateway error, as on a day GitHub is disturbed.
+struct Gateway {
+    inner: Fake,
+    broken: &'static str,
+}
+
+impl Net for Gateway {
+    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+        if url.ends_with(self.broken) {
+            let _ = self.inner.get(url);
+            return Err(FetchError::Failed("HTTP 504".into()));
+        }
+        self.inner.get(url)
+    }
+
+    fn head(&self, url: &str) -> Result<crate::net::Headers, FetchError> {
+        self.inner.head(url)
+    }
+}
+
+/// A net that takes `wait` for every answer.
+struct Slow<N> {
+    inner: N,
+    wait: Duration,
+}
+
+impl<N: Net> Net for Slow<N> {
+    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+        std::thread::sleep(self.wait);
+        self.inner.get(url)
+    }
+
+    fn head(&self, url: &str) -> Result<crate::net::Headers, FetchError> {
+        self.inner.head(url)
+    }
+}
+
+#[test]
+fn a_gateway_error_of_github_says_github_is_disturbed_and_not_offline() {
+    use crate::language::{Choice, set_thread_language};
+    for choice in [Choice::De, Choice::En] {
+        set_thread_language(choice);
+        for broken in ["SHA256SUMS.txt", ".AppImage"] {
+            let c = case("flow-504");
+            let net = Gateway { inner: github(b"neu"), broken };
+            let release = release_of(&net, &c.paths);
+            let (done, _) = run_quiet(&job(&c, &net, &never, &no_game), &release);
+            let Done::Stopped(Some(text)) = done else { panic!("{broken}: {done:?}") };
+            assert!(text.contains(&tf("up_github_gestoert", &[("0", Arg::Int(504))])), "{choice:?} {broken}: {text}");
+            assert!(!text.contains(&t("up_summen_netz")), "{choice:?} {broken}: not offline: {text}");
+            assert_eq!(fs::read(&c.appimage).unwrap(), b"alt");
+            assert!(lock_free(&c));
+        }
+    }
+    set_thread_language(Choice::De);
+    // Without the net it stays „offline“.
+    let c = case("flow-504-netz");
+    let mut net = github(b"neu");
+    let release = release_of(&net, &c.paths);
+    net.bodies.retain(|(url, _)| !url.ends_with("SHA256SUMS.txt"));
+    let (done, _) = run_quiet(&job(&c, &net, &never, &no_game), &release);
+    assert_eq!(done, Done::Stopped(Some(tf("update_fehler", &[("0", Arg::from(t("up_summen_netz")))]))));
+}
+
+#[test]
+fn a_failed_download_starts_a_pause_for_every_process_and_writes_the_update_log() {
+    let c = case("flow-pause");
+    let net = Gateway { inner: github(b"neu"), broken: "SHA256SUMS.txt" };
+    let release = release_of(&net, &c.paths);
+    let v = release.version.clone();
+    // The pause left a minute after `at`; the run may take a moment of real time, so it is a range.
+    let left = |at: f64| update_run::download_pause_left(&c.paths, &v, at + 60.0);
+    let about = |left: Option<f64>, pause: f64| left.is_some_and(|l| l >= pause - 60.0 && l < pause - 55.0);
+    let auto = Job { automatic: true, ..job(&c, &net, &never, &no_game) };
+    assert_eq!(left(auto.now), None);
+    run_quiet(&auto, &release);
+    assert!(about(left(auto.now), update_run::PAUSE_FIRST), "{:?}", left(auto.now));
+    // The line the report shows under „Letzter Update-Versuch“.
+    let log = fs::read_to_string(c.paths.app_file(update_run::LOG_FILE)).unwrap();
+    assert!(
+        log.contains(
+            "Download of v5.0.1 (automatic) failed - nothing installed: checksums: GitHub answered HTTP 504; \
+             next automatic try in 10 min"
+        ),
+        "{log}"
+    );
+    // A click waits half a minute, in every process.
+    let wait = update_run::manual_wait_left(&c.paths, auto.now + 10.0);
+    assert!(
+        wait.is_some_and(|w| (update_run::MANUAL_PAUSE - 10.0..update_run::MANUAL_PAUSE - 5.0).contains(&w)),
+        "{wait:?}"
+    );
+    assert_eq!(update_run::manual_wait_left(&c.paths, auto.now + update_run::MANUAL_PAUSE + 5.0), None);
+    let lines = crate::report_facts::update_lines(&c.paths, crate::language::Lang::De, c.dir.path());
+    assert!(lines.iter().any(|line| line.contains("HTTP 504")), "{lines:?}");
+    // A failed click is logged as one and does not double the pause.
+    let hand = Job { now: auto.now + 120.0, ..job(&c, &net, &never, &no_game) };
+    run_quiet(&hand, &release);
+    let log = fs::read_to_string(c.paths.app_file(update_run::LOG_FILE)).unwrap();
+    let last = log.lines().last().unwrap_or_default();
+    assert!(last.contains("(by hand) failed") && last.ends_with("next automatic try in 10 min"), "{log}");
+    assert!(about(left(hand.now), update_run::PAUSE_FIRST), "{:?}", left(hand.now));
+    // A second automatic failure doubles the pause; a download that works ends it.
+    let later = Job { automatic: true, now: auto.now + update_run::PAUSE_FIRST, ..job(&c, &net, &never, &no_game) };
+    run_quiet(&later, &release);
+    assert!(about(left(later.now), 2.0 * update_run::PAUSE_FIRST), "{:?}", left(later.now));
+    let good = github(b"neu");
+    assert_eq!(run_quiet(&job(&c, &good, &lives, &no_game), &release).0, Done::Quit);
+    assert_eq!(left(later.now), None);
+}
+
+#[test]
+fn failed_clicks_alone_name_no_next_automatic_try() {
+    let c = case("flow-pause-klicks");
+    let net = Gateway { inner: github(b"neu"), broken: "SHA256SUMS.txt" };
+    let release = release_of(&net, &c.paths);
+    run_quiet(&job(&c, &net, &never, &no_game), &release);
+    let log = fs::read_to_string(c.paths.app_file(update_run::LOG_FILE)).unwrap();
+    assert!(log.contains("(by hand) failed") && !log.contains("next automatic try"), "{log}");
+    let j = job(&c, &net, &never, &no_game);
+    assert_eq!(update_run::download_pause_left(&c.paths, &release.version, j.now + 60.0), None);
+}
+
+#[test]
+fn the_pause_starts_when_the_download_failed_not_when_the_round_began() {
+    let c = case("flow-pause-ende");
+    let net =
+        Slow { inner: Gateway { inner: github(b"neu"), broken: "SHA256SUMS.txt" }, wait: Duration::from_millis(1500) };
+    let release = release_of(&net.inner, &c.paths);
+    let auto = Job { automatic: true, ..job(&c, &net, &never, &no_game) };
+    run_quiet(&auto, &release);
+    // The download took 1.5 s: the pause counts from its end. Counted from the start of the round, 1.6 s later
+    // only 598.4 s would be left.
+    let left = update_run::download_pause_left(&c.paths, &release.version, auto.now + 1.6).unwrap_or_default();
+    assert!(left > update_run::PAUSE_FIRST - 1.0, "{left}");
+}
+
+#[test]
+fn the_newest_version_is_not_fetched_again_when_it_runs() {
+    let c = case("flow-schon-neueste");
+    let net = Arc::new(github(b"neu"));
+    let mut env = env_for(&c, net.clone(), Arc::new(never));
+    env.own_version = "5.0.1".into();
+    let paths = Paths::new(c.paths.host.clone());
+    let done = fetch_newest(&env, &paths, true, &mut |_| {}, &|_| panic!("no version is chosen"));
+    assert_eq!(done, Done::Stopped(Some(t("s_up_sofort_aktuell"))));
+    assert!(net.asked().iter().all(|url| url == updater::API), "only the list is asked: {:?}", net.asked());
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"alt");
+}
+
+#[test]
+fn the_same_version_is_found_whatever_case_space_and_v_it_is_written_with() {
+    assert!(same_version("v5.1.0-RC2", "5.1.0-rc2"));
+    assert!(same_version(" V5.1.0-rc2 ", "v5.1.0-Rc2"));
+    assert!(!same_version("v5.1.0-rc2", "5.1.0-rc3"));
+    assert!(!same_version("v5.1.0-rc2", "5.1.0"));
+}
+
 #[test]
 fn a_new_appimage_that_dies_goes_back_and_is_remembered_as_failed() {
     let c = case("flow-zurueck");

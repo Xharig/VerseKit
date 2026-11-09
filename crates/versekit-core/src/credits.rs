@@ -173,10 +173,10 @@ const fn person(
 }
 
 /// Everyone named on the page, in the order of the page.
-pub const PEOPLE: [Person; 36] = [
+pub const PEOPLE: [Person; 37] = [
     person("Haldjas", "pr0", &["s_dkv_haldjas_idee"], &["s_dkv_haldjas_bugs"]),
     person("rurudotorg", "SC4M", &["s_dkv_rurudotorg_idee"], &["s_dkv_rurudotorg_bugs", "s_dkv_rurudotorg_bugs2"]),
-    person("Morkhan", "KRT", &["s_dkv_morkhan_idee"], &["s_dk_morkhan_bugs"]),
+    person("Morkhan", "KRT", &["s_dkv_morkhan_idee"], &["s_dk_morkhan_bugs", "s_dkv_morkhan_bugs2"]),
     person("Horthy", "KRT", &["s_dkv_horthy_idee"], &[]),
     person(
         "Bushwick4712",
@@ -210,7 +210,7 @@ pub const PEOPLE: [Person; 36] = [
             "s_dkv_aeternitas_idee4",
             "s_dkv_aeternitas_idee5",
         ],
-        &["s_dk_aeternitas_bugs", "s_dkv_aeternitas_bugs2", "s_dkv_aeternitas_bugs3"],
+        &["s_dk_aeternitas_bugs", "s_dkv_aeternitas_bugs2", "s_dkv_aeternitas_bugs3", "s_dkv_aeternitas_bugs4"],
     ),
     person("KynoTnis", "ADI", &["s_dkv_kynotnis_idee"], &["s_dkv_kynotnis_bugs"]),
     person("ryze", "KRT", &["s_dkv_ryze_idee"], &[]),
@@ -229,7 +229,7 @@ pub const PEOPLE: [Person; 36] = [
         "greluc",
         "KRT",
         &["s_dkv_greluc_idee", "s_dkv_greluc_idee2"],
-        &["s_dkv_greluc_bugs", "s_dkv_greluc_bugs2", "s_dkv_greluc_bugs3"],
+        &["s_dkv_greluc_bugs", "s_dkv_greluc_bugs2", "s_dkv_greluc_bugs3", "s_dkv_greluc_bugs4"],
     ),
     person(
         "Parsul",
@@ -272,6 +272,7 @@ pub const PEOPLE: [Person; 36] = [
     person("Shockwave", "TSA", &[], &["s_dkv_shockwave_bugs"]),
     person("fok", "", &[], &["s_dkv_fok_bugs", "s_dkv_fok_bugs2"]),
     person("KillingJoke271", "KRT", &[], &["s_dkv_killingjoke_bugs"]),
+    person("Keendary", "KRT", &["s_dkv_keendary_idee"], &["s_dkv_keendary_bugs"]),
 ];
 
 /// The notice for the trademark and fan content, as the fan kit asks: its

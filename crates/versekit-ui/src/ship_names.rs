@@ -61,14 +61,9 @@ fn game_writer(host: Host) -> Writer {
         if !paths.setting_bool(versekit_core::game_texts::SETTING_ON, true) {
             return (t("s_as_aus"), true);
         }
-        let net = versekit_core::net::Web::new(
-            versekit_core::translation::USER_AGENT,
-            Duration::from_secs(versekit_core::translation::TIMEOUT_SECONDS),
-            64 * 1024 * 1024,
-        );
         let version = versekit_core::stock_fetch::live_build(&paths);
         let archive = crate::game_texts_page::GameArchive;
-        match versekit_core::game_texts::apply(&paths, &net, &archive, &version) {
+        match versekit_core::game_texts::apply(&paths, &archive, &version) {
             versekit_core::injection::Outcome::Done(_) => (t("s_as_steht"), false),
             versekit_core::injection::Outcome::NoFile => (t("s_as_keine_ini"), true),
             versekit_core::injection::Outcome::NoMissions => {

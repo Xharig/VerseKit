@@ -43,6 +43,7 @@ pub mod ranks;
 pub mod reputation;
 pub mod sources;
 pub mod specs;
+pub mod terms;
 pub mod texts;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -379,7 +380,7 @@ pub fn is_applied(ini: &str) -> bool {
     lines_universal(&text).into_iter().any(|line| {
         line.contains(form::OPEN)
             || form::COUNTING_TITLE.is_match(line)
-            || (form::OWN_TRACE.is_match(line) && form::has_box(line))
+            || (form::OWN_TRACE.is_match(line) && form::is_ours(line))
     })
 }
 
@@ -590,13 +591,50 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
             }
         }
     }
-    let block_for = |entry: &Map| {
+    let table = &inputs.reputation;
+    let terms_of = |title: &str, skip_known: bool| {
+        terms::entry_for(&table.terms, title).map(|e| terms::lines(e, &words, skip_known)).unwrap_or_default()
+    };
+    // Every other contract whose terms are known gets a short block of its own, found by its description key.
+    let contract_desc: HashMap<String, Vec<String>> =
+        if remove_only { HashMap::new() } else { terms::by_description(&table.terms) };
+    // The block names where its terms and reputation come from.
+    let source = if table.terms_source == reputation::TERMS_FROM_SCMDB || table.terms.is_empty() {
+        words.terms_from_scmdb
+    } else {
+        words.terms_from_game
+    };
+    // The titles a description belongs to: those the terms name for it; what they say counts only where they agree.
+    let titles_of = |description: &str| contract_desc.get(&description.to_lowercase()).cloned().unwrap_or_default();
+    let reputation_of = |titles: &[String]| terms::agreed(titles, |t| reputation::line(table, t, words.gain_at));
+    let region_of = |titles: &[String]| terms::agreed(titles, |t| reputation::region_line(table, t, words.region));
+    let contract_block_for = |description: &str| {
+        let titles = titles_of(description);
+        let mut said = terms::agreed(&titles, |t| terms_of(t, false));
+        let reputation_line = reputation_of(&titles);
+        if !reputation_line.is_empty() {
+            said.push(format!("<EM4>{reputation_line}</EM4>"));
+        }
+        let region_line = region_of(&titles);
+        if !region_line.is_empty() {
+            said.push(region_line);
+        }
+        (!said.is_empty()).then(|| texts::contract_block(&said, &words, source))
+    };
+    // A blueprint contract goes by its title; where that names nothing (a title the contractor fills in), by the
+    // titles its description belongs to.
+    let block_for = |entry: &Map, description: &str| {
         let title = field(entry, "titel_key").filter(|v| truthy(Some(v))).map(py_str).unwrap_or_default();
+        let known = !title.is_empty()
+            && (terms::entry_for(&table.terms, &title).is_some() || !reputation::line(table, &title, "x").is_empty());
+        let titles = if known { vec![title] } else { titles_of(description) };
         let ctx = BlockContext {
             words: &words,
             owned: &inputs.owned,
-            reputation_line: reputation::line(&inputs.reputation, &title, words.gain_at),
-            region_line: reputation::region_line(&inputs.reputation, &title, words.region),
+            reputation_line: reputation_of(&titles),
+            region_line: region_of(&titles),
+            terms_lines: terms::agreed(&titles, |t| terms_of(t, true)),
+            source,
         };
         texts::build_block(entry, &ctx)
     };
@@ -644,12 +682,15 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
                     touched = true;
                 }
             } else if let Some(entry) = text_keys.get(key) {
-                clean = form::append_block(&base, &block_for(entry));
+                clean = form::append_block(&base, &block_for(entry, key));
                 touched = true;
             } else if key.to_lowercase().contains("_desc")
                 && let Some(entry) = stem_block.get(&form::stem(key))
             {
-                clean = form::append_block(&base, &block_for(entry));
+                clean = form::append_block(&base, &block_for(entry, key));
+                touched = true;
+            } else if let Some(block) = contract_block_for(key) {
+                clean = form::append_block(&base, &block);
                 touched = true;
             }
             if touched {

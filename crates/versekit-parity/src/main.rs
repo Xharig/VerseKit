@@ -268,7 +268,12 @@
 //!
 //! `versekit-parity auszug <kanalordner> <ausgabeordner>` keeps the DataForge
 //! and the English `global.ini` of a `Data.p4k` as two files, so that tools
-//! and tests read the slow archive once (see `extract`).
+//! and tests read the slow archive once (see `extract`); `katalogteil
+//! <kanalordner> <filter> <datei>` keeps the p4kx catalog of the records a
+//! filter selects.
+//!
+//! `versekit-parity rufstufen` and `auftragsruf` compare the reputation read
+//! from the game data with the stored tables (see `ruf`).
 
 mod abbau;
 mod achsen;
@@ -316,6 +321,7 @@ mod phrases_learn;
 mod raffinerie;
 mod raffinerie_windows;
 mod report;
+mod ruf;
 mod scmdb;
 mod schreiben;
 mod shipsync;
@@ -329,6 +335,7 @@ mod thanks;
 mod theme;
 mod trade;
 mod usage;
+mod vollstaendig;
 mod values_check;
 mod waren;
 
@@ -593,6 +600,13 @@ fn main() -> ExitCode {
             catalog_build::run(data, channel, scmdb, flag("--alle"), flag("--aufruester"))
         }
         [cmd, channel, out] if cmd == "auszug" => extract::run(channel, out),
+        [cmd, channel, filter, out] if cmd == "katalogteil" => extract::part(channel, filter, out),
+        [cmd, catalog, stored] if cmd == "rufstufen" => ruf::ranks(catalog, stored),
+        [cmd, folder, merged, stored] if cmd == "auftragsruf" => ruf::contracts(folder, merged, stored),
+        [cmd, folder, merged] if cmd == "auftraege_vollstaendig" => vollstaendig::run(folder, merged, None),
+        [cmd, folder, merged, flag, title] if cmd == "auftraege_vollstaendig" && flag == "--weglassen" => {
+            vollstaendig::run(folder, merged, Some(title))
+        }
         [cmd, merged, cache, reputation, rest @ ..] if cmd == "auftragsangaben" && rest.len() <= 1 => {
             contract_info::run(merged, cache, reputation, rest.first().map(String::as_str))
         }
@@ -649,7 +663,11 @@ fn main() -> ExitCode {
                   versekit-parity schreiben <python.json> <ausgabe.json> [--gegenprobe]\n       \
                   versekit-parity katalog_start <daten> <kanalordner> [--gegenprobe]\n       \
                   versekit-parity usage <python.json> <ausgabe.json> [--gegenprobe]\n       \
-                  versekit-parity auszug <kanalordner> <ausgabeordner>\n       \
+                  versekit-parity auszug <kanalordner|p4k-kopie> <ausgabeordner>\n       \
+                  versekit-parity katalogteil <kanalordner|p4k-kopie> <filter> <datei>\n       \
+                  versekit-parity rufstufen <reputation.json> <rufstufen.json>\n       \
+                  versekit-parity auftragsruf <auszug> <merged.json> <auftragsruf.json>\n       \
+                  versekit-parity auftraege_vollstaendig <auszug> <merged.json> [--weglassen <titel>]\n       \
                   versekit-parity auftragsangaben <merged.json> <katalog-cache.json> <auftragsruf.json> [<cig-datenfehler.json>]\n       \
                   versekit-parity einspielung <szenario> <global.ini> <sprachordner> <schritt> [<fassung>]\n       \
                   versekit-parity katalog_luecke <daten> <auszug> [<scmdb-ordner>] [--alle]\n       \

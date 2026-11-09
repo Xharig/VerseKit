@@ -327,6 +327,11 @@ impl HandleSearch {
         self.paths.as_ref()
     }
 
+    /// The settings the search works with now.
+    pub fn current_settings(&self) -> Settings {
+        self.settings
+    }
+
     /// Whether a setting or a relation was written since the last call; asking resets it.
     pub fn take_changed(&mut self) -> bool {
         std::mem::take(&mut self.changed)

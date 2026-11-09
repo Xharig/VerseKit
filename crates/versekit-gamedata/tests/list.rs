@@ -405,6 +405,32 @@ fn the_cache_file_is_read_and_built_again_when_needed() {
     assert!(rebuilt.blueprints.iter().all(|b| b.name != "Alt"));
 }
 
+/// A data folder as 5.2.6 left it, on the same build of the game: the catalog cache of format 5 and the reputation
+/// table of format 2, without the terms of the contracts. The old table counts until the catalog is built anew; the
+/// first build after the update writes both in the new form.
+#[test]
+fn a_data_folder_of_5_2_6_is_built_anew_on_the_same_build_and_gets_the_terms() {
+    use versekit_core::injection::reputation;
+    let (paths, channel, cache) = case("list-526");
+    list::list_catalog_with(&paths, Some(&channel), &cache, Arc::new(Offline)).expect("a catalog");
+    let text = fs::read_to_string(&cache).unwrap();
+    let format = format!("\"format\": {}", list::CACHE_FORMAT);
+    fs::write(&cache, text.replacen(&format, "\"format\": 5", 1)).unwrap();
+    let table_file = paths.app_file(reputation::CACHE_FILE);
+    let old = r#"{"format": 2, "version": "4.12.0", "auftraege": {"old_title": [{"wer": "Alt", "was": "Standing", "wieviel": 1}]}, "regionen": {"old_title": "Stanton"}, "datenfehler": ""}"#;
+    fs::write(&table_file, old).unwrap();
+    assert!(!reputation::load(&paths).contracts.is_empty(), "the old table is not empty before the build");
+
+    list::list_catalog_with(&paths, Some(&channel), &cache, Arc::new(Offline)).expect("a catalog");
+    assert!(fs::read_to_string(&cache).unwrap().contains(&format), "the cache is built anew");
+    let written = jsonio::read_json(&table_file).unwrap();
+    assert_eq!(written.get("format"), Some(&Value::int(reputation::FORMAT)), "the table is written anew");
+    let table = reputation::load(&paths);
+    assert!(!table.terms.is_empty(), "the terms of the contracts are there");
+    assert_eq!(table.terms_source, reputation::TERMS_FROM_GAME);
+    assert!(table.contracts.iter().all(|(key, _)| key != "old_title"), "the old rows are gone");
+}
+
 /// A game folder without an archive and the archive in another folder: the list
 /// reads the archive that is given from outside, and only that one.
 #[test]
@@ -487,6 +513,26 @@ fn the_start_shows_the_last_build_even_when_the_archive_cannot_be_read() {
     let pending = rebuild.spawn().expect("a thread");
     assert_eq!(finished(&pending), None, "only the build reads the archive, and it cannot here");
     assert_eq!(fs::read_to_string(&cache).unwrap(), stored, "the last build stays in its file");
+}
+
+/// After an update that changed the layout of the cache, the start shows the build of the older layout until the
+/// new build is done (while the game runs, the archive waits): the list is never empty. A layout too old to read
+/// does not stand in.
+#[test]
+fn the_start_after_an_update_of_the_layout_shows_the_last_build_meanwhile() {
+    let (paths, channel, cache) = case("list-start-layout");
+    list::list_catalog_with(&paths, Some(&channel), &cache, Arc::new(Offline)).expect("a catalog");
+    let last = marked(&cache);
+    let format = format!("\"format\": {}", list::CACHE_FORMAT);
+    let text = fs::read_to_string(&cache).unwrap();
+    fs::write(&cache, text.replacen(&format, "\"format\": 5", 1)).unwrap();
+    let start = list::start_catalog_with(&paths, Some(&channel), &cache, Arc::new(Offline));
+    assert_eq!(start.catalog.as_ref(), Some(&last), "the build of the older layout stands in");
+    assert!(start.rebuild.is_some(), "and the new build is due");
+
+    fs::write(&cache, text.replacen(&format, "\"format\": 2", 1)).unwrap();
+    let start = list::start_catalog_with(&paths, Some(&channel), &cache, Arc::new(Offline));
+    assert_eq!(start.catalog, None, "a layout too old stands in for nothing");
 }
 
 /// The blocking way, for callers that wait for the build anyway, answers

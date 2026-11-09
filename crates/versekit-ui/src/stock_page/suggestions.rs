@@ -32,7 +32,7 @@ use versekit_core::places;
 use versekit_core::stats_report as report;
 use versekit_core::stock_journal::names::{Items, PlaceName, Places};
 use versekit_core::stock_journal::suggestions::{self, Decision, Decisions, OwnPlace, Proposal, Proposals};
-use versekit_core::stock_journal::{self, Session};
+use versekit_core::stock_journal::{self, Proof, Session};
 
 use super::*;
 
@@ -102,7 +102,11 @@ fn place_text(place: &PlaceName) -> String {
 /// Why a suggestion cannot be taken over into or out of this stock; `None` when it can.
 fn blocked_reason(proposal: &Proposal, trade: &[Value]) -> Option<String> {
     if proposal.stock_name.is_none() {
-        Some(t(if proposal.sold { "s_lj_grund_item_verkauf" } else { "s_lj_grund_item" }))
+        Some(t(match (proposal.goods, proposal.sold) {
+            (true, _) => "s_lj_grund_ware_verkauf",
+            (false, true) => "s_lj_grund_item_verkauf",
+            (false, false) => "s_lj_grund_item",
+        }))
     } else if proposal.quantity == 0 {
         Some(t("s_lj_grund_menge"))
     } else if !proposal.bookable(trade) {
@@ -116,20 +120,34 @@ fn blocked_reason(proposal: &Proposal, trade: &[Value]) -> Option<String> {
     }
 }
 
-/// What "Abbuchen" of a sale does: how many pieces it takes, whether some come from stacks without a place,
-/// and whether the stock holds fewer than were sold.
+/// What "Abbuchen" of a sale does: how many pieces (SCU for goods) it takes, whether some come from stacks without a
+/// place, and whether the stock holds fewer than were sold; a sale of goods the stock holds none of is only marked.
+/// A sale at a commodity terminal also says what the log shows of it.
 fn take_hint(proposal: &Proposal, trade: &[Value]) -> String {
     let lang = language::current();
     let plan = suggestions::take_plan(trade, proposal);
-    let pieces = |n: u32| Arg::from(amount_with_unit(lang, f64::from(n), true));
-    let mut lines = vec![tf("s_lj_tipp_abbuchen", &[("n", pieces(plan.pieces))])];
-    if plan.without_place {
-        lines.push(t("s_lj_tipp_abbuchen_ohne_ort"));
+    let pieces = |n: f64| Arg::from(amount_with_unit(lang, n, !proposal.goods));
+    let mut lines = Vec::new();
+    if proposal.goods && plan.pieces <= 0.0 {
+        lines.push(t("s_lj_tipp_nur_vermerken"));
+    } else {
+        lines.push(tf("s_lj_tipp_abbuchen", &[("n", pieces(plan.pieces))]));
+        if plan.without_place {
+            lines.push(t("s_lj_tipp_abbuchen_ohne_ort"));
+        }
+        if plan.pieces + 1e-9 < f64::from(proposal.quantity) {
+            lines.push(tf("s_lj_tipp_abbuchen_rest", &[("n", pieces(f64::from(proposal.quantity)))]));
+        }
     }
-    if plan.pieces < proposal.quantity {
-        lines.push(tf("s_lj_tipp_abbuchen_rest", &[("n", pieces(proposal.quantity))]));
+    if proposal.goods {
+        lines.push(t(if proposal.proof.confirmed() { "s_lj_tipp_bestaetigt" } else { "s_lj_tipp_angefragt" }));
     }
     lines.join("\n")
+}
+
+/// The word for what the log shows of a sale at a commodity terminal.
+fn proof_word(proof: Proof) -> String {
+    t(if proof.confirmed() { "s_lj_bestaetigt" } else { "s_lj_angefragt" })
 }
 
 /// What the button "Übernehmen" or "Abbuchen" of a suggestion says on hover: why it is blocked, or what it does
@@ -175,30 +193,38 @@ fn all_hint(shown: &[Proposal], trade: &[Value]) -> Vec<String> {
     lines
 }
 
-/// The small line under the name: amount, price per piece, place and moment; a sale says so in front.
+/// The small line under the name: amount, price per piece (per SCU for goods), place and moment; a sale says so in
+/// front, a sale at a commodity terminal also whether the log shows it only as a request.
 fn detail_line(lang: Lang, proposal: &Proposal) -> String {
+    let key = match (proposal.goods, proposal.sold) {
+        (true, _) => "s_lj_zeile_verkauf_ware",
+        (false, true) => "s_lj_zeile_verkauf",
+        (false, false) => "s_lj_zeile",
+    };
     tf(
-        if proposal.sold { "s_lj_zeile_verkauf" } else { "s_lj_zeile" },
+        key,
         &[
-            ("menge", Arg::from(amount_with_unit(lang, f64::from(proposal.quantity), true))),
+            ("menge", Arg::from(amount_with_unit(lang, f64::from(proposal.quantity), !proposal.goods))),
             ("preis", Arg::from(formats::money(lang, proposal.unit_price))),
             ("ort", Arg::from(place_text(&proposal.place))),
             ("zeit", Arg::from(report::local_moment(lang, proposal.time))),
+            ("nachweis", Arg::from(proof_word(proposal.proof))),
         ],
     )
 }
 
-/// The message after a take-over: what was booked in, what was taken out (`taken` pieces of sales) and the places
-/// that were added.
-fn adopted_text(done: &[&Proposal], added: &[String], taken: u32) -> String {
+/// The message after a take-over: what was booked in, what was taken out (`taken` pieces or SCU of sales) and the
+/// places that were added.
+fn adopted_text(done: &[&Proposal], added: &[String], taken: f64) -> String {
     let (sales, purchases): (Vec<&Proposal>, Vec<&Proposal>) = done.iter().copied().partition(|p| p.sold);
     if purchases.is_empty() {
         return match sales.as_slice() {
+            [one] if one.goods && taken <= 0.0 => tf("s_lj_vermerkt_eins", &[("name", Arg::from(one.name.as_str()))]),
             [one] => tf(
                 "s_lj_abgebucht_eins",
                 &[
                     ("name", Arg::from(one.name.as_str())),
-                    ("menge", Arg::from(amount_with_unit(language::current(), f64::from(taken), true))),
+                    ("menge", Arg::from(amount_with_unit(language::current(), taken, !one.goods))),
                 ],
             ),
             many => tf("s_lj_abgebucht_n", &[("n", Arg::from(many.len()))]),
@@ -274,19 +300,27 @@ impl StockState {
         s.found = suggestions::proposals(&s.sessions, &s.decisions, &s.items, &s.places, &self.data);
     }
 
-    /// Is the block there at all: the switch is on and something is open.
-    fn suggestions_shown(&self) -> bool {
-        self.sugg.paths.as_ref().is_some_and(stock_journal::enabled) && !self.sugg.found.list.is_empty()
+    /// The open suggestions of the tab shown: goods on the tab of the materials and goods, items on the tab Items.
+    fn suggestions_of_tab(&self) -> impl Iterator<Item = &Proposal> {
+        self.sugg.found.list.iter().filter(|p| p.goods != self.items)
     }
 
-    /// The open suggestions the filters and the search of the list let through, the same way they narrow the list.
+    /// Is the block there at all: the switch is on and something of this tab is open.
+    fn suggestions_shown(&self) -> bool {
+        self.sugg.paths.as_ref().is_some_and(stock_journal::enabled) && self.suggestions_of_tab().next().is_some()
+    }
+
+    /// The kind a suggestion has in the filter of the list, as its row would have it.
+    fn suggestion_kind(&self, proposal: &Proposal) -> Kind {
+        if proposal.goods { self.data.material_kind(&proposal.name, true) } else { self.data.item_kind(&proposal.name) }
+    }
+
+    /// The open suggestions of the tab the filters and the search of the list let through, the same way they narrow
+    /// the list.
     fn filtered_suggestions(&self) -> Vec<Proposal> {
         let search = lower(self.search.trim());
-        self.sugg
-            .found
-            .list
-            .iter()
-            .filter(|p| self.kind.is_none_or(|k| self.data.item_kind(&p.name) == k))
+        self.suggestions_of_tab()
+            .filter(|p| self.kind.is_none_or(|k| self.suggestion_kind(p) == k))
             .filter(|p| self.place.is_empty() || lower(p.place_to_book()) == lower(&self.place))
             .filter(|p| {
                 search.is_empty() || lower(&p.name).contains(&search) || lower(p.place_to_book()).contains(&search)
@@ -332,7 +366,7 @@ impl StockState {
         chosen.sort_by(|a, b| a.time.cmp(&b.time).then_with(|| a.key.cmp(&b.key)));
         let before = self.trade.clone();
         let mut done: Vec<&Proposal> = Vec::new();
-        let mut taken: u32 = 0;
+        let mut taken = 0.0;
         for proposal in &chosen {
             let pieces = suggestions::take_plan(&self.trade, proposal).pieces;
             if suggestions::adopt(&mut self.trade, proposal).is_ok() {
@@ -572,12 +606,13 @@ fn block_body(ui: &mut Ui, scheme: &Scheme, state: &StockState, list: &[Proposal
     ask
 }
 
-/// The block on top of the tab Items, folded open or shut by its head.
+/// The block on top of the list of either tab (items there, goods sold at a terminal on the other), folded open or
+/// shut by its head.
 pub(super) fn show_block(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
-    if !state.items || !state.suggestions_shown() {
+    if !state.suggestions_shown() {
         return;
     }
-    let total = state.sugg.found.list.len();
+    let total = state.suggestions_of_tab().count();
     let list = state.filtered_suggestions();
     let title = if list.len() < total {
         tf("s_lj_titel_gefiltert", &[("m", Arg::from(list.len())), ("n", Arg::from(total))])
@@ -633,6 +668,7 @@ mod tests {
             price_total,
             place: place.map(str::to_string),
             shop: "SCShop_Kiosk".into(),
+            proof: versekit_core::stock_journal::Proof::Answer,
         }
     }
 
@@ -1159,6 +1195,97 @@ mod tests {
         amount_with_unit(Lang::De, n, true)
     }
 
+    const GOLD: &str = "21825507-7923-4683-9bf3-9cfe316940e3";
+    const STIMS: &str = "f4c68747-fa77-4c42-aff5-c3d72b8c8388";
+
+    /// A sale at a commodity terminal at Levski.
+    fn terminal_sale(time: i64, guid: &str, scu: u32, price_total: f64, proof: Proof) -> Purchase {
+        Purchase { class: String::new(), guid: guid.into(), proof, ..purchase(time, "", scu, price_total, Some("1")) }
+    }
+
+    /// The names of the goods as the game data give them, and goods in the stock: `(name, SCU, place)`.
+    fn goods_world(tag: &str, goods: &[(&str, f64, &str)]) -> (String, Paths) {
+        let (home, paths) = world(tag, &[]);
+        let names = format!(r#"{{"format": 1, "stand": "x", "waren": {{"{GOLD}": "Gold", "{STIMS}": "Stims"}}}}"#);
+        std::fs::write(paths.app_file(stock_journal::names::COMMODITY_NAMES_FILE), names).expect("file");
+        let mut trade = trade_on_disk(&paths);
+        for (name, amount, place) in goods {
+            assert_eq!(stock::trade_add(&mut trade, name, &amount.to_string(), place, true, ""), Ok(()));
+        }
+        assert!(stock::save(&paths.app_file(stock::TRADE_FILE), &trade, "test"));
+        (home, paths)
+    }
+
+    fn scu(n: f64) -> String {
+        amount_with_unit(Lang::De, n, false)
+    }
+
+    #[test]
+    fn a_terminal_sale_stands_on_the_goods_tab_with_its_proof_and_takes_scu_out() {
+        let _language = setup();
+        let (home, paths) = goods_world("terminal", &[("Gold", 36.0, "Levski"), ("Gold", 50.5, "")]);
+        write_deals(
+            &paths,
+            &[],
+            &[
+                terminal_sale(1700, GOLD, 68, 1_810_296.0, Proof::BoxGone),
+                terminal_sale(1720, STIMS, 154, 664_687.0, Proof::Requested),
+            ],
+        );
+        let mut bench = Bench::new(&paths);
+        assert!(!shows(&bench.settle(), "Laut Log neu"), "no item to suggest on the tab Items");
+        bench.state.items = false;
+        let texts = bench.settle();
+        assert!(shows(&texts, &title(2)), "{texts:?}");
+        let gold_line = format!("Verkauft am Terminal, bestätigt: {} · ", scu(68.0));
+        let stims_line = format!("Verkauft am Terminal, angefragt: {} · ", scu(154.0));
+        assert!(shows(&texts, &gold_line) && shows(&texts, &stims_line), "{texts:?}");
+        assert!(shows(&texts, "je SCU · laut Log an Levski"), "{texts:?}");
+        let gold = bench.button("Abbuchen: Gold");
+        assert!(!gold.disabled, "{gold:?}");
+        let expected = [
+            tf("s_lj_tipp_abbuchen", &[("n", Arg::from(scu(68.0)))]),
+            t("s_lj_tipp_abbuchen_ohne_ort"),
+            t("s_lj_tipp_bestaetigt"),
+        ]
+        .join("\n");
+        assert_eq!(gold.description, expected);
+        let stims = bench.button("Abbuchen: Stims");
+        assert!(!stims.disabled, "a sale of goods the stock does not hold is still taken over: {stims:?}");
+        assert_eq!(stims.description, [t("s_lj_tipp_nur_vermerken"), t("s_lj_tipp_angefragt")].join("\n"));
+        bench.press_button("Abbuchen: Gold");
+        assert_eq!(pieces_of(&paths, "Gold", "Levski"), None, "the place first, emptied");
+        assert_eq!(pieces_of(&paths, "Gold", ""), Some(18.5), "the rest without a place");
+        let message = bench.state.message.take().expect("a message");
+        assert_eq!(message.text, tf("s_lj_abgebucht_eins", &[("name", Arg::from("Gold")), ("menge", Arg::from(scu(68.0)))]));
+        let before = trade_on_disk(&paths);
+        bench.press_button("Abbuchen: Stims");
+        assert_eq!(trade_on_disk(&paths), before, "noted only, the stock stays");
+        assert_eq!(bench.state.message.as_ref().map(|m| m.text.clone()), Some(tf("s_lj_vermerkt_eins", &[("name", Arg::from("Stims"))])));
+        assert_eq!(Decisions::load(&paths).len(), 2);
+        assert!(!shows(&bench.settle(), "Laut Log neu"), "nothing open any more");
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn a_terminal_sale_reads_in_english_too() {
+        let _language = setup();
+        language::set_thread_language(Choice::En);
+        let (home, paths) = goods_world("terminal-en", &[]);
+        write_deals(&paths, &[], &[terminal_sale(1720, STIMS, 154, 664_687.0, Proof::Requested)]);
+        let mut bench = Bench::new(&paths);
+        bench.state.items = false;
+        let texts = bench.settle();
+        let line = format!("Sold at a terminal, requested: {} · ", amount_with_unit(Lang::En, 154.0, false));
+        assert!(shows(&texts, &line), "{texts:?}");
+        assert_eq!(
+            bench.button("Take out: Stims").description,
+            [t("s_lj_tipp_nur_vermerken"), t("s_lj_tipp_angefragt")].join("\n")
+        );
+        language::set_thread_language(Choice::De);
+        let _ = std::fs::remove_dir_all(home);
+    }
+
     #[test]
     fn a_sale_is_taken_out_of_the_stock_with_one_click_and_the_undo_brings_it_back() {
         let _language = setup();
@@ -1628,6 +1755,22 @@ mod tests {
         let sold = found.list.iter().filter(|p| p.sold).count();
         let takeable = found.list.iter().filter(|p| p.sold && p.bookable(&trade)).count();
         println!("Verkäufe {sold}, davon jetzt abbuchbar {takeable}");
+        for session in &sessions {
+            for sale in session.sales.iter().filter(|s| s.goods()) {
+                println!(
+                    "  Terminal: {} · {} SCU · {:.2} je SCU · {:?} · Ort {:?} · {:?}",
+                    sale.guid,
+                    sale.quantity,
+                    sale.unit_price(),
+                    sale.shop,
+                    sale.place,
+                    sale.proof
+                );
+            }
+        }
+        for p in found.list.iter().filter(|p| p.goods) {
+            println!("  Vorschlag Ware: {} · {:?} · {:?} · abbuchbar {}", p.name, p.proof, p.place, p.bookable(&trade));
+        }
         let order = suggestions::batch(&trade, &found.list);
         let booked = order.iter().filter(|p| suggestions::adopt(&mut trade, p).is_ok()).count();
         println!("im Speicher gebucht: {booked}, Posten danach {}", trade.len());

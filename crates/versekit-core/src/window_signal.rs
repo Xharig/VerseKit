@@ -147,6 +147,8 @@ pub enum Signal {
     OpenStockScan = 11,
     /// Hand the demand of the unit to the overlay ([`DataKind::Demand`]): the overlay asks so when it starts.
     DemandWanted = 12,
+    /// Show the window on the page it shows, in front of the others (the hotkey of the main window).
+    Show = 13,
 }
 
 impl Signal {
@@ -164,6 +166,7 @@ impl Signal {
             10 => Some(Signal::ShowFrame),
             11 => Some(Signal::OpenStockScan),
             12 => Some(Signal::DemandWanted),
+            13 => Some(Signal::Show),
             _ => None,
         }
     }
@@ -756,11 +759,12 @@ mod tests {
             Signal::ShowFrame,
             Signal::OpenStockScan,
             Signal::DemandWanted,
+            Signal::Show,
         ] {
             assert_eq!(Signal::from_code(signal as usize), Some(signal));
         }
         assert_eq!(Signal::from_code(0), None);
-        assert_eq!(Signal::from_code(13), None);
+        assert_eq!(Signal::from_code(14), None);
     }
 
     /// A handing over goes as one message and back whole; anything cut, too long, of an unknown kind or without the
@@ -885,6 +889,7 @@ mod tests {
             Signal::ShowFrame,
             Signal::OpenStockScan,
             Signal::DemandWanted,
+            Signal::Show,
         ];
         let mut bytes = std::collections::HashSet::new();
         for asked in all.map(Asked::Signal).into_iter().chain([Asked::Close]) {

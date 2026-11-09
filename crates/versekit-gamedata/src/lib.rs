@@ -26,8 +26,10 @@
 
 pub mod cart_data;
 mod catalog;
+pub mod commodity_names;
 mod contract_facts;
 pub mod contract_info;
+pub mod contract_reputation;
 pub mod control_profile;
 pub mod corrections;
 pub mod craft_book;
@@ -46,6 +48,7 @@ pub mod quality;
 pub mod quality_goods;
 mod recipes;
 pub mod refining_processes;
+pub mod reputation_ranks;
 pub mod scmdb;
 pub mod scmdb_catalog;
 pub mod ship_slots;
@@ -65,6 +68,7 @@ pub use catalog::{Blueprint, Catalog, Item, Manufacturer, Source, SourceKind, Te
 pub use contract_facts::ContractFacts;
 pub use error::Error;
 pub use localization::{Language, Localization};
+pub use sources::{ShownKeys, entry_key};
 
 /// The name of the archive in a channel folder.
 pub use versekit_core::paths::ARCHIVE_NAME;
@@ -204,7 +208,23 @@ impl GameData {
         texts: &Localization,
         corrections: &[corrections::Correction],
     ) -> Result<Catalog, Error> {
-        let facts = self.contract_facts()?;
+        self.blueprints_with(texts, corrections, &self.contract_catalog()?)
+    }
+
+    /// [`GameData::blueprints_corrected`] with the catalog of the contract generators built already
+    /// ([`GameData::contract_catalog`]).
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`GameData::blueprints_corrected`].
+    pub fn blueprints_with(
+        &self,
+        texts: &Localization,
+        corrections: &[corrections::Correction],
+        contracts: &[u8],
+    ) -> Result<Catalog, Error> {
+        let facts =
+            ContractFacts::from_catalog(contracts).map_err(|source| Error::Contracts { source: Box::new(source) })?;
         let (entry, bytes) = self.read_dataforge()?;
         let forge = DataForge::open(&bytes).map_err(|source| Error::DataForge { entry, source: Box::new(source) })?;
         let fixes = corrections::CatalogFixes::new(corrections, self.scmdb_build().as_deref());
@@ -230,12 +250,65 @@ impl GameData {
     ///
     /// The errors of [`GameData::contract_facts`].
     pub fn contract_catalog(&self) -> Result<Vec<u8>, Error> {
+        self.catalog_of(contract_facts::CONTRACT_GENERATORS)
+    }
+
+    /// From which reputation each rank begins: text key of the rank's name → threshold (see
+    /// [`reputation_ranks::thresholds`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Encrypted`] when the DataForge is encrypted, [`Error::Reputation`] when p4kx cannot build the
+    /// catalog or its JSON cannot be read.
+    pub fn rank_thresholds(&self) -> Result<Vec<(String, i64)>, Error> {
+        let catalog = self.catalog_of(reputation_ranks::REPUTATION_RECORDS).map_err(|error| match error {
+            Error::Contracts { source } => Error::Reputation { source },
+            other => other,
+        })?;
+        reputation_ranks::thresholds(&catalog).map_err(|source| Error::Reputation { source: Box::new(source) })
+    }
+
+    /// Whom each contract credits reputation and the terms of each, in the form of `auftraege` and `angaben` in
+    /// `auftragsruf.json` (see [`contract_reputation::from_catalogs`]); `contracts` is the catalog of the contract
+    /// generators ([`GameData::contract_catalog`]), `keys` the keys the entries show ([`Catalog::shown_keys`]),
+    /// `corrections` the known errors.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Encrypted`] when the DataForge is encrypted, [`Error::Reputation`] when p4kx cannot build a catalog
+    /// or its JSON cannot be read.
+    pub fn contract_reputation(
+        &self,
+        contracts: &[u8],
+        keys: &std::collections::HashMap<String, ShownKeys>,
+        corrections: &[corrections::Correction],
+    ) -> Result<contract_reputation::Contracts, Error> {
+        let catalog = |filter: &str| {
+            self.catalog_of(filter).map_err(|error| match error {
+                Error::Contracts { source } => Error::Reputation { source },
+                other => other,
+            })
+        };
+        let factions = catalog(contract_reputation::FACTION_RECORDS)?;
+        let reputation = catalog(reputation_ranks::REPUTATION_RECORDS)?;
+        let build = self.scmdb_build().unwrap_or_default();
+        contract_reputation::from_catalogs(contracts, keys, &factions, &reputation, corrections, &build)
+            .map_err(|source| Error::Reputation { source: Box::new(source) })
+    }
+
+    /// The Basetool catalog of p4kx for the records whose path matches `filter` (a p4kx Filter), as JSON.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Encrypted`] when the DataForge is encrypted, [`Error::Contracts`] when p4kx cannot build the catalog.
+    pub fn catalog_of(&self, filter: &str) -> Result<Vec<u8>, Error> {
         if let Some(entry) = DATAFORGE_ENTRIES.iter().find_map(|path| self.find_entry(path))
             && entry.is_encrypted()
         {
             return Err(Error::Encrypted { entry: entry.path().to_string() });
         }
-        contract_facts::catalog_json(&self.archive).map_err(|source| Error::Contracts { source: Box::new(source) })
+        contract_facts::catalog_json(&self.archive, filter)
+            .map_err(|source| Error::Contracts { source: Box::new(source) })
     }
 
     /// The slots of the player ships and the parts with slots of the archive, in the form of the stored erkul

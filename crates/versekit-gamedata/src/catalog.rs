@@ -226,6 +226,9 @@ pub struct Catalog {
     pub failed: Vec<String>,
     /// What became of the corrections the reading was given.
     pub corrections: Report,
+    /// The keys every contract entry shows where they differ from those it names, by
+    /// [`crate::sources::entry_key`].
+    pub shown_keys: HashMap<String, crate::sources::ShownKeys>,
 }
 
 pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFixes, facts: &ContractFacts) -> Catalog {
@@ -283,6 +286,7 @@ pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFi
         catalog.blueprints.push(entry);
     }
     catalog.blueprints.sort_by_cached_key(|blueprint| blueprint.class_name.to_ascii_lowercase());
+    catalog.shown_keys = sources::shown_keys(&mut trees, &inputs.generators, texts);
     catalog.failed = trees.into_failed();
     catalog.corrections = fixes.into_report();
     catalog

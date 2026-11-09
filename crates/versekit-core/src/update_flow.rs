@@ -108,6 +108,9 @@ fn failed(why: &str) -> Done {
 /// otherwise let two installers go. It is given back on every way out but the hand-over to the installer,
 /// which owns it from then on.
 pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> Done {
+    // The clock of the job moves on with the real one: a download takes seconds to minutes.
+    let begun = updater::now();
+    let now = || job.now + (updater::now() - begun).max(0.0);
     let kind = updater::packaging(job.appimage, job.own_version);
     if kind == Packaging::Source {
         return Done::Stopped(Some(t("update_quellcode")));
@@ -140,9 +143,29 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
         }
     };
     let downloaded = match updater::download(job.download_net, release, asset, &target, &mut progress) {
-        Ok(downloaded) => downloaded,
+        Ok(downloaded) => {
+            update_run::clear_download_failures(job.paths);
+            downloaded
+        }
         Err(error) => {
-            errors::record("updates.download", &error.message());
+            // The report tells a click from the automatic update by the label and the line in the update log.
+            let (label, who) =
+                if job.automatic { ("updates.download.auto", "automatic") } else { ("updates.download.hand", "by hand") };
+            errors::record(label, &error.message());
+            // ⚠ Every process and every new start keeps this pause: the automatic update does not fetch this
+            // version again before it is over. The moment is the end of the download, not the start of the round.
+            let pause = update_run::remember_download_failure(job.paths, &release.version, now(), job.automatic);
+            let next = pause.map_or_else(String::new, |pause| {
+                format!("; next automatic try in {} min", (pause / 60.0).ceil() as u64)
+            });
+            update_run::log_line(
+                Path::new(&job.paths.app_file(update_run::LOG_FILE)),
+                &format!(
+                    "Download of {} ({who}) failed - nothing installed: {}{next}",
+                    release.version,
+                    error.log_text()
+                ),
+            );
             update_run::release_lock(job.paths);
             return failed(&error.message());
         }
@@ -309,6 +332,17 @@ impl Runner {
     }
 }
 
+/// Is `release` the running version `own`? ⚠ Only the same version: an older one is the way back from a test
+/// version and stays open.
+pub fn is_running(release: &Release, own: &str) -> bool {
+    same_version(&release.version, own)
+}
+
+/// Are `a` and `b` the same version? Without the leading `v`, white space and case: `v5.1.0-RC2` is `5.1.0-rc2`.
+pub fn same_version(a: &str, b: &str) -> bool {
+    update_run::norm(a) == update_run::norm(b)
+}
+
 /// The look at the list and the sequence for the newest release of the channel (4.12 `_fetch_version`): the
 /// list is asked for unless it is recent, then the newest of the channel is taken whatever runs, so that from a
 /// test version the way back to the finished one stays open. `chosen` hears the version once it is known.
@@ -326,6 +360,10 @@ pub fn fetch_newest(
     let Some(release) = updater::latest(&cache.releases, with_prerelease) else {
         return Done::Stopped(Some(t("s_ub_keine_bekannt")));
     };
+    // ⚠ The running version would be installed again for nothing.
+    if is_running(release, &env.own_version) {
+        return Done::Stopped(Some(t("s_up_sofort_aktuell")));
+    }
     chosen(&release.version);
     let job = Job {
         paths,

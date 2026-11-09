@@ -57,6 +57,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use versekit_core::catalog_cache::{self, Blueprint as ListBlueprint, CatalogCache, Mission, Place, Way};
+use versekit_core::injection::reputation;
 use versekit_core::jsonio::{self, Map, Value};
 use versekit_core::paths::{Host, Paths, name_key};
 use versekit_core::text::py_strip;
@@ -72,7 +73,12 @@ pub const CACHE_FILE: &str = "katalog-spieldaten.json";
 /// 3: the contracts carry the values the notes in the game text need.
 /// 4: the blueprints carry the tag, subtype and kind of their recipe.
 /// 5: the file carries the text keys of every crafted item (`beschreibungen`).
-pub const CACHE_FORMAT: i64 = 5;
+/// 6: building it also writes the reputation and terms of every contract read from the game data (`auftragsruf.json`).
+pub const CACHE_FORMAT: i64 = 6;
+
+/// The oldest layout of the cache that stands in until the catalog is built anew: from 3 the contracts carry the
+/// values the list shows.
+const OLDEST_STAND_IN: i64 = 3;
 
 /// Seconds until scmdb is asked again after it could not be had, as 4.12 does.
 pub const RETRY_SECONDS: u64 = 6 * 3600;
@@ -401,10 +407,14 @@ fn start_in(
     if !stand_in {
         return Start { catalog: None, rebuild: Some(rebuild(OnceLock::new())) };
     }
-    // The last build in this layout stands in before the 4.12 cache, if it
-    // was made from the same archive (or from none, as there is none).
-    let same_archive =
-        |old: &Value| old.get("format") == stamp.get("format") && old.get("archiv") == stamp.get("archiv");
+    // The last build stands in before the 4.12 cache, if it was made from the same archive (or from none, as there
+    // is none), in this layout or an older one the reading still understands: after an update that changed the
+    // layout, while the game runs and the archive waits, the list is never empty.
+    let readable = |old: &Value| match old.get("format") {
+        Some(Value::Int(text)) => text.parse::<i64>().is_ok_and(|format| (OLDEST_STAND_IN..=CACHE_FORMAT).contains(&format)),
+        _ => false,
+    };
+    let same_archive = |old: &Value| readable(old) && old.get("archiv") == stamp.get("archiv");
     if let Some(data) = stored.as_ref().filter(|_| source.is_some_and(same_archive))
         && let Some(catalog) = non_empty(data)
     {
@@ -627,6 +637,107 @@ fn note(label: &str, key: &str, detail: &str) {
     versekit_core::errors::record(label, &text);
 }
 
+/// Keeps whom the contracts credit reputation and their terms, for the notes in the game text (`auftragsruf.json`):
+/// read from the archive (`own`) when that worked, checked against scmdb's table of the same build (`theirs`), whose
+/// differences go to the error log; scmdb's table alone when the archive gave nothing. The regions come from scmdb's
+/// table, else from the stored one of the same build. Nothing is written when neither has a contract (4.12
+/// `refresh`).
+fn keep_reputation(
+    paths: &Paths,
+    own: Option<Result<crate::contract_reputation::Contracts, crate::Error>>,
+    theirs: Option<reputation::Table>,
+    build: &str,
+) {
+    let own = match own {
+        Some(Ok(read)) if !read.parties.is_empty() || !read.terms.is_empty() => Some(read),
+        Some(Err(error)) => {
+            versekit_core::errors::record("list.reputation", &error);
+            None
+        }
+        _ => None,
+    };
+    let table = match (own, theirs) {
+        (Some(read), theirs) => {
+            if let Some(theirs) = &theirs {
+                // Only what tells a fault: the reputation of a title both know, and a title only scmdb has. Titles
+                // only the game data have, and the terms, where scmdb's file is known to differ, are no fault.
+                let differences = reputation_differences(&read.parties, &theirs.contracts);
+                if !differences.is_empty() {
+                    let shown: Vec<&str> = differences.iter().take(5).map(String::as_str).collect();
+                    let detail = format!("{build}: {} differences; {}", differences.len(), shown.join(", "));
+                    note("gamedata.crosscheck", "s_p5_gegenprobe_ruf", &detail);
+                }
+            }
+            let stored = reputation::load(paths);
+            let (regions, fingerprint) = match theirs {
+                Some(theirs) => (theirs.regions, theirs.fingerprint),
+                None if stored.version == build => (stored.regions, stored.fingerprint),
+                None => (Map::new(), String::new()),
+            };
+            reputation::Table {
+                version: build.to_string(),
+                contracts: read.parties,
+                regions,
+                fingerprint,
+                terms: read.terms,
+                terms_source: reputation::TERMS_FROM_GAME.to_string(),
+            }
+        }
+        (None, Some(theirs)) => theirs,
+        (None, None) => return,
+    };
+    reputation::save(paths, &table);
+}
+
+/// A value as text with the keys of its objects sorted and the elements of a top list too: two sources may list the
+/// same rows in another order.
+pub fn unordered(value: &Value) -> String {
+    match value {
+        Value::Array(list) => {
+            let mut texts: Vec<String> = list.iter().map(|item| jsonio::dumps(item, None, true)).collect();
+            texts.sort();
+            texts.join("\n")
+        }
+        other => jsonio::dumps(other, None, true),
+    }
+}
+
+/// The terms without what scmdb's file does not state (the spread of the cooldowns, a fixed payout told from a
+/// computed one), to compare them with scmdb's.
+pub fn comparable_terms(terms: &Map) -> Map {
+    terms
+        .iter()
+        .map(|(key, entry)| {
+            let kept = match entry {
+                Value::Object(fields) => {
+                    Value::Object(
+                        fields
+                            .iter()
+                            .filter(|(name, _)| !name.ends_with("_streuung") && name != "belohnung")
+                            .cloned()
+                            .collect(),
+                    )
+                }
+                other => other.clone(),
+            };
+            (key.clone(), kept)
+        })
+        .collect()
+}
+
+/// The keys whose entries differ between the two parts of a table where both have them, and those only `theirs`
+/// has, in the order of `own` and then of `theirs`. A key only `own` has is none.
+pub fn reputation_differences(own: &Map, theirs: &Map) -> Vec<String> {
+    let get = |map: &Map, key: &str| map.iter().find(|(k, _)| k == key).map(|(_, v)| unordered(v));
+    let mut found: Vec<String> = own
+        .iter()
+        .filter(|(key, rows)| get(theirs, key).is_some_and(|other| other != unordered(rows)))
+        .map(|(k, _)| k.clone())
+        .collect();
+    found.extend(theirs.iter().filter(|(key, _)| get(own, key).is_none()).map(|(k, _)| k.clone()));
+    found
+}
+
 /// Reads the archive and builds the catalog, completed and checked with
 /// scmdb's; scmdb's alone when the archive cannot be read. `None` when
 /// neither gives blueprints.
@@ -648,26 +759,29 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
     };
     let (fixes, fixes_error) = supply.corrections(wanted.as_deref());
     let fixes_missing = fixes_error.is_some();
+    let mut own_reputation = None;
     let read = game.and_then(Result::ok).map(|game| {
-        let catalog = game.localization(Language::English).and_then(|texts| game.blueprints_corrected(&texts, &fixes));
+        let catalog = game.localization(Language::English).and_then(|texts| {
+            let contracts = game.contract_catalog()?;
+            let catalog = game.blueprints_with(&texts, &fixes, &contracts)?;
+            own_reputation = Some(game.contract_reputation(&contracts, &catalog.shown_keys, &fixes));
+            Ok(catalog)
+        });
         if let Err(error) = &catalog {
             versekit_core::errors::record("list.archive", error);
         }
         catalog
     });
     let theirs = wanted.as_deref().map(|build| supply.catalog(build, &fixes));
-    let (their_catalog, their_error) = match theirs {
+    let (their_catalog, their_error, their_reputation) = match theirs {
         Some(Ok(mut catalog)) => {
-            // Whom the contracts credit reputation, for the notes in the
-            // game text; kept only when there is something (4.12 `refresh`).
-            if let Some(table) = catalog.reputation.take().filter(|t| !t.contracts.is_empty()) {
-                versekit_core::injection::reputation::save(paths, &table);
-            }
-            (Some(catalog), None)
+            let table = catalog.reputation.take().map(|t| *t).filter(|t| !t.contracts.is_empty());
+            (Some(catalog), None, table)
         }
-        Some(Err(error)) => (None, Some(error)),
-        None => (None, None),
+        Some(Err(error)) => (None, Some(error), None),
+        None => (None, None, None),
     };
+    keep_reputation(paths, own_reputation, their_reputation, version.as_deref().unwrap_or_default());
     let trouble = fixes_error.filter(|_| their_catalog.is_none()).or(their_error);
     if let Some(error) = trouble.filter(|_| !supply.is_off() && wanted.is_some()) {
         versekit_core::errors::record("list.scmdb", &error);
@@ -1956,5 +2070,21 @@ mod tests {
         }
         assert_eq!(*seen.lock().unwrap(), Some((other, t_in(other, "bauplaene"))));
         set_thread_language(Choice::Auto);
+    }
+
+    /// The cross-check of the reputation names a title whose rows differ and one only scmdb has; a title only the
+    /// game data have, and rows in another order, are no difference.
+    #[test]
+    fn the_cross_check_of_the_reputation_names_only_what_tells_a_fault() {
+        let table = |json: &str| jsonio::loads(json).unwrap().as_object().unwrap().clone();
+        let own = table(
+            r#"{"same": [{"wer": "A", "wieviel": 1}, {"wer": "B", "wieviel": 2}], "other": [{"wer": "A", "wieviel": 5}],
+                "only_own": [{"wer": "A", "wieviel": 1}]}"#,
+        );
+        let theirs = table(
+            r#"{"same": [{"wer": "B", "wieviel": 2}, {"wer": "A", "wieviel": 1}], "other": [{"wer": "A", "wieviel": 6}],
+                "only_theirs": [{"wer": "A", "wieviel": 1}]}"#,
+        );
+        assert_eq!(reputation_differences(&own, &theirs), ["other", "only_theirs"]);
     }
 }

@@ -507,6 +507,150 @@ fn stand_in_names_come_from_the_class_name() {
     assert_eq!(fallback_name("item_Name_").as_deref(), None);
 }
 
+/// The terms of a contract without blueprints and of one with them, as the game data give them.
+fn with_terms() -> Inputs {
+    let terms = terms::summarize(&[
+        (
+            "@TestGang_Raid_E_title_001".to_string(),
+            terms::Terms {
+                cooldown: Some(45),
+                cooldown_spread: Some(10),
+                abandoned: Some(45),
+                abandoned_spread: None,
+                buy_in: Some(13500),
+                shareable: Some(false),
+                again_abandoned: Some(true),
+                again_failed: Some(false),
+                description: Some("@TestGang_Raid_E_desc_001".into()),
+                lowest: Some(("Neutral".into(), 0)),
+                highest: Some(("Top Rank".into(), 95250)),
+                reward: None,
+            },
+        ),
+        (
+            "Bounty_title_001".to_string(),
+            terms::Terms { cooldown: Some(30), buy_in: Some(500), description: Some("Bounty_desc_001".into()), ..Default::default() },
+        ),
+    ]);
+    let contracts = missions(r#"{"testgang_raid_e_title_001": [{"wer": "Test Gang", "was": "Standing", "wieviel": 50}]}"#);
+    let mut inputs = inputs(&[]);
+    inputs.reputation = reputation::Table {
+        contracts,
+        regions: vec![("testgang_raid_e_title_001".into(), Value::str("Pyro"))],
+        terms,
+        terms_source: reputation::TERMS_FROM_GAME.into(),
+        ..reputation::Table::default()
+    };
+    inputs
+}
+
+const HEIST: &str = "TestGang_Raid_E_title_001=Quick Grab\n\
+TestGang_Raid_E_desc_001=Take the ship.\n\
+Other_desc_001=Nothing known.\n";
+
+#[test]
+fn every_contract_with_known_terms_gets_a_block_and_it_goes_again() {
+    let game = format!("{GAME}{HEIST}");
+    let fx = Fixture::new("terms", "german_(germany)", &game);
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &with_terms(), false);
+    let text = fx.text();
+    let line = |key: &str| text.lines().find(|l| l.starts_with(key)).unwrap_or_default().to_string();
+    assert_eq!(line("TestGang_Raid_E_title_001="), "TestGang_Raid_E_title_001=Quick Grab", "no title mark");
+    assert_eq!(
+        line("TestGang_Raid_E_desc_001="),
+        concat!(
+            "TestGang_Raid_E_desc_001=Take the ship.\\n\\n",
+            "---------------------------------------------------------\\n\\n<EM4>AUFTRAGSANGABEN</EM4>\\n\\n",
+            "<EM4># Max. Reputation: Top Rank (95.250 XP)</EM4>\\n# Wartezeit: 45 Minuten (±10)\\n# Wartezeit nach Abbruch: 45 Minuten\\n# Buy-in: 13.500 aUEC\\n",
+            "# Mission teilbar: Nein\\n# Wieder annehmbar: nach Abbruch Ja, nach Fehlschlag Nein\\n",
+            "<EM4># Ruf: Test Gang +50 Standing</EM4>\\n# Region: Pyro\\n\\n",
+            "Angaben aus den Spieldaten · eingefügt von VerseKit"
+        )
+    );
+    assert_eq!(line("Other_desc_001="), "Other_desc_001=Nothing known.");
+    // The blueprint block names what it lacked, without the cooldown twice.
+    let bounty = line("Bounty_desc_001=");
+    assert!(bounty.contains("\\n# Buy-in: 500 aUEC\\n"), "{bounty}");
+    assert!(!bounty.contains("# Wartezeit: 30"), "{bounty}");
+    assert!(is_applied(&fx.ini));
+
+    // Again: nothing stacks; removed: the file as it was.
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &with_terms(), false);
+    assert_eq!(fx.text(), text);
+    remove_texts(&fx.paths, &fx.ini, "german_(germany)");
+    assert_eq!(fx.text(), game);
+}
+
+/// Without the stored original texts, the form alone finds the contract block: it has no boxes, and it is ours.
+#[test]
+fn the_contract_block_is_found_by_its_form() {
+    let game = format!("{GAME}{HEIST}");
+    let fx = Fixture::new("terms-form", "english", &game);
+    apply_texts(&fx.paths, &fx.ini, "english", &with_terms(), false);
+    let written = fx.text();
+    let desc = written.lines().find(|l| l.starts_with("TestGang_Raid_E_desc_001=")).unwrap().to_string();
+    let (_, _, value) = form::split_line(&desc).unwrap();
+    assert_eq!(form::strip_form(value, Fallback::Block), "Take the ship.");
+    assert_eq!(form::split_foreign_block(value).0, value, "not taken for a block of the player");
+}
+
+/// Inputs whose terms hold the titles given, each with its cooldown and description, and reputation rows.
+fn shared(titles: &[(&str, i64, &str)], rows: &str) -> Inputs {
+    let list: Vec<(String, terms::Terms)> = titles
+        .iter()
+        .map(|(title, cooldown, description)| {
+            let terms = terms::Terms { cooldown: Some(*cooldown), description: Some((*description).into()), ..Default::default() };
+            ((*title).to_string(), terms)
+        })
+        .collect();
+    let mut inputs = inputs(&[]);
+    inputs.reputation = reputation::Table {
+        contracts: missions(rows),
+        terms: terms::summarize(&list),
+        terms_source: reputation::TERMS_FROM_GAME.into(),
+        ..reputation::Table::default()
+    };
+    inputs
+}
+
+/// A description several titles share gets what they all say, and nothing where they differ.
+#[test]
+fn a_description_of_several_titles_names_only_what_they_share() {
+    let game = format!("{GAME}Shared_desc_001=Go there.\n");
+    let differ = shared(&[("Alpha_title", 45, "Shared_desc_001"), ("Beta_title", 30, "Shared_desc_001")], "{}");
+    let fx = Fixture::new("shared-differ", "english", &game);
+    apply_texts(&fx.paths, &fx.ini, "english", &differ, false);
+    assert!(fx.text().contains("\nShared_desc_001=Go there.\n"), "no block where the titles differ");
+
+    let rows = r#"{"alpha_title": [{"wer": "Org", "was": "Standing", "wieviel": 10}], "beta_title": [{"wer": "Org", "was": "Standing", "wieviel": 10}]}"#;
+    let agree = shared(&[("Alpha_title", 45, "Shared_desc_001"), ("Beta_title", 45, "Shared_desc_001")], rows);
+    let fx = Fixture::new("shared-agree", "english", &game);
+    apply_texts(&fx.paths, &fx.ini, "english", &agree, false);
+    let text = fx.text();
+    let line = text.lines().find(|l| l.starts_with("Shared_desc_001=")).unwrap();
+    assert!(line.contains("# Cooldown: 45 minutes") && line.contains("# Reputation: Org +10 Standing"), "{line}");
+}
+
+/// A blueprint contract whose title the contractor fills in (the catalog names a title the terms do not know) gets
+/// the terms and reputation of the titles its description belongs to.
+#[test]
+fn a_blueprint_contract_with_a_placeholder_title_gets_its_terms_through_its_description() {
+    let game = "Hunt_title_001=~mission(Contractor|HuntTitle)\nHunt_desc_001=Hunt it.\n";
+    let mut inputs = shared(
+        &[("Org_Hunt_Title_001", 20, "Hunt_desc_001")],
+        r#"{"org_hunt_title_001": [{"wer": "Org", "was": "Standing", "wieviel": 10}]}"#,
+    );
+    inputs.missions = missions(
+        r#"{"Hunt_title_001": {"bp": ["Atzkav Sniper Rifle"], "teilbar": true, "titel_key": "Hunt_title_001", "text_key": "Hunt_desc_001"}}"#,
+    );
+    let fx = Fixture::new("placeholder", "english", game);
+    apply_texts(&fx.paths, &fx.ini, "english", &inputs, false);
+    let text = fx.text();
+    let line = text.lines().find(|l| l.starts_with("Hunt_desc_001=")).unwrap();
+    assert!(line.contains("POSSIBLE BLUEPRINTS FOR THIS MISSION TYPE"), "{line}");
+    assert!(line.contains("<EM4># Reputation: Org +10 Standing</EM4>"), "{line}");
+}
+
 #[test]
 fn stock_mark_is_count_and_hash() {
     let owned: BTreeSet<String> = ["a".to_string(), "b".to_string()].into_iter().collect();

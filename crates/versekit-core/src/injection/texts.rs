@@ -43,7 +43,19 @@ pub struct Words {
     pub gain: &'static str,
     pub gain_at: &'static str,
     pub minutes: &'static str,
+    pub minute: &'static str,
     pub cooldown: &'static str,
+    pub cooldown_abandoned: &'static str,
+    pub buy_in: &'static str,
+    /// `Wieder annehmbar: nach Abbruch Ja, nach Fehlschlag Nein`.
+    pub again: &'static str,
+    pub after_abandoning: &'static str,
+    pub after_failing: &'static str,
+    /// The heading of the block of a contract without blueprints.
+    pub contract_heading: &'static str,
+    /// The last line of that block, by where its terms come from.
+    pub terms_from_game: &'static str,
+    pub terms_from_scmdb: &'static str,
     pub shareable: &'static str,
     pub region: &'static str,
     pub yes: &'static str,
@@ -52,7 +64,6 @@ pub struct Words {
     pub from_rank: &'static str,
     /// With two `%d`: empty tiers and all tiers.
     pub empty_tiers: &'static str,
-    pub source: &'static str,
     pub separator: &'static str,
     pub it_heading: &'static str,
     pub it_blueprint: &'static str,
@@ -86,7 +97,16 @@ pub const GERMAN: Words = Words {
     gain: "Rufpunkte",
     gain_at: "Ruf",
     minutes: "Minuten",
+    minute: "Minute",
     cooldown: "Wartezeit",
+    cooldown_abandoned: "Wartezeit nach Abbruch",
+    buy_in: "Buy-in",
+    again: "Wieder annehmbar",
+    after_abandoning: "nach Abbruch",
+    after_failing: "nach Fehlschlag",
+    contract_heading: "AUFTRAGSANGABEN",
+    terms_from_game: "Angaben aus den Spieldaten · eingefügt von VerseKit",
+    terms_from_scmdb: "Angaben von scmdb.net · eingefügt von VerseKit",
     shareable: "Mission teilbar",
     region: "Region",
     yes: "Ja",
@@ -94,9 +114,8 @@ pub const GERMAN: Words = Words {
     list: "Baupläne — angehakt ist, was du hast",
     from_rank: "erst ab",
     empty_tiers: "Achtung: %d der %d Stufen dieses Auftrags geben gar keine Baupläne.",
-    source: "Angaben von scmdb.net · eingefügt von VerseKit",
     separator: ".",
-    it_heading: "VERSE-KIT: BAUPLAN & HERSTELLUNG",
+    it_heading: "VERSEKIT: BAUPLAN & HERSTELLUNG",
     it_blueprint: "Bauplan",
     it_have: "vorhanden",
     it_missing: "fehlt",
@@ -125,7 +144,16 @@ pub const ENGLISH: Words = Words {
     gain: "Reputation gain",
     gain_at: "Reputation",
     minutes: "minutes",
+    minute: "minute",
     cooldown: "Cooldown",
+    cooldown_abandoned: "Cooldown after abandoning",
+    buy_in: "Buy-in",
+    again: "Can be taken again",
+    after_abandoning: "after abandoning",
+    after_failing: "after failing",
+    contract_heading: "CONTRACT DETAILS",
+    terms_from_game: "Data from the game files · added by VerseKit",
+    terms_from_scmdb: "Data from scmdb.net · added by VerseKit",
     shareable: "Shareable",
     region: "Region",
     yes: "Yes",
@@ -133,9 +161,8 @@ pub const ENGLISH: Words = Words {
     list: "Blueprints — ticked means you have it",
     from_rank: "needs",
     empty_tiers: "Note: %d of the %d tiers of this contract give no blueprints at all.",
-    source: "Data from scmdb.net · added by VerseKit",
     separator: ",",
-    it_heading: "VERSE-KIT: BLUEPRINT & CRAFTING",
+    it_heading: "VERSEKIT: BLUEPRINT & CRAFTING",
     it_blueprint: "Blueprint",
     it_have: "owned",
     it_missing: "missing",
@@ -286,6 +313,20 @@ pub struct BlockContext<'a> {
     /// `# Ruf: …` and `# Region: …` of this contract, or empty.
     pub reputation_line: String,
     pub region_line: String,
+    /// The terms the block does not name otherwise (see [`super::terms::lines`]).
+    pub terms_lines: Vec<String>,
+    /// The last line: where the notes come from (`terms_from_game` or `terms_from_scmdb` of [`Words`]).
+    pub source: &'a str,
+}
+
+/// The block appended to the description of a contract without blueprints: its terms, reputation and region
+/// (`lines`, each `# …` or marked), and where they come from (`source`).
+pub fn contract_block(lines: &[String], words: &Words, source: &str) -> String {
+    let mut z: Vec<String> = vec![String::new(), rule(), String::new(), blue(words.contract_heading), String::new()];
+    z.extend(lines.iter().cloned());
+    z.push(String::new());
+    z.push(source.to_string());
+    format!("\\n{}", z.join("\\n"))
 }
 
 /// `injection._build_block`: the block appended to a description.
@@ -322,6 +363,7 @@ pub fn build_block(entry: &Map, ctx: &BlockContext<'_>) -> String {
         let said = if truthy(get(entry, "teilbar")) { words.yes } else { words.no };
         z.push(format!("# {}: {said}", words.shareable));
     }
+    z.extend(ctx.terms_lines.iter().cloned());
     if !ctx.region_line.is_empty() {
         z.push(ctx.region_line.clone());
     }
@@ -363,7 +405,7 @@ pub fn build_block(entry: &Map, ctx: &BlockContext<'_>) -> String {
         z.push(format!("# {said}"));
     }
     z.push(String::new());
-    z.push(words.source.to_string());
+    z.push(ctx.source.to_string());
     format!("\\n{}", z.join("\\n"))
 }
 
@@ -413,7 +455,14 @@ mod tests {
         );
         let owned = [crate::paths::name_key("Abc")].into_iter().collect();
         let w = words_for("english", true);
-        let ctx = BlockContext { words: &w, owned: &owned, reputation_line: String::new(), region_line: String::new() };
+        let ctx = BlockContext {
+            words: &w,
+            owned: &owned,
+            reputation_line: String::new(),
+            region_line: String::new(),
+            terms_lines: Vec::new(),
+            source: w.terms_from_game,
+        };
         let block = build_block(&e, &ctx);
         let lines: Vec<&str> = block.split("\\n").collect();
         assert_eq!(lines[2], "-".repeat(57));
@@ -423,6 +472,6 @@ mod tests {
         assert!(lines.contains(&"   <EM4>[x]</EM4> Abc"));
         assert!(lines.contains(&"   [  ] Longer Name  needs Sr (1,500 XP)"));
         assert!(lines.contains(&"# Note: 1 of the 3 tiers of this contract give no blueprints at all."));
-        assert_eq!(lines.last(), Some(&"Data from scmdb.net · added by VerseKit"));
+        assert_eq!(lines.last(), Some(&"Data from the game files · added by VerseKit"));
     }
 }

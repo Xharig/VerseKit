@@ -368,6 +368,96 @@ fn the_boxes_say_where_each_channel_leads_and_only_a_real_way_is_a_button() {
     }
 }
 
+/// „Get latest version“ with the newest version running: greyed out, saying why on hover, and a click fetches
+/// nothing. With a newer one known it fetches.
+#[test]
+fn the_button_for_the_latest_version_is_grey_when_it_runs_and_says_why() {
+    let _language = crate::language_lock();
+    let releases = vec![release("v5.0.1", false)];
+    let net = Arc::new(github("v5.0.1", b"neu"));
+    let (mut same, dir) = window("update-sofort-gleich", releases.clone(), "", |dir| {
+        let mut env = env_in(dir, net.clone(), false).0;
+        env.own_version = "5.0.1".into();
+        env
+    });
+    same.page.go_to("hf_ueber");
+    same.settle();
+    let texts = hover_texts(&mut same, &t("s_up_sofort"), &t("s_up_sofort_aktuell"));
+    assert!(shows(&texts, &t("s_up_sofort_aktuell")), "on hover it says why: {texts:?}");
+    same.click(&t("s_up_sofort"));
+    std::thread::sleep(Duration::from_millis(400));
+    same.settle();
+    assert!(!same.page.updates.is_busy() && !same.page.update_quit);
+    assert!(
+        net.asked().iter().all(|url| !url.ends_with(".AppImage") && !url.ends_with("SHA256SUMS.txt")),
+        "the running version is not fetched again: {:?}",
+        net.asked()
+    );
+    // An older version runs: the button fetches.
+    let newer = Arc::new(github("v5.0.1", b"neu"));
+    let (mut older, dir2) = window("update-sofort-neuer", releases, "", |dir| env_in(dir, newer.clone(), false).0);
+    older.page.go_to("hf_ueber");
+    older.settle();
+    older.click(&t("s_up_sofort"));
+    pump(&mut older, |bench, _| bench.page.update_quit);
+    assert!(older.page.take_update_quit(), "a newer version is fetched");
+    let _ = (std::fs::remove_dir_all(dir), std::fs::remove_dir_all(dir2));
+}
+
+/// The hover text of the button `label` after the pointer rested on it. The clock of the bench stays set to the
+/// last step; set it back to `None` when the window should count its own time again.
+fn hover_texts(bench: &mut Bench, label: &str, wanted: &str) -> Vec<(String, Pos2)> {
+    let button = bench.named(label);
+    assert_eq!(button.len(), 1, "{label} is there once");
+    // The pointer comes once and rests; the frames step the clock past the tooltip delay.
+    // The clock only runs forward: it stays where the steps left it.
+    let base = bench.time.unwrap_or(1000.0);
+    bench.time = Some(base);
+    let mut texts = bench.frame(vec![Event::PointerMoved(button[0].center())]);
+    for step in 1..=40 {
+        bench.time = Some(base + f64::from(step) * 0.1);
+        texts = bench.frame(Vec::new());
+        if shows(&texts, wanted) {
+            break;
+        }
+    }
+    texts
+}
+
+/// A download failed a moment ago (in this or another process): every button that fetches waits half a minute,
+/// says why and how long on hover, and a click fetches nothing.
+#[test]
+fn after_a_failed_download_a_click_waits_half_a_minute_and_says_so() {
+    let _language = crate::language_lock();
+    let releases = vec![release("v5.0.1", false), release("v5.1.0-rc1", true)];
+    let net = Arc::new(github("v5.0.1", b"neu"));
+    let (mut bench, dir) = window("update-warten", releases, "", |dir| env_in(dir, net.clone(), false).0);
+    let paths = Paths::new(host_in(&dir, &[]));
+    versekit_core::update_run::remember_download_failure(&paths, "v5.0.1", updater::now(), false);
+    bench.page.go_to("hf_ueber");
+    bench.settle();
+    let waiting = t("s_up_warte");
+    let start = waiting.split("{0}").next().unwrap_or_default().to_string();
+    let texts = hover_texts(&mut bench, &t("s_up_sofort"), &start);
+    assert!(shows(&texts, &start), "the top button says why: {texts:?}");
+    let texts = hover_texts(&mut bench, &tf("s_ub_holen", &[("0", Arg::from("5.0.1"))]), &start);
+    assert!(shows(&texts, &start), "the button of a box too: {texts:?}");
+    bench.click(&t("s_up_sofort"));
+    std::thread::sleep(Duration::from_millis(400));
+    bench.settle();
+    assert!(!bench.page.updates.is_busy() && !bench.page.update_quit);
+    let fetched = |net: &versekit_core::net::Fake| net.asked().iter().any(|url| url.ends_with("SHA256SUMS.txt") || url.ends_with(".AppImage"));
+    assert!(!fetched(&net), "nothing fetched: {:?}", net.asked());
+    // Half a minute later the click fetches again; the window counts its own time from where the steps left it.
+    versekit_core::update_run::clear_download_failures(&paths);
+    bench.time = None;
+    bench.settle();
+    bench.click(&tf("s_ub_holen", &[("0", Arg::from("5.0.1"))]));
+    pump(&mut bench, |bench, _| bench.page.update_quit);
+    assert!(bench.page.take_update_quit(), "the click fetched: {:?}", net.asked());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn a_click_on_a_box_chooses_the_channel_and_says_so_and_the_button_in_it_fetches() {
     let _language = crate::language_lock();

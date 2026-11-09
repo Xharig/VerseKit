@@ -440,6 +440,8 @@ pub fn ini_files(paths: &Paths) -> Vec<PathBuf> {
 #[derive(Default)]
 pub struct ContractIndex {
     exact: HashMap<String, String>,
+    /// Every key of an exact title; only filled by [`ContractIndex::build_strict`].
+    twins: HashMap<String, Vec<String>>,
     /// Pattern, key, weak, weight.
     patterns: Vec<(Regex, String, bool, usize)>,
 }
@@ -449,8 +451,19 @@ impl ContractIndex {
     /// the contract is not found, and a neighbour with a weaker pattern takes
     /// its place and shows the blueprints of another mission.
     pub fn build(ini_files: &[PathBuf], known: &HashSet<String>) -> ContractIndex {
+        ContractIndex::build_with(ini_files, known, false)
+    }
+
+    /// Like [`ContractIndex::build`] over every key of the language files, in lower case: a title that stands for a
+    /// key outside a caller's list too is seen as such. An exact title of two keys gives none from
+    /// [`ContractIndex::key_for`], and [`ContractIndex::candidates`] gives all of them.
+    pub fn build_strict(ini_files: &[PathBuf]) -> ContractIndex {
+        ContractIndex::build_with(ini_files, &HashSet::new(), true)
+    }
+
+    fn build_with(ini_files: &[PathBuf], known: &HashSet<String>, strict: bool) -> ContractIndex {
         let mut index = ContractIndex::default();
-        if known.is_empty() {
+        if known.is_empty() && !strict {
             return index;
         }
         for path in ini_files {
@@ -458,8 +471,11 @@ impl ContractIndex {
             let text = decode_ignore(&bytes);
             for line in lines_universal(&text) {
                 let Some(sep) = line.find('=').filter(|&s| s >= 1) else { continue };
-                let mut key = &line[..sep];
-                if !known.contains(key) {
+                let folded = if strict { line[..sep].trim_start_matches('\u{feff}').to_lowercase() } else { String::new() };
+                let mut key = if strict { folded.as_str() } else { &line[..sep] };
+                if strict {
+                    key = VARIANT.find(key).map_or(key, |m| &key[..m.start()]);
+                } else if !known.contains(key) {
                     key = VARIANT.find(key).map_or(key, |m| &key[..m.start()]);
                     if !known.contains(key) {
                         continue;
@@ -477,6 +493,12 @@ impl ContractIndex {
                     }
                 } else {
                     index.exact.entry(title.to_lowercase()).or_insert_with(|| key.to_string());
+                    if strict {
+                        let keys = index.twins.entry(title.to_lowercase()).or_default();
+                        if !keys.iter().any(|k| k == key) {
+                            keys.push(key.to_string());
+                        }
+                    }
                 }
             }
         }
@@ -488,9 +510,22 @@ impl ContractIndex {
     /// ⚠ Equally good patterns pointing at different missions give nothing:
     /// a made-up blueprint answer is worse than none.
     pub fn key_for(&self, title: &str) -> Option<String> {
+        match self.candidates(title).as_slice() {
+            [one] => Some(one.clone()),
+            _ => None,
+        }
+    }
+
+    /// Every key a displayed title may stand for: the keys of the exact title, or else the keys of the best
+    /// patterns it matches; empty for an unknown title.
+    pub fn candidates(&self, title: &str) -> Vec<String> {
         let plain = clean(title);
-        if let Some(hit) = self.exact.get(&plain.to_lowercase()) {
-            return Some(hit.clone());
+        let lower = plain.to_lowercase();
+        if let Some(keys) = self.twins.get(&lower) {
+            return keys.clone();
+        }
+        if let Some(hit) = self.exact.get(&lower) {
+            return vec![hit.clone()];
         }
         let matching: Vec<(&String, (bool, usize))> = self
             .patterns
@@ -498,12 +533,14 @@ impl ContractIndex {
             .filter(|(rx, ..)| rx.is_match(&plain))
             .map(|(_, key, weak, weight)| (key, (!weak, *weight)))
             .collect();
-        let rank = matching.iter().map(|(_, r)| *r).max()?;
-        let best: HashSet<&String> = matching.iter().filter(|(_, r)| *r == rank).map(|(k, _)| *k).collect();
-        if best.len() != 1 {
-            return None;
+        let Some(rank) = matching.iter().map(|(_, r)| *r).max() else { return Vec::new() };
+        let mut best: Vec<String> = Vec::new();
+        for (key, _) in matching.iter().filter(|(_, r)| *r == rank) {
+            if !best.contains(key) {
+                best.push((*key).clone());
+            }
         }
-        best.into_iter().next().cloned()
+        best
     }
 }
 

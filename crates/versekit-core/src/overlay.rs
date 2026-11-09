@@ -66,6 +66,9 @@ pub const DEFAULT_SEARCH_HOTKEY: &str = "Alt+Umschalt+H";
 /// The hotkey that takes the picture of the game for the signature window at once, without a setting (B for Bild),
 /// in the same way. It is on until switched off ([`keys::HOTKEY_PICTURE_ON`]).
 pub const DEFAULT_PICTURE_HOTKEY: &str = "Alt+Umschalt+B";
+/// The hotkey that shows the main window and brings it to the front, without a setting (F for Fenster), in the same
+/// way. It is on until switched off ([`keys::HOTKEY_MAIN_ON`]).
+pub const DEFAULT_MAIN_HOTKEY: &str = "Alt+Umschalt+F";
 /// The info bar stands over the running game while its setting is missing; a stored setting wins.
 pub const INFO_BAR_DEFAULT: bool = true;
 /// The info bar waits hidden without the game while its setting is missing; a stored setting wins.
@@ -96,6 +99,9 @@ pub mod keys {
     /// The hotkey of the picture of the game is registered (only a literal `false` switches it off).
     pub const HOTKEY_PICTURE_ON: &str = "hotkey_bild_an";
     pub const HOTKEY_PICTURE: &str = "hotkey_bild";
+    /// The hotkey of the main window is registered (only a literal `false` switches it off).
+    pub const HOTKEY_MAIN_ON: &str = "hotkey_hauptfenster_an";
+    pub const HOTKEY_MAIN: &str = "hotkey_hauptfenster";
     pub const CORNER: &str = "overlay_ecke";
     pub const BAR: &str = "overlay_leiste";
     pub const SOUND: &str = "signalton";
@@ -818,7 +824,7 @@ fn literal_false(paths: &Paths, key: &str) -> bool {
     paths.settings().iter().any(|(k, v)| k == key && *v == Value::Bool(false))
 }
 
-/// The four shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
+/// The five shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
 /// press would do both (5.2.1: the overlay and the picture of the game on Alt+Umschalt+B).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shortcut {
@@ -826,10 +832,13 @@ pub enum Shortcut {
     Scan,
     Search,
     Picture,
+    /// Shows the main window and brings it to the front.
+    Main,
 }
 
 impl Shortcut {
-    pub const ALL: [Shortcut; 4] = [Shortcut::Overlay, Shortcut::Scan, Shortcut::Search, Shortcut::Picture];
+    pub const ALL: [Shortcut; 5] =
+        [Shortcut::Overlay, Shortcut::Scan, Shortcut::Search, Shortcut::Picture, Shortcut::Main];
 
     /// Its name in the start trail, where it holds the key another one wanted.
     pub fn trail_name(self) -> &'static str {
@@ -838,6 +847,7 @@ impl Shortcut {
             Shortcut::Scan => "Scan-Hotkey",
             Shortcut::Search => "Such-Hotkey",
             Shortcut::Picture => "Bild-Hotkey",
+            Shortcut::Main => "Hauptfenster-Hotkey",
         }
     }
 
@@ -848,6 +858,7 @@ impl Shortcut {
             Shortcut::Scan => "s_hk_scan",
             Shortcut::Search => "s_hk_suche",
             Shortcut::Picture => "s_hk_bild",
+            Shortcut::Main => "s_hk_haupt",
         }
     }
 
@@ -858,6 +869,7 @@ impl Shortcut {
             Shortcut::Scan => (keys::HOTKEY_SCAN, DEFAULT_SCAN_HOTKEY, keys::HOTKEY_SCAN_ON),
             Shortcut::Search => (keys::HOTKEY_SEARCH, DEFAULT_SEARCH_HOTKEY, keys::HOTKEY_SEARCH_ON),
             Shortcut::Picture => (keys::HOTKEY_PICTURE, DEFAULT_PICTURE_HOTKEY, keys::HOTKEY_PICTURE_ON),
+            Shortcut::Main => (keys::HOTKEY_MAIN, DEFAULT_MAIN_HOTKEY, keys::HOTKEY_MAIN_ON),
         }
     }
 }
@@ -879,20 +891,15 @@ pub enum HotkeyChoice {
 }
 
 impl HotkeyChoice {
-    /// The four shortcuts in the order of [`Shortcut::ALL`], as the overlay registers them: each from its setting,
+    /// The five shortcuts in the order of [`Shortcut::ALL`], as the overlay registers them: each from its setting,
     /// its default where none is set. A later one whose combination an earlier one holds is [`HotkeyChoice::Taken`];
     /// one left at its default takes the first of [`SPARE_HOTKEYS`] no other shortcut holds instead.
     ///
     /// ⚠ A setting equal to the default counts as left at the default: the settings page of 5.2.1 wrote every
     /// shortcut into the settings, the untouched ones with their default.
-    pub fn read_all(paths: &Paths) -> [HotkeyChoice; 4] {
+    pub fn read_all(paths: &Paths) -> [HotkeyChoice; 5] {
         // The refinery scan and the picture of the game are registered only where the screen can be read.
-        let registered = [
-            true,
-            crate::refinery_scan::screen::supported(),
-            true,
-            crate::screen_grab::supported(),
-        ];
+        let registered = [true, crate::refinery_scan::screen::supported(), true, crate::screen_grab::supported(), true];
         let read = Shortcut::ALL.map(|shortcut| {
             let (key, default, switch) = shortcut.setting();
             // The switch of the overlay's own shortcut is off only by a literal `false`, as the others.
@@ -921,14 +928,20 @@ impl HotkeyChoice {
 
     /// The hotkey of the handle search in the info bar, [`DEFAULT_SEARCH_HOTKEY`] where none is set.
     pub fn read_search(paths: &Paths) -> HotkeyChoice {
-        let [_, _, search, _] = HotkeyChoice::read_all(paths);
+        let [_, _, search, ..] = HotkeyChoice::read_all(paths);
         search
     }
 
     /// The hotkey of the picture of the game, [`DEFAULT_PICTURE_HOTKEY`] where none is set.
     pub fn read_picture(paths: &Paths) -> HotkeyChoice {
-        let [.., picture] = HotkeyChoice::read_all(paths);
+        let [.., picture, _] = HotkeyChoice::read_all(paths);
         picture
+    }
+
+    /// The hotkey of the main window, [`DEFAULT_MAIN_HOTKEY`] where none is set.
+    pub fn read_main(paths: &Paths) -> HotkeyChoice {
+        let [.., main] = HotkeyChoice::read_all(paths);
+        main
     }
 
     /// The combination that is registered; none where it is off, wrong or taken.
@@ -950,7 +963,7 @@ impl HotkeyChoice {
 
 /// The shortcuts as read (the order of [`Shortcut::ALL`], each with whether it is left at its default) as they are
 /// registered: see [`HotkeyChoice::read_all`]. Only one that is `registered` on this system holds its key.
-pub fn resolve(read: [(HotkeyChoice, bool); 4], registered: [bool; 4]) -> [HotkeyChoice; 4] {
+pub fn resolve(read: [(HotkeyChoice, bool); 5], registered: [bool; 5]) -> [HotkeyChoice; 5] {
     let wanted: Vec<Option<Hotkey>> =
         read.iter().zip(registered).map(|((choice, _), on)| choice.hotkey().filter(|_| on)).collect();
     let mut done: Vec<HotkeyChoice> = Vec::with_capacity(read.len());
@@ -1001,6 +1014,12 @@ pub fn picture_hotkey_on(paths: &Paths) -> bool {
     !literal_false(paths, keys::HOTKEY_PICTURE_ON)
 }
 
+/// Whether the hotkey of the main window is to be registered: off only by a literal `false`
+/// (`hotkey_hauptfenster_an`).
+pub fn main_hotkey_on(paths: &Paths) -> bool {
+    !literal_false(paths, keys::HOTKEY_MAIN_ON)
+}
+
 /// One line of the start trail about a hotkey: its name and what came of its registration.
 fn trail_line(name: &str, choice: &HotkeyChoice, registered: Result<(), String>) -> String {
     match (choice, registered) {
@@ -1022,6 +1041,11 @@ pub fn search_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>
 /// The line of the start trail about the hotkey of the picture of the game, in the way of [`hotkey_trail`].
 pub fn picture_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
     trail_line("Bild-Hotkey", choice, registered)
+}
+
+/// The line of the start trail about the hotkey of the main window, in the way of [`hotkey_trail`].
+pub fn main_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    trail_line(Shortcut::Main.trail_name(), choice, registered)
 }
 
 /// The lines of the start trail about the hotkeys, as 4.12 writes them (`hotkey_anmelden`, `hotkey_scan_anmelden`):
@@ -1066,6 +1090,8 @@ pub struct Settings {
     pub search_hotkey: Option<Hotkey>,
     /// The hotkey that takes the picture of the game for the signature window at once.
     pub picture_hotkey: Option<Hotkey>,
+    /// The hotkey that shows the main window and brings it to the front.
+    pub main_hotkey: Option<Hotkey>,
     pub layout: Layout,
     pub sound: bool,
     /// The volume of every sound in percent.
@@ -1129,6 +1155,7 @@ impl Default for Settings {
             scan_hotkey: Hotkey::parse(DEFAULT_SCAN_HOTKEY),
             search_hotkey: None,
             picture_hotkey: Hotkey::parse(DEFAULT_PICTURE_HOTKEY),
+            main_hotkey: Hotkey::parse(DEFAULT_MAIN_HOTKEY),
             layout: Layout::default(),
             sound: true,
             volume: crate::sound::VOLUME_DEFAULT,
@@ -1172,7 +1199,8 @@ impl Settings {
         let bar = paths.setting(keys::BAR);
         // Switched off only by a literal `false`, as 4.12 reads both.
         let off = |key: &str| literal_false(paths, key);
-        let [hotkey, scan_hotkey, search_hotkey, picture_hotkey] = HotkeyChoice::read_all(paths).map(|c| c.hotkey());
+        let [hotkey, scan_hotkey, search_hotkey, picture_hotkey, main_hotkey] =
+            HotkeyChoice::read_all(paths).map(|c| c.hotkey());
         // The overlay follows the clock of the main window the next time it reads its settings.
         crate::formats::apply_clock(paths);
         Settings {
@@ -1183,6 +1211,7 @@ impl Settings {
             scan_hotkey,
             search_hotkey,
             picture_hotkey,
+            main_hotkey,
             layout: Layout {
                 corner: Corner::from_setting(corner.as_deref()),
                 bar: BarSide::from_settings(bar.as_deref(), corner.as_deref()),
@@ -2217,6 +2246,47 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The hotkey of the main window is on until a literal `false` switches it off, on a default no other shortcut
+    /// has; a setting of the player is read like the others, and the start trail says what came of it.
+    #[test]
+    fn the_hotkey_of_the_main_window_is_on_until_switched_off() {
+        let (paths, dir) = events_paths("haupttaste");
+        assert!(main_hotkey_on(&paths), "on without a setting");
+        let h = Hotkey::parse(DEFAULT_MAIN_HOTKEY).unwrap();
+        assert!(!h.ctrl && h.alt && h.shift, "like the other defaults, without Strg");
+        assert_eq!(Settings::read(&paths).main_hotkey, Some(h));
+        assert_eq!(Settings::default().main_hotkey, Some(h));
+        assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Combination(h));
+        let trail = main_hotkey_trail(&HotkeyChoice::read_main(&paths), Ok(()));
+        assert_eq!(trail, "Hauptfenster-Hotkey: Alt+Umschalt+F angemeldet (ok)");
+        for (value, on) in [(Value::str("false"), true), (Value::int(0), true), (Value::Bool(false), false)] {
+            paths.set_setting(keys::HOTKEY_MAIN_ON, value.clone());
+            assert_eq!(main_hotkey_on(&paths), on, "{value:?}");
+        }
+        assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Off);
+        assert_eq!(Settings::read(&paths).main_hotkey, None);
+        assert_eq!(main_hotkey_trail(&HotkeyChoice::Off, Ok(())), "Hauptfenster-Hotkey: ausgeschaltet");
+        paths.set_setting(keys::HOTKEY_MAIN_ON, Value::Bool(true));
+        paths.set_setting(keys::HOTKEY_MAIN, Value::str("Strg+F15"));
+        assert_eq!(Settings::read(&paths).main_hotkey.map(Hotkey::text).as_deref(), Some("Strg+F15"));
+        paths.set_setting(keys::HOTKEY_MAIN, Value::str("F"));
+        assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Wrong("F".into()), "a letter needs a modifier");
+        assert_eq!(Settings::read(&paths).main_hotkey, None);
+        // Set by the player to the key of the overlay: not registered, the trail names the holder.
+        paths.set_setting(keys::HOTKEY_MAIN, Value::str(DEFAULT_HOTKEY));
+        let v = Hotkey::parse(DEFAULT_HOTKEY).unwrap();
+        assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Taken(v, Shortcut::Overlay));
+        assert_eq!(Settings::read(&paths).main_hotkey, None);
+        let trail = main_hotkey_trail(&HotkeyChoice::read_main(&paths), Ok(()));
+        assert_eq!(trail, "Hauptfenster-Hotkey: Alt+Umschalt+V entfaellt (belegt durch Overlay-Hotkey)");
+        // Left at its default while the overlay was set to it: the first free spare instead.
+        paths.set_setting(keys::HOTKEY_MAIN, Value::str(DEFAULT_MAIN_HOTKEY));
+        paths.set_setting(keys::HOTKEY, Value::str(DEFAULT_MAIN_HOTKEY));
+        let n = Hotkey::parse(SPARE_HOTKEYS[0]).unwrap();
+        assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Combination(n));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// No key is registered twice (5.2.1: the overlay on Alt+Umschalt+B, the picture of the game on its default
     /// Alt+Umschalt+B, one press did both). A shortcut set by the player whose key an earlier one holds is not
     /// registered, and the trail names the holder; one left at its default takes the first free spare.
@@ -2258,7 +2328,7 @@ mod tests {
         assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Combination(f9));
         // Every default and every spare apart: nothing moves without a collision.
         let defaults = Shortcut::ALL.map(|s| (HotkeyChoice::Combination(Hotkey::parse(s.setting().1).unwrap()), true));
-        let fresh = resolve(defaults.clone(), [true; 4]);
+        let fresh = resolve(defaults.clone(), [true; 5]);
         assert_eq!(
             fresh.clone().map(|c| c.hotkey().map(Hotkey::text)),
             Shortcut::ALL.map(|s| Some(s.setting().1.to_string()))
@@ -2267,8 +2337,8 @@ mod tests {
         let mut read = defaults;
         read[1] = (HotkeyChoice::Combination(f9), false);
         read[2] = (HotkeyChoice::Combination(f9), false);
-        assert_eq!(resolve(read.clone(), [true; 4])[2], HotkeyChoice::Taken(f9, Shortcut::Scan));
-        assert_eq!(resolve(read, [true, false, true, true])[2], HotkeyChoice::Combination(f9));
+        assert_eq!(resolve(read.clone(), [true; 5])[2], HotkeyChoice::Taken(f9, Shortcut::Scan));
+        assert_eq!(resolve(read, [true, false, true, true, true])[2], HotkeyChoice::Combination(f9));
         let spares: Vec<Hotkey> = SPARE_HOTKEYS.iter().filter_map(|s| Hotkey::parse(s)).collect();
         assert_eq!(spares.len(), SPARE_HOTKEYS.len());
         assert!(fresh.iter().all(|c| !spares.contains(&c.hotkey().unwrap())));

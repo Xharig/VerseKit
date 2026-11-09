@@ -41,6 +41,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::Value as Json;
 use versekit_core::injection::reputation::{Table, key as reputation_key};
+use versekit_core::injection::terms::Terms;
 use versekit_core::jsonio::{self, Map, Value};
 
 use crate::corrections::Correction;
@@ -385,18 +386,56 @@ pub fn reputation(merged: &Json, build: &str, issues: &[Correction], fingerprint
         contracts: parties(merged, &Fixes::new(issues, build)),
         regions: regions(merged),
         fingerprint: fingerprint.to_string(),
+        terms: versekit_core::injection::terms::summarize(&terms(merged)),
+        terms_source: versekit_core::injection::reputation::TERMS_FROM_SCMDB.to_string(),
     }
 }
 
+/// The terms of every contract of `merged` with the key of its title, as
+/// [`crate::contract_reputation::terms`] reads them from the game data.
+pub fn terms(merged: &Json) -> Vec<(String, Terms)> {
+    let whole = |value: Option<&Json>| value.and_then(Json::as_f64).filter(|x| x.is_finite()).map(|x| x.round() as i64);
+    let flag = |contract: &Json, name: &str| contract.get(name).and_then(Json::as_bool);
+    let rank = |contract: &Json, name: &str| {
+        let standing = object_of(contract, name)?;
+        Some((non_empty(standing.get("name"))?, standing.get("minReputation")?.as_i64()?))
+    };
+    items(merged.get("contracts"))
+        .iter()
+        .filter_map(|contract| {
+            let title = non_empty(contract.get("titleLocKey")).or_else(|| non_empty(contract.get("titleKey")))?;
+            let personal = flag(contract, "hasPersonalCooldown") == Some(true);
+            let terms = Terms {
+                cooldown: personal.then(|| whole(contract.get("personalCooldownTime"))).flatten(),
+                // scmdb's file states no spread of the cooldowns.
+                cooldown_spread: None,
+                abandoned: whole(contract.get("abandonedCooldownTime")),
+                abandoned_spread: None,
+                buy_in: whole(contract.get("buyIn")),
+                shareable: flag(contract, "canBeShared"),
+                again_abandoned: flag(contract, "canReacceptAfterAbandoning"),
+                again_failed: flag(contract, "canReacceptAfterFailing"),
+                description: non_empty(contract.get("descriptionLocKey")),
+                lowest: rank(contract, "minStanding"),
+                highest: rank(contract, "maxStanding"),
+                // scmdb's file does not tell a fixed payout from a computed one.
+                reward: None,
+            };
+            Some((title, terms))
+        })
+        .collect()
+}
+
 /// `reputation.prepare`: `{key: [{wer, was, wieviel}, ...]}`, the key being
-/// the text key without `@` in lower case.
+/// the text key without `@` in lower case; the contracts of one key are
+/// joined (`reputation::merge_parties`), as the game data's are.
 fn parties(merged: &Json, fixes: &Fixes) -> Map {
     let pools = items(merged.get("factionRewardsPools"));
     let name_of = |table: &str, guid: Option<&str>| {
         let item = guid.and_then(|guid| merged.get(table)?.get(guid));
         item.and_then(|item| non_empty(item.get(if table == "scopes" { "displayName" } else { "name" })))
     };
-    let mut out = Map::new();
+    let mut out: Vec<(String, Vec<Map>)> = Vec::new();
     for contract in items(merged.get("contracts")) {
         let raw = non_empty(contract.get("titleLocKey")).or_else(|| non_empty(contract.get("titleKey")));
         let Some(key) = raw.map(|raw| reputation_key(&raw)).filter(|key| !key.is_empty()) else { continue };
@@ -430,13 +469,11 @@ fn parties(merged: &Json, fixes: &Fixes) -> Map {
                     vec![("statt".into(), Value::Str(faction.unwrap_or_default())), ("note".into(), Value::str(note))];
                 row.push(("datenfehler".into(), Value::Object(was)));
             }
-            rows.push(Value::Object(row));
+            rows.push(row);
         }
-        if !rows.is_empty() {
-            jsonio::map_set(&mut out, &key, Value::Array(rows));
-        }
+        out.push((key, rows));
     }
-    out
+    versekit_core::injection::reputation::merge_parties(&out)
 }
 
 /// What the contracts with one text key say about where they play.

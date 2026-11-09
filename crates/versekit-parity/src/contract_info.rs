@@ -42,13 +42,13 @@ use versekit_gamedata::scmdb_catalog;
 /// The differences of one comparison, by name; the first ones of each name
 /// are kept to be shown.
 #[derive(Default)]
-struct Differences {
-    count: BTreeMap<String, usize>,
+pub(crate) struct Differences {
+    pub(crate) count: BTreeMap<String, usize>,
     shown: BTreeMap<String, Vec<String>>,
 }
 
 impl Differences {
-    fn add(&mut self, name: &str, detail: impl FnOnce() -> String) {
+    pub(crate) fn add(&mut self, name: &str, detail: impl FnOnce() -> String) {
         *self.count.entry(name.to_string()).or_default() += 1;
         let shown = self.shown.entry(name.to_string()).or_default();
         if shown.len() < 3 {
@@ -56,11 +56,17 @@ impl Differences {
         }
     }
 
-    fn total(&self) -> usize {
+    /// Like [`Differences::add`], every one of the name shown.
+    pub(crate) fn add_all(&mut self, name: &str, detail: String) {
+        *self.count.entry(name.to_string()).or_default() += 1;
+        self.shown.entry(name.to_string()).or_default().push(detail);
+    }
+
+    pub(crate) fn total(&self) -> usize {
         self.count.values().sum()
     }
 
-    fn print(&self, title: &str, compared: usize) {
+    pub(crate) fn print(&self, title: &str, compared: usize) {
         println!("{title}: {compared} verglichen, {} Abweichungen", self.total());
         for (name, count) in &self.count {
             println!("  {name}: {count}");
@@ -141,7 +147,7 @@ fn compare_missions(name: &str, mine: &Map, theirs: &Map) -> Differences {
 }
 
 /// The reputation table against the file of 4.12.
-fn compare_table(mine: &Table, theirs: &Value) -> (Differences, usize) {
+pub(crate) fn compare_table(mine: &Table, theirs: &Value) -> (Differences, usize) {
     let mut found = Differences::default();
     let their = |name: &str| theirs.get(name).and_then(Value::as_object).cloned().unwrap_or_default();
     let (contracts, regions) = (their("auftraege"), their("regionen"));

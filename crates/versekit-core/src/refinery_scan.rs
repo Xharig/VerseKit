@@ -149,12 +149,15 @@ pub fn rows(words: &[Word]) -> Vec<Vec<Word>> {
         .collect()
 }
 
-/// Characters the recognition mistakes for digits in fields of numbers.
-const LOOKALIKES: [(char, char); 14] = [
+/// Characters the recognition mistakes for digits in fields of numbers. The terminal writes the zero with a slash,
+/// which the recognition gives as `Ø`.
+const LOOKALIKES: [(char, char); 16] = [
     ('O', '0'),
     ('o', '0'),
     ('D', '0'),
     ('Q', '0'),
+    ('Ø', '0'),
+    ('ø', '0'),
     ('I', '1'),
     ('l', '1'),
     ('|', '1'),
@@ -193,7 +196,9 @@ fn drop_thousands(text: &str) -> String {
 
 /// `number`: an integer from a word of the recognition, or `None`. Mistaken characters (O/0, l/1, S/5) are
 /// swapped only in words with at least one real digit; with `loose` also in words of at least two characters
-/// that consist of mistakable characters only (`sos`). Thousands separators fall away.
+/// that consist of mistakable characters only (`sos`). Thousands separators fall away. Beside a real digit an `e`
+/// counts as 0, and a digit 0 or an `e` in front of further characters as 8 (`33e` is 330, `074` is 874; `O122`
+/// stays 122).
 pub fn number(token: &str, loose: bool) -> Option<Int> {
     let text = py_strip(token).trim_matches(|c| matches!(c, '.' | ',' | ':' | ';'));
     if text.is_empty() {
@@ -204,9 +209,17 @@ pub fn number(token: &str, loose: bool) -> Option<Int> {
     if !has_digit && !(loose && all_lookalike) {
         return None;
     }
-    let text = drop_thousands(&translate_lookalikes(text));
+    // No value of the terminal begins with 0: a digit 0 or an `e` in front of further characters is an 8 read as the
+    // slashed zero. A letter in front (`O122`) stays what the lookalikes make of it.
+    let eight_in_front = has_digit && text.chars().count() > 1 && matches!(text.chars().next(), Some('0' | 'e'));
+    // Beside a real digit an `e` elsewhere is the slashed zero read as a letter.
+    let text = if has_digit { text.replace('e', "0") } else { text.to_string() };
+    let mut text = drop_thousands(&translate_lookalikes(&text));
     if text.is_empty() || !text.chars().all(|c| c.is_ascii_digit()) {
         return None;
+    }
+    if eight_in_front {
+        text.replace_range(..1, "8");
     }
     text.parse::<Int>().ok()
 }
@@ -246,11 +259,33 @@ pub fn match_material(text: &str, index: &Index) -> Option<String> {
         index.by_form.iter().map(|(form, _)| (ratio(&wanted, form), form.as_str())).collect();
     // Python sorts the pairs (ratio, form) from the largest: on the same ratio the larger form first.
     scored.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| b.1.cmp(a.1)));
-    let best = scored.first().filter(|(score, _)| *score >= 0.8)?;
-    if scored.len() > 1 && best.0 - scored[1].0 < 0.08 {
+    if let Some(best) = scored.first().filter(|(score, _)| *score >= 0.8) {
+        if scored.len() > 1 && best.0 - scored[1].0 < 0.08 {
+            return None;
+        }
+        return index.get(best.1).map(str::to_string);
+    }
+    cut_short(&wanted, index)
+}
+
+/// The fewest letters a name cut short by the terminal must keep.
+const CUT_MIN_LEN: usize = 4;
+
+/// A name the terminal cut short (`HEPH (RAW)`): the one material whose comparison form begins with the first word,
+/// when that word has at least [`CUT_MIN_LEN`] letters and every further word is short (the kind, `raw`, `ore`).
+/// `None` when no material or more than one begins so.
+fn cut_short(wanted: &str, index: &Index) -> Option<String> {
+    let mut parts = wanted.split(' ');
+    let first = parts.next()?;
+    if first.chars().count() < CUT_MIN_LEN || !parts.all(|p| p.chars().count() < CUT_MIN_LEN + 1) {
         return None;
     }
-    index.get(best.1).map(str::to_string)
+    let mut hits = index.by_form.iter().filter(|(form, _)| form.starts_with(first));
+    let (form, _) = hits.next()?;
+    if hits.next().is_some() {
+        return None;
+    }
+    index.get(form).map(str::to_string)
 }
 
 /// A row of the table that begins with a material (`material_rows`).
@@ -336,33 +371,53 @@ pub fn columns(found: &[MaterialRow]) -> Vec<f64> {
 /// The same parts as the search for the table takes ([`HEAD_QUALITY`]): a head misread as `OUAUTiT` still marks
 /// the column, else the numbers of `ANZ.` would be taken for the yield.
 const QUALITY_HEADS: [&str; 7] = HEAD_QUALITY;
-/// The German head is cut to `AUSBEU` on the terminal.
-const YIELD_HEADS: [&str; 4] = ["AUSBEU", "ERTRAG", "YIELD", "BEUTE"];
+/// The German head is cut to `AUSBEU` on the terminal; the parts of the English head as in [`HEAD_YIELD`].
+const YIELD_HEADS: [&str; 9] = ["AUSBEU", "ERTRAG", "YIELD", "BEUTE", "USBEU", "YIEL", "YTEL", "YLEL", "YELD"];
+/// Heads of the quantity put in while setting a job up (`QTY`, `ANZ.`), letters as [`head`] keeps them.
+const QUANTITY_HEADS: [&str; 4] = ["QTY", "OTY", "ANZ", "MENGE"];
 
 /// `header_columns`: the middles of the columns from the row of heads, or `None`: quality first, then the yield,
 /// then every further head right of the quality (`ANZ.` between them while setting a job up, `ZU`, `FERTIG`,
-/// `TO-DO` … right of the yield), so that their numbers slip neither into the quality nor into the yield.
+/// `TO-DO` … right of the yield), so that their numbers slip neither into the quality nor into the yield. Only a
+/// head right of the quality is the yield (`MATERIALS YIELDED` left of it is not); a row with the head of the
+/// quantity but no head of the yield read takes the next head right of the quantity as the yield.
 pub fn header_columns(table: &[Vec<Word>]) -> Option<Vec<f64>> {
+    heads_of(table).map(|(heads, _)| heads)
+}
+
+/// [`header_columns`] and whether the head of the yield was read by name (`false`: taken right of the quantity).
+fn heads_of(table: &[Vec<Word>]) -> Option<(Vec<f64>, bool)> {
     for words in table {
         let words = &split_heads(words);
-        let (mut quality, mut yield_) = (None, None);
+        let (mut quality, mut yield_, mut quantity) = (None, None, None);
         for word in words {
             let text = word.t.to_uppercase();
             let middle = word.middle_x();
             if quality.is_none() && QUALITY_HEADS.iter().any(|h| text.contains(h)) {
                 quality = Some(middle);
-            } else if yield_.is_none() && YIELD_HEADS.iter().any(|h| text.contains(h)) {
-                yield_ = Some(middle);
+            } else if let Some(left) = quality
+                && middle > left
+            {
+                if yield_.is_none() && head(word, &YIELD_HEADS) {
+                    yield_ = Some(middle);
+                } else if quantity.is_none() && head(word, &QUANTITY_HEADS) {
+                    quantity = Some(middle);
+                }
             }
         }
-        if let (Some(quality), Some(yield_)) = (quality, yield_)
-            && yield_ > quality
-        {
+        let named = yield_.is_some();
+        if let (None, Some(amount)) = (yield_, quantity) {
+            yield_ = words.iter().map(Word::middle_x).filter(|middle| *middle > amount + 1.0).min_by(f64::total_cmp);
+        }
+        if let (Some(quality), Some(yield_)) = (quality, yield_) {
             let mut out = vec![quality, yield_];
             out.extend(
-                words.iter().map(Word::middle_x).filter(|middle| *middle > quality + 1.0 && (middle - yield_).abs() > 1.0),
+                words
+                    .iter()
+                    .map(Word::middle_x)
+                    .filter(|middle| *middle > quality + 1.0 && (middle - yield_).abs() > 1.0),
             );
-            return Some(out);
+            return Some((out, named));
         }
     }
     None
@@ -373,7 +428,26 @@ pub fn header_columns(table: &[Vec<Word>]) -> Option<Vec<f64>> {
 /// reading (`ZU` of a running job) then leaves no gap that its numbers would slip into the yield through. Without
 /// heads the columns of the numbers ([`columns`]).
 pub fn table_columns(table: &[Vec<Word>], found: &[MaterialRow]) -> Vec<f64> {
-    let Some(mut heads) = header_columns(table) else { return columns(found) };
+    table_columns_with(table, found, None)
+}
+
+/// [`table_columns`], with `shared` as the heads when the reading has none of its own (the heads another reading
+/// of the same part read), or only found the yield right of the quantity. Without any heads and with three or more
+/// columns of numbers only the quality stays: the second column is the quantity of a job being set up or the yield
+/// of a running one, which the numbers alone do not tell.
+fn table_columns_with(table: &[Vec<Word>], found: &[MaterialRow], shared: Option<&[f64]>) -> Vec<f64> {
+    let own = match heads_of(table) {
+        Some((heads, true)) => Some(heads),
+        Some((heads, false)) => Some(shared.map_or(heads, <[f64]>::to_vec)),
+        None => shared.map(<[f64]>::to_vec),
+    };
+    let Some(mut heads) = own else {
+        let mut numbers = columns(found);
+        if numbers.len() >= 3 {
+            numbers.truncate(1);
+        }
+        return numbers;
+    };
     let (quality, yield_) = (heads[0], heads[1]);
     let tolerance = 0.35 * (yield_ - quality);
     for x in columns(found) {
@@ -400,8 +474,13 @@ pub struct ParsedRow {
 /// `parse_rows`: the yield of one reading. Every number belongs to the nearest column (by the heads, else by the
 /// numbers themselves); the first column is the quality (0 to 1000), the second the yield (above 0).
 pub fn parse_rows(table: &[Vec<Word>], index: &Index) -> Vec<ParsedRow> {
+    parse_rows_with(table, index, None)
+}
+
+/// [`parse_rows`] with the heads `shared` for a reading that has none of its own ([`table_columns_with`]).
+fn parse_rows_with(table: &[Vec<Word>], index: &Index, shared: Option<&[f64]>) -> Vec<ParsedRow> {
     let found = material_rows(table, index);
-    let centers = table_columns(table, &found);
+    let centers = table_columns_with(table, &found, shared);
     let slots = |pairs: &[(f64, Int)]| -> (Option<Int>, Option<Int>) {
         if centers.is_empty() {
             return (None, None);
@@ -561,14 +640,39 @@ pub fn merge_passes(
     checks: &Checks,
     guess_unsure: bool,
 ) -> Merged {
+    merge_passes_with(passes, index, minimum, checks, guess_unsure, None)
+}
+
+/// The heads that hold for every reading of a part: those of the first reading that read the head of the yield by
+/// name, else `fallback` (the heads the search over the whole picture read over the part), else those of the first
+/// reading that took the yield right of the quantity.
+fn shared_heads(passes: &[Vec<Word>], fallback: Option<&[f64]>) -> Option<Vec<f64>> {
+    let read: Vec<(Vec<f64>, bool)> = passes.iter().filter_map(|words| heads_of(&rows(words))).collect();
+    read.iter()
+        .find(|(_, named)| *named)
+        .map(|(heads, _)| heads.clone())
+        .or_else(|| fallback.map(<[f64]>::to_vec))
+        .or_else(|| read.first().map(|(heads, _)| heads.clone()))
+}
+
+/// [`merge_passes`], where a reading without heads of its own takes the heads of [`shared_heads`].
+fn merge_passes_with(
+    passes: &[Vec<Word>],
+    index: &Index,
+    minimum: Option<usize>,
+    checks: &Checks,
+    guess_unsure: bool,
+    fallback: Option<&[f64]>,
+) -> Merged {
     let minimum = minimum.unwrap_or(MIN_VOTES).min(passes.len().max(1));
+    let shared = shared_heads(passes, fallback);
     struct Cluster {
         y: f64,
         rows: Vec<ParsedRow>,
     }
     let mut clusters: Vec<Cluster> = Vec::new();
     for words in passes {
-        for row in parse_rows(&rows(words), index) {
+        for row in parse_rows_with(&rows(words), index, shared.as_deref()) {
             match clusters.iter_mut().find(|c| (c.y - row.y).abs() < row.height / 2.0) {
                 Some(cluster) => cluster.rows.push(row),
                 None => clusters.push(Cluster { y: row.y, rows: vec![row] }),
@@ -778,7 +882,9 @@ pub fn split_heads(words: &[Word]) -> Vec<Word> {
     }
     out
 }
-const HEAD_YIELD: [&str; 4] = ["AUSBEU", "USBEU", "YIELD", "ERTRAG"];
+/// The head of the yield, German and English; for English also the parts left when the recognition misreads one
+/// letter (`YIELO`, `YtELD`, `YlELD`, `Y1ELD`), but not `IELD` alone, which `FIELD` and `SHIELD` hold.
+const HEAD_YIELD: [&str; 8] = ["AUSBEU", "USBEU", "YIELD", "ERTRAG", "YIEL", "YTEL", "YLEL", "YELD"];
 /// The heads of the column of materials left of it.
 const HEAD_MATERIAL: [&str; 7] = ["WONNEN", "GEWONN", "MATERIA", "ATERIAL", "CSCU", "YIELDED", "IELDED"];
 
@@ -1255,15 +1361,17 @@ pub fn cell_crop(picture: &dyn Picture, area: Area) -> Option<digits::Gray> {
     (gray.len() == tw * th).then_some(digits::Gray { width: tw, height: th, gray })
 }
 
-/// `_centers`: the middles of the columns of the table, from the reading with the most numbers.
-fn centers(passes: &[Vec<Word>], index: &Index) -> Vec<f64> {
+/// `_centers`: the middles of the columns of the table, from the reading with the most numbers; a reading without
+/// heads of its own takes those of [`shared_heads`].
+fn centers(passes: &[Vec<Word>], index: &Index, fallback: Option<&[f64]>) -> Vec<f64> {
+    let shared = shared_heads(passes, fallback);
     let (mut best, mut most) = (Vec::new(), -1i64);
     for words in passes {
         let table = rows(words);
         let found = material_rows(&table, index);
         let count: usize = found.iter().map(|r| r.numbers.len() + r.loose_numbers.len()).sum();
         if count as i64 > most {
-            best = table_columns(&table, &found);
+            best = table_columns_with(&table, &found, shared.as_deref());
             most = count as i64;
         }
     }
@@ -1311,8 +1419,9 @@ fn confirmer<'a>(
     passes: &'a [Vec<Word>],
     learned: &'a digits::Digits,
     index: &Index,
+    fallback: Option<&[f64]>,
 ) -> Box<dyn Fn(f64, usize, Int) -> Checked + 'a> {
-    let centers = centers(passes, index);
+    let centers = centers(passes, index, fallback);
     Box::new(move |y, column, value| {
         let text = value.to_string();
         let Some((_, crop)) = cell_crop_at(picture, passes, y, column, &centers) else { return Checked::No };
@@ -1344,23 +1453,25 @@ fn rereader<'a>(
     passes: &'a [Vec<Word>],
     learned: &'a digits::Digits,
     index: &Index,
+    fallback: Option<&[f64]>,
 ) -> Box<dyn Fn(f64, usize) -> Option<Int> + 'a> {
-    let centers = centers(passes, index);
+    let centers = centers(passes, index, fallback);
     Box::new(move |y, column| {
         let (word, crop) = cell_crop_at(picture, passes, y, column, &centers)?;
         digits::read_cell(&crop, learned, &word.t)
     })
 }
 
-/// `unsure_cells`: the cells of numbers of the unsure rows, for learning later.
+/// `unsure_cells`: the cells of numbers of the unsure rows, for learning later; `fallback` as in [`shared_heads`].
 pub fn unsure_cells(
     picture: Option<&dyn Picture>,
     passes: &[Vec<Word>],
     details: &[Unsure],
     index: &Index,
+    fallback: Option<&[f64]>,
 ) -> Vec<digits::Cell> {
     let Some(picture) = picture else { return Vec::new() };
-    let centers = centers(passes, index);
+    let centers = centers(passes, index, fallback);
     let mut cells = Vec::new();
     for row in details {
         for column in [0, 1] {
@@ -1426,10 +1537,24 @@ pub fn join_scrolled(before: &str, read: &str) -> Option<(String, usize)> {
     Some((joined.join("\n"), added))
 }
 
+/// The words whose middle lies within `area`.
+fn within(words: &[Word], area: Area) -> Vec<Word> {
+    let (x, y, w, h) = (area.0 as f64, area.1 as f64, area.2 as f64, area.3 as f64);
+    words
+        .iter()
+        .filter(|word| {
+            let (cx, cy) = (word.middle_x(), word.middle_y());
+            x <= cx && cx <= x + w && y <= cy && cy <= y + h
+        })
+        .cloned()
+        .collect()
+}
+
 /// `read_image`: a picture read, `(jobs, kept)` for the refinery field. First the search for the tables over the
 /// whole picture ([`search_jobs`], [`find_tables`]), then per table enlarged readings of its part only
-/// ([`PASSES`]), made into one by [`merge_passes`]. The jobs stand left to right; without a table the list is
-/// empty. Each job carries the station read from the search ([`station`]).
+/// ([`PASSES`]), made into one by [`merge_passes`]; a reading without heads takes those of another reading, else
+/// those the search read over the part. The jobs stand left to right. Each job carries the station read from the
+/// search ([`station`]); without a table the list is empty, or one job without lines when a station was read.
 ///
 /// `picture` gives the cells for the learned digits (`None`: no checks at the patterns). `keep`: a reading that
 /// stays empty or unsure keeps a picture for the bug report, the part of the table when it was found, else the
@@ -1446,25 +1571,43 @@ pub fn read_image(
     let search = ocr.read(&search_jobs(width, height))?;
     let words = merge_words(&search);
     let tables = find_tables(&words, width, height);
+    let at = station(&words, &index.places).unwrap_or_default();
     if tables.is_empty() {
         let kept = keep.as_mut().is_some_and(|keep| keep(Keep::Picture));
-        return Ok((Vec::new(), kept));
+        // A station read without a table still goes to the field of the place, in a job without lines.
+        let jobs = if at.is_empty() {
+            Vec::new()
+        } else {
+            vec![ScannedJob {
+                text: String::new(),
+                unsure: Vec::new(),
+                materials: Vec::new(),
+                total: String::new(),
+                state: State::Unknown,
+                remaining: None,
+                cells: Vec::new(),
+                station: at,
+            }]
+        };
+        return Ok((jobs, kept));
     }
     let (mut jobs, mut kept) = (Vec::new(), false);
-    let at = station(&words, &index.places).unwrap_or_default();
     let checks_from = picture.filter(|_| !learned.is_empty());
     for table in &tables {
         let area = table.area;
         let passes =
             ocr.read(&PASSES.iter().map(|(scale, mode)| Job { area, scale: *scale, mode: *mode }).collect::<Vec<_>>())?;
+        // The heads the search read over the part, for when no reading of the part reads them.
+        let searched = header_columns(&rows(&within(&words, area)));
+        let searched = searched.as_deref();
         let checks = match checks_from {
             Some(picture) => Checks {
-                confirm: Some(confirmer(picture, &passes, learned, index)),
-                reread: Some(rereader(picture, &passes, learned, index)),
+                confirm: Some(confirmer(picture, &passes, learned, index, searched)),
+                reread: Some(rereader(picture, &passes, learned, index, searched)),
             },
             None => Checks::default(),
         };
-        let merged = merge_passes(&passes, index, None, &checks, true);
+        let merged = merge_passes_with(&passes, index, None, &checks, true, searched);
         drop(checks);
         if let Some(keep) = keep.as_mut()
             && (!merged.unsure.is_empty() || merged.found.is_empty())
@@ -1478,7 +1621,7 @@ pub fn read_image(
             total: table.total.clone(),
             state,
             remaining: if state == State::Done { None } else { remaining_seconds(&words, area) },
-            cells: unsure_cells(picture, &passes, &merged.details, index),
+            cells: unsure_cells(picture, &passes, &merged.details, index, searched),
             unsure: merged.unsure,
             station: at.clone(),
         });

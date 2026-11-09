@@ -489,6 +489,10 @@ pub struct SamplePage {
     picture_modifiers: [bool; 3],
     picture_key: usize,
     picture_hotkey_on: bool,
+    /// The hotkey of the main window (`hotkey_hauptfenster`) and whether it is used (`hotkey_hauptfenster_an`).
+    main_modifiers: [bool; 3],
+    main_key: usize,
+    main_hotkey_on: bool,
     /// Whether the overlay runs: it registers the hotkeys, so only then a new one counts as registered.
     overlay_runs: fn() -> bool,
     /// The window shows a test build (sample page: a click on the version).
@@ -724,6 +728,8 @@ pub fn system_handle(window: &impl raw_window_handle::HasWindowHandle) -> isize 
 #[derive(Clone, Default)]
 pub struct MainSignals {
     overview: Arc<AtomicBool>,
+    /// Shown on the page it shows (the hotkey of the main window).
+    show: Arc<AtomicBool>,
     settings: Arc<AtomicBool>,
     close: Arc<AtomicBool>,
     /// The window stays open whatever the overlay says (a restore is starting the program anew: the overlay
@@ -792,6 +798,7 @@ impl MainSignals {
     pub fn note(&self, signal: Signal) {
         let flag = match signal {
             Signal::Overview => &self.overview,
+            Signal::Show => &self.show,
             Signal::Settings => &self.settings,
             Signal::Close => &self.close,
             Signal::OpenGeneral
@@ -841,8 +848,10 @@ impl MainSignals {
             page.open_page(ctx, key, group);
             page.usage_route = Some("overlay");
         }
+        // The hotkey of the main window shows it without changing its page.
+        let only_shown = self.show.swap(false, Ordering::Relaxed);
         // A window the player closed is hidden: whatever asks for a page shows it again.
-        if shown || !key.is_empty() {
+        if shown || only_shown || !key.is_empty() {
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
         }
         if self.close.swap(false, Ordering::Relaxed) && !self.keep_open.load(Ordering::Relaxed) {
@@ -1387,6 +1396,10 @@ impl SamplePage {
                 .map_or([false, true, true], |h| h.0),
             picture_key: parse_hotkey(versekit_core::overlay::DEFAULT_PICTURE_HOTKEY).map_or(1, |h| h.1),
             picture_hotkey_on: true,
+            main_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_MAIN_HOTKEY)
+                .map_or([false, true, true], |h| h.0),
+            main_key: parse_hotkey(versekit_core::overlay::DEFAULT_MAIN_HOTKEY).map_or(5, |h| h.1),
+            main_hotkey_on: true,
             overlay_runs: || versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some(),
             test_build: false,
             news_index: 0,
@@ -2284,7 +2297,8 @@ impl SamplePage {
             use versekit_core::overlay::{self, DEFAULT_SCAN_HOTKEY, HotkeyChoice, keys};
             // As the overlay registers them: one left at its default whose key an earlier one holds shows the spare
             // it takes instead.
-            let [_, scan, search, picture] = HotkeyChoice::read_all(paths).map(|c| c.combination().map(|h| h.text()));
+            let [_, scan, search, picture, main] =
+                HotkeyChoice::read_all(paths).map(|c| c.combination().map(|h| h.text()));
             let stored = scan
                 .or_else(|| paths.setting(keys::HOTKEY_SCAN))
                 .unwrap_or_else(|| DEFAULT_SCAN_HOTKEY.to_string());
@@ -2307,6 +2321,13 @@ impl SamplePage {
                 (self.picture_modifiers, self.picture_key) = (modifiers, key);
             }
             self.picture_hotkey_on = overlay::picture_hotkey_on(paths);
+            let stored = main
+                .or_else(|| paths.setting(keys::HOTKEY_MAIN))
+                .unwrap_or_else(|| overlay::DEFAULT_MAIN_HOTKEY.to_string());
+            if let Some((modifiers, key)) = parse_hotkey(&stored) {
+                (self.main_modifiers, self.main_key) = (modifiers, key);
+            }
+            self.main_hotkey_on = overlay::main_hotkey_on(paths);
         }
         if let Some(place) = paths.setting("overlay_ecke").as_deref().and_then(corner_of) {
             self.overlay_place = place;
@@ -2430,6 +2451,10 @@ impl SamplePage {
             values.push((versekit_core::overlay::keys::HOTKEY_PICTURE, Value::str(hotkey)));
         }
         values.push((versekit_core::overlay::keys::HOTKEY_PICTURE_ON, Value::Bool(self.picture_hotkey_on)));
+        if let Some(hotkey) = hotkey_text(self.main_modifiers, self.main_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_MAIN, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_MAIN_ON, Value::Bool(self.main_hotkey_on)));
         if let Some(window) = &self.window {
             values.extend(window.values());
         }
@@ -4142,9 +4167,9 @@ impl SamplePage {
                             }
                             if let Some(with_prerelease) = out.fetch
                                 && let Some(store) = &self.store
-                                && !self.updates.start(&store.paths, with_prerelease)
+                                && let Err(why) = self.updates.start(&store.paths, with_prerelease)
                             {
-                                self.pin_notice = Some((page.input(|i| i.time), t("up_laeuft_schon")));
+                                self.pin_notice = Some((page.input(|i| i.time), why));
                             }
                         }
                     }
@@ -4233,6 +4258,10 @@ impl SamplePage {
                         let picture_before =
                             picture_on.then(|| hotkey_text(*picture_modifiers, *picture_key)).flatten();
                         let mut picture_refused = false;
+                        let (main_modifiers, main_key, main_on) =
+                            (&mut self.main_modifiers, &mut self.main_key, &mut self.main_hotkey_on);
+                        let main_before = main_on.then(|| hotkey_text(*main_modifiers, *main_key)).flatten();
+                        let mut main_refused = false;
                         // The refinery scan reads the screen: only where that works.
                         let scan_possible = versekit_core::refinery_scan::screen::supported();
                         // The picture of the game grabs the screen: only where that works.
@@ -4340,19 +4369,21 @@ impl SamplePage {
                                     let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
                                     let keys = hotkey_names();
                                     let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
-                                    // The four as the overlay registers them, before this frame's change.
+                                    // The five as the overlay registers them, before this frame's change.
                                     let rows_before = [
                                         (*modifiers, *key, overlay_on),
                                         (*scan_modifiers, *scan_key, *scan_on && scan_possible),
                                         (*search_modifiers, *search_key, *search_on),
                                         (*picture_modifiers, *picture_key, *picture_on && picture_possible),
+                                        (*main_modifiers, *main_key, *main_on),
                                     ];
                                     let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
                                         match r {
                                             0 => (None, &mut *modifiers, &mut *key, "overlay"),
                                             1 => (Some(&mut *scan_on), &mut *scan_modifiers, &mut *scan_key, "overlay-scan"),
                                             2 => (Some(&mut *search_on), &mut *search_modifiers, &mut *search_key, "overlay-suche"),
-                                            _ => (Some(&mut *picture_on), &mut *picture_modifiers, &mut *picture_key, "overlay-bild"),
+                                            3 => (Some(&mut *picture_on), &mut *picture_modifiers, &mut *picture_key, "overlay-bild"),
+                                            _ => (Some(&mut *main_on), &mut *main_modifiers, &mut *main_key, "overlay-haupt"),
                                         };
                                     // The refinery scan and the picture of the game read the screen: only where that
                                     // works.
@@ -4384,7 +4415,8 @@ impl SamplePage {
                                         0 => hotkey_refused |= refused,
                                         1 => scan_refused |= refused,
                                         2 => search_refused |= refused,
-                                        _ => picture_refused |= refused,
+                                        3 => picture_refused |= refused,
+                                        _ => main_refused |= refused,
                                     }
                                     // A key another shortcut that is on holds already: the change goes back (a switch
                                     // turned on goes off again), and the reason is said below the page. One press must
@@ -4394,6 +4426,7 @@ impl SamplePage {
                                         (*scan_modifiers, *scan_key, *scan_on && scan_possible),
                                         (*search_modifiers, *search_key, *search_on),
                                         (*picture_modifiers, *picture_key, *picture_on && picture_possible),
+                                        (*main_modifiers, *main_key, *main_on),
                                     ];
                                     let changed = (rows_now[r].0, rows_now[r].1) != before;
                                     let turned_on = rows_now[r].2 && !rows_before[r].2;
@@ -4405,7 +4438,8 @@ impl SamplePage {
                                             0 => (&mut *modifiers, &mut *key, None),
                                             1 => (&mut *scan_modifiers, &mut *scan_key, Some(&mut *scan_on)),
                                             2 => (&mut *search_modifiers, &mut *search_key, Some(&mut *search_on)),
-                                            _ => (&mut *picture_modifiers, &mut *picture_key, Some(&mut *picture_on)),
+                                            3 => (&mut *picture_modifiers, &mut *picture_key, Some(&mut *picture_on)),
+                                            _ => (&mut *main_modifiers, &mut *main_key, Some(&mut *main_on)),
                                         };
                                         if changed {
                                             (*held, *chosen) = before;
@@ -4422,8 +4456,9 @@ impl SamplePage {
                                             line.add(egui::Label::new(RichText::new(text).color(color(scheme.yellow))).wrap());
                                         });
                                     }
-                                    if r == 0 {
-                                        // Under Wayland: the way through a shortcut of the desktop.
+                                    if r == 4 {
+                                        // Under Wayland: the way through a shortcut of the desktop, whose command
+                                        // shows the main window of a running program.
                                         shortcut_copied |= desktop.shortcut_hint(ui, scheme);
                                     }
                                 } else if g == 7 {
@@ -4584,6 +4619,7 @@ impl SamplePage {
                             (scan_refused, self.scan_modifiers, self.scan_key),
                             (search_refused, self.search_modifiers, self.search_key),
                             (picture_refused, self.picture_modifiers, self.picture_key),
+                            (main_refused, self.main_modifiers, self.main_key),
                         ] {
                             if refused {
                                 let saved = hotkey_text(modifiers, key).unwrap_or_default();
@@ -4598,6 +4634,7 @@ impl SamplePage {
                                 (self.scan_modifiers, self.scan_key),
                                 (self.search_modifiers, self.search_key),
                                 (self.picture_modifiers, self.picture_key),
+                                (self.main_modifiers, self.main_key),
                             ];
                             let (modifiers, key) = rows[by];
                             let combination = hotkey_text(modifiers, key).unwrap_or_default();
@@ -4619,13 +4656,16 @@ impl SamplePage {
                             .picture_hotkey_on
                             .then(|| hotkey_text(self.picture_modifiers, self.picture_key))
                             .flatten();
+                        let main_now =
+                            self.main_hotkey_on.then(|| hotkey_text(self.main_modifiers, self.main_key)).flatten();
                         let now_hotkeys = [
                             hotkey_text(self.hotkey_modifiers, self.hotkey_key),
                             hotkey_text(self.scan_modifiers, self.scan_key),
                             search_now,
                             picture_now,
+                            main_now,
                         ];
-                        let before_hotkeys = [hotkey_before, scan_before, search_before, picture_before];
+                        let before_hotkeys = [hotkey_before, scan_before, search_before, picture_before, main_before];
                         for (before, now) in before_hotkeys.into_iter().zip(now_hotkeys) {
                             if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
                                 && (self.overlay_runs)()
@@ -5828,7 +5868,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_dauer", "ov_s_dauer_h", &["s_ov_sek_sichtbar"]),
                 ],
             ),
-            // The four shortcuts, one line each: switch, name, modifier keys, key.
+            // The five shortcuts, one line each: switch, name, modifier keys, key.
             (
                 "s_ov_gruppe_kuerzel",
                 &[
@@ -5836,6 +5876,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_hk_scan", "s_hk_scan_h_2", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_suche", "s_hk_suche_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_bild", "s_hk_bild_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_haupt", "s_hk_haupt_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             // The events that open the folded or waiting overlay, one switch each (the order of
@@ -6124,20 +6165,20 @@ fn keep_hotkey(modifiers: &mut [bool; 3], key: &mut usize, before: ([bool; 3], u
     refused
 }
 
-/// The combinations of the four shortcuts of the overlay (the order of `overlay::Shortcut::ALL`: modifiers, key and
+/// The combinations of the five shortcuts of the overlay (the order of `overlay::Shortcut::ALL`: modifiers, key and
 /// whether it is on and can be had here) that are registered; `None` for one that is not.
-fn active_hotkeys(rows: [([bool; 3], usize, bool); 4]) -> [Option<String>; 4] {
+fn active_hotkeys(rows: [([bool; 3], usize, bool); 5]) -> [Option<String>; 5] {
     rows.map(|(modifiers, key, on)| on.then(|| hotkey_text(modifiers, key)).flatten())
 }
 
 /// The earlier shortcut that holds the combination of row `r`: the overlay does not register a later one on it.
-fn earlier_holder(r: usize, active: &[Option<String>; 4]) -> Option<usize> {
+fn earlier_holder(r: usize, active: &[Option<String>; 5]) -> Option<usize> {
     let mine = active.get(r)?.as_ref()?;
     active[..r].iter().position(|other| other.as_ref() == Some(mine))
 }
 
 /// Any other shortcut that holds the combination of row `r`: the picker gives no key to two of them.
-fn any_holder(r: usize, active: &[Option<String>; 4]) -> Option<usize> {
+fn any_holder(r: usize, active: &[Option<String>; 5]) -> Option<usize> {
     let mine = active.get(r)?.as_ref()?;
     (0..active.len()).find(|&i| i != r && active[i].as_ref() == Some(mine))
 }
@@ -7225,6 +7266,29 @@ mod tests {
             signals.note(signal);
             assert!(shows(&signals, &mut page), "{signal:?}");
         }
+    }
+
+    /// The hotkey of the main window shows a hidden window again and leaves it on the page it shows, once.
+    #[test]
+    fn the_hotkey_of_the_main_window_shows_it_on_its_page() {
+        let ctx = egui::Context::default();
+        let mut page = SamplePage::preview();
+        let signals = MainSignals::default();
+        let shows = |signals: &MainSignals, page: &mut SamplePage| {
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| signals.apply(ui.ctx(), page));
+            output.textures_delta.clear();
+            let root = output.viewport_output.get(&egui::ViewportId::ROOT);
+            root.is_some_and(|v| v.commands.contains(&egui::ViewportCommand::Visible(true)))
+        };
+        signals.note(Signal::OpenAbout);
+        assert!(shows(&signals, &mut page));
+        assert_eq!(page.page, "hf_ueber");
+        page.usage_route = None;
+        signals.note(Signal::Show);
+        assert!(shows(&signals, &mut page), "the hidden window is shown");
+        assert_eq!(page.page, "hf_ueber", "on the page it showed, not the overview");
+        assert_eq!(page.usage_route, None, "no page opened, none counted");
+        assert!(!shows(&signals, &mut page), "done once");
     }
 
     /// The entries of the icon's menu in the overlay open their page in the main window, once.

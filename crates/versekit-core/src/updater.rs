@@ -480,6 +480,14 @@ pub enum ChecksumProblem {
     Foreign,
     /// It could not be fetched.
     Net,
+    /// The server answered with an error of its own (HTTP 5xx, the status): GitHub is disturbed, the net is not.
+    Server(u16),
+}
+
+/// The status of an answer that is an error of the server itself (HTTP 500 to 599), else `None`.
+pub fn server_status(error: &FetchError) -> Option<u16> {
+    let FetchError::Failed(text) = error else { return None };
+    text.strip_prefix("HTTP ").and_then(|code| code.trim().parse::<u16>().ok()).filter(|code| (500..600).contains(code))
 }
 
 /// The checksums of a release.
@@ -498,7 +506,7 @@ pub fn fetch_checksums(net: &dyn Net, release: &Release) -> Result<BTreeMap<Stri
         Ok(body) => Ok(parse_checksums(&String::from_utf8_lossy(&body[..body.len().min(CHECKSUM_LIMIT)]))),
         Err(error) => {
             errors::record("updater.fetch_checksums", &error);
-            Err(ChecksumProblem::Net)
+            Err(server_status(&error).map_or(ChecksumProblem::Net, ChecksumProblem::Server))
         }
     }
 }
@@ -516,6 +524,8 @@ pub enum UpdateError {
     ChecksumWrong,
     /// Fetching failed.
     Fetch(String),
+    /// The server answered the file with an error of its own (HTTP 5xx, the status).
+    Server(u16),
     /// Writing the file failed.
     Disk(String),
 }
@@ -529,8 +539,27 @@ impl UpdateError {
             Self::NoChecksum(ChecksumProblem::Net) => language::t("up_summen_netz"),
             Self::NoChecksum(ChecksumProblem::Foreign) => language::t("up_summen_fremd"),
             Self::NoChecksum(ChecksumProblem::Missing) => language::t("up_keine_summen"),
+            Self::NoChecksum(ChecksumProblem::Server(code)) | Self::Server(code) => {
+                language::tf("up_github_gestoert", &[("0", Arg::Int(i64::from(*code)))])
+            }
             Self::ChecksumWrong => language::t("up_summe_falsch"),
             Self::Fetch(what) | Self::Disk(what) => what.clone(),
+        }
+    }
+
+    /// The reason in English, for the update log next to the installer's lines.
+    pub fn log_text(&self) -> String {
+        match self {
+            Self::ForeignSource => "the file is to come from elsewhere".to_string(),
+            Self::ForeignFile(name) => format!("file name not allowed: {name}"),
+            Self::NoChecksum(ChecksumProblem::Missing) => "no checksum published".to_string(),
+            Self::NoChecksum(ChecksumProblem::Foreign) => "checksum file from elsewhere".to_string(),
+            Self::NoChecksum(ChecksumProblem::Net) => "checksums not loadable (no connection)".to_string(),
+            Self::NoChecksum(ChecksumProblem::Server(code)) => format!("checksums: GitHub answered HTTP {code}"),
+            Self::Server(code) => format!("GitHub answered HTTP {code}"),
+            Self::ChecksumWrong => "checksum does not match".to_string(),
+            Self::Fetch(what) => format!("download failed: {what}"),
+            Self::Disk(what) => format!("file not writable: {what}"),
         }
     }
 }
@@ -645,7 +674,8 @@ fn fetch_and_verify(
                 }
             }
         };
-        net.download(url, &mut file, &mut tell).map_err(|e| UpdateError::Fetch(e.to_string()))?;
+        net.download(url, &mut file, &mut tell)
+            .map_err(|e| server_status(&e).map_or_else(|| UpdateError::Fetch(e.to_string()), UpdateError::Server))?;
         file.flush().map_err(|e| UpdateError::Disk(e.to_string()))?;
     }
     let actual = checksum_of(target).map_err(|e| UpdateError::Disk(e.to_string()))?;

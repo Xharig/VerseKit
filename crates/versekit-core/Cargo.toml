@@ -46,6 +46,9 @@ x11rb.workspace = true
 objc2-app-kit.workspace = true
 objc2-foundation.workspace = true
 
+[dev-dependencies]
+image.workspace = true
+
 [[test]]
 name = "diagnostics_process"
 harness = false

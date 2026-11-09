@@ -34,7 +34,7 @@ use egui::{RichText, TextStyle, Ui};
 use versekit_core::formats;
 use versekit_core::language::{self, Arg, Lang, t, tf};
 use versekit_core::logsource::LogSource;
-use versekit_core::mission_log;
+use versekit_core::{contract_rewards, mission_log};
 use versekit_core::paths::{Host, Paths};
 use versekit_core::stats_report::{
     self as report, End, Evaluation, Missions, Names, Quantum, ReportNames, Session, Ships, Stability, Summary,
@@ -42,7 +42,8 @@ use versekit_core::stats_report::{
 };
 use versekit_core::stock_journal::{
     self,
-    spending::{Spending, spending},
+    names::{Items, Places},
+    spending::{Counted, Share, Spending, Summed, counted, income, sales_by, spending, summed},
 };
 use versekit_core::theme::{Color, Scheme};
 use versekit_core::{play_stats, playtime, shard, writeguard};
@@ -110,6 +111,15 @@ pub struct Report {
     pub names: ReportNames,
     /// What the purchases of the log add up to; empty while the reading of the stock lines is off.
     pub spending: Spending,
+    /// What the sales of the log add up to, the same way.
+    pub income: Spending,
+    /// The sales by the name of the good and by the place; a key is empty where the name is not known.
+    pub income_goods: Vec<Share>,
+    pub income_places: Vec<Share>,
+    /// The contracts the mission log shows as completed, by the moment they ended.
+    pub contracts_done: Counted,
+    /// Of them, those with a fixed reward in the catalog, and what these rewards add up to.
+    pub contracts_paid: Summed,
     /// For the export: the sessions, the periods and the session running now.
     sessions: Vec<Session>,
     spans: Vec<(i64, i64)>,
@@ -133,8 +143,16 @@ impl Report {
         for join in stability.shards.iter().flat_map(|(_, joins)| joins) {
             shard::keep_private(&join.shard);
         }
+        let deals = deals_of(paths);
+        let (contracts_done, contracts_paid) =
+            contracts_done(&log, &contract_rewards::Rewards::load(paths), now_seconds() as i64);
         Report {
-            spending: spending_of(paths),
+            contracts_paid,
+            spending: deals.spending,
+            income: deals.income,
+            income_goods: deals.goods,
+            income_places: deals.places,
+            contracts_done,
             evaluation: report::evaluation(paths, last_run),
             names: report::report_names(paths, &ships, &summary, &quantum),
             missions: report::missions(&sessions, &log, own),
@@ -154,10 +172,39 @@ impl Report {
         let spending = Spending {
             total: 1_820_400.0,
             purchases: 37,
+            requested: 0,
+            requested_total: 0.0,
+            requested_today: 0.0,
+            requested_week: 0.0,
             today: 12_500.0,
             week: 148_000.0,
             last_session: Some((1_792_300_000, 31_200.0)),
         };
+        let income = Spending {
+            total: 2_640_900.0,
+            purchases: 6,
+            requested: 2,
+            requested_total: 664_700.0,
+            requested_today: 0.0,
+            requested_week: 664_700.0,
+            today: 0.0,
+            week: 664_700.0,
+            last_session: Some((1_792_300_000, 664_700.0)),
+        };
+        let share = |key: &str, total: f64, week: f64, deals: usize, requested: usize| Share {
+            key: key.to_string(),
+            total,
+            week,
+            deals,
+            requested,
+        };
+        let income_goods = vec![
+            share("Gold", 1_810_300.0, 0.0, 2, 0),
+            share("Stims", 664_700.0, 664_700.0, 2, 2),
+            share("Medical Supplies", 165_900.0, 0.0, 2, 0),
+        ];
+        let income_places =
+            vec![share("Grim HEX", 2_475_000.0, 664_700.0, 4, 2), share("Orison", 165_900.0, 0.0, 2, 0)];
         let weekday = |hours: [i64; 24]| hours.map(|h| h * 600);
         let mut heat = [[0; 24]; 7];
         heat[1] = weekday([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 4, 5, 5, 3, 1, 0]);
@@ -249,20 +296,78 @@ impl Report {
                 )),
             },
             spending,
+            income,
+            income_goods,
+            income_places,
+            contracts_done: Counted { today: 3, week: 21, total: 128 },
+            contracts_paid: Summed {
+                count: Counted { today: 1, week: 4, total: 19 },
+                today: 25_000.0,
+                week: 96_000.0,
+                total: 412_000.0,
+            },
             ..Report::default()
         }
     }
 }
 
-/// The spending of the journal: today by the local day; nothing while the reading is off or the journal is empty.
-fn spending_of(paths: &Paths) -> Spending {
+/// The calendar day of a moment in local time, so that "today" is the player's day.
+fn local_day(seconds: i64) -> String {
+    formats::local_time(seconds).map(|t| formats::strftime("%Y-%m-%d", &t)).unwrap_or_default()
+}
+
+/// What the journal adds up to.
+#[derive(Default)]
+struct Deals {
+    spending: Spending,
+    income: Spending,
+    goods: Vec<Share>,
+    places: Vec<Share>,
+}
+
+/// The spending and the income of the journal, the sales also by good and by place: today by the local day;
+/// nothing while the reading is off or the journal is empty.
+fn deals_of(paths: &Paths) -> Deals {
     if !stock_journal::enabled(paths) {
-        return Spending::default();
+        return Deals::default();
     }
     let sessions = stock_journal::sessions(&stock_journal::load(paths));
-    let day =
-        |seconds: i64| formats::local_time(seconds).map(|t| formats::strftime("%Y-%m-%d", &t)).unwrap_or_default();
-    spending(&sessions, now_seconds() as i64, &day)
+    let now = now_seconds() as i64;
+    let mut deals = Deals {
+        spending: spending(&sessions, now, &local_day),
+        income: income(&sessions, now, &local_day),
+        ..Deals::default()
+    };
+    if deals.income.is_empty() {
+        return deals;
+    }
+    let (items, places) = (Items::load(paths), Places::load(paths));
+    deals.goods =
+        sales_by(&sessions, now, &|deal| items.item(&deal.class, &deal.guid).name().unwrap_or_default().to_string());
+    deals.places = sales_by(&sessions, now, &|deal| {
+        deal.place.as_deref().and_then(|number| places.place(number).name().map(str::to_string)).unwrap_or_default()
+    });
+    deals
+}
+
+/// The completed contracts of the mission log, counted by the moment they ended (or were accepted, without an
+/// end); and of them those whose title leads to a fixed reward of the catalog, with these rewards summed.
+fn contracts_done(
+    log: &[versekit_core::jsonio::Map],
+    rewards: &contract_rewards::Rewards,
+    now: i64,
+) -> (Counted, Summed) {
+    let done: Vec<(i64, Option<i64>)> = log
+        .iter()
+        .map(mission_log::Mission::of)
+        .filter(|m| m.state == mission_log::COMPLETED)
+        .filter_map(|m| {
+            let moment = report::log_seconds(if m.until.is_empty() { &m.when } else { &m.until })?;
+            Some((moment, rewards.of_title(&m.name)))
+        })
+        .collect();
+    let paid = done.iter().filter_map(|(moment, reward)| reward.map(|r| (*moment, r as f64)));
+    (counted(done.iter().map(|(moment, _)| *moment), now, &local_day), summed(paid, now, &local_day))
 }
 
 // ---------------------------------------------------------------------------
@@ -933,20 +1038,37 @@ fn overview(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, report: &Repor
         rule(ui, scheme);
         widgets::empty_state(ui, scheme, "chart-no-axes-combined", &t("s_sx_leer"));
     }
-    shop_spending(ui, scheme, &report.spending, lang);
+    shop_sums(ui, scheme, &report.spending, lang, Flow::Out);
+    shop_sums(ui, scheme, &report.income, lang, Flow::In);
     section(ui, scheme, &t("hf_st_auswertung"), "");
     evaluation(ui, scheme, state);
+    // The breakdown of the income below the buttons of the evaluation, which keep their place.
+    sales_shares(ui, scheme, &report.income_goods, lang, Split::Goods);
+    sales_shares(ui, scheme, &report.income_places, lang, Split::Places);
+    balance(ui, scheme, report, lang);
     notes(ui, scheme, "s_sx_hinweis");
 }
 
-/// "Ausgegeben im Laden": what the purchases of the log add up to, today, in a week, in the last session
-/// and in all. Nothing is drawn without a purchase or while the reading of the stock lines is off.
-fn shop_spending(ui: &mut Ui, scheme: &Scheme, spending: &Spending, lang: Lang) {
+/// Which way the money of [`shop_sums`] went.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Flow {
+    /// Spent on purchases.
+    Out,
+    /// Taken in by sales.
+    In,
+}
+
+/// "Ausgegeben im Laden" or "Eingenommen im Laden": what the purchases or the sales of the log add up to, today,
+/// in a week, in the last session and in all; the sales say how many of them the log shows only as a request.
+/// Nothing is drawn without a deal or while the reading of the stock lines is off.
+fn shop_sums(ui: &mut Ui, scheme: &Scheme, spending: &Spending, lang: Lang, flow: Flow) {
     if spending.is_empty() {
         return;
     }
-    section(ui, scheme, &t("s_lj_ausgaben"), "");
-    small(ui, scheme, &t("s_lj_ausgaben_h"));
+    let (title, help) =
+        if flow == Flow::Out { ("s_lj_ausgaben", "s_lj_ausgaben_h") } else { ("s_lj_einnahmen", "s_lj_einnahmen_h") };
+    section(ui, scheme, &t(title), "");
+    small(ui, scheme, &t(help));
     ui.add_space(GAP);
     let (session, session_below) = match spending.last_session {
         Some((start, sum)) => (formats::money(lang, sum), tf("s_lj_sitzung_am", &[("0", Arg::from(day(lang, start)))])),
@@ -956,14 +1078,127 @@ fn shop_spending(ui: &mut Ui, scheme: &Scheme, spending: &Spending, lang: Lang) 
         tile(t("s_lj_heute"), formats::money(lang, spending.today), ""),
         tile(t("s_lj_woche"), formats::money(lang, spending.week), ""),
         tile(t("s_lj_sitzung"), session, session_below),
+        tile(t("s_lj_gesamt"), formats::money(lang, spending.total), {
+            let n = Arg::from(count(spending.purchases as i64));
+            match (flow, spending.requested) {
+                (Flow::Out, _) => tf("s_lj_kaeufe_n", &[("0", n)]),
+                (Flow::In, 0) => tf("s_lj_verkaeufe_n", &[("0", n)]),
+                (Flow::In, asked) => {
+                    tf("s_lj_verkaeufe_angefragt_n", &[("0", n), ("1", Arg::from(count(asked as i64)))])
+                }
+            }
+        }),
+    ];
+    let wide = ui.available_width() >= 4.0 * TILE_MIN + 3.0 * GAP;
+    tiles(ui, scheme, &cards, if wide { 4 } else { 2 });
+}
+
+/// What [`sales_shares`] groups the sales by.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Split {
+    Goods,
+    Places,
+}
+
+/// "Verkäufe nach Ware" or "nach Ort": one row per good or place with the sum of the last seven days, the sum of
+/// all and how many sales, of them how many only requested. Nothing is drawn without a sale.
+fn sales_shares(ui: &mut Ui, scheme: &Scheme, shares: &[Share], lang: Lang, split: Split) {
+    if shares.is_empty() {
+        return;
+    }
+    let (title, column, unknown, id) = match split {
+        Split::Goods => ("s_lj_nach_ware", "s_lj_spalte_ware", "s_lj_ware_offen", "einnahmen-ware"),
+        Split::Places => ("s_lj_nach_ort", "s_lj_spalte_ort", "s_lj_ort_offen", "einnahmen-ort"),
+    };
+    section(ui, scheme, &t(title), "");
+    let rows: Vec<Vec<Cell>> = shares
+        .iter()
+        .map(|share| {
+            let name = if share.key.is_empty() { (t(unknown), Some(scheme.sub)) } else { (share.key.clone(), None) };
+            let deals = count(share.deals as i64);
+            let deals = if share.requested == 0 {
+                deals
+            } else {
+                tf("s_lj_n_angefragt", &[("0", Arg::from(deals)), ("1", Arg::from(count(share.requested as i64)))])
+            };
+            vec![
+                name,
+                (formats::money(lang, share.week), Some(scheme.sub)),
+                (formats::money(lang, share.total), None),
+                (deals, Some(scheme.sub)),
+            ]
+        })
+        .collect();
+    let headers = [t(column), t("s_lj_spalte_woche"), t("s_lj_spalte_gesamt"), t("s_lj_spalte_verkaeufe")];
+    table(ui, id, &headers, &rows, &[false, true, true, true]);
+}
+
+/// A sum of money with its sign: a plus before a gain.
+fn signed_money(lang: Lang, value: f64) -> String {
+    let text = formats::money(lang, value);
+    if value.round() > 0.0 { format!("+{text}") } else { text }
+}
+
+/// "Einnahmen und Ausgaben": the sales and the fixed contract rewards of the catalog minus the purchases today, in
+/// a week and in all, the completed contracts by number, and what of the income is only requested or only
+/// stated by the catalog. Nothing is drawn without a deal or a reward.
+fn balance(ui: &mut Ui, scheme: &Scheme, report: &Report, lang: Lang) {
+    let (spent, sold, paid) = (&report.spending, &report.income, &report.contracts_paid);
+    if spent.is_empty() && sold.is_empty() && paid.count.total == 0 {
+        return;
+    }
+    let earned = Spending {
+        today: sold.today + paid.today,
+        week: sold.week + paid.week,
+        total: sold.total + paid.total,
+        ..sold.clone()
+    };
+    let earned = &earned;
+    section(ui, scheme, &t("s_lj_bilanz"), "");
+    small(ui, scheme, &t("s_lj_bilanz_h"));
+    ui.add_space(GAP);
+    // A sum that holds a sale the log shows only as a request is an estimate: "ca." stands before it.
+    let net = |title: &str, earned: f64, spent: f64, requested: f64| {
+        let below = tf(
+            "s_lj_bilanz_unter",
+            &[("0", Arg::from(formats::money(lang, earned))), ("1", Arg::from(formats::money(lang, spent)))],
+        );
+        let value = signed_money(lang, earned - spent);
+        let value = if requested > 0.0 { tf("s_lj_ca", &[("0", Arg::from(value))]) } else { value };
+        tile(t(title), value, below)
+    };
+    let done = report.contracts_done;
+    let cards = [
+        net("s_lj_heute", earned.today, spent.today, earned.requested_today),
+        net("s_lj_woche", earned.week, spent.week, earned.requested_week),
+        net("s_lj_gesamt", earned.total, spent.total, earned.requested_total),
         tile(
-            t("s_lj_gesamt"),
-            formats::money(lang, spending.total),
-            tf("s_lj_kaeufe_n", &[("0", Arg::from(count(spending.purchases as i64)))]),
+            t("s_lj_auftraege_fertig"),
+            count(done.total as i64),
+            tf(
+                "s_lj_auftraege_unter",
+                &[("0", Arg::from(count(done.today as i64))), ("1", Arg::from(count(done.week as i64)))],
+            ),
         ),
     ];
     let wide = ui.available_width() >= 4.0 * TILE_MIN + 3.0 * GAP;
     tiles(ui, scheme, &cards, if wide { 4 } else { 2 });
+    if earned.requested > 0 {
+        small(ui, scheme, &tf("s_lj_bilanz_geschaetzt", &[("0", Arg::from(formats::money(lang, earned.requested_total)))]));
+    }
+    if paid.count.total > 0 {
+        let line = tf(
+            "s_lj_auftraege_katalog",
+            &[
+                ("0", Arg::from(formats::money(lang, paid.total))),
+                ("1", Arg::from(count(paid.count.total as i64))),
+                ("2", Arg::from(count(done.total as i64))),
+            ],
+        );
+        small(ui, scheme, &line);
+    } else {
+        small(ui, scheme, &t("s_lj_auftraege_ohne_betrag"));
+    }
 }
 
 fn ships(ui: &mut Ui, scheme: &Scheme, report: &Report) {
@@ -1381,6 +1616,7 @@ mod tests {
                             price_total: *price,
                             place: None,
                             shop: "SCShop_Kiosk".into(),
+                            proof: versekit_core::stock_journal::Proof::Answer,
                         }
                         .to_value()
                     })
@@ -1442,6 +1678,138 @@ mod tests {
         state.wait();
         let (shown, _) = draw(&mut state, Page::Overview, 900.0);
         assert!(!has(&shown, "Ausgegeben im Laden"), "{shown:?}");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// A journal of one session at `start` with one purchase of `bought` aUEC and these sales.
+    fn write_sales(paths: &Paths, start: i64, bought: f64, sales: &[versekit_core::stock_journal::Purchase]) {
+        use versekit_core::stock_journal::Purchase;
+        let buy = Purchase {
+            time: start + 5,
+            class: "x_class".into(),
+            guid: "guid".into(),
+            quantity: 1,
+            price_total: bought,
+            place: None,
+            shop: "SCShop_Kiosk".into(),
+            proof: versekit_core::stock_journal::Proof::Answer,
+        };
+        let session = vec![
+            ("von".to_string(), Value::int(start)),
+            ("bis".to_string(), Value::int(start + 60)),
+            ("kaeufe".to_string(), Value::Array(vec![buy.to_value()])),
+            ("verkaeufe".to_string(), Value::Array(sales.iter().map(Purchase::to_value).collect())),
+            ("bewegungen".to_string(), Value::Array(Vec::new())),
+        ];
+        let mut data = vec![
+            ("sitzungen".to_string(), Value::Object(vec![(start.to_string(), Value::Object(session))])),
+            ("gelesen".to_string(), Value::Object(Vec::new())),
+        ];
+        assert!(stock_journal::save(paths, &mut data));
+    }
+
+    #[test]
+    fn the_overview_splits_the_income_by_good_and_place_and_sets_it_against_the_spending() {
+        use versekit_core::stock_journal::{Proof, Purchase};
+        set_thread_language(Choice::De);
+        let (root, paths) = world("einnahmen");
+        fill(&paths);
+        write(
+            &paths,
+            versekit_core::stock_journal::names::COMMODITY_NAMES_FILE,
+            r#"{"format": 1, "stand": "x", "waren": {"g-stims": "Stims", "g-gold": "Gold"}}"#,
+        );
+        let now = now_seconds() as i64;
+        let sale = |time: i64, guid: &str, price_total: f64, proof: Proof| Purchase {
+            time,
+            class: String::new(),
+            guid: guid.into(),
+            quantity: 1,
+            price_total,
+            place: None,
+            shop: "TerminalShop".into(),
+            proof,
+        };
+        write_sales(
+            &paths,
+            now - 100,
+            1000.0,
+            &[
+                sale(now - 50, "g-stims", 700.0, Proof::Requested),
+                sale(now - 40, "g-gold", 300.0, Proof::BoxGone),
+                sale(now - 30, "g-gold", 250.0, Proof::BoxGone),
+                Purchase { class: "x_unknown".into(), shop: "SCShop_Kiosk".into(), ..sale(now - 20, "", 50.0, Proof::Answer) },
+            ],
+        );
+        // One of the two completed contracts of the mission log has a fixed reward in the catalog.
+        let english = std::path::Path::new(&paths.game_folder().expect("game")).join("data/Localization/english");
+        std::fs::create_dir_all(&english).unwrap();
+        std::fs::write(english.join("global.ini"), "\u{feff}Retake_Outpost_Title=Retake the Outpost\r\n").unwrap();
+        write(
+            &paths,
+            versekit_core::injection::reputation::CACHE_FILE,
+            r#"{"format": 3, "angaben": {"retake_outpost_title": {"belohnung": 20000}}}"#,
+        );
+        let mut state = StatsState::of(&paths);
+        draw(&mut state, Page::Overview, 900.0);
+        state.wait();
+        let (shown, overflow) = draw(&mut state, Page::Overview, 900.0);
+        assert!(overflow <= 0.5, "{overflow}");
+        let after = |title: &str, n: usize| {
+            let at = shown.iter().position(|t| t == title).unwrap_or_else(|| panic!("{title}: {shown:?}"));
+            shown[at + n].clone()
+        };
+        // By good: Gold 550 in two sales, Stims 700 requested, the unnamed one last.
+        assert!(has(&shown, "Verkäufe nach Ware"), "{shown:?}");
+        assert_eq!(after("Stims", 2), "700 aUEC");
+        assert_eq!(after("Stims", 3), "1 (1 angefragt)");
+        assert_eq!(after("Gold", 2), "550 aUEC");
+        assert_eq!(after("Gold", 3), "2");
+        assert!(has(&shown, "unbekannte Ware"), "{shown:?}");
+        assert!(has(&shown, "Verkäufe nach Ort") && has(&shown, "unbekannter Ort"), "{shown:?}");
+        // The balance: 1300 sold, 1000 bought; the reward of the contract in October counts in all only. The 700
+        // only requested and the reward of the catalog are named.
+        assert!(has(&shown, "Einnahmen und Ausgaben"), "{shown:?}");
+        // Today, in the week and in all a requested sale is in the sum: each says "ca.".
+        let net = shown.iter().filter(|t| *t == "ca. +300 aUEC").count();
+        assert_eq!(net, 2, "today and week: {shown:?}");
+        assert!(shown.iter().any(|t| t == "ca. +20.300 aUEC"), "{shown:?}");
+        assert!(has(&shown, "21.300 aUEC ein · 1.000 aUEC aus"), "{shown:?}");
+        assert!(has(&shown, "Geschätzt: Darin stecken 700 aUEC"), "{shown:?}");
+        assert_eq!(after("Aufträge (Auftragslog)", 1), "2", "the two completed of the mission log");
+        assert!(has(&shown, "Warenkäufe am Terminal und andere Ausgaben"), "{shown:?}");
+        assert!(has(&shown, "Laut Katalog: 20.000 aUEC aus 1 von 2 Aufträgen"), "{shown:?}");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn the_balance_reads_in_english_too() {
+        use versekit_core::stock_journal::{Proof, Purchase};
+        set_thread_language(Choice::En);
+        let (root, paths) = world("einnahmen-en");
+        fill(&paths);
+        let now = now_seconds() as i64;
+        let sold = Purchase {
+            time: now - 50,
+            class: "x_class".into(),
+            guid: "g".into(),
+            quantity: 1,
+            price_total: 400.0,
+            place: None,
+            shop: "SCShop_Kiosk".into(),
+            proof: Proof::Answer,
+        };
+        write_sales(&paths, now - 100, 1000.0, &[sold]);
+        let mut state = StatsState::of(&paths);
+        draw(&mut state, Page::Overview, 900.0);
+        state.wait();
+        let (shown, _) = draw(&mut state, Page::Overview, 900.0);
+        set_thread_language(Choice::Auto);
+        for text in ["Income and spending", "Sales by commodity", "Sales by place", "Contracts (contract log)", "-600 aUEC"] {
+            assert!(has(&shown, text), "{text}: {shown:?}");
+        }
+        assert!(!has(&shown, "Estimated") && !has(&shown, "approx."), "nothing requested, nothing estimated: {shown:?}");
+        assert!(has(&shown, "the log names no reward"), "no catalog, only the count: {shown:?}");
         let _ = std::fs::remove_dir_all(root);
     }
 

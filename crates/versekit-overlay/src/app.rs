@@ -279,6 +279,8 @@ pub struct OverlayApp {
     /// Under `--gegenprobe im_bildfaden`: the last read here and the writes done here.
     inline_read: Instant,
     inline_writes: u64,
+    /// The main window changed the settings: the search reads its own anew with the next snapshot.
+    search_reload_due: bool,
     args: Args,
     pub vis: Visibility,
     /// Until then (seconds of the run) the line of the scanner shows in the open overlay, also where the
@@ -313,6 +315,9 @@ pub struct OverlayApp {
     /// The hotkey of the handle search in the info bar, read at every key, and its presses.
     search_hotkey: Arc<Mutex<Option<Hotkey>>>,
     search_presses: Receiver<()>,
+    /// The hotkey of the main window, read at every key, and its presses.
+    main_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    main_presses: Receiver<()>,
     /// The bridge to scmdb.net (`apply_scmdb`).
     scmdb: versekit_core::scmdb_bridge::Bridge,
     started: Instant,
@@ -795,6 +800,8 @@ impl OverlayApp {
     /// it changed them, past any cached stamp.
     fn refresh_settings(&mut self, ctx: &egui::Context) {
         let told = self.settings_told.swap(false, Ordering::Relaxed) && self.counter.as_deref() != Some("einstellung");
+        // The fresh read comes from the file thread a few frames later: what was told waits for it.
+        self.search_reload_due |= told;
         let snapshot = if self.counter.as_deref() == Some("im_bildfaden") {
             if !told && !files::read_due(self.inline_read) {
                 return;
@@ -817,7 +824,7 @@ impl OverlayApp {
         }
         self.file_settings = snapshot.settings;
         // The search reads its settings and relations anew only when the main window changed something.
-        if told {
+        if std::mem::take(&mut self.search_reload_due) {
             self.search.reload_settings();
         }
         self.hangar_start = snapshot.hangar_start;
@@ -861,6 +868,7 @@ impl OverlayApp {
             *self.refinery.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.scan_hotkey;
             *self.picture.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.picture_hotkey;
             *self.search_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.search_hotkey;
+            *self.main_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.main_hotkey;
             let scmdb_changed = fresh.scmdb != self.settings.scmdb;
             let sizes = (self.settings.size_percent, fresh.size_percent);
             self.settings = fresh;
@@ -1125,6 +1133,15 @@ impl OverlayApp {
                 let hint = Row::Hint { text: Phrase::new("ov_hk_suche_ohne_leiste").into(), contract: None };
                 self.rows.push(hint, self.settings.rows);
             }
+        }
+        // The hotkey of the main window: shown on its page and in front, started where it does not run. Several
+        // presses in one frame are one.
+        let mut main_asked = false;
+        while self.main_presses.try_recv().is_ok() {
+            main_asked = true;
+        }
+        if main_asked {
+            self.show_main_by_key();
         }
         // What became of the hotkey grab under X11: taken, no such key, or a new one that works.
         for phrase in hotkey_x11::take_told() {
@@ -1570,6 +1587,19 @@ impl OverlayApp {
     ///
     /// A page asked for while the window is not there yet is kept and handed on as soon as the
     /// started window shows up (`deliver_pending_page`).
+    /// The hotkey of the main window: as [`OverlayApp::open_main`] without a page, and under Windows the running window
+    /// takes the front and the keyboard as well, so that it can be used at once (the game keeps running behind it).
+    fn show_main_by_key(&mut self) {
+        self.open_main(Signal::Show);
+        #[cfg(windows)]
+        if self.args.probe.is_none()
+            && self.counter.as_deref() != Some("uebersicht")
+            && let Some(hwnd) = window_signal::find(Role::Main)
+        {
+            crate::win::give_front(hwnd);
+        }
+    }
+
     pub fn open_main(&mut self, signal: Signal) {
         if self.counter.as_deref() == Some("uebersicht") {
             return;
@@ -1580,8 +1610,10 @@ impl OverlayApp {
             return;
         }
         // Counter check: the page is forgotten, the started window shows its overview.
-        self.pending_page = (signal != Signal::Overview && self.counter.as_deref() != Some("seite_vergessen"))
-            .then(|| (signal, Instant::now()));
+        // The overview and the bare showing need no page: the started window shows its overview.
+        let page = !matches!(signal, Signal::Overview | Signal::Show);
+        self.pending_page =
+            (page && self.counter.as_deref() != Some("seite_vergessen")).then(|| (signal, Instant::now()));
         // Started a moment ago, still running and not yet marked: a second click starts no second one.
         let running = self.main_child.as_mut().is_some_and(|child| matches!(child.try_wait(), Ok(None)));
         if running && self.started_main.is_some_and(|t| t.elapsed() < MAIN_STARTING) {
@@ -2284,6 +2316,8 @@ struct Parts {
     picture: crate::picture::PictureKey,
     search_hotkey: Arc<Mutex<Option<Hotkey>>>,
     search_presses: Receiver<()>,
+    main_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    main_presses: Receiver<()>,
     control: Option<Receiver<Control>>,
     start: Rect,
     /// A size or place was remembered: the first frame does not measure a default size.
@@ -2363,6 +2397,7 @@ impl OverlayApp {
             files: p.files,
             inline_read: Instant::now(),
             inline_writes: 0,
+            search_reload_due: false,
             scanner_line_until: 0.0,
             demand: p.demand,
             update: p.args.update.clone(),
@@ -2392,6 +2427,8 @@ impl OverlayApp {
             picture: p.picture,
             search_hotkey: p.search_hotkey,
             search_presses: p.search_presses,
+            main_hotkey: p.main_hotkey,
+            main_presses: p.main_presses,
             scmdb: versekit_core::scmdb_bridge::Bridge::new(),
             started: Instant::now(),
             current: start,
@@ -2600,6 +2637,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     Signal::ShowFrame => &framed,
                     // The pages are for the main window; the overlay has none. Anti-AFK is handled above.
                     Signal::Close
+                    | Signal::Show
                     | Signal::OpenGeneral
                     | Signal::OpenTranslation
                     | Signal::OpenAbout
@@ -2761,6 +2799,28 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             }
             #[cfg(not(windows))]
             drop(picture_tx);
+            // The hotkey of the main window, the same way as the one of the handle search.
+            let main_hotkey = Arc::new(Mutex::new(settings.main_hotkey));
+            let (main_tx, main_rx) = mpsc::channel();
+            #[cfg_attr(target_os = "macos", allow(unused_mut))]
+            let mut main_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() {
+                let ctx = cc.egui_ctx.clone();
+                main_registered =
+                    crate::win::start_hotkeys(main_hotkey.clone(), main_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(all(unix, not(target_os = "macos")))]
+            if args.probe.is_none() {
+                let ctx = cc.egui_ctx.clone();
+                main_registered = hotkey_x11::start(main_hotkey.clone(), main_tx, move || ctx.request_repaint())
+                    .then_some(())
+                    .ok_or_else(|| "kein X-Server".to_string());
+            }
+            #[cfg(target_os = "macos")]
+            drop(main_tx);
             if args.probe.is_none()
                 && let Some(choice) = &hotkey_choice
             {
@@ -2778,6 +2838,8 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                         let picture = overlay::HotkeyChoice::read_picture(paths);
                         versekit_core::trail::step(&overlay::picture_hotkey_trail(&picture, picture_registered));
                     }
+                    let main = overlay::HotkeyChoice::read_main(paths);
+                    versekit_core::trail::step(&overlay::main_hotkey_trail(&main, main_registered));
                 }
             }
             let mut app = OverlayApp::new(Parts {
@@ -2797,6 +2859,8 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 picture,
                 search_hotkey,
                 search_presses: search_rx,
+                main_hotkey,
+                main_presses: main_rx,
                 control: control_rx,
                 start,
                 remembered: remembered.is_some(),
@@ -2937,6 +3001,8 @@ mod tests {
         search_key: Sender<()>,
         /// A press of the hotkey of the picture of the game.
         picture_key: Sender<()>,
+        /// A press of the hotkey of the main window.
+        main_key: Sender<()>,
     }
 
     fn bench(args: Args, real_game: bool, paths: Option<Paths>) -> Bench {
@@ -2982,6 +3048,29 @@ mod tests {
         bench.app.take_news();
         assert!(bench.app.info.key_asked(), "the bar is asked for the cursor");
         assert_eq!(hints(&bench.app), 1, "no second hint");
+    }
+
+    /// The hotkey of the main window starts it where none runs, without a page to hand on (the started window shows
+    /// its overview); presses that come together are one.
+    #[test]
+    fn the_hotkey_of_the_main_window_starts_it_without_a_page() {
+        let args = Args {
+            probe: Some("probe.txt".into()),
+            main_program: Some(std::path::PathBuf::from("versekit-test.exe")),
+            ..Args::default()
+        };
+        let mut bench = bench(args, false, None);
+        bench.app.take_news();
+        assert!(bench.app.launched.is_none(), "no press, nothing started");
+        bench.main_key.send(()).unwrap();
+        bench.main_key.send(()).unwrap();
+        bench.app.take_news();
+        let started = bench.app.launched.as_ref().map(|l| l.0.clone()).expect("the main window is started");
+        assert!(started.ends_with("versekit-test.exe"), "{started:?}");
+        assert!(bench.app.pending_page.is_none(), "no page waits for the started window");
+        bench.app.launched = None;
+        bench.app.take_news();
+        assert!(bench.app.launched.is_none(), "the presses were taken");
     }
 
     /// The hotkey of the picture of the game: two quick presses are one grab, and a hint row says what came of it
@@ -3050,6 +3139,7 @@ mod tests {
         let (control, control_rx) = mpsc::channel();
         let (search_key, search_rx) = mpsc::channel();
         let (picture_key, picture_rx) = mpsc::channel();
+        let (main_key, main_rx) = mpsc::channel();
         let file_settings = Settings::default();
         let forced_game = Arc::new(ForcedGame::new(args.game.then_some(true)));
         let app = OverlayApp::new(Parts {
@@ -3069,6 +3159,8 @@ mod tests {
             picture: crate::picture::PictureKey::new(None, picture_rx),
             search_hotkey: Arc::new(Mutex::new(None)),
             search_presses: search_rx,
+            main_hotkey: Arc::new(Mutex::new(None)),
+            main_presses: main_rx,
             control: Some(control_rx),
             start: Rect::new(10, 20, 540, 390),
             remembered: true,
@@ -3081,7 +3173,7 @@ mod tests {
             afk_asked: Arc::new(AtomicU8::new(0)),
             demand: Arc::new(Mutex::new(Vec::new())),
         });
-        Bench { app, news, game, control, search_key, picture_key }
+        Bench { app, news, game, control, search_key, picture_key, main_key }
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {
@@ -3695,6 +3787,37 @@ mod tests {
         assert_eq!(back, fresh.app.last_open, "the default size in the middle of the main screen");
         assert_eq!(back, centered_on_main((back.w, back.h)));
         assert!(running.app.place_changed.is_none(), "nothing remembered until the player moves it");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A setting of the search changed in the main window reaches the running overlay through its file thread,
+    /// although the fresh read arrives frames after the main window told it.
+    #[test]
+    fn a_search_setting_changed_in_the_main_window_reaches_the_running_overlay() {
+        use versekit_core::handle_query::cache::KEY_AFFILIATIONS;
+        let ctx = egui::Context::default();
+        versekit_ui::install(&ctx);
+        let root = scratch("suche-einst");
+        std::fs::create_dir_all(root.join(versekit_core::paths::COPY_DATA_FOLDER)).expect("data folder");
+        let host = Host::new(versekit_core::pypath::Flavor::native(), &[], &root.to_string_lossy());
+        let copy = || Paths::for_copy(host.clone(), &root.to_string_lossy()).expect("a copy");
+        let main_window = copy();
+        assert!(main_window.set_setting(KEY_AFFILIATIONS, Value::int(1)));
+        let mut running = bench(Args::default(), false, Some(copy()));
+        running.app.files = Some(files::start(copy(), versekit_core::writeguard::state(), || {}));
+        // The first read of the thread is taken here, the next one comes a second later.
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        run_frame(&mut running.app, &ctx);
+        assert_eq!(running.app.search.current_settings().affiliations, 1);
+        assert!(main_window.set_setting(KEY_AFFILIATIONS, Value::int(2)));
+        running.app.settings_told.store(true, Ordering::Relaxed);
+        let deadline = Instant::now() + std::time::Duration::from_secs(5);
+        while running.app.search.current_settings().affiliations != 2 && Instant::now() < deadline {
+            run_frame(&mut running.app, &ctx);
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert_eq!(running.app.search.current_settings().affiliations, 2, "the overlay shows three organizations");
+        running.app.files = None;
         let _ = std::fs::remove_dir_all(&root);
     }
 
