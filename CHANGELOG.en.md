@@ -6,6 +6,36 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.8 - 2026-11-10
+
+> The contract details now reach the game by themselves after the update,
+> Shops lists every shop good down to the water, and "Report error" only
+> lights up for real errors.
+
+### Improved
+
+- **Shops lists every shop good:** drinks, food, medicine, clothing,
+  liveries and decorations too, with shop and price (for example Vestal
+  Water at Ellroy's in New Babbage). The larger catalog arrives on its own
+  after the update, without opening the page.
+
+### Fixed
+
+- **Contract details after the update:** VerseKit now rebuilds the outdated
+  catalog by itself shortly after the start (after the game ends if it is
+  running) and then adds the contract details to the game texts by itself.
+  The Blueprints page no longer has to be opened for it.
+- **"Insert again"** no longer reports "contract details added" while the
+  game data are still being read anew; the message says the details will
+  follow.
+- **"Report error" lit up without an error:** differences between your game
+  data and scmdb.net now appear as a note in the error report.
+- **Commodity terminal sales without a matching box list** no longer flood
+  the error log. They now show up as "requested" instead of going missing,
+  and older logs are read once more for them. Reported by LOGGAN89
+- **Error report:** now also redacts shop and kiosk IDs in log lines and
+  takes log lines VerseKit cannot read along as redacted examples.
+
 ## v5.2.7 - 2026-11-09
 
 > Terminal sales and income in the statistics, cooldown, buy-in and

@@ -271,8 +271,9 @@ fn a_field_of_the_shops_opens_its_list_and_takes_an_entry() {
 pub(super) fn catalog_file() -> String {
     let fetched = seconds() - 7_200.0;
     let format = versekit_core::shops::FORMAT_CATALOG;
+    let range = versekit_core::shops::RANGE;
     format!(
-        r#"{{"namen":{{"arctic":101,"frost":102}},"kategorien":[["Systems","Coolers"],["Armor","Helmets"]],"teile":[{{"n":"Arctic","s":"u-101","k":0,"h":"ACME","g":"2","c":"Military","q":"A","o":["Lorville","Port Olisar"],"p":[1200.0,"Lorville"],"l":[[0,1200.0],[1,1500.0]]}},{{"n":"Frost","s":"id:102","k":0,"h":"","g":"1","c":"","q":"B","o":["Port Olisar"],"l":[[1,300.0]]}},{{"n":"Iron Helmet","s":"u-201","k":1,"h":"Armorsmith","g":"","c":"","q":"","o":["Lorville"],"p":[800,"Lorville"],"l":[[2,800.0]]}}],"preise_namen":{{"arctic":[1200.0,"Lorville"]}},"kennungen":["u-101","u-201"],"mit_laeden":true,"laeden":[["Shop A","Lorville","Stanton"],["Shop B","Port Olisar","Stanton"],["Tammany","Lorville","Stanton"]],"format":{format},"geholt":{fetched}}}"#
+        r#"{{"warenumfang":{range},"namen":{{"arctic":101,"frost":102}},"kategorien":[["Systems","Coolers"],["Armor","Helmets"]],"teile":[{{"n":"Arctic","s":"u-101","k":0,"h":"ACME","g":"2","c":"Military","q":"A","o":["Lorville","Port Olisar"],"p":[1200.0,"Lorville"],"l":[[0,1200.0],[1,1500.0]]}},{{"n":"Frost","s":"id:102","k":0,"h":"","g":"1","c":"","q":"B","o":["Port Olisar"],"l":[[1,300.0]]}},{{"n":"Iron Helmet","s":"u-201","k":1,"h":"Armorsmith","g":"","c":"","q":"","o":["Lorville"],"p":[800,"Lorville"],"l":[[2,800.0]]}}],"preise_namen":{{"arctic":[1200.0,"Lorville"]}},"kennungen":["u-101","u-201"],"mit_laeden":true,"laeden":[["Shop A","Lorville","Stanton"],["Shop B","Port Olisar","Stanton"],["Tammany","Lorville","Stanton"]],"format":{format},"geholt":{fetched}}}"#
     )
 }
 

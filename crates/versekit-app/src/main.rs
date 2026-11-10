@@ -189,6 +189,13 @@ fn main() -> eframe::Result {
     if backed_up {
         overlay.open_overview = true;
     }
+    // The catalog of the shops follows the patch and the range of goods in the process that runs all the time.
+    if overlay.probe.is_none()
+        && (overlay.real || overlay.data.is_some())
+        && let Some(paths) = run_paths(overlay.data.as_deref())
+    {
+        versekit_ui::trade::start_catalog_sync(&paths);
+    }
     // The overlay starts this very file as the main window, on the same data.
     if overlay.main_program.is_none()
         && let Ok(own) = std::env::current_exe()

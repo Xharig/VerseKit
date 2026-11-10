@@ -321,7 +321,8 @@ impl GameTextsState {
     fn apply_now(&mut self) {
         self.start(|paths, _, archive, out| {
             let version = versekit_core::stock_fetch::live_build(paths);
-            let said = outcome_text(&game_texts::apply(paths, archive, &version));
+            let behind = versekit_gamedata::list::catalog_behind(paths);
+            let said = applied_text(&game_texts::apply(paths, archive, &version), behind);
             let _ = out.send(Message::Done(said.0, said.1));
         });
     }
@@ -457,7 +458,7 @@ impl GameTextsState {
                             let _ = out
                                 .send(Message::Progress(tf("inj_alt_aufgeraeumt", &[("0", Arg::from(count as i64))])));
                         }
-                        switched_text(&done)
+                        switched_text(&done, versekit_gamedata::list::catalog_behind(paths))
                     }
                     Err(problem) => (tf("inj_fehler", &[("0", Arg::from(problem))]), true),
                 },
@@ -557,6 +558,16 @@ fn outcome_text(outcome: &Outcome) -> (String, bool) {
     }
 }
 
+/// [`outcome_text`] of a writing from a catalog that may lag behind the game data (`behind`, see
+/// `versekit_gamedata::list::catalog_behind`): then the contract details of the current game data are not in it yet,
+/// and the text says so instead of naming them as written.
+pub fn applied_text(outcome: &Outcome, behind: bool) -> (String, bool) {
+    match outcome {
+        Outcome::Done(count) if behind => (tf("inj_aktiv_neubau", &[("0", Arg::from(*count as i64))]), false),
+        other => outcome_text(other),
+    }
+}
+
 /// One channel to look at: its chosen source, the channel (`None` for the main installation) and its folder.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Check {
@@ -613,7 +624,7 @@ fn check_one(paths: &Paths, net: &dyn Net, archive: &dyn Archive, check: &Check)
             &versekit_core::stock_fetch::live_build(paths),
             &progress,
         ) {
-            Ok(done) => switched_text(&done),
+            Ok(done) => switched_text(&done, versekit_gamedata::list::catalog_behind(paths)),
             Err(problem) => (tf("inj_fehler", &[("0", Arg::from(problem))]), true),
         },
         Some(channel) => match game_texts::switch_side(paths, net, archive, channel, root, source, &progress) {
@@ -625,11 +636,11 @@ fn check_one(paths: &Paths, net: &dyn Net, archive: &dyn Archive, check: &Check)
 
 /// The text of a switch of the source: what was placed, then how the
 /// writing of the notes ended (none while the notes are switched off).
-fn switched_text(done: &game_texts::Switched) -> (String, bool) {
+fn switched_text(done: &game_texts::Switched, behind: bool) -> (String, bool) {
     match &done.applied {
         None => (done.fetched.clone(), false),
         Some(outcome) => {
-            let (text, bad) = outcome_text(outcome);
+            let (text, bad) = applied_text(outcome, behind);
             (format!("{} · {text}", done.fetched), bad)
         }
     }
@@ -1678,6 +1689,31 @@ mod tests {
         assert_eq!(game.text(), GAME);
         // Title, description and item name went back.
         assert_eq!(state.said().cloned(), Some((tf("inj_entfernt", &[("0", Arg::from(3i64))]), false)));
+    }
+
+    #[test]
+    fn insert_again_from_a_catalog_behind_the_game_data_says_the_contract_details_are_still_to_come() {
+        let game = Game::new("hand-alter-katalog");
+        game.german();
+        let mut state =
+            GameTextsState::with_parts(&game.paths, Arc::new(Fake::default()), Arc::new(game_texts::NoArchive));
+        let page = Page::new();
+        // An archive and no catalog built from it in this layout: the catalog lags behind the game data.
+        assert!(versekit_gamedata::list::catalog_behind(&game.paths));
+        assert!(page.click(&Which::Game, &mut state, Role::Button, &t("s_sp_jetzt")));
+        settle(&mut state);
+        let (said, bad) = state.said().cloned().expect("a message");
+        assert!(!bad, "{said}");
+        assert!(game.text().contains("Kopfgeld <EM4>[BP]</EM4>"), "the notes at hand are written");
+        assert!(said.starts_with("Spieltexte ergänzt (") && said.contains("noch ohne die Auftragsangaben"), "{said}");
+        assert!(!said.contains("Auftragsangaben eingetragen"), "{said}");
+        // Without an archive there is nothing to read anew: the plain message.
+        fs::remove_file(format!("{}/Data.p4k", game.live)).unwrap();
+        assert!(!versekit_gamedata::list::catalog_behind(&game.paths));
+        assert!(page.click(&Which::Game, &mut state, Role::Button, &t("s_sp_jetzt")));
+        settle(&mut state);
+        let (said, _) = state.said().cloned().expect("a message");
+        assert!(said.starts_with("Spieltexte ergänzt (") && !said.contains("noch ohne"), "{said}");
     }
 
     #[test]

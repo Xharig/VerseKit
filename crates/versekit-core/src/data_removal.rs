@@ -132,6 +132,7 @@ pub const KNOWN_FILES: &[&str] = &[
     "injektion-urtext.json",
     "joystick-saetze.json",
     "katalog-cache.json",
+    "katalog-neubau.lock",
     "katalog-spieldaten.json",
     "konten-je-log.json",
     "laeden-katalog.json",

@@ -846,9 +846,22 @@ fn keep_texts_while(
         });
         let behind: versekit_core::game_texts::watch::CraftCheck =
             Arc::new(|paths: &Paths, build: &str| versekit_gamedata::list::craft_data_behind(paths, build));
+        // A catalog that lags behind the game data at the start (an update of VerseKit with a new layout, a patch
+        // while VerseKit was closed) is built anew without a page open, as soon as the game is closed.
+        let lags: versekit_core::game_texts::watch::CatalogCheck =
+            Arc::new(|paths: &Paths| versekit_gamedata::list::catalog_behind(paths));
+        let refresh: versekit_core::game_texts::watch::CatalogBuild = Arc::new(|paths: &Paths| {
+            versekit_gamedata::list::refresh_catalog(paths).map(|built| {
+                versekit_core::game_texts::watch::CatalogBuilt {
+                    version: built.version.clone(),
+                    blueprints: built.blueprints.len(),
+                }
+            })
+        });
         let mut watch = TextsWatch::new(net, Arc::new(versekit_ui::game_texts_page::GameArchive), recipes)
             .with_catalog(catalog)
-            .with_craft_check(behind);
+            .with_craft_check(behind)
+            .with_catalog_refresh(lags, refresh);
         let start = Instant::now();
         loop {
             let mut told = Vec::new();

@@ -694,6 +694,8 @@ pub struct Job {
     pub own_original: bool,
     /// Only the collection changed: no look at foreign changes.
     pub stock_only: bool,
+    /// The catalog was brought up to date: the notes are written anew, whatever the marks say.
+    pub rewrite: bool,
 }
 
 /// The clocks of the background (`texte_*` of the 4.12 watcher).
@@ -709,6 +711,8 @@ pub struct Upkeep {
     file_stamp: Option<FileStamp>,
     /// A run is going on; no second one starts.
     pub running: bool,
+    /// The next run writes the notes anew ([`Job::rewrite`]); dropped while they are not kept current by themselves.
+    pub rewrite: bool,
 }
 
 impl Upkeep {
@@ -777,9 +781,11 @@ impl Upkeep {
         }
         if !paths.setting_bool(SETTING_ON, true) || !paths.setting_bool(SETTING_AUTO, true) {
             self.texts_next = now + TEXTS_POLL_SECONDS;
+            self.rewrite = false;
             return None;
         }
-        let mut due = now >= self.texts_next;
+        let rewrite = std::mem::take(&mut self.rewrite);
+        let mut due = now >= self.texts_next || rewrite;
         let mut stock_new = false;
         if !due && now >= self.stock_next {
             self.stock_next = now + STOCK_POLL_SECONDS;
@@ -810,7 +816,7 @@ impl Upkeep {
             self.texts_next = now + self.texts_interval(now);
         }
         self.running = true;
-        Some(Job { channels, source, own_original, stock_only: !(due || file_new) })
+        Some(Job { channels, source, own_original, stock_only: !(due || file_new), rewrite })
     }
 
     /// The run is over; remember the text file as it is now, so that the
@@ -867,7 +873,9 @@ pub fn run(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_
                 ran.notices.extend(language_line(paths, kept));
             }
             let Some(target) = kept.target(paths).filter(|t| game_ini::is_file(t)) else { continue };
-            if !paths.setting_bool(SETTING_ON, true) || !(fresh || marks_new || !injection::is_applied(&target)) {
+            if !paths.setting_bool(SETTING_ON, true)
+                || !(fresh || marks_new || job.rewrite || !injection::is_applied(&target))
+            {
                 continue;
             }
             let inputs = inputs.get_or_insert_with(|| prepare(paths, archive, game_version));
@@ -985,7 +993,7 @@ fn reconcile(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, gam
             needed = true;
         }
     }
-    if !needed && !job.stock_only && !injection::is_applied(&target) {
+    if !needed && !job.stock_only && (job.rewrite || !injection::is_applied(&target)) {
         needed = true;
     }
     let owned = sources::owned(paths);

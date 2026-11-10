@@ -79,6 +79,7 @@ fn looked(recipes: Result<Updated, String>) -> Done {
         ran: None,
         looked: Some(Looked { recipes: Some(recipes), mining: None, craft: false }),
         catalog: None,
+        refreshed: None,
         denied: Vec::new(),
     }
 }
@@ -252,7 +253,7 @@ fn a_current_recipe_file_is_looked_at_again_after_six_hours() {
     let mut watch = watch(Arc::default());
     let (sender, receiver) = mpsc::channel();
     sender.send(looked(Ok(Updated::Current(2)))).unwrap();
-    watch.in_flight = Some(InFlight { job: false, catalog: false, mining: false, done: receiver });
+    watch.in_flight = Some(InFlight { job: false, catalog: false, refresh: false, mining: false, done: receiver });
     watch.started = true;
     watch.tick(&paths, 10.0);
     assert_eq!(watch.recipes_next, 10.0 + RECIPES_POLL_SECONDS);
@@ -291,7 +292,7 @@ fn new_recipes_have_the_notes_written_anew() {
     for (now, updated) in [(2.0, Updated::Written(3)), (3.0, Updated::Corrected(3))] {
         let (sender, receiver) = mpsc::channel();
         sender.send(looked(Ok(updated.clone()))).unwrap();
-        watch.in_flight = Some(InFlight { job: false, catalog: false, mining: false, done: receiver });
+        watch.in_flight = Some(InFlight { job: false, catalog: false, refresh: false, mining: false, done: receiver });
         let told = settle(&mut watch, &paths, now);
         assert!(applied(&told), "the notes come again with {updated:?}: {told:?}");
         assert_eq!(watch.recipes_next, now + RECIPES_POLL_SECONDS);
@@ -335,6 +336,74 @@ fn failing_catalog(fails: usize) -> (CatalogBuild, Arc<Mutex<usize>>) {
         Some(CatalogBuilt { version: "4.3.2-live.1".to_string(), blueprints: 7 })
     });
     (build, built)
+}
+
+thread_local! {
+    /// Whether the stand-in archive may be read (the game is closed), for the watch of this thread.
+    static FREE: Cell<bool> = const { Cell::new(true) };
+}
+
+fn archive_free(_: &Paths) -> bool {
+    FREE.with(Cell::get)
+}
+
+#[test]
+fn a_catalog_behind_at_the_start_is_built_once_the_game_is_closed_and_the_notes_are_written_anew() {
+    let s = Setup::new("wache-katalog-rueckstand");
+    s.set_up_german();
+    let paths = Arc::new(Paths::new(s.paths.host.clone()));
+    let (build, built) = counting_catalog();
+    let mut watch = watch(Arc::default()).with_catalog_refresh(Arc::new(|_: &Paths| true), build);
+    watch.archive_free = archive_free;
+    FREE.with(|free| free.set(false));
+    assert!(applied(&settle(&mut watch, &paths, 0.0)), "the start writes the notes it has");
+    for now in [1.0, 10.0, 60.0] {
+        settle(&mut watch, &paths, now);
+    }
+    assert_eq!(*built.lock().unwrap(), 0, "no build while the game runs");
+    FREE.with(|free| free.set(true));
+    settle(&mut watch, &paths, 70.0);
+    assert_eq!(*built.lock().unwrap(), 1, "built once the game is closed, without a page open");
+    let told = settle(&mut watch, &paths, 71.0);
+    assert!(applied(&told), "the notes are written anew from the new catalog: {told:?}");
+    for now in [72.0, 200.0, 1000.0] {
+        assert!(!applied(&settle(&mut watch, &paths, now)), "once: {now}");
+    }
+    assert_eq!(*built.lock().unwrap(), 1, "built once");
+}
+
+#[test]
+fn a_catalog_up_to_date_at_the_start_is_not_built_anew() {
+    let s = Setup::new("wache-katalog-aktuell");
+    s.set_up_german();
+    let paths = Arc::new(Paths::new(s.paths.host.clone()));
+    let (build, built) = counting_catalog();
+    let mut watch = watch(Arc::default()).with_catalog_refresh(Arc::new(|_: &Paths| false), build);
+    watch.archive_free = archive_free;
+    FREE.with(|free| free.set(true));
+    for now in [0.0, 1.0, 70.0, 1000.0] {
+        settle(&mut watch, &paths, now);
+    }
+    assert_eq!(*built.lock().unwrap(), 0);
+}
+
+#[test]
+fn without_keeping_the_texts_current_the_catalog_is_built_but_the_notes_are_left_alone() {
+    let s = Setup::new("wache-katalog-ohne-auto");
+    s.set_up_german();
+    let paths = Arc::new(Paths::new(s.paths.host.clone()));
+    paths.set_setting(super::super::SETTING_AUTO, Value::Bool(false));
+    let (build, built) = counting_catalog();
+    let mut watch = watch(Arc::default()).with_catalog_refresh(Arc::new(|_: &Paths| true), build);
+    watch.archive_free = archive_free;
+    FREE.with(|free| free.set(true));
+    let mut told = Vec::new();
+    for now in [0.0, 1.0, 2.0, 70.0] {
+        told.extend(settle(&mut watch, &paths, now));
+    }
+    assert_eq!(*built.lock().unwrap(), 1, "the catalog is brought up to date all the same");
+    assert!(!applied(&told), "{told:?}");
+    assert!(!injection::is_applied(&s.ini()));
 }
 
 #[test]

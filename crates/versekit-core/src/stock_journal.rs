@@ -37,9 +37,11 @@
 //! left, which writes no line) leaves them `Requested`.
 //! ⚠ The same request again within [`REPEAT_SECONDS`] of the first while that is
 //! still `Requested` (the line twice, a second click) is the same sale; without
-//! boxes only in the same second. ⚠ With `transactionMode[ResourceContainer]` the
-//! SCU must be the sum of size × count of its boxes, else the line is not read and
-//! the error log says so.
+//! boxes only in the same second. ⚠ A request whose boxes are missing, cannot be
+//! read or (with `transactionMode[ResourceContainer]`) do not hold its SCU is kept
+//! as `Requested` and never proven by boxes. A request whose price or quantity
+//! cannot be read is left out. Both are counted and noted once per run of the
+//! program as a note (`Hinweis`) in the error log, never as an error.
 //!
 //! ⚠ A move is read from its `Queued` line alone: the `New` line is mostly
 //! missing, often has source and target swapped and no usable class.
@@ -66,7 +68,6 @@ pub mod names;
 pub mod spending;
 pub mod suggestions;
 
-use crate::errors;
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::location;
 use crate::logread;
@@ -80,9 +81,9 @@ use crate::pypath::Flavor;
 use crate::text::decode_replace;
 
 pub const FILE: &str = "lagerjournal.json";
-/// 2 holds the sales (`verkaeufe`), 3 also the sales at a commodity terminal (`nachweis`); an older journal reads
-/// every log once more.
-pub const FORMAT: i64 = 3;
+/// 2 holds the sales (`verkaeufe`), 3 also the sales at a commodity terminal (`nachweis`), 4 also those without
+/// usable boxes; an older journal reads every log once more.
+pub const FORMAT: i64 = 4;
 /// A request at a commodity terminal that equals one this many seconds before it, still unproven, is the same sale.
 pub const REPEAT_SECONDS: i64 = 120;
 /// The list of the boxes before a request counts when it is at most this old.
@@ -426,6 +427,39 @@ struct Reading {
     awaiting: Vec<Awaiting>,
     /// The recent requests at a commodity terminal.
     asked: Vec<Asked>,
+    odd: Odd,
+}
+
+/// The sell requests at a commodity terminal of a log that do not have the usual form.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Odd {
+    /// Kept as `Requested` without a check by boxes: the boxes are missing, unreadable or do not hold the SCU.
+    pub unboxed: usize,
+    /// Left out: the price or the quantity cannot be read or is out of range.
+    pub unreadable: usize,
+    /// The first [`ODD_EXAMPLES`] of these lines as the log has them.
+    pub examples: Vec<String>,
+}
+
+/// So many odd lines are kept as examples.
+pub const ODD_EXAMPLES: usize = 3;
+
+impl Odd {
+    fn is_empty(&self) -> bool {
+        self.unboxed == 0 && self.unreadable == 0
+    }
+
+    /// Counts `line` as left out (`unreadable`) or as kept without boxes.
+    fn count(&mut self, line: &str, unreadable: bool) {
+        if unreadable {
+            self.unreadable += 1;
+        } else {
+            self.unboxed += 1;
+        }
+        if self.examples.len() < ODD_EXAMPLES {
+            self.examples.push(crate::text::py_strip(line).to_string());
+        }
+    }
 }
 
 impl Reading {
@@ -516,24 +550,22 @@ impl Reading {
     }
 
     /// A sell request at a commodity terminal: kept at once as `Requested`, or added to the same request a moment
-    /// before it. A request that cannot be read is noted in the error log (its time only).
+    /// before it. A request without usable boxes is kept without them (counted in `unboxed`); one whose price or
+    /// quantity cannot be read is left out (counted in `unreadable`).
     fn commodity_sell(&mut self, line: &str) {
         self.close_listing();
         let Some(c) = COMMODITY_SELL.captures(line) else { return };
         let Some(time) = seconds(time_of(line)) else { return };
-        let skip = |why: &str| errors::record("stock_journal.terminal_sale", &format!("{why} ({})", time_of(line)));
         let (Ok(price_total), Ok(scu)) = (c[3].trim().parse::<f64>(), c[5].trim().parse::<f64>()) else {
-            return skip("price or quantity unreadable");
+            return self.odd.count(line, true);
         };
         if !price_total.is_finite() || price_total < 0.0 || !scu.is_finite() || scu < 1.0 || scu.fract() != 0.0 {
-            return skip("price or quantity out of range");
+            return self.odd.count(line, true);
         }
-        let Some(boxed) = boxes_in(&line[c.get(0).map_or(0, |m| m.end())..]) else {
-            return skip("box data unreadable");
-        };
-        if &c[6] == "ResourceContainer" && (boxed.is_empty() || (scu_of(&boxed) - scu).abs() > 1e-6) {
-            return skip("the boxes do not hold the quantity");
-        }
+        let boxed = boxes_in(&line[c.get(0).map_or(0, |m| m.end())..])
+            .filter(|b| &c[6] != "ResourceContainer" || (!b.is_empty() && (scu_of(b) - scu).abs() <= 1e-6));
+        let unboxed = boxed.is_none();
+        let boxed = boxed.unwrap_or_default();
         let quantity = scu as u32;
         let (player, shop, guid) = (c[1].to_string(), c[2].to_string(), c[4].to_string());
         self.asked.retain(|a| time - a.time <= REPEAT_SECONDS);
@@ -558,6 +590,9 @@ impl Reading {
                     proof: Proof::Requested,
                 };
                 self.events.push((Event::Sale(deal), Some(player.clone())));
+                if unboxed {
+                    self.odd.count(line, false);
+                }
                 let index = self.events.len() - 1;
                 self.asked.push(Asked {
                     index,
@@ -692,6 +727,11 @@ impl Reading {
 /// `account` is the player of this log; only its own lines count. A deal names the player by number only,
 /// so it counts unless that number is known to belong to another handle. Without an account everyone counts.
 pub fn parse_text(text: &str, account: Option<&str>) -> Vec<Event> {
+    parse_text_odd(text, account).0
+}
+
+/// [`parse_text`] and the sell requests at a commodity terminal of the text that do not have the usual form.
+pub fn parse_text_odd(text: &str, account: Option<&str>) -> (Vec<Event>, Odd) {
     let account = account.filter(|a| !a.is_empty()).map(str::to_lowercase);
     let own = |handle: &str| account.as_deref().is_none_or(|a| handle.to_lowercase() == a);
     let mut reading = Reading::default();
@@ -699,12 +739,76 @@ pub fn parse_text(text: &str, account: Option<&str>) -> Vec<Event> {
         reading.line(line, &own);
     }
     reading.close_listing();
-    let Reading { events, handles, .. } = reading;
-    events
+    let Reading { events, handles, odd, .. } = reading;
+    let events = events
         .into_iter()
         .filter(|(_, player)| player.as_ref().and_then(|number| handles.get(number)).is_none_or(|handle| own(handle)))
         .map(|(event, _)| event)
-        .collect()
+        .collect();
+    (events, odd)
+}
+
+/// The place in the error log of the note on odd sell requests at a commodity terminal.
+pub const ODD_LABEL: &str = "stock_journal.terminal_sale";
+
+/// The text of the note on `odd`, in the current language: the counts, then the example lines, one per line;
+/// `None` when there is nothing to note.
+pub fn odd_note(odd: &Odd) -> Option<String> {
+    if odd.is_empty() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if odd.unboxed > 0 {
+        parts.push(crate::language::tf("s_lj_ohne_kisten", &[("anzahl", odd.unboxed.into())]));
+    }
+    if odd.unreadable > 0 {
+        parts.push(crate::language::tf("s_lj_unlesbar", &[("anzahl", odd.unreadable.into())]));
+    }
+    let mut text = parts.join(" ");
+    if !odd.examples.is_empty() {
+        text.push('\n');
+        text.push_str(&crate::language::t("s_lj_beispiele"));
+        for line in &odd.examples {
+            text.push('\n');
+            text.push_str(line);
+        }
+    }
+    Some(text)
+}
+
+/// Per log file, what was already noted in this run of the program.
+static NOTED: std::sync::Mutex<Option<HashMap<String, Odd>>> = std::sync::Mutex::new(None);
+
+/// What `read` (per log file what its reading found) adds to what `noted` holds for the same files; `noted` takes
+/// the new counts.
+fn odd_new_since(noted: &mut HashMap<String, Odd>, read: &[(String, Odd)]) -> Odd {
+    let mut new = Odd::default();
+    for (path, odd) in read {
+        let before = noted.insert(path.clone(), odd.clone()).unwrap_or_default();
+        let (unboxed, unreadable) =
+            (odd.unboxed.saturating_sub(before.unboxed), odd.unreadable.saturating_sub(before.unreadable));
+        if unboxed + unreadable == 0 {
+            continue;
+        }
+        new.unboxed += unboxed;
+        new.unreadable += unreadable;
+        let room = ODD_EXAMPLES - new.examples.len();
+        new.examples.extend(odd.examples.iter().filter(|line| !before.examples.contains(line)).take(room).cloned());
+    }
+    new
+}
+
+/// Writes one note (`Hinweis`, which the button "Fehler melden" does not count) for what `read` found beyond what
+/// this run of the program noted already; true if a note was written. The error log redacts the example lines.
+pub fn note_odd(
+    log: &crate::error_log::ErrorLog<'_>,
+    noted: &mut HashMap<String, Odd>,
+    read: &[(String, Odd)],
+) -> bool {
+    match odd_note(&odd_new_since(noted, read)) {
+        Some(text) => log.record(ODD_LABEL, None, &text),
+        None => false,
+    }
 }
 
 impl Endpoint {
@@ -881,8 +985,9 @@ impl Journaled {
         }
     }
 
-    /// The session entry of what was read, with `rest` (the last line, not yet ended) after it.
-    fn entry(&self, rest: &str, account: Option<&str>) -> Option<Map> {
+    /// The session entry of what was read, with `rest` (the last line, not yet ended) after it, and its odd sell
+    /// requests at a commodity terminal.
+    fn entry(&self, rest: &str, account: Option<&str>) -> (Option<Map>, Odd) {
         let first = self.first.as_deref().or_else(|| first_stamp(rest));
         // Like `Facts::of`: a log without a first stamp has no last one either.
         let last = first.and(last_stamp(rest).or(self.last.as_deref()));
@@ -892,7 +997,8 @@ impl Journaled {
             all.push_str(line);
             all.push('\n');
         }
-        entry_between(first, last, &parse_text(&lines, account))
+        let (events, odd) = parse_text_odd(&lines, account);
+        (entry_between(first, last, &events), odd)
     }
 }
 
@@ -904,17 +1010,25 @@ static JOURNALED: logread::Kept<Journaled> = logread::Kept::new();
 /// ⚠ The file is read a piece at a time and only the lines worth a look are kept; a log read before in the
 /// same session is read on from where the last reading stopped.
 pub fn read_log(path: &str, account: Option<&str>) -> Option<Map> {
-    let mut opened = logread::open(path).ok()?;
-    let (mut seen, start) = match JOURNALED.take(&opened) {
-        Some(followed) => (followed.state, followed.next),
-        None => (Journaled::default(), 0),
+    read_log_odd(path, account).0
+}
+
+/// [`read_log`] and the odd sell requests at a commodity terminal of the whole log.
+fn read_log_odd(path: &str, account: Option<&str>) -> (Option<Map>, Odd) {
+    let read = || {
+        let mut opened = logread::open(path).ok()?;
+        let (mut seen, start) = match JOURNALED.take(&opened) {
+            Some(followed) => (followed.state, followed.next),
+            None => (Journaled::default(), 0),
+        };
+        let next = logread::read_lines(&mut opened.file, start, opened.size, false, |b| seen.piece(&decode_replace(b)))
+            .ok()?;
+        let rest = logread::read_rest(&mut opened.file, next, opened.size).ok()?;
+        let found = seen.entry(&decode_replace(&rest), account);
+        JOURNALED.put(logread::Followed { session: opened.session, next, state: seen });
+        Some(found)
     };
-    let next =
-        logread::read_lines(&mut opened.file, start, opened.size, false, |b| seen.piece(&decode_replace(b))).ok()?;
-    let rest = logread::read_rest(&mut opened.file, next, opened.size).ok()?;
-    let entry = seen.entry(&decode_replace(&rest), account);
-    JOURNALED.put(logread::Followed { session: opened.session, next, state: seen });
-    entry
+    read().unwrap_or_default()
 }
 
 /// One session of the journal.
@@ -1019,8 +1133,16 @@ pub fn catch_up(src: &LogSource<'_>, files: &[String]) -> usize {
             jobs.push((path, identity.handle));
         }
     }
-    let entries: Vec<Map> =
-        parallel_map(&jobs, |(path, account)| read_log(path, account.as_deref())).into_iter().flatten().collect();
+    let found = parallel_map(&jobs, |(path, account)| ((*path).clone(), read_log_odd(path, account.as_deref())));
+    let mut odd: Vec<(String, Odd)> = Vec::new();
+    let mut entries: Vec<Map> = Vec::new();
+    for (path, (entry, counted)) in found {
+        odd.push((path, counted));
+        entries.extend(entry);
+    }
+    if let (Some(log), Ok(mut noted)) = (crate::diagnostics::error_log(), NOTED.lock()) {
+        note_odd(log, noted.get_or_insert_with(HashMap::new), &odd);
+    }
     if marks.is_empty() {
         return 0;
     }
@@ -1392,9 +1514,12 @@ mod tests {
         let sold = sell_with("1200.000000", GOLD, "12", "ResourceContainer", mixed);
         let text = [at(1, &player_boxes(mixed)), at(10, &sold), at(14, &player_box("8", 1))].concat();
         assert_eq!(proofs(&parse_text(&text, Some(WHO))), [(GOLD, 12, Proof::BoxGone)]);
-        // A box that cannot be read: the request is left out.
+        // A box that cannot be read: the request stays requested, also when its boxes are gone after it.
         let unreadable = sell_with("1200.000000", GOLD, "12", "ResourceContainer", "[boxSize[x] | unitAmount[4]]");
-        assert!(parse_text(&at(1, &unreadable), Some(WHO)).is_empty());
+        let text = [at(1, &player_boxes(mixed)), at(10, &unreadable), at(14, &player_box("8", 1))].concat();
+        let (events, odd) = parse_text_odd(&text, Some(WHO));
+        assert_eq!(proofs(&events), [(GOLD, 12, Proof::Requested)]);
+        assert_eq!((odd.unboxed, odd.unreadable), (1, 0));
         // The terminal lists the boxes once more in the second of the request, before the sale took them: the sale
         // waits for the next list.
         let early = [
@@ -1408,15 +1533,109 @@ mod tests {
     }
 
     #[test]
-    fn a_container_sale_whose_scu_is_not_its_boxes_is_not_read_and_a_location_sale_needs_no_boxes() {
+    fn a_container_sale_whose_scu_is_not_its_boxes_stays_requested_and_a_location_sale_needs_no_boxes() {
         let wrong = terminal_sell("4711", "100.000000", GOLD, "70", "ResourceContainer", "2", 34);
-        assert!(parse_text(&at(1, &wrong), Some(WHO)).is_empty());
+        let (events, odd) = parse_text_odd(&at(1, &wrong), Some(WHO));
+        assert_eq!(proofs(&events), [(GOLD, 70, Proof::Requested)]);
+        assert_eq!((odd.unboxed, odd.unreadable), (1, 0));
         let location = terminal_sell("4711", "100.000000", STIMS, "5", "Location", "2", 77);
-        assert_eq!(proofs(&parse_text(&at(1, &location), Some(WHO))), [(STIMS, 5, Proof::Requested)]);
+        let (events, odd) = parse_text_odd(&at(1, &location), Some(WHO));
+        assert_eq!(proofs(&events), [(STIMS, 5, Proof::Requested)]);
+        assert!(odd.is_empty(), "the usual form of a sale from the stock of the place");
         for quantity in ["0", "2.5", "x"] {
-            let odd = terminal_sell("4711", "100.000000", STIMS, quantity, "Location", "2", 77);
-            assert!(parse_text(&at(1, &odd), Some(WHO)).is_empty(), "{quantity}");
+            let unreadable = terminal_sell("4711", "100.000000", STIMS, quantity, "Location", "2", 77);
+            let (events, odd) = parse_text_odd(&at(1, &unreadable), Some(WHO));
+            assert!(events.is_empty(), "{quantity}");
+            assert_eq!((odd.unboxed, odd.unreadable), (0, 1), "{quantity}");
         }
+    }
+
+    /// A sell request of 30 SCU of gold from boxes whose cargo box data is `data` (empty: none at all).
+    fn unboxed_sold(data: &str) -> String {
+        sell_with("90000.000000", GOLD, "30", "ResourceContainer", data)
+    }
+
+    #[test]
+    fn a_container_sale_without_boxes_stays_requested_even_when_boxes_are_gone_after_it() {
+        let bare = unboxed_sold("");
+        let (events, odd) = parse_text_odd(&at(1, &bare), Some(WHO));
+        assert_eq!(proofs(&events), [(GOLD, 30, Proof::Requested)]);
+        assert!(!sales(&events)[0].proof.confirmed());
+        assert_eq!((odd.unboxed, odd.unreadable), (1, 0));
+        // A list before with 15 boxes of 2 SCU and none after: still no proof, the request named no box.
+        let text = [at(1, &player_box("2", 15)), at(10, &bare), at(14, &player_box("8", 1))].concat();
+        assert_eq!(proofs(&parse_text(&text, Some(WHO))), [(GOLD, 30, Proof::Requested)]);
+        // Boxes that hold less than the SCU, with the same list before and after: no proof either.
+        let short = unboxed_sold("[boxSize[2] | unitAmount[5]]");
+        let text = [at(1, &player_box("2", 15)), at(10, &short), at(14, &player_box("2", 10))].concat();
+        let (events, odd) = parse_text_odd(&text, Some(WHO));
+        assert_eq!(proofs(&events), [(GOLD, 30, Proof::Requested)]);
+        assert_eq!((odd.unboxed, odd.unreadable), (1, 0));
+        // The same line twice in one second is one sale, counted once.
+        let (events, odd) = parse_text_odd(&[at(10, &bare), at(10, &bare)].concat(), Some(WHO));
+        assert_eq!((sales(&events).len(), odd.unboxed), (1, 1));
+    }
+
+    /// The error log of a fresh folder.
+    fn error_log_in(tag: &str) -> (std::path::PathBuf, Paths) {
+        let dir = std::env::temp_dir().join(format!("versekit-lager-hinweis-{tag}-{}", crate::testdir::run_tag()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("folder");
+        let text = dir.to_string_lossy().into_owned();
+        let host = crate::paths::Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, text.as_str())], "/");
+        (dir, Paths::new(host))
+    }
+
+    #[test]
+    fn fifty_odd_terminal_sales_are_requested_and_give_one_note_and_no_error() {
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let reported: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
+        let sink = std::sync::Arc::clone(&reported);
+        crate::errors::set_sink(move |label, _| {
+            if label.starts_with("stock_journal") {
+                sink.lock().expect("sink").push(label.to_string());
+            }
+        });
+        let mut text = String::new();
+        for n in 0..50 {
+            let data = if n % 2 == 0 { "" } else { "[boxSize[4] | unitAmount[3]]" };
+            text.push_str(&at(n * 5, &unboxed_sold(data)));
+        }
+        text.push_str(&at(300, &unboxed_sold("").replace("quantity[30]", "quantity[x]")));
+        let (events, odd) = parse_text_odd(&text, Some(WHO));
+        let sold = sales(&events);
+        assert_eq!(sold.len(), 50);
+        assert!(sold.iter().all(|s| s.proof == Proof::Requested));
+        assert_eq!((odd.unboxed, odd.unreadable), (50, 1));
+        assert_eq!(odd.examples.len(), ODD_EXAMPLES);
+        assert!(odd.examples[0].starts_with("<2026-10-01T10:00:00.000Z> [Notice]"), "{:?}", odd.examples);
+        assert!(reported.lock().expect("sink").is_empty(), "no error for a sale of another form");
+
+        let (dir, paths) = error_log_in("fuenfzig");
+        let log = crate::error_log::ErrorLog::new(&paths, "5.2.8");
+        let mut noted = HashMap::new();
+        let read = vec![("a.log".to_string(), odd.clone())];
+        assert!(note_odd(&log, &mut noted, &read));
+        // The same log read again (it grew, or the next scan) notes nothing new; a new odd line does.
+        assert!(!note_odd(&log, &mut noted, &read));
+        let entries = log.latest(10);
+        assert_eq!(entries.len(), 1, "{entries:?}");
+        let field = |key: &str| entries[0].get(key).and_then(Value::as_str).unwrap_or_default().to_string();
+        assert_eq!(field("art"), "Hinweis");
+        assert_eq!(field("stelle"), ODD_LABEL);
+        let message = field("meldung");
+        assert!(message.contains(": 50.") && message.contains(": 1."), "{message}");
+        // Three example lines, without the player number and the numbers of shop and kiosk.
+        assert_eq!(message.matches("SShopCommoditySellRequest").count(), ODD_EXAMPLES, "{message}");
+        for gone in ["playerId[4711]", "shopId[99]", "kioskId[77]"] {
+            assert!(!message.contains(gone), "{gone} in {message}");
+        }
+        assert!(message.contains("playerId[<SPIELERNR>]") && message.contains("<KENNUNG>"), "{message}");
+        assert_eq!(log.unseen(), 0, "the button does not count a note");
+        let grown = vec![("a.log".to_string(), Odd { unboxed: 51, ..odd })];
+        assert!(note_odd(&log, &mut noted, &grown));
+        assert_eq!(log.latest(10).len(), 2);
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -1945,8 +2164,26 @@ mod tests {
             let sold: Vec<(&str, Proof)> = after[0].sales.iter().map(|s| (s.class.as_str(), s.proof)).collect();
             assert_eq!(sold, [("mag", Proof::Answer), ("", Proof::Requested)]);
             assert_eq!(number(get(&load(&setup.paths), "format")), Some(FORMAT as f64));
-            assert_eq!(FORMAT, 3);
+            assert_eq!(FORMAT, 4);
             assert_eq!(catch_up(&src, std::slice::from_ref(&file)), 0);
+        }
+
+        #[test]
+        fn a_journal_of_version_5_2_7_reads_its_logs_again_and_gets_the_sales_without_boxes() {
+            let setup = Setup::new("format3");
+            let text = [login(WHO), at(9, &unboxed_sold(""))].concat();
+            let file = setup.log("a.log", &text);
+            let size = fs::metadata(&file).expect("log").len();
+            // The journal as 5.2.7 left it: format 3, the log read, the sale without boxes left out.
+            let start = seconds("2026-10-01T10:00:00").expect("stamp");
+            let old = format!(r#"{{"format": 3, "sitzungen": {{}}, "gelesen": {{"a.log": {size}}}}}"#);
+            fs::write(setup.paths.app_file(FILE), old).expect("file");
+            let src = LogSource::new(&setup.paths, LogSource::sources_of(&setup.paths));
+            assert_eq!(catch_up(&src, std::slice::from_ref(&file)), 1);
+            let after = setup.sessions();
+            assert_eq!(after[0].start, start);
+            let sold: Vec<(u32, Proof)> = after[0].sales.iter().map(|s| (s.quantity, s.proof)).collect();
+            assert_eq!(sold, [(30, Proof::Requested)]);
         }
 
         #[test]

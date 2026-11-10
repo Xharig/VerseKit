@@ -20,9 +20,11 @@
 //!
 //! * The catalog `laeden-katalog.json`: every part UEX sells in the sections
 //!   [`SECTIONS`] with maker, size, class, grade and the places that sell it,
-//!   the cheapest price of each, and the shops ([`Outlet`]) with what each
-//!   sells at which price. It follows the patch and takes about a
-//!   minute to build (three requests per group); it is built in the background
+//!   and every other good of the shops in [`GOODS_SECTIONS`] with maker and
+//!   places; the cheapest price of each, and the shops ([`Outlet`]) with what
+//!   each sells at which price. It follows the patch and takes about two
+//!   minutes to build (three requests per group of equipment, two per group of
+//!   goods, one per group of goods nobody sells); it is built in the background
 //!   and never shipped.
 //! * The prices `laeden.json`: the shops of one part, fetched when somebody
 //!   looks at it and kept for up to [`SHELF_LIFE`] (at most [`MAX_ITEMS`]
@@ -62,11 +64,26 @@ pub const FORMAT: i64 = 1;
 pub const FORMAT_CATALOG: i64 = 7;
 /// The field that says the catalog holds the shops (`laeden`, `l`); a catalog without it is built anew once.
 pub const OUTLETS_MARK: &str = "mit_laeden";
+/// The field that says which sections the catalog holds: a catalog with a smaller number is built anew once and
+/// stays readable until the new one is there.
+pub const RANGE_MARK: &str = "warenumfang";
+/// [`RANGE_MARK`] of a catalog with [`SECTIONS`] and [`GOODS_SECTIONS`].
+pub const RANGE: i64 = 2;
 /// A part without a code is led by its UEX number with this prefix.
 pub const ID_PREFIX: &str = "id:";
-/// The sections of UEX the catalog holds.
+/// The sections of UEX with equipment: with size, class and grade.
 pub const SECTIONS: [&str; 8] =
     ["Systems", "Vehicle Weapons", "Utility", "Personal Weapons", "Armor", "Avionics", "Undersuits", "Propulsion"];
+/// The sections of UEX with the other goods of the shops: food, drink, medicine, clothing, liveries and the like.
+/// They have no size, class or grade worth a filter. Commodities and vehicles are left out (they have pages of their
+/// own), and so are data and other (no shop sells them).
+pub const GOODS_SECTIONS: [&str; 8] =
+    ["Clothing", "Miscellaneous", "Consumable", "Liveries", "Technology", "Module", "Decorations", "Flair"];
+
+/// Is `section` one of the sections the catalog holds?
+pub fn held_section(section: &str) -> bool {
+    SECTIONS.contains(&section) || GOODS_SECTIONS.contains(&section)
+}
 /// The emergency limit of the prices of a part, in seconds.
 pub const SHELF_LIFE: f64 = 30.0 * DAY;
 /// The emergency limit of the catalog, in seconds.
@@ -91,6 +108,14 @@ pub fn section_key(name: &str) -> Option<&'static str> {
         "Undersuits" => "s_uk_undersuits_s",
         "Utility" => "s_uk_utility",
         "Vehicle Weapons" => "s_uk_vehicle_weapons_s",
+        "Clothing" => "s_uk_clothing_s",
+        "Miscellaneous" => "s_uk_miscellaneous_s",
+        "Consumable" => "s_uk_consumable_s",
+        "Liveries" => "s_uk_liveries_s",
+        "Technology" => "s_uk_technology",
+        "Module" => "s_uk_module_s",
+        "Decorations" => "s_uk_decorations_s",
+        "Flair" => "s_uk_flair",
         _ => return None,
     })
 }
@@ -136,6 +161,25 @@ pub fn group_key(name: &str) -> Option<&'static str> {
         "Tractor Beams" => "s_uk_tractor_beams",
         "Turrets" => "s_uk_turrets",
         "Undersuits" => "s_uk_undersuits",
+        "Footwear" => "s_uk_footwear",
+        "Gloves" => "s_uk_gloves",
+        "Hats" => "s_uk_hats",
+        "Jackets" => "s_uk_jackets",
+        "Jumpsuits" => "s_uk_jumpsuits",
+        "Legwear" => "s_uk_legwear",
+        "Shirts" => "s_uk_shirts",
+        "Eyeware" => "s_uk_eyeware",
+        "Dresses" => "s_uk_dresses",
+        "Consumables" => "s_uk_consumables",
+        "Consumable" => "s_uk_consumable",
+        "Miscellaneous" => "s_uk_miscellaneous",
+        "Drinks" => "s_uk_drinks",
+        "Foods" => "s_uk_foods",
+        "Liveries" => "s_uk_liveries",
+        "Mobiglas" => "s_uk_mobiglas",
+        "Module" => "s_uk_module",
+        "Decorations" => "s_uk_decorations",
+        "Surface" => "s_uk_surface",
         _ => return None,
     })
 }
@@ -625,6 +669,7 @@ impl Catalog {
             ),
             uex::field("kennungen", Value::Array(self.codes.iter().cloned().map(Value::Str).collect())),
             uex::field(OUTLETS_MARK, Value::Bool(self.with_outlets)),
+            uex::field(RANGE_MARK, Value::int(RANGE)),
             uex::field(
                 "laeden",
                 Value::Array(
@@ -644,11 +689,15 @@ impl Catalog {
     }
 }
 
-/// Is the catalog due: stale (patch, emergency limit), built before it kept the shops ([`OUTLETS_MARK`]), or
-/// older than `max_age` seconds? Reads only the file. A catalog without the shops stays readable until the new
-/// one is there; a failed build keeps it.
+/// Is the catalog due: stale (patch, emergency limit), built before it kept the shops ([`OUTLETS_MARK`]) or all
+/// the goods ([`RANGE_MARK`]), or older than `max_age` seconds? Reads only the file. Such a catalog stays readable
+/// until the new one is there; a failed build keeps it.
 pub fn catalog_due(paths: &Paths, now: f64, max_age: Option<f64>) -> bool {
-    if CATALOG.stale(paths, now) || !CATALOG.load(paths).is_some_and(|data| truthy(data.get(OUTLETS_MARK))) {
+    let data = CATALOG.load(paths);
+    let complete = data.as_ref().is_some_and(|data| {
+        truthy(data.get(OUTLETS_MARK)) && data.get(RANGE_MARK).and_then(stock_fetch::py_int).is_some_and(|n| n >= RANGE)
+    });
+    if CATALOG.stale_with(paths, data.as_ref(), now) || !complete {
         return true;
     }
     match max_age {
@@ -703,7 +752,7 @@ pub fn build_catalog(
     }
     let chosen: Vec<&Value> = uex::rows(&categories)
         .iter()
-        .filter(|k| k.get("section").and_then(Value::as_str).is_some_and(|s| SECTIONS.contains(&s)))
+        .filter(|k| k.get("section").and_then(Value::as_str).is_some_and(held_section))
         .collect();
     let mut names: OrderedMap<Value> = OrderedMap::new();
     let mut duplicates: Vec<String> = Vec::new();
@@ -714,9 +763,25 @@ pub fn build_catalog(
     let mut outlets: Vec<Outlet> = Vec::new();
     let mut outlet_index: std::collections::HashMap<Outlet, usize> = std::collections::HashMap::new();
     for (number, category) in chosen.iter().enumerate() {
-        let cat_index = groups.len();
-        groups.push((string_of(category.get("section")), string_of(category.get("name"))));
+        let section = string_of(category.get("section"));
+        let goods = GOODS_SECTIONS.contains(&section.as_str());
         let Some(category_id) = category.get("id").map(py_text) else { return false };
+        // A group of goods asks for its prices first: where nobody sells anything, its list is not asked for.
+        let goods_prices = if goods {
+            let Some(rows) = uex::fetch("shops.buyable", &format!("{SOURCE_CATEGORY_PRICES}{category_id}"), fetch)
+            else {
+                return false;
+            };
+            if !uex::rows(&rows).iter().any(|x| uex::number(x, "price_buy").is_some_and(|p| p > 0.0)) {
+                progress(number + 1, chosen.len());
+                continue;
+            }
+            Some(rows)
+        } else {
+            None
+        };
+        let cat_index = groups.len();
+        groups.push((section, string_of(category.get("name"))));
         let Some(items) = uex::fetch("shops.catalog", &format!("{SOURCE_ITEMS}{category_id}"), fetch) else {
             return false;
         };
@@ -735,7 +800,8 @@ pub fn build_catalog(
                     code: String::new(),
                     group: cat_index,
                     maker: uex::stripped(x, "company_name"),
-                    size: py_strip(&text_or_empty(x, "size")).to_string(),
+                    // The size UEX gives a good (a jacket, a drink) means nothing in the shop.
+                    size: if goods { String::new() } else { py_strip(&text_or_empty(x, "size")).to_string() },
                     class: String::new(),
                     grade: String::new(),
                     places: Vec::new(),
@@ -755,9 +821,13 @@ pub fn build_catalog(
             }
             names.set(&key, ident.clone());
         }
-        // Class and grade of each part; the size here beats the one of the list.
+        // Class and grade of each part; the size here beats the one of the list. Goods have none of them.
         let mut traits: OrderedMap<Vec<(String, String)>> = OrderedMap::new();
-        let attributes = uex::fetch("shops.attributes", &format!("{SOURCE_ATTRIBUTES}{category_id}"), fetch);
+        let attributes = if goods {
+            None
+        } else {
+            uex::fetch("shops.attributes", &format!("{SOURCE_ATTRIBUTES}{category_id}"), fetch)
+        };
         for x in attributes.as_ref().map_or(&[][..], uex::rows) {
             let item_no = text_or_empty(x, "id_item");
             let mut field = uex::stripped(x, "attribute_name");
@@ -785,9 +855,15 @@ pub fn build_catalog(
                 }
             }
         }
-        let Some(price_rows) = uex::fetch("shops.buyable", &format!("{SOURCE_CATEGORY_PRICES}{category_id}"), fetch)
-        else {
-            return false;
+        let price_rows = match goods_prices {
+            Some(rows) => rows,
+            None => {
+                let Some(rows) = uex::fetch("shops.buyable", &format!("{SOURCE_CATEGORY_PRICES}{category_id}"), fetch)
+                else {
+                    return false;
+                };
+                rows
+            }
         };
         // Per part the places that sell it, the cheapest price with its place, and the shops with their price.
         let mut sold_at: OrderedMap<Vec<String>> = OrderedMap::new();
@@ -1164,6 +1240,11 @@ mod tests {
         write(CATALOG_CACHE, &catalog(""));
         assert!(catalog_due(&paths, 1000.0, None), "a catalog without the shops is built anew once");
         write(CATALOG_CACHE, &catalog(&format!(r#""{OUTLETS_MARK}":true,"#)));
+        assert!(catalog_due(&paths, 1000.0, None), "a catalog without all the goods is built anew once");
+        write(CATALOG_CACHE, &catalog(&format!(r#""{OUTLETS_MARK}":true,"{RANGE_MARK}":{},"#, RANGE - 1)));
+        assert!(catalog_due(&paths, 1000.0, None), "a catalog of a smaller range is built anew once");
+        assert!(Catalog::load(&paths).knows_outlets(), "and stays readable until then");
+        write(CATALOG_CACHE, &catalog(&format!(r#""{OUTLETS_MARK}":true,"{RANGE_MARK}":{RANGE},"#)));
         assert!(!catalog_due(&paths, 1000.0, None), "same build, young: not due");
         assert!(catalog_due(&paths, 1000.0, Some(50.0)), "older than the asked age: due");
         assert!(!catalog_due(&paths, 1000.0, Some(500.0)));
@@ -1245,6 +1326,108 @@ mod tests {
         let _ = std::fs::remove_dir_all(folder);
     }
 
+    /// The catalog holds the goods of the shops too (a drink, a jacket) with their shops and prices but without size,
+    /// class or grade; a group of goods nobody sells costs one request, a group of goods two, and commodities and
+    /// vehicles stay out. Made-up answers, no network.
+    #[test]
+    fn the_catalog_holds_the_goods_of_the_shops_with_as_few_requests_as_needed() {
+        use crate::language::{Choice, set_thread_language};
+        let folder = std::env::temp_dir().join(format!("versekit-laeden-waren-{}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        let home = folder.to_string_lossy().into_owned();
+        let vars = [(crate::legacy::ENV_HOME, home.as_str()), (crate::legacy::ENV_NO_NET, "0")];
+        let paths = Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home));
+        let asked = Mutex::new(Vec::<String>::new());
+        let answer = |url: &str| -> Result<Vec<u8>, crate::scmdb::FetchError> {
+            asked.lock().unwrap().push(url.to_string());
+            let data = if url == SOURCE_CATEGORIES {
+                r#"[{"id": 19, "section": "Systems", "name": "Coolers"},
+                    {"id": 62, "section": "Miscellaneous", "name": "Drinks"},
+                    {"id": 11, "section": "Clothing", "name": "Jackets"},
+                    {"id": 68, "section": "Clothing", "name": "Eyeware"},
+                    {"id": 36, "section": "Commodities", "name": "Commodities"},
+                    {"id": 102, "section": "Vehicles", "name": "Vehicles"}]"#
+            } else if url == format!("{SOURCE_ITEMS}19") {
+                r#"[{"id": 10, "uuid": "u-frost", "name": "Frostline", "company_name": "Wen", "size": "1"}]"#
+            } else if url == format!("{SOURCE_ITEMS}62") {
+                r#"[{"id": 198, "uuid": "u-vestal", "name": "Vestal Water", "company_name": null, "size": "1"}]"#
+            } else if url == format!("{SOURCE_ITEMS}11") {
+                r#"[{"id": 300, "uuid": "u-jacket", "name": "Adiva Jacket", "company_name": "Upsurge", "size": "1"},
+                    {"id": 301, "uuid": "u-unsold", "name": "Nobody's Jacket", "company_name": "Upsurge"}]"#
+            } else if url == format!("{SOURCE_CATEGORY_PRICES}19") {
+                r#"[{"id_item": 10, "price_buy": 500, "terminal_name": "Cool Corner", "city_name": "Area18", "star_system_name": "Stanton"}]"#
+            } else if url == format!("{SOURCE_CATEGORY_PRICES}62") {
+                r#"[{"id_item": 198, "price_buy": 3, "terminal_name": "Ellroy's - New Babbage", "city_name": "New Babbage", "star_system_name": "Stanton"},
+                    {"id_item": 198, "price_buy": 4, "terminal_name": "Bar - Dunboro", "outpost_name": "Dunboro", "star_system_name": "Stanton"}]"#
+            } else if url == format!("{SOURCE_CATEGORY_PRICES}11") {
+                r#"[{"id_item": 300, "price_buy": 900, "terminal_name": "Aparelli - New Babbage", "city_name": "New Babbage", "star_system_name": "Stanton"},
+                    {"id_item": 301, "price_buy": 0, "terminal_name": "Aparelli - New Babbage", "city_name": "New Babbage", "star_system_name": "Stanton"}]"#
+            } else if url == format!("{SOURCE_CATEGORY_PRICES}68") {
+                r#"[{"id_item": 400, "price_buy": 0, "terminal_name": "Aparelli - New Babbage", "city_name": "New Babbage"}]"#
+            } else if url == format!("{SOURCE_ATTRIBUTES}19") {
+                r#"[{"id_item": 10, "attribute_name": "Class", "value": "Military"}, {"id_item": 10, "attribute_name": "Grade", "value": "A"}]"#
+            } else if url.starts_with(SOURCE_ATTRIBUTES) {
+                r#"[{"id_item": 198, "attribute_name": "Size", "value": "3"}]"#
+            } else if url.starts_with("https://api.uexcorp.uk/2.0/game_versions") {
+                return Err(crate::scmdb::FetchError::Missing);
+            } else {
+                panic!("asked for {url}");
+            };
+            Ok(format!(r#"{{"status": "ok", "data": {data}}}"#).into_bytes())
+        };
+        let mut steps = Vec::new();
+        assert!(build_catalog(&paths, 1000.0, None, &answer, &mut |step, of| steps.push((step, of))));
+        assert_eq!(steps.last(), Some(&(4, 4)), "four groups, commodities and vehicles left out: {steps:?}");
+        let catalog_asks: Vec<String> = asked
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|u| u.starts_with("https://api.uexcorp.uk/2.0/item"))
+            .cloned()
+            .collect();
+        let expected = [
+            format!("{SOURCE_ITEMS}19"),
+            format!("{SOURCE_ATTRIBUTES}19"),
+            format!("{SOURCE_CATEGORY_PRICES}19"),
+            format!("{SOURCE_CATEGORY_PRICES}62"),
+            format!("{SOURCE_ITEMS}62"),
+            format!("{SOURCE_CATEGORY_PRICES}11"),
+            format!("{SOURCE_ITEMS}11"),
+            format!("{SOURCE_CATEGORY_PRICES}68"),
+        ];
+        assert_eq!(catalog_asks, expected, "three for equipment, two for goods, one for goods nobody sells");
+        let catalog = Catalog::load(&paths);
+        let items = catalog.items();
+        let water = items.iter().find(|i| i.name == "Vestal Water").expect("the drink is in the catalog");
+        assert_eq!((water.section.as_str(), water.group.as_str()), ("Miscellaneous", "Drinks"));
+        assert_eq!(water.places, ["Dunboro", "New Babbage"]);
+        assert_eq!(
+            (water.size.as_str(), water.class.as_str(), water.grade.as_str()),
+            ("", "", ""),
+            "no size for goods"
+        );
+        let ellroy = catalog.outlet_named("Ellroy's - New Babbage").expect("the shop of the drink");
+        assert_eq!(catalog.offers_of(ellroy), [("u-vestal".to_string(), 3.0)]);
+        assert_eq!(
+            catalog.parts.iter().find(|p| p.code == "u-vestal").and_then(|p| p.offers.first()).map(|o| o.1),
+            Some(3.0)
+        );
+        let frost = items.iter().find(|i| i.name == "Frostline").unwrap();
+        assert_eq!((frost.size.as_str(), frost.class.as_str(), frost.grade.as_str()), ("1", "Military", "A"));
+        assert!(items.iter().any(|i| i.name == "Adiva Jacket" && i.size.is_empty()));
+        assert!(!items.iter().any(|i| i.name == "Nobody's Jacket"), "a price of 0 is no offer");
+        assert!(!catalog.groups.iter().any(|(_, g)| g == "Eyeware"), "a group nobody sells stays out");
+        assert!(!catalog_due(&paths, 1000.0, None), "the new catalog is complete");
+        for typed in ["vesta", "vestal", "VESTAL water"] {
+            assert!(search_finds(&water.search_text(), typed), "{typed:?}");
+        }
+        set_thread_language(Choice::De);
+        assert!(search_finds(&water.search_text(), "getränk"), "{}", water.search_text());
+        set_thread_language(Choice::Auto);
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
     #[test]
     fn the_price_file_keeps_the_newest_four_hundred_parts() {
         let mut book = Shops::default();
@@ -1258,9 +1441,10 @@ mod tests {
 
     #[test]
     fn names_of_sections_and_groups_have_text_keys() {
-        for section in SECTIONS {
+        for section in SECTIONS.into_iter().chain(GOODS_SECTIONS) {
             assert!(section_key(section).is_some(), "{section}");
         }
+        assert!(!held_section("Commodities") && !held_section("Vehicles") && held_section("Clothing"));
         assert_eq!(group_key("Coolers"), Some("s_uk_coolers"));
         assert_eq!(group_key("Nothing"), None);
     }

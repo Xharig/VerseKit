@@ -63,6 +63,10 @@ pub type CatalogBuild = Arc<dyn Fn(&Paths) -> Option<CatalogBuilt> + Send + Sync
 /// crate of the game data gives it: `versekit_gamedata::list::craft_data_behind`).
 pub type CraftCheck = Arc<dyn Fn(&Paths, &str) -> bool + Send + Sync>;
 
+/// Whether the catalog lags behind the installed game data: another layout, archive or patch (the crate of the game
+/// data gives it: `versekit_gamedata::list::catalog_behind`).
+pub type CatalogCheck = Arc<dyn Fn(&Paths) -> bool + Send + Sync>;
+
 /// What the look at scmdb on the thread did.
 struct Looked {
     /// The recipe file, when it was looked at (or the build could not be had).
@@ -79,6 +83,8 @@ struct Done {
     looked: Option<Looked>,
     /// The build of the catalog, when one ran.
     catalog: Option<Option<CatalogBuilt>>,
+    /// The catalog brought up to date after the start, when that ran.
+    refreshed: Option<Option<CatalogBuilt>>,
     /// The writes the lock refused on the thread.
     denied: Vec<String>,
 }
@@ -87,6 +93,7 @@ struct Done {
 struct InFlight {
     job: bool,
     catalog: bool,
+    refresh: bool,
     mining: bool,
     done: Receiver<Done>,
 }
@@ -98,6 +105,18 @@ pub struct Watch {
     archive: Arc<dyn Archive>,
     recipes: Arc<dyn recipe_file::Supply>,
     game_running: fn(&Paths) -> bool,
+    /// Whether the archive may be read now (the game is closed).
+    archive_free: fn(&Paths) -> bool,
+    /// When that was last asked, and what it said.
+    archive_looked: Option<(f64, bool)>,
+    /// The look at the start whether the catalog lags behind the game data, with the build that brings it up to date.
+    refresh: Option<(CatalogCheck, CatalogBuild)>,
+    /// The catalog lags behind: it is brought up to date once the archive may be read.
+    refresh_due: bool,
+    /// Not before this time.
+    refresh_at: f64,
+    /// The catalog was brought up to date: the notes are written anew once the game is closed.
+    notes_due: bool,
     started: bool,
     last_tick: f64,
     /// When the game was looked at, and whether it ran.
@@ -210,6 +229,12 @@ impl Watch {
             archive,
             recipes,
             game_running: crate::mission_log::game_running,
+            archive_free: crate::archive_lock::may_read,
+            archive_looked: None,
+            refresh: None,
+            refresh_due: false,
+            refresh_at: 0.0,
+            notes_due: false,
             started: false,
             last_tick: f64::NEG_INFINITY,
             game: None,
@@ -245,6 +270,27 @@ impl Watch {
         self
     }
 
+    /// The same watch, which at its first tick asks `behind` whether the catalog lags behind the installed game data
+    /// (after an update of VerseKit that changed its layout, or a patch while VerseKit was closed) and then brings it
+    /// up to date with `refresh` as soon as the game is closed, without a page having to be open; after that the
+    /// notes in the game's texts are written anew (while they are kept current by themselves).
+    pub fn with_catalog_refresh(mut self, behind: CatalogCheck, refresh: CatalogBuild) -> Watch {
+        self.refresh = Some((behind, refresh));
+        self
+    }
+
+    /// Whether the archive may be read, asked at most every [`crate::archive_lock::POLL`].
+    fn archive_free_now(&mut self, paths: &Paths, now: f64) -> bool {
+        if let Some((at, free)) = self.archive_looked
+            && (0.0..crate::archive_lock::POLL.as_secs_f64()).contains(&(now - at))
+        {
+            return free;
+        }
+        let free = (self.archive_free)(paths);
+        self.archive_looked = Some((now, free));
+        free
+    }
+
     /// The writes the lock (`writeguard`) refused on the threads of the runs since the last call: on a copy of
     /// the data the caller tells them like those of its own thread.
     pub fn take_denied(&mut self) -> Vec<String> {
@@ -271,12 +317,19 @@ impl Watch {
         if !self.started {
             self.started = true;
             notices.extend(check_game_languages(paths));
+            self.refresh_due = self.refresh.as_ref().is_some_and(|(behind, _)| behind(paths));
         }
         if now - self.last_tick < TICK_SECONDS {
             return notices;
         }
         self.last_tick = now;
         self.look_at_the_game(paths, now);
+        // The notes wait for the game to be closed as the build did: written anew with the next run of the texts.
+        if self.notes_due && self.archive_free_now(paths, now) {
+            self.notes_due = false;
+            self.upkeep.rewrite = true;
+        }
+        let refresh = self.refresh_due && now >= self.refresh_at && self.archive_free_now(paths, now);
         let owned = owned_of(&mut self.owned, &mut self.owned_reads, paths);
         let job = self.upkeep.tick(paths, self.archive.as_ref(), owned, now);
         // A finished patch brings a new build: the recipe file and the mining data are looked at with the same
@@ -307,10 +360,10 @@ impl Watch {
         let mining = (recipes || craft.is_some()) && self.mining_due;
         let look = Look { recipes, mining, craft };
         let catalog = self.catalog_due && now >= self.catalog_at;
-        if job.is_none() && !look.recipes && look.craft.is_none() && !catalog {
+        if job.is_none() && !look.recipes && look.craft.is_none() && !catalog && !refresh {
             return notices;
         }
-        self.start(paths, job, look, catalog, now);
+        self.start(paths, job, look, Builds { catalog, refresh }, now);
         notices
     }
 
@@ -323,18 +376,28 @@ impl Watch {
             // A thread that broke off must not leave the watch waiting for ever.
             Err(TryRecvError::Disconnected) => None,
         };
-        let (job, had_catalog, had_mining) = (flight.job, flight.catalog, flight.mining);
+        let (job, had_catalog, had_refresh, had_mining) = (flight.job, flight.catalog, flight.refresh, flight.mining);
         self.in_flight = None;
-        let (ran, looked, catalog) = match done {
+        let (ran, looked, catalog, refreshed) = match done {
             Some(done) => {
                 self.denied.extend(done.denied);
-                (done.ran, done.looked, done.catalog)
+                (done.ran, done.looked, done.catalog, done.refreshed)
             }
             None => {
                 let broken = Looked { recipes: Some(Err("broken off".to_string())), mining: None, craft: false };
-                (None, Some(broken), had_catalog.then_some(None))
+                (None, Some(broken), had_catalog.then_some(None), had_refresh.then_some(None))
             }
         };
+        match refreshed {
+            Some(Some(_)) => self.notes_due = true,
+            Some(None) => {
+                // No catalog came: tried again in a while.
+                errors::record("watcher.katalog", &"bringing the catalog up to date gave no catalog");
+                self.refresh_due = true;
+                self.refresh_at = now + CATALOG_RETRY_SECONDS;
+            }
+            None => {}
+        }
         if job {
             self.upkeep.finished(paths, ran.as_ref().is_some_and(|ran| ran.renewed));
         }
@@ -393,16 +456,21 @@ impl Watch {
         self.game = Some((now, running));
     }
 
-    fn start(&mut self, paths: &Arc<Paths>, job: Option<super::Job>, look: Look, catalog_now: bool, now: f64) {
+    fn start(&mut self, paths: &Arc<Paths>, job: Option<super::Job>, look: Look, builds: Builds, now: f64) {
         let has_job = job.is_some();
         let version = if has_job { crate::stock_fetch::live_build(paths) } else { String::new() };
         let (sender, receiver) = mpsc::channel();
         let (paths_now, net, archive, supply) =
             (Arc::clone(paths), Arc::clone(&self.net), Arc::clone(&self.archive), Arc::clone(&self.recipes));
-        let catalog = if catalog_now { self.catalog.clone() } else { None };
+        let catalog = if builds.catalog { self.catalog.clone() } else { None };
         let has_catalog = catalog.is_some();
         if has_catalog {
             self.catalog_due = false;
+        }
+        let refresh = if builds.refresh { self.refresh.as_ref().map(|(_, build)| Arc::clone(build)) } else { None };
+        let has_refresh = refresh.is_some();
+        if has_refresh {
+            self.refresh_due = false;
         }
         let (recipes, mining, craft) = (look.recipes, look.mining, look.craft.is_some());
         self.mining_due &= !mining;
@@ -411,10 +479,12 @@ impl Watch {
         let work = move || {
             crate::writeguard::adopt(&lock);
             // The catalog and the recipes first: the notes of the same run are written with them.
+            let refreshed = refresh.map(|build| build(&paths_now));
             let mut built = catalog.map(|build| build(&paths_now));
             let looked = scmdb.map(|look| look_at_scmdb(&paths_now, supply.as_ref(), &look, &mut built));
             let ran = job.map(|job| run(&job, &paths_now, net.as_ref(), archive.as_ref(), &version));
-            let _ = sender.send(Done { ran, looked, catalog: built, denied: crate::writeguard::take_denied() });
+            let denied = crate::writeguard::take_denied();
+            let _ = sender.send(Done { ran, looked, catalog: built, refreshed, denied });
         };
         #[cfg(test)]
         let started =
@@ -422,7 +492,8 @@ impl Watch {
         #[cfg(not(test))]
         let started = std::thread::Builder::new().name("spieltexte".into()).spawn_with_language(work).is_ok();
         if started {
-            self.in_flight = Some(InFlight { job: has_job, catalog: has_catalog, mining, done: receiver });
+            self.in_flight =
+                Some(InFlight { job: has_job, catalog: has_catalog, refresh: has_refresh, mining, done: receiver });
             return;
         }
         // Without a thread no run comes: the clocks must not wait for it.
@@ -438,8 +509,17 @@ impl Watch {
         }
         // The catalog and the mining data stay due for the next run.
         self.catalog_due |= has_catalog;
+        self.refresh_due |= has_refresh;
         self.mining_due |= mining;
     }
+}
+
+/// Which builds of the catalog a run carries.
+struct Builds {
+    /// The build after a patch or one that failed.
+    catalog: bool,
+    /// Bringing it up to date after the start ([`Watch::with_catalog_refresh`]).
+    refresh: bool,
 }
 
 #[cfg(test)]

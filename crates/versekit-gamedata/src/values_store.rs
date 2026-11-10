@@ -412,7 +412,7 @@ impl Rebuild {
         let differences = cross_check.as_ref().map(crate::cross_check::CrossCheck::differences);
         if let Some(check) = cross_check.as_ref().filter(|check| check.differences() > 0) {
             let detail = format!("{} Abweichungen; {}", check.differences(), check.summary());
-            note("gamedata.crosscheck", "s_p3_gegenprobe", &detail);
+            crate::list::note_difference("gamedata.crosscheck", "s_p3_gegenprobe", &detail);
         }
         let (list, _error) = self.supply.corrections(values.build.as_deref().or(build.as_deref()));
         corrections::apply(&mut values, &list);

@@ -287,6 +287,7 @@ fn a_given_game_folder_keeps_the_real_installation_out() {
         source: Some("dymerz_de".into()),
         own_original: false,
         stock_only: false,
+        rewrite: false,
     };
     run(&job, &s.paths, &net, &FakeArchive::default(), "");
     let denied = crate::writeguard::take_denied();
@@ -318,7 +319,7 @@ fn on_a_copy_of_the_data_the_background_only_looks_and_no_inner_name_reaches_the
     let before = fs::read_to_string(s.ini()).unwrap();
     crate::writeguard::deny(true);
     crate::writeguard::allow_under(Some(&format!("{}/data", s.root)));
-    let job = Job { channels: Vec::new(), source: Some(source.into()), own_original: false, stock_only: false };
+    let job = Job { channels: Vec::new(), source: Some(source.into()), own_original: false, stock_only: false, rewrite: false };
     run(&job, &s.paths, &net, &FakeArchive::default(), "");
     let applied = apply(&s.paths, &FakeArchive::default(), "");
     let denied = crate::writeguard::take_denied();
@@ -473,7 +474,7 @@ fn a_run_writes_the_notes_repairs_the_language_and_remembers_the_mark() {
     s.set_up_german();
     let archive = FakeArchive { gaps: 0, ..FakeArchive::default() };
     let net = Fake::default();
-    let job = Job { channels: Vec::new(), source: Some("dymerz_de".into()), own_original: false, stock_only: false };
+    let job = Job { channels: Vec::new(), source: Some("dymerz_de".into()), own_original: false, stock_only: false, rewrite: false };
     let ran = run(&job, &s.paths, &net, &archive, "");
     assert!(ran.notices.contains(&Notice::LanguageRepaired("german_(germany)".into())), "{:?}", ran.notices);
     assert!(ran.notices.iter().any(|n| matches!(n, Notice::Applied(_))), "{:?}", ran.notices);
@@ -507,7 +508,7 @@ fn on_a_copy_of_the_data_the_translation_is_only_looked_at_by_the_page_and_the_r
     assert_eq!(done.fetched, "Neue Fassung vom 28.10.2026 gibt es, im Testbetrieb nicht eingespielt.");
     assert!(done.cleaned.is_none() && done.applied.is_none());
     // The run in the background: the same look, no download either.
-    let job = Job { channels: Vec::new(), source: Some("dymerz_de".into()), own_original: false, stock_only: false };
+    let job = Job { channels: Vec::new(), source: Some("dymerz_de".into()), own_original: false, stock_only: false, rewrite: false };
     let ran = run(&job, &s.paths, &net, &FakeArchive::default(), "");
     assert!(!ran.renewed && !ran.notices.iter().any(|n| matches!(n, Notice::TranslationUpdated(_))));
     assert!(!net.asked().contains(&raw), "the file is never fetched: {:?}", net.asked());
@@ -685,7 +686,7 @@ fn a_file_another_program_wrote_over_the_chosen_one_is_placed_again() {
     let scdl = format!("{}\nBounty_title_001=Kopfgeld von SCDL\n", SCDL_BOX.replace("4.10.3 PTU", "4.3 LIVE"));
     fs::write(s.ini(), &scdl).unwrap();
     fs::write(format!("{}/user.cfg", s.live), "g_language = english\n").unwrap();
-    let job = Job { channels: Vec::new(), source: Some("luftwerft_de".into()), own_original: false, stock_only: false };
+    let job = Job { channels: Vec::new(), source: Some("luftwerft_de".into()), own_original: false, stock_only: false, rewrite: false };
     let ran = run(&job, &s.paths, &net, &FakeArchive::default(), "");
     // Placing the file enters its language as well: no second notice for it.
     assert!(ran.notices.contains(&Notice::FileRestored("german_(germany)".into())), "{:?}", ran.notices);
@@ -762,7 +763,7 @@ fn a_run_notes_the_stand_of_a_file_placed_by_an_older_version() {
     fs::write(s.ini(), format!("Frontend_PU_Version={LUFTWERFT_BOX}\nBounty_title_001=Kopfgeld\n")).unwrap();
     translation::note_set(&s.paths, "luftwerft_de", Some("etag:v1"), Some("german_(germany)"), None);
     s.paths.set_setting(game_ini::SETTING_SOURCE, Value::str("luftwerft_de"));
-    let job = Job { channels: Vec::new(), source: Some("luftwerft_de".into()), own_original: false, stock_only: false };
+    let job = Job { channels: Vec::new(), source: Some("luftwerft_de".into()), own_original: false, stock_only: false, rewrite: false };
     run(&job, &s.paths, &Fake::default(), &FakeArchive::default(), "");
     let de = translation::status_text(&s.paths, "luftwerft_de", None, crate::language::Lang::De, &translation::today());
     assert!(de.starts_with("Stand 04.11.2026 13:09 für 4.10.2-live.12913470 · "), "{de}");

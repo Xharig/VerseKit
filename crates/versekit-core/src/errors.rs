@@ -26,6 +26,25 @@ use std::sync::RwLock;
 type Sink = Box<dyn Fn(&str, &str) + Send + Sync>;
 
 static SINK: RwLock<Option<Sink>> = RwLock::new(None);
+static NOTE_SINK: RwLock<Option<Sink>> = RwLock::new(None);
+
+/// Set the sink for notes (location, text): findings worth keeping that are no fault of the program.
+pub fn set_note_sink(sink: impl Fn(&str, &str) + Send + Sync + 'static) {
+    if let Ok(mut slot) = NOTE_SINK.write() {
+        *slot = Some(Box::new(sink));
+    }
+}
+
+/// Report a note under its location: it is kept like an error but does not count as one.
+///
+/// ⚠ The sink must not call `note` again (infinite loop).
+pub fn note(label: &str, text: &dyn Display) {
+    if let Ok(slot) = NOTE_SINK.read()
+        && let Some(sink) = slot.as_ref()
+    {
+        sink(label, &text.to_string());
+    }
+}
 
 /// Set the sink for reported errors (location, text).
 pub fn set_sink(sink: impl Fn(&str, &str) + Send + Sync + 'static) {

@@ -6,6 +6,37 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.8 - 2026-11-10
+
+> Die Auftragsangaben kommen nach dem Update jetzt von selbst ins Spiel, Shops
+> zeigt alle Ladenwaren bis zum Wasser, und „Fehler melden“ leuchtet nur noch
+> bei echten Fehlern.
+
+### Verbessert
+
+- **Shops zeigt alle Ladenwaren:** auch Getränke, Essen, Medizin, Kleidung,
+  Lackierungen und Einrichtung, mit Laden und Preis (zum Beispiel Vestal
+  Water bei Ellroy's in New Babbage). Der erweiterte Katalog kommt nach dem
+  Update von selbst, ohne dass du die Seite öffnen musst.
+
+### Behoben
+
+- **Auftragsangaben nach dem Update:** VerseKit baut den veralteten Katalog
+  jetzt von selbst kurz nach dem Start neu (bei laufendem Spiel nach dem
+  Spielende) und trägt danach die Auftragsangaben selbst in die Spieltexte
+  ein. Die Seite Baupläne muss dafür nicht mehr geöffnet werden.
+- **„Neu einsetzen“** meldet nicht mehr „Auftragsangaben eingetragen“,
+  solange die Spieldaten noch neu gelesen werden; die Meldung sagt dann,
+  dass die Angaben nachkommen.
+- **„Fehler melden“ leuchtete ohne Fehler:** Abweichungen zwischen deinen
+  Spieldaten und scmdb.net stehen im Fehlerbericht jetzt als Hinweis.
+- **Verkäufe am Warenterminal ohne passende Kistenliste** füllen nicht mehr
+  das Fehlerprotokoll. Sie erscheinen jetzt als „angefragt“ statt zu fehlen,
+  alte Logs werden dafür einmal neu gelesen. Gemeldet von LOGGAN89
+- **Fehlerbericht:** schwärzt jetzt auch Laden- und Terminalkennungen in
+  Logzeilen und nimmt Logzeilen, die VerseKit nicht deuten kann, geschwärzt
+  als Beispiel mit.
+
 ## v5.2.7 - 2026-11-09
 
 > Verkäufe am Terminal und Einnahmen in der Statistik, Wartezeit, Buy-in und

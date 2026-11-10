@@ -1262,6 +1262,38 @@ Von                     Tester
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The note on odd sales at a commodity terminal carries example lines of the log into the report: their form
+    /// stays, the player, the player number and the numbers of shop and kiosk do not.
+    #[test]
+    fn the_example_lines_of_odd_terminal_sales_stand_in_the_report_without_the_player() {
+        use crate::stock_journal::{ODD_LABEL, note_odd, parse_text_odd};
+        crate::language::set_thread_language(crate::language::Choice::De);
+        let dir = std::env::temp_dir().join(format!("versekit-bericht-terminal-{}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("einstellungen.json"), r#"{"eigener_account": "Testpilot"}"#).unwrap();
+        let data = dir.to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::native(), &[("HOME", "/home/spieler"), ("SC_BP_HOME", &data)], "/"));
+        let line = "<2026-10-18T10:00:05.000Z> [Notice] <CEntityComponentCommodityUIProvider::SendCommoditySellRequest> \
+                    Sending SShopCommoditySellRequest - playerId[2001234567] shopId[917340731320] \
+                    shopName[SCShop_AdminOffice_GrimHex] kioskId[917340731318] amount[798660.000000] \
+                    resourceGUID[21825507-7923-4683-9bf3-9cfe316940e3] autoLoading[0] quantity[30] \
+                    transactionMode[ResourceContainer] [Team_CoreGameplayFeatures][Shops][UI] for 'Testpilot'\n";
+        let (_, odd) = parse_text_odd(line, None);
+        assert_eq!((odd.unboxed, odd.examples.len()), (1, 1));
+        let log = crate::error_log::ErrorLog::new(&paths, "5.2.8");
+        assert!(note_odd(&log, &mut std::collections::HashMap::new(), &[("a.log".into(), odd)]));
+        let text = build(&facts("5.2.8", log.latest(5)), &Redactor::new(&paths));
+        assert!(text.contains(ODD_LABEL), "{text}");
+        for gone in ["Testpilot", "2001234567", "917340731320", "917340731318"] {
+            assert!(!text.contains(gone), "{gone} in {text}");
+        }
+        for kept in ["SShopCommoditySellRequest", "playerId[<SPIELERNR>]", "shopId[<KENNUNG>]", "quantity[30]"] {
+            assert!(text.contains(kept), "{kept} not in {text}");
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// The name typed under "Von" and not saved yet goes everywhere else, whole and word by word;
     /// the redaction says below the sentence of 4.12 what else it replaced.
     #[test]

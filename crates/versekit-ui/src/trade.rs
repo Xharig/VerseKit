@@ -220,6 +220,30 @@ pub fn fetch_missing_shop_prices(paths: &Paths, fetch: &Fetcher) -> usize {
     fetched
 }
 
+/// How long after the start the catalog of the shops is first looked at, and how long until it is looked at again.
+const CATALOG_DELAY: std::time::Duration = std::time::Duration::from_secs(30);
+const CATALOG_LOOK: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
+/// Keeps the catalog of the shops in a thread of its own (once per process): it is built where it is due (missing,
+/// a patch, an older range of goods), without the page; the next look is half an hour away, a failed build
+/// included. The program calls it in the process that runs all the time (the overlay), so that only one process
+/// builds it. Tests start nothing.
+pub fn start_catalog_sync(paths: &Paths) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static STARTED: AtomicBool = AtomicBool::new(false);
+    if cfg!(test) || STARTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let paths = job_paths(paths);
+    let _ = std::thread::Builder::new().name("shops-catalog-sync".to_string()).spawn_with_language(move || {
+        std::thread::sleep(CATALOG_DELAY);
+        loop {
+            shops::build_catalog(&paths, now(), None, &fetcher(), &mut |_, _| {});
+            std::thread::sleep(CATALOG_LOOK);
+        }
+    });
+}
+
 /// Starts the quiet fetches in the background (once per process): the lists
 /// of the trade pages are there when a page is opened. First the slots of the
 /// own ships (only then is known which parts are needed), then the raw

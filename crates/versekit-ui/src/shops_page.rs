@@ -18,9 +18,9 @@
 //! The page "Shops" (`pages._shops` of 4.12): where a finished part stands
 //! on the shelf and what it costs, and the ships to buy or rent.
 //!
-//! The list is the catalog of UEX (about 1.500 parts that somebody really
-//! sells, in about 40 groups) plus the ships; it is built in the background
-//! on first use. Five menus narrow it, each showing only what fits the ones
+//! The list is the catalog of UEX (the parts and the other goods somebody
+//! really sells: food, drink, medicine, clothing and the like) plus the ships;
+//! it is built in the background after the start and on first use. Five menus narrow it, each showing only what fits the ones
 //! before: area, group, size, class, grade. A place narrows it too. Choosing
 //! a part fetches its shops; the cheapest stands on top.
 //!
@@ -505,10 +505,11 @@ impl ShopsState {
             return;
         }
         let Some(paths) = self.paths.clone() else { return };
-        // Without a catalog it is built; with one only when a patch or the emergency limit made it
-        // stale. Either way the next look is half an hour away, a failed build included.
+        // Without a catalog it is built here; one that is due (a patch, an older range of goods) is built anew by the
+        // program in the background (`trade::start_catalog_sync`), so that two processes never build it at once. Either
+        // way the next look is half an hour away, a failed build included.
         self.catalog_retry = now + CATALOG_LOOK_SECONDS;
-        if self.catalog.ready() && !shops::catalog_due(&paths, trade::now(), None) {
+        if self.catalog.ready() {
             return;
         }
         let (done, total) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));

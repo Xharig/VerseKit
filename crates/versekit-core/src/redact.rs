@@ -65,7 +65,7 @@ const PLAYER_KEY: &str = r#"(?i)\b([a-z_]*geid|[a-z_]*?(?:player|account|user|ch
 const HANDLE_IN_LOG: &str =
     r#"(?i:handle)\[([^\]\s]+)\]| - name (\S+) - state STATE_CURRENT|(?i:nickname)[ \t]*[=:][ \t]*"?([A-Za-z0-9_-]+)"#;
 /// `shopId=…`, `kioskId: …`; only a value with a digit is a number of a place.
-const SHOP_KEY: &str = r#"(?i)\b(shopid|kioskid)(["']?(?:[ \t]*[=:][ \t]*|[ \t]+)["'\[]?)([A-Za-z0-9_-]+)"#;
+const SHOP_KEY: &str = r#"(?i)\b(shopid|kioskid)(["']?(?:[ \t]*[=:][ \t]*|[ \t]+)["'\[]?|\[)([A-Za-z0-9_-]+)"#;
 const MAIL: &str = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}";
 const IPV4: &str = r"\d{1,3}(?:\.\d{1,3}){3}";
 const IPV6: &str = r"[0-9A-Fa-f:]{3,}";
@@ -548,6 +548,11 @@ mod tests {
             "shopId=<KENNUNG> kioskId: \"<KENNUNG>\" shopId missing; mail an <MAIL> auf <RECHNER>"
         );
         assert_eq!(r.redact("localhost DESKTOP-K4F2X"), "localhost DESKTOP-K4F2X");
+        // The form of the game's log: the value right in brackets.
+        assert_eq!(
+            r.redact("shopId[917340731320] shopName[SCShop_X] kioskId[917340731318]"),
+            "shopId[<KENNUNG>] shopName[SCShop_X] kioskId[<KENNUNG>]"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

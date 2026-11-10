@@ -76,6 +76,13 @@ pub const CACHE_FILE: &str = "katalog-spieldaten.json";
 /// 6: building it also writes the reputation and terms of every contract read from the game data (`auftragsruf.json`).
 pub const CACHE_FORMAT: i64 = 6;
 
+/// The lock file beside the cache file that keeps two builds of the same catalog apart, in one process and between
+/// the main window and the overlay.
+pub const BUILD_LOCK_FILE: &str = "katalog-neubau.lock";
+
+/// How long a build waits for another one of the same catalog before it builds anyway.
+const BUILD_LOCK_WAIT: std::time::Duration = std::time::Duration::from_secs(2 * 3600);
+
 /// The oldest layout of the cache that stands in until the catalog is built anew: from 3 the contracts carry the
 /// values the list shows.
 const OLDEST_STAND_IN: i64 = 3;
@@ -232,9 +239,13 @@ pub fn list_catalog_archive(
 ) -> Option<CatalogCache> {
     let start = start_in(paths, archive, cache_file, false, Arc::clone(&supply), now());
     let Some(rebuild) = start.rebuild else { return start.catalog };
-    // A build that fails (the archive cannot be read for a while): the last
-    // build of the same archive stands in, only then the 4.12 cache.
-    rebuild.run().or_else(|| start_in(paths, archive, cache_file, true, supply, now()).catalog)
+    // A build that fails (the archive cannot be read for a while), or another build of the same catalog that is
+    // still running: the last build of the same archive stands in, only then the 4.12 cache.
+    let stand_in = || start_in(paths, archive, cache_file, true, Arc::clone(&supply), now()).catalog;
+    match rebuild.run_if_free() {
+        Some(built) => built.or_else(stand_in),
+        None => start.catalog.or_else(stand_in),
+    }
 }
 
 /// What the list shows first, and what is still to do.
@@ -311,7 +322,51 @@ pub fn rebuild_now_archive(
         cache_file: cache_file.to_string(),
         legacy: OnceLock::new(),
         supply,
+        forced: true,
     }
+}
+
+/// Whether the catalog file was not built from the installed archive as it is now, in the layout of this version
+/// ([`CACHE_FORMAT`]): it is missing, older, or another archive or patch. False without an archive, as there is
+/// nothing to read anew. Reads only the cache file.
+pub fn catalog_behind(paths: &Paths) -> bool {
+    let archive = paths.archive_file().map(PathBuf::from);
+    catalog_behind_file(archive.as_deref(), &paths.app_file(CACHE_FILE))
+}
+
+/// [`catalog_behind`] with the archive and the cache file given.
+pub fn catalog_behind_file(archive: Option<&Path>, cache_file: &str) -> bool {
+    let Some(archive) = archive.filter(|path| path.is_file()) else { return false };
+    let stored = jsonio::read_json(cache_file).ok();
+    !stored
+        .as_ref()
+        .and_then(|data| data.get("quelle"))
+        .is_some_and(|source| same_archive(source, &stamp(Some(archive))))
+}
+
+/// The catalog brought up to date for the background after the start: built when [`catalog_behind`] says it lags,
+/// else the catalog another build (of this process or the other one) wrote meanwhile; scmdb's part, should it be
+/// missing, follows with the next build the list starts. `None` when neither the archive nor scmdb gives a catalog.
+pub fn refresh_catalog(paths: &Paths) -> Option<CatalogCache> {
+    let archive = paths.archive_file().map(PathBuf::from);
+    refresh_catalog_archive(paths, archive.as_deref(), &paths.app_file(CACHE_FILE), Arc::new(Runtime::default()))
+}
+
+/// [`refresh_catalog`] with the archive, the cache file and the `supply` given.
+pub fn refresh_catalog_archive(
+    paths: &Paths,
+    archive: Option<&Path>,
+    cache_file: &str,
+    supply: Arc<dyn Supply>,
+) -> Option<CatalogCache> {
+    let lock = build_lock(cache_file);
+    let refreshed = if catalog_behind_file(archive, cache_file) {
+        rebuild_now_archive(paths, archive, cache_file, supply).build_now(paths)
+    } else {
+        jsonio::read_json(cache_file).ok().as_ref().and_then(non_empty).map(|catalog| corrected(paths, catalog))
+    };
+    drop(lock);
+    refreshed
 }
 
 /// The seconds since 1970 the stored cache says scmdb was asked at, and
@@ -403,6 +458,7 @@ fn start_in(
         cache_file: cache_file.to_string(),
         legacy,
         supply: Arc::clone(&supply),
+        forced: false,
     };
     if !stand_in {
         return Start { catalog: None, rebuild: Some(rebuild(OnceLock::new())) };
@@ -450,15 +506,68 @@ pub struct Rebuild {
     cache_file: String,
     legacy: OnceLock<Option<CatalogCache>>,
     supply: Arc<dyn Supply>,
+    /// Built whatever the cache file says ([`rebuild_now`]); else a cache another build finished meanwhile is taken.
+    forced: bool,
+}
+
+/// Holds the lock of [`BUILD_LOCK_FILE`] beside `cache_file` until it is dropped; `None` when the lock file cannot be
+/// had (a refused write, a file system without locks), and after [`BUILD_LOCK_WAIT`].
+fn build_lock(cache_file: &str) -> Option<versekit_core::jsonio::ProcessLock> {
+    use versekit_core::jsonio::{ProcessLock, Taken};
+    let folder = Path::new(cache_file).parent()?;
+    let lock = ProcessLock::open(&folder.join(BUILD_LOCK_FILE).to_string_lossy()).ok()?;
+    match lock.acquire(BUILD_LOCK_WAIT) {
+        Taken::Held => Some(lock),
+        Taken::TimedOut | Taken::Unsupported(_) => None,
+    }
 }
 
 impl Rebuild {
     /// Builds the catalog and keeps it in the cache file; `None` when neither
     /// the archive nor scmdb gives blueprints. A refused or failed write only
     /// costs the next start the building.
+    ///
+    /// One build of a cache file at a time: a build that had to wait for another one takes the cache that one
+    /// wrote, when it is up to date now, unless it is [`rebuild_now`].
     pub fn run(&self) -> Option<CatalogCache> {
+        self.run_locked(build_lock(&self.cache_file))
+    }
+
+    /// Like [`Rebuild::run`], but only when no other build of the same cache file is running: `None` then, at
+    /// once, so that a caller that needs a catalog now takes the one it has.
+    pub fn run_if_free(&self) -> Option<Option<CatalogCache>> {
+        use versekit_core::jsonio::{ProcessLock, Taken};
+        let folder = Path::new(&self.cache_file).parent().map(Path::to_path_buf);
+        let lock = folder.and_then(|f| ProcessLock::open(&f.join(BUILD_LOCK_FILE).to_string_lossy()).ok());
+        let held = match lock {
+            Some(lock) => match lock.acquire(std::time::Duration::ZERO) {
+                Taken::Held => Some(lock),
+                Taken::TimedOut => return None,
+                Taken::Unsupported(_) => None,
+            },
+            None => None,
+        };
+        Some(self.run_locked(held))
+    }
+
+    fn run_locked(&self, lock: Option<versekit_core::jsonio::ProcessLock>) -> Option<CatalogCache> {
         let paths = Paths::new(self.host.clone());
-        let Some(built) = build(&paths, self.archive.as_deref(), &*self.supply, &self.cache_file) else {
+        let meanwhile = if self.forced { None } else { self.done_meanwhile(&paths) };
+        let built = meanwhile.or_else(|| self.build_now(&paths));
+        drop(lock);
+        built
+    }
+
+    /// The catalog of the cache file when it is up to date for the archive as it is now.
+    fn done_meanwhile(&self, paths: &Paths) -> Option<CatalogCache> {
+        let stamp = stamp(self.archive.as_deref().filter(|path| path.is_file()));
+        let stored = jsonio::read_json(&self.cache_file).ok()?;
+        let current = is_current(stored.get("quelle"), &stamp, self.archive.is_some(), &*self.supply, now());
+        current.then(|| non_empty(&stored)).flatten().map(|catalog| corrected(paths, catalog))
+    }
+
+    fn build_now(&self, paths: &Paths) -> Option<CatalogCache> {
+        let Some(built) = build(paths, self.archive.as_deref(), &*self.supply, &self.cache_file) else {
             versekit_core::errors::record("list.rebuild", &"the game data and scmdb gave no blueprint catalog");
             return None;
         };
@@ -478,7 +587,7 @@ impl Rebuild {
         {
             versekit_core::errors::record("list.cache_write", &error);
         }
-        Some(corrected(&paths, built.catalog))
+        Some(corrected(paths, built.catalog))
     }
 
     /// The 4.12 cache, read when first asked for.
@@ -637,9 +746,16 @@ fn note(label: &str, key: &str, detail: &str) {
     versekit_core::errors::record(label, &text);
 }
 
+/// A difference to scmdb goes to the error log as a note (kind `Hinweis`): scmdb's data are known to hold errors,
+/// so the button "Fehler melden" does not count it; the report shows it with the entries.
+pub(crate) fn note_difference(label: &str, key: &str, detail: &str) {
+    let text = format!("{} ({detail})", versekit_core::language::t(key));
+    versekit_core::errors::note(label, &text);
+}
+
 /// Keeps whom the contracts credit reputation and their terms, for the notes in the game text (`auftragsruf.json`):
 /// read from the archive (`own`) when that worked, checked against scmdb's table of the same build (`theirs`), whose
-/// differences go to the error log; scmdb's table alone when the archive gave nothing. The regions come from scmdb's
+/// differences go to the error log as notes; scmdb's table alone when the archive gave nothing. The regions come from scmdb's
 /// table, else from the stored one of the same build. Nothing is written when neither has a contract (4.12
 /// `refresh`).
 fn keep_reputation(
@@ -665,7 +781,7 @@ fn keep_reputation(
                 if !differences.is_empty() {
                     let shown: Vec<&str> = differences.iter().take(5).map(String::as_str).collect();
                     let detail = format!("{build}: {} differences; {}", differences.len(), shown.join(", "));
-                    note("gamedata.crosscheck", "s_p5_gegenprobe_ruf", &detail);
+                    note_difference("gamedata.crosscheck", "s_p5_gegenprobe_ruf", &detail);
                 }
             }
             let stored = reputation::load(paths);
@@ -798,7 +914,7 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
                 let check = cross_check(&full, theirs);
                 if check.differences() > 0 {
                     let build = wanted.as_deref().unwrap_or("?");
-                    note(
+                    note_difference(
                         "list.crosscheck",
                         "s_p5_gegenprobe",
                         &format!("{build}: {} differences; {}", check.differences(), check.summary()),
@@ -1852,6 +1968,147 @@ mod tests {
         write(Some(&archive), "4.10.2-live.1", now, "4.10.2-live.1");
         fs::write(&archive, b"patched p4k").unwrap();
         assert!(craft_data_behind_file(Some(&archive), &cache, "4.10.2-live.1", &Online, now), "a patch");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// A cache stamp of `archive` in the layout `format`, with scmdb's part brought.
+    fn stamp_in(archive: Option<&Path>, format: i64) -> Value {
+        let mut source = stamp(archive);
+        if let Value::Object(map) = &mut source {
+            for (key, value) in map.iter_mut() {
+                if key == "format" {
+                    *value = Value::int(format);
+                }
+            }
+            map.push(("scmdb".into(), Value::str("4.10.2-live.1")));
+            map.push(("versuch".into(), Value::str(now().to_string())));
+        }
+        source
+    }
+
+    /// A difference to scmdb is written as a note (kind `Hinweis`): the error log keeps it with its text, so the
+    /// report shows it, but the button "Fehler melden" counts only the real error beside it.
+    #[test]
+    fn a_difference_to_scmdb_is_a_note_that_the_report_button_does_not_count() {
+        use versekit_core::error_log::{ErrorLog, Problem};
+        use versekit_core::language::{Choice, set_thread_language, t};
+        set_thread_language(Choice::De);
+        let dir = versekit_core::testdir::fresh("abgleich-hinweis");
+        let root = dir.to_string_lossy().into_owned();
+        let vars = [(versekit_core::legacy::ENV_HOME, root.as_str())];
+        let host = versekit_core::paths::Host::new(versekit_core::pypath::Flavor::native(), &vars, &root);
+        let paths: &'static Paths = Box::leak(Box::new(Paths::new(host)));
+        let log: &'static ErrorLog<'static> = Box::leak(Box::new(ErrorLog::new(paths, "5.2.8")));
+        // Wired like the running program; only the labels of this test, other tests may report meanwhile.
+        let ours = |label: &str| ["list.crosscheck", "gamedata.crosscheck", "test.fehler"].contains(&label);
+        versekit_core::errors::set_sink(move |label, message| {
+            if ours(label) {
+                log.record(label, Some(Problem { kind: "Fehler", message, trace: None }), "");
+            }
+        });
+        versekit_core::errors::set_note_sink(move |label, message| {
+            if ours(label) {
+                log.record(label, None, message);
+            }
+        });
+        note_difference("list.crosscheck", "s_p5_gegenprobe", "4.10.2-live.1: 10 differences; a");
+        note_difference("gamedata.crosscheck", "s_p5_gegenprobe_ruf", "4.10.2-live.1: 8 differences; b");
+        versekit_core::errors::record("test.fehler", &"kaputt");
+        let entries = log.latest(50);
+        let kind_of = |label: &str| {
+            let entry = entries.iter().find(|e| e.get("stelle").and_then(Value::as_str) == Some(label));
+            entry.and_then(|e| e.get("art")).and_then(Value::as_str).map(str::to_string)
+        };
+        assert_eq!(kind_of("list.crosscheck").as_deref(), Some("Hinweis"), "{entries:?}");
+        assert_eq!(kind_of("gamedata.crosscheck").as_deref(), Some("Hinweis"), "{entries:?}");
+        assert_eq!(kind_of("test.fehler").as_deref(), Some("Fehler"), "{entries:?}");
+        let text = format!("{entries:?}");
+        assert!(text.contains(&t("s_p5_gegenprobe")) && text.contains("10 differences"), "the report shows it: {text}");
+        assert_eq!(log.unseen(), 1, "only the real error counts on the button");
+        set_thread_language(Choice::Auto);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_catalog_of_an_older_layout_or_another_archive_lags_behind_the_game_data() {
+        let dir = std::env::temp_dir().join(format!("versekit-katalog-rueckstand-{}", versekit_core::testdir::run_tag()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let cache = dir.join(CACHE_FILE).to_string_lossy().into_owned();
+        let archive = dir.join(ARCHIVE_NAME);
+        assert!(!catalog_behind_file(Some(&archive), &cache), "without an archive there is nothing to read anew");
+        fs::write(&archive, b"p4k").unwrap();
+        assert!(catalog_behind_file(Some(&archive), &cache), "no catalog yet");
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT - 1), &keyed(&["Alpha"], "4.10.2-live.1"), &Map::new())
+            .unwrap();
+        assert!(catalog_behind_file(Some(&archive), &cache), "the layout before the update");
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT), &keyed(&["Alpha"], "4.10.2-live.1"), &Map::new())
+            .unwrap();
+        assert!(!catalog_behind_file(Some(&archive), &cache), "built from this archive in this layout");
+        fs::write(&archive, b"patched p4k").unwrap();
+        assert!(catalog_behind_file(Some(&archive), &cache), "a patch");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_build_that_waited_for_another_one_takes_the_catalog_that_one_wrote() {
+        let dir = std::env::temp_dir().join(format!("versekit-katalog-sperre-{}", versekit_core::testdir::run_tag()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let text = dir.to_string_lossy().into_owned();
+        let vars = [(versekit_core::legacy::ENV_HOME, text.as_str()), (versekit_core::paths::ENV_TEST_MACHINE, "1")];
+        let paths = Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &vars, &text));
+        let cache = paths.app_file(CACHE_FILE);
+        let archive = dir.join(ARCHIVE_NAME);
+        fs::write(&archive, b"p4k").unwrap();
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT - 1), &keyed(&["Alpha"], "4.10.2-live.1"), &Map::new())
+            .unwrap();
+        let start = start_catalog_archive(&paths, Some(&archive), &cache, Arc::new(Offline));
+        let rebuild = start.rebuild.expect("the layout before the update is built anew");
+        // The other build (the background, or the other process) holds the lock and writes the catalog meanwhile.
+        let other = build_lock(&cache).expect("the lock");
+        let (written, done) = mpsc::channel();
+        let writer = {
+            let (cache, archive) = (cache.clone(), archive.clone());
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                let fresh = keyed(&["Alpha", "Beta"], "4.10.2-live.2");
+                write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT), &fresh, &Map::new()).unwrap();
+                drop(other);
+                let _ = written.send(());
+            })
+        };
+        let taken = rebuild.run().expect("the catalog of the other build");
+        done.recv().unwrap();
+        writer.join().unwrap();
+        assert_eq!(taken.version, "4.10.2-live.2", "waited for the other build and took its catalog");
+        assert_eq!(taken.blueprints.len(), 2);
+        assert!(!catalog_behind_file(Some(&archive), &cache));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_caller_that_needs_the_catalog_now_takes_the_old_one_while_another_build_runs() {
+        let dir = std::env::temp_dir().join(format!("versekit-katalog-frei-{}", versekit_core::testdir::run_tag()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let text = dir.to_string_lossy().into_owned();
+        let vars = [(versekit_core::legacy::ENV_HOME, text.as_str()), (versekit_core::paths::ENV_TEST_MACHINE, "1")];
+        let paths = Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &vars, &text));
+        let cache = paths.app_file(CACHE_FILE);
+        let archive = dir.join(ARCHIVE_NAME);
+        fs::write(&archive, b"p4k").unwrap();
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT - 1), &keyed(&["Alpha"], "4.10.2-live.1"), &Map::new())
+            .unwrap();
+        // Another build holds the lock for as long as it likes (the background, waiting for the game to end).
+        let other = build_lock(&cache).expect("the lock");
+        let started = std::time::Instant::now();
+        let catalog = list_catalog_archive(&paths, Some(&archive), &cache, Arc::new(Offline));
+        assert!(started.elapsed() < std::time::Duration::from_secs(2), "did not wait: {:?}", started.elapsed());
+        let catalog = catalog.expect("the old catalog stands in");
+        assert_eq!(catalog.version, "4.10.2-live.1");
+        assert_eq!(catalog.blueprints.len(), 1);
+        drop(other);
         let _ = fs::remove_dir_all(dir);
     }
 

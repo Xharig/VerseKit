@@ -104,6 +104,18 @@ pub fn record(label: &str, kind: &str, message: &str, trace: Option<&str>) -> bo
     written
 }
 
+/// Records a note (kind `Hinweis`) under its place; true if it was written. The report shows it with the
+/// errors, the button "Fehler melden" does not count it ([`ErrorLog::unseen`]).
+pub fn note(label: &str, message: &str) -> bool {
+    let Some(log) = error_log() else { return false };
+    if RECORDING.with(|r| r.replace(true)) {
+        return false;
+    }
+    let written = log.record(label, None, message);
+    RECORDING.with(|r| r.set(false));
+    written
+}
+
 /// The data folder and the role of the running program, once [`init_for`] has run.
 pub fn current() -> Option<(&'static Paths, Role)> {
     RUN.get().copied()
@@ -137,6 +149,9 @@ pub fn init_for(paths: &'static Paths, role: Role, version: &str) -> bool {
     }
     crate::errors::set_sink(|label, message| {
         record(label, "Fehler", message, None);
+    });
+    crate::errors::set_note_sink(|label, message| {
+        note(label, message);
     });
     install_panic_hook();
     let line = start_line(version);
