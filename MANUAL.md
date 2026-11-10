@@ -44,7 +44,7 @@ Liegt Star Citizen nicht an einer der üblichen Stellen, trägst du den Ordner s
 }
 ```
 
-In `spiel_ordner` gehört der Ordner, in dem die `Game.log` liegt (meist `LIVE`). Ein leeres Feld heißt „bitte suchen“. Nach dem Ändern VerseKit neu starten.
+In `spiel_ordner` gehört der Ordner des Spiels (meist `LIVE`). Die `Game.log` muss noch nicht darin liegen: Das Spiel legt sie beim ersten Start an. Ein leeres Feld heißt „bitte suchen“. Nach dem Ändern VerseKit neu starten.
 
 > Findet VerseKit das Spiel nicht, legt es diese Datei beim Start **von selbst** an und sagt dir, wo sie liegt. Du musst sie nicht von Hand erzeugen. In der Datei stehen bei jedem Feld die Orte, an denen gesucht wurde; dieselben nennt auch das Fenster. So siehst du, wie so ein Pfad auf deinem System aussieht, statt ihn raten zu müssen.
 
@@ -74,7 +74,7 @@ Dasselbe funktioniert über **zwei Rechner**, wenn beide denselben Cloud- oder N
 | Heroic | `~/Games/Heroic/Prefixes/*`, mit Proton `…/pfx` |
 | Steam mit Proton | `~/.local/share/Steam/steamapps/compatdata/*/pfx`, als Flatpak `~/.var/app/com.valvesoftware.Steam/data/Steam/steamapps/compatdata/*/pfx` |
 
-Liegt dein Präfix woanders, trägst du den Ordner mit der `Game.log` im Assistenten oder in `spiel_ordner` ein (siehe oben).
+Liegt dein Präfix woanders, trägst du den Ordner des Spiels im Assistenten oder in `spiel_ordner` ein (siehe oben).
 
 **Startmenü.** *Einstellungen → Allgemein → Eintrag im Startmenü* legt `~/.local/share/applications/versekit.desktop` an (bzw. unter `$XDG_DATA_HOME`) und das Symbol daneben unter `icons/hicolor/256x256/apps/versekit.png`. Er startet die AppImage-Datei selbst, nicht den entpackten Zwischenordner. Ein Update zieht Name und Symbol eines vorhandenen Eintrags nach; einen gelöschten legt es nicht wieder an. Der Eintrag der Vorgängerversion 4.x wird übernommen.
 

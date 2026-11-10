@@ -198,7 +198,7 @@ pub const PEOPLE: [Person; 38] = [
             "s_dkv_blackdog_idee5",
             "s_dkv_blackdog_idee6",
         ],
-        &[],
+        &["s_dkv_blackdog_bugs"],
     ),
     person(
         "Aeternitas26",

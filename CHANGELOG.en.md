@@ -6,6 +6,29 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.9 - 2026-11-10
+
+> The setup now gets past a game that has never been started and therefore
+> has no Game.log yet.
+
+### Fixed
+
+- **Setup without a Game.log:** Anyone who had just installed Star Citizen
+  and never started it got stuck at the step "Find Star Citizen", because a
+  Game.log was demanded there. Now the folder counts as found as soon as the
+  game is installed in it (recognised by the Data.p4k or by
+  Bin64/StarCitizen.exe). The folder above it and the folder of the RSI
+  Launcher still work. If the Game.log is still missing, the setup says so
+  and VerseKit waits quietly until the game creates it at its first start.
+  Reported by Blackd0g84
+
+### Improved
+
+- **Game search on all fixed drives:** The automatic search now looks in the
+  usual places on every fixed drive (for example `G:\StarCitizen`), not only
+  in the program folders of C: to H:. Network drives and removable media are
+  left out.
+
 ## v5.2.8 - 2026-11-10
 
 > The contract details now reach the game by themselves after the update,

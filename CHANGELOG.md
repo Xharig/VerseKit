@@ -6,6 +6,29 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.9 - 2026-11-10
+
+> Die Einrichtung kommt jetzt auch bei einem Spiel weiter, das noch nie
+> gestartet wurde und deshalb noch keine Game.log hat.
+
+### Behoben
+
+- **Einrichtung ohne Game.log:** Wer Star Citizen frisch installiert und
+  noch nie gestartet hat, kam im Schritt „Star Citizen finden“ nicht weiter,
+  weil dort eine Game.log verlangt wurde. Jetzt gilt der Ordner als
+  gefunden, sobald das Spiel darin installiert ist (an der Data.p4k oder an
+  Bin64/StarCitizen.exe erkannt). Der Ordner darüber und der Ordner des
+  RSI Launchers genügen weiter. Fehlt die Game.log noch, sagt die
+  Einrichtung das und VerseKit wartet ruhig, bis das Spiel sie beim ersten
+  Start anlegt. Gemeldet von Blackd0g84
+
+### Verbessert
+
+- **Spielsuche auf allen festen Laufwerken:** Die automatische Suche schaut
+  jetzt auf jedem festen Laufwerk an den üblichen Stellen nach (zum Beispiel
+  `G:\StarCitizen`), nicht mehr nur in den Programmordnern von C: bis H:.
+  Netzlaufwerke und Wechseldatenträger lässt sie aus.
+
 ## v5.2.8 - 2026-11-10
 
 > Die Auftragsangaben kommen nach dem Update jetzt von selbst ins Spiel, Shops

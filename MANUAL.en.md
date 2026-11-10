@@ -44,7 +44,7 @@ If Star Citizen isn't in one of the usual places, you enter the folder yourself,
 }
 ```
 
-`spiel_ordner` is the folder containing `Game.log` (usually `LIVE`). An empty field means "search automatically". Restart VerseKit after changing it.
+`spiel_ordner` is the folder of the game (usually `LIVE`). The `Game.log` does not have to be in it yet: the game creates it at its first start. An empty field means "search automatically". Restart VerseKit after changing it.
 
 > If VerseKit can't find the game, it creates this file **by itself** on start and tells you where it is. You don't have to create it by hand. The file lists the places that were searched next to each field, as does the window. So you can see what such a path looks like on your system instead of guessing.
 
@@ -74,7 +74,7 @@ The same works across **two machines** if both use the same cloud or network fol
 | Heroic | `~/Games/Heroic/Prefixes/*`, with Proton `…/pfx` |
 | Steam with Proton | `~/.local/share/Steam/steamapps/compatdata/*/pfx`, as a Flatpak `~/.var/app/com.valvesoftware.Steam/data/Steam/steamapps/compatdata/*/pfx` |
 
-If your prefix lies elsewhere, enter the folder with the `Game.log` in the assistant or in `spiel_ordner` (see above).
+If your prefix lies elsewhere, enter the folder of the game in the assistant or in `spiel_ordner` (see above).
 
 **Application menu.** *Settings → General → Entry in the application menu* writes `~/.local/share/applications/versekit.desktop` (or below `$XDG_DATA_HOME`) and the icon next to it in `icons/hicolor/256x256/apps/versekit.png`. It starts the AppImage file itself, not the unpacked temporary folder. An update brings name and icon of an existing entry along; a deleted one is not made again. The entry of the previous version (4.x) is taken over.
 

@@ -77,6 +77,29 @@ const STEP_MIN_BESIDE_PICTURE: f32 = 200.0;
 /// The least height the content of a step gets.
 const STEP_MIN: f32 = 100.0;
 
+/// The look for the game below the folder typed, in a thread of its own ([`setup::check_game_folder`], which can
+/// walk through five levels of a big folder). The answer is for `typed`; the assistant drops the look when the
+/// text changes.
+struct GameSearch {
+    answer: Receiver<GameFolder>,
+}
+
+impl GameSearch {
+    /// Starts the look. `None` when no thread can be made: the caller then takes the folder as one without the game.
+    fn start(paths: &Paths, typed: &str, ctx: &egui::Context) -> Option<GameSearch> {
+        let (send, answer) = mpsc::channel();
+        let (copy, typed, wake) = (paths.working_copy(), typed.to_string(), ctx.clone());
+        std::thread::Builder::new()
+            .name("spielordner-pruefung".into())
+            .spawn_with_language(move || {
+                let _ = send.send(setup::check_game_folder(&copy, &typed));
+                wake.request_repaint();
+            })
+            .ok()?;
+        Some(GameSearch { answer })
+    }
+}
+
 /// The assistant while it is open.
 pub(super) struct Wizard {
     /// The short setup `Willkommen in 5.0` for a program set up before 5.0 (the steps are those of
@@ -90,6 +113,9 @@ pub(super) struct Wizard {
     game_text: String,
     game_seen: String,
     game_check: GameFolder,
+    /// The look through the folders below what was typed, in a thread of its own while it runs (a big folder
+    /// like `C:\` takes seconds, and the window must not wait for it).
+    game_search: Option<GameSearch>,
     game_dialog: Option<Pending>,
     /// The places that were searched, for a player without the game found.
     searched: Vec<String>,
@@ -109,6 +135,9 @@ pub(super) struct Wizard {
     /// The channels installed next to the game folder as typed, and the folder they were looked up for.
     channels_for: String,
     channels: Vec<String>,
+    /// Is there anything to read in the folder as typed: a `Game.log`, or kept logs of earlier sessions? A game
+    /// never started has neither, and the step then has no reading to show or wait for.
+    reads: bool,
     /// The picture of the step stands above the area that scrolls (set by the layout, read by the step).
     picture_pinned: bool,
     /// The blueprints in the collection, for the last page (`None`: not read yet).
@@ -198,7 +227,8 @@ impl SamplePage {
         // Whoever went on without the game once and has it now starts with all the steps, as in 4.12.
         let without_game = found.is_none() && paths.is_some_and(|p| p.setting_bool(setup::WITHOUT_GAME, false));
         let game_text = found.clone().unwrap_or_default();
-        let game_check = paths.map_or(GameFolder::Empty, |p| setup::check_game_folder(p, &game_text));
+        // A folder found by itself is a channel: the quick check answers. (Anything else waits for its thread.)
+        let game_check = paths.and_then(|p| setup::check_game_folder_near(p, &game_text)).unwrap_or(GameFolder::Empty);
         let steps =
             if short { setup::short_steps(without_game) } else { setup::steps(without_game, self.start_possible()) };
         let flag = |key: &str, default: bool| paths.map_or(default, |p| p.setting_bool(key, default));
@@ -209,6 +239,7 @@ impl SamplePage {
             game_seen: game_text.clone(),
             game_text,
             game_check,
+            game_search: None,
             game_dialog: None,
             searched: paths.map_or_else(Vec::new, |p| p.searched_game_locations(4)),
             found_by_itself: found.is_some(),
@@ -218,6 +249,7 @@ impl SamplePage {
             game_confirmed: None,
             data_seen: paths.map(|p| p.app_folder()).unwrap_or_default(),
             channels_for: String::new(),
+            reads: true,
             channels: Vec::new(),
             picture_pinned: false,
             stock: None,
@@ -325,10 +357,34 @@ impl SamplePage {
         // What is typed is read as soon as it changes.
         if wizard.game_text != wizard.game_seen {
             wizard.game_seen.clone_from(&wizard.game_text);
-            wizard.game_check = self
-                .store
-                .as_ref()
-                .map_or(GameFolder::Empty, |s| setup::check_game_folder(&s.paths, &wizard.game_text));
+            // A look that is still running is for an older text: dropped.
+            wizard.game_search = None;
+            wizard.game_check = GameFolder::Empty;
+            if let Some(store) = &self.store {
+                // The quick part answers at once; a folder that needs the walk through the levels below it
+                // (`C:\` typed) is looked at in a thread, and the window goes on drawing meanwhile.
+                match setup::check_game_folder_near(&store.paths, &wizard.game_text) {
+                    Some(check) => wizard.game_check = check,
+                    None => match GameSearch::start(&store.paths, &wizard.game_text, ctx) {
+                        Some(search) => wizard.game_search = Some(search),
+                        None => wizard.game_check = GameFolder::NotFound,
+                    },
+                }
+            }
+        }
+        if let Some(search) = &wizard.game_search {
+            match search.answer.try_recv() {
+                Ok(check) => {
+                    wizard.game_check = check;
+                    wizard.game_search = None;
+                }
+                Err(TryRecvError::Empty) => ctx.request_repaint_after(std::time::Duration::from_millis(100)),
+                // Without a thread (or if it died) the folder counts as one without the game.
+                Err(TryRecvError::Disconnected) => {
+                    wizard.game_check = GameFolder::NotFound;
+                    wizard.game_search = None;
+                }
+            }
         }
         // Read before the window takes the key itself.
         let escape = ctx.input(|i| i.key_pressed(egui::Key::Escape));
@@ -648,9 +704,9 @@ impl SamplePage {
     }
 
     fn step_game(&mut self, ui: &mut Ui, scheme: &Scheme, wizard: &mut Wizard) {
-        Self::paragraph(ui, scheme, &t("schritt_spiel_text"), false);
+        Self::paragraph(ui, scheme, &t("schritt_spiel_ordner_text"), false);
         ui.add_space(4.0);
-        Self::paragraph(ui, scheme, &t("schritt_spiel_hilfe"), true);
+        Self::paragraph(ui, scheme, &t("schritt_spiel_ordner_hilfe"), true);
         ui.add_space(10.0);
         ui.horizontal(|ui| {
             let room = (ui.available_width() - 120.0).max(120.0);
@@ -665,18 +721,27 @@ impl SamplePage {
         });
         ui.add_space(6.0);
         match wizard.game_check.clone() {
+            // The look through the folders below runs: said, and "Bestätigen" waits for it.
+            GameFolder::Empty if wizard.game_search.is_some() => {
+                widgets::loading(ui, scheme, &t("spiel_suche"));
+            }
             GameFolder::Empty => {}
-            GameFolder::Found { folder, deduced } => {
-                let mut said = t("log_gefunden");
+            GameFolder::Found { folder, deduced, log } => {
+                // The game counts as found with its files; the log is there once it has been started.
+                let mut said = t(if log { "log_gefunden" } else { "spiel_gefunden" });
                 if deduced {
                     said.push('\n');
                     said.push_str(&tf("ordner_gedeutet", &[("0", Arg::from(folder.as_str()))]));
                 }
                 Self::state_line(ui, scheme.accent, "circle-check", &said);
-                self.game_found_extras(ui, scheme, wizard, &folder);
+                if !log {
+                    ui.add_space(4.0);
+                    Self::paragraph(ui, scheme, &t("spiel_ohne_log_warten"), true);
+                }
+                self.game_found_extras(ui, scheme, wizard, &folder, log);
             }
-            GameFolder::NoLog => {
-                Self::state_line(ui, scheme.yellow, "triangle-alert", &t("keine_log_darin"));
+            GameFolder::NotFound => {
+                Self::state_line(ui, scheme.yellow, "triangle-alert", &t("kein_spiel_darin"));
             }
         }
         if !wizard.found_by_itself {
@@ -723,7 +788,7 @@ impl SamplePage {
     /// of the earlier sessions gave. The reading starts only after the player confirmed THIS folder (reading
     /// writes into the collection and notes the account; a folder as typed may be a test channel or somebody
     /// else's logs, and nothing takes it back). Where the data folder cannot be written nothing is read.
-    fn game_found_extras(&mut self, ui: &mut Ui, scheme: &Scheme, wizard: &mut Wizard, folder: &str) {
+    fn game_found_extras(&mut self, ui: &mut Ui, scheme: &Scheme, wizard: &mut Wizard, folder: &str, log: bool) {
         let Some(store) = &self.store else { return };
         if wizard.channels_for != folder {
             // Only looked at, nothing written: the paths with this folder as the game folder.
@@ -731,11 +796,16 @@ impl SamplePage {
             scoped.set_given_game(folder, GivenBy::Named("Einrichtung".into()));
             wizard.channels_for = folder.to_string();
             wizard.channels = scoped.installed_channels().into_iter().map(|(name, ..)| name).collect();
+            wizard.reads = log || !scoped.log_backups(None).is_empty();
         }
         if !wizard.channels.is_empty() {
             ui.add_space(4.0);
             let said = tf("as_kanaele", &[("0", Arg::from(wizard.channels.join(", ")))]);
             ui.add(egui::Label::new(RichText::new(said).small().color(color(scheme.sub))).wrap());
+        }
+        // A game that was never started has nothing to read: no promise of a reading, nothing to wait for.
+        if !wizard.reads {
+            return;
         }
         ui.add_space(10.0);
         Self::paragraph(ui, scheme, &t("schritt_lesen_text"), true);
@@ -1026,7 +1096,8 @@ impl SamplePage {
 
     fn setup_buttons(&mut self, ui: &mut Ui, scheme: &Scheme, wizard: &mut Wizard, step: Step) {
         let last = wizard.state.step + 1 == wizard.steps.len();
-        // The game step cannot be confirmed before a folder with a log is meant, except on the way out.
+        // The game step cannot be confirmed before the folder of a game channel is meant (a log is not asked
+        // for: whoever never started the game has none), except on the way out.
         let game_blocked = step == Step::Game && !matches!(wizard.game_check, GameFolder::Found { .. });
         ui.horizontal(|ui| {
             let start = t("s_mu_wiz_anfang");
@@ -1035,9 +1106,14 @@ impl SamplePage {
                 wizard.state.step -= 1;
             }
             let (done, first_all) = (t("s_mu_wiz_schon"), t("s_mu_wiz_erst"));
-            // Nothing typed is another reason than a folder without a log.
-            let no_folder =
-                t(if matches!(wizard.game_check, GameFolder::Empty) { "spielordner_erst" } else { "keine_log_darin" });
+            // Nothing typed is another reason than a folder without the game.
+            let no_folder = t(if wizard.game_search.is_some() {
+                "spiel_suche"
+            } else if matches!(wizard.game_check, GameFolder::Empty) {
+                "spielordner_erst"
+            } else {
+                "kein_spiel_darin"
+            });
             let no_storage = t("ablage_erst_frei");
             // Where nothing can be saved, the data folder cannot be confirmed: the player picks another one.
             let storage_blocked = step == Step::Storage && wizard.storage_blocked.is_some();
@@ -1085,7 +1161,8 @@ impl SamplePage {
                         if wizard.without_game {
                             self.rebuild_steps(wizard, false);
                         }
-                        stays = true;
+                        // With nothing to read there is nothing to wait for: the first confirmation goes on.
+                        stays = wizard.reads;
                     }
                 }
                 // The account confirmed is the own one; the page Allgemein reads the accounts again.
@@ -1327,12 +1404,12 @@ mod tests {
     }
 
     #[test]
-    fn the_game_step_waits_for_a_folder_with_a_log_and_has_the_way_out() {
+    fn the_game_step_waits_for_the_folder_of_the_game_and_has_the_way_out() {
         let _language = crate::language_lock();
         let (page, dir) = page_with_game("einrichtung-spiel");
         let mut bench = Bench::new(page);
         bench.page.open_setup();
-        // To the game step, then a folder that holds no log.
+        // To the game step, then a folder that holds neither a log nor the game.
         for _ in 0..2 {
             bench.click(&language::t("s_mlg_bestaetigen"));
         }
@@ -1342,8 +1419,9 @@ mod tests {
             w.game_text = empty.to_string_lossy().into_owned();
             w.found_by_itself = false;
         }
-        let texts = bench.settle();
-        assert!(shows(&texts, &language::t("keine_log_darin")), "the folder has no log: said");
+        // The look below the folder runs in a thread: "waiting" first, the answer a few frames later.
+        let texts = until_shown(&mut bench, &language::t("kein_spiel_darin"));
+        assert!(shows(&texts, &language::t("kein_spiel_darin")), "the folder has no game: said");
         assert!(shows(&texts, &language::t("ohne_spiel")), "and the way out stands there");
         let step = bench.page.setup.as_ref().map(|w| w.state.step);
         bench.click(&language::t("s_mlg_bestaetigen"));
@@ -1360,6 +1438,45 @@ mod tests {
         assert_eq!(w.steps[w.state.step], Step::Overlay);
         let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
         assert!(file.contains("\"einrichtung_ohne_spiel\": true"), "{file}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A game that was installed but never started has no `Game.log` (reported by Blackd0g84, 10.11.2026: the
+    /// folder held only the game, and "Bestätigen" stayed grey).
+    #[test]
+    fn a_game_that_was_never_started_has_no_log_and_is_confirmed_all_the_same() {
+        let _language = crate::language_lock();
+        let (page, dir) = page_with_game("einrichtung-ohne-log");
+        let mut bench = Bench::new(page);
+        bench.page.open_setup();
+        for _ in 0..2 {
+            bench.click(&language::t("s_mlg_bestaetigen"));
+        }
+        let live = dir.join("neu").join("StarCitizen").join("LIVE");
+        std::fs::create_dir_all(&live).unwrap();
+        std::fs::write(live.join("Data.p4k"), "p4k").unwrap();
+        if let Some(w) = bench.page.setup.as_mut() {
+            w.game_text = live.to_string_lossy().into_owned();
+            w.found_by_itself = false;
+        }
+        let texts = bench.settle();
+        assert!(shows(&texts, &language::t("spiel_gefunden")), "the game is found without a log");
+        assert!(shows(&texts, &language::t("spiel_ohne_log_warten")), "and it is said that the log comes later");
+        assert!(!shows(&texts, &language::t("kein_spiel_darin")), "not the message for a folder without the game");
+        assert!(!shows(&texts, &language::t("log_gefunden")), "there is no log to be found");
+        let step = bench.page.setup.as_ref().map(|w| w.state.step);
+        // Nothing to read, so no promise of a reading and nothing to wait for.
+        assert!(!shows(&texts, &language::t("schritt_lesen_text")), "no reading announced");
+        assert!(!shows(&texts, &language::t("as_lesen_nach")), "no reading announced");
+        // The confirmation is not blocked: it takes the folder and goes on at once.
+        bench.click(&language::t("s_mlg_bestaetigen"));
+        let confirmed = bench.page.setup.as_ref().and_then(|w| w.game_confirmed.clone());
+        assert_eq!(confirmed.as_deref(), Some(&*live.to_string_lossy()), "the folder is meant");
+        assert!(bench.page.setup.as_ref().is_some_and(|w| w.state.step > step.unwrap_or(0)), "the assistant goes on");
+        let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(file.contains("spiel_ordner"), "the folder is written down: {file}");
+        let texts = bench.settle();
+        assert!(!shows(&texts, &language::t("ov_bestand_fehler")), "no fault");
         let _ = std::fs::remove_dir_all(dir);
     }
 

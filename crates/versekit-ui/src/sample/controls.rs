@@ -281,10 +281,11 @@ impl SamplePage {
             self.refuse_missing(&folder);
             return;
         }
-        // A folder with its Game.log, or an empty field, counts at once. Any other folder is searched in a thread
-        // of its own as the assistant does (the channel below it, a Wine prefix, up to five levels deeper); the
-        // answer is taken in `settle_folder_search`, and the field shows the channel found.
-        if folder.is_empty() || std::path::Path::new(&folder).join("Game.log").is_file() {
+        // The folder of a game channel (its Game.log, or the game installed without one), or an empty field,
+        // counts at once. Any other folder is searched in a thread of its own as the assistant does (the channel
+        // below it, a Wine prefix, up to five levels deeper); the answer is taken in `settle_folder_search`, and
+        // the field shows the channel found.
+        if folder.is_empty() || self.is_channel_folder(&folder) {
             self.folder_search = None;
             self.take_game_folder(folder);
             return;
@@ -326,7 +327,16 @@ impl SamplePage {
         // The box above the fields tells what the program finds there now (an empty field leaves
         // the search to the program, which the box has shown since the start).
         if !folder.is_empty() {
-            self.game_found = std::path::Path::new(&folder).join("Game.log").is_file().then_some(folder);
+            self.game_found = self.is_channel_folder(&folder).then_some(folder);
+        }
+    }
+
+    /// Is this the folder of a game channel: a `Game.log` in it, or the game installed there? Without the
+    /// settings (no real data) only the log counts, as the page knew it before.
+    fn is_channel_folder(&self, folder: &str) -> bool {
+        match &self.store {
+            Some(store) => store.paths.is_channel_folder(folder),
+            None => std::path::Path::new(folder).join("Game.log").is_file(),
         }
     }
 

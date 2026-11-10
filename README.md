@@ -444,7 +444,7 @@ Was im Alltag den Unterschied macht:
 <details>
 <summary><b>Installation im Einzelnen</b></summary>
 
-**Voraussetzungen:** Windows oder Linux und ein installiertes Star Citizen. VerseKit sucht den Ordner mit der `Game.log` selbst, unter Linux in den üblichen Wine-Präfixen (Liste im [Handbuch](MANUAL.md#unter-linux)). Findet es nichts, fragt der Assistent. Konto und Nachinstallieren sind nicht nötig.
+**Voraussetzungen:** Windows oder Linux und ein installiertes Star Citizen. VerseKit sucht den Ordner des Spiels selbst (die `Game.log` entsteht erst beim ersten Start), unter Linux in den üblichen Wine-Präfixen (Liste im [Handbuch](MANUAL.md#unter-linux)). Findet es nichts, fragt der Assistent. Konto und Nachinstallieren sind nicht nötig.
 
 **Windows:** `VerseKit-Setup.exe` installiert mit Startmenü-Eintrag, auf Wunsch mit Desktop-Symbol und Autostart, und lässt sich über *Apps & Features* sauber entfernen. Eine einzelne `.exe` ohne Installer gibt es seit v3.0.0 nicht mehr, damit ein Update die alte Version wirklich ersetzt.
 

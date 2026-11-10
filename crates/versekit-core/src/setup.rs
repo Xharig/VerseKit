@@ -120,26 +120,50 @@ pub fn needed(paths: &Paths) -> bool {
 pub enum GameFolder {
     /// Nothing typed.
     Empty,
-    /// A folder with a `Game.log`; `deduced` when it is not the folder typed (a file, a channel folder, a
-    /// folder above).
-    Found { folder: String, deduced: bool },
-    /// Nothing usable below what was typed.
-    NoLog,
+    /// The folder of a game channel: it holds the `Game.log`, or the game is installed there (`Data.p4k`,
+    /// `Bin64/StarCitizen.exe`). `deduced` when it is not the folder typed (a file, a channel folder, a folder
+    /// above, the folder next to a launcher). `log` says whether the `Game.log` is there yet: a player who has
+    /// never started the game has none, and the program waits until the game makes it.
+    Found { folder: String, deduced: bool, log: bool },
+    /// Nothing usable below what was typed: no log and no installation.
+    NotFound,
 }
 
-/// Reads what was typed (`wizard._check_path`): the folder that holds the `Game.log`, if there is one.
+/// Reads what was typed (`wizard._check_path`): the folder of the game channel, if there is one. ⚠ The
+/// `Game.log` is one sign among several, not a demand: whoever has never started Star Citizen has none, and
+/// must still get past the setup.
+///
+/// ⚠ Can walk through the folders below what was typed (five levels): a window asks
+/// [`check_game_folder_near`] first and puts only this call in a thread.
 pub fn check_game_folder(paths: &Paths, typed: &str) -> GameFolder {
     let typed = typed.trim();
     if typed.is_empty() {
         return GameFolder::Empty;
     }
-    match paths.resolve_game_folder(typed) {
+    reading(paths, typed, paths.resolve_game_folder(typed))
+}
+
+/// The quick part of [`check_game_folder`], a few probes and no walk: the answer when the typed text is empty or
+/// the folder is found at once (the channel itself, the one below, the folder of a launcher), else `None`, and
+/// the rest has to be looked for ([`check_game_folder`]).
+pub fn check_game_folder_near(paths: &Paths, typed: &str) -> Option<GameFolder> {
+    let typed = typed.trim();
+    if typed.is_empty() {
+        return Some(GameFolder::Empty);
+    }
+    paths.resolve_game_folder_near(typed).map(|folder| reading(paths, typed, Some(folder)))
+}
+
+/// What the folder found (or not) means for the text typed.
+fn reading(paths: &Paths, typed: &str, found: Option<String>) -> GameFolder {
+    match found {
         Some(folder) => {
             let trim = |s: &str| s.trim_end_matches(['/', '\\']).to_string();
             let deduced = trim(&folder) != trim(typed);
-            GameFolder::Found { folder, deduced }
+            let log = paths.game_log(Some(&folder)).is_some();
+            GameFolder::Found { folder, deduced, log }
         }
-        None => GameFolder::NoLog,
+        None => GameFolder::NotFound,
     }
 }
 
@@ -390,26 +414,193 @@ mod tests {
         assert_eq!(check_game_folder(&paths, "  "), GameFolder::Empty);
         assert_eq!(
             check_game_folder(&paths, &live_text),
-            GameFolder::Found { folder: live_text.clone(), deduced: false }
+            GameFolder::Found { folder: live_text.clone(), deduced: false, log: true }
         );
         // The folder above the channels: the channel below it is taken, and it is said so.
         let above = dir.join("StarCitizen").to_string_lossy().into_owned();
         match check_game_folder(&paths, &above) {
-            GameFolder::Found { folder, deduced } => {
-                assert!(deduced && folder.ends_with("LIVE"), "{folder}");
+            GameFolder::Found { folder, deduced, log } => {
+                assert!(deduced && log && folder.ends_with("LIVE"), "{folder}");
             }
             other => panic!("{other:?}"),
         }
         // The file itself: its folder.
         let file = live.join("Game.log").to_string_lossy().into_owned();
-        assert!(matches!(check_game_folder(&paths, &file), GameFolder::Found { deduced: true, .. }));
+        assert!(matches!(check_game_folder(&paths, &file), GameFolder::Found { deduced: true, log: true, .. }));
         // A trailing separator is no deduction.
         let slashed = format!("{live_text}{}", std::path::MAIN_SEPARATOR);
         assert!(matches!(check_game_folder(&paths, &slashed), GameFolder::Found { deduced: false, .. }));
-        // Nothing with a log below.
+        // Nothing with a log or the game below.
         let nowhere = dir.join("leer");
         std::fs::create_dir_all(&nowhere).unwrap();
-        assert_eq!(check_game_folder(&paths, &nowhere.to_string_lossy()), GameFolder::NoLog);
+        assert_eq!(check_game_folder(&paths, &nowhere.to_string_lossy()), GameFolder::NotFound);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Makes `folder` (with its parents) and puts the given files in it, each a path below it.
+    fn lay(folder: &std::path::Path, files: &[&str]) -> String {
+        std::fs::create_dir_all(folder).unwrap();
+        for file in files {
+            let path = folder.join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "x").unwrap();
+        }
+        folder.to_string_lossy().into_owned()
+    }
+
+    /// The kinds of folder a player has: a game that was never started has no `Game.log` (reported by
+    /// Blackd0g84, 10.11.2026), and the setup must still accept it.
+    #[test]
+    fn a_game_without_a_log_is_found_by_its_files_and_says_that_the_log_is_missing() {
+        let (paths, dir) = paths_in("ohne-log");
+        let found = |typed: &str, log: bool| GameFolder::Found { folder: typed.to_string(), deduced: false, log };
+        // Only the archive.
+        let p4k = lay(&dir.join("a").join("LIVE"), &["Data.p4k"]);
+        assert_eq!(check_game_folder(&paths, &p4k), found(&p4k, false), "only Data.p4k");
+        // Only the program of the game.
+        let exe = lay(&dir.join("b").join("LIVE"), &["Bin64/StarCitizen.exe"]);
+        assert_eq!(check_game_folder(&paths, &exe), found(&exe, false), "only Bin64/StarCitizen.exe");
+        // With the log, and with the log and the game.
+        let log = lay(&dir.join("c").join("LIVE"), &["Game.log"]);
+        assert_eq!(check_game_folder(&paths, &log), found(&log, true), "only the log");
+        let both = lay(&dir.join("d").join("LIVE"), &["Game.log", "Data.p4k"]);
+        assert_eq!(check_game_folder(&paths, &both), found(&both, true), "log and game");
+        // Empty, and a folder with something else in it.
+        let empty = lay(&dir.join("e").join("LIVE"), &[]);
+        assert_eq!(check_game_folder(&paths, &empty), GameFolder::NotFound, "empty");
+        let other = lay(&dir.join("f").join("LIVE"), &["Bin64/anderes.exe", "readme.txt", "user/x.cfg"]);
+        assert_eq!(check_game_folder(&paths, &other), GameFolder::NotFound, "something else");
+        // The folder above: the channel below it, said so.
+        let above = dir.join("a").to_string_lossy().into_owned();
+        assert_eq!(
+            check_game_folder(&paths, &above),
+            GameFolder::Found { folder: p4k.clone(), deduced: true, log: false },
+            "the folder above"
+        );
+        // A channel with a log beats one without, when both are below.
+        lay(&dir.join("a").join("PTU"), &["Game.log"]);
+        assert!(
+            matches!(check_game_folder(&paths, &above), GameFolder::Found { folder, log: true, .. } if folder.ends_with("PTU")),
+            "the log wins"
+        );
+        // The folder `Bin64` and the program itself: the channel above.
+        let bin = dir.join("b").join("LIVE").join("Bin64");
+        assert_eq!(
+            check_game_folder(&paths, &bin.to_string_lossy()),
+            GameFolder::Found { folder: exe.clone(), deduced: true, log: false },
+            "Bin64"
+        );
+        let program = bin.join("StarCitizen.exe").to_string_lossy().into_owned();
+        assert_eq!(
+            check_game_folder(&paths, &program),
+            GameFolder::Found { folder: exe.clone(), deduced: true, log: false },
+            "the program"
+        );
+        // Deeper in the tree: a folder like `G:\` finds the game without a log too.
+        let drive = dir.join("laufwerk");
+        let deep = lay(&drive.join("Spiele").join("StarCitizen").join("LIVE"), &["Data.p4k"]);
+        assert_eq!(
+            check_game_folder(&paths, &drive.to_string_lossy()),
+            GameFolder::Found { folder: deep, deduced: true, log: false },
+            "below"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The quick check, which a window may run at every key: it answers for what is near, and leaves the walk
+    /// through the levels below to the full check.
+    #[test]
+    fn the_quick_check_answers_for_what_is_near_and_leaves_the_walk_to_the_full_one() {
+        let (paths, dir) = paths_in("schnell");
+        assert_eq!(check_game_folder_near(&paths, "  "), Some(GameFolder::Empty));
+        // The program folder `Bin64` of a parent that is no channel name: found at once, with the parent.
+        let game = lay(&dir.join("Mein Spiel"), &["Bin64/StarCitizen.exe"]);
+        let bin = dir.join("Mein Spiel").join("Bin64").to_string_lossy().into_owned();
+        assert_eq!(
+            check_game_folder_near(&paths, &bin),
+            Some(GameFolder::Found { folder: game, deduced: true, log: false })
+        );
+        // A game deep below: only the full check finds it, the quick one says nothing yet.
+        let deep = lay(&dir.join("Platte").join("a").join("b").join("LIVE"), &["Data.p4k"]);
+        let drive = dir.join("Platte").to_string_lossy().into_owned();
+        assert_eq!(check_game_folder_near(&paths, &drive), None);
+        assert_eq!(check_game_folder(&paths, &drive), GameFolder::Found { folder: deep, deduced: true, log: false });
+        // A channel itself is quick.
+        let live = lay(&dir.join("Z").join("LIVE"), &["Data.p4k"]);
+        assert!(matches!(check_game_folder_near(&paths, &live), Some(GameFolder::Found { deduced: false, .. })));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The launcher lies next to the game: from its folder the channel is found, and only if it is sure.
+    #[test]
+    fn the_folder_of_the_launcher_leads_to_the_game_next_to_it() {
+        let (paths, dir) = paths_in("starter");
+        let rsi = dir.join("Roberts Space Industries");
+        let live = lay(&rsi.join("StarCitizen").join("LIVE"), &["Data.p4k"]);
+        let launcher = lay(&rsi.join("RSI Launcher"), &["RSI Launcher.exe"]);
+        assert_eq!(
+            check_game_folder(&paths, &launcher),
+            GameFolder::Found { folder: live.clone(), deduced: true, log: false },
+            "the RSI Launcher folder"
+        );
+        // The same with the other starter, and with the folder named like it but without the program.
+        let other = lay(&dir.join("zwei").join("Launcher"), &["StarCitizen_Launcher.exe"]);
+        let live2 = lay(&dir.join("zwei").join("StarCitizen").join("LIVE"), &["Data.p4k"]);
+        assert_eq!(
+            check_game_folder(&paths, &other),
+            GameFolder::Found { folder: live2, deduced: true, log: false },
+            "the folder with StarCitizen_Launcher.exe"
+        );
+        // A launcher with no game next to it: nothing is guessed.
+        let alone = lay(&dir.join("drei").join("RSI Launcher"), &["RSI Launcher.exe"]);
+        assert_eq!(check_game_folder(&paths, &alone), GameFolder::NotFound, "no game next to it");
+        // The folder `Roberts Space Industries` itself holds both: the game is found below it.
+        assert!(matches!(
+            check_game_folder(&paths, &rsi.to_string_lossy()),
+            GameFolder::Found { folder, log: false, .. } if folder == live
+        ));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_game_folder_without_a_log_counts_as_the_game_for_the_whole_program() {
+        let (paths, dir) = paths_in("ohne-log-ganz");
+        // The folder is given from outside (nothing else counts), as in a test copy.
+        let live = lay(&dir.join("StarCitizen").join("LIVE"), &["Data.p4k"]);
+        paths.set_given_game(&live, crate::given::GivenBy::Named("Pruefung".into()));
+        assert_eq!(paths.game_folder().as_deref(), Some(live.as_str()), "found without a log");
+        assert_eq!(paths.game_log(None), None, "there is no log to read");
+        assert!(paths.log_backups(None).is_empty(), "nor kept ones");
+        assert!(crate::overlay::log_age(&paths).is_none());
+        // Set up with it: the assistant is not needed again, and it does not come at every start.
+        assert!(confirm_game_folder(&paths, &live));
+        assert!(finish(&paths));
+        assert!(!needed(&paths), "set up, the game is there");
+        // The game writes its log: the log is taken from then on, with no step in between.
+        std::fs::write(std::path::Path::new(&live).join("Game.log"), "").unwrap();
+        assert!(paths.game_log(None).is_some_and(|log| log.ends_with("Game.log")));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Without a game folder given from outside: the setting leads to the game, a log elsewhere is not lost.
+    #[test]
+    fn the_confirmed_folder_without_a_log_is_the_game_unless_another_channel_has_a_log() {
+        let dir = std::env::temp_dir().join(format!("versekit-einrichtung-{}-eingetragen", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let text = dir.to_string_lossy().into_owned();
+        let host = Host::new(
+            Flavor::native(),
+            &[(crate::legacy::ENV_HOME, &text), ("HOME", &text), ("USERPROFILE", &text)],
+            &text,
+        );
+        let paths = Paths::new(host);
+        let live = lay(&dir.join("Spiele").join("StarCitizen").join("LIVE"), &["Data.p4k"]);
+        assert!(confirm_game_folder(&paths, &live));
+        assert_eq!(paths.game_folder().as_deref(), Some(live.as_str()), "the confirmed folder, no log yet");
+        // A PTU next to it was played: its log is the one that is read (as before for a renamed channel).
+        let ptu = lay(&dir.join("Spiele").join("StarCitizen").join("PTU"), &["Game.log"]);
+        assert_eq!(paths.game_folder().as_deref(), Some(ptu.as_str()), "a log beats a game without one");
         let _ = std::fs::remove_dir_all(dir);
     }
 }

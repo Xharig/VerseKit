@@ -125,8 +125,12 @@ pub const SETTING_CHANNEL_FOLDERS: &str = "kanal_ordner";
 /// The name of the game's archive in a channel folder.
 pub const ARCHIVE_NAME: &str = "Data.p4k";
 
+/// The spellings of the program of the game in its `Bin64` folder.
+const EXE_NAMES: [&str; 2] = ["StarCitizen.exe", "starcitizen.exe"];
 /// How long a read storage folder stays valid, as long as the pointers are unchanged.
 const STORAGE_MEMO: Duration = Duration::from_secs(2);
+/// How long a look through the usual places for the game stands, when it found a game without a log.
+const GAME_SCAN_MEMO: Duration = Duration::from_secs(2);
 /// A settings file that is younger than this counts as "being written right now".
 pub const SETTINGS_FRESH_SEC: f64 = 2.0;
 /// Locked settings file: how often to read, with this pause in between.
@@ -140,6 +144,32 @@ const SKIP_BACKUP_EXT: [&str; 8] = [".zip", ".7z", ".gz", ".rar", ".dmp", ".mdmp
 
 fn is_dir(p: &str) -> bool {
     !p.is_empty() && fs::metadata(p).is_ok_and(|m| m.is_dir())
+}
+
+/// The roots of the fixed drives (`C:\`), nothing else: no network drive, whose probe can hold the program for
+/// seconds, no stick, no empty card reader. Two calls to the system that touch no disk, so it is quick. Empty
+/// where there are no drive letters.
+#[cfg(windows)]
+pub(crate) fn fixed_drives() -> Vec<String> {
+    use windows_sys::Win32::Storage::FileSystem::{GetDriveTypeW, GetLogicalDrives};
+    // The type of a drive that is fixed (`DRIVE_FIXED`).
+    const FIXED: u32 = 3;
+    // SAFETY: takes no argument and gives a bit mask of the letters in use.
+    let letters = unsafe { GetLogicalDrives() };
+    (0..26u8)
+        .filter(|bit| letters & (1u32 << bit) != 0)
+        .filter_map(|bit| {
+            let root = format!("{}:\\", char::from(b'A' + bit));
+            let wide: Vec<u16> = root.encode_utf16().chain([0]).collect();
+            // SAFETY: the text ends with a zero and lives until the call returns.
+            (unsafe { GetDriveTypeW(wide.as_ptr()) } == FIXED).then_some(root)
+        })
+        .collect()
+}
+
+#[cfg(not(windows))]
+pub(crate) fn fixed_drives() -> Vec<String> {
+    Vec::new()
 }
 
 /// An existing folder with nothing in it.
@@ -229,6 +259,9 @@ pub struct Host {
     /// The copy of the data the run is on (`--daten`, the full path), `None` on the user's own data. A command
     /// that starts this program again carries it (`desktop_entry::run_arguments`).
     pub copy: Option<String>,
+    /// The drives to look for the game on (`C:\`), `None` to ask the system ([`Host::drive_roots`]). A test
+    /// gives the list; nothing else touches the drives of the computer then.
+    drives: Option<Vec<String>>,
 }
 
 impl Host {
@@ -241,6 +274,7 @@ impl Host {
             registry: cfg!(windows),
             cwd: std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
             copy: None,
+            drives: None,
         };
         for (key, value) in std::env::vars_os() {
             if let (Ok(key), Ok(value)) = (key.into_string(), value.into_string()) {
@@ -275,11 +309,37 @@ impl Host {
 
     /// A made-up machine for tests. No registry.
     pub fn new(flavor: Flavor, vars: &[(&str, &str)], cwd: &str) -> Host {
-        let mut host = Host { flavor, env: HashMap::new(), registry: false, cwd: cwd.to_string(), copy: None };
+        let mut host =
+            Host { flavor, env: HashMap::new(), registry: false, cwd: cwd.to_string(), copy: None, drives: None };
         for (key, value) in vars {
             host.set_var(key, value);
         }
         host
+    }
+
+    /// The same machine with these drives (roots like `G:\`) as the only ones to look on, whatever the system
+    /// says. For tests: no probe of the real drives.
+    pub fn with_drives(mut self, drives: &[&str]) -> Host {
+        self.drives = Some(drives.iter().map(|d| d.to_string()).collect());
+        self
+    }
+
+    /// The drives the game is looked for on, as roots (`C:\`): under Windows the fixed drives only, never a
+    /// network drive or a stick, whose probe can hold the program for seconds when it sleeps. Where the system
+    /// gives none (or this is not Windows, as in a test of the Windows rules) the letters `C` to `H`, as 4.12
+    /// did. Empty for the other systems.
+    pub fn drive_roots(&self) -> Vec<String> {
+        if let Some(given) = &self.drives {
+            return given.clone();
+        }
+        if self.flavor != Flavor::Windows {
+            return Vec::new();
+        }
+        let fixed = fixed_drives();
+        if !fixed.is_empty() {
+            return fixed;
+        }
+        "CDEFGH".chars().map(|letter| format!("{letter}:\\")).collect()
     }
 
     fn key(&self, name: &str) -> String {
@@ -607,6 +667,9 @@ struct State {
     recovered: Option<Recovered>,
     log_backups: Option<BackupsMemo>,
     given: Given,
+    /// The last look through the usual places for the game found no log: when, and the first game installed
+    /// without one.
+    auto_scan: Option<(Instant, Option<String>)>,
 }
 
 /// A game channel with a Game.log: name, folder, modification time of the Game.log.
@@ -1416,9 +1479,9 @@ impl Paths {
     pub fn game_roots(&self) -> Vec<String> {
         if self.host.flavor == Flavor::Windows {
             let mut roots = Vec::new();
-            for drive in "CDEFGH".chars() {
+            for drive in self.host.drive_roots() {
                 for programs in ["Program Files", "Program Files (x86)"] {
-                    roots.push(format!("{drive}:\\{programs}"));
+                    roots.push(self.join(&drive, programs));
                 }
             }
             return roots;
@@ -1436,31 +1499,40 @@ impl Paths {
         roots
     }
 
-    /// Folder of the game channel (contains the Game.log) or `None`.
+    /// Folder of the game channel or `None`: one that holds the `Game.log`, else one that is installed without
+    /// it ([`Self::is_installed_channel`]): a player who has never started the game has no log yet.
     ///
-    /// First the environment variable, then the setting, then the usual
-    /// locations. It only checks whether the Game.log is there.
+    /// First the environment variable, then the setting, then the usual locations. A folder with a log always
+    /// beats one without, wherever it lies; the folder without a log is the answer only when no log is found.
     ///
-    /// ⛔ A configured folder without a Game.log is skipped: the real
-    /// installation applies then. Not so a game folder given from outside (a
-    /// test copy, by a tool or the variable): only it, its channels and the
-    /// ones next to it count, else there is none. On purpose unlike 4.12,
-    /// which falls back to the real installation then.
+    /// ⛔ A configured folder that is neither is skipped: the real installation applies then. Not so a game
+    /// folder given from outside (a test copy, by a tool or the variable): only it, its channels and the ones
+    /// next to it count, else there is none. On purpose unlike 4.12, which falls back to the real installation
+    /// then.
     pub fn game_folder(&self) -> Option<String> {
         let f = self.host.flavor;
         let given = self.given_game_folder();
         let only_given = given.is_some();
         let customs = if only_given { [given, None] } else { [None, self.setting("spiel_ordner")] };
+        // The first installed channel without a log, kept while a log is looked for.
+        let mut unlogged: Option<String> = None;
+        let mut note = |folder: &str| {
+            if unlogged.is_none() && self.is_installed_channel(folder) {
+                unlogged = Some(folder.to_string());
+            }
+        };
         for custom in customs.into_iter().flatten() {
             let custom = self.host.expanduser(&custom);
             if is_file(&self.join(&custom, "Game.log")) {
                 return Some(custom);
             }
+            note(&custom);
             for k in CHANNELS {
                 let p = self.join(&custom, k);
                 if is_file(&self.join(&p, "Game.log")) {
                     return Some(p);
                 }
+                note(&p);
             }
             // ⚠ And next to it: LIVE may have been renamed to HOTFIX.
             let parent = f.dirname(custom.trim_end_matches(f.sep()));
@@ -1471,6 +1543,8 @@ impl Paths {
                     let log = self.join(&p, "Game.log");
                     if is_file(&log) {
                         siblings.push((mtime_seconds(&log).unwrap_or(0.0), p));
+                    } else {
+                        note(&p);
                     }
                 }
                 // The most recently played channel wins.
@@ -1480,29 +1554,100 @@ impl Paths {
                 }
             }
         }
-        if only_given {
-            return None;
-        }
-        for root in self.game_roots() {
-            let base = self.join(&root, &self.sc_subpath());
-            if !is_dir(&base) {
-                continue;
+        if !only_given {
+            // A game without a log is asked for again and again (the pages ask), and looking through all the
+            // usual places costs a probe each: what the last look found stands for a moment, when it was only
+            // a game without a log. A log that appears is seen at once where the player set the folder; in the
+            // usual places after the pause.
+            let kept = self.state().auto_scan.clone().filter(|(at, _)| at.elapsed() < GAME_SCAN_MEMO);
+            if let Some((_, installed)) = kept
+                && installed.as_deref().is_none_or(|folder| self.is_installed_channel(folder))
+            {
+                return unlogged.or(installed);
             }
-            for k in CHANNELS {
-                let p = self.join(&base, k);
-                if is_file(&self.join(&p, "Game.log")) {
-                    return Some(p);
+            let mut first: Option<String> = None;
+            for base in self.auto_bases() {
+                if !is_dir(&base) {
+                    continue;
+                }
+                for k in CHANNELS {
+                    let p = self.join(&base, k);
+                    if is_file(&self.join(&p, "Game.log")) {
+                        return Some(p);
+                    }
+                    if first.is_none() && self.is_installed_channel(&p) {
+                        first = Some(p);
+                    }
                 }
             }
+            // Only the state "a game without a log" is kept; nothing found at all is looked for each time, as
+            // before, so that a game just installed is found at once.
+            if unlogged.is_some() || first.is_some() {
+                self.state().auto_scan = Some((Instant::now(), first.clone()));
+            }
+            return unlogged.or(first);
         }
-        None
+        unlogged
+    }
+
+    /// Is this the folder of a game channel that is installed, whether or not the game ever ran there: does it
+    /// hold the `Data.p4k` or the `Bin64/StarCitizen.exe`? The `Game.log` is not asked for, it appears only
+    /// once the game has been started.
+    pub fn is_installed_channel(&self, folder: &str) -> bool {
+        if folder.is_empty() {
+            return false;
+        }
+        // The spellings of the game, and the lower case a Wine prefix on a case-sensitive disk may hold.
+        ["Data.p4k", "data.p4k"].iter().any(|n| is_file(&self.join(folder, n)))
+            || ["Bin64", "bin64"].iter().any(|bin| {
+                let bin = self.join(folder, bin);
+                EXE_NAMES.iter().any(|n| is_file(&self.join(&bin, n)))
+            })
+    }
+
+    /// Is this the folder of a game channel at all: a `Game.log` in it, or the installation
+    /// ([`Self::is_installed_channel`])?
+    pub fn is_channel_folder(&self, folder: &str) -> bool {
+        !folder.is_empty() && (is_file(&self.join(folder, "Game.log")) || self.is_installed_channel(folder))
+    }
+
+    /// The folders in the usual places in which the channels sit side by side: the `StarCitizen` folder of the
+    /// launcher in the program folders, and (Windows) on every fixed drive the ones a player picks in the
+    /// launcher or makes by hand ([`Self::drive_bases`]). Only looked at, nothing read below them.
+    fn auto_bases(&self) -> Vec<String> {
+        let mut bases: Vec<String> = Vec::new();
+        for root in self.game_roots() {
+            bases.push(self.join(&root, &self.sc_subpath()));
+        }
+        for drive in self.host.drive_roots() {
+            bases.extend(self.drive_bases(&drive));
+        }
+        let mut seen = HashSet::new();
+        bases.retain(|b| seen.insert(self.host.flavor.normcase(b)));
+        bases
+    }
+
+    /// Where the channels can sit on one drive (the root of it is given): directly in `StarCitizen`, in
+    /// `Roberts Space Industries/StarCitizen`, in `Games`, and in the program folders. Not a walk through the
+    /// drive: a handful of places, so the search stays quick.
+    fn drive_bases(&self, drive: &str) -> Vec<String> {
+        let rsi = ["Roberts Space Industries", "StarCitizen"];
+        vec![
+            self.join(drive, "StarCitizen"),
+            self.join_all(drive, &rsi),
+            self.join_all(drive, &["Games", "StarCitizen"]),
+            self.join_all(drive, &["Games", rsi[0], rsi[1]]),
+            self.join_all(drive, &["Program Files", rsi[0], rsi[1]]),
+            self.join_all(drive, &["Program Files (x86)", rsi[0], rsi[1]]),
+        ]
     }
 
     /// The locations that are searched, existing ones first, at most `limit`.
     pub fn searched_game_locations(&self, limit: usize) -> Vec<String> {
         let mut candidates: Vec<String> = Vec::new();
-        for root in self.game_roots() {
-            let p = self.join_all(&root, &[&self.sc_subpath(), CHANNELS[0]]);
+        // The places the search looks in, as the program folders and (Windows) the usual places on the drives.
+        for base in self.auto_bases() {
+            let p = self.join(&base, CHANNELS[0]);
             if !candidates.contains(&p) {
                 candidates.push(p);
             }
@@ -1564,8 +1709,7 @@ impl Paths {
         if only_given {
             return bases;
         }
-        for root in self.game_roots() {
-            let base = self.join(&root, &self.sc_subpath());
+        for base in self.auto_bases() {
             if !bases.contains(&base) {
                 bases.push(base);
             }
@@ -1675,9 +1819,27 @@ impl Paths {
         Some((configured, self.game_folder(), channels))
     }
 
-    /// Derive the game folder from a chosen folder: the channel itself, the
-    /// folder above it, or up to five levels deeper.
+    /// Derive the game folder from a chosen folder: the channel itself, the folder above it, the folder of the
+    /// launcher next to it, or up to five levels deeper. A channel counts when it holds the `Game.log` or is
+    /// installed ([`Self::is_installed_channel`]); one with a log wins over one without where both are
+    /// directly below the folder.
+    ///
+    /// ⚠ The walk through the levels below can take long on a big folder (`C:\`): a caller that draws a window
+    /// asks [`Self::resolve_game_folder_near`] first and puts only the rest in a thread.
     pub fn resolve_game_folder(&self, chosen: &str) -> Option<String> {
+        let chosen = self.chosen_folder(chosen)?;
+        self.resolve_near(&chosen).or_else(|| self.resolve_walk(&chosen))
+    }
+
+    /// The quick part of [`Self::resolve_game_folder`]: the folder itself, the channels directly below it, the
+    /// `Bin64` folder, the launcher folder. A few probes and no walk, so it may run in a window's thread.
+    pub fn resolve_game_folder_near(&self, chosen: &str) -> Option<String> {
+        let chosen = self.chosen_folder(chosen)?;
+        self.resolve_near(&chosen)
+    }
+
+    /// The folder meant by the text: stripped, `~` resolved, and the folder of a file.
+    fn chosen_folder(&self, chosen: &str) -> Option<String> {
         if chosen.is_empty() {
             return None;
         }
@@ -1690,18 +1852,40 @@ impl Paths {
         if is_file(&chosen) {
             chosen = f.dirname(&chosen);
         }
-        if is_file(&self.join(&chosen, "Game.log")) {
-            return Some(chosen);
+        Some(chosen)
+    }
+
+    fn resolve_near(&self, chosen: &str) -> Option<String> {
+        let f = self.host.flavor;
+        if is_file(&self.join(chosen, "Game.log")) {
+            return Some(chosen.to_string());
         }
-        for k in CHANNELS {
-            let p = self.join(&chosen, k);
-            if is_file(&self.join(&p, "Game.log")) {
-                return Some(p);
-            }
+        if let Some(channel) = self.channel_below(chosen) {
+            return Some(channel);
         }
+        if self.is_installed_channel(chosen) {
+            return Some(chosen.to_string());
+        }
+        // Inside the game: `Bin64` holds the `StarCitizen.exe`, the channel is the folder above it.
+        // Inside the game: `Bin64` holds the `StarCitizen.exe`, the channel is the folder above it.
+        if let Some(channel) = self.channel_around_bin(chosen) {
+            return Some(channel);
+        }
+        // The folder of a launcher: the game lies next to it, in `StarCitizen`.
+        if self.is_launcher_folder(chosen) {
+            return self.channel_below(&self.join(&f.dirname(chosen), "StarCitizen"));
+        }
+        None
+    }
+
+    /// Up to five levels below the folder, top-down, the subfolders in the order of their names (the order of
+    /// the file system is not fixed, and the answer must not depend on it).
+    fn resolve_walk(&self, chosen: &str) -> Option<String> {
+        let f = self.host.flavor;
+        let sep = f.sep();
         let root_depth = chosen.trim_end_matches(sep).matches(sep).count();
-        // Like `os.walk`: top-down, subfolders in folder order.
-        let mut stack = vec![chosen];
+        let in_channel = |folder: &str| CHANNELS.iter().any(|k| f.basename(folder).eq_ignore_ascii_case(k));
+        let mut stack = vec![chosen.to_string()];
         while let Some(base) = stack.pop() {
             let Ok(entries) = fs::read_dir(&base) else { continue };
             let mut dirs = Vec::new();
@@ -1714,11 +1898,25 @@ impl Paths {
                     files.push(name);
                 }
             }
+            dirs.sort();
             if base.matches(sep).count().saturating_sub(root_depth) > 5 {
                 continue;
             }
+            // A log ends the walk wherever it lies. The game installed without one counts only in a folder
+            // named like a channel (a copy of the archive somewhere else is none), and then a channel next to
+            // it with a log is preferred. Looking on for more would walk through the whole drive.
             if files.iter().any(|n| n == "Game.log") {
                 return Some(base);
+            }
+            let channel = if in_channel(&base) && files.iter().any(|n| n.eq_ignore_ascii_case(ARCHIVE_NAME)) {
+                Some(base.clone())
+            } else if files.iter().any(|n| n.eq_ignore_ascii_case("StarCitizen.exe")) {
+                self.channel_around_bin(&base).filter(|folder| in_channel(folder))
+            } else {
+                None
+            };
+            if let Some(channel) = channel {
+                return Some(self.channel_below(&f.dirname(&channel)).unwrap_or(channel));
             }
             for name in dirs.iter().rev() {
                 let path = self.join(&base, name);
@@ -1728,6 +1926,36 @@ impl Paths {
             }
         }
         None
+    }
+
+    /// The channel directly below `folder` (`LIVE`, `PTU` …): the first with a `Game.log`, else the first that is
+    /// installed without one. In the order of [`CHANNELS`].
+    fn channel_below(&self, folder: &str) -> Option<String> {
+        let channels: Vec<String> = CHANNELS.iter().map(|k| self.join(folder, k)).collect();
+        channels
+            .iter()
+            .find(|p| is_file(&self.join(p, "Game.log")))
+            .or_else(|| channels.iter().find(|p| self.is_installed_channel(p)))
+            .cloned()
+    }
+
+    /// The channel folder when `folder` is the `Bin64` of one (the `StarCitizen.exe` lies in it).
+    fn channel_around_bin(&self, folder: &str) -> Option<String> {
+        let f = self.host.flavor;
+        if !f.basename(folder).eq_ignore_ascii_case("Bin64")
+            || !EXE_NAMES.iter().any(|n| is_file(&self.join(folder, n)))
+        {
+            return None;
+        }
+        let parent = f.dirname(folder);
+        (!parent.is_empty()).then_some(parent)
+    }
+
+    /// Is this the folder of a launcher: named `RSI Launcher`, or with the `RSI Launcher.exe` or the
+    /// `StarCitizen_Launcher.exe` in it? The game is not in it, but next to it.
+    fn is_launcher_folder(&self, folder: &str) -> bool {
+        self.host.flavor.basename(folder).eq_ignore_ascii_case("RSI Launcher")
+            || ["RSI Launcher.exe", "StarCitizen_Launcher.exe"].iter().any(|exe| is_file(&self.join(folder, exe)))
     }
 
     /// Where Windows says the RSI Launcher is installed, or `None`.
@@ -2445,6 +2673,203 @@ mod tests {
         assert_eq!(p.game_folder(), None, "ohne Game.log kein Spielordner");
         touch(&p.join_all(&own, &["PTU", "Game.log"]), "");
         assert_eq!(p.game_folder(), Some(p.join(&own, "PTU")));
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// A player who never started the game has no Game.log (Blackd0g84, 10.11.2026): the installation counts,
+    /// the log decides only between two channels.
+    #[test]
+    fn an_installed_game_without_a_log_is_the_game_folder_and_a_log_beats_it() {
+        let home = scratch("ohnelog");
+        let p = linux(&home);
+        let sc = p.join_all(&home, &["Platte", "StarCitizen"]);
+        let live = p.join(&sc, "LIVE");
+        touch(&p.settings_file(), &object(&[("spiel_ordner", &live)]));
+        // Nothing there yet; an empty channel folder is no game.
+        fs::create_dir_all(&live).unwrap();
+        assert_eq!(p.game_folder(), None, "an empty folder");
+        assert!(!p.is_installed_channel(&live) && !p.is_channel_folder(&live));
+        // Only the program of the game, then only the archive, then only the log.
+        touch(&p.join_all(&live, &["Bin64", "StarCitizen.exe"]), "");
+        assert_eq!(p.game_folder().as_deref(), Some(live.as_str()), "Bin64/StarCitizen.exe");
+        assert!(p.is_installed_channel(&live) && p.is_channel_folder(&live));
+        fs::remove_dir_all(p.join(&live, "Bin64")).unwrap();
+        touch(&p.join(&live, "Data.p4k"), "");
+        assert_eq!(p.game_folder().as_deref(), Some(live.as_str()), "Data.p4k");
+        assert_eq!(p.game_log(None), None, "and no log to read");
+        fs::remove_file(p.join(&live, "Data.p4k")).unwrap();
+        touch(&p.join(&live, "Game.log"), "");
+        assert_eq!(p.game_folder().as_deref(), Some(live.as_str()), "Game.log");
+        assert!(!p.is_installed_channel(&live) && p.is_channel_folder(&live), "a log alone is no installation");
+        // The log of another channel beats the installed channel without one, as the renamed channel always did.
+        fs::remove_file(p.join(&live, "Game.log")).unwrap();
+        touch(&p.join(&live, "Data.p4k"), "");
+        touch(&p.join_all(&sc, &["PTU", "Game.log"]), "");
+        assert_eq!(p.game_folder().as_deref(), Some(p.join(&sc, "PTU").as_str()));
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// Several installed channels without a log: the configured one first, else the order of the channels.
+    #[test]
+    fn of_several_installed_channels_without_a_log_the_configured_or_the_first_one_is_taken() {
+        let home = scratch("ohnelog-mehrere");
+        let p = linux(&home);
+        let sc = p.join_all(&home, &["Platte", "StarCitizen"]);
+        for k in ["PTU", "LIVE", "EPTU"] {
+            touch(&p.join_all(&sc, &[k, "Data.p4k"]), "");
+        }
+        touch(&p.settings_file(), &object(&[("spiel_ordner", &p.join(&sc, "EPTU"))]));
+        assert_eq!(p.game_folder(), Some(p.join(&sc, "EPTU")), "the one configured");
+        touch(&p.settings_file(), &object(&[("spiel_ordner", &sc)]));
+        assert_eq!(p.game_folder(), Some(p.join(&sc, "LIVE")), "the folder above: the first channel");
+        // Nothing configured is the one the player never chose: next to a configured empty folder.
+        touch(&p.settings_file(), &object(&[("spiel_ordner", &p.join(&sc, "HOTFIX"))]));
+        assert_eq!(p.game_folder(), Some(p.join(&sc, "LIVE")), "next to it, in the order of the channels");
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// The places on a drive are a short list, nothing is walked: the search over the drives stays quick.
+    #[test]
+    fn the_places_on_a_drive_are_a_short_fixed_list() {
+        let p = Paths::new(Host::new(Flavor::Windows, &[("USERPROFILE", "C:\\Users\\Spieler")], "C:\\"));
+        let places = p.drive_bases("G:\\");
+        assert_eq!(places[0], "G:\\StarCitizen", "the drive as the folder of the launcher");
+        assert!(places.contains(&"G:\\Roberts Space Industries\\StarCitizen".to_string()));
+        assert!(places.contains(&"G:\\Games\\StarCitizen".to_string()));
+        assert!(places.contains(&"G:\\Program Files\\Roberts Space Industries\\StarCitizen".to_string()));
+        assert!(places.len() <= 8, "a handful of places per drive: {places:?}");
+        // Each place only once, whatever the spelling.
+        let all = p.auto_bases();
+        let unique: HashSet<String> = all.iter().map(|b| Flavor::Windows.normcase(b)).collect();
+        assert_eq!(all.len(), unique.len());
+    }
+
+    /// Only the drives the host names are looked on (under Windows the fixed ones): a network drive that sleeps
+    /// or a stick is not touched, in the program folders nor in the places on the drive.
+    #[test]
+    fn only_the_drives_the_host_names_are_looked_on() {
+        let vars = [("USERPROFILE", "C:\\Users\\Spieler")];
+        let p = Paths::new(Host::new(Flavor::Windows, &vars, "C:\\").with_drives(&["C:\\", "G:\\"]));
+        assert_eq!(
+            p.game_roots(),
+            ["C:\\Program Files", "C:\\Program Files (x86)", "G:\\Program Files", "G:\\Program Files (x86)"]
+        );
+        let bases = p.auto_bases();
+        assert!(bases.contains(&"G:\\StarCitizen".to_string()) && bases.contains(&"C:\\StarCitizen".to_string()));
+        assert!(bases.iter().all(|b| b.starts_with("C:\\") || b.starts_with("G:\\")), "no other drive: {bases:?}");
+        assert!(p.searched_game_locations(100).contains(&"G:\\StarCitizen\\LIVE".to_string()), "and it is shown");
+        // No drive named, no place on any: the other systems have none.
+        let none = Paths::new(Host::new(Flavor::Windows, &vars, "C:\\").with_drives(&[]));
+        assert!(none.game_roots().is_empty() && none.auto_bases().is_empty());
+        let linux = Paths::new(Host::new(Flavor::Posix, &[("HOME", "/h")], "/h"));
+        assert!(linux.host.drive_roots().is_empty());
+        // The system's own answer, without a hook: at least one drive (the letters C to H where it cannot tell).
+        let asks = Paths::new(Host::new(Flavor::Windows, &vars, "C:\\"));
+        assert!(!asks.host.drive_roots().is_empty());
+    }
+
+    /// A game without a log is asked for again and again: what the look through the usual places found stands
+    /// for a moment. Nothing found is not kept, so that a game just installed is seen at once.
+    #[test]
+    fn a_game_without_a_log_in_the_usual_places_is_kept_for_a_moment_and_nothing_found_is_not() {
+        let home = scratch("merken");
+        let p = linux(&home);
+        let sc = p.join_all(
+            &home,
+            &["Games", "star-citizen", "drive_c", "Program Files", "Roberts Space Industries", "StarCitizen"],
+        );
+        assert_eq!(p.game_folder(), None);
+        assert!(p.state().auto_scan.is_none(), "nothing found: not kept");
+        touch(&p.join_all(&sc, &["LIVE", "Data.p4k"]), "");
+        assert_eq!(p.game_folder(), Some(p.join(&sc, "LIVE")), "seen at once");
+        assert!(p.state().auto_scan.is_some(), "kept");
+        assert_eq!(p.game_folder(), Some(p.join(&sc, "LIVE")), "and asked again from the memory");
+        // The game goes: the memory does not hold it up.
+        fs::remove_file(p.join_all(&sc, &["LIVE", "Data.p4k"])).unwrap();
+        assert_eq!(p.game_folder(), None);
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// What does not count as a game: the archive as a folder, a copy of the archive away from a channel, a
+    /// folder named like a channel with another file; and the spellings a case-sensitive disk may hold.
+    #[test]
+    fn what_is_no_game_and_what_is_one_in_another_spelling() {
+        let home = scratch("keinspiel");
+        let p = linux(&home);
+        // `Data.p4k` as a folder is no archive; neither is a `Bin64/StarCitizen.exe` that is a folder.
+        let dir_p4k = p.join(&home, "A");
+        fs::create_dir_all(p.join_all(&dir_p4k, &["Data.p4k", "innen"])).unwrap();
+        fs::create_dir_all(p.join_all(&dir_p4k, &["Bin64", "StarCitizen.exe"])).unwrap();
+        assert!(!p.is_installed_channel(&dir_p4k) && !p.is_channel_folder(&dir_p4k));
+        assert_eq!(p.resolve_game_folder(&dir_p4k), None);
+        // A copy of the archive away from a channel (a backup) is no game when the walk finds it ...
+        let backup = p.join_all(&home, &["Sicherung", "alt", "Kopie"]);
+        touch(&p.join(&backup, "Data.p4k"), "");
+        assert_eq!(p.resolve_game_folder(&p.join(&home, "Sicherung")), None, "not in a channel folder");
+        // ... but a folder chosen on purpose is taken, whatever it is called.
+        assert_eq!(p.resolve_game_folder(&backup).as_deref(), Some(backup.as_str()));
+        // Lower case, as a prefix on a case-sensitive disk may hold it.
+        let low = p.join_all(&home, &["B", "LIVE"]);
+        touch(&p.join(&low, "data.p4k"), "");
+        let low_exe = p.join_all(&home, &["C", "LIVE"]);
+        touch(&p.join_all(&low_exe, &["bin64", "starcitizen.exe"]), "");
+        for folder in [&low, &low_exe] {
+            assert!(p.is_installed_channel(folder), "{folder}");
+            assert_eq!(p.resolve_game_folder(folder).as_deref(), Some(folder.as_str()), "{folder}");
+        }
+        assert_eq!(p.resolve_game_folder(&p.join(&low_exe, "bin64")).as_deref(), Some(low_exe.as_str()));
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// The walk gives the same answer whatever order the file system lists in, and prefers a channel with a log.
+    #[test]
+    fn the_walk_chooses_by_name_and_prefers_a_channel_with_a_log() {
+        let home = scratch("wahl");
+        let p = linux(&home);
+        // Two places with a game, the later name first on disk.
+        let (zeta, alpha) = (p.join_all(&home, &["Zeta", "x", "LIVE"]), p.join_all(&home, &["Alpha", "x", "PTU"]));
+        touch(&p.join(&zeta, "Data.p4k"), "");
+        touch(&p.join(&alpha, "Data.p4k"), "");
+        assert_eq!(p.resolve_game_folder(&home).as_deref(), Some(alpha.as_str()), "the first name");
+        // A channel next to the one found has played: its log wins.
+        let hotfix = p.join_all(&home, &["Alpha", "x", "HOTFIX"]);
+        touch(&p.join(&hotfix, "Game.log"), "");
+        assert_eq!(p.resolve_game_folder(&home).as_deref(), Some(hotfix.as_str()), "the log wins");
+        // The same where the channel met first has no log and the one after it has (LIVE before PTU).
+        let (live, ptu) = (p.join_all(&home, &["Beta", "y", "LIVE"]), p.join_all(&home, &["Beta", "y", "PTU"]));
+        touch(&p.join(&live, "Data.p4k"), "");
+        touch(&p.join(&ptu, "Game.log"), "");
+        assert_eq!(p.resolve_game_folder(&p.join(&home, "Beta")).as_deref(), Some(ptu.as_str()), "log after game");
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// The tree below a chosen folder is walked up to the first sign of a channel; the launcher leads to its game.
+    #[test]
+    fn a_chosen_folder_leads_to_a_game_without_a_log() {
+        let home = scratch("waehlen");
+        let p = linux(&home);
+        let rsi = p.join(&home, "Roberts Space Industries");
+        let live = p.join_all(&rsi, &["StarCitizen", "LIVE"]);
+        touch(&p.join_all(&live, &["Bin64", "StarCitizen.exe"]), "");
+        touch(&p.join_all(&rsi, &["RSI Launcher", "RSI Launcher.exe"]), "");
+        assert_eq!(p.resolve_game_folder(&live).as_deref(), Some(live.as_str()), "the channel itself");
+        assert_eq!(p.resolve_game_folder(&p.join(&live, "Bin64")).as_deref(), Some(live.as_str()), "Bin64");
+        assert_eq!(p.resolve_game_folder(&p.join_all(&live, &["Bin64", "StarCitizen.exe"])), Some(live.clone()));
+        assert_eq!(p.resolve_game_folder(&p.join(&rsi, "StarCitizen")).as_deref(), Some(live.as_str()), "above");
+        assert_eq!(p.resolve_game_folder(&rsi).as_deref(), Some(live.as_str()), "two above");
+        assert_eq!(p.resolve_game_folder(&home).as_deref(), Some(live.as_str()), "deeper");
+        assert_eq!(p.resolve_game_folder(&p.join(&rsi, "RSI Launcher")).as_deref(), Some(live.as_str()), "launcher");
+        // Deep in a tree, a channel with only the archive: the walk ends at its first sign.
+        let deep = p.join_all(&home, &["Tief", "a", "b", "PTU"]);
+        touch(&p.join(&deep, "Data.p4k"), "");
+        assert_eq!(p.resolve_game_folder(&p.join(&home, "Tief")).as_deref(), Some(deep.as_str()), "archive only");
+        // Not a game: a folder with only the launcher, and one with anything else.
+        let alone = p.join_all(&home, &["Allein", "RSI Launcher"]);
+        touch(&p.join(&alone, "RSI Launcher.exe"), "");
+        assert_eq!(p.resolve_game_folder(&alone), None);
+        let other = p.join(&home, "Anderes");
+        touch(&p.join_all(&other, &["Bin64", "etwas.exe"]), "");
+        assert_eq!(p.resolve_game_folder(&other), None);
         let _ = fs::remove_dir_all(&home);
     }
 

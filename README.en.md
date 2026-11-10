@@ -444,7 +444,7 @@ What makes the difference day to day:
 <details>
 <summary><b>Installation in detail</b></summary>
 
-**Requirements:** Windows or Linux and an installed Star Citizen. VerseKit looks for the folder containing `Game.log` itself, on Linux in the usual Wine prefixes (list in the [manual](MANUAL.en.md#on-linux)). If nothing is found, the wizard asks. No account and nothing to install on top.
+**Requirements:** Windows or Linux and an installed Star Citizen. VerseKit looks for the folder of the game itself (the `Game.log` appears only at the first start), on Linux in the usual Wine prefixes (list in the [manual](MANUAL.en.md#on-linux)). If nothing is found, the wizard asks. No account and nothing to install on top.
 
 **Windows:** `VerseKit-Setup.exe` installs with a start menu entry, optionally a desktop icon and autostart, and can be removed cleanly through *Apps & Features*. A standalone `.exe` without an installer has been gone since v3.0.0, so that an update really replaces the old version.
 

@@ -228,10 +228,7 @@
   "as_schema_h": "Einrichtung: das Schema wirkt sofort, nicht erst beim nächsten Start",
   "sich_datei_info": "Sicherung: der Knopf sitzt unten im Fenster, nicht oben; Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026)",
   "ohne_spiel_wo": "Einrichtung: die Seite heißt Installation & Pfade",
-  "keine_log_darin": "Einrichtung: Gedankenstrich durch Komma ersetzt",
   "schritt_ablage_text": "Einrichtung: Gedankenstrich durch Komma ersetzt; Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026)",
-  "schritt_spiel_text": "Einrichtung: Gedankenstrich durch Punkt ersetzt; Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026)",
-  "schritt_spiel_hilfe": "Einrichtung: Gedankenstrich durch Komma ersetzt",
   "schritt_lesen_text": "Einrichtung: Gedankenstrich durch Komma ersetzt; Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026)",
   "as_inj_an_h": "Einrichtung: Gedankenstrich durch Komma ersetzt",
   "as_rang_h": "Einrichtung: Gedankenstrich durch Komma ersetzt (zum Beispiel)",
@@ -272,7 +269,6 @@
   "b_kopf": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "e_neustart_noetig": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "e_sprache_hilfe": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
-  "einrichtung_erklaerung": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "gal_raffinerie_x": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "hf_titel": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
   "hf_update_frage": "Name: VerseKit in einem Wort (Entscheidung vom 22.10.2026), 4.12 schreibt Verse-Kit",
@@ -448,6 +444,10 @@
   "s_sp_q_de": "Übersetzung: Schlüssel entfällt",
   "inj_quelle_de": "Übersetzung: Schlüssel entfällt",
   "s_dkv_ini": "Danke: Schlüssel entfällt",
-  "s_dk_marken": "Danke: ungenutzt, die Seite zeigt s_dkv_marken"
+  "s_dk_marken": "Danke: ungenutzt, die Seite zeigt s_dkv_marken",
+  "einrichtung_erklaerung": "Einrichtung: ungenutzt und falsch (verlangte die Game.log), die Schritte haben eigene Texte",
+  "keine_log_darin": "Einrichtung: ersetzt durch kein_spiel_darin, die Einrichtung verlangt keine Game.log mehr",
+  "schritt_spiel_text": "Einrichtung: ersetzt durch schritt_spiel_ordner_text, die Einrichtung verlangt keine Game.log mehr",
+  "schritt_spiel_hilfe": "Einrichtung: ersetzt durch schritt_spiel_ordner_hilfe, die Einrichtung verlangt keine Game.log mehr"
  }
 }

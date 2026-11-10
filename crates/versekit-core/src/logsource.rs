@@ -599,7 +599,7 @@ pub struct Report {
 /// Why reading all logs again ([`LogSource::read_all`]) did not run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReadAllError {
-    /// No game folder with a `Game.log` is found.
+    /// No game folder is found: neither a `Game.log` nor the game installed.
     NoGameFolder,
     /// The folder of the preserved logs or one of the logs cannot be opened.
     Unreadable { path: String, reason: String },
@@ -608,7 +608,7 @@ pub enum ReadAllError {
 impl std::fmt::Display for ReadAllError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ReadAllError::NoGameFolder => write!(f, "no game folder with a Game.log"),
+            ReadAllError::NoGameFolder => write!(f, "no game folder (no Game.log and no game installed)"),
             ReadAllError::Unreadable { path, reason } => write!(f, "cannot open {path}: {reason}"),
         }
     }
@@ -1649,6 +1649,35 @@ mod tests {
         assert_eq!(names(&finds), ["Helm", "Attrition-5", "Laufend"]);
         assert_eq!(src.foreign_only_blueprints(&rx(), None), ["Fremd"]);
         assert!(src.foreign_only_blueprints(&rx(), Some(ALL_ACCOUNTS)).is_empty());
+    }
+
+    /// A game that was installed and never started has no `Game.log` yet: nothing is read, nothing fails, and the
+    /// first log the game makes is taken up without a restart.
+    #[test]
+    fn a_game_that_was_never_started_is_waited_for_quietly_until_it_makes_its_log() {
+        let lab = Lab::new("noch-kein-log");
+        fs::remove_file(lab.game_log()).unwrap();
+        fs::remove_dir_all(Flavor::native().join(&lab.game, "logbackups")).unwrap();
+        fs::write(Flavor::native().join(&lab.game, "Data.p4k"), "p4k").unwrap();
+        let paths = lab.paths();
+        assert_eq!(paths.game_folder().as_deref(), Some(lab.game.as_str()), "the installed game is the game");
+        assert_eq!(paths.game_log(None), None);
+        let (_now, c) = clock();
+        let src = LogSource::with_clock(&paths, Sources::default(), c);
+        // The reading of what is kept: nothing there, said as a gap, no fault.
+        let (finds, report) = src.read_all(&rx()).expect("a game folder without a log is no fault");
+        assert!(finds.is_empty() && report.files == 0 && !report.running);
+        assert_eq!(report.gap, Some(Gap::NoLogs));
+        // The tail has nothing to follow, call after call.
+        let mut tail = LogTail::new(&src, ReadState::open(&paths), rx());
+        for _ in 0..3 {
+            assert!(tail.new_names().is_empty());
+        }
+        // The game starts for the first time: the log is followed from then on.
+        fs::write(lab.game_log(), login("Spieler")).unwrap();
+        assert!(tail.new_names().is_empty(), "the first lines are the login, no blueprint");
+        lab.append(&bp("Helm"));
+        assert_eq!(names(&tail.new_names()), ["Helm"], "taken up without a restart");
     }
 
     #[test]
