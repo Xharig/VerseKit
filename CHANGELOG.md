@@ -6,6 +6,37 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.10 - 2026-11-11
+
+> Der Signatur-Scanner liest jetzt auch, wenn direkt hinter der Signatur ein
+> heller Planet steht, und jedes Symbol im Overlay erklärt sich beim
+> Darüberfahren.
+
+### Behoben
+
+- **Signatur-Scanner vor hellem Planeten:** In der Drake Golem steht die
+  Signatur unter dem mittleren Cockpit-Bildschirm. Liegt dahinter ein heller
+  Planet im Dunst, ist er genauso hell wie die Ziffern und reicht bis an ihre
+  Unterkante. Die Suche hielt Ziffern und Planet für ein einziges, viel zu
+  großes Feld und las nie eine Ziffer. Findet der Scanner nichts, sucht er
+  jetzt ein zweites Mal und lässt dabei hellen Grund aus. Was er bisher
+  gelesen hat, liest er genau wie vorher. Gemeldet von oGundalf
+
+### Verbessert
+
+- **Hinweise an allen Symbolen im Overlay:** Fährst du mit dem Zeiger auf
+  ein Symbol, steht jetzt überall ein kurzer Hinweis daneben, auch bei den
+  Symbolen vor den Meldungen (grünes Häkchen, blauer Kreis, goldener
+  Stern), bei den Lampen des Executive Hangars, bei offenen Zielen eines
+  Auftrags und am Griff zum Vergrößern. Die Hinweise der Leiste standen
+  schon da; neu ist, dass der Hinweis am Griff und am Server nicht mehr am
+  Fensterrand abgeschnitten wird. Der Hinweis sucht sich außerdem den Platz
+  über, unter oder neben dem Symbol, bleibt ganz auf dem Bildschirm des
+  Overlays (auch am Rand, in der Ecke und mit mehreren Monitoren) und
+  verdeckt das Symbol nie. In den FAQ erklärt ein neuer Eintrag
+  „Was bedeuten die Symbole im Overlay?“ alle Symbole mit Bild. Angeregt
+  von [KRT]Parsul
+
 ## v5.2.9 - 2026-11-10
 
 > Die Einrichtung kommt jetzt auch bei einem Spiel weiter, das noch nie

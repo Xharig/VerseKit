@@ -623,6 +623,32 @@ pub fn scanner_line_with(paths: &Paths, lang: Lang, scale: Option<f64>, supporte
     format!("{line} · {grey}")
 }
 
+/// How long the report waits for an answer of the bridge to scmdb.net.
+const SCMDB_WAIT: std::time::Duration = std::time::Duration::from_millis(400);
+
+/// The line of the bridge to scmdb.net: the switch, and who answers `/ping` on its port right now (the bridge runs
+/// in the overlay, the report is made in the main window). Why nobody answers, the start trail of the overlay says
+/// ([`crate::scmdb_bridge::trail_line`]).
+pub fn scmdb_line(paths: &Paths, lang: Lang) -> String {
+    let on = crate::scmdb_bridge::enabled(paths);
+    let answer = if on { crate::scmdb_bridge::who_answers(&paths.host, SCMDB_WAIT) } else { None };
+    scmdb_line_with(paths, lang, on, answer)
+}
+
+/// [`scmdb_line`] for a known switch and answer (`None`: nobody answered, else the `client` of the answer).
+pub fn scmdb_line_with(paths: &Paths, lang: Lang, on: bool, answer: Option<String>) -> String {
+    if !on {
+        return t(lang, "e_aus");
+    }
+    let address = format!("{}:{}", crate::scmdb_bridge::HOST, crate::scmdb_bridge::port(&paths.host));
+    let key = match answer.as_deref() {
+        Some(crate::scmdb_bridge::CLIENT) => "b_scmdb_versekit",
+        Some(_) => "b_scmdb_fremd",
+        None => "b_scmdb_niemand",
+    };
+    tf_in(lang, key, &[("0", Arg::Text(address))])
+}
+
 /// The digit images the player taught, over the shared file and the one of each grey image: how many examples,
 /// and for how many digits (each key counted once, as 4.12 adds the files together).
 fn own_digit_images(paths: &Paths) -> (usize, usize) {
@@ -1182,6 +1208,7 @@ pub fn collect(request: &Request<'_>) -> Facts {
     if let Some(basetool) = env.basetool.as_deref() {
         folder.push(Entry::new(lang_text("b_basetool"), basetool));
     }
+    folder.push(Entry::new(lang_text("b_scmdb"), scmdb_line(paths, lang)));
     folder.extend(env.extra.iter().cloned());
 
     let (trail_start, trail_pages) = trail::split_trail(paths);
@@ -1647,6 +1674,55 @@ mod tests {
             "on, overlay running · 4 own digit images (2 digits) · 1 scan images · last 12345 · scale 1.00 · \
              read from gray image green 12, bright 3"
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The report of 10.11.2026: the bridge was switched on, `/ping` was refused, and the report said nothing of it.
+    /// Now it says the switch and who answers on the port: VerseKit, another program, or nobody.
+    #[test]
+    fn the_report_says_whether_the_bridge_to_scmdb_is_on_and_who_answers_on_its_port() {
+        use crate::scmdb_bridge::{self, Bridge, Setup};
+        let (paths, dir) = paths_in("scmdb-zeile");
+        assert_eq!(scmdb_line(&paths, Lang::De), "aus", "off by default, nothing is asked");
+        let address = format!("127.0.0.1:{}", scmdb_bridge::PORT);
+        assert_eq!(
+            scmdb_line_with(&paths, Lang::De, true, None),
+            format!("an, aber niemand lauscht auf {address} (Grund im Startverlauf des Overlays)")
+        );
+        assert_eq!(
+            scmdb_line_with(&paths, Lang::En, true, Some(String::new())),
+            format!("on, but another program answers on {address}"),
+            "the official watcher names no client"
+        );
+        assert_eq!(
+            scmdb_line_with(&paths, Lang::De, true, Some("versekit".into())),
+            format!("an, VerseKit lauscht auf {address}")
+        );
+        // Through the real port: a bridge that listens is named, and after it stops nobody answers.
+        let port = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port();
+        let mut host = paths.host.clone();
+        host.set_var(scmdb_bridge::ENV_PORT, &port.to_string());
+        let on = Paths::new(host.clone());
+        assert!(on.set_setting(scmdb_bridge::SETTING, Value::Bool(true)));
+        let address = format!("127.0.0.1:{port}");
+        assert_eq!(
+            scmdb_line(&on, Lang::De),
+            format!("an, aber niemand lauscht auf {address} (Grund im Startverlauf des Overlays)")
+        );
+        let mut bridge = Bridge::new();
+        let setup = Setup {
+            host,
+            version: "5.2.10".into(),
+            namer: Box::new(|paths: &Paths| {
+                scmdb_bridge::namer(paths, crate::collection::Known::new(std::iter::empty()))
+            }),
+            poll: std::time::Duration::from_millis(100),
+        };
+        assert!(bridge.start(setup));
+        assert_eq!(scmdb_line(&on, Lang::De), format!("an, VerseKit lauscht auf {address}"));
+        bridge.stop();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        assert!(scmdb_line(&on, Lang::De).starts_with("an, aber niemand lauscht"), "{}", scmdb_line(&on, Lang::De));
         let _ = fs::remove_dir_all(&dir);
     }
 

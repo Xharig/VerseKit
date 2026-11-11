@@ -801,3 +801,203 @@ fn teaching_stores_derived_variants_apart_from_the_taught_ones_within_their_own_
     let count = |t: &Templates| t.digest().iter().map(|d| d.1).sum::<usize>();
     assert!(count(&loaded) > count(&shipped()));
 }
+
+// ------------------------------------------------------------ bright ground
+
+/// The frame of the report of 10.11.2026 (Drake Golem, 3840 × 2160): 273 × 117 points of RGB, the pill "16,780"
+/// under the middle screen of the cockpit right above a bright planet (`tests/data/signatur-golem-4k.HERKUNFT.txt`).
+const GOLEM: &[u8] = include_bytes!("../../tests/data/signatur-golem-4k.rgb");
+const GOLEM_SIZE: (i32, i32) = (273, 117);
+/// Where the pill stands in it: left, top, right, bottom.
+const GOLEM_PILL: (i32, i32, i32, i32) = (78, 67, 187, 86);
+
+/// The frame of the report as BGRA bytes, as the grab gives them.
+fn golem_frame() -> Vec<u8> {
+    GOLEM.as_chunks::<3>().0.iter().flat_map(|p| [p[2], p[1], p[0], 255]).collect()
+}
+
+fn golem_values() -> Vec<u64> {
+    let mut values = values();
+    values.push(16_780);
+    values.sort();
+    values
+}
+
+/// The report of 10.11.2026: the scanner never read a digit. In the frame from his settings the pill stands right
+/// above a bright planet in haze; from the lower edge of the digits on every point of the whole width is as bright
+/// in the green channel as they are. The first look finds no nest at the pill (its cells join the haze into one
+/// far too high); the second look leaves the bright ground out and reads the number.
+#[test]
+fn the_pill_right_above_a_bright_planet_is_found_and_read() {
+    let raw = golem_frame();
+    let (w, h) = GOLEM_SIZE;
+    assert_eq!(raw.len(), (w * h * 4) as usize);
+    let on_pill = |(x, y, bw, bh): (i32, i32, i32, i32)| {
+        let (left, top, right, bottom) = GOLEM_PILL;
+        x < right && x + bw > left && y < bottom && y + bh > top
+    };
+    // The cause: the first look has no box on the pill.
+    assert!(!pill_candidates(&raw, w, h).into_iter().any(on_pill), "{:?}", pill_candidates(&raw, w, h));
+    assert!(pill_candidates_without_ground(&raw, w, h).into_iter().any(on_pill));
+    let found = search(&raw, w, h, &both(&shipped()), &golem_values(), 12);
+    assert_eq!(found.reading.value, Some(16_780), "{:?}", found.reading);
+    assert!(found.boxr.is_some_and(on_pill), "{:?}", found.boxr);
+}
+
+/// BGRA bytes of a larger frame as [`frame_of`], with a band of bright ground (a planet in haze: red 230, green
+/// 200, blue 115) over the whole width, 25 points high, starting `gap` points under the lowest digit point.
+fn frame_with_ground(raster: &Gray, gap: i32) -> (Vec<u8>, i32, i32) {
+    let (mut raw, width, height) = frame_of(raster);
+    let bottom = (0..raster.h).rev().find(|&y| (0..raster.w).any(|x| raster.data[y * raster.w + x] >= 165)).unwrap();
+    let start = 40 + bottom as i32 + 1 + gap;
+    for y in start.max(0)..(start + 25).min(height) {
+        for x in 0..width {
+            let at = ((y * width + x) * 4) as usize;
+            raw[at..at + 4].copy_from_slice(&[115, 200, 230, 255]);
+        }
+    }
+    (raw, width, height)
+}
+
+/// The real crops with bright ground right under their digits: read as often as without it, never wrong. Before
+/// the second look a band within 8 points under the digits took the reading of most of them.
+#[test]
+fn bright_ground_right_under_the_digits_neither_hides_the_pill_nor_gives_a_wrong_number() {
+    let known = both(&shipped());
+    let values = values();
+    let mut plain = 0;
+    for (number, crop) in pictures() {
+        let (raw, width, height) = frame_of(&crop);
+        plain += usize::from(search(&raw, width, height, &known, &values, 12).reading.value == Some(number));
+    }
+    for gap in [0, 2, 4, 6, 8, 12] {
+        let mut read = 0;
+        for (number, crop) in pictures() {
+            let (raw, width, height) = frame_with_ground(&crop, gap);
+            let value = search(&raw, width, height, &known, &values, 12).reading.value;
+            assert!(value.is_none_or(|v| v == number), "gap {gap}: {number} read as {value:?}");
+            read += usize::from(value == Some(number));
+        }
+        assert!(read >= plain, "gap {gap}: {read} of {} against {plain} without ground", pictures().len());
+    }
+}
+
+/// Bright ground and no signature: nothing is read, although the second look has candidates to read there. A heap
+/// of short strokes without the shape of a number right above a planet (in the first look it melts into the planet,
+/// in the second it is a candidate), and the frame of the report with the pill painted over in the colour of its
+/// ground (the heading and distance on the screen above stay candidates).
+#[test]
+fn bright_ground_without_a_signature_reads_nothing() {
+    let known = both(&shipped());
+    let values = golem_values();
+    let (mut strokes, width, height) = frame_of(&Gray::new(120, 40, vec![0; 4800]));
+    let set = |raw: &mut [u8], x: i32, y: i32, bgra: [u8; 4]| {
+        let at = ((y * width + x) * 4) as usize;
+        raw[at..at + 4].copy_from_slice(&bgra);
+    };
+    for y in 90..height {
+        for x in 0..width {
+            set(&mut strokes, x, y, [115, 200, 230, 255]);
+        }
+    }
+    // Four strokes of ten points, six rows each, the lowest four points above the planet.
+    for stroke in 0..4 {
+        for row in 0..6 {
+            for x in 0..10 {
+                set(&mut strokes, 120 + stroke * 14 + x, 70 + row * 3 + stroke % 2, [210, 220, 200, 255]);
+            }
+        }
+    }
+    let on_strokes = |b: &(i32, i32, i32, i32)| b.0 < 176 && b.0 + b.2 > 120 && b.1 < 87 && b.1 + b.3 > 70;
+    assert!(!pill_candidates(&strokes, width, height).iter().any(on_strokes), "the first look: one with the planet");
+    assert!(pill_candidates_without_ground(&strokes, width, height).iter().any(on_strokes), "the second: a candidate");
+    assert!(candidates_in(&strokes, width, height, None).1, "the second look is due");
+    let found = search(&strokes, width, height, &known, &values, 12);
+    assert_eq!(found.reading.value, None, "strokes above a planet: {:?}", found.reading);
+    let mut golem = golem_frame();
+    let (w, _) = GOLEM_SIZE;
+    let (left, top, right, bottom) = GOLEM_PILL;
+    for y in top..bottom {
+        for x in left..right {
+            let at = ((y * w + x) * 4) as usize;
+            // The ground of the pill: dark orange, as between its digits.
+            golem[at..at + 4].copy_from_slice(&[32, 105, 185, 255]);
+        }
+    }
+    let left_over = pill_candidates_without_ground(&golem, w, GOLEM_SIZE.1);
+    assert!(!left_over.is_empty(), "candidates stay for the second look");
+    assert!(candidates_in(&golem, w, GOLEM_SIZE.1, None).1, "the second look is due");
+    let found = search(&golem, w, GOLEM_SIZE.1, &known, &values, 12);
+    assert_eq!(
+        found.reading.value, None,
+        "the frame of the report without its pill: {:?} in {left_over:?}",
+        found.reading
+    );
+}
+
+/// A planet that covers only a part of the width under the digits: never a wrong number, and the pill is read about
+/// as often as without a planet (at most one crop fewer; with the planet under three quarters of the width right at
+/// the digits, every one). The first look alone read 3 to 6 of the 8 there, against 7 without a planet.
+#[test]
+fn a_planet_under_part_of_the_row_gives_no_wrong_number_and_is_read_about_as_often() {
+    let known = both(&shipped());
+    let values = values();
+    let mut plain = 0;
+    for (number, crop) in pictures() {
+        let (raw, width, height) = frame_of(&crop);
+        plain += usize::from(search(&raw, width, height, &known, &values, 12).reading.value == Some(number));
+    }
+    for share in [0.25, 0.5, 0.75] {
+        for gap in [0, 4] {
+            let mut read = 0;
+            for (number, crop) in pictures() {
+                let (mut raw, width, height) = frame_with_ground(&crop, gap);
+                // Take the planet back on the right: only the left `share` of the width keeps it.
+                let keep = (f64::from(width) * share) as i32;
+                let (plain, _, _) = frame_of(&crop);
+                for y in 0..height {
+                    for x in keep..width {
+                        let at = ((y * width + x) * 4) as usize;
+                        raw[at..at + 4].copy_from_slice(&plain[at..at + 4]);
+                    }
+                }
+                let value = search(&raw, width, height, &known, &values, 12).reading.value;
+                assert!(value.is_none_or(|v| v == number), "share {share}, gap {gap}: {number} read as {value:?}");
+                read += usize::from(value == Some(number));
+            }
+            assert!(read + 1 >= plain, "share {share}, gap {gap}: {read} against {plain} without a planet");
+            if share == 0.75 && gap == 0 {
+                assert!(read >= plain, "three quarters at the digits: {read} against {plain}");
+            }
+        }
+    }
+}
+
+/// The second look is due only where the first met bright ground: never in a beat with neither pill nor planet,
+/// so such a beat costs what it did before. The frame of the report has it; the noise frames of the crops do not.
+#[test]
+fn only_bright_ground_makes_the_search_look_a_second_time() {
+    let (_, ground) = candidates_in(&golem_frame(), GOLEM_SIZE.0, GOLEM_SIZE.1, None);
+    assert!(ground, "the planet of the report");
+    for (number, crop) in pictures() {
+        let (raw, width, height) = frame_of(&crop);
+        assert!(!candidates_in(&raw, width, height, None).1, "{number}: no bright ground in the noise frame");
+        let (raw, width, height) = frame_with_ground(&crop, 4);
+        assert!(candidates_in(&raw, width, height, None).1, "{number}: the band is bright ground");
+    }
+}
+
+/// The second look never touches a value the first one read: a pill that was read stays read the same way.
+#[test]
+fn the_second_look_leaves_every_reading_of_the_first_as_it_was() {
+    let known = both(&shipped());
+    let values = values();
+    for (_, crop) in pictures() {
+        let (raw, width, height) = frame_of(&crop);
+        let boxes: Vec<_> = pill_candidates(&raw, width, height).into_iter().take(12).collect();
+        let first = look(&raw, width, &boxes, &known, &values, false);
+        if first.reading.value.is_some() {
+            assert_eq!(search(&raw, width, height, &known, &values, 12), first);
+        }
+    }
+}

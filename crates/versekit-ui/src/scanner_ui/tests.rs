@@ -55,13 +55,24 @@ fn context() -> egui::Context {
     ctx
 }
 
+thread_local! {
+    /// The scaling of Windows the inputs of this thread come with, as eframe hands it over (native points per pixel);
+    /// none is 100 %.
+    static SCALING: std::cell::Cell<Option<f32>> = const { std::cell::Cell::new(None) };
+}
+
 fn input(events: Vec<Event>, time: f64) -> RawInput {
-    RawInput {
+    let mut raw = RawInput {
         screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(700.0, 600.0))),
         events,
         time: Some(time),
         ..Default::default()
+    };
+    if let Some(scaling) = SCALING.get() {
+        let info = egui::ViewportInfo { native_pixels_per_point: Some(scaling), ..Default::default() };
+        raw.viewports.insert(egui::ViewportId::ROOT, info);
     }
+    raw
 }
 
 fn texts(shapes: &[egui::epaint::ClippedShape]) -> Vec<String> {
@@ -769,38 +780,57 @@ fn a_frame_drawn_around_the_signature_in_the_picture_is_read_and_shown_in_the_ga
     let windows = [(2560, 0, 3440, 1440), (-1920, -120, 1920, 1080), (113, 71, 1616, 939), (0, 0, 2560, 1440)];
     let ctx = context();
     for (round, game) in windows.into_iter().enumerate() {
-        let time = round as f64 * 10.0;
-        // The signature in the game window, in points from its corner, top in the middle.
-        let signature = (game.2 * 47 / 100, game.3 * 9 / 100, game.2 / 14, game.3 / 26);
-        let picture =
-            GamePicture::from_bgra(&game_screen(game.2, game.3, signature), game.2, game.3).expect("a picture");
-        let texture = ctx.load_texture(
-            "probe",
-            egui::ColorImage::from_rgb([picture.w, picture.h], &picture.rgb),
-            TextureOptions::LINEAR,
-        );
-        let ground = Ground { texture: Some(texture.id()), size: picture.game };
-        let mut frame = None;
-        let (rect, _, _) = frame_run(&ctx, &ground, &mut frame, vec![], time);
-        assert!((rect.height() / rect.width() - game.3 as f32 / game.2 as f32).abs() < 0.01, "the shape of {game:?}");
-        // Where the player sees the signature on the model, the frame is drawn around it.
-        let (x0, y0, x1, y1) = bright_box(&picture);
-        let on_model = |x: usize, y: usize| {
-            rect.min + vec2(x as f32 / picture.w as f32 * rect.width(), y as f32 / picture.h as f32 * rect.height())
-        };
-        assert!(drag(&ctx, &ground, &mut frame, on_model(x0, y0), on_model(x1, y1), time + 1.0), "{game:?}");
-        // The area the scanner reads, and the one the overlay shows over the game: both are this one.
-        let (area, drawn) = Hint { frame, places: Vec::new() }.narrow(game).expect("an area");
-        assert!(drawn);
-        let wanted = (game.0 + signature.0, game.1 + signature.1, signature.2, signature.3);
-        // A point of the model and a per mille of the window are the coarsest steps on the way.
-        let slack = (game.2 as f32 / rect.width()).max(game.2 as f32 / 1000.0) as i32 + 2;
-        let (dx, dy) = ((area.0 - wanted.0).abs(), (area.1 - wanted.1).abs());
-        let (dr, db) = ((area.0 + area.2 - wanted.0 - wanted.2).abs(), (area.1 + area.3 - wanted.1 - wanted.3).abs());        assert!(
-            dx <= slack && dy <= slack && dr <= slack && db <= slack,
-            "{game:?}: {area:?} against {wanted:?}, slack {slack}"
-        );
+        frame_around_the_signature(&ctx, game, round as f64 * 10.0);
     }
+}
+
+/// The report of 10.11.2026: 3840 × 2160 at a scaling of 150 %. The picture of the game keeps its shape and the frame
+/// drawn on it lands on the signature in the game, at every scaling of Windows from 100 to 200 %: the model computes
+/// in per mille of the window, the scaling only changes how many points of the screen a point of the page is.
+#[test]
+fn at_3840_by_2160_the_frame_lands_on_the_signature_at_every_scaling_of_windows() {
+    for (round, scaling) in [1.0, 1.25, 1.5, 1.75, 2.0].into_iter().enumerate() {
+        SCALING.set(Some(scaling));
+        let ctx = context();
+        frame_around_the_signature(&ctx, (0, 0, 3840, 2160), round as f64 * 10.0);
+        assert_eq!(ctx.pixels_per_point(), scaling, "the page ran at the scaling");
+    }
+    SCALING.set(None);
+}
+
+/// A picture of the game window `game` with a bright signature, the frame drawn around it on the model: the area
+/// the scanner reads is the signature, give or take the coarsest step on the way.
+fn frame_around_the_signature(ctx: &egui::Context, game: (i32, i32, i32, i32), time: f64) {
+    // The signature in the game window, in points from its corner, top in the middle.
+    let signature = (game.2 * 47 / 100, game.3 * 9 / 100, game.2 / 14, game.3 / 26);
+    let picture = GamePicture::from_bgra(&game_screen(game.2, game.3, signature), game.2, game.3).expect("a picture");
+    let texture = ctx.load_texture(
+        "probe",
+        egui::ColorImage::from_rgb([picture.w, picture.h], &picture.rgb),
+        TextureOptions::LINEAR,
+    );
+    let ground = Ground { texture: Some(texture.id()), size: picture.game };
+    let mut frame = None;
+    let (rect, _, _) = frame_run(ctx, &ground, &mut frame, vec![], time);
+    assert!((rect.height() / rect.width() - game.3 as f32 / game.2 as f32).abs() < 0.01, "the shape of {game:?}");
+    // Where the player sees the signature on the model, the frame is drawn around it.
+    let (x0, y0, x1, y1) = bright_box(&picture);
+    let on_model = |x: usize, y: usize| {
+        rect.min + vec2(x as f32 / picture.w as f32 * rect.width(), y as f32 / picture.h as f32 * rect.height())
+    };
+    assert!(drag(ctx, &ground, &mut frame, on_model(x0, y0), on_model(x1, y1), time + 1.0), "{game:?}");
+    // The area the scanner reads, and the one the overlay shows over the game: both are this one.
+    let (area, drawn) = Hint { frame, places: Vec::new() }.narrow(game).expect("an area");
+    assert!(drawn);
+    let wanted = (game.0 + signature.0, game.1 + signature.1, signature.2, signature.3);
+    // A point of the model and a per mille of the window are the coarsest steps on the way.
+    let slack = (game.2 as f32 / rect.width()).max(game.2 as f32 / 1000.0) as i32 + 2;
+    let (dx, dy) = ((area.0 - wanted.0).abs(), (area.1 - wanted.1).abs());
+    let (dr, db) = ((area.0 + area.2 - wanted.0 - wanted.2).abs(), (area.1 + area.3 - wanted.1 - wanted.3).abs());
+    assert!(
+        dx <= slack && dy <= slack && dr <= slack && db <= slack,
+        "{game:?}: {area:?} against {wanted:?}, slack {slack}"
+    );
 }
 
 #[test]

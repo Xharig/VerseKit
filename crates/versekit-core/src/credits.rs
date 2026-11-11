@@ -173,7 +173,7 @@ const fn person(
 }
 
 /// Everyone named on the page, in the order of the page.
-pub const PEOPLE: [Person; 38] = [
+pub const PEOPLE: [Person; 39] = [
     person("Haldjas", "pr0", &["s_dkv_haldjas_idee"], &["s_dkv_haldjas_bugs"]),
     person("rurudotorg", "SC4M", &["s_dkv_rurudotorg_idee"], &["s_dkv_rurudotorg_bugs", "s_dkv_rurudotorg_bugs2"]),
     person("Morkhan", "KRT", &["s_dkv_morkhan_idee"], &["s_dk_morkhan_bugs", "s_dkv_morkhan_bugs2"]),
@@ -234,7 +234,7 @@ pub const PEOPLE: [Person; 38] = [
     person(
         "Parsul",
         "KRT",
-        &["s_dkv_parsul_idee"],
+        &["s_dkv_parsul_idee", "s_dkv_parsul_idee2"],
         &[
             "s_dkv_parsul_bugs",
             "s_dkv_parsul_bugs2",
@@ -274,6 +274,7 @@ pub const PEOPLE: [Person; 38] = [
     person("KillingJoke271", "KRT", &[], &["s_dkv_killingjoke_bugs"]),
     person("Keendary", "KRT", &["s_dkv_keendary_idee"], &["s_dkv_keendary_bugs"]),
     person("LOGGAN89", "", &[], &["s_dkv_loggan_bugs"]),
+    person("oGundalf", "", &[], &["s_dkv_ogundalf_bugs"]),
 ];
 
 /// The notice for the trademark and fan content, as the fan kit asks: its

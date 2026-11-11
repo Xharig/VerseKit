@@ -97,6 +97,17 @@ fn rubble(raw: &mut [u8], area: Area, blobs: usize) {
     }
 }
 
+/// A bright planet in haze over the lower half of `area` (green 200, as in the report of 10.11.2026): bright ground
+/// that makes the search look a second time.
+fn planet(raw: &mut [u8], area: Area) {
+    for y in area.1 + area.3 / 2..area.1 + area.3 {
+        for x in area.0..area.0 + area.2 {
+            let i = (y * SIZE.0 + x) * 4;
+            raw[i..i + 4].copy_from_slice(&[115, 200, 230, 255]);
+        }
+    }
+}
+
 /// The crop of a part of the picture.
 fn cut(raw: &[u8], area: Area) -> Vec<u8> {
     let mut out = Vec::with_capacity(area.2 * area.3 * 4);
@@ -156,15 +167,18 @@ pub fn run(runs: usize) -> Result<(), String> {
         (SIZE.1 as f64 * fh) as usize,
     );
     rubble(&mut rubbish, full, 400);
+    let mut bright = ground();
+    planet(&mut bright, full);
     let window = (PILL_AT.0 - 240, PILL_AT.1 - 120, pill.w + 480, pill.h + 240);
 
     println!("| case | before (ms) | now (ms) | read |");
     println!("|---|---|---|---|");
-    let cases: [(&str, &[u8], Area); 4] = [
+    let cases: [(&str, &[u8], Area); 5] = [
         ("window around the pill (usual beat)", &with_pill, window),
         ("whole area, pill there", &with_pill, full),
         ("whole area, no pill", &without, full),
         ("whole area, rubble, green reads nothing", &rubbish, full),
+        ("whole area, bright planet, no pill (second look)", &bright, full),
     ];
     for (name, raw, area) in cases {
         let part = cut(raw, area);

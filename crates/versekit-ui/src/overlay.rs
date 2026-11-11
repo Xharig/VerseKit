@@ -109,12 +109,24 @@ fn hints_outside_id() -> egui::Id {
     egui::Id::unique("overlay-hinweise-aussen")
 }
 
+/// The id under which a frame keeps where the symbol of the hint shown stands ([`Output::hint_rect`]).
+fn hint_rect_id() -> egui::Id {
+    egui::Id::unique("overlay-hinweis-stelle")
+}
+
 /// Shows `meaning` on hover: as a tooltip, or, where the view gives its hints to a window of its own, only in `hint`
 /// once the pointer rested on it as long as a tooltip waits.
 fn hover_hint(ui: &Ui, response: Response, meaning: &str, hint: &mut Option<String>) -> Response {
+    // Where the symbol stands: the window of the hint keeps clear of it.
+    let remember = |ui: &Ui| {
+        let seen = response.rect.intersect(ui.clip_rect());
+        let seen = if seen.is_positive() { seen } else { response.rect };
+        ui.ctx().data_mut(|d| d.insert_temp(hint_rect_id(), seen));
+    };
     if !ui.ctx().data(|d| d.get_temp::<bool>(hints_outside_id())).unwrap_or(false) {
         if response.is_tooltip_open() {
             *hint = Some(meaning.to_string());
+            remember(ui);
         }
         return response.on_hover_text(meaning);
     }
@@ -123,6 +135,7 @@ fn hover_hint(ui: &Ui, response: Response, meaning: &str, hint: &mut Option<Stri
         let still = ui.input(|i| i.pointer.time_since_last_movement());
         if still >= delay {
             *hint = Some(meaning.to_string());
+            remember(ui);
         } else {
             ui.ctx().request_repaint_after_secs(delay - still);
         }
@@ -224,6 +237,8 @@ pub struct Output {
     /// The hint of the bar shown in the last frame: a button's own, or the
     /// one of the free bar.
     pub hint: Option<String>,
+    /// Where the symbol of that hint stands, in window points (the visible part of it).
+    pub hint_rect: Option<Rect>,
     /// The narrowest window that still shows every button of the bar.
     pub min_width: f32,
     /// The size of the waiting strip.
@@ -500,6 +515,8 @@ fn hangar_line(ui: &mut Ui, s: &Scheme, line: &OverlayLine, out: &mut Output) {
         let green = line.lamps.iter().filter(|lamp| **lamp == Lamp::Green).count();
         let said = tf("s_cz_lampen", &[("0", green.into()), ("1", LAMPS.into())]);
         response.widget_info(|| WidgetInfo::labeled(Role::Image, true, &said));
+        let meaning = tf("ov_h_hangar", &[("0", said.as_str().into())]);
+        hover_hint(ui, response, &meaning, &mut out.hint);
         for (i, lamp) in line.lamps.iter().enumerate() {
             let center = pos2(rect.min.x + DOT / 2.0 + i as f32 * (DOT + DOT_GAP), rect.center().y);
             let radius = DOT / 2.0 - 0.5;
@@ -519,8 +536,20 @@ fn hangar_line(ui: &mut Ui, s: &Scheme, line: &OverlayLine, out: &mut Output) {
     out.drawn.push(format!("{} {}", line.label, line.text));
 }
 
+/// The key of the hint of the icon in front of a row: what the green tick, the blue circle, the gold star and the
+/// grey "i" mean.
+fn row_hint_key(entry: &Row) -> &'static str {
+    match entry {
+        Row::Found { .. } => "ov_h_zeile_gefunden",
+        Row::Hint { .. } => "ov_h_zeile_hinweis",
+        Row::Catalog { watch_title: Some(_), .. } => "ov_h_zeile_merkliste",
+        Row::Catalog { watch_title: None, .. } => "ov_h_zeile_katalog",
+    }
+}
+
 /// One row: its icon and its texts, wrapping instead of cutting off.
 fn row(ui: &mut Ui, scheme: &Scheme, entry: &Row, out: &mut Output) {
+    let meaning = t(row_hint_key(entry));
     let (icon, tint, name, line, line_color) = match entry {
         Row::Found { name, kind, code, time, caught_up } => {
             ("check", scheme.accent, Some(name.clone()), Row::found_line(kind, code, time, *caught_up), scheme.sub)
@@ -537,10 +566,11 @@ fn row(ui: &mut Ui, scheme: &Scheme, entry: &Row, out: &mut Output) {
         }
     };
     let shown = ui.horizontal_top(|ui| {
-        let (icon_rect, _) = ui.allocate_exact_size(vec2(BAR_ICON, BAR_ICON + 2.0), Sense::hover());
+        let (icon_rect, icon_response) = ui.allocate_exact_size(vec2(BAR_ICON, BAR_ICON + 2.0), Sense::hover());
         if let Some(image) = crate::icons::image(icon, tint, BAR_ICON - 2.0) {
             image.paint_at(ui, Rect::from_center_size(icon_rect.center(), Vec2::splat(BAR_ICON - 2.0)));
         }
+        hover_hint(ui, icon_response, &meaning, &mut out.hint);
         ui.vertical(|ui| {
             ui.spacing_mut().item_spacing.y = 0.0;
             if let Some(name) = &name {
@@ -643,7 +673,8 @@ fn contracts_bar(ui: &mut Ui, view: &View, out: &mut Output) {
                 ui.add_space(14.0);
                 // An empty circle: still open, as on the blueprint list.
                 if let Some(image) = crate::icons::image("circle", s.sub, 10.0) {
-                    ui.add(image);
+                    let circle = ui.add(image.sense(Sense::hover()));
+                    hover_hint(ui, circle, &t("ov_h_ziel_offen"), &mut out.hint);
                     ui.add_space(2.0);
                 }
                 quiet(ui, goal);
@@ -693,6 +724,7 @@ fn status_with_shard(
     shard: &str,
     hint: Option<&str>,
     (bottom, right): (bool, bool),
+    out: &mut Output,
 ) {
     let height = ui.text_style_height(&TextStyle::Small);
     ui.allocate_ui_with_layout(vec2(ui.available_width(), height), Layout::right_to_left(Align::Center), |ui| {
@@ -701,7 +733,7 @@ fn status_with_shard(
         }
         let shown = ui.add(egui::Label::new(RichText::new(shard).small().color(color(s.sub))).extend());
         if let Some(hint) = hint {
-            shown.on_hover_text(hint);
+            hover_hint(ui, shown, hint, &mut out.hint);
         }
         let rest = (ui.available_width() - if bottom && right { GRIP } else { 0.0 }).max(0.0);
         ui.allocate_ui_with_layout(vec2(rest, height), Layout::left_to_right(Align::Center), |ui| {
@@ -722,6 +754,16 @@ fn bar_corners(radius: egui::CornerRadius, shown: Shown, bar: BarSide) -> egui::
 
 /// Draws the overlay over the whole of `ui` and says what happened.
 pub fn show(ui: &mut Ui, view: &View) -> Output {
+    ui.ctx().data_mut(|d| d.remove::<Rect>(hint_rect_id()));
+    let mut out = draw(ui, view);
+    if out.hint.is_some() {
+        out.hint_rect = ui.ctx().data(|d| d.get_temp::<Rect>(hint_rect_id()));
+    }
+    out
+}
+
+/// [`show`] without the place of the hint.
+fn draw(ui: &mut Ui, view: &View) -> Output {
     let mut out = Output::default();
     ui.ctx().data_mut(|d| d.insert_temp(hints_outside_id(), view.hints_outside));
     let s = view.scheme;
@@ -778,7 +820,7 @@ pub fn show(ui: &mut Ui, view: &View) -> Output {
         };
         let status = RichText::new(view.status.render()).small().color(color(s.sub));
         match view.shard.filter(|_| view.game) {
-            Some(shard) => status_with_shard(&mut content, s, status, shard, view.shard_hint, view.anchored),
+            Some(shard) => status_with_shard(&mut content, s, status, shard, view.shard_hint, view.anchored, &mut out),
             None => keep_clear(&mut content, status),
         }
         if let Some(place) = view.location {
@@ -837,7 +879,7 @@ pub fn show(ui: &mut Ui, view: &View) -> Output {
         }
         let cursor = if bottom == right { CursorIcon::ResizeNwSe } else { CursorIcon::ResizeNeSw };
         grip.widget_info(|| WidgetInfo::labeled(Role::Button, true, t("hinweis_groesse")));
-        grip.on_hover_cursor(cursor).on_hover_text(t("hinweis_groesse"));
+        hover_hint(ui, grip.on_hover_cursor(cursor), &t("hinweis_groesse"), &mut out.hint);
     }
 
     let stroke = Stroke::new(2.0, color(s.accent));
@@ -1310,6 +1352,11 @@ mod tests {
     /// acts and closes it again.
     /// The hint shown after the pointer rests at `at` for a while.
     fn hint_at(v: &View, at: Pos2) -> Option<String> {
+        hinted(v, at).hint
+    }
+
+    /// What the frame says after the pointer rests at `at` for a while.
+    fn hinted(v: &View, at: Pos2) -> Output {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         crate::apply(&ctx, v.scheme);
@@ -1324,7 +1371,28 @@ mod tests {
             let mut output = ctx.run_ui(input, |ui| out = show(ui, v));
             output.textures_delta.clear();
         }
-        out.hint
+        out
+    }
+
+    /// The hint says where its symbol stands, for the window of the hint to keep clear of it, in both ways of
+    /// showing hints, and says nothing while there is no hint.
+    #[test]
+    fn a_hint_tells_where_its_symbol_stands() {
+        let rows = rows();
+        let status = Message::Plain("x".into());
+        let scheme = theme::by_id("original").expect("original");
+        let mut v = view(scheme, &rows, &status, Shown::Open);
+        let (out, _) = frame(&v, vec2(600.0, 300.0), None);
+        let button = out.buttons.iter().find(|(a, _)| *a == Action::Rescan).map(|(_, r)| *r).expect("rescan");
+        for outside in [false, true] {
+            v.hints_outside = outside;
+            let shown = hinted(&v, button.center());
+            assert_eq!(shown.hint, Some(t("ov_h_neulesen")), "outside {outside}");
+            let seen = shown.hint_rect.unwrap_or_else(|| panic!("outside {outside}: no place for the hint"));
+            assert!(seen.contains(button.center()) && seen.width() <= button.width() + 1.0, "{seen:?} vs {button:?}");
+            let idle = hinted(&v, pos2(300.0, 150.0));
+            assert!(idle.hint.is_none() && idle.hint_rect.is_none(), "no hint and no place away from every symbol");
+        }
     }
 
     /// Every button of the bar shows its own hint, as 4.12 did; the free bar
@@ -1351,6 +1419,199 @@ mod tests {
         }
         let title = pos2(PAD + 4.0, BAR_HEIGHT / 2.0);
         assert_eq!(hint_at(&v, title), Some(t("hinweis_ziehen")), "the free bar");
+    }
+
+    /// The keys of the hints of every symbol the overlay shows: its bar, the buttons that other parts put into it
+    /// (the eye, the graduation cap, the timer, the bell), its strip, its rows and its lamps.
+    const SYMBOL_HINTS: &[&str] = &[
+        "hinweis_ziehen",
+        "hinweis_groesse",
+        "hinweis_schliessen",
+        "ov_h_leeren",
+        "ov_h_einklappen",
+        "hinweis_ausklappen",
+        "hinweis_schloss",
+        "hinweis_schloss_zu",
+        "ov_h_neulesen",
+        "hinweis_einstellungen",
+        "s_sp_start",
+        "ov_h_mehr",
+        "ov_h_mehr_zu",
+        "ov_streifen_h",
+        "hinweis_scanner_an",
+        "hinweis_scanner_tot",
+        "hinweis_scanner_aus",
+        "hinweis_anlernen",
+        "hinweis_aafk_an",
+        "hinweis_aafk_aus",
+        "hinweis_aafk_gedrueckt",
+        "hinweis_aafk_gestoppt",
+        "hinweis_aafk_blind",
+        "hinweis_versionen",
+        "hf_hinweis_update_da",
+        "ov_auftrag_weg",
+        "s_p9_rueckgaengig",
+        "s_cz_lampen",
+        "ov_h_hangar",
+        "ov_h_ziel_offen",
+        "ov_h_zeile_gefunden",
+        "ov_h_zeile_hinweis",
+        "ov_h_zeile_katalog",
+        "ov_h_zeile_merkliste",
+    ];
+
+    /// No symbol is left without words: every hint exists in both language files itself (an empty English text
+    /// would silently fall back to German) and is no bare key.
+    #[test]
+    fn every_symbol_of_the_overlay_has_a_hint_in_both_languages() {
+        for (index, name) in [(0, "de"), (1, "en")] {
+            let table = &language::tables()[index];
+            for key in SYMBOL_HINTS {
+                let text = table.texts.get(*key).map_or("", String::as_str).trim();
+                assert!(!text.is_empty(), "{name}: the hint {key} is missing or empty");
+                assert_ne!(text, *key, "{name}: the hint {key} is its own key");
+            }
+        }
+        // The buttons themselves: whatever state the bar is in, each has a hint that is not empty.
+        let scheme = theme::by_id("original").expect("original");
+        let (rows, status) = (rows(), Message::Plain("x".into()));
+        for lang in [language::Lang::De, language::Lang::En] {
+            language::with_language(lang, || {
+                for (open, locked, launcher) in [(true, false, false), (false, true, true)] {
+                    let mut v = view(scheme, &rows, &status, if open { Shown::Open } else { Shown::Bar });
+                    (v.locked, v.launcher) = (locked, launcher);
+                    let buttons = bar_buttons(&v);
+                    assert_eq!(buttons.len(), if launcher { 7 } else { 6 }, "{lang:?}: the buttons of the bar");
+                    for (action, _, _, meaning, _) in buttons {
+                        assert!(!meaning.trim().is_empty(), "{lang:?}: {action:?} has no hint");
+                        assert!(
+                            !meaning.starts_with("ov_") && !meaning.starts_with("hinweis_"),
+                            "{lang:?}: {action:?} shows a key: {meaning}"
+                        );
+                    }
+                }
+            });
+        }
+    }
+
+    /// The icons in front of the rows say what they mean on hover: the green tick, the grey "i", the blue circle
+    /// and the gold star, each its own words.
+    #[test]
+    fn the_icons_of_the_rows_say_what_they_mean_on_hover() {
+        let scheme = theme::by_id("original").expect("original");
+        let mut rows = Rows::default();
+        let catalog = |watch_title: Option<&str>| Row::Catalog {
+            name: "Probe".into(),
+            kind: "Kühler".into(),
+            time: "12:00:00".into(),
+            watch_title: watch_title.map(str::to_string),
+        };
+        rows.push(catalog(Some("Meine Liste")), 20);
+        rows.push(catalog(None), 20);
+        rows.push(Row::Hint { text: Message::Plain("Ein Hinweis".into()), contract: None }, 20);
+        rows.push(
+            Row::Found {
+                name: "Ultra-Fine Kühler".into(),
+                kind: "Kühler".into(),
+                code: "S2".into(),
+                time: "12:00:00".into(),
+                caught_up: false,
+            },
+            20,
+        );
+        let status = Message::Plain("x".into());
+        let mut v = view(scheme, &rows, &status, Shown::Open);
+        // As a tooltip, and as the program shows its hints: in the window of their own (`hints_outside`).
+        for outside in [false, true] {
+            v.hints_outside = outside;
+            let mut seen = std::collections::BTreeSet::new();
+            for y in (30..300).step_by(4) {
+                for x in [10.0, 16.0, 22.0] {
+                    seen.extend(hint_at(&v, pos2(x, y as f32)));
+                }
+            }
+            for key in ["ov_h_zeile_gefunden", "ov_h_zeile_hinweis", "ov_h_zeile_katalog", "ov_h_zeile_merkliste"] {
+                assert!(seen.contains(&t(key)), "outside {outside}: the icon with {key} shows no hint: {seen:?}");
+            }
+        }
+    }
+
+    /// The circle before an open objective and the name of the server hint too, the way the program shows its
+    /// hints (in the window of their own).
+    #[test]
+    fn the_open_objective_and_the_server_name_hint_in_the_window_of_their_own() {
+        let scheme = theme::by_id("original").expect("original");
+        let (rows, status) = (rows(), Message::Plain("x".into()));
+        let lines = contract_lines();
+        let mut v = view(scheme, &rows, &status, Shown::Open);
+        v.hints_outside = true;
+        v.contracts = &lines;
+        let mut seen = std::collections::BTreeSet::new();
+        for y in (60..260).step_by(4) {
+            for x in (12..44).step_by(4) {
+                seen.extend(hint_at(&v, pos2(x as f32, y as f32)));
+            }
+        }
+        assert!(seen.contains(&t("ov_h_ziel_offen")), "the circle of an open objective: {seen:?}");
+        let (short, whole) = ("euw1b · 420", "Shard: EU-West 12881860-420 · seit 17:26");
+        v.contracts = &[];
+        (v.shard, v.shard_hint) = (Some(short), Some(whole));
+        let mut seen = std::collections::BTreeSet::new();
+        for y in (30..52).step_by(4) {
+            for x in (400..596).step_by(6) {
+                seen.extend(hint_at(&v, pos2(x as f32, y as f32)));
+            }
+        }
+        assert!(seen.contains(whole), "the name of the server: {seen:?}");
+    }
+
+    /// The grip in the corner and the lamps of the hangar hand their hint to the window of its own too: a
+    /// tooltip there would be cut off at the edge of the overlay.
+    #[test]
+    fn the_grip_and_the_lamps_hint_like_the_buttons() {
+        let scheme = theme::by_id("original").expect("original");
+        let (rows, status) = (rows(), Message::Plain("x".into()));
+        let mut v = view(scheme, &rows, &status, Shown::Open);
+        v.hints_outside = true;
+        let size = vec2(600.0, 300.0);
+        let grip = hint_at(&v, pos2(size.x - 6.0, size.y - 6.0));
+        assert_eq!(grip, Some(t("hinweis_groesse")), "the grip");
+        let line = OverlayLine {
+            label: "EH".into(),
+            phase: Some(Phase::Open),
+            lamps: [Lamp::Green, Lamp::Green, Lamp::Dark, Lamp::Dark, Lamp::Dark],
+            text: "offen".into(),
+        };
+        v.hangar = Some(&line);
+        let mut seen = std::collections::BTreeSet::new();
+        for y in (30..120).step_by(3) {
+            for x in (8..90).step_by(4) {
+                seen.extend(hint_at(&v, pos2(x as f32, y as f32)));
+            }
+        }
+        let lamps = tf("s_cz_lampen", &[("0", 2.into()), ("1", LAMPS.into())]);
+        let meaning = tf("ov_h_hangar", &[("0", lamps.as_str().into())]);
+        assert!(seen.contains(&meaning), "the lamps: {seen:?}");
+    }
+
+    /// The rocket and the locked lock, the two states the other test of the bar leaves out, say what they do.
+    #[test]
+    fn the_rocket_and_the_locked_lock_show_their_hints() {
+        let scheme = theme::by_id("original").expect("original");
+        let (rows, status) = (rows(), Message::Plain("x".into()));
+        let mut v = view(scheme, &rows, &status, Shown::Open);
+        (v.launcher, v.locked) = (true, true);
+        let (out, _) = frame(&v, vec2(600.0, 300.0), None);
+        for (action, key) in [(Action::Launch, "s_sp_start"), (Action::Lock, "hinweis_schloss")] {
+            let at = out.buttons.iter().find(|(a, _)| *a == action).map(|(_, r)| r.center());
+            let at = at.unwrap_or_else(|| panic!("{action:?} is drawn"));
+            assert_eq!(hint_at(&v, at), Some(t(key)), "{action:?}");
+        }
+        // The fold button in the folded bar says the other thing.
+        let folded = view(scheme, &rows, &status, Shown::Bar);
+        let (out, _) = frame(&folded, vec2(600.0, BAR_HEIGHT), None);
+        let at = out.buttons.iter().find(|(a, _)| *a == Action::Fold).map(|(_, r)| r.center()).expect("fold");
+        assert_eq!(hint_at(&folded, at), Some(t("hinweis_ausklappen")), "unfold");
     }
 
     /// With the hints in a window of their own the folded bar names a button's hint once the pointer rests on it,

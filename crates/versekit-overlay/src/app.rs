@@ -410,6 +410,8 @@ pub struct OverlayApp {
     pub title_end: f32,
     /// The hint of the bar shown in the last frame.
     pub hint: Option<String>,
+    /// Where the symbol of that hint stands, in window points.
+    pub hint_rect: Option<egui::Rect>,
     /// Buttons besides the fixed ones of the bar.
     pub extras: Vec<view::Extra>,
     /// The extras were set from outside (the self-check's placeholders): the frames leave them as they are.
@@ -885,8 +887,16 @@ impl OverlayApp {
     }
 
     /// The bridge to scmdb.net as the switch says (`scmdb_bridge.apply_setting`): only on own data, never in the
-    /// self-check. A port in use says so once in a hint row.
+    /// self-check. A port in use or refused says so once in a hint row; what came of it goes into the start trail,
+    /// so that a report shows it.
     pub fn apply_scmdb(&mut self) {
+        self.start_scmdb();
+        let line = versekit_core::scmdb_bridge::trail_line(self.settings.scmdb, &self.scmdb.status());
+        versekit_core::trail::step(&line);
+    }
+
+    fn start_scmdb(&mut self) {
+        use versekit_core::scmdb_bridge::State;
         let on = self.settings.scmdb && self.args.probe.is_none();
         let Some(paths) = self.paths.as_ref().filter(|_| on) else {
             self.scmdb.stop();
@@ -905,8 +915,12 @@ impl OverlayApp {
             poll: versekit_core::scmdb_bridge::POLL,
         };
         if !self.scmdb.start(setup) {
-            self.rows
-                .push(Row::Hint { text: Phrase::new("s_scmdb_belegt").into(), contract: None }, self.settings.rows);
+            let status = self.scmdb.status();
+            let text = match status.state {
+                State::Refused => Phrase::new("s_scmdb_gesperrt").with("0", status.port.to_string()),
+                _ => Phrase::new("s_scmdb_belegt"),
+            };
+            self.rows.push(Row::Hint { text: text.into(), contract: None }, self.settings.rows);
         }
     }
 
@@ -1989,6 +2003,7 @@ impl OverlayApp {
         self.more = out.more;
         self.title_end = out.title_end;
         self.hint = out.hint;
+        self.hint_rect = out.hint_rect;
         self.drawn = out.drawn;
         self.visible_rows = out.visible_rows;
         self.contract_texts = out.contract_texts;
@@ -2025,7 +2040,13 @@ impl OverlayApp {
         self.step_info_bar(&ctx, pointer_now);
         // No hint while a drag runs: it would follow the pointer over the screen.
         let hint = self.hint.as_deref().filter(|_| self.drag.is_none() && !self.waits_hidden());
-        self.hint_window.step(&ctx, hint, pointer_now, scheme);
+        let ppp = ctx.pixels_per_point();
+        let symbol = self.hint_rect.map(|r| {
+            let (min, max) = (r.min * ppp, r.max * ppp);
+            let (x, y) = (self.canvas.x.saturating_add(min.x.round() as i32), self.canvas.y.saturating_add(min.y.round() as i32));
+            Rect::new(x, y, (max.x - min.x).round() as i32, (max.y - min.y).round() as i32)
+        });
+        self.hint_window.step(&ctx, hint, pointer_now, symbol, scheme);
         self.remember_place();
         ctx.request_repaint_after(TICK);
     }
@@ -2484,6 +2505,7 @@ impl OverlayApp {
             more: None,
             title_end: 0.0,
             hint: None,
+            hint_rect: None,
             extras: Vec::new(),
             extras_kept: false,
             afk,

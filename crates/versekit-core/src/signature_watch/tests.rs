@@ -700,6 +700,52 @@ fn a_frame_the_player_drew_is_the_only_place_that_is_read() {
     assert!(areas.lock().unwrap().iter().all(inside_of(frame.0)));
 }
 
+/// The report of 10.11.2026 (Drake Golem, 3840 × 2160, `signatur_rahmen=[466, 339, 71, 54]`): the scanner never read
+/// a digit. The picture of his frame (`tests/data/signatur-golem-4k.HERKUNFT.txt`) stands in a game window of his
+/// size, the frame of his settings is read: the watch shows 16,780 and keeps the place for `3840x2160`.
+#[test]
+fn the_watch_reads_the_pill_above_the_bright_planet_in_the_frame_of_the_report() {
+    const GOLEM: &[u8] = include_bytes!("../../tests/data/signatur-golem-4k.rgb");
+    let (width, height) = (3840i32, 2160i32);
+    let hint = Hint { frame: Some([466, 339, 71, 54]), places: Vec::new() };
+    let (frame, drawn) = hint.narrow((0, 0, width, height)).expect("the frame fits the window");
+    assert!(drawn);
+    assert_eq!(frame, (1789, 732, 273, 117), "the frame of his settings is the picture");
+    let mut full = vec![0u8; (width * height * 4) as usize];
+    for p in full.as_chunks_mut::<4>().0 {
+        *p = [5, 12, 7, 255];
+    }
+    let blank = full.clone();
+    for (i, point) in GOLEM.as_chunks::<3>().0.iter().enumerate() {
+        let (x, y) = (frame.0 + (i as i32 % frame.2), frame.1 + (i as i32 / frame.2));
+        let at = ((y * width + x) * 4) as usize;
+        full[at..at + 4].copy_from_slice(&[point[2], point[1], point[0], 255]);
+    }
+    let areas = Arc::new(Mutex::new(Vec::new()));
+    let canvas = Canvas {
+        width,
+        height,
+        with_pill: Arc::new(AtomicBool::new(true)),
+        raw_full: full,
+        raw_blank: blank,
+        grabs: Arc::default(),
+        areas: areas.clone(),
+    };
+    // Mining data in which 16,780 is a possible value (four rocks of 4,195), as on his computer.
+    let files = files_in("golem-4k");
+    let rock = r#"{"format": 1, "locations": [], "elemente": {"g": {"name": "Probe", "scanSignature": 4195, "rarity": "common"}}}"#;
+    std::fs::write(&files.mining, rock).expect("mining data");
+    let watch = Watch::start(Box::new(canvas), files, fast(), hint, || {}).expect("thread");
+    let state = wait_until(&watch, |s| s.place.is_some()).unwrap_or_else(|| watch.state());
+    watch.stop();
+    assert_eq!(state.shown, Some(16_780), "{:?} {:?}", state.shown, state.place);
+    let (key, place) = state.place.expect("place");
+    assert_eq!(key, "3840x2160");
+    // The pill stands at 1867..1976 × 799..818 of the window.
+    assert!(place[0] < 1976 && place[0] + place[2] > 1867 && place[1] < 818 && place[1] + place[3] > 799, "{place:?}");
+    assert!(areas.lock().unwrap().iter().all(inside_of(frame)), "read beyond the frame");
+}
+
 fn inside_of(frame: Area) -> impl Fn(&Area) -> bool {
     move |a| a.0 >= frame.0 && a.1 >= frame.1 && a.0 + a.2 <= frame.0 + frame.2 && a.1 + a.3 <= frame.1 + frame.3
 }

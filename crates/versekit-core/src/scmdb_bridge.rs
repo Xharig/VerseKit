@@ -375,6 +375,11 @@ pub enum State {
     Connected,
     /// The port is in use (by the official watcher, say): not started.
     Busy,
+    /// The port could not be taken for another reason than "in use": not started. Under Windows that can be a range
+    /// of ports the system keeps for itself, a rule, or another program holding it exclusively (with
+    /// `SO_EXCLUSIVEADDRUSE` the answer may be 10013 instead of 10048), the official watcher among them. Which one,
+    /// only the reason in the status says.
+    Refused,
 }
 
 /// `STATUS`: what the switch reports.
@@ -385,11 +390,44 @@ pub struct Status {
     pub channel: String,
     pub sent: usize,
     pub unmatched: usize,
+    /// The port asked for at the last start.
+    pub port: u16,
+    /// Why the last start did not listen, in the words of the system (with its number).
+    pub error: Option<String>,
 }
 
 impl Default for Status {
     fn default() -> Status {
-        Status { state: State::Off, clients: 0, channel: "UNKNOWN".into(), sent: 0, unmatched: 0 }
+        Status {
+            state: State::Off,
+            clients: 0,
+            channel: "UNKNOWN".into(),
+            sent: 0,
+            unmatched: 0,
+            port: PORT,
+            error: None,
+        }
+    }
+}
+
+/// The state of a start whose port could not be taken: in use, or refused for another reason.
+fn failed_state(error: &std::io::Error) -> State {
+    if error.kind() == std::io::ErrorKind::AddrInUse { State::Busy } else { State::Refused }
+}
+
+/// The line of the start trail about the bridge (`on`: the switch), so that a report shows whether it listens and,
+/// where not, why.
+pub fn trail_line(on: bool, status: &Status) -> String {
+    let port = status.port;
+    let error = status.error.as_deref().unwrap_or("—");
+    match (on, status.state) {
+        (false, _) => "scmdb-Brücke: aus".to_string(),
+        (true, State::Waiting | State::Connected) => format!("scmdb-Brücke: lauscht auf {HOST}:{port}"),
+        (true, State::Busy) => format!("scmdb-Brücke: Anschluss {port} belegt ({error})"),
+        (true, State::Refused) => format!("scmdb-Brücke: Anschluss {port} nicht nutzbar ({error})"),
+        (true, State::Off) => {
+            "scmdb-Brücke: an, aber nicht gestartet (ohne eigene Daten oder im Selbsttest)".to_string()
+        }
     }
 }
 
@@ -451,18 +489,26 @@ impl Bridge {
         lock(&self.shared).status.clone()
     }
 
-    /// `start`: the server on `127.0.0.1` and the reading of the log. `false` when the port is in use.
+    /// `start`: the server on `127.0.0.1` and the reading of the log. `false` when the port cannot be taken; the
+    /// status says whether it is in use ([`State::Busy`]) or refused ([`State::Refused`]), and why.
     pub fn start(&mut self, setup: Setup) -> bool {
+        self.start_with(setup, listen)
+    }
+
+    /// [`Bridge::start`] with the port taken by `open` (the checks make up a refusal of the system).
+    fn start_with(&mut self, setup: Setup, open: impl FnOnce(u16) -> std::io::Result<TcpListener>) -> bool {
         if self.running {
             return true;
         }
         let port = port(&setup.host);
-        let listener = match listen(port) {
+        let listener = match open(port) {
             Ok(listener) => listener,
-            Err(_) => {
+            Err(error) => {
                 let mut shared = lock(&self.shared);
-                shared.status.state = State::Busy;
+                shared.status.state = failed_state(&error);
                 shared.status.clients = 0;
+                shared.status.port = port;
+                shared.status.error = Some(error.to_string());
                 return false;
             }
         };
@@ -475,6 +521,8 @@ impl Bridge {
             shared.snapshot = None;
             shared.status.state = State::Waiting;
             shared.status.clients = 0;
+            shared.status.port = port;
+            shared.status.error = None;
         }
         let version: String = setup.version.chars().take(16).collect();
         let (shared, stop) = (Arc::clone(&self.shared), Arc::clone(&self.stop));
@@ -496,6 +544,8 @@ impl Bridge {
         }
         shared.status.state = State::Off;
         shared.status.clients = 0;
+        // A reason of a start before is no reason now: the trail of a later start without own data says only "off".
+        shared.status.error = None;
     }
 
     /// `apply_setting`: switched on, it starts; switched off, it stops.

@@ -1,0 +1,2 @@
+# Raw picture points: never converted at line ends, never shown as text.
+*.rgb binary

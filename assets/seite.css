@@ -145,6 +145,10 @@
 .pruefsumme p.sys{margin:14px 0 4px;color:var(--text);font-weight:700;font-size:14px}
 .pruefsumme code{display:block;color:var(--neon);font-size:14px;overflow-wrap:anywhere;padding:8px 12px;background:var(--grund);border-radius:6px}
 .pruefsumme p.vt{margin:16px 0 0}
+/* Picture with arrows inside a FAQ answer: indented like the text, never wider than the page. */
+.faq figure.bild{margin:4px 0 22px 38px;max-width:820px}
+.faq figure.bild img{border:1px solid var(--linie);border-radius:var(--rund)}
+.faq figure.bild figcaption{margin:8px 2px 0;color:var(--leise);font-size:14px}
 
 /* ---------- Is it safe? ---------- */
 .vertrauen{list-style:none;margin:0 0 28px;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 48px}
@@ -260,6 +264,7 @@
   .schritte > li::before{width:40px;height:40px;font-size:18px}
   .schritte > li:not(:last-child)::after{left:20px}
   .pruefsumme{margin-left:0}
+  .faq figure.bild{margin-left:0}
   .farben{grid-template-columns:repeat(2,minmax(0,1fr))}
   .vertrauen p{margin-left:0}
   .empfehlung{padding:22px}

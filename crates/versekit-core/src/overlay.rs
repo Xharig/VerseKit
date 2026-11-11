@@ -212,6 +212,69 @@ impl Rect {
     pub fn relative_to(&self, x: i32, y: i32) -> Rect {
         Rect { x: self.x - x, y: self.y - y, ..*self }
     }
+
+    /// Whether the two share at least one pixel.
+    pub fn overlaps(&self, other: Rect) -> bool {
+        self.x < other.right() && other.x < self.right() && self.y < other.bottom() && other.y < self.bottom()
+    }
+
+    /// How many pixels the two share.
+    pub fn overlap_area(&self, other: Rect) -> i64 {
+        let w = i64::from(self.right().min(other.right())) - i64::from(self.x.max(other.x));
+        let h = i64::from(self.bottom().min(other.bottom())) - i64::from(self.y.max(other.y));
+        w.max(0) * h.max(0)
+    }
+}
+
+/// How far a hint stands from the symbol it belongs to, in screen pixels.
+pub const HINT_GAP: i32 = 8;
+
+/// The strip along the edges of the screen a hint keeps clear of, in screen pixels: a window put at a rounded
+/// size (at a scale of 1.25 or 1.5) must not reach over the edge by a rounding.
+pub const HINT_RESERVE: i32 = 1;
+
+/// Where the window of a hint goes, with its size: the rectangle in screen pixels. `anchor` is the symbol (or the
+/// part of the bar) the pointer rests on, `near` the pointer, `size` the size the hint asks for and `area` the
+/// screen the overlay stands on. The hint stands below the symbol, or above it where there is no room below, or to
+/// its right or left; it always lies wholly on `area` (a strip of [`HINT_RESERVE`] pixels inside its edges stays
+/// free) and never on `anchor`, so it neither runs off the screen nor hides the symbols. A hint larger than the
+/// screen is cut to it: the rectangle returned is the size the window is to be made at. Along the symbol the hint
+/// follows the pointer (a wide part of the bar does not push the hint to its middle).
+///
+/// ⚠ Only where `area` is too small for the symbol and the hint together is there no place without overlap: then
+/// the one with the least overlap wins.
+pub fn hint_place(anchor: Rect, near: (i32, i32), size: (i32, i32), area: Rect) -> Rect {
+    let area = match area.w > 2 * HINT_RESERVE && area.h > 2 * HINT_RESERVE {
+        true => Rect::new(
+            area.x.saturating_add(HINT_RESERVE),
+            area.y.saturating_add(HINT_RESERVE),
+            area.w - 2 * HINT_RESERVE,
+            area.h - 2 * HINT_RESERVE,
+        ),
+        false => area,
+    };
+    let (w, h) = (size.0.clamp(1, area.w.max(1)), size.1.clamp(1, area.h.max(1)));
+    let along_x = near.0.clamp(anchor.x, anchor.right().max(anchor.x));
+    let along_y = near.1.clamp(anchor.y, anchor.bottom().max(anchor.y));
+    let inside_x = |x: i32| x.clamp(area.x, area.right().saturating_sub(w).max(area.x));
+    let inside_y = |y: i32| y.clamp(area.y, area.bottom().saturating_sub(h).max(area.y));
+    let centred_x = inside_x(along_x.saturating_sub(w / 2));
+    let centred_y = inside_y(along_y.saturating_sub(h / 2));
+    let candidates = [
+        (centred_x, anchor.bottom().saturating_add(HINT_GAP)),
+        (centred_x, anchor.y.saturating_sub(HINT_GAP).saturating_sub(h)),
+        (anchor.right().saturating_add(HINT_GAP), centred_y),
+        (anchor.x.saturating_sub(HINT_GAP).saturating_sub(w), centred_y),
+    ];
+    let rect = |(x, y): (i32, i32)| Rect::new(x, y, w, h);
+    if let Some(clean) = candidates.into_iter().find(|c| area.holds(rect(*c)) && !rect(*c).overlaps(anchor)) {
+        return rect(clean);
+    }
+    candidates
+        .into_iter()
+        .map(|(x, y)| (inside_x(x), inside_y(y)))
+        .min_by_key(|c| rect(*c).overlap_area(anchor))
+        .map_or(Rect::new(area.x, area.y, w, h), rect)
 }
 
 /// Where the overlay is pinned (`overlay_ecke`).
@@ -2539,5 +2602,123 @@ mod tests {
         assert!(game_running(None, Some(200.0)));
         assert!(!game_running(None, Some(301.0)));
         assert!(!game_running(None, None));
+    }
+
+    /// The window of a hint for a symbol at `anchor` on `area`, as the overlay asks for it: the pointer in the
+    /// middle of the symbol.
+    fn hint_rect(anchor: Rect, size: (i32, i32), area: Rect) -> Rect {
+        let near = (anchor.x + anchor.w / 2, anchor.y + anchor.h / 2);
+        hint_place(anchor, near, size, area)
+    }
+
+    /// The hint lies wholly on the screen and not on its symbol, wherever the overlay stands: at the top, the
+    /// bottom, the left and the right edge and in every corner, on a second screen left of the first (negative
+    /// coordinates) and above it, at both sizes of the symbol and of the hint.
+    #[test]
+    fn a_hint_never_leaves_the_screen_and_never_covers_its_symbol() {
+        let screens = [
+            Rect::new(0, 0, 1920, 1080),
+            Rect::new(-2560, -200, 2560, 1440),
+            Rect::new(1920, -1080, 3840, 2160),
+            Rect::new(0, 70, 3420, 2034),
+        ];
+        let sizes = [(40, 24), (360, 60), (360, 140)];
+        // The symbols: a button, a whole bar, the narrow bar of a window the size of the overlay.
+        let anchors = [(26, 26), (440, 28), (18, 18), (120, 24)];
+        for area in screens {
+            let (right, bottom) = (area.right(), area.bottom());
+            let xs = [area.x, area.x + 1, area.x + area.w / 2, right - 440, right - 26];
+            let ys = [area.y, area.y + 1, area.y + area.h / 2, bottom - 28, bottom - 100];
+            for (aw, ah) in anchors {
+                for x in xs {
+                    for y in ys {
+                        let anchor = Rect::new(x.max(area.x), y.max(area.y), aw, ah);
+                        let anchor = Rect { x: anchor.x.min(right - aw), y: anchor.y.min(bottom - ah), ..anchor };
+                        for size in sizes {
+                            let hint = hint_rect(anchor, size, area);
+                            assert!(area.holds(hint), "{hint:?} runs off {area:?} for {anchor:?}");
+                            assert_eq!((hint.w, hint.h), size, "the size the hint asked for stays");
+                            assert!(!hint.overlaps(anchor), "{hint:?} covers {anchor:?}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Where the hint goes follows the room: below a bar at the top, above a bar at the bottom, and beside a symbol
+    /// at the left and right edge it stays on the screen; where the pointer rests on a wide bar the hint follows it.
+    #[test]
+    fn a_hint_takes_the_room_there_is() {
+        let area = Rect::new(0, 0, 1920, 1080);
+        let size = (200, 40);
+        let top = Rect::new(900, 0, 26, 26);
+        assert_eq!(hint_rect(top, size, area).y, top.bottom() + HINT_GAP, "below a bar at the top");
+        let bottom = Rect::new(900, 1080 - 26, 26, 26);
+        assert_eq!(hint_rect(bottom, size, area).bottom(), bottom.y - HINT_GAP, "above a bar at the bottom");
+        let left = Rect::new(0, 500, 26, 26);
+        assert_eq!(hint_rect(left, size, area).x, HINT_RESERVE, "pushed in from the left edge");
+        let right = Rect::new(1920 - 26, 500, 26, 26);
+        assert_eq!(hint_rect(right, size, area).right(), 1920 - HINT_RESERVE, "pushed in from the right edge");
+        let bar = Rect::new(100, 500, 1000, 28);
+        let x = hint_place(bar, (160, 514), size, area).x;
+        assert_eq!(x, 160 - 100, "under the pointer, not under the middle of the bar");
+    }
+
+    /// A hint larger than the screen is cut to it: the rectangle given back is the size the window is to be made
+    /// at, not the size that was asked for.
+    #[test]
+    fn a_hint_larger_than_the_screen_is_cut_to_it() {
+        let tiny = Rect::new(0, 0, 100, 60);
+        let anchor = Rect::new(40, 20, 20, 20);
+        let asked = (300, 200);
+        let hint = hint_place(anchor, (50, 30), asked, tiny);
+        assert!(tiny.holds(hint), "inside the screen: {hint:?}");
+        assert!(hint.w < asked.0 && hint.h < asked.1, "cut, not as asked: {hint:?}");
+        assert!(
+            hint.x >= HINT_RESERVE && hint.y >= HINT_RESERVE && hint.right() <= 100 - HINT_RESERVE,
+            "the reserve at the edges: {hint:?}"
+        );
+    }
+
+    /// Where the screen has no room for the symbol and the hint together, the hint takes the place with the least
+    /// overlap that there is (every place on the screen was tried), and it is still wholly on the screen.
+    #[test]
+    fn without_a_clean_place_the_hint_covers_the_least_there_is() {
+        let area = Rect::new(0, 0, 120, 80);
+        let anchor = Rect::new(10, 10, 100, 60);
+        let size = (90, 50);
+        let hint = hint_place(anchor, (60, 40), size, area);
+        assert!(area.holds(hint) && (hint.w, hint.h) == size, "wholly on the screen at its size: {hint:?}");
+        // Put in the middle of the symbol the hint would hide all of it; pushed to an edge it hides less.
+        let middle = Rect::new(anchor.x + (anchor.w - size.0) / 2, anchor.y + (anchor.h - size.1) / 2, size.0, size.1);
+        assert!(hint.overlap_area(anchor) < middle.overlap_area(anchor), "{hint:?} covers as much as the middle");
+        // With room the same call is clean: the check above is about the lack of room only.
+        let wide = Rect::new(0, 0, 400, 300);
+        assert!(!hint_place(anchor, (60, 40), size, wide).overlaps(anchor), "clean where there is room");
+    }
+
+    /// A hint at the very edge of the screen keeps the strip of reserve free, whichever way it is placed.
+    #[test]
+    fn a_hint_keeps_a_strip_free_at_every_edge() {
+        let area = Rect::new(0, 0, 1920, 1080);
+        for (x, y) in [(0, 0), (1894, 0), (0, 1054), (1894, 1054), (900, 0), (900, 1054), (0, 500), (1894, 500)] {
+            let hint = hint_rect(Rect::new(x, y, 26, 26), (360, 60), area);
+            assert!(hint.x >= 1 && hint.y >= 1, "{hint:?} for {x},{y}");
+            assert!(hint.right() < area.right(), "{hint:?} for {x},{y}");
+            assert!(hint.bottom() < area.bottom(), "{hint:?} for {x},{y}");
+        }
+    }
+
+    /// Gegenprobe: a hint put where the old window put it, right and below the pointer, does run off the screen at
+    /// the bottom and the right, which the check above would see.
+    #[test]
+    fn the_old_place_next_to_the_pointer_did_run_off_the_screen() {
+        let area = Rect::new(0, 0, 1920, 1080);
+        let (pointer, size) = ((1900, 1070), (200, 40));
+        let old = Rect::new(pointer.0 + 14, pointer.1 + 22, size.0, size.1);
+        assert!(!area.holds(old), "the old place is off the screen");
+        let anchor = Rect::new(1880, 1050, 26, 26);
+        assert!(area.holds(hint_rect(anchor, size, area)), "the new place is on it");
     }
 }

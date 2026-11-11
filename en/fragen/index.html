@@ -29,7 +29,7 @@
 <link rel="preload" href="../../assets/schrift/xharig-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="../../assets/schrift/xharig-sans-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../../assets/basis.css?v=2">
-<link rel="stylesheet" href="../../assets/seite.css?v=7">
+<link rel="stylesheet" href="../../assets/seite.css?v=8">
 </head>
 <body>
 
@@ -96,20 +96,97 @@
       <details>
         <summary data-de="Wie verbinde ich VerseKit mit scmdb.net?" data-en="How do I connect VerseKit to scmdb.net?">How do I connect VerseKit to scmdb.net?</summary>
         <ol>
-          <li data-de="In VerseKit unter Einstellungen → Allgemein „Mit scmdb.net verbinden“ einschalten."
-              data-en="In VerseKit, turn on “Connect to scmdb.net” under Settings → General.">In VerseKit, turn on “Connect to scmdb.net” under Settings → General.</li>
-          <li data-de="Auf scmdb.net anmelden und dort „Watcher“ → „Enable Watcher“ wählen."
-              data-en="Sign in on scmdb.net and choose “Watcher” → “Enable Watcher”.">Sign in on scmdb.net and choose “Watcher” → “Enable Watcher”.</li>
+          <li data-de="Läuft der Watcher von scmdb bei dir, beende ihn. Beide zusammen gehen nicht, VerseKit übernimmt seine Aufgabe."
+              data-en="If scmdb's own watcher is running, close it. Both at once do not work, VerseKit takes over its job.">If scmdb's own watcher is running, close it. Both at once do not work, VerseKit takes over its job.</li>
+          <li data-de="In VerseKit unter Einstellungen → Allgemein → Datenschutz „Mit scmdb.net verbinden“ einschalten. Das Overlay muss laufen."
+              data-en="In VerseKit, turn on “Connect to scmdb.net” under Settings → General → Privacy. The overlay has to be running.">In VerseKit, turn on “Connect to scmdb.net” under Settings → General → Privacy. The overlay has to be running.</li>
+        </ol>
+        <figure class="bild">
+          <img data-bild="faq-scmdb-schalter.png" src="../../assets/faq-scmdb-schalter-en.png" width="950" height="305" loading="lazy"
+               alt="The Privacy group in VerseKit's settings: an arrow marked 2 points to the “Connect to scmdb.net” switch">
+          <figcaption data-de="Schritt 2: Der Schalter „Mit scmdb.net verbinden“ in VerseKit."
+                      data-en="Step 2: the “Connect to scmdb.net” switch in VerseKit.">Step 2: the “Connect to scmdb.net” switch in VerseKit.</figcaption>
+        </figure>
+        <ol start="3">
+          <li data-de="Auf scmdb.net mit deinem Konto anmelden und oben rechts „Watcher“ → „Enable Watcher“ wählen."
+              data-en="Sign in on scmdb.net with your account and choose “Watcher” → “Enable Watcher” at the top right.">Sign in on scmdb.net with your account and choose “Watcher” → “Enable Watcher” at the top right.</li>
+        </ol>
+        <figure class="bild">
+          <img src="../../assets/faq-scmdb-watcher.png" width="1200" height="655" loading="lazy"
+               alt="The top right of scmdb.net: one arrow marked 3 points to “Watcher”, a second one to “Enable Watcher”; “Download Watcher” is crossed out in red, you do not need it">
+          <figcaption data-de="Schritt 3: erst „Watcher“, dann „Enable Watcher“. „Download Watcher“ brauchst du nicht."
+                      data-en="Step 3: first “Watcher”, then “Enable Watcher”. You do not need “Download Watcher”.">Step 3: first “Watcher”, then “Enable Watcher”. You do not need “Download Watcher”.</figcaption>
+        </figure>
+        <ol start="4">
           <li data-de="Der Browser fragt einmal, ob die Seite auf Apps auf diesem Gerät zugreifen darf: erlauben, merken lassen und die Seite neu laden."
               data-en="Your browser asks once whether the site may access apps on this device: allow it, let it remember and reload the page.">Your browser asks once whether the site may access apps on this device: allow it, let it remember and reload the page.</li>
+          <li data-de="Die Seite beim Spielen offen lassen. VerseKit meldet neue Baupläne und Aufträge dann an dein scmdb-Konto."
+              data-en="Keep the page open while you play. VerseKit then reports new blueprints and contracts to your scmdb account.">Keep the page open while you play. VerseKit then reports new blueprints and contracts to your scmdb account.</li>
         </ol>
-        <p data-de="Den Watcher von scmdb musst du dafür nicht herunterladen. Es geht mit LIVE und HOTFIX."
-           data-en="You do not need to download scmdb's own watcher. It works with LIVE and HOTFIX.">You do not need to download scmdb's own watcher. It works with LIVE and HOTFIX.</p>
+        <p data-de="Den Watcher von scmdb musst du dafür nicht herunterladen. Es geht mit LIVE und HOTFIX, nicht mit PTU. Steht in VerseKit „Anschluss belegt“, läuft noch der scmdb-Watcher: beenden und den Schalter einmal aus- und wieder einschalten."
+           data-en="You do not need to download scmdb's own watcher. It works with LIVE and HOTFIX, not with PTU. If VerseKit says “Port in use”, scmdb's watcher is still running: close it and switch the setting off and on once.">You do not need to download scmdb's own watcher. It works with LIVE and HOTFIX, not with PTU. If VerseKit says “Port in use”, scmdb's watcher is still running: close it and switch the setting off and on once.</p>
+        <p><a href="https://scmdb.net/" target="_blank" rel="noopener" data-de="Zu scmdb.net" data-en="Go to scmdb.net">Go to scmdb.net</a></p>
+      </details>
+      <details>
+        <summary data-de="Der Watcher auf scmdb.net wird nicht grün" data-en="The Watcher on scmdb.net does not turn green">The Watcher on scmdb.net does not turn green</summary>
+        <p data-de="Geh der Reihe nach vor, meist klärt sich schon der erste oder zweite Punkt:"
+           data-en="Go through these in order, the first or second one usually solves it:">Go through these in order, the first or second one usually solves it:</p>
+        <ol>
+          <li data-de="In VerseKit steht unter Einstellungen → Allgemein → Datenschutz bei „Mit scmdb.net verbinden“ der Schalter auf „an“. Steht dort „Anschluss belegt“, läuft noch der alte Watcher von scmdb, auch im Infobereich neben der Uhr. Beende ihn und schalte den Schalter aus und wieder ein."
+              data-en="In VerseKit, the switch “Connect to scmdb.net” under Settings → General → Privacy is on. If it says “Port in use”, scmdb's old watcher is still running, also in the notification area next to the clock. Close it and switch the setting off and on again.">In VerseKit, the switch “Connect to scmdb.net” under Settings → General → Privacy is on. If it says “Port in use”, scmdb's old watcher is still running, also in the notification area next to the clock. Close it and switch the setting off and on again.</li>
+          <li data-de="Das VerseKit-Overlay muss laufen."
+              data-en="The VerseKit overlay has to be running.">The VerseKit overlay has to be running.</li>
+          <li data-de="Schnelltest: Öffne im selben Browser http://127.0.0.1:23456/ping. Erscheint eine Textzeile, ist VerseKit bereit."
+              data-en="Quick test: open http://127.0.0.1:23456/ping in the same browser. If a line of text appears, VerseKit is ready.">Quick test: open http://127.0.0.1:23456/ping in the same browser. If a line of text appears, VerseKit is ready.</li>
+          <li data-de="Lade die scmdb-Seite neu und erlaube die Browser-Frage, ob die Seite auf Apps auf diesem Gerät zugreifen darf. Hast du das früher abgelehnt, klick links neben der Adresse auf das Schloss und erlaube die Berechtigung dort."
+              data-en="Reload the scmdb page and allow the browser's question whether the site may access apps on this device. If you declined it earlier, click the lock icon left of the address and allow the permission there.">Reload the scmdb page and allow the browser's question whether the site may access apps on this device. If you declined it earlier, click the lock icon left of the address and allow the permission there.</li>
+          <li data-de="Schalte Werbeblocker und die Shields von Brave für scmdb.net testweise aus."
+              data-en="Turn off ad blockers and Brave's Shields for scmdb.net as a test.">Turn off ad blockers and Brave's Shields for scmdb.net as a test.</li>
+        </ol>
       </details>
       <details>
         <summary data-de="Windows warnt beim Start. Ist das normal?" data-en="Windows warns when I start it. Is that normal?">Windows warns when I start it. Is that normal?</summary>
         <p data-de="Ja. VerseKit ist (noch) nicht digital signiert, deshalb zeigt Windows „Der Computer wurde durch Windows geschützt“. Auf „Weitere Informationen“ und dann „Trotzdem ausführen“ klicken. Der Code liegt offen auf GitHub, und GitHub baut die Dateien selbst daraus."
            data-en="Yes. VerseKit is not digitally signed (yet), so Windows shows “Windows protected your PC”. Click “More info”, then “Run anyway”. The code is public on GitHub, and GitHub builds the files from it itself.">Yes. VerseKit is not digitally signed (yet), so Windows shows “Windows protected your PC”. Click “More info”, then “Run anyway”. The code is public on GitHub, and GitHub builds the files from it itself.</p>
+      </details>
+      <details>
+        <summary data-de="Was bedeuten die Symbole im Overlay?" data-en="What do the overlay icons mean?">What do the overlay icons mean?</summary>
+        <p data-de="Fahr mit dem Zeiger auf ein Symbol und warte einen Moment: Daneben steht ein kurzer Hinweis, was es ist und was ein Klick macht. Das geht nicht, solange das Overlay durchklickbar ist (Schloss geschlossen): Dann gehen alle Klicks ins Spiel. Das Schloss macht es wieder bedienbar."
+           data-en="Point at an icon and wait a moment: a short hint appears next to it, saying what it is and what a click does. That does not work while the overlay is click-through (lock closed): then every click goes to the game. The lock makes it usable again.">Point at an icon and wait a moment: a short hint appears next to it, saying what it is and what a click does. That does not work while the overlay is click-through (lock closed): then every click goes to the game. The lock makes it usable again.</p>
+        <figure class="bild">
+          <img data-bild="screenshot-overlay.png" src="../../assets/screenshot-overlay-en.png" width="928" height="592" loading="lazy"
+               alt="The overlay with its bar: from the left graduation cap, eye, stopwatch, bell, rocket, gear, circular arrow, lock, arrow up, eraser and cross">
+          <figcaption data-de="Die Leiste des Overlays, die Symbole stehen unten von links nach rechts."
+                      data-en="The bar of the overlay; the icons are listed below from left to right.">The bar of the overlay; the icons are listed below from left to right.</figcaption>
+        </figure>
+        <ul>
+          <li data-de="Doktorhut: Signatur anlernen. Zeigt das letzte Scan-Bild, du tippst die Zahl, und der Signatur-Scanner kennt sie danach. Nur da, wenn der Scanner läuft."
+              data-en="Graduation cap: teach a signature. It shows the last scan picture, you type the number, and the signature scanner knows it afterwards. Only there while the scanner runs.">Graduation cap: teach a signature. It shows the last scan picture, you type the number, and the signature scanner knows it afterwards. Only there while the scanner runs.</li>
+          <li data-de="Auge: der Signatur-Scanner. Grau und durchgestrichen heißt aus, gelb heißt an, liest aber nicht, grün heißt, er liest. Ein Klick schaltet ihn an und aus."
+              data-en="Eye: the signature scanner. Grey and crossed out means off, yellow means on but not reading, green means it is reading. A click switches it on and off.">Eye: the signature scanner. Grey and crossed out means off, yellow means on but not reading, green means it is reading. A click switches it on and off.</li>
+          <li data-de="Stoppuhr: Anti-AFK. Drückt nach der Wartezeit die Taste für „Visier abwischen“, solange das Spiel vorn ist und du nichts drückst. Grün heißt, es wartet, gelb, es hat eben gedrückt, rot, es kann nicht drücken oder wurde abgebrochen. Durchgestrichen heißt aus. Ein Klick schaltet um."
+              data-en="Stopwatch: anti-AFK. After the waiting time it presses the key for “wipe visor”, as long as the game is in front and you press nothing. Green means it is waiting, yellow that it has just pressed, red that it cannot press or was stopped. Crossed out means off. A click switches it.">Stopwatch: anti-AFK. After the waiting time it presses the key for “wipe visor”, as long as the game is in front and you press nothing. Green means it is waiting, yellow that it has just pressed, red that it cannot press or was stopped. Crossed out means off. A click switches it.</li>
+          <li data-de="Glocke: Ein Klick öffnet „Update &amp; Über“ im Hauptfenster mit der Versionsgeschichte. Ist die Glocke grün, gibt es eine neuere Version."
+              data-en="Bell: a click opens “Update &amp; About” in the main window, with the history of versions. When the bell is green, a newer version is out.">Bell: a click opens “Update &amp; About” in the main window, with the history of versions. When the bell is green, a newer version is out.</li>
+          <li data-de="Rakete: startet den RSI Launcher. Steht nur da, wenn VerseKit ihn gefunden hat."
+              data-en="Rocket: starts the RSI Launcher. Only there when VerseKit has found it.">Rocket: starts the RSI Launcher. Only there when VerseKit has found it.</li>
+          <li data-de="Zahnrad: öffnet das Hauptfenster von VerseKit."
+              data-en="Gear: opens VerseKit's main window.">Gear: opens VerseKit's main window.</li>
+          <li data-de="Kreispfeil: liest die Logs neu, falls ein Bauplan fehlt."
+              data-en="Circular arrow: rereads the logs if a blueprint is missing.">Circular arrow: rereads the logs if a blueprint is missing.</li>
+          <li data-de="Schloss: schaltet das Durchklicken ein und aus. Geschlossen gehen alle Klicks ins Spiel."
+              data-en="Lock: switches click-through on and off. Closed, every click goes to the game.">Lock: switches click-through on and off. Closed, every click goes to the game.</li>
+          <li data-de="Pfeil nach oben oder unten: klappt das Overlay auf die Leiste zusammen und wieder auf. So gibt es die Sicht frei."
+              data-en="Arrow up or down: folds the overlay to its bar and opens it again. That frees your view.">Arrow up or down: folds the overlay to its bar and opens it again. That frees your view.</li>
+          <li data-de="Radiergummi: räumt die angezeigten Meldungen weg. Deine Baupläne bleiben."
+              data-en="Eraser: clears the messages shown. Your blueprints stay.">Eraser: clears the messages shown. Your blueprints stay.</li>
+          <li data-de="Kreuz ganz rechts: beendet VerseKit."
+              data-en="Cross at the far right: quits VerseKit.">Cross at the far right: quits VerseKit.</li>
+          <li data-de="Drei Punkte: Wird das Overlay schmal, wandern die Symbole links davon hinter diese Punkte."
+              data-en="Three dots: when the overlay gets narrow, the icons on their left move behind these dots.">Three dots: when the overlay gets narrow, the icons on their left move behind these dots.</li>
+        </ul>
+        <p data-de="Vor den Meldungen darunter steht ein Symbol: Das grüne Häkchen heißt, der Bauplan ist im Spiel freigeschaltet. Der blaue Kreis heißt, er ist neu im Spiel craftbar, der goldene Stern, ein Bauplan von deiner Merkliste ist jetzt craftbar, und das graue „i“ ist ein Hinweis von VerseKit. Das Kreuz hinter einem laufenden Auftrag blendet ihn aus, der Pfeil unten rechts ändert die Größe des Fensters. Ein einzelnes Auge ist der Streifen, in dem das Overlay wartet: Zeiger darauf, dann kommt es."
+           data-en="Rows below carry an icon too: the green tick means the blueprint is unlocked in the game. The blue circle means it is newly craftable in the game, the gold star that a blueprint from your watchlist is craftable now, and the grey “i” is a note from VerseKit. The cross behind a running contract hides it, the arrow at the bottom right resizes the window. A single eye is the strip in which the overlay waits: point at it and it comes.">Rows below carry an icon too: the green tick means the blueprint is unlocked in the game. The blue circle means it is newly craftable in the game, the gold star that a blueprint from your watchlist is craftable now, and the grey “i” is a note from VerseKit. The cross behind a running contract hides it, the arrow at the bottom right resizes the window. A single eye is the strip in which the overlay waits: point at it and it comes.</p>
       </details>
       <details>
         <summary data-de="Welche Tastenkombinationen gibt es im Spiel?" data-en="Which keyboard shortcuts work in game?">Which keyboard shortcuts work in game?</summary>
@@ -158,6 +235,11 @@
         <summary data-de="Der Signatur-Scanner zeigt beim Minen nichts an" data-en="The signature scanner shows nothing while mining">The signature scanner shows nothing while mining</summary>
         <p data-de="Sieh auf das Auge in der Overlay-Leiste. Grau heißt aus: anklicken. Gelb heißt an, liest aber nicht: VerseKit einmal neu starten. Grün heißt, es liest. Wird eine Zahl nicht erkannt, lern sie unter Abbau &amp; Bergung → Bergbau → „Ziffern anlernen“ an. Den Scanner gibt es nur unter Windows."
            data-en="Look at the eye in the overlay bar. Grey means off: click it. Yellow means on but not reading: restart VerseKit once. Green means it is reading. If a number is not recognised, teach it under Mining &amp; Salvage → Mining → “Teach digits”. The scanner is Windows only.">Look at the eye in the overlay bar. Grey means off: click it. Yellow means on but not reading: restart VerseKit once. Green means it is reading. If a number is not recognised, teach it under Mining &amp; Salvage → Mining → “Teach digits”. The scanner is Windows only.</p>
+      </details>
+      <details>
+        <summary data-de="Ich habe die Raffinerie gescannt. Wo finde ich das?" data-en="I scanned the refinery. Where do I find it?">I scanned the refinery. Where do I find it?</summary>
+        <p data-de="Der Scan liest nur, er trägt noch nichts ein. Die gelesenen Zeilen stehen danach in VerseKit unter Mein Lager → „Raffinerie-Ausbeute eintragen“. Vergleich sie kurz mit dem Terminal und drück dann „… Posten eintragen“, erst dann landen sie in deinem Lager. Den laufenden Auftrag mit Restzeit zeigen das Overlay und die Kachel Raffinerie auf der Übersicht. Liest der Scan nichts oder Falsches, schick über „Fehler melden“ einen Bericht mit dem Bild."
+           data-en="The scan only reads, it does not add anything yet. The lines it read are then in VerseKit under My Inventory → “Enter refinery yield”. Compare them with the terminal and press “Add … entries”, only then do they land in your inventory. The running order with its remaining time shows in the overlay and in the Refinery tile on the overview. If the scan reads nothing or something wrong, send a report with the picture via “Report a problem”.">The scan only reads, it does not add anything yet. The lines it read are then in VerseKit under My Inventory → “Enter refinery yield”. Compare them with the terminal and press “Add … entries”, only then do they land in your inventory. The running order with its remaining time shows in the overlay and in the Refinery tile on the overview. If the scan reads nothing or something wrong, send a report with the picture via “Report a problem”.</p>
       </details>
     </div>
     <h3 class="faq-untergruppe" data-de="Deine Daten" data-en="Your data">Your data</h3>

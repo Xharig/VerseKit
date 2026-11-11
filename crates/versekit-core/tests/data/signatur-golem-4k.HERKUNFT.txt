@@ -1,0 +1,11 @@
+signatur-golem-4k.rgb
+
+Ein Ausschnitt aus einem Bildschirmfoto, das ein Spieler am 10.11.2026 zu einer Fehlermeldung geschickt hat
+(Star Citizen 4.10.2, Drake Golem, Spielfenster 3840 × 2160, Windows-Skalierung 150 %).
+
+Inhalt: genau der Suchrahmen aus seinen Einstellungen (signatur_rahmen = [466, 339, 71, 54] Promille), also die
+Punkte x 1789 bis 2061 und y 732 bis 848 des Spielfensters: 273 × 117 Punkte, RGB, je Punkt drei Bytes, oberste
+Zeile zuerst. Zu sehen sind die untere Kante des mittleren Cockpit-Bildschirms (Kurs „17°  5.0km“), darunter die
+Signatur „16,780“ mit Ortssymbol, darunter heller Planet im Dunst und der Anfang der Kompassleiste.
+
+Keine Namen, keine Kennungen: der Name des Spielers und des Schiffs steht im Foto oben rechts, weit außerhalb.

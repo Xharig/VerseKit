@@ -1346,6 +1346,28 @@ impl Reading {
 
 /// Reads the signature in a crop.
 pub fn read(raster: &Gray, known: &Templates, values: &[u64]) -> Reading {
+    read_in(raster, known, values, false)
+}
+
+/// A row of a crop counts as bright ground at a threshold when at least this share of its points is brighter.
+const GROUND_SHARE: f64 = 0.9;
+
+/// The crop with the rows of bright ground at `threshold` made dark: a bright planet or haze right under the row
+/// of digits, which at that threshold would run into the digits and swallow them. A row of digits always has the
+/// ground of the pill between its strokes and never counts as ground.
+fn without_ground(raster: &Gray, threshold: u8) -> Gray {
+    let mut out = raster.clone();
+    let least = (raster.w as f64 * GROUND_SHARE).ceil() as usize;
+    for row in out.data.chunks_mut(raster.w.max(1)) {
+        if row.iter().filter(|v| **v > threshold).count() >= least {
+            row.fill(0);
+        }
+    }
+    out
+}
+
+/// [`read`]; with `ground` the rows of bright ground are left out at every threshold ([`without_ground`]).
+fn read_in(raster: &Gray, known: &Templates, values: &[u64], ground: bool) -> Reading {
     let mut result = Reading::silent();
     if raster.w == 0 || raster.h == 0 {
         return result;
@@ -1353,7 +1375,16 @@ pub fn read(raster: &Gray, known: &Templates, values: &[u64]) -> Reading {
     let levels = thresholds(raster);
     let mut boxes_at: HashMap<u8, Vec<Box4>> = HashMap::new();
     let mut boxes = |threshold: u8| -> Vec<Box4> {
-        boxes_at.entry(threshold).or_insert_with(|| components(raster, threshold)).clone()
+        boxes_at
+            .entry(threshold)
+            .or_insert_with(|| {
+                if ground {
+                    components(&without_ground(raster, threshold), threshold)
+                } else {
+                    components(raster, threshold)
+                }
+            })
+            .clone()
     };
     let mut best: Option<(f64, u64, u8, Vec<Box4>)> = None;
     let mut fallback: Option<(u8, Vec<Box4>)> = None;
@@ -1500,9 +1531,35 @@ pub fn has_locator(raster: &Gray, reading: &Reading) -> bool {
 /// Works on the BGRA bytes: nests of short bright strokes in the size of a number; whether it is a signature
 /// `read` decides afterwards, chat and labels fall out there.
 pub fn pill_candidates(raw: &[u8], width: i32, height: i32) -> Vec<(i32, i32, i32, i32)> {
+    candidates_in(raw, width, height, None).0
+}
+
+/// The least and most width and height of a nest of bright strokes that can be a pill, in points.
+const NEST_WIDTH: (i32, i32) = (32, 320);
+const NEST_HEIGHT: (i32, i32) = (8, 40);
+
+/// A bright run longer than this many points is no stroke of a digit but bright ground: a planet or haze behind
+/// the pill. Bound to the size of a pill, not to a number of its own: a stroke across a digit is never wider than
+/// the digit is high, and no digit is higher than the highest nest ([`NEST_HEIGHT`]).
+const GROUND_RUN: i32 = NEST_HEIGHT.1;
+
+/// [`pill_candidates`] with the runs of bright ground left out: the second look of [`search`].
+///
+/// ⚠ The report of 10.11.2026 (Drake Golem, 3840 × 2160): the pill stands under the middle screen of the cockpit,
+/// right above a bright planet in haze. From the lower edge of the digits on, every point of the whole width is as
+/// bright in the green channel as the digits; their cells join those of the haze into one nest far too high to be a
+/// number, and no candidate is left.
+pub fn pill_candidates_without_ground(raw: &[u8], width: i32, height: i32) -> Vec<(i32, i32, i32, i32)> {
+    candidates_in(raw, width, height, Some(GROUND_RUN)).0
+}
+
+/// The candidates, and whether a run of bright ground ([`GROUND_RUN`]) was there at all: only then does a second
+/// look without it have anything to find.
+fn candidates_in(raw: &[u8], width: i32, height: i32, ground_run: Option<i32>) -> (Vec<(i32, i32, i32, i32)>, bool) {
     if width <= 0 || height <= 0 || raw.len() < (width * height * 4) as usize {
-        return Vec::new();
+        return (Vec::new(), false);
     }
+    let mut ground = false;
     let mut cells: HashMap<(i32, i32), i32> = HashMap::new();
     let mut y = 0;
     while y < height {
@@ -1517,6 +1574,12 @@ pub fn pill_candidates(raw: &[u8], width: i32, height: i32) -> Vec<(i32, i32, i3
             let start = x;
             while x < width && raw[row + x as usize * 4 + 1] >= 165 {
                 x += 1;
+            }
+            if x - start > GROUND_RUN {
+                ground = true;
+                if ground_run.is_some_and(|longest| x - start > longest) {
+                    continue;
+                }
             }
             let mut at = start;
             while at < x {
@@ -1553,7 +1616,7 @@ pub fn pill_candidates(raw: &[u8], width: i32, height: i32) -> Vec<(i32, i32, i3
         let (min_x, max_x) = (*xs.iter().min().unwrap_or(&0), *xs.iter().max().unwrap_or(&0));
         let (min_y, max_y) = (*ys.iter().min().unwrap_or(&0), *ys.iter().max().unwrap_or(&0));
         let (w, h) = ((max_x - min_x + 1) * CELL, (max_y - min_y + 1) * CELL);
-        if (32..=320).contains(&w) && (8..=40).contains(&h) {
+        if (NEST_WIDTH.0..=NEST_WIDTH.1).contains(&w) && (NEST_HEIGHT.0..=NEST_HEIGHT.1).contains(&h) {
             let left = 0.max(min_x * CELL - 28);
             let top = 0.max(min_y * CELL - 10);
             let boxr = (left, top, (width - left).min(w + 56), (height - top).min(h + 20));
@@ -1563,7 +1626,7 @@ pub fn pill_candidates(raw: &[u8], width: i32, height: i32) -> Vec<(i32, i32, i3
         }
     }
     found.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-    found.into_iter().map(|(_, b)| b).collect()
+    (found.into_iter().map(|(_, b)| b).collect(), ground)
 }
 
 /// The grey value of one point (four bytes B, G, R, A) in the grey image `variant`.
@@ -1632,10 +1695,15 @@ fn safer(result: &Reading, other: &Reading) -> bool {
 /// there a 5 can fit 1 better than it fits 5 in the green channel (56,000 read as 16,000). The later grey image
 /// fills gaps only.
 pub fn read_variants(images: &Images, known: &ByVariant<Templates>, values: &[u64]) -> Found {
+    read_variants_in(images, known, values, false)
+}
+
+/// [`read_variants`]; with `ground` every grey image is read with the rows of bright ground left out.
+fn read_variants_in(images: &Images, known: &ByVariant<Templates>, values: &[u64], ground: bool) -> Found {
     let mut chosen: Option<(Reading, Variant)> = None;
     for variant in VARIANTS {
         let Some(raster) = images.get(variant) else { continue };
-        let reading = read(raster, known.get(variant), values);
+        let reading = read_in(raster, known.get(variant), values, ground);
         if chosen.as_ref().is_none_or(|(current, _)| safer(&reading, current)) {
             chosen = Some((reading, variant));
         }
@@ -1657,6 +1725,11 @@ pub fn read_variants(images: &Images, known: &ByVariant<Templates>, values: &[u6
 
 /// Finds the pill in a large crop and reads it in every grey image. Without a value: the first candidate with a
 /// row of digits. The pill is looked for in the green channel only.
+///
+/// ⚠ Two looks. The first is the one every limit was measured with. Only when it reads no value AND it met bright
+/// ground (a run longer than [`GROUND_RUN`]), a second look leaves that ground out (long bright runs when finding
+/// the pill, rows of bright ground when reading it): a pill right above a bright planet. So the second look cannot
+/// change a value the first one read, and a beat without a pill and without bright ground costs what it did.
 pub fn search(
     raw: &[u8],
     width: i32,
@@ -1665,13 +1738,41 @@ pub fn search(
     values: &[u64],
     limit: usize,
 ) -> Found {
+    let (all, ground) = candidates_in(raw, width, height, None);
+    let boxes: Vec<_> = all.into_iter().take(limit).collect();
+    let first = look(raw, width, &boxes, known, values, false);
+    if first.reading.value.is_some() || !ground {
+        return first;
+    }
+    let more: Vec<_> = pill_candidates_without_ground(raw, width, height)
+        .into_iter()
+        .filter(|b| !boxes.contains(b))
+        .take(limit)
+        .collect();
+    let second = look(raw, width, &more, known, values, true);
+    if second.reading.value.is_some() || (first.reading.digits.is_empty() && !second.reading.digits.is_empty()) {
+        second
+    } else {
+        first
+    }
+}
+
+/// Reads the candidate boxes in their order: the first with a value, else the first with a row of digits.
+fn look(
+    raw: &[u8],
+    width: i32,
+    boxes: &[(i32, i32, i32, i32)],
+    known: &ByVariant<Templates>,
+    values: &[u64],
+    ground: bool,
+) -> Found {
     let mut first_with_digits: Option<Found> = None;
-    for boxr in pill_candidates(raw, width, height).into_iter().take(limit) {
+    for &boxr in boxes {
         let images = ByVariant {
             green: Some(gray_crop(raw, width, boxr, Variant::Green)),
             bright: Some(gray_crop(raw, width, boxr, Variant::Bright)),
         };
-        let mut found = read_variants(&images, known, values);
+        let mut found = read_variants_in(&images, known, values, ground);
         found.boxr = Some(boxr);
         if found.reading.value.is_some() {
             return found;

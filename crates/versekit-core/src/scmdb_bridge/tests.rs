@@ -361,3 +361,71 @@ fn switched_off_and_on_again_the_history_holds_each_event_once() {
     bridge.stop();
     let _ = std::fs::remove_dir_all(root);
 }
+
+/// The report of 10.11.2026: switched on, `/ping` refused, and nothing said why. A port the system refuses (under
+/// Windows a range it keeps for itself: error 10013) is no port in use: the status keeps the reason, and the start
+/// trail says which it was, in the words of the system.
+#[test]
+fn a_port_the_system_refuses_is_not_called_in_use_and_the_trail_says_why() {
+    let (root, _, host) = scratch("scmdb-verweigert");
+    let port = free_port();
+    let mut vars = host.clone();
+    vars.set_var(ENV_PORT, &port.to_string());
+    let setup = |host: Host| Setup {
+        host,
+        version: "5.2.10".into(),
+        namer: Box::new(|_| spectre()),
+        poll: Duration::from_millis(100),
+    };
+    // Refused by the system (made up: the checks cannot make Windows keep a port).
+    let mut refused = Bridge::new();
+    let denied = || std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied (os error 10013)");
+    assert!(!refused.start_with(setup(vars.clone()), |_| Err(denied())));
+    let status = refused.status();
+    assert_eq!((status.state, status.port), (State::Refused, port));
+    assert_eq!(status.error.as_deref(), Some("access denied (os error 10013)"));
+    assert_eq!(
+        trail_line(true, &status),
+        format!("scmdb-Brücke: Anschluss {port} nicht nutzbar (access denied (os error 10013))")
+    );
+    // Stopped after it (the data went away, the switch is still on): the reason of before goes with it.
+    let mut stopped = Bridge::new();
+    assert!(!stopped.start_with(setup(vars.clone()), |_| Err(denied())));
+    stopped.stop();
+    assert_eq!((stopped.status().state, stopped.status().error), (State::Off, None));
+    assert_eq!(
+        trail_line(true, &stopped.status()),
+        "scmdb-Brücke: an, aber nicht gestartet (ohne eigene Daten oder im Selbsttest)"
+    );
+    // Listening: the trail names the address; a second bridge finds the port in use, really.
+    let mut bridge = Bridge::new();
+    assert!(bridge.start(setup(vars.clone())));
+    assert_eq!(bridge.status().error, None);
+    assert_eq!(trail_line(true, &bridge.status()), format!("scmdb-Brücke: lauscht auf 127.0.0.1:{port}"));
+    let mut second = Bridge::new();
+    assert!(!second.start(setup(vars.clone())));
+    let busy = second.status();
+    assert_eq!(busy.state, State::Busy);
+    assert!(busy.error.is_some(), "the reason is kept: {busy:?}");
+    assert!(trail_line(true, &busy).starts_with(&format!("scmdb-Brücke: Anschluss {port} belegt (")), "{busy:?}");
+    bridge.stop();
+    // A refusal before does not stick: the next start that listens clears it (once the stopped server has let go
+    // of the port, a few beats of its loop later).
+    let mut started = false;
+    for _ in 0..40 {
+        if refused.start(setup(vars.clone())) {
+            started = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(started, "{:?}", refused.status());
+    assert_eq!((refused.status().state, refused.status().error), (State::Waiting, None));
+    refused.stop();
+    assert_eq!(trail_line(false, &refused.status()), "scmdb-Brücke: aus");
+    assert_eq!(
+        trail_line(true, &Status::default()),
+        "scmdb-Brücke: an, aber nicht gestartet (ohne eigene Daten oder im Selbsttest)"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}

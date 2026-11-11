@@ -114,7 +114,7 @@ const LOOK_ALIKES: [&str; 27] = [
     "Intern/preise.2025.json",
     "Intern/notizen.privat.json",
     "Intern/basetool-meins.json",
-    "Intern/injektion-urtext@meins.json",
+    "Intern/injektion-urtext@meins.json", // privacy-ok: file name with a channel after the @, not an e-mail
     "Intern/vor-update/meins.zip",
     "Intern/signatur-bilder/Urlaub.png",
     "Intern/handle-bilder/0123456789abcdef.png",
@@ -164,7 +164,7 @@ fn the_own_data_go_at_every_place_and_everything_else_stays() {
         "Einstellungen/einstellungen.kaputt-20261101-120000.json",
         "Einstellungen/einstellungen.kaputt-20261101-120000-2.json",
         "Bauplaene/bestand.json.4711-1.tmp",
-        "Intern/injektion-urtext@PTU.json",
+        "Intern/injektion-urtext@PTU.json", // privacy-ok: file name with a channel after the @, not an e-mail
         "Intern/signatur-bilder/123_20261101-120000-042.png",
         "Intern/signatur-gemerkt/0001762000000000.bin",
         "Intern/handle-bilder/0123456789abcdef.bild",
@@ -392,7 +392,7 @@ fn the_known_files_are_the_names_of_the_program_and_the_copies_it_makes_beside_t
         "einstellungen.kaputt-20261101-120000.json",
         "einstellungen.kaputt-20261101-120000-3.json",
         "update-helfer.1.txt",
-        "injektion-urtext@PTU.json",
+        "injektion-urtext@PTU.json", // privacy-ok: file name with a channel after the @, not an e-mail
         "absturz-overlay.txt",
     ] {
         assert!(known_file(name), "{name}");
@@ -415,7 +415,7 @@ fn the_known_files_are_the_names_of_the_program_and_the_copies_it_makes_beside_t
         "bestand.json.alt.tmp",
         // The state of the Basetool needs its content; a channel that is none.
         "basetool-inst_7.json",
-        "injektion-urtext@meins.json",
+        "injektion-urtext@meins.json", // privacy-ok: file name with a channel after the @, not an e-mail
     ] {
         assert!(!known_file(name), "{name}");
     }
@@ -492,7 +492,7 @@ fn a_known_name_goes_only_in_the_subfolder_the_program_puts_it_in() {
     assert!(owned_named("Bauplaene", "bestand.json", nowhere));
     assert!(owned_named("Diagnose", "fehler.json", nowhere));
     assert!(owned_named("Intern", "katalog-cache.json", nowhere));
-    assert!(owned_named("Intern", "injektion-urtext@LIVE.json", nowhere));
+    assert!(owned_named("Intern", "injektion-urtext@LIVE.json", nowhere)); // privacy-ok: file name with a channel after the @, not an e-mail
     assert!(!owned_named("Bauplaene", "fehler.json", nowhere));
     assert!(!owned_named("Intern", "bestand.json", nowhere));
     assert!(!owned_named("Diagnose", "katalog-cache.json", nowhere));

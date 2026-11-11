@@ -6,6 +6,36 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.2.10 - 2026-11-11
+
+> The signature scanner now reads even when a bright planet stands right
+> behind the signature, and every icon in the overlay explains itself when
+> you point at it.
+
+### Fixed
+
+- **Signature scanner in front of a bright planet:** In the Drake Golem the
+  signature sits below the middle cockpit screen. When a bright planet in haze
+  lies behind it, the planet is as bright as the digits and reaches up to
+  their lower edge. The search took digits and planet for one single, far too
+  large area and never read a digit. When the scanner finds nothing, it now
+  searches a second time and leaves bright ground out. What it read before, it
+  reads exactly as before. Reported by oGundalf
+
+### Improved
+
+- **Hints on every overlay icon:** Point at an icon and a short hint now
+  stands next to it everywhere, including the icons in front of the
+  messages (green tick, blue circle, gold star), the lamps of the Executive
+  Hangar, the open objectives of a contract and the grip for resizing. The
+  hints of the bar were there already; new is that the hints at the grip and
+  at the server name are no longer cut off at the edge of the window. The
+  hint also picks its place above, below or beside the symbol, stays wholly
+  on the screen of the overlay (at an edge, in a corner and with several
+  monitors) and never covers the symbol. A new
+  FAQ entry, “What do the overlay icons mean?”, explains all icons with a
+  picture. Suggested by [KRT]Parsul
+
 ## v5.2.9 - 2026-11-10
 
 > The setup now gets past a game that has never been started and therefore
