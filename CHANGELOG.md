@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.2 - 2026-11-13
+
+> 5.3.1 brachte die Auftragsangaben nur zurück, wenn VerseKit seine Bauplan-Liste
+> neu baute. Mit 5.3.2 geschieht das nach dem Update von selbst.
+
+### Behoben
+
+- **Auftragsangaben nach dem Update auf 5.3.1:** Wer die Bauplan-Liste schon
+  nach dem Patch 4.10.3 gebaut hatte, behielt sie, und die Auftragstexte
+  blieben ohne Angaben, auch mit „Neu einsetzen“. Jetzt baut VerseKit die
+  Liste nach dem Update einmal neu, und die Angaben stehen ab dem nächsten
+  Spielstart wieder an den Aufträgen. Gemeldet von Karasimsek
+
 ## v5.3.1 - 2026-11-13
 
 > Seit dem Patch 4.10.3 fehlten in den Auftragstexten im Spiel die Angaben

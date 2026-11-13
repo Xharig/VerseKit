@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.2 - 2026-11-13
+
+> 5.3.1 only brought the contract notes back once VerseKit built its
+> blueprint list again. With 5.3.2 that happens by itself after the update.
+
+### Fixed
+
+- **Contract notes after the update to 5.3.1:** Whoever had built the
+  blueprint list after patch 4.10.3 kept it, and the contract texts stayed
+  without notes, also with "Insert again". Now VerseKit builds the list
+  once more after the update, and the notes are back on the contracts from
+  the next game start. Reported by Karasimsek
+
 ## v5.3.1 - 2026-11-13
 
 > Since patch 4.10.3 the VerseKit notes were missing from the contract texts

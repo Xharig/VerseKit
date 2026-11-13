@@ -75,7 +75,8 @@ pub const CACHE_FILE: &str = "katalog-spieldaten.json";
 /// 5: the file carries the text keys of every crafted item (`beschreibungen`).
 /// 6: building it also writes the reputation and terms of every contract read from the game data (`auftragsruf.json`).
 /// 7: the file carries the stock values of every weapon and component (`werte`).
-pub const CACHE_FORMAT: i64 = 7;
+/// 8: the contracts carry their text keys from the game data, and the build is named after the launcher.
+pub const CACHE_FORMAT: i64 = 8;
 
 /// The lock file beside the cache file that keeps two builds of the same catalog apart, in one process and between
 /// the main window and the overlay.
