@@ -449,20 +449,6 @@ begin
   end;
 end;
 
-{ Is a switch on the command line (without regard to case)? }
-function HasSwitch(const Name: String): Boolean;
-var
-  I: Integer;
-begin
-  Result := False;
-  for I := 1 to ParamCount do
-    if CompareText(ParamStr(I), Name) = 0 then
-    begin
-      Result := True;
-      Exit;
-    end;
-end;
-
 { Does a process of the program file still run in this session? Asks the process list, which also shows processes
   this one may not end, such as one started as administrator. PROGRAM_UNKNOWN when the list cannot be had. A check
   setup takes the answer from /VKLAEUFTNOCH (runs, as a program it may not end) and /VKLISTEFEHLT (unknown). }
