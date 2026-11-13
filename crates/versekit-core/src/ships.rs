@@ -118,6 +118,12 @@ impl UexShips {
         self.find(name).map(|s| s.name.as_str())
     }
 
+    /// The name of the list whose words go on after the name asked for (`Anvil C8R Pisces Rescue` for `C8R Pisces`),
+    /// where `name_of` finds none: for the price in the hover over a ship. `None` where none or several go on.
+    pub fn name_continuing(&self, name: &str) -> Option<&str> {
+        self.names.continuing(name)
+    }
+
     /// `ships.manufacturer`: the part of the UEX name before the name asked for (`Mirai` for `Fury LX`,
     /// `Aegis Dynamics` for `Sabre`), or `""`. UEX writes the maker into the name, the player does not.
     pub fn manufacturer(&self, name: &str) -> String {
@@ -238,9 +244,19 @@ fn is_abbrev(short: &str, long: &str) -> bool {
 fn matches_wordwise(own: &[String], wanted: &HashSet<String>, chain: &str) -> i64 {
     let mut without_maker = false;
     let mut score = 0;
+    // A word of the code after the maker that the name has as it stands. Without one the code only resembles the
+    // name: `aegs_idris_m` fits `RSI Constellation Mk IV Andromeda` by the first letters of `mk4`, `m` and an
+    // abbreviation of `industries`, and is a ship of its own (cargo, size and slots of the Idris for an Andromeda).
+    let mut named = own.len() == 1;
     for (at, word) in own.iter().enumerate() {
+        if word == GAME_SUFFIX && at > 0 {
+            // The mark of a ship the game ships under its game-mode name (`rsi_constellation_andromeda_gs`): the
+            // name of the ship has no word for it.
+            continue;
+        }
         if wanted.contains(word) {
             score += 3;
+            named |= at > 0;
         } else if wanted.iter().any(|g| g.starts_with(word.as_str())) {
             score += 2;
         } else if wanted.iter().any(|g| is_abbrev(word, g)) || (!chain.is_empty() && chain.contains(word.as_str())) {
@@ -252,11 +268,15 @@ fn matches_wordwise(own: &[String], wanted: &HashSet<String>, chain: &str) -> i6
             return 0;
         }
     }
-    if without_maker && score < 3 {
+    if (without_maker && score < 3) || !named {
         return 0;
     }
     score
 }
+
+/// The word `GS` at the end of a code: the game's own name for a ship of a mode of play (`AEGS_Hammerhead_GS`,
+/// `RSI_Constellation_Andromeda_GS`); the pledge name has no word for it.
+const GAME_SUFFIX: &str = "gs";
 
 /// `erkul.MANUAL_MAP`: names no rule finds.
 const MANUAL_MAP: [(&str, &str); 6] = [
@@ -491,10 +511,17 @@ fn search_wordwise<'a>(listing: &'a [Code], name: &str, maker: &str, maker_short
     let chain = seq.concat();
     let scored: Vec<(i64, &Code)> = listing.iter().map(|c| (matches_wordwise(&c.words, &wanted, &chain), c)).collect();
     let top = scored.iter().map(|(s, _)| *s).max().filter(|s| *s > 0)?;
-    let mut best = scored.iter().filter(|(s, _)| *s == top);
-    match (best.next(), best.next()) {
-        (Some((_, code)), None) => Some(code),
-        _ => None,
+    let best: Vec<&Code> = scored.iter().filter(|(s, _)| *s == top).map(|(_, c)| *c).collect();
+    match best.as_slice() {
+        [code] => Some(*code),
+        // The ship and its `_GS` twin read alike: the plain one is the ship of the name.
+        many => {
+            let mut plain = many.iter().filter(|c| !c.words.iter().any(|w| w == GAME_SUFFIX));
+            match (plain.next(), plain.next()) {
+                (Some(code), None) => Some(*code),
+                _ => None,
+            }
+        }
     }
 }
 
@@ -539,6 +566,59 @@ mod tests {
         assert_eq!(e.slot_count(id("Ironclad Assault", "Drake Interplanetary", "", "")), Some(9));
         assert_eq!(e.slot_count(id("F7C-M Super Hornet Mk II", "", "ANVL_F7C_M_Super_Hornet_Mk_I", "ANVL")), Some(11));
         assert_eq!(e.slot_count(id("Galaxy", "RSI", "", "")), None);
+    }
+
+    /// The codes of LIVE 4.10.3 that were mixed up: the Idris-M took the Andromeda, the Aquila and every Aurora Mk I
+    /// by the first letter of `mk4`, `m` and an abbreviation of `industries` (cargo 1,326 SCU and 243 × 127 × 57.5 m
+    /// on a Constellation); the slots of the Idris were the Andromeda's too. Each code has its own number of slots.
+    fn constellations() -> ErkulShips {
+        erkul(&[
+            ("aegsidrism", "AEGS_Idris_M", 1),
+            ("aegsidrisp", "AEGS_Idris_P", 2),
+            ("rsiconstellationandromedags", "RSI_Constellation_Andromeda_GS", 3),
+            ("rsiconstellationaquilags", "RSI_Constellation_Aquila_GS", 4),
+            ("rsiconstellationtaurus", "RSI_Constellation_Taurus", 5),
+            ("rsiconstellationtaurusgs", "RSI_Constellation_Taurus_GS", 6),
+            ("rsiconstellationtaurusgsmilitary", "RSI_Constellation_Taurus_GS_Military", 7),
+            ("rsiconstellationphoenix", "RSI_Constellation_Phoenix", 8),
+        ])
+    }
+
+    #[test]
+    fn a_name_finds_the_ship_it_means_and_not_one_that_only_resembles_it() {
+        let e = constellations();
+        let rsi = |name| ShipId { name, maker: "Roberts Space Industries", short: "", maker_short: "RSI" };
+        // The hangar name of the pledge says Mk IV and the code ends in `_GS`: the Andromeda and the Aquila.
+        assert_eq!(e.slot_count(rsi("Constellation Mk IV Andromeda")), Some(3));
+        assert_eq!(e.slot_count(rsi("Constellation Mk IV Aquila")), Some(4));
+        let by_code = ShipId {
+            name: "Constellation Mk IV Andromeda",
+            maker: "Roberts Space Industries",
+            short: "RSI_Constellation_Mk_IV_Andromeda",
+            maker_short: "RSI",
+        };
+        assert_eq!(e.slot_count(by_code), Some(3));
+        // Counter-check: a name with nothing of any code but letters that fit the Idris is no Idris.
+        assert_eq!(e.slot_count(rsi("Aurora Mk I LX")), None);
+        assert_eq!(e.slot_count(rsi("Constellation Mk IV Zenith")), None);
+        // The Idris still finds its own, by the maker's spelling and by its words alone.
+        let aegis = |name| ShipId { name, maker: "Aegis Dynamics", short: "", maker_short: "AEGS" };
+        assert_eq!(e.slot_count(aegis("Idris-M")), Some(1));
+        assert_eq!(e.slot_count(aegis("Idris M")), Some(1));
+        assert_eq!(e.slot_count(aegis("Idris P")), Some(2));
+    }
+
+    #[test]
+    fn a_ship_and_its_gs_twin_that_read_alike_are_told_apart_by_the_plain_one() {
+        let e = constellations();
+        let rsi = |name| ShipId { name, maker: "Roberts Space Industries", short: "", maker_short: "RSI" };
+        // `Mk IV` is no word of the codes: the plain Taurus and the `_GS` Taurus fit equally, the plain one is meant.
+        assert_eq!(e.slot_count(rsi("Constellation Mk IV Taurus")), Some(5));
+        // Counter-check: where no plain code is left, or two plain ones fit equally, it stays a tie, as before.
+        let twins = erkul(&[("a", "RSI_Constellation_Taurus_GS", 1), ("b", "rsi_constellation_taurus_gs", 2)]);
+        assert_eq!(twins.slot_count(rsi("Constellation Mk IV Taurus")), None);
+        let plain = erkul(&[("a", "RSI_Constellation_Taurus", 1), ("b", "rsi_constellation_taurus", 2)]);
+        assert_eq!(plain.slot_count(rsi("Constellation Mk IV Taurus")), None);
     }
 
     #[test]
@@ -609,6 +689,33 @@ mod tests {
         // Counter-check: without game data it is erkul alone.
         let erkul_only = ErkulShips::merged(ErkulShips::default(), ErkulShips::from_parts("e".into(), ships(r#"{"x": {"slots": []}}"#), vec![]));
         assert_eq!(erkul_only.game_version(), "e");
+    }
+
+    #[test]
+    fn the_pledge_name_that_is_the_start_of_a_uex_name_finds_it_where_it_is_the_only_one() {
+        let named = |names: &[&str]| UexShips {
+            ships: names.iter().map(|n| UexShip { name: n.to_string(), addon: false, concept: false }).collect(),
+            names: ShipNames(names.iter().map(|n| n.to_string()).collect()),
+        };
+        let ships = named(&[
+            "Anvil C8 Pisces",
+            "Anvil C8R Pisces Rescue",
+            "Anvil C8X Pisces Expedition",
+            "Drake Cutlass Black",
+            "Drake Cutlass Red",
+            "Aegis Gladius",
+            "Aegis Gladius Valiant",
+        ]);
+        // `name_of` does not find it (no name ends with it), the words of the pledge are the middle of one name.
+        assert_eq!(ships.name_of("C8R Pisces"), None);
+        assert_eq!(ships.name_continuing("C8R Pisces"), Some("Anvil C8R Pisces Rescue"));
+        // Counter-check: the name of two ships, a part of a word and a name without a hit find none.
+        assert_eq!(ships.name_continuing("Cutlass"), None);
+        assert_eq!(ships.name_continuing("Pisces"), None);
+        assert_eq!(ships.name_continuing("Pisc"), None, "a part of a word is no word");
+        assert_eq!(ships.name_continuing("C8"), Some("Anvil C8 Pisces"), "C8 is a word of one name only, not of C8R");
+        assert_eq!(ships.name_continuing("Carrack"), None);
+        assert_eq!(ships.name_continuing(""), None);
     }
 
     #[test]

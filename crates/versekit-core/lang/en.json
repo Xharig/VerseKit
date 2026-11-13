@@ -4937,6 +4937,7 @@
   "s_dkv_ogundalf_bugs": "The signature scanner never read a digit in the Drake Golem: the signature stood right above a bright planet. His screenshot showed it; the search now leaves bright ground out. His start traces also showed why the connection to scmdb.net said “port in use”. Thank you!",
   "s_dkv_ogundalf_bugs2": "He started VerseKit without the game running and saw nothing. Now the main window opens when you start VerseKit yourself. Thank you!",
   "s_dkv_autobrake_bugs": "Found: VerseKit froze and crashed when its window was dragged to the second screen. Now it starts itself anew after a hiccup of the graphics card. Thank you!",
+  "s_dkv_karasimsek_bugs": "Found: after patch 4.10.3 the contracts in the game had no notes anymore. Now VerseKit reads them from the game data itself. Thank you!",
   "s_dkv_aeternitas_idee5": "Ready and the shopping list go together.",
   "s_dkv_kuehlwagen_idee3": "Marks like IRIS with “watched” and lists by address; the handle search hotkey selects the last handle. Thanks!",
   "s_dkv_greluc_bugs3": "The Basetool sync sends only changes and keeps to wait times, items go by class name.",

@@ -138,5 +138,24 @@ fn most_ships_get_size_scm_speed_and_cargo_from_the_game_data() {
             differ.push(format!("{key}: the stand-in box is shown as its size"));
         }
     }
+    // Ships whose cargo lies outside their cargo grids (mining pods, the cargo area of the 135c): no cargo value at
+    // all, not the too low sum of the grids. And ships with a hold the check must keep: Liberator 400, Galaxy 64
+    // (without module, as the fleet manager of the game shows), Hull C 4,608, C2 696.
+    for key in ["argomole", "miscprospector", "drakgolem", "orig135c"] {
+        let values = list.iter().find(|(k, _)| k == key).unwrap_or_else(|| panic!("{key}")).1.get("werte");
+        if values.and_then(|v| v.get("fracht")).is_some() {
+            differ.push(format!("{key}: shows a cargo value though its cargo space lies outside the cargo grids"));
+        }
+    }
+    for (key, scu) in [("anvlliberator", 400.0), ("rsigalaxy", 64.0), ("mischullc", 4608.0), ("crusstarlifterc2", 696.0)] {
+        let read = list
+            .iter()
+            .find(|(k, _)| k == key)
+            .and_then(|(_, v)| v.get("werte"))
+            .and_then(|v| number(v.get("fracht")));
+        if read != Some(scu) {
+            differ.push(format!("{key}: cargo {read:?}, wanted {scu}"));
+        }
+    }
     assert!(differ.is_empty(), "{}", differ.join("\n"));
 }

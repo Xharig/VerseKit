@@ -419,6 +419,20 @@ fn flight_controller<'c>(catalogs: &'c Catalogs, ports: &'c [Json]) -> Option<&'
     })
 }
 
+/// Whether a port tree holds cargo space that p4kx does not count as a cargo grid: the mining pods of the Mole, the
+/// Prospector and the Golem (`Cargo_ShipMining_Pod_*`) and the cargo area of the 135c (`ORIG_135c_Cargo_Area`). The
+/// sum of the grids of such a ship is too low (LIVE 4.10.3: 0 SCU for the Prospector, the Golem and the 135c, 32 for
+/// the Mole, whose rear lift is its only grid), so it is no cargo value.
+fn cargo_outside_grids(catalogs: &Catalogs, ports: &[Json]) -> bool {
+    ports.iter().any(|port| {
+        let class = catalogs.item(port["itemGuid"].as_str()).and_then(|part| part["className"].as_str()).unwrap_or_default();
+        let class = class.to_ascii_lowercase();
+        class.contains("_shipmining_pod_")
+            || class.ends_with("_cargo_area")
+            || cargo_outside_grids(catalogs, port["ports"].as_array().map(Vec::as_slice).unwrap_or_default())
+    })
+}
+
 /// The slots of the player ships in the form of `erkul-schiffe.json`, each with its base values (`werte`, see
 /// [`ShipValues::of`]) where the data have them.
 pub fn ships_file(catalogs: &Catalogs) -> Value {
@@ -452,7 +466,8 @@ pub fn ships_file(catalogs: &Catalogs) -> Value {
             ("plaetze".to_string(), Value::Array(counts(&sizes))),
             ("slots".to_string(), Value::Array(slots)),
         ];
-        if let Some(values) = catalogs.values.of(ship, flight_controller(catalogs, &ports)) {
+        let counted = !cargo_outside_grids(catalogs, &ports);
+        if let Some(values) = catalogs.values.of(ship, flight_controller(catalogs, &ports), counted) {
             entry.push(("werte".to_string(), values));
         }
         ships.push((key, Value::Object(entry)));
@@ -717,5 +732,23 @@ mod tests {
         let ships = ErkulShips::load(&written(&ships_file(&quiet), "lack-schiffe-stummer-port.json"));
         let paint = hardpoints(&ships, &parts, id, &Map::new()).into_iter().find(|s| s.kind == "Paints").expect("slot");
         assert!(paint.fit.is_none(), "the silent port is no rule");
+    }
+
+    #[test]
+    fn a_ship_with_mining_pods_or_a_cargo_area_has_cargo_outside_its_grids() {
+        let mut catalogs = Catalogs::default();
+        catalogs.add(&serde_json::json!({"items": [
+            {"guid": "pod", "className": "Cargo_ShipMining_Pod_Mole"},
+            {"guid": "area", "className": "ORIG_135c_Cargo_Area"},
+            {"guid": "grid", "className": "ANVL_Pisces_CargoGrid"},
+            {"guid": "door", "className": "Door_Ship_Exterior_CNOU_Nomad_Cargo_Bed"}
+        ]}));
+        let port = |guid: &str, below: Vec<Json>| serde_json::json!({"name": "p", "itemGuid": guid, "ports": below});
+        // At the top and further down the tree.
+        assert!(cargo_outside_grids(&catalogs, &[port("pod", vec![])]));
+        assert!(cargo_outside_grids(&catalogs, &[port("grid", vec![port("area", vec![])])]));
+        // Counter-check: a ship with cargo grids and a door named cargo has all its cargo in the grids.
+        assert!(!cargo_outside_grids(&catalogs, &[port("grid", vec![]), port("door", vec![]), port("unknown", vec![])]));
+        assert!(!cargo_outside_grids(&catalogs, &[]));
     }
 }

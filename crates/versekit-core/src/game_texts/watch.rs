@@ -105,7 +105,7 @@ pub struct Watch {
     archive: Arc<dyn Archive>,
     recipes: Arc<dyn recipe_file::Supply>,
     game_running: fn(&Paths) -> bool,
-    /// Whether the archive may be read now (the game is closed).
+    /// Whether the archive may be read now (the game is closed and the launcher does not patch it).
     archive_free: fn(&Paths) -> bool,
     /// When that was last asked, and what it said.
     archive_looked: Option<(f64, bool)>,
@@ -240,7 +240,7 @@ impl Watch {
             archive,
             recipes,
             game_running: crate::mission_log::game_running,
-            archive_free: crate::archive_lock::may_read,
+            archive_free: crate::archive_lock::may_read_installed,
             archive_looked: None,
             refresh: None,
             refresh_due: false,

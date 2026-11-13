@@ -94,6 +94,7 @@ pub mod joysticks;
 pub mod joysticks_write;
 pub mod jsonio;
 pub mod language;
+pub mod launcher_log;
 pub mod legacy;
 pub mod live_contracts;
 pub mod location;

@@ -883,7 +883,8 @@ fn ship_values(state: &HangarState, entry: &Map) -> Vec<(String, String)> {
     }
     // The UEX list writes the maker into the name; the price rows are joined by that name.
     let name = hangar::field_text(entry, "name");
-    let listed = state.uex.name_of(name).unwrap_or(name);
+    // The pledge may name only the start of the list's name (`C8R Pisces` for `Anvil C8R Pisces Rescue`).
+    let listed = state.uex.name_of(name).or_else(|| state.uex.name_continuing(name)).unwrap_or(name);
     let offers = state.stores.market.buy_at(listed);
     if let Some(cheapest) = offers.first() {
         let price = crate::shopping_page::auec(cheapest.price);

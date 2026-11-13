@@ -4937,6 +4937,7 @@
   "s_dkv_ogundalf_bugs": "Signatur-Scanner las in der Drake Golem nie eine Ziffer: Die Signatur stand direkt über einem hellen Planeten. Sein Bildschirmfoto zeigte es, jetzt blendet die Suche hellen Grund aus. Seine Start-Spuren fanden auch, warum die Verbindung zu scmdb.net „Anschluss belegt“ meldete. Danke!",
   "s_dkv_ogundalf_bugs2": "Er startete VerseKit ohne laufendes Spiel und sah nichts. Jetzt öffnet sich das Hauptfenster, wenn man VerseKit selbst startet. Danke!",
   "s_dkv_autobrake_bugs": "Fand: VerseKit fror ein und stürzte ab, als das Fenster auf den zweiten Bildschirm gezogen wurde. Jetzt startet es nach einem Aussetzer der Grafikkarte von selbst neu. Danke!",
+  "s_dkv_karasimsek_bugs": "Fand: Nach dem Patch 4.10.3 standen an den Aufträgen im Spiel keine Angaben mehr. Jetzt liest VerseKit sie aus den Spieldaten selbst. Danke!",
   "s_dkv_aeternitas_idee5": "Einsatzbereit und Einkaufsliste gehören zusammen.",
   "s_dkv_kuehlwagen_idee3": "Markierungen wie IRIS mit „Beobachtet“ und Listen per Adresse; das Kürzel der Handle-Suche markiert den letzten Handle. Danke!",
   "s_dkv_greluc_bugs3": "Der Basetool-Abgleich sendet nur noch Änderungen und hält Wartezeiten ein, Items gehen über den Klassennamen.",

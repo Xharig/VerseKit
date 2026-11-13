@@ -113,6 +113,41 @@ pub struct ListData {
     /// Time and size of `bestand.json` as last read, and when that was looked at ([`ListData::follow_collection`]).
     collection_seen: Option<(std::time::SystemTime, u64)>,
     collection_looked: Option<f64>,
+    /// Where the catalog comes from, to take a newer one over ([`ListData::follow_catalog`]); `None` for a list
+    /// with a catalog given.
+    follow: Option<Follow>,
+}
+
+/// How often the list looks whether the catalog file or the archive changed, in seconds.
+pub const CATALOG_LOOK: f64 = 15.0;
+
+/// How soon a build of the list's own that gave no catalog is tried again, in seconds.
+pub const CATALOG_RETRY: f64 = 300.0;
+
+/// The size and time of a file, `None` without one.
+type FileMark = Option<(u64, Option<std::time::SystemTime>)>;
+
+fn file_mark(path: &std::path::Path) -> FileMark {
+    std::fs::metadata(path).ok().map(|meta| (meta.len(), meta.modified().ok()))
+}
+
+/// Where the list's catalog comes from and what the archive and the catalog file were at the last look: another
+/// process (the overlay, or the watch of the game's texts) may build the catalog anew after a patch, and a build of
+/// the list's own may fail while the launcher writes the archive.
+struct Follow {
+    archive: Option<std::path::PathBuf>,
+    cache_file: String,
+    supply: std::sync::Arc<dyn list::Supply>,
+    /// The marks of the archive and the catalog file at the last look; `None`: look again whatever they are.
+    marks: Option<(FileMark, FileMark)>,
+    /// Not before this time (the time of the frames, in seconds).
+    next: f64,
+}
+
+impl Follow {
+    fn marks_now(&self) -> (FileMark, FileMark) {
+        (self.archive.as_deref().and_then(file_mark), file_mark(std::path::Path::new(&self.cache_file)))
+    }
 }
 
 /// How often the list looks whether the collection was written elsewhere, in seconds.
@@ -145,6 +180,7 @@ impl ListData {
             building: None,
             collection_seen: None,
             collection_looked: None,
+            follow: None,
         };
         data.derive();
         data
@@ -204,8 +240,19 @@ impl ListData {
         cache_file: &str,
         supply: std::sync::Arc<dyn list::Supply>,
     ) -> Option<Self> {
+        let mut follow = Follow {
+            archive: archive.map(std::path::Path::to_path_buf),
+            cache_file: cache_file.to_string(),
+            supply: std::sync::Arc::clone(&supply),
+            marks: None,
+            next: 0.0,
+        };
+        // Taken before the reading: a write in between is seen at the next look.
+        follow.marks = Some(follow.marks_now());
         let start = list::start_catalog_archive(paths, archive, cache_file, supply);
-        Self::load_from(paths, start.catalog, start.rebuild.and_then(list::Rebuild::spawn))
+        let mut data = Self::load_from(paths, start.catalog, start.rebuild.and_then(list::Rebuild::spawn))?;
+        data.follow = Some(follow);
+        Some(data)
     }
 
     /// Like [`ListData::load`], with the catalog to start with and the build
@@ -233,8 +280,16 @@ impl ListData {
     /// The open row of `state` stays open (by its blueprint, not its place),
     /// and a filter choice the new catalog no longer offers is dropped. A new
     /// catalog equal to the one shown changes nothing at all.
+    ///
+    /// Without a build running it follows the catalog ([`ListData::follow_catalog`]) every [`CATALOG_LOOK`] seconds.
     pub fn poll(&mut self, ctx: &egui::Context, state: &mut ListState) -> bool {
-        let Some(building) = &self.building else { return false };
+        let now = ctx.input(|i| i.time);
+        let Some(building) = &self.building else {
+            if self.follow.is_some() {
+                ctx.request_repaint_after(std::time::Duration::from_secs_f64(CATALOG_LOOK));
+            }
+            return self.follow_catalog(now, state);
+        };
         if !building.has_wake() {
             let ctx = ctx.clone();
             building.set_wake(move || ctx.request_repaint());
@@ -243,7 +298,49 @@ impl ListData {
         ctx.request_repaint_after(std::time::Duration::from_millis(250));
         let list::Progress::Done(built) = building.poll() else { return false };
         self.building = None;
+        self.build_ended(now, built.is_some());
         built.is_some_and(|catalog| self.replace_catalog(catalog, state))
+    }
+
+    /// A build of the list's own ended at `now`: one that gave no catalog is tried again after [`CATALOG_RETRY`],
+    /// whatever the files say then; after one that worked the files are looked at as usual.
+    fn build_ended(&mut self, now: f64, worked: bool) {
+        let Some(follow) = &mut self.follow else { return };
+        if worked {
+            follow.marks = Some(follow.marks_now());
+            follow.next = now + CATALOG_LOOK;
+        } else {
+            follow.marks = None;
+            follow.next = now + CATALOG_RETRY;
+        }
+    }
+
+    /// Every [`CATALOG_LOOK`] seconds of `now`, while no build runs: when the archive or the catalog file changed
+    /// since the last look (another process built the catalog anew, or the game was patched), or a build of the
+    /// list's own failed, the catalog is taken anew: shown at once when it is up to date, else built in a thread of
+    /// its own like at the start. True when the list changed.
+    fn follow_catalog(&mut self, now: f64, state: &mut ListState) -> bool {
+        let Some(follow) = &mut self.follow else { return false };
+        if self.building.is_some() || now < follow.next {
+            return false;
+        }
+        follow.next = now + CATALOG_LOOK;
+        let marks = follow.marks_now();
+        if follow.marks.as_ref() == Some(&marks) {
+            return false;
+        }
+        follow.marks = Some(marks);
+        let Some(paths) = self.paths.as_ref().map(|paths| Paths::new(paths.host.clone())) else { return false };
+        let supply = std::sync::Arc::clone(&follow.supply);
+        let start = list::start_catalog_archive(&paths, follow.archive.as_deref(), &follow.cache_file, supply);
+        match (start.catalog, start.rebuild) {
+            (Some(catalog), None) => self.replace_catalog(catalog, state),
+            (_, Some(rebuild)) => {
+                self.building = rebuild.spawn();
+                false
+            }
+            (None, None) => false,
+        }
     }
 
     /// "Also blueprints with no known source" was switched (page Erkennung): the list and the progress follow
@@ -2544,6 +2641,81 @@ mod tests {
         }
         let texts = frame(&ctx, &mut empty, &mut state);
         assert!(texts.iter().any(|t| *t == t_de("kein_katalog")), "{texts:?}");
+    }
+
+    /// A catalog file in the layout of today, up to date for no archive (the supply is offline).
+    fn write_current_catalog(cache: &str, catalog: &CatalogCache) {
+        let Value::Object(mut stored) = catalog_cache::to_value(catalog) else { panic!("an object") };
+        stored.insert(
+            0,
+            (
+                "quelle".into(),
+                Value::Object(vec![
+                    ("format".into(), Value::int(list::CACHE_FORMAT)),
+                    ("archiv".into(), Value::Null),
+                    ("archiv_stand".into(), Value::Null),
+                    ("scmdb".into(), Value::str("-")),
+                    ("versuch".into(), Value::str("0")),
+                ]),
+            ),
+        );
+        std::fs::write(cache, jsonio::dumps(&Value::Object(stored), None, false)).unwrap();
+    }
+
+    /// The window keeps running across a patch: the overlay builds the catalog anew and writes the file, and the
+    /// open list takes it over at its next look, once, without a restart.
+    #[test]
+    fn the_list_takes_over_the_catalog_another_process_built() {
+        let _language = crate::language_lock();
+        let paths = empty_paths("follow");
+        let cache = paths.app_file(list::CACHE_FILE);
+        let old = sample_catalog();
+        write_current_catalog(&cache, &old);
+        let mut data = ListData::load_archive(&paths, None, &cache, std::sync::Arc::new(list::Offline)).expect("list");
+        assert!(!data.is_building());
+        assert_eq!(data.catalog, old);
+        let mut state = ListState::default();
+        assert!(!data.follow_catalog(0.0, &mut state), "nothing changed");
+        let new = patched(&old);
+        write_current_catalog(&cache, &new);
+        assert!(!data.follow_catalog(1.0, &mut state), "not before the next look");
+        assert!(data.follow_catalog(CATALOG_LOOK, &mut state), "taken over at the next look");
+        assert_eq!(data.catalog, new);
+        assert!(!data.is_building(), "an up-to-date file is shown, not built again");
+        assert!(!data.follow_catalog(2.0 * CATALOG_LOOK, &mut state), "and only once");
+    }
+
+    /// A build of the list's own that fails (the launcher was still writing the archive) is no end: after
+    /// [`CATALOG_RETRY`] the list builds again, without a restart.
+    #[test]
+    fn a_failed_build_of_the_list_is_tried_again_later() {
+        let _language = crate::language_lock();
+        let paths = empty_paths("follow-retry");
+        let folder = std::path::PathBuf::from(paths.app_folder());
+        let channel = folder.join("LIVE");
+        std::fs::create_dir_all(&channel).unwrap();
+        let archive = channel.join(versekit_gamedata::ARCHIVE_NAME);
+        std::fs::write(&archive, b"half written by the launcher").unwrap();
+        let cache = paths.app_file(list::CACHE_FILE);
+        let offline = std::sync::Arc::new(list::Offline);
+        let mut data = ListData::load_archive(&paths, Some(&archive), &cache, offline).expect("a list while it builds");
+        assert!(data.is_building());
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut state = ListState::default();
+        for _ in 0..1000 {
+            frame(&ctx, &mut data, &mut state);
+            if !data.is_building() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(!data.is_building(), "the build of the unreadable archive ended without a catalog");
+        let ended = ctx.input(|i| i.time);
+        assert!(!data.follow_catalog(ended + CATALOG_LOOK, &mut state));
+        assert!(!data.is_building(), "not at once again");
+        data.follow_catalog(ended + CATALOG_RETRY, &mut state);
+        assert!(data.is_building(), "tried again after the wait, though no file changed");
     }
 
     /// The open row stays open at its blueprint when the catalog changes

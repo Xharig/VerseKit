@@ -1540,6 +1540,29 @@ impl ShipNames {
         self.position(name).map(|i| self.0[i].as_str())
     }
 
+    /// The only name that goes on after the one asked for, words and all: the name of the pledge is the first
+    /// words of the name of the list (`C8R Pisces` for `Anvil C8R Pisces Rescue`). `None` where none or several do.
+    /// `find` asks for the end of a name, this for its middle and its end, and only the hover calls it.
+    pub fn continuing(&self, name: &str) -> Option<&str> {
+        let wanted = py_strip(name).to_lowercase();
+        if wanted.is_empty() {
+            return None;
+        }
+        let goes_on = |listed: &str| {
+            let listed = listed.to_lowercase();
+            listed.match_indices(&wanted).any(|(at, _)| {
+                let before = listed[..at].chars().next_back();
+                let after = listed[at + wanted.len()..].chars().next();
+                before == Some(' ') && after == Some(' ')
+            })
+        };
+        let mut hits = self.0.iter().filter(|listed| goes_on(listed));
+        match (hits.next(), hits.next()) {
+            (Some(hit), None) => Some(hit.as_str()),
+            _ => None,
+        }
+    }
+
     /// Where `find` finds the name.
     pub(crate) fn position(&self, name: &str) -> Option<usize> {
         let wanted = py_strip(name).to_lowercase();

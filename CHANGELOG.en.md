@@ -6,6 +6,63 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.1 - 2026-11-13
+
+> Since patch 4.10.3 the VerseKit notes were missing from the contract texts
+> in the game. With 5.3.1 they are back, and the blueprint list follows a
+> patch without a restart.
+
+### Fixed
+
+- **Blueprint list after a patch:** If VerseKit was running during a patch,
+  the blueprint list in the main window stayed on the old state until
+  VerseKit was restarted, and "new in game" showed nothing. VerseKit also
+  read the game data while the launcher was still writing them, and named
+  the new state after an older branch of the game data ("4.10.0" instead of
+  "4.10.3"), so scmdb.net found nothing for it. Now VerseKit waits with the
+  reading until the launcher is done, the open list takes the new catalog
+  over by itself, and the state is named as in the launcher. What VerseKit
+  had already found new under the old name now counts for the right patch.
+- **Places of contracts without data from scmdb.net:** If scmdb.net did not
+  know a contract, "Available in" showed for example "Nyx,
+  ＠generic_locations_blank, Nyx I, Nyx II": the system stood in the list as
+  a place, and a place the game leaves without a name on purpose appeared
+  as a raw text key. Now VerseKit reads the system from the game data and
+  puts it in front ("Nyx: Nyx I, Nyx II, Nyx III"), and places without a
+  name are left out.
+- **No notes on contracts after the patch:** When the data of scmdb.net
+  for the catalog were missing, as after the patch to 4.10.3, VerseKit
+  wrote blueprints, reputation or cooldown on not a single contract, also
+  not with "Insert again". The items got their notes. Which lines of the
+  game texts belong to a contract came from scmdb.net alone. Now VerseKit
+  reads that from the game data, and the contract notes are in the game
+  also without scmdb.net. Reported by Karasimsek
+- **scmdb.net: "expected value at line 1 column 1":** When VerseKit asked
+  scmdb.net for a file it does not have, scmdb.net answered with its start
+  page instead of "not found", and the error report showed this puzzling
+  message. Now such an answer counts as "file not there", as with the
+  mirror of scmdb.net.
+- **Ship values on hover and slots in the hangar are right again:** The
+  Constellation Mk IV Andromeda, the Constellation Mk IV Aquila and the
+  Aurora Mk I showed the values and slots of another ship, the Andromeda
+  those of the Aegis Idris-M (1,326 SCU cargo, 243 × 127 × 57.5 m, 110 m/s
+  SCM). The search by the word parts of the name took the Idris for the
+  Andromeda, since `m` starts `Mk` and `idris` is an abbreviation of
+  `industries`. Now a match needs at least one word the name really has; the
+  game's `_GS` ending no longer gets in the way, and of two equally good
+  matches the ship without `_GS` wins.
+- **Cargo and price in the hover window:** Ships with cargo space outside
+  their cargo grids (the mining pods of the Mole, Prospector and Golem, the
+  cargo area of the 135c) showed too little cargo, the Prospector, Golem and
+  135c "0 SCU"; now the line is left out. Cargo that does not fit the ship's
+  box is left out as well. The C8R Pisces now shows its price, although the
+  price list calls it "C8R Pisces Rescue".
+- **The shader run after a patch no longer holds VerseKit up:** After a
+  patch the RSI Launcher starts a shader run of the game. VerseKit took it
+  for a running game, and updates, reading the new game data and writing
+  into the game stayed on hold until the run was over. Now only the game
+  itself counts; neither the shader run nor the launcher holds anything up.
+
 ## v5.3.0 - 2026-11-13
 
 > The Cartel Bank comes into the program, refinery orders sync with the

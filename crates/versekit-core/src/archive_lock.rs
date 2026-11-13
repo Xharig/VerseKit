@@ -15,8 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The one lock for reading a `Data.p4k`: nothing reads the archive while the game runs. The reading waits and goes on
-//! as soon as the game is closed, without an error; the pages say that it waits ([`waiting`]).
+//! The one lock for reading a `Data.p4k`: nothing reads the archive while the game runs, nor while the launcher
+//! patches it ([`may_read_archive`]). The reading waits and goes on as soon as the game is closed and the patch is
+//! done, without an error; the pages say that it waits ([`waiting`]).
 //!
 //! Whether the game certainly is closed is told by [`game_start::run_state`] (the process list and the logs of every
 //! channel); what cannot be told counts as running. A process that runs on a made-up machine of the checks
@@ -68,6 +69,20 @@ pub fn waiting_for(topic: &str) -> bool {
 /// Whether the archive may be read now: the game is certainly closed, or the machine is a made-up one.
 pub fn may_read(paths: &Paths) -> bool {
     paths.host.var(ENV_TEST_MACHINE).is_some() || !run_state(paths).blocks_writing()
+}
+
+/// Whether `archive` may be read now: [`may_read`], and the launcher is not patching it ([`launcher_log::patching`]),
+/// so that no reading sees the new structure of the archive before its files are written.
+pub fn may_read_archive(paths: &Paths, archive: &Path) -> bool {
+    may_read(paths) && !crate::launcher_log::patching(paths, archive)
+}
+
+/// [`may_read_archive`] for the installed archive ([`Paths::archive_file`]); [`may_read`] without one.
+pub fn may_read_installed(paths: &Paths) -> bool {
+    match paths.archive_file() {
+        Some(archive) => may_read_archive(paths, Path::new(&archive)),
+        None => may_read(paths),
+    }
 }
 
 /// Whether some reading waits for the game to close right now.

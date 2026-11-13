@@ -51,9 +51,7 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 use versekit_core::overlay::{Hotkey, Pointer, Rect};
-use windows_sys::Win32::Foundation::{
-    CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HWND, INVALID_HANDLE_VALUE, LPARAM, LRESULT, POINT, RECT, WPARAM,
-};
+use windows_sys::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Dwm::{
     DWM_WINDOW_CORNER_PREFERENCE, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE, DWMWA_WINDOW_CORNER_PREFERENCE,
     DWMWCP_DONOTROUND, DWMWINDOWATTRIBUTE, DwmGetWindowAttribute, DwmSetWindowAttribute,
@@ -66,9 +64,6 @@ use windows_sys::Win32::Graphics::Gdi::{
 };
 use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_MEMORY, SND_NODEFAULT, SND_SYNC};
 use windows_sys::Win32::Storage::Xps::{PRINT_WINDOW_FLAGS, PrintWindow};
-use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
-};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::Threading::CreateMutexW;
 use windows_sys::Win32::UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext};
@@ -89,8 +84,6 @@ const SUBCLASS_ID: usize = 0x5645_4B4F;
 const WA_INACTIVE: usize = 0;
 /// `PW_RENDERFULLCONTENT`: also what the graphics card drew.
 const PW_RENDERFULLCONTENT: PRINT_WINDOW_FLAGS = 2;
-/// The game's program, as the process list names it.
-const GAME_EXE: &str = "starcitizen.exe";
 
 /// Guard on or off; off only for the counter check of the self-check.
 static GUARD: AtomicBool = AtomicBool::new(true);
@@ -674,27 +667,10 @@ pub fn pointer() -> Option<Pointer> {
     Some(Pointer { hidden, x: info.ptScreenPos.x, y: info.ptScreenPos.y })
 }
 
-/// Is the game in the process list? `None` when the list cannot be read.
+/// Is the game in the process list (the shader run of the launcher is not the game)? `None` when the list cannot
+/// be read.
 pub fn game_process() -> Option<bool> {
-    // SAFETY: a snapshot handle that is closed below.
-    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
-    if snapshot == INVALID_HANDLE_VALUE {
-        return None;
-    }
-    let mut entry = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
-    let mut found = false;
-    // SAFETY: `entry` carries its size; the snapshot is valid until closed.
-    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
-    while more {
-        let end = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
-        if String::from_utf16_lossy(&entry.szExeFile[..end]).eq_ignore_ascii_case(GAME_EXE) {
-            found = true;
-            break;
-        }
-        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
-    }
-    unsafe { CloseHandle(snapshot) };
-    Some(found)
+    versekit_core::game_start::game_process()
 }
 
 /// The short sound on a find at `volume` percent; `loud` for one that must not be missed. The sound is made in
@@ -882,6 +858,7 @@ pub fn start_hotkeys(hotkey: Arc<Mutex<Option<Hotkey>>>, sender: Sender<()>, wak
 #[cfg(test)]
 mod tests {
     use super::*;
+    use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::UI::WindowsAndMessaging::LWA_ALPHA;
 
     const UP: u16 = RI_KEY_BREAK as u16;

@@ -126,11 +126,20 @@ pub fn fetch_file(name: &str, user_agent: &str) -> Result<Vec<u8>, FetchError> {
     let mut last = FetchError::Missing;
     for base in [MIRROR, SCMDB] {
         match fetch_from(&agent, &format!("{base}/{name}")) {
+            // scmdb.net answers a file it does not have with the page of its app (HTTP 200): not there, as a 404.
+            Ok(bytes) if is_page_for(name, &bytes) => last = FetchError::Missing,
             Ok(bytes) => return Ok(bytes),
             Err(error) => last = error,
         }
     }
     Err(last)
+}
+
+/// Whether `bytes`, fetched for the data file `name`, are a web page instead: the file is a `.json` and the answer
+/// starts (after a byte order mark and white space) with `<`, which no JSON does.
+fn is_page_for(name: &str, bytes: &[u8]) -> bool {
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
+    name.to_ascii_lowercase().ends_with(".json") && bytes.iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'<')
 }
 
 #[cfg(test)]
@@ -143,6 +152,29 @@ mod tests {
         let error = fetch_from(&agent("VerseKit/0"), "http://127.0.0.1:9/data.json").unwrap_err();
         let FetchError::Failed(what) = error else { panic!("{error:?}") };
         assert!(what.to_lowercase().contains("https"), "refused for the scheme, not for the connection: {what}");
+    }
+
+    /// scmdb.net answers `merged-4.10.0-live.13165946.json`, which it does not have, with the page of its app and
+    /// HTTP 200: that is a file not there, not a broken one.
+    #[test]
+    fn a_web_page_for_a_json_file_counts_as_not_there() {
+        let page = b"<!DOCTYPE html>\n<html lang=\"en\"><head><title>SCMDB</title></head></html>";
+        assert!(is_page_for("merged-4.10.0-live.13165946.json", page));
+        assert!(is_page_for("versions.json", b"\xEF\xBB\xBF \r\n <html></html>"), "after a mark and white space");
+        assert!(!is_page_for("merged-4.10.3-live.13165946.json", b"{\n  \"version\": \"4.10.3-live.13165946\"}"));
+        assert!(!is_page_for("versions.json", b"[{\"version\": \"4.10.3-live.13165946\"}]"));
+        assert!(!is_page_for("versions.json", b""), "an empty answer is no page");
+        assert!(!is_page_for("notes.txt", page), "only a JSON file is told from a page");
+    }
+
+    /// Against the network (run by hand with `--ignored`): a build scmdb does not name is not there at either
+    /// address, the one it names is a JSON file.
+    #[test]
+    #[ignore = "asks the network"]
+    fn a_build_scmdb_does_not_have_is_not_there_at_the_real_addresses() {
+        assert_eq!(fetch_file("merged-4.10.0-live.13165946.json", "VerseKit/0"), Err(FetchError::Missing));
+        let versions = fetch_file("versions.json", "VerseKit/0").expect("the list of builds");
+        assert!(!is_page_for("versions.json", &versions));
     }
 
     #[test]

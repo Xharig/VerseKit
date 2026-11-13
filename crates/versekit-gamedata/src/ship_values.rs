@@ -82,8 +82,9 @@ impl ShipValues {
 
     /// The field `werte` of a ship of the catalog: `scm` (m/s), `masse` (length, width, height in metres) and `fracht`
     /// (SCU), each only where the data have it; `None` when they have none. `controller` is the identifier of the
-    /// flight controller the ship has at the factory.
-    pub fn of(&self, ship: &Json, controller: Option<&str>) -> Option<Value> {
+    /// flight controller the ship has at the factory. `cargo_counted` is false for a ship with cargo space the sum of
+    /// its cargo grids leaves out (`ship_slots::cargo_outside_grids`): no `fracht` then.
+    pub fn of(&self, ship: &Json, controller: Option<&str>, cargo_counted: bool) -> Option<Value> {
         let mut out: Map = Vec::new();
         if let Some(scm) = controller.and_then(|guid| self.scm.get(&guid.to_ascii_lowercase())) {
             out.push(("scm".to_string(), Value::Float(*scm)));
@@ -93,11 +94,24 @@ impl ShipValues {
             out.push(("masse".to_string(), Value::Array(size.iter().map(|v| Value::Float(*v)).collect())));
         }
         let unreadable = ship["cargoGridsWithIssue"].as_u64().unwrap_or(0);
-        if let Some(scu) = ship["cargoScu"].as_f64().filter(|v| v.is_finite() && *v >= 0.0 && unreadable == 0) {
+        let size = self.sizes.get(&guid);
+        let fits = |scu: f64| size.is_none_or(|size| cargo_fits(scu, size));
+        let readable = unreadable == 0 && cargo_counted;
+        if let Some(scu) = ship["cargoScu"].as_f64().filter(|v| v.is_finite() && *v >= 0.0 && readable && fits(*v)) {
             out.push(("fracht".to_string(), Value::Float(scu)));
         }
         (!out.is_empty()).then_some(Value::Object(out))
     }
+}
+
+/// The volume of one SCU in cubic metres: a cube of 1.25 m on a side.
+const SCU_VOLUME: f64 = 1.25 * 1.25 * 1.25;
+
+/// Whether the cargo can lie in the box of the ship at all: its volume is less than the volume of the box. A ship of
+/// the data with more cargo than room has the cargo or the size of another ship; in LIVE 4.10.3 the fullest hold is
+/// the Golem Ox's (64 SCU, a quarter of its box), the next the Hull C's (a tenth).
+pub fn cargo_fits(scu: f64, size: &[f64; 3]) -> bool {
+    scu * SCU_VOLUME <= size.iter().product::<f64>()
 }
 
 /// The three sides of a box as length, width and height: the longest first, the shortest last.
@@ -145,7 +159,7 @@ mod tests {
 
     #[test]
     fn a_ship_gets_the_values_the_data_have_and_nothing_else() {
-        let all = values().of(&ship("AA", serde_json::json!(46.0), 0), Some("CC")).expect("values");
+        let all = values().of(&ship("AA", serde_json::json!(46.0), 0), Some("CC"), true).expect("values");
         assert_eq!(all.get("scm"), Some(&Value::Float(226.0)));
         assert_eq!(
             all.get("masse"),
@@ -153,14 +167,14 @@ mod tests {
         );
         assert_eq!(all.get("fracht"), Some(&Value::Float(46.0)));
         // No controller, no size, no cargo: no field of its own, and no values at all.
-        let none = values().of(&ship("bb", Json::Null, 0), None);
+        let none = values().of(&ship("bb", Json::Null, 0), None, true);
         assert_eq!(none, None);
-        let only_size = values().of(&ship("aa", Json::Null, 0), Some("unknown")).expect("size");
+        let only_size = values().of(&ship("aa", Json::Null, 0), Some("unknown"), true).expect("size");
         assert_eq!(only_size.get("scm"), None);
         assert_eq!(only_size.get("fracht"), None);
         // A ship without a cargo grid has 0 SCU, which is a value.
         assert_eq!(
-            values().of(&ship("bb", serde_json::json!(0.0), 0), None).and_then(|v| v.get("fracht").cloned()),
+            values().of(&ship("bb", serde_json::json!(0.0), 0), None, true).and_then(|v| v.get("fracht").cloned()),
             Some(Value::Float(0.0))
         );
     }
@@ -195,8 +209,48 @@ mod tests {
     }
 
     #[test]
+    fn cargo_that_does_not_fit_the_box_of_the_ship_is_left_out() {
+        // More cargo than room: the box of a Constellation (62 × 26.6 × 16.3 m) is 26,882 m³.
+        let small = ShipValues { sizes: HashMap::from([("aa".to_string(), [62.0, 26.6, 16.3])]), scm: HashMap::new() };
+        let overfull = small.of(&ship("aa", serde_json::json!(14_000.0), 0), None, true).expect("size");
+        assert_eq!(overfull.get("fracht"), None, "14,000 SCU are 27,300 m³ in a box of 26,880 m³");
+        assert!(overfull.get("masse").is_some(), "the size stays");
+        // Counter-check: the hold of a real Constellation, and the fullest hold of the game (Golem Ox 64 SCU in
+        // 15.5 × 7 × 5 m), fit.
+        let real = small.of(&ship("aa", serde_json::json!(96.0), 0), None, true).expect("values");
+        assert_eq!(real.get("fracht"), Some(&Value::Float(96.0)));
+        assert!(cargo_fits(64.0, &[15.5, 7.0, 5.0]));
+        // Big freighters stay: Liberator 400 SCU (119 × 67 × 25 m), Hull C 4,608 (91.17 × 36.05 × 26.28), C2 696
+        // (94 × 70 × 23), Idris-M 1,326 (243 × 127 × 57.5), Galaxy 64 (110 × 60 × 25).
+        for (scu, size) in [
+            (400.0, [119.0, 67.0, 25.0]),
+            (4_608.0, [91.17, 36.05, 26.28]),
+            (696.0, [94.0, 70.0, 23.0]),
+            (1_326.0, [243.0, 127.0, 57.5]),
+            (64.0, [110.0, 60.0, 25.0]),
+        ] {
+            assert!(cargo_fits(scu, &size), "{scu} SCU in {size:?}");
+        }
+        assert!(!cargo_fits(1_326.0, &[15.5, 7.0, 5.0]));
+        // No size, no check.
+        let unsized_ship = values().of(&ship("bb", serde_json::json!(1_326.0), 0), None, true).expect("cargo");
+        assert_eq!(unsized_ship.get("fracht"), Some(&Value::Float(1_326.0)));
+    }
+
+    #[test]
     fn cargo_with_an_unreadable_grid_is_left_out() {
-        let partial = values().of(&ship("aa", serde_json::json!(32.0), 1), None).expect("size");
+        let partial = values().of(&ship("aa", serde_json::json!(32.0), 1), None, true).expect("size");
         assert_eq!(partial.get("fracht"), None);
+    }
+
+    #[test]
+    fn cargo_of_a_ship_with_space_outside_its_grids_is_left_out() {
+        // The Mole: 32 SCU of the rear lift are the only grid, the six mining pods are not (LIVE 4.10.3).
+        let mole = values().of(&ship("aa", serde_json::json!(32.0), 0), None, false).expect("size");
+        assert_eq!(mole.get("fracht"), None);
+        assert!(mole.get("masse").is_some(), "the size stays");
+        // Counter-check: the same ship with all its cargo in grids keeps it.
+        let counted = values().of(&ship("aa", serde_json::json!(32.0), 0), None, true).expect("values");
+        assert_eq!(counted.get("fracht"), Some(&Value::Float(32.0)));
     }
 }

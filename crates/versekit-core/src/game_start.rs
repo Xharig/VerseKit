@@ -451,8 +451,31 @@ impl RunState {
 /// A made-up machine of a test that must not look at the real process list sets this variable.
 pub const ENV_NO_PROCESS: &str = "SC_BP_NO_PROCESS";
 
-/// Is the game in the process list? `None` when the list cannot be read (and on systems where this
-/// program does not know how to read it).
+/// The file name of the game's program, in lower case.
+pub const GAME_EXE: &str = "starcitizen.exe";
+
+/// The switch with which the RSI Launcher starts the game's program for the shader run after a patch, in lower case.
+const SHADER_RUN_SWITCH: &str = "-psocachegen";
+
+/// Is this command line the shader run of the game's program and not the game?
+pub fn is_shader_run(command_line: &str) -> bool {
+    command_line.to_lowercase().contains(SHADER_RUN_SWITCH)
+}
+
+/// Does the process of the program `exe` count as the game? Only `StarCitizen.exe` can, and not as the shader
+/// run. `command_line` is asked for only when the name fits; a command line that cannot be read (`None`) does not
+/// clear the process: in doubt it is the game.
+pub fn counts_as_game(exe: &str, command_line: impl FnOnce() -> Option<String>) -> bool {
+    exe.eq_ignore_ascii_case(GAME_EXE) && !command_line().is_some_and(|line| is_shader_run(&line))
+}
+
+/// Does a command line of a process under Wine (its pieces joined by blanks) name the game and not the shader run?
+pub fn counts_as_wine_game(command_line: &str) -> bool {
+    command_line.to_lowercase().contains(GAME_EXE) && !is_shader_run(command_line)
+}
+
+/// Is the game in the process list? The shader run (`StarCitizen.exe -PSOCacheGen`) is not the game. `None` when
+/// the list cannot be read (and on systems where this program does not know how to read it).
 pub fn game_process() -> Option<bool> {
     #[cfg(windows)]
     {
@@ -473,7 +496,8 @@ pub fn game_process() -> Option<bool> {
         let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
         while more {
             let end = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
-            if String::from_utf16_lossy(&entry.szExeFile[..end]).eq_ignore_ascii_case("starcitizen.exe") {
+            let name = String::from_utf16_lossy(&entry.szExeFile[..end]);
+            if counts_as_game(&name, || windows_command_line(entry.th32ProcessID)) {
                 found = true;
                 break;
             }
@@ -494,7 +518,7 @@ pub fn game_process() -> Option<bool> {
                 continue;
             }
             if let Ok(line) = std::fs::read(entry.path().join("cmdline"))
-                && String::from_utf8_lossy(&line).to_lowercase().contains("starcitizen.exe")
+                && counts_as_wine_game(&String::from_utf8_lossy(&line).replace('\0', " "))
             {
                 return Some(true);
             }
@@ -505,6 +529,57 @@ pub fn game_process() -> Option<bool> {
     {
         None
     }
+}
+
+/// The command line of the process `pid`, read from the process itself with the least rights (so a process of
+/// another user is mostly readable too); `None` when it cannot be read.
+#[cfg(windows)]
+fn windows_command_line(pid: u32) -> Option<String> {
+    use windows_sys::Wdk::System::Threading::{NtQueryInformationProcess, ProcessCommandLineInformation};
+    use windows_sys::Win32::Foundation::{
+        CloseHandle, STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING,
+    };
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    // SAFETY: a handle with the least rights that is closed below.
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return None;
+    }
+    // The answer is a `UNICODE_STRING` followed by the characters it points to; units of eight bytes keep it aligned.
+    let mut units = vec![0u64; 4096];
+    let mut text = None;
+    for _ in 0..2 {
+        let mut needed = 0u32;
+        // SAFETY: the buffer is as large as stated and lives during the call.
+        let status = unsafe {
+            NtQueryInformationProcess(
+                handle,
+                ProcessCommandLineInformation,
+                units.as_mut_ptr().cast(),
+                (units.len() * 8) as u32,
+                &raw mut needed,
+            )
+        };
+        if status == 0 {
+            // SAFETY: the system filled the buffer with a `UNICODE_STRING` whose characters lie in the same buffer.
+            let string = unsafe { &*units.as_ptr().cast::<UNICODE_STRING>() };
+            let characters = usize::from(string.Length) / 2;
+            if !string.Buffer.is_null() && characters > 0 {
+                // SAFETY: `Buffer` points into `units` and holds `Length` bytes.
+                let wide = unsafe { std::slice::from_raw_parts(string.Buffer, characters) };
+                text = Some(String::from_utf16_lossy(wide));
+            }
+            break;
+        }
+        if ![STATUS_INFO_LENGTH_MISMATCH, STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL].contains(&status) {
+            break;
+        }
+        // The call said how large the answer is; one more try with that size.
+        units = vec![0u64; (needed as usize).div_ceil(8).max(1)];
+    }
+    // SAFETY: the handle from above, closed once.
+    unsafe { CloseHandle(handle) };
+    text
 }
 
 /// Seconds since a Game.log was written, or `None` without one.
@@ -1036,5 +1111,103 @@ mod tests {
         assert!(layer_in(std::slice::from_ref(&dir)));
         assert!(!layer_in(&[dir.join("not-there")]));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    fn never_asked() -> Option<String> {
+        panic!("the command line is asked for only when the name fits");
+    }
+
+    #[test]
+    fn the_game_counts_and_the_shader_run_of_the_launcher_does_not() {
+        let line = |text: &'static str| move || Some(text.to_string());
+        // The game: with no switch, with other switches, in any case of the name.
+        assert!(counts_as_game("StarCitizen.exe", line(r#""C:\RSI\StarCitizen\LIVE\Bin64\StarCitizen.exe""#)));
+        assert!(counts_as_game("starcitizen.exe", line("StarCitizen.exe -no_login_dialog -nosplash")));
+        assert!(counts_as_game("STARCITIZEN.EXE", line("StarCitizen.exe")));
+        // The shader run after a patch: the same program with the switch, whatever the case or the place.
+        assert!(!counts_as_game("StarCitizen.exe", line("StarCitizen.exe -PSOCacheGen")));
+        assert!(!counts_as_game("StarCitizen.exe", line("StarCitizen.exe -psocachegen -nosplash")));
+        assert!(!counts_as_game("starcitizen.exe", line(r#""C:\RSI\Bin64\StarCitizen.exe" -nosplash -PSOCACHEGEN"#)));
+        // A command line that cannot be read does not clear the process: in doubt it is the game.
+        assert!(counts_as_game("StarCitizen.exe", || None));
+        // The launcher and every other program never count, and their command line is not even asked for.
+        assert!(!counts_as_game("RSI Launcher.exe", never_asked));
+        assert!(!counts_as_game("notepad.exe", never_asked));
+    }
+
+    #[test]
+    fn under_wine_the_command_line_decides_too() {
+        assert!(counts_as_wine_game("Z:\\games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe -nosplash"));
+        assert!(counts_as_wine_game("wine C:\\StarCitizen.exe"));
+        assert!(!counts_as_wine_game("C:\\windows\\system32\\wineboot.exe"));
+        assert!(!counts_as_wine_game("wine Z:\\Bin64\\StarCitizen.exe -PSOCacheGen"));
+        assert!(!counts_as_wine_game("wine z:\\bin64\\starcitizen.exe -psocachegen -nosplash"));
+        assert!(!counts_as_wine_game("wine RSI Launcher.exe"));
+    }
+
+    /// A copy of the command interpreter under the name of the game, started with `tail` as its command line.
+    #[cfg(windows)]
+    fn fake_game(name: &str, tail: &str) -> (std::process::Child, std::path::PathBuf) {
+        use std::os::windows::process::CommandExt;
+        let dir = std::env::temp_dir().join(format!("versekit-start-{}-{name}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("folder");
+        let exe = dir.join("StarCitizen.exe");
+        let system = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string());
+        std::fs::copy(Path::new(&system).join("System32").join("cmd.exe"), &exe).expect("copy");
+        let child = std::process::Command::new(&exe).raw_arg(tail).spawn().expect("start");
+        (child, dir)
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_command_line_of_a_running_process_is_read_and_decides() {
+        let waits = "/c ping -n 20 127.0.0.1 >nul & rem";
+        let (mut shader, shader_dir) = fake_game("shader", &format!("{waits} -PSOCacheGen"));
+        let (mut game, game_dir) = fake_game("spiel", &format!("{waits} -nosplash"));
+        let shader_line = windows_command_line(shader.id()).expect("readable");
+        let game_line = windows_command_line(game.id()).expect("readable");
+        let shader_counts = counts_as_game("StarCitizen.exe", || windows_command_line(shader.id()));
+        let game_counts = counts_as_game("StarCitizen.exe", || windows_command_line(game.id()));
+        let _ = shader.kill();
+        let _ = game.kill();
+        let _ = shader.wait();
+        let _ = game.wait();
+        let _ = std::fs::remove_dir_all(shader_dir);
+        let _ = std::fs::remove_dir_all(game_dir);
+        assert!(shader_line.contains("-PSOCacheGen"), "{shader_line}");
+        assert!(game_line.contains("-nosplash"), "{game_line}");
+        assert!(!shader_counts, "the shader run does not count");
+        assert!(game_counts, "the game does");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_process_list_holds_a_game_but_not_a_shader_run() {
+        let waits = "/c ping -n 20 127.0.0.1 >nul & rem";
+        // A real game on this machine would make every answer true; then only the last one says anything.
+        let before = game_process();
+        let (mut shader, shader_dir) = fake_game("liste-shader", &format!("{waits} -PSOCacheGen"));
+        let with_shader = game_process();
+        let (mut game, game_dir) = fake_game("liste-spiel", &format!("{waits} -nosplash"));
+        let with_game = game_process();
+        let _ = shader.kill();
+        let _ = game.kill();
+        let _ = shader.wait();
+        let _ = game.wait();
+        let _ = std::fs::remove_dir_all(shader_dir);
+        let _ = std::fs::remove_dir_all(game_dir);
+        assert_eq!(with_game, Some(true), "a process named like the game");
+        if before == Some(false) {
+            assert_eq!(with_shader, Some(false), "the shader run is not the game");
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_process_that_cannot_be_asked_counts_as_the_game() {
+        // No process has this number, so there is nothing to open.
+        assert_eq!(windows_command_line(0xFFFF_FFF0), None);
+        assert!(counts_as_game("StarCitizen.exe", || windows_command_line(0xFFFF_FFF0)));
     }
 }

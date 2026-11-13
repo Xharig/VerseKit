@@ -578,6 +578,11 @@ impl Rebuild {
         // not asked (a supply without network does not count).
         let mut stamp = self.stamp.clone();
         if let Value::Object(map) = &mut stamp {
+            // The stand the archive had when it was read, not when the build was asked for: the reading may have
+            // waited for a patch.
+            if let Some((_, stand)) = map.iter_mut().find(|(key, _)| key == "archiv_stand") {
+                stand.clone_from(&built.read_stand);
+            }
             let asked = built.asked && !self.supply.is_off();
             let marker = built.scmdb.as_deref().unwrap_or(if built.asked { "" } else { "-" });
             map.push(("scmdb".into(), Value::str(marker)));
@@ -757,6 +762,8 @@ struct Built {
     scmdb: Option<String>,
     /// Whether scmdb was asked for at all: there was a build to ask for.
     asked: bool,
+    /// Size and time of the archive as it was read (`Null` without one): the stand the cache file names.
+    read_stand: Value,
 }
 
 /// How a note is worded in the error log: the label and the text key.
@@ -880,6 +887,8 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
     let topic = versekit_core::archive_lock::reading_for("catalog");
     let game = archive.map(GameData::open_file);
     drop(topic);
+    // The archive as it was read: taken once the opening waited for the game and the launcher, compared at the end.
+    let read_stand = archive.map_or(Value::Null, file_stamp);
     let archive_build = game.as_ref().and_then(|game| game.as_ref().ok()).and_then(GameData::scmdb_build);
     let version = game
         .as_ref()
@@ -961,12 +970,20 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
             }
         }
     };
+    // An archive that changed while it was read (the launcher wrote it) gave a mix of two patches: the build does not
+    // count, nothing is kept, and the next build reads it again.
+    if let Some(path) = archive
+        && file_stamp(path) != read_stand
+    {
+        versekit_core::errors::record("list.archive_changed", &"the game data changed while they were read");
+        return None;
+    }
     // A build without the network does not feed the history: its names are
     // not yet corrected by scmdb's list, and the window builds again anyway.
     stamp_since(paths, &mut catalog, cache_file, !supply.is_off());
     // The values come from the archive alone; a catalog of scmdb's stands in without them.
     let item_stats = if own.is_some() { own_stats } else { Map::new() };
-    Some(Built { catalog, item_texts: texts, item_stats, scmdb: scmdb_build, asked: wanted.is_some() })
+    Some(Built { catalog, item_texts: texts, item_stats, scmdb: scmdb_build, asked: wanted.is_some(), read_stand })
 }
 
 /// Sets the patch each blueprint came with from this device's history and,
@@ -1002,6 +1019,10 @@ fn stamp_since(paths: &Paths, catalog: &mut CatalogCache, cache_file: &str, feed
         }
     }
     if feed {
+        // What was found new under another name of the same build counts for the name of this catalog.
+        if let Err(error) = patch_history::rename_build(paths, &catalog.version) {
+            report(&error);
+        }
         known.extend(keys);
         if let Err(error) = patch_history::set_seen(paths, &known) {
             report(&error);
@@ -1283,7 +1304,11 @@ fn missions(game: &Catalog, theirs: Option<&CatalogCache>) -> Vec<Mission> {
                     .filter(|r| !r.is_empty()),
                 shareable: easiest.source.shareable,
                 cooldown: easiest.source.cooldown,
-                extra: extras.get(&key.to_lowercase()).map(|extra| (*extra).clone()).unwrap_or_default(),
+                extra: with_text_keys(
+                    extras.get(&key.to_lowercase()).map(|extra| (*extra).clone()).unwrap_or_default(),
+                    key,
+                    easiest.source.description_key.as_deref(),
+                ),
             })
         })
         .collect();
@@ -1311,6 +1336,26 @@ fn missions(game: &Catalog, theirs: Option<&CatalogCache>) -> Vec<Mission> {
     rest.sort_by_key(|m| m.key.to_lowercase());
     ordered.extend(rest);
     ordered
+}
+
+/// What scmdb knows of a contract (`extra`) with the text keys the notes in the game texts are written into
+/// (`titel_key`, `text_key`): where scmdb names none, as without its catalog, the game data name them, the title by
+/// the contract's key and the description by its parameter `Description`.
+fn with_text_keys(mut extra: Map, title_key: &str, description_key: Option<&str>) -> Map {
+    let has = |extra: &Map, name: &str| {
+        extra.iter().any(|(key, value)| key == name && value.as_str().is_some_and(|text| !text.is_empty()))
+    };
+    if !has(&extra, "titel_key") && !title_key.is_empty() {
+        extra.push(("titel_key".into(), Value::str(title_key)));
+    }
+    // A description parameter that names the title's own key (the data have such contracts) is none: the list would
+    // go into the title line.
+    if !has(&extra, "text_key")
+        && let Some(description) = description_key.filter(|key| !key.is_empty() && !key.eq_ignore_ascii_case(title_key))
+    {
+        extra.push(("text_key".into(), Value::str(description)));
+    }
+    extra
 }
 
 /// The grade as 4.12 shows it: a component (one with a class) takes the
@@ -1439,19 +1484,28 @@ fn way(source: &Source, old: Option<&ListBlueprint>) -> Way {
     }
 }
 
-fn places(source: &Source) -> Option<Place> {
+/// The names to show of `texts`: each once, without an empty one and without a raw text key (`@…`), which is a
+/// place the game texts leave blank on purpose (`generic_locations_blank=`) or do not know.
+fn shown_names(texts: &[crate::Text]) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
-    for name in source.places.iter().map(|p| p.shown().trim()).filter(|n| !n.is_empty()) {
+    for name in texts.iter().map(|p| p.shown().trim()).filter(|n| !n.is_empty() && !n.starts_with('@')) {
         if !names.iter().any(|known| known == name) {
             names.push(name.to_string());
         }
     }
-    if names.is_empty() {
+    names
+}
+
+/// Where a contract scmdb does not know is taken, as the game data list it: its systems in front, then the places.
+fn places(source: &Source) -> Option<Place> {
+    let systems = shown_names(&source.systems);
+    let mut names = shown_names(&source.places);
+    if names.is_empty() && systems.is_empty() {
         return None;
     }
     let more = names.len().saturating_sub(PLACES_PER_CONTRACT);
     names.truncate(PLACES_PER_CONTRACT);
-    Some(Place { system: String::new(), places: names, more: i64::try_from(more).unwrap_or(i64::MAX) })
+    Some(Place { system: systems.join(", "), places: names, more: i64::try_from(more).unwrap_or(i64::MAX) })
 }
 
 /// The easiest ways first, as 4.12 orders them: lowest reputation needed
@@ -1648,6 +1702,8 @@ mod tests {
             mission_type: None,
             contractor: None,
             faction: Some(text(faction)),
+            description_key: None,
+            systems: Vec::new(),
             places: vec![text("Hurston")],
             rank: reputation.map(|_| text("Rank")),
             min_reputation: reputation,
@@ -2020,6 +2076,96 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    /// A contract scmdb does not know takes its place from the game data: the star stands in front as the system, a
+    /// place the game texts leave blank (its raw key) and an empty one are left out.
+    #[test]
+    fn the_places_of_the_game_data_name_the_system_in_front_and_leave_blank_places_out() {
+        let blank = Text { key: Some("@generic_locations_blank".into()), text: None };
+        let empty = Text { key: Some("@empty_name".into()), text: Some(String::new()) };
+        let source = Source {
+            systems: vec![text("Nyx")],
+            places: vec![text("Nyx I"), blank.clone(), text("Nyx II"), empty, text("Nyx III"), text("Nyx II")],
+            ..contract("Draw Out Maulers", "InterSec Defense Solutions", Some(95250), None)
+        };
+        let place = places(&source).expect("a place");
+        assert_eq!(place.system, "Nyx");
+        assert_eq!(place.places, ["Nyx I", "Nyx II", "Nyx III"]);
+        assert_eq!(place.more, 0);
+        let shown = versekit_core::blueprints::place_text(&place);
+        assert!(shown.ends_with(" Nyx: Nyx I, Nyx II, Nyx III"), "the system in front, not in the list: {shown}");
+        // Nothing to show but a blank place: no place at all.
+        let only_blank = Source { systems: Vec::new(), places: vec![blank], ..source };
+        assert_eq!(places(&only_blank), None);
+    }
+
+    /// A supply whose catalog comes while the launcher writes the archive: asking for it changes the file.
+    struct WrittenMeanwhile {
+        archive: PathBuf,
+    }
+
+    impl Supply for WrittenMeanwhile {
+        fn current_build(&self) -> Result<String, String> {
+            Ok("4.10.3-live.1".into())
+        }
+        fn corrections(&self, _: Option<&str>) -> (Vec<Correction>, Option<String>) {
+            (Vec::new(), None)
+        }
+        fn catalog(&self, build: &str, _: &[Correction]) -> Result<CatalogCache, String> {
+            fs::write(&self.archive, b"the launcher writes the new files into the archive")
+                .map_err(|e| e.to_string())?;
+            Ok(keyed(&["Alpha"], build))
+        }
+    }
+
+    /// An archive that changed while it was read gave no catalog: nothing is kept, so the next build reads it
+    /// anew; once it stands still, the build counts and the file names the stand it was read at.
+    #[test]
+    fn a_build_of_an_archive_that_changed_while_it_was_read_does_not_count() {
+        let dir = versekit_core::testdir::fresh("katalog-waehrend-patch");
+        let root = dir.to_string_lossy().into_owned();
+        let host = versekit_core::paths::Host::new(
+            versekit_core::pypath::Flavor::native(),
+            &[(versekit_core::legacy::ENV_HOME, root.as_str())],
+            &root,
+        );
+        let paths = Paths::new(host);
+        let channel = dir.join("LIVE");
+        fs::create_dir_all(&channel).unwrap();
+        let archive = channel.join(ARCHIVE_NAME);
+        fs::write(&archive, b"half written").unwrap();
+        let cache = dir.join(CACHE_FILE).to_string_lossy().into_owned();
+        let supply: Arc<dyn Supply> = Arc::new(WrittenMeanwhile { archive: archive.clone() });
+        let built = rebuild_now_archive(&paths, Some(&archive), &cache, Arc::clone(&supply)).run();
+        assert_eq!(built, None, "a mix of two stands of the archive is no catalog");
+        assert!(!Path::new(&cache).exists(), "and nothing is kept as done");
+        assert!(catalog_behind_file(Some(&archive), &cache), "the catalog still lags behind");
+        // The archive stands still now: the build counts, for the archive as it is.
+        let still: Arc<dyn Supply> = Arc::new(Offline);
+        let fallback = rebuild_now_archive(&paths, Some(&archive), &cache, Arc::clone(&still)).run();
+        assert_eq!(fallback, None, "offline and unreadable: nothing either");
+        let stood = || -> Arc<dyn Supply> {
+            struct Still;
+            impl Supply for Still {
+                fn current_build(&self) -> Result<String, String> {
+                    Ok("4.10.3-live.1".into())
+                }
+                fn corrections(&self, _: Option<&str>) -> (Vec<Correction>, Option<String>) {
+                    (Vec::new(), None)
+                }
+                fn catalog(&self, build: &str, _: &[Correction]) -> Result<CatalogCache, String> {
+                    Ok(keyed(&["Alpha"], build))
+                }
+            }
+            Arc::new(Still)
+        };
+        let rebuild = rebuild_now_archive(&paths, Some(&archive), &cache, stood());
+        // The stamp the build was asked with is older than the archive as it is read.
+        fs::write(&archive, b"the finished archive after the patch").unwrap();
+        assert!(rebuild.run().is_some());
+        assert!(!catalog_behind_file(Some(&archive), &cache), "the file names the stand that was read");
+        let _ = fs::remove_dir_all(dir);
+    }
+
     /// A cache stamp of `archive` in the layout `format`, with scmdb's part brought.
     fn stamp_in(archive: Option<&Path>, format: i64) -> Value {
         let mut source = stamp(archive);
@@ -2235,11 +2381,19 @@ mod tests {
     fn the_details_scmdb_knows_of_a_contract_text_are_attached_by_its_key() {
         let mut hunt = contract("Hunt", "F", Some(0), Some(10));
         hunt.mission = Text { key: Some("@Hunt_Title".into()), text: Some("Hunt".into()) };
+        hunt.description_key = Some("Hunt_Desc".into());
         let mut lone = contract("Lone", "F", Some(0), Some(10));
         lone.mission = Text { key: Some("Lone_Title".into()), text: Some("Lone".into()) };
+        // The data name the title's key as the description of this one: no description then.
+        lone.description_key = Some("lone_title".into());
         let game = Catalog { blueprints: vec![blueprint("One", vec![hunt, lone], &["P"])], ..Catalog::default() };
         // scmdb keeps the key in another case and the details as 4.12 does.
-        let details: Map = vec![("sicher".into(), Value::Bool(true)), ("ruf".into(), Value::int(150))];
+        let details: Map = vec![
+            ("sicher".into(), Value::Bool(true)),
+            ("ruf".into(), Value::int(150)),
+            ("titel_key".into(), Value::str("hunt_TITLE")),
+            ("text_key".into(), Value::str("hunt_DESC_scmdb")),
+        ];
         let theirs = CatalogCache {
             missions: vec![
                 Mission { key: "hunt_TITLE".into(), extra: details.clone(), ..Mission::default() },
@@ -2253,11 +2407,17 @@ mod tests {
         };
         let found = missions(&game, Some(&theirs));
         let extra = |key: &str| found.iter().find(|m| m.key == key).map(|m| m.extra.clone());
-        assert_eq!(extra("Hunt_Title"), Some(details));
-        // No scmdb contract of that text: nothing attached.
-        assert_eq!(extra("Lone_Title"), Some(Map::new()));
-        // Without scmdb nothing is attached.
-        assert!(missions(&game, None).iter().all(|m| m.extra.is_empty()));
+        assert_eq!(extra("Hunt_Title"), Some(details), "scmdb's text keys come first");
+        // No scmdb contract of that text: the game data name the title, and the description where they have one.
+        assert_eq!(extra("Lone_Title"), Some(vec![("titel_key".into(), Value::str("Lone_Title"))]));
+        // Without scmdb the game data name the text keys the notes go into, and nothing else.
+        let alone = missions(&game, None);
+        let keys = |key: &str| alone.iter().find(|m| m.key == key).map(|m| m.extra.clone());
+        assert_eq!(
+            keys("Hunt_Title"),
+            Some(vec![("titel_key".into(), Value::str("Hunt_Title")), ("text_key".into(), Value::str("Hunt_Desc"))])
+        );
+        assert_eq!(keys("Lone_Title"), Some(vec![("titel_key".into(), Value::str("Lone_Title"))]));
         // A contract only scmdb knows is kept as scmdb has it, once.
         assert_eq!(found.iter().filter(|m| m.key == "other").count(), 1);
         assert_eq!(extra("other"), Some(vec![("sicher".into(), Value::Bool(false))]));

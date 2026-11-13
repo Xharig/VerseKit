@@ -31,6 +31,7 @@
 //! through [`Archive`].
 
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use crate::errors;
 use crate::game_ini;
@@ -766,6 +767,12 @@ impl Upkeep {
             return false;
         }
         if self.quiet_until > 0.0 && now >= self.quiet_until {
+            // The launcher may pause its writing for longer than the quiet time: while it patches, the patch is not
+            // finished, and the stamp is not remembered.
+            if paths.archive_file().is_some_and(|file| crate::launcher_log::patching(paths, Path::new(&file))) {
+                self.quiet_until = now + PATCH_QUIET_SECONDS;
+                return false;
+            }
             self.quiet_until = 0.0;
             self.patch_at = now;
             paths.set_setting(P4K_SETTING, Value::str(&stamp));

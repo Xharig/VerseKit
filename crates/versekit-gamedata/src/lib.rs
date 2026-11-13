@@ -104,7 +104,12 @@ impl GameData {
     /// [`Error::Archive`] when the file is missing or no readable archive.
     pub fn open_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         let paths = versekit_core::paths::global();
-        Self::open_file_after(path, &|| versekit_core::archive_lock::may_read(paths), versekit_core::archive_lock::POLL)
+        let path = path.as_ref();
+        Self::open_file_after(
+            path,
+            &|| versekit_core::archive_lock::may_read_archive(paths, path),
+            versekit_core::archive_lock::POLL,
+        )
     }
 
     /// [`GameData::open_file`] with the lock given: waits, asking `closed` every `poll`, until it says that the game is
@@ -412,12 +417,21 @@ impl GameData {
     }
 
     /// The build in the form scmdb names its files, e.g.
-    /// `4.10.2-live.12913470`: the version of the branch, the channel and the
-    /// change number; `None` when the build is unknown.
+    /// `4.10.2-live.12913470`: the patch, the channel and the change number;
+    /// `None` when the build is unknown. The patch is the one the launcher's
+    /// log names for the same channel and change number, else the version of
+    /// the branch, which may be an older one than the patch.
     pub fn scmdb_build(&self) -> Option<String> {
         let build = self.archive.build()?;
         let folder = self.channel_folder().file_name()?.to_string_lossy().to_string();
-        scmdb_build(build.branch(), channel_of(&folder)?, build.change_number())
+        let channel = channel_of(&folder)?;
+        let named = versekit_core::launcher_log::installed_build(
+            versekit_core::paths::global(),
+            self.archive_path(),
+            channel,
+            build.change_number(),
+        );
+        named.or_else(|| scmdb_build(build.branch(), channel, build.change_number()))
     }
 
     /// The DataForge bytes of the archive, e.g. to keep them for tests.

@@ -6,6 +6,65 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.1 - 2026-11-13
+
+> Seit dem Patch 4.10.3 fehlten in den Auftragstexten im Spiel die Angaben
+> von VerseKit. Mit 5.3.1 sind sie wieder da, und die Bauplan-Liste folgt
+> einem Patch ohne Neustart.
+
+### Behoben
+
+- **Bauplan-Liste nach einem Patch:** Lief VerseKit während eines Patches,
+  blieb die Bauplan-Liste im Hauptfenster auf dem alten Stand, bis VerseKit
+  neu gestartet wurde, und „neu im Spiel“ zeigte nichts. VerseKit las die
+  Spieldaten außerdem schon, während der Launcher sie noch schrieb, und
+  nannte den neuen Stand nach einem älteren Zweig der Spieldaten („4.10.0“
+  statt „4.10.3“), sodass scmdb.net zu diesem Stand nichts fand. Jetzt
+  wartet VerseKit mit dem Lesen, bis der Launcher fertig ist, die offene
+  Liste übernimmt den neuen Katalog von selbst, und der Stand heißt wie im
+  Launcher. Was VerseKit schon unter dem alten Namen als neu erkannt hatte,
+  zählt jetzt zum richtigen Patch.
+- **Orte an Aufträgen ohne Angaben von scmdb.net:** Kannte scmdb.net einen
+  Auftrag nicht, stand bei „Annehmen in“ zum Beispiel „Nyx,
+  ＠generic_locations_blank, Nyx I, Nyx II“: Das System stand als Ort in
+  der Liste, und ein Ort, den das Spiel absichtlich ohne Namen lässt,
+  erschien als roher Textschlüssel. Jetzt liest VerseKit das System aus
+  den Spieldaten und stellt es voran („Nyx: Nyx I, Nyx II, Nyx III“), und
+  Orte ohne Namen fallen weg.
+- **Keine Angaben an Aufträgen nach dem Patch:** Fehlten die Angaben von
+  scmdb.net zum Katalog, wie nach dem Patch auf 4.10.3, schrieb VerseKit an
+  keinen einzigen Auftrag Baupläne, Ruf oder Wartezeit, auch nicht mit
+  „Neu einsetzen“. Die Gegenstände bekamen ihre Angaben. Welche Zeilen der
+  Spieltexte zu einem Auftrag gehören, kam allein von scmdb.net. Jetzt
+  liest VerseKit das aus den Spieldaten, und die Auftragsangaben stehen
+  auch ohne scmdb.net im Spiel. Gemeldet von Karasimsek
+- **scmdb.net: „expected value at line 1 column 1“:** Fragte VerseKit bei
+  scmdb.net eine Datei ab, die es dort nicht gibt, antwortete scmdb.net mit
+  seiner Startseite statt mit einem „nicht gefunden“, und im Fehlerbericht
+  stand diese unverständliche Meldung. Jetzt gilt eine solche Antwort als
+  „Datei nicht da“, wie beim Spiegel von scmdb.net.
+- **Schiffswerte beim Überfahren und Slots im Hangar stimmen wieder:** Die
+  Constellation Mk IV Andromeda, die Constellation Mk IV Aquila und die
+  Aurora Mk I zeigten Werte und Slots eines anderen Schiffs, die Andromeda
+  die der Aegis Idris-M (1.326 SCU Fracht, 243 × 127 × 57,5 m, 110 m/s SCM).
+  Die Suche über die Wortteile des Namens hielt die Idris für die Andromeda,
+  weil `m` mit `Mk` beginnt und `idris` eine Abkürzung von `industries` ist.
+  Jetzt braucht ein Treffer mindestens ein Wort, das der Name wirklich hat;
+  die Endung `_GS` des Spiels stört nicht mehr, und bei zwei gleich guten
+  Treffern gilt das Schiff ohne `_GS`.
+- **Fracht und Preis im Fenster beim Überfahren:** Schiffe mit Frachtraum
+  außerhalb der Frachtgitter (die Bergbau-Pods von Mole, Prospector und Golem,
+  der Frachtbereich der 135c) zeigten eine zu niedrige Fracht, bei Prospector,
+  Golem und 135c „0 SCU“; jetzt fehlt die Zeile. Eine Fracht, die nicht in die
+  Box des Schiffs passt, fällt ebenfalls weg. Die C8R Pisces zeigt jetzt ihren
+  Kaufpreis, auch wenn die Preisliste sie als „C8R Pisces Rescue“ führt.
+- **Shader-Lauf nach einem Patch hält VerseKit nicht mehr auf:** Nach einem
+  Patch startet der RSI Launcher einen Shader-Lauf des Spiels. VerseKit hielt
+  ihn für ein laufendes Spiel, und Updates, das Einlesen der neuen Spieldaten
+  und das Schreiben ins Spiel blieben liegen, bis der Lauf zu Ende war. Jetzt
+  zählt nur das Spiel selbst; der Shader-Lauf und der Launcher halten nichts
+  mehr auf.
+
 ## v5.3.0 - 2026-11-13
 
 > Die Kartellbank kommt ins Programm, Raffinerie-Aufträge gleichen sich

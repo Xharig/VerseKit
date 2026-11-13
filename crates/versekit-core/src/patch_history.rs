@@ -129,9 +129,43 @@ fn own(paths: &Paths) -> History {
 }
 
 /// The whole history: the shipped part and this device's own findings;
-/// patches of one version are united.
+/// patches of one version are united, and so are the names of one build
+/// ([`same_builds_as_one`]).
 pub fn load(paths: &Paths) -> History {
-    merged([shipped(), own(paths)])
+    same_builds_as_one(merged([shipped(), own(paths)]))
+}
+
+/// The channel and change number that name a build (`live.13165946` in
+/// `4.10.3-live.13165946`); `None` without both.
+fn build_of(version: &str) -> Option<&str> {
+    let (_, tail) = version.split_once('-')?;
+    let (channel, change) = tail.rsplit_once('.')?;
+    (!channel.is_empty() && !change.is_empty() && change.bytes().all(|b| b.is_ascii_digit())).then_some(tail)
+}
+
+/// The entries of one build under two versions as one, under the higher version: the branch in the game's
+/// `build_manifest.id` may name an older version than the patch the build belongs to (`4.10.0-live.13165946` and
+/// `4.10.3-live.13165946` are one build).
+pub fn same_builds_as_one(history: History) -> History {
+    let mut named: HashMap<String, String> = HashMap::new();
+    for version in history.keys() {
+        if let Some(build) = build_of(version) {
+            let best = named.entry(build.to_string()).or_insert_with(|| version.clone());
+            if rank(version) > rank(best) {
+                best.clone_from(version);
+            }
+        }
+    }
+    let mut folded = History::new();
+    for (version, patch) in history {
+        let target = build_of(&version).and_then(|build| named.get(build)).cloned().unwrap_or(version);
+        let entry = match folded.get(&target) {
+            Some(old) => merge(old, &patch),
+            None => patch,
+        };
+        folded.insert(target, entry);
+    }
+    folded
 }
 
 fn today() -> String {
@@ -192,6 +226,38 @@ pub fn record(paths: &Paths, version: &str, names: &[String], date: Option<&str>
         &jsonio::dumps(&patches_value(&own), Some(1), false),
         Newline::Native,
     )
+}
+
+/// Gives the entries of this device's own history that name the build of `version` under another version the name
+/// `version` ([`same_builds_as_one`]), when it is not lower than theirs: a catalog that names its build after the
+/// patch takes over what was found new under the branch's name. True when the file was written.
+///
+/// # Errors
+///
+/// The error of writing the file; a refused write (write lock) is the caller's to tell from a failed one
+/// (`writeguard::refused`).
+pub fn rename_build(paths: &Paths, version: &str) -> io::Result<bool> {
+    let Some(build) = build_of(version) else { return Ok(false) };
+    let mut own = own(paths);
+    let others: Vec<String> =
+        own.keys().filter(|other| *other != version && build_of(other) == Some(build)).cloned().collect();
+    if others.is_empty() || others.iter().any(|other| rank(other) > rank(version)) {
+        return Ok(false);
+    }
+    for other in others {
+        let Some(patch) = own.remove(&other) else { continue };
+        let entry = match own.get(version) {
+            Some(old) => merge(old, &patch),
+            None => patch,
+        };
+        own.insert(version.to_string(), entry);
+    }
+    jsonio::write_text_atomic(
+        &paths.app_file(FILE),
+        &jsonio::dumps(&patches_value(&own), Some(1), false),
+        Newline::Native,
+    )?;
+    Ok(true)
 }
 
 /// The name key of each blueprint to the game version it appeared in first.
@@ -283,6 +349,56 @@ mod tests {
         assert_eq!(found[&name_key("Antium Helmet")], "4.9.0-live.1");
         assert_eq!(found[&name_key("Other")], "4.9.0-live.1");
         assert_eq!(patches(&history)[0], ("4.10.0-live.2".to_string(), "4.10.0".to_string(), 1));
+    }
+
+    /// One build named after an older branch and after its patch is one entry under the patch: the blueprints it
+    /// brought count for that patch, and it sorts as the newest.
+    #[test]
+    fn one_build_under_two_versions_is_one_entry_under_the_higher_one() {
+        let history = same_builds_as_one(History::from([
+            ("4.10.2-live.12881860".to_string(), patch("2026-10-09", &["Shadowflux"])),
+            ("4.10.0-live.13165946".to_string(), patch("2026-11-13", &["Raider Camo", "Skarnov"])),
+            ("4.10.3-live.13165946".to_string(), patch("2026-11-14", &["Later"])),
+            ("4.10.0-live.12519617".to_string(), patch("2026-08-28", &["Buzzsaw"])),
+            ("4.10.0-ptu.13165946".to_string(), patch("2026-11-10", &["Test"])),
+        ]));
+        let versions: Vec<&str> = history.keys().map(String::as_str).collect();
+        assert_eq!(
+            versions,
+            ["4.10.0-live.12519617", "4.10.0-ptu.13165946", "4.10.2-live.12881860", "4.10.3-live.13165946"],
+            "the PTU build of the same number is another build"
+        );
+        assert_eq!(history["4.10.3-live.13165946"], patch("2026-11-13", &["Later", "Raider Camo", "Skarnov"]));
+        let found = version_per_blueprint(&history);
+        assert_eq!(found[&name_key("Skarnov")], "4.10.3-live.13165946");
+        assert_eq!(patches(&history)[0].0, "4.10.3-live.13165946", "the newest patch first");
+        // A version without channel and change number stays as it is.
+        assert!(same_builds_as_one(History::from([("4.10.0".to_string(), patch("d", &["A"]))])).contains_key("4.10.0"));
+    }
+
+    /// What this device found new under the branch's name goes over to the patch's name of the same build, so that
+    /// "new in the game" compares it with a catalog named after the patch; never to a lower name.
+    #[test]
+    fn the_own_entry_of_a_build_takes_the_name_of_the_catalog() {
+        let home = std::env::temp_dir().join(format!("versekit-historie-name-{}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(&home).unwrap();
+        let text = home.to_string_lossy().into_owned();
+        let paths = Paths::new(crate::paths::Host::new(
+            crate::pypath::Flavor::native(),
+            &[(crate::legacy::ENV_HOME, text.as_str())],
+            &text,
+        ));
+        record(&paths, "4.10.0-live.13165946", &["Skarnov".to_string()], Some("2026-11-13")).unwrap();
+        record(&paths, "4.10.2-live.12881860", &["Shadowflux".to_string()], Some("2026-10-09")).unwrap();
+        assert!(!rename_build(&paths, "4.10.0-live.12881860").unwrap(), "never to a lower name");
+        assert!(rename_build(&paths, "4.10.3-live.13165946").unwrap());
+        let own = own(&paths);
+        let versions: Vec<&str> = own.keys().map(String::as_str).collect();
+        assert_eq!(versions, ["4.10.2-live.12881860", "4.10.3-live.13165946"]);
+        assert_eq!(version_per_blueprint(&load(&paths))[&name_key("Skarnov")], "4.10.3-live.13165946");
+        assert!(!rename_build(&paths, "4.10.3-live.13165946").unwrap(), "nothing left to rename");
+        let _ = std::fs::remove_dir_all(home);
     }
 
     #[test]

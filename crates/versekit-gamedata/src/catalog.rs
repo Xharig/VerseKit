@@ -145,8 +145,14 @@ pub struct Source {
     pub contractor: Option<Text>,
     /// The faction whose reputation the contract counts toward.
     pub faction: Option<Text>,
-    /// The places the contract is offered at: systems, planets, moons,
-    /// stations, in stored order.
+    /// The text key of the contract's description, without `@` (the parameter `Description`); `None` where the data
+    /// name none.
+    pub description_key: Option<String>,
+    /// The star systems the contract is offered in: the stars among the places the data list (their map icon is a
+    /// star), in stored order.
+    pub systems: Vec<Text>,
+    /// The places the contract is offered at: planets, moons, stations, in
+    /// stored order; the systems are in [`Source::systems`].
     pub places: Vec<Text>,
     /// The lowest reputation rank that gets the contract.
     pub rank: Option<Text>,

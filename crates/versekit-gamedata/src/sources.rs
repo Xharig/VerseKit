@@ -569,6 +569,8 @@ fn contract_source(
             layered_int(&own_layers, "PersonalCooldownTime")
                 .or_else(|| number(availability, "personalCooldownTime").map(|minutes| minutes.round() as i64))
         });
+    let (systems, places) = places(facts, trees, texts);
+    let description_key = crate::catalog::text_key(layered_param(&layers, "Description"));
     Source {
         kind: SourceKind::Contract,
         id: id.to_string(),
@@ -578,7 +580,9 @@ fn contract_source(
         mission_type,
         contractor,
         faction,
-        places: places(facts, trees, texts),
+        description_key,
+        systems,
+        places,
         rank: standing.as_ref().map(|standing| Text::resolve(locale_key(Some(standing.root()), "displayName"), texts)),
         min_reputation: standing.as_ref().and_then(|standing| integer(Some(standing.root()), "minReputation")),
         max_rank: highest
@@ -595,27 +599,49 @@ fn contract_source(
     }
 }
 
-/// The names of the places p4kx states for an entry: the objects of each of
-/// its localities, then its locations; each name once, places named only by
-/// a placeholder key left out.
-fn places(facts: &Facts, trees: &mut Trees<'_, '_>, texts: &Localization) -> Vec<Text> {
+/// What a place of the star map stands for in a contract's list of places.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PlaceKind {
+    /// A star: it names its system.
+    Star,
+    /// The hidden object of a whole system (no parent, not shown on the map, e.g. `NyxSolarSystem`).
+    System,
+    /// A planet, moon, station or other place.
+    Place,
+}
+
+/// The star systems and the names of the places p4kx states for an entry: the objects of each of its localities,
+/// then its locations. A star (its map icon) names its system; the hidden object of a whole system names it only
+/// where no star does, and is never a place. Each name once, places named only by a placeholder key left out.
+fn places(facts: &Facts, trees: &mut Trees<'_, '_>, texts: &Localization) -> (Vec<Text>, Vec<Text>) {
     let mut objects: Vec<Guid> = Vec::new();
     for &locality in &facts.localities {
         let Some(locality) = trees.get(locality) else { continue };
         objects.extend(elements(Some(locality.root()), "availableLocations").iter().filter_map(link));
     }
     objects.extend(facts.locations.iter().copied());
-    let mut keys: Vec<String> = Vec::new();
+    let mut keys: Vec<(String, PlaceKind)> = Vec::new();
     for object in objects {
-        let name = trees.get(object).as_deref().and_then(|place| locale_key(Some(place.root()), "name").map(str::to_string));
-        if let Some(key) = name
-            && !is_placeholder_key(&key)
-            && !keys.iter().any(|known| known.eq_ignore_ascii_case(&key))
-        {
-            keys.push(key);
+        let Some(place) = trees.get(object) else { continue };
+        let root = Some(place.root());
+        let kind = if text(root, "navIcon") == Some("Star") {
+            PlaceKind::Star
+        } else if reference(root, "parent").is_none() && boolean(root, "hideInStarmap") == Some(true) {
+            PlaceKind::System
+        } else {
+            PlaceKind::Place
+        };
+        let Some(key) = locale_key(root, "name").map(str::to_string) else { continue };
+        if !is_placeholder_key(&key) && !keys.iter().any(|(known, _)| known.eq_ignore_ascii_case(&key)) {
+            keys.push((key, kind));
         }
     }
-    keys.iter().map(|key| Text::resolve(Some(key), texts)).collect()
+    let of = |wanted: PlaceKind| -> Vec<Text> {
+        keys.iter().filter(|(_, kind)| *kind == wanted).map(|(key, _)| Text::resolve(Some(key), texts)).collect()
+    };
+    let stars = of(PlaceKind::Star);
+    let systems = if stars.is_empty() { of(PlaceKind::System) } else { stars };
+    (systems, of(PlaceKind::Place))
 }
 
 fn scenario_sources(
@@ -652,6 +678,8 @@ fn scenario_sources(
                     mission_type: None,
                     contractor: None,
                     faction: faction.clone(),
+                    description_key: None,
+                    systems: Vec::new(),
                     places: Vec::new(),
                     rank: None,
                     min_reputation: None,

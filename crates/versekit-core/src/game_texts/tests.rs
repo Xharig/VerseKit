@@ -458,6 +458,54 @@ fn a_finished_patch_counts_like_the_normal_poll_and_then_every_five_minutes() {
     assert_eq!(upkeep.patch_at, 0.0, "the new translation came: back to the normal poll");
 }
 
+/// While the launcher's log shows the delta update of LIVE running, the archive standing still for the quiet time is
+/// no finished patch, and its stamp is not remembered; the end of the update in the log finishes it.
+#[test]
+fn a_patch_the_launcher_still_writes_is_not_finished_and_not_remembered() {
+    let s = Setup::new("patch-launcher");
+    s.set_up_german();
+    let log_folder = format!("{}/rsilauncher/logs", s.root);
+    fs::create_dir_all(&log_folder).unwrap();
+    let install = format!("{}/StarCitizen", s.root).replace('/', "\\\\");
+    let start = format!(
+        r#"{{ "t":"2026-11-13 13:08:08.524", "[main][info] ": "[PatcherPhase] Starting delta update (SC LIVE 4.10.3-live.2) in {install} (statistics enabled: false)"  }},"#
+    );
+    let end = format!(
+        r#"{{ "t":"2026-11-13 13:16:15.221", "[main][info] ": "[PatcherPhase] Delta update completed (SC LIVE 4.10.3-live.2) in {install}\\LIVE"  }},"#
+    );
+    let paths = Paths::new(Host::new(
+        Flavor::Posix,
+        &[
+            ("HOME", s.root.as_str()),
+            ("SC_BP_HOME", &format!("{}/data", s.root)),
+            ("SC_INSTALL_DIR", &s.live),
+            ("APPDATA", &s.root),
+        ],
+        &s.root,
+    ));
+    let archive = FakeArchive::default();
+    *archive.stamp.lock().unwrap() = Some("1:1".into());
+    let owned = BTreeSet::new();
+    let mut upkeep = Upkeep::default();
+    upkeep.tick(&paths, &archive, &owned, 0.0);
+    upkeep.finished(&paths, false);
+    paths.set_setting(SETTING_STOCK_MARK, Value::str(stock_mark(&paths, &owned)));
+    assert_eq!(upkeep.tick(&paths, &archive, &owned, 10.0), None);
+    // The launcher starts: the structure of the archive is new, its files follow while the stamp may stand still.
+    fs::write(format!("{log_folder}/log.log"), &start).unwrap();
+    *archive.stamp.lock().unwrap() = Some("2:2".into());
+    assert_eq!(upkeep.tick(&paths, &archive, &owned, 20.0), None, "patch running");
+    assert_eq!(upkeep.tick(&paths, &archive, &owned, 60.0), None, "quiet, but the launcher still patches");
+    assert_eq!(upkeep.tick(&paths, &archive, &owned, 120.0), None, "still");
+    assert_eq!(paths.setting(P4K_SETTING).as_deref(), Some("1:1"), "the stamp of the half-written archive is not kept");
+    assert_eq!(upkeep.patch_at, 0.0);
+    fs::write(format!("{log_folder}/log.log"), format!("{start}\n{end}")).unwrap();
+    let job = upkeep.tick(&paths, &archive, &owned, 160.0).expect("patch finished");
+    assert!(!job.stock_only);
+    assert_eq!(upkeep.patch_at, 160.0);
+    assert_eq!(paths.setting(P4K_SETTING).as_deref(), Some("2:2"));
+}
+
 #[test]
 fn the_translation_is_looked_at_every_five_minutes_in_the_normal_poll_and_after_a_patch() {
     assert_eq!((TEXTS_POLL_SECONDS, POST_PATCH_POLL_SECONDS), (300.0, 300.0));
