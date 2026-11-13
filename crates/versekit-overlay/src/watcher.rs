@@ -26,6 +26,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 
+use versekit_core::armistice;
 use versekit_core::catalog_cache::{self, CatalogCache};
 use versekit_core::catalog_watch::{Item, Watch};
 use versekit_core::collection::{self, Catalog, Collection, Known};
@@ -85,6 +86,8 @@ pub enum News {
     LogLines(Vec<String>),
     /// The handle the log names as logged in: a click on a line of the log monitor searches the other player.
     OwnHandle(String),
+    /// The HUD told that the player left or entered an armistice zone (the newest notice of what was just read).
+    Zone(armistice::Zone),
 }
 
 /// What the window asks of the thread.
@@ -406,6 +409,62 @@ fn tell_log_lines(run: &Run, text: &str) {
         run.tell(News::LogLines(lines));
     }
     tell_own_handle(run, text);
+}
+
+/// The phrases of the armistice notices, read again only when a `global.ini` of the installation changed (looked for
+/// as often as the catalog): the files are large, and the bundled wordings hold without them.
+struct Zones {
+    phrases: armistice::Phrases,
+    /// The `global.ini` files the phrases came from: name, size and moment of change.
+    files: Vec<(std::path::PathBuf, u64, Option<std::time::SystemTime>)>,
+    looked: Instant,
+}
+
+impl Zones {
+    fn new(paths: &Paths) -> Zones {
+        let sources = LogSource::sources_of(paths);
+        Zones { phrases: armistice::Phrases::of(&sources), files: Zones::files_of(&sources), looked: Instant::now() }
+    }
+
+    fn files_of(
+        sources: &versekit_core::phrases::Sources,
+    ) -> Vec<(std::path::PathBuf, u64, Option<std::time::SystemTime>)> {
+        sources
+            .ini_files()
+            .into_iter()
+            .map(|file| {
+                let meta = std::fs::metadata(&file).ok();
+                (file, meta.as_ref().map_or(0, |m| m.len()), meta.and_then(|m| m.modified().ok()))
+            })
+            .collect()
+    }
+
+    /// Reads the phrases again when a file changed, a new one came or one went.
+    fn refresh(&mut self, paths: &Paths) {
+        if self.looked.elapsed() < CATALOG_EVERY {
+            return;
+        }
+        self.looked = Instant::now();
+        let sources = LogSource::sources_of(paths);
+        let files = Zones::files_of(&sources);
+        if files != self.files {
+            self.phrases = armistice::Phrases::of(&sources);
+            self.files = files;
+        }
+    }
+
+    /// Tells the window the newest armistice notice of `text`, when it is news: a log read late (the overlay started
+    /// after the game) holds old ones that must not shout.
+    fn tell(&self, run: &Run, text: &str) {
+        if let Some(zone) = self.notice(text, now_unix()) {
+            run.tell(News::Zone(zone));
+        }
+    }
+
+    /// The newest armistice notice of `text` when it is news at `now` (seconds, UTC).
+    fn notice(&self, text: &str, now: i64) -> Option<armistice::Zone> {
+        self.phrases.last_in(text).filter(|(_, at)| armistice::is_news(*at, now)).map(|(zone, _)| zone)
+    }
 }
 
 /// The handle the text names as logged in, if it names one.
@@ -1016,6 +1075,7 @@ fn run(
     }
     run.tell(News::Status(run.status(tail.path.is_some())));
     let denied = writeguard::take_denied();
+    let mut zones = Zones::new(paths);
     if !denied.is_empty() {
         run.tell(News::Denied(denied));
     }
@@ -1094,6 +1154,8 @@ fn run(
         if rescan_requested(run.paths, &mut rescan_seen) {
             answer(Ask::Rescan, &mut run, &source, &mut contracts, &mut periodic, &mut shards);
         }
+        zones.refresh(paths);
+        zones.tell(&run, &tail.last_text);
         take_catalog(&mut run, &mut periodic, &mut contracts);
         run.tell_count(tail.path.is_some());
         let denied = writeguard::take_denied();
@@ -1867,6 +1929,52 @@ mod tests {
     }
 
     /// A throwaway home with a game folder of its own (an empty Game.log, `logbackups`).
+    /// A notification line of the HUD as the game writes it.
+    fn notice_line(moment: &str, text: &str) -> String {
+        format!(
+            "<{moment}> [Notice] <SHUDEvent_OnNotification> Added notification \"{text}: \" [2] to queue. \
+             New queue size: 1\n"
+        )
+    }
+
+    /// A zone notice just read is told with the zone it names, an old one (a log read late) is not, and the newest of
+    /// a section counts.
+    #[test]
+    fn a_fresh_armistice_notice_is_told_and_an_old_one_is_not() {
+        let (_, paths) = home("zonen-neu");
+        let zones = Zones::new(&paths);
+        let moment = "2026-10-18T13:27:27.618Z";
+        let at = versekit_core::logtime::seconds(moment).expect("a stamp");
+        let leave = notice_line(moment, "Waffenstillstandszone wird verlassen - Vorsicht geboten");
+        let enter = notice_line(moment, "Betrete Waffenstillstandszone - Kampf verboten");
+        assert_eq!(zones.notice(&leave, at + 3), Some(armistice::Zone::Left));
+        assert_eq!(zones.notice(&enter, at + 3), Some(armistice::Zone::Entered));
+        assert_eq!(zones.notice(&format!("{enter}{leave}"), at + 3), Some(armistice::Zone::Left), "the newest counts");
+        // Counter check: the same line a day later is history.
+        assert_eq!(zones.notice(&leave, at + 86_400), None);
+        assert_eq!(zones.notice(&notice_line(moment, "Bauplan erhalten: Helm"), at + 3), None);
+    }
+
+    /// The phrases of a `global.ini` that came after the start are read with the next look, and not read again while
+    /// nothing changed.
+    #[test]
+    fn the_phrases_of_a_global_ini_that_came_later_are_taken_with_the_next_look() {
+        let (_, game, paths) = home_with_game("zonen-ini");
+        let zones_text = notice_line("2026-10-18T13:27:27.618Z", "Sortie de la zone d'armistice - Prudence");
+        let mut zones = Zones::new(&paths);
+        assert_eq!(zones.notice(&zones_text, 0), None, "unknown without the file");
+        let folder = format!("{game}/data/Localization/french_(france)");
+        std::fs::create_dir_all(&folder).expect("folder");
+        let ini = "hud_leave_green_zone=Sortie de la zone d'armistice - Prudence\n";
+        std::fs::write(format!("{folder}/global.ini"), ini).expect("ini");
+        zones.refresh(&paths);
+        assert_eq!(zones.notice(&zones_text, 0), None, "not looked yet: the next look is a minute away");
+        zones.looked = Instant::now().checked_sub(CATALOG_EVERY + Duration::from_secs(1)).expect("an earlier moment");
+        zones.refresh(&paths);
+        assert_eq!(zones.notice(&zones_text, 0), Some(armistice::Zone::Left), "taken with the next look");
+        assert_eq!(zones.files.len(), 1);
+    }
+
     fn home_with_game(name: &str) -> (String, String, Paths) {
         let (home, _) = home(name);
         let game = format!("{home}/StarCitizen/LIVE");

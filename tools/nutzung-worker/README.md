@@ -46,6 +46,19 @@ Kanal-Kennzeichen `?ref=<kanal>` (nur `a`–`z`, höchstens 20 Zeichen, sonst
 verworfen) in `downloads_kanal`, ohne System und Land. Die Weiterleitung bleibt
 dieselbe.
 
+Dasselbe Kennzeichen zählt auch für Besuche der Webseite: Ruft jemand
+`versekit.xharig.com/?ref=<kanal>` auf, schickt das kleine Skript
+`assets/besuch.js` (extern, kein Inline-Code) einmal beim Laden
+`GET https://nutzung-versekit.xharig.com/besuch?ref=<kanal>` ab. Der Worker
+zählt je Tag und Kanal in `besuche` (gleiche Regel `REF_RE` wie bei den
+Downloads, Ungültiges gibt 400 und wird verworfen). Ohne `?ref=` sendet die
+Seite nichts. Roboter zählen nicht, dieselbe Adresse höchstens 5 Mal je Minute;
+keine IP, kein Land, keine Kennung, kein Cookie. Die Übersicht zeigt unter
+„Herkunft: Downloads und Besuche" alle Kanäle des gewählten Zeitraums mit
+Downloads und Besuchen, dazu „ohne Kennzeichen". Die Seite braucht in der
+Content-Security-Policy (Cloudflare-Regel `VerseKit-Schutz-Header`) im
+`connect-src` die Adresse `https://nutzung-versekit.xharig.com`.
+
 Die Übersicht beantwortet oben „Wie läuft VerseKit?" mit vier Zahlen gegen die
 Vorwoche (aktive je Tag, Neue, Bleiben, Downloads). Die Rechnungen stehen in
 `erfolg.js` und sind in `worker.test.mjs` geprüft; alles für die Entwicklung
@@ -58,8 +71,8 @@ Kommt eine neue Seite ins Programm, gehört sie in `pages.js` — der Selbsttest
 
 ## Seiten-Tabellen einspielen (einmalig, vor dem Hochladen)
 
-Die fünf Seiten-Tabellen und die zwei Erfolgs-Tabellen (`downloads_kanal`,
-`installationen_alter`) kommen über `schema.sql` dazu. Die Datei legt nur an,
+Die fünf Seiten-Tabellen und die drei Erfolgs-Tabellen (`downloads_kanal`,
+`besuche`, `installationen_alter`) kommen über `schema.sql` dazu. Die Datei legt nur an,
 was fehlt (`CREATE TABLE IF NOT EXISTS`), vorhandene Tabellen und Zahlen bleiben
 unberührt. **Erst einspielen, dann den Worker hochladen:**
 

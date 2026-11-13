@@ -18,7 +18,7 @@
 //! Blueprint notes under the description of a craftable item: port of
 //! `item_info.py`.
 //!
-//! Below a rule and the heading `VERSE-KIT: BAUPLAN & HERSTELLUNG` stand
+//! Below a rule and the heading `VERSEKIT: BAUPLAN & HERSTELLUNG` stand
 //! three lines: the blueprint with its box (had or missing, from which
 //! contract, from which rank, how many more), crafting (`3 Zutaten · 4 min`)
 //! and the cheapest shop (`Im Laden: New Babbage · 12.400 aUEC`).

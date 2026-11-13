@@ -34,8 +34,8 @@ use versekit_core::language::{self, Arg};
 use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, MB_ICONERROR, MB_OK, MB_SETFOREGROUND, MessageBoxW,
-    RegisterClassW, WNDCLASSW, WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, MB_ICONERROR, MB_OK, MB_SETFOREGROUND, MessageBoxW, RegisterClassW,
+    WNDCLASSW, WS_POPUP,
 };
 
 use super::{Adapter, Attempt, Look, Present, Stage};
@@ -173,7 +173,8 @@ impl Errors {
             return;
         }
         let watched = *self.stage.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some((stage, quiet)) = watched {
+        // On a lost device the window starts anew (`super::lost`): the stage is not at fault, nothing is told.
+        if let Some((stage, quiet)) = watched.filter(|_| !super::device_lost()) {
             self.fail(stage, quiet, &text);
         }
         panic!("wgpu error: {text}");
@@ -246,8 +247,8 @@ fn make(stage: Stage, hwnd: HWND, errors: &Arc<Errors>) -> Result<WgpuSetupExist
     let capabilities = surface.get_capabilities(&adapter);
     let alpha_mode = alpha_mode(stage, &capabilities.alpha_modes)?;
     let format = eframe::egui_wgpu::preferred_framebuffer_format(&capabilities.formats).map_err(|e| e.to_string())?;
-    let (device, queue) =
-        block_on(adapter.request_device(&(setup.device_descriptor)(&adapter))).map_err(|e| format!("request_device: {e}"))?;
+    let (device, queue) = block_on(adapter.request_device(&(setup.device_descriptor)(&adapter)))
+        .map_err(|e| format!("request_device: {e}"))?;
     let sink = Arc::clone(errors);
     device.on_uncaptured_error(Arc::new(move |error| sink.handle(error)));
     let config = wgpu::SurfaceConfiguration {

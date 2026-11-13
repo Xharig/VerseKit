@@ -149,6 +149,8 @@ pub enum Signal {
     DemandWanted = 12,
     /// Show the window on the page it shows, in front of the others (the hotkey of the main window).
     Show = 13,
+    /// Show the page "Kartellbank" (a click on a bank line of the overlay).
+    OpenBank = 14,
 }
 
 impl Signal {
@@ -167,6 +169,7 @@ impl Signal {
             11 => Some(Signal::OpenStockScan),
             12 => Some(Signal::DemandWanted),
             13 => Some(Signal::Show),
+            14 => Some(Signal::OpenBank),
             _ => None,
         }
     }
@@ -177,12 +180,15 @@ impl Signal {
 pub enum DataKind {
     /// The materials the unit wants (`basetool::demand::handover`), from the main window to the overlay.
     Demand = 1,
+    /// What the overlay shows of the Kartellbank (`basetool::bank::handover`), from the main window to the overlay.
+    Bank = 2,
 }
 
 impl DataKind {
     fn from_code(code: usize) -> Option<DataKind> {
         match code {
             1 => Some(DataKind::Demand),
+            2 => Some(DataKind::Bank),
             _ => None,
         }
     }
@@ -319,6 +325,8 @@ mod imp {
         _id: usize,
         data: usize,
     ) -> LRESULT {
+        // Signing out or shutting down: an update at the end of the program must not start any more.
+        crate::auto_update::note_window_message(msg, wparam);
         if msg == message() && msg != 0 {
             if let Some(signal) = Signal::from_code(wparam) {
                 // SAFETY: `data` is the handler boxed in `serve`; it lives until WM_NCDESTROY.
@@ -760,11 +768,12 @@ mod tests {
             Signal::OpenStockScan,
             Signal::DemandWanted,
             Signal::Show,
+            Signal::OpenBank,
         ] {
             assert_eq!(Signal::from_code(signal as usize), Some(signal));
         }
         assert_eq!(Signal::from_code(0), None);
-        assert_eq!(Signal::from_code(14), None);
+        assert_eq!(Signal::from_code(15), None);
     }
 
     /// A handing over goes as one message and back whole; anything cut, too long, of an unknown kind or without the
@@ -890,6 +899,7 @@ mod tests {
             Signal::OpenStockScan,
             Signal::DemandWanted,
             Signal::Show,
+            Signal::OpenBank,
         ];
         let mut bytes = std::collections::HashSet::new();
         for asked in all.map(Asked::Signal).into_iter().chain([Asked::Close]) {

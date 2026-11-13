@@ -34,6 +34,7 @@ pub mod control_profile;
 pub mod corrections;
 pub mod craft_book;
 pub mod cross_check;
+pub mod description_stats;
 mod error;
 pub mod farm;
 mod fields;
@@ -52,6 +53,7 @@ pub mod reputation_ranks;
 pub mod scmdb;
 pub mod scmdb_catalog;
 pub mod ship_slots;
+pub mod ship_values;
 mod sources;
 pub mod value_source;
 pub mod values;
@@ -231,6 +233,26 @@ impl GameData {
         Ok(catalog::read(&forge, texts, fixes, &facts))
     }
 
+    /// [`GameData::blueprints_with`] and the stock values of
+    /// [`GameData::description_stats`] from one reading of the DataForge.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`GameData::blueprints_with`].
+    pub fn blueprints_and_stats(
+        &self,
+        texts: &Localization,
+        corrections: &[corrections::Correction],
+        contracts: &[u8],
+    ) -> Result<(Catalog, versekit_core::jsonio::Map), Error> {
+        let facts =
+            ContractFacts::from_catalog(contracts).map_err(|source| Error::Contracts { source: Box::new(source) })?;
+        let (entry, bytes) = self.read_dataforge()?;
+        let forge = DataForge::open(&bytes).map_err(|source| Error::DataForge { entry, source: Box::new(source) })?;
+        let fixes = corrections::CatalogFixes::new(corrections, self.scmdb_build().as_deref());
+        Ok((catalog::read(&forge, texts, fixes, &facts), description_stats::read(&forge, texts)))
+    }
+
     /// What p4kx states for each contract entry of the archive (see
     /// [`ContractFacts`]).
     ///
@@ -343,6 +365,7 @@ impl GameData {
             .map_err(|source| Error::DataForge { entry: DATAFORGE_ENTRIES[0].to_string(), source: Box::new(source) })?;
         let mut catalogs = ship_slots::Catalogs::default();
         catalogs.paints = ship_slots::PaintFacts::read(&forge);
+        catalogs.values = ship_values::ShipValues::read(&forge);
         drop(forge);
         for text in ship_slots::FILTERS {
             let filter = p4kx_export::Filter::new(text);
@@ -374,6 +397,18 @@ impl GameData {
             Error::DataForge { source, .. } => Error::DataForge { entry, source },
             other => other,
         })
+    }
+
+    /// The stock values of every weapon and component the game text shows
+    /// under its description ([`description_stats::read`]).
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`GameData::blueprints`].
+    pub fn description_stats(&self, texts: &Localization) -> Result<versekit_core::jsonio::Map, Error> {
+        let (entry, bytes) = self.read_dataforge()?;
+        let forge = DataForge::open(&bytes).map_err(|source| Error::DataForge { entry, source: Box::new(source) })?;
+        Ok(description_stats::read(&forge, texts))
     }
 
     /// The build in the form scmdb names its files, e.g.

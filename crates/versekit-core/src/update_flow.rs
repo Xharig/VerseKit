@@ -34,7 +34,7 @@ use crate::net::Net;
 use crate::paths::Paths;
 use crate::update_swap::{self, Started};
 use crate::updater::{self, Packaging, Release};
-use crate::{backup, errors, update_run};
+use crate::{backup, errors, provenance, update_run};
 
 /// Starts the new AppImage with a cleaned environment.
 pub type StartFn = dyn Fn(&Path) -> io::Result<Box<dyn Started>> + Send + Sync;
@@ -45,6 +45,9 @@ pub type GameFn = dyn Fn() -> bool + Send + Sync;
 /// What the sequence needs from outside, so that a check can stand in for the net, the game and the start.
 pub struct Job<'a> {
     pub paths: &'a Paths,
+    /// For short questions to GitHub: the build provenance of the fetched file. Shared, because that question runs
+    /// in a thread of its own that may outlive its deadline.
+    pub net: Arc<dyn Net>,
     /// For the file itself (a longer time limit than the list of releases).
     pub download_net: &'a dyn Net,
     /// The running version.
@@ -58,6 +61,9 @@ pub struct Job<'a> {
     /// By itself, without a click: the window opens after the update only if the program has just started.
     pub automatic: bool,
     pub show_window: bool,
+    /// The player ended the program: the installer runs without a window and does not start it again. Only the
+    /// installer of Windows; anything else installs nothing at this moment.
+    pub at_exit: bool,
     /// Looked at again after the download: the game may have started in the meantime.
     pub game_running: &'a dyn Fn() -> bool,
     pub start: &'a dyn Fn(&Path) -> io::Result<Box<dyn Started>>,
@@ -115,6 +121,10 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
     if kind == Packaging::Source {
         return Done::Stopped(Some(t("update_quellcode")));
     }
+    // ⚠ An AppImage exchanged at the end would have to be started to know it lives: the program would come up again.
+    if job.at_exit && kind != Packaging::Exe {
+        return Done::Stopped(None);
+    }
     let Some(asset) = updater::matching_asset(release, kind) else {
         // ⚠ Two different situations: a release without any file is still being built (GitHub needs a minute or
         // two for the installer), one with files but none that fits is for fetching by hand.
@@ -154,7 +164,13 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
             errors::record(label, &error.message());
             // ⚠ Every process and every new start keeps this pause: the automatic update does not fetch this
             // version again before it is over. The moment is the end of the download, not the start of the round.
-            let pause = update_run::remember_download_failure(job.paths, &release.version, now(), job.automatic);
+            // A download at the end of the program keeps none: its short time limit or the end of Windows cut it
+            // off, and the next start should fetch at once.
+            let pause = if job.at_exit {
+                None
+            } else {
+                update_run::remember_download_failure(job.paths, &release.version, now(), job.automatic)
+            };
             let next = pause.map_or_else(String::new, |pause| {
                 format!("; next automatic try in {} min", (pause / 60.0).ceil() as u64)
             });
@@ -170,6 +186,7 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
             return failed(&error.message());
         }
     };
+    note_provenance(job, release, &downloaded.checksum);
     // ⚠ Between the download and the installing the game may have started: seconds to minutes pass.
     if job.automatic && (job.game_running)() {
         update_run::release_lock(job.paths);
@@ -188,6 +205,7 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
         target_version: &release.version,
         automatic: job.automatic,
         show_window: job.show_window,
+        at_exit: job.at_exit,
         temp: job.temp,
         env: std::env::vars().collect(),
     });
@@ -222,6 +240,26 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
             failed(&why)
         }
     }
+}
+
+/// Ask for the build provenance of the fetched file (at most [`provenance::DEADLINE`]) and write what came out into
+/// the update log; a provenance that does not hold also goes into the error log. ⚠ Only noted, never a reason to
+/// stop: releases from before the attestations have none, and GitHub may be out of reach while the file is already
+/// checked.
+fn note_provenance(job: &Job<'_>, release: &Release, checksum: &str) {
+    let builder = provenance::Builder::release(&release.version);
+    let outcome = provenance::check_within(Arc::clone(&job.net), checksum, &builder, provenance::DEADLINE);
+    write_provenance(job.paths, &release.version, &builder, &outcome);
+}
+
+/// The lines [`note_provenance`] writes for `outcome` of the version `version`: always one in the update log; one in
+/// the error log only when an attestation is there and does not hold (no attestation and no answer are expected).
+fn write_provenance(paths: &Paths, version: &str, builder: &provenance::Builder, outcome: &provenance::Outcome) {
+    let line = format!("{version}: {}", outcome.log_text(builder));
+    if matches!(outcome, provenance::Outcome::Unverified(_)) {
+        errors::record("updates.provenance", &line);
+    }
+    update_run::log_line(Path::new(&paths.app_file(update_run::LOG_FILE)), &line);
 }
 
 /// Where the program is, what it runs on and how it is started: everything the thread of a click needs.
@@ -367,6 +405,7 @@ pub fn fetch_newest(
     chosen(&release.version);
     let job = Job {
         paths,
+        net: Arc::clone(&env.net),
         download_net: &*env.download_net,
         own_version: &env.own_version,
         appimage: env.appimage.as_deref(),
@@ -375,6 +414,7 @@ pub fn fetch_newest(
         now,
         automatic: false,
         show_window: false,
+        at_exit: false,
         game_running: &*env.game_running,
         start: &*env.start,
         alive_wait: env.alive_wait,

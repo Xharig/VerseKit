@@ -6,6 +6,145 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.0 - 2026-11-13
+
+> Die Kartellbank kommt ins Programm, Raffinerie-Aufträge gleichen sich
+> mit dem Basetool ab, und Waffen und Komponenten zeigen ihre Werte direkt
+> im Spiel. Updates kommen jetzt auch an, wenn VerseKit nur mit dem Spiel
+> läuft, und nach einem Patch holt VerseKit die neuen Spieldaten von selbst.
+
+### Neu
+
+- **Werte direkt im Spiel:** Schaust du dir im Terminal, im Frachtaufzug oder
+  im Inventar eine Waffe oder Komponente an, stehen unter der Beschreibung
+  jetzt ihre Werte ab Werk, damit du vor dem Kauf vergleichen kannst.
+  Schiffswaffen zeigen DPS, Alpha, Feuerrate, Reichweite,
+  Geschossgeschwindigkeit, Durchschlag, Streuung, Strom, EM, Munition und
+  Haltbarkeit; Handwaffen Schaden, Reichweite und Magazin; Schilde
+  Schild-HP, Regeneration, die Wartezeit nach Treffer und nach Ausfall,
+  Widerstand und Absorption; Kühler ihre Kühlleistung und Kraftwerke ihre
+  Leistung in Pips, beide dazu Strom, EM, IR, Haltbarkeit, Distortion und
+  Widerstände;
+  Quantenantriebe Geschwindigkeit, Treibstoff, Auflade- und Abkühlzeit;
+  Raketen Schaden, Radius, Zielerfassung und Geschwindigkeit; Rüstungen
+  Widerstände, Temperaturbereich und Strahlung. Die Werte kommen aus den
+  Spieldaten deiner Installation. Bei herstellbaren Teilen stehen sie über
+  den Bauplan-Angaben. Ein- und ausschalten unter
+  Spiel-Einstellungen › Spiel › „Werte in den Beschreibungen“.
+- **Schiffswerte beim Überfahren:** Fährst du in „Mein Hangar“ mit der Maus
+  über einen Schiffsnamen, zeigt ein kleines Fenster die Grundwerte des
+  Schiffs: SCM-Geschwindigkeit, Maße (Länge × Breite × Höhe), Fracht in SCU
+  und den günstigsten Kaufpreis im Spiel. So vergleichst du zwei Schiffe,
+  ohne hin und her zu klicken. Die Werte kommen aus den Spieldaten deiner
+  Installation, der Preis aus den Händlerpreisen; was fehlt, wird
+  weggelassen. Wunsch von MindBurnt [R/SC]
+- **Kartellbank:** Die neue Seite „Kartellbank“ unter Handel zeigt deine
+  Konten der Kartellbank aus dem Basetool mit Stand und dem Verlauf der
+  letzten 30 Tage, auf Klick die letzten Buchungen und die
+  Tagesstände eines Kontos. Einzahlungen, Auszahlungen und Überweisungen
+  beantragst du direkt hier, offene Anträge korrigierst du oder ziehst sie
+  zurück. Bankmitarbeiter sehen mit einem eigenen Schalter ihre
+  Warteschlange; bearbeitet wird sie weiter im Basetool, jeder Eintrag
+  führt mit einem Klick dorthin. Das Overlay zeigt die Kontostände, offene
+  Anträge und die Warteschlange und meldet neue Einträge darin; ein Klick
+  öffnet die Seite. Bankdaten bleiben nur im Speicher und werden nie auf
+  der Festplatte abgelegt. Einschalten unter Einstellungen › „Verbindung &
+  Abgleich“ › „Kartellbank anzeigen“.
+- **Raffinerie-Aufträge mit dem Basetool abgleichen:** Raffinerie-Aufträge,
+  die VerseKit am Terminal liest, legt es im Basetool an und hält dort die
+  Endzeit aktuell. Aufträge, die du im Basetool anlegst, kommen als
+  Zeitgeber zu VerseKit, und das Overlay meldet sie, wenn sie fertig sind.
+  Buchst du die Ausbeute in Mein Lager, gilt der Auftrag im Basetool als
+  abgeholt; die Ware selbst kommt wie bisher über den Lager-Abgleich hin,
+  also nie doppelt. Einschalten unter Einstellungen › „Verbindung &
+  Abgleich“ › „Raffinerieaufträge abgleichen“.
+- **Schutzzone verlassen, Waffen frei:** Verlässt du eine Schutzzone, zeigt das
+  Overlay in einem gelben Kasten „Schutzzone verlassen, Waffen frei“ und
+  öffnet sich dafür kurz, auch wenn es eingeklappt ist oder nur als Streifen
+  wartet. Betrittst du eine Schutzzone, steht dort „Schutzzone betreten,
+  Kampf verboten“, ohne das Overlay zu öffnen. VerseKit liest dafür die
+  Meldung, die das Spiel selbst einblendet, in jeder Spielsprache. Ein- und
+  ausschalten unter Overlay › Anzeigen im Overlay › „Schutzzone-Hinweis“, ab
+  Werk an.
+- **Hauptfenster beim Start:** Startest du VerseKit selbst, öffnet sich jetzt
+  das Hauptfenster. Bisher war ohne laufendes Spiel nichts zu sehen außer dem
+  Symbol neben der Uhr. Beim Start mit dem System bleibt das Fenster zu. Ein-
+  und ausschalten unter Einstellungen › Allgemein › „Hauptfenster beim Start
+  öffnen“, ab Werk an, auch in der Einrichtung. Gemeldet von oGundalf
+- **Info-Leiste auch ohne Spiel sichtbar:** Die schmale Leiste mit Server-Shard
+  und Bildraten bleibt jetzt auch ohne laufendes Star Citizen auf dem
+  Bildschirm, damit sie niemand übersieht. Wer sie ohne Spiel ausgeschaltet
+  hat, behält seine Wahl. Ein- und ausschalten unter Einstellungen › Overlay ›
+  Info-Leiste › „Auch ohne laufendes Spiel zeigen“.
+
+### Verbessert
+
+- **Hangar-Exporter direkt aus dem Chrome Web Store:** Die Knöpfe für Chrome
+  und Edge öffnen jetzt den Eintrag im Chrome Web Store, Edge installiert von
+  dort. Der Weg über das Entwicklerpaket entfällt.
+- **Updates mit Herkunftsnachweis:** Jede neue Version bekommt beim Bau auf
+  GitHub einen signierten Nachweis, dass sie genau aus diesem Projekt und
+  diesem Release stammt. GitHub hebt ihn getrennt von den Download-Dateien
+  auf, sodass ein ausgetauschter Download auffällt. VerseKit prüft den
+  Nachweis nach jedem Update-Download selbst und schreibt das Ergebnis in den
+  Fehlerbericht unter „Letzter Update-Versuch“. Ein Update hält das noch
+  nicht auf, ältere Versionen haben keinen Nachweis. Wer eine Datei von Hand
+  prüfen möchte, findet den Weg in der Sicherheitsseite (`SECURITY.md`).
+- **Updates kommen auch an, wenn VerseKit nur mit dem Spiel läuft:**
+  Während Star Citizen läuft, spielt VerseKit nie ein Update ein. Wer
+  VerseKit nur zusammen mit dem Spiel startet und beendet, blieb deshalb auf
+  einer alten Version. Unter Windows wird ein wartendes Update jetzt
+  eingespielt, wenn du VerseKit beendest und das Spiel zu ist, ohne Fenster
+  und ohne dass VerseKit danach wieder aufgeht. Meldet sich Windows gerade
+  ab oder fährt herunter, lässt VerseKit das Update bis zum nächsten Mal
+  liegen. Wartet ein Update einen Tag oder länger, steht im Overlay und im
+  Hauptfenster deutlich, seit wann, mit dem Knopf „Jetzt aktualisieren“.
+  Solange das Spiel läuft, ist der Knopf ausgegraut und sagt, warum.
+
+### Behoben
+
+- **Absturz beim Ziehen auf einen anderen Bildschirm:** Zog man das Fenster
+  von einem Bildschirm auf den anderen, konnte VerseKit einfrieren und
+  abstürzen, Hauptfenster und Overlay zugleich. Das geschah, wenn Windows
+  die Grafikkarte kurz zurücksetzte. Jetzt startet VerseKit in diesem Fall
+  nach einem kurzen Moment von selbst neu, statt abzustürzen. Gemeldet von
+  Autobrake
+- **Bauplan-Angaben an neuen Aufträgen nach einem Patch:** Nach einem Patch
+  fehlten die Bauplan-Angaben an neuen Aufträgen im Spiel. VerseKit las die
+  neuen Spieldaten nicht in jedem Fall von selbst ein, und ein neuer Katalog
+  führte nicht dazu, dass die Angaben im Spiel neu geschrieben wurden. Jetzt
+  liest VerseKit die neuen Spieldaten von selbst ein, sobald das Spiel nach
+  dem Patch geschlossen ist, auch wenn nur das Overlay läuft und keine Seite
+  offen ist, und schreibt die Angaben danach neu. Die Spieldaten liest
+  VerseKit wie bisher nur bei geschlossenem Spiel, die neuen Angaben stehen
+  also ab dem nächsten Spielstart. Gemeldet von Bushwick4712
+- **Bergbau-Daten nach einem Patch:** Die Bergbau-Daten blieben nach einem
+  Patch auf dem alten Stand, wenn VerseKit beim Patch nicht lief. Jetzt
+  holt VerseKit die Daten zum neuen Spielstand von selbst, gleich beim
+  Start und danach alle sechs Stunden, auch wenn keine Seite offen ist.
+  Gemeldet von Bushwick4712
+- **scmdb.net: „Anschluss belegt“, obwohl nichts anderes lief:** Unter
+  Windows konnte der Anschluss der Verbindung nach dem Beenden von
+  VerseKit belegt bleiben, und der nächste Start kam nicht an scmdb.net.
+  Jetzt gibt VerseKit den Anschluss beim Beenden wirklich frei. Gemeldet
+  von oGundalf
+- **C-788 Cannon: Feuerrate und DPS unter der Beschreibung:** Dort standen
+  40 Schuss pro Minute und 650 DPS. Die Spieldaten nennen für die Waffe 50
+  Schuss pro Minute und zusätzlich eine Pause von 40 pro Minute, die bei
+  einer Waffe mit nur einem Schuss in der Schleife nicht bremst. Jetzt
+  stehen dort 50 Schuss pro Minute und 813 DPS, wie auf erkul.games. Alle
+  anderen Schiffswaffen der Größe 4 bleiben, wie sie waren.
+- **Schrotwaffen in der Herstellungs-Tabelle:** Die Tabelle eines
+  herstellbaren Teils rechnete bei Schrotwaffen nur eine Kugel pro Schuss
+  (bei der Salvation 60 DPS). Jetzt zählt sie alle Kugeln, wie die Werte
+  unter der Beschreibung und wie erkul.games (480 DPS).
+- **Tastenkombinationen: Meldungen mit kurzem Namen:** Wolltest du eine
+  Tastenkombination wählen, die schon eine andere belegt, oder war eine
+  doppelt belegt, nannte die Meldung die ganze Zeile der Einstellungen, zum
+  Beispiel „Tastenkombination: Handle-Suche“. Jetzt steht nur der Name:
+  „Handle-Suche“, „Spielbild“, „Hauptfenster“, „Raffinerie lesen“ oder
+  „Overlay“.
+
 ## v5.2.10 - 2026-11-11
 
 > Der Signatur-Scanner liest jetzt auch, wenn direkt hinter der Signatur ein

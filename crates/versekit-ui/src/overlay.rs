@@ -31,6 +31,7 @@ use egui::{
     Align, Color32, CursorIcon, Layout, Rect, Response, RichText, Role, ScrollArea, Sense, Stroke, StrokeKind,
     TextStyle, Ui, Vec2, WidgetInfo, pos2, vec2,
 };
+use versekit_core::armistice::Zone;
 use versekit_core::contested::{LAMPS, Lamp, OverlayLine, Phase};
 use versekit_core::contracts::OBJECTIVES_MAX;
 use versekit_core::language::{Phrase, t, tf};
@@ -64,6 +65,9 @@ pub struct View<'a> {
     pub hidden: Option<&'a str>,
     /// The refinery jobs, one line each, `true` for a done one: under the contracts, nothing while there are none.
     pub refinery: &'a [(String, bool)],
+    /// The lines of the Kartellbank under the jobs, `true` for one that needs the member (the queue); a click on
+    /// one opens the bank page of the main window.
+    pub bank: &'a [(String, bool)],
     /// A way to start the game is known: the rocket stands in the bar. Without one there is no
     /// button; a button that does nothing is worse than none.
     pub launcher: bool,
@@ -81,6 +85,11 @@ pub struct View<'a> {
     pub demand: Option<&'a str>,
     /// A newer version is ready (only shown while the game runs).
     pub update: Option<&'a str>,
+    /// Whole days that version has waited, from one day on (`auto_update::days_waiting`): then the line shows with
+    /// the game closed too, with the button that installs it now.
+    pub update_days: Option<u64>,
+    /// The player left or entered an armistice zone just now: a framed notice under the status, while the game runs.
+    pub zone: Option<Zone>,
     pub game: bool,
     /// The lock is closed: clicks pass through except on it.
     pub locked: bool,
@@ -226,6 +235,8 @@ pub struct Output {
     pub drag: Option<Drag>,
     /// The lock button in window points; `None` while not drawn.
     pub lock: Option<Rect>,
+    /// The grip for resizing in window points; `None` while the overlay is not open.
+    pub grip: Option<Rect>,
     /// The buttons drawn in the bar and where, in window points.
     pub buttons: Vec<(Action, Rect)>,
     /// The extras behind the closed "⋯".
@@ -258,6 +269,12 @@ pub struct Output {
     pub unhide_button: Option<Rect>,
     /// The lines of the contract bar drawn this frame (header, lines, objectives).
     pub contract_texts: Vec<String>,
+    /// A bank line was clicked: the bank page of the main window opens.
+    pub open_bank: bool,
+    /// The player asked to install the waiting update now (the button of its line, only while the game is closed).
+    pub update_now: bool,
+    /// That button in window points, and whether it can be used; `None` while the line is not drawn.
+    pub update_button: Option<(Rect, bool)>,
 }
 
 fn with_alpha(c: Color, opacity: f32) -> Color32 {
@@ -273,6 +290,21 @@ pub fn grip_icon(anchored: (bool, bool)) -> &'static str {
         (true, false) => "arrow-up-right",
         (true, true) => "arrow-up-left",
     }
+}
+
+/// Where the grip for resizing sits in the open overlay `rect`: in the corner away from the anchored edges (the
+/// window grows to it). Where that corner is on the side of the bar, the grip sits in the same corner right under
+/// (or over) the bar, never in it: there it would lie over the buttons of the bar (over the cross).
+fn grip_rect(rect: Rect, bar: BarSide, (bottom, right): (bool, bool)) -> Rect {
+    let x = if right { rect.min.x + GRIP / 2.0 + 2.0 } else { rect.max.x - GRIP / 2.0 - 2.0 };
+    let top_corner = bottom;
+    let y = match (top_corner, bar) {
+        (true, BarSide::Top) => rect.min.y + BAR_HEIGHT + GRIP / 2.0 + 2.0,
+        (true, BarSide::Bottom) => rect.min.y + GRIP / 2.0 + 2.0,
+        (false, BarSide::Bottom) => rect.max.y - BAR_HEIGHT - GRIP / 2.0 - 2.0,
+        (false, BarSide::Top) => rect.max.y - GRIP / 2.0 - 2.0,
+    };
+    Rect::from_center_size(pos2(x, y), Vec2::splat(GRIP))
 }
 
 /// A button of the bar: only the icon, accent on hover, with its meaning
@@ -534,6 +566,63 @@ fn hangar_line(ui: &mut Ui, s: &Scheme, line: &OverlayLine, out: &mut Output) {
         ui.add(egui::Label::new(RichText::new(&line.text).small().color(color(tint))).truncate());
     });
     out.drawn.push(format!("{} {}", line.label, line.text));
+}
+
+/// The line of an update that has waited `days` whole days, in yellow, with the button that installs it now at its
+/// right end. While the game runs the button is grey and its hint says why: the update never comes in the game.
+fn update_waiting_line(ui: &mut Ui, s: &Scheme, version: &str, days: u64, game: bool, out: &mut Output) {
+    let days = versekit_core::auto_update::days_text(days);
+    let text = tf("ov_update_wartet", &[("0", version.into()), ("1", days.into())]);
+    let rect = line_with_button(ui, |ui| {
+        ui.add(egui::Label::new(RichText::new(&text).small().color(color(s.yellow))).wrap());
+    });
+    let usable = !game;
+    let name = t("s_ul_jetzt");
+    let meaning = if usable { name.clone() } else { t("ov_update_nach_spiel") };
+    let response = ui.interact(rect, ui.make_persistent_id("overlay-update-jetzt"), Sense::click());
+    let tone = if !usable {
+        s.sub
+    } else if response.hovered() {
+        s.fg
+    } else {
+        s.accent
+    };
+    if usable && response.hovered() {
+        let fill = ui.visuals().widgets.hovered.bg_fill;
+        ui.painter().rect_filled(rect.shrink(1.0), 4.0, fill);
+    }
+    if let Some(image) = crate::icons::image("download", tone, BAR_ICON) {
+        image.paint_at(ui, Rect::from_center_size(rect.center(), Vec2::splat(BAR_ICON)));
+    }
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, usable, &name));
+    let response = if usable { response.on_hover_cursor(CursorIcon::PointingHand) } else { response };
+    if hover_hint(ui, response, &meaning, &mut out.hint).clicked() && usable {
+        out.update_now = true;
+    }
+    out.update_button = Some((rect, usable));
+    out.drawn.push(text);
+}
+
+/// The notice of an armistice zone in a frame over the full width: leaving it (weapons are free again) in the color of
+/// warnings and in bold, entering it quietly in the house color.
+fn zone_notice(ui: &mut Ui, s: &Scheme, zone: Zone, out: &mut Output) {
+    let (key, tint) = match zone {
+        Zone::Left => ("ov_zone_verlassen", color(s.yellow)),
+        Zone::Entered => ("ov_zone_betreten", color(s.accent)),
+    };
+    let text = t(key);
+    egui::Frame::new()
+        .fill(tint.gamma_multiply(0.18))
+        .stroke(Stroke::new(1.0, tint))
+        .corner_radius(4)
+        .inner_margin(egui::Margin::symmetric(8, 4))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            let label = RichText::new(&text).color(tint);
+            ui.add(egui::Label::new(if zone == Zone::Left { label.strong() } else { label }).wrap());
+        });
+    ui.add_space(2.0);
+    out.drawn.push(text);
 }
 
 /// The key of the hint of the icon in front of a row: what the green tick, the blue circle, the gold star and the
@@ -802,18 +891,16 @@ fn draw(ui: &mut Ui, view: &View) -> Output {
         .shrink2(vec2(PAD, 4.0));
         let (bottom, right) = view.anchored;
         // The grip sits at the free corner; text on its row keeps clear of it.
-        let grip_rect = Rect::from_center_size(
-            pos2(
-                if right { rect.min.x + GRIP / 2.0 + 2.0 } else { rect.max.x - GRIP / 2.0 - 2.0 },
-                if bottom { rect.min.y + GRIP / 2.0 + 2.0 } else { rect.max.y - GRIP / 2.0 - 2.0 },
-            ),
-            Vec2::splat(GRIP),
-        );
+        let grip_rect = grip_rect(rect, view.bar, view.anchored);
+        out.grip = Some(grip_rect);
         let mut content = ui.new_child(egui::UiBuilder::new().max_rect(body).layout(Layout::top_down(Align::Min)));
         let keep_clear = |ui: &mut Ui, text: RichText| {
             ui.horizontal(|ui| {
                 if bottom && right {
                     ui.add_space(GRIP);
+                } else if bottom {
+                    // The grip stands at the right end of this line: the text wraps before it.
+                    ui.set_max_width((ui.available_width() - GRIP).max(1.0));
                 }
                 ui.add(egui::Label::new(text).wrap());
             });
@@ -822,6 +909,9 @@ fn draw(ui: &mut Ui, view: &View) -> Output {
         match view.shard.filter(|_| view.game) {
             Some(shard) => status_with_shard(&mut content, s, status, shard, view.shard_hint, view.anchored, &mut out),
             None => keep_clear(&mut content, status),
+        }
+        if let Some(zone) = view.zone.filter(|_| view.game) {
+            zone_notice(&mut content, s, zone, &mut out);
         }
         if let Some(place) = view.location {
             content.add(egui::Label::new(RichText::new(place.to_string()).small().color(color(s.sub))).wrap());
@@ -832,9 +922,13 @@ fn draw(ui: &mut Ui, view: &View) -> Output {
                 content.add(egui::Label::new(RichText::new(wanted).small().color(color(s.fg))).wrap());
             }
         }
-        if let Some(version) = view.update.filter(|_| view.game) {
-            let text = tf("ov_update", &[("0", version.into())]);
-            content.add(egui::Label::new(RichText::new(text).small().color(color(s.accent))).wrap());
+        match (view.update, view.update_days) {
+            (Some(version), Some(days)) => update_waiting_line(&mut content, s, version, days, view.game, &mut out),
+            (Some(version), None) if view.game => {
+                let text = tf("ov_update", &[("0", version.into())]);
+                content.add(egui::Label::new(RichText::new(text).small().color(color(s.accent))).wrap());
+            }
+            _ => {}
         }
         if let Some(line) = view.hangar {
             hangar_line(&mut content, s, line, &mut out);
@@ -856,6 +950,19 @@ fn draw(ui: &mut Ui, view: &View) -> Output {
             content.add(egui::Label::new(RichText::new(line).small().color(color(tint))).truncate());
         }
         if !view.refinery.is_empty() {
+            content.add_space(4.0);
+        }
+        let open = t("ov_bank_oeffnen");
+        for (line, needs) in view.bank {
+            let tint = if *needs { s.accent } else { s.fg };
+            let label = egui::Label::new(RichText::new(line).small().color(color(tint))).truncate().sense(Sense::click());
+            let response = content.add(label).on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(&open);
+            if response.clicked() {
+                out.open_bank = true;
+            }
+            out.drawn.push(line.clone());
+        }
+        if !view.bank.is_empty() {
             content.add_space(4.0);
         }
         crate::widgets::scroll_area(
@@ -953,6 +1060,7 @@ mod tests {
             contracts_max: 10,
             hidden: None,
             refinery: &[],
+            bank: &[],
             launcher: false,
             status,
             location: None,
@@ -961,6 +1069,8 @@ mod tests {
             signature: None,
             demand: None,
             update: None,
+            update_days: None,
+            zone: None,
             game: true,
             locked: false,
             bar: BarSide::Top,
@@ -972,6 +1082,40 @@ mod tests {
             hangar: None,
             hints_outside: false,
         }
+    }
+
+    /// Leaving an armistice zone stands in the open overlay in plain words, in both languages; entering one says the
+    /// opposite; nothing stands there without a notice, in the folded bar, or while the game does not run.
+    #[test]
+    fn the_notice_of_an_armistice_zone_stands_in_the_open_overlay_in_both_languages() {
+        let _language = crate::language_lock();
+        let scheme = theme::by_id("original").expect("scheme");
+        let (rows, status) = (rows(), Message::Plain("Status".into()));
+        for choice in [language::Choice::De, language::Choice::En] {
+            language::set_thread_language(choice);
+            let mut shown = view(scheme, &rows, &status, Shown::Open);
+            let (calm, painted) = frame(&shown, vec2(440.0, 300.0), None);
+            assert!(!painted.contains(&t("ov_zone_verlassen")), "{choice:?}: no notice, no text");
+            assert!(calm.drawn.iter().all(|text| text != &t("ov_zone_verlassen")));
+            for (zone, key) in [(Zone::Left, "ov_zone_verlassen"), (Zone::Entered, "ov_zone_betreten")] {
+                shown.zone = Some(zone);
+                let (out, painted) = frame(&shown, vec2(440.0, 300.0), None);
+                assert!(painted.contains(&t(key)), "{choice:?} {zone:?}: the notice is painted: {painted:?}");
+                assert!(out.drawn.contains(&t(key)), "{choice:?} {zone:?}: and told as drawn");
+                // Counter check: the other notice is not painted with it.
+                let other = if zone == Zone::Left { "ov_zone_betreten" } else { "ov_zone_verlassen" };
+                assert!(!painted.contains(&t(other)), "{choice:?} {zone:?}: only its own words");
+            }
+            shown.zone = Some(Zone::Left);
+            let mut bar = view(scheme, &rows, &status, Shown::Bar);
+            bar.zone = Some(Zone::Left);
+            let (_, folded) = frame(&bar, vec2(440.0, 300.0), None);
+            assert!(!folded.contains(&t("ov_zone_verlassen")), "{choice:?}: the folded bar shows no notice");
+            shown.game = false;
+            let (_, idle) = frame(&shown, vec2(440.0, 300.0), None);
+            assert!(!idle.contains(&t("ov_zone_verlassen")), "{choice:?}: no notice without the game");
+        }
+        language::set_thread_language(language::Choice::De);
     }
 
     /// The bar carries the name of the program and no version number, open and folded: the version stands in the
@@ -1882,6 +2026,104 @@ mod tests {
     }
 
     #[test]
+    fn the_grip_never_lies_in_the_bar_and_the_cross_says_quit_in_every_corner() {
+        let scheme = theme::by_id("original").expect("original");
+        let (rows, status) = (rows(), Message::Plain("x".into()));
+        // The size `hint_at` draws in.
+        let size = vec2(600.0, 300.0);
+        for bar in [BarSide::Top, BarSide::Bottom] {
+            for anchored in [(false, false), (false, true), (true, false), (true, true)] {
+                let mut v = view(scheme, &rows, &status, Shown::Open);
+                (v.bar, v.anchored) = (bar, anchored);
+                let (out, _) = frame(&v, size, None);
+                let what = format!("bar {bar:?}, anchored {anchored:?}");
+                let grip = out.grip.unwrap_or_else(|| panic!("{what}: no grip"));
+                assert!(
+                    Rect::from_min_size(egui::Pos2::ZERO, size).contains_rect(grip),
+                    "{what}: grip inside the window"
+                );
+                let bar_rect = match bar {
+                    BarSide::Top => Rect::from_min_size(egui::Pos2::ZERO, vec2(size.x, BAR_HEIGHT)),
+                    BarSide::Bottom => Rect::from_min_max(pos2(0.0, size.y - BAR_HEIGHT), pos2(size.x, size.y)),
+                };
+                assert!(!grip.intersects(bar_rect), "{what}: the grip {grip:?} lies in the bar {bar_rect:?}");
+                for (action, button) in &out.buttons {
+                    assert!(!grip.intersects(*button), "{what}: the grip covers {action:?} {button:?}");
+                }
+                // The pointer on the cross: its own hint, as a tooltip and in the window of its own.
+                let quit = out.buttons.iter().find(|(a, _)| *a == Action::Quit).map(|(_, r)| r.center()).expect("quit");
+                for outside in [false, true] {
+                    v.hints_outside = outside;
+                    assert_eq!(hint_at(&v, quit), Some(t("hinweis_schliessen")), "{what}, outside {outside}");
+                }
+            }
+        }
+    }
+
+    /// With the bar on top the grip stands in the first line of the body (right under the bar) in the two corners at
+    /// the top: the status and the shard of that line keep clear of it, in every text size and at the narrowest
+    /// window, with and without the shard.
+    #[test]
+    fn the_grip_under_the_bar_does_not_cut_the_first_line() {
+        let scheme = theme::by_id("original").expect("original");
+        let rows = rows();
+        let status = Message::Plain("444 Baupläne · Log gelesen · geprüft 17:26:00".into());
+        let (short, whole) = ("euw1b · 420 · FPS 41", "Shard: EU-West 12881860-420");
+        let (low, high) = versekit_core::font_size::POINTS_RANGE;
+        for anchored in [(true, false), (true, true)] {
+            for with_shard in [false, true] {
+                for points in [low, high] {
+                    let mut v = view(scheme, &rows, &status, Shown::Open);
+                    (v.bar, v.anchored) = (BarSide::Top, anchored);
+                    if with_shard {
+                        (v.shard, v.shard_hint) = (Some(short), Some(whole));
+                    }
+                    let (narrowest, _) = drawn_with_width(&v, 440.0, points, None);
+                    let width = narrowest.max(versekit_core::overlay::MIN_BAR_WIDTH as f32).ceil();
+                    for width in [width, 440.0] {
+                        let what = format!("anchored {anchored:?}, shard {with_shard}, size {points}, width {width}");
+                        let ctx = egui::Context::default();
+                        crate::install(&ctx);
+                        crate::apply(&ctx, scheme);
+                        crate::apply_size(&ctx, points);
+                        let mut grip = None;
+                        let mut texts = Vec::new();
+                        for _ in 0..3 {
+                            let input = egui::RawInput {
+                                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(width, 400.0))),
+                                ..Default::default()
+                            };
+                            let mut output = ctx.run_ui(input, |ui| grip = show(ui, &v).grip);
+                            output.textures_delta.clear();
+                            texts = output
+                                .shapes
+                                .iter()
+                                .filter_map(|c| match &c.shape {
+                                    egui::Shape::Text(text) => Some((
+                                        text.galley.text().to_string(),
+                                        Rect::from_min_size(
+                                            text.pos + text.galley.rect.min.to_vec2(),
+                                            text.galley.rect.size(),
+                                        ),
+                                    )),
+                                    _ => None,
+                                })
+                                .collect();
+                        }
+                        let grip = grip.unwrap_or_else(|| panic!("{what}: no grip"));
+                        let first_line: Vec<_> =
+                            texts.iter().filter(|(text, _)| text == &status.render() || text == short).collect();
+                        assert!(!first_line.is_empty(), "{what}: the first line is drawn");
+                        for (text, rect) in first_line {
+                            assert!(!rect.intersects(grip), "{what}: the grip {grip:?} cuts {text:?} at {rect:?}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn the_grip_points_where_the_window_grows() {
         assert_eq!(grip_icon((false, false)), "arrow-down-right");
         assert_eq!(grip_icon((true, true)), "arrow-up-left");
@@ -2148,6 +2390,68 @@ mod tests {
         let (both, _) = frame(&v, size, None);
         assert_eq!(both.contract_texts[1], contracts_head(lines.len(), 10));
         assert_eq!(both.hide_buttons.len(), 3);
+    }
+
+    /// An update that has waited a day or more shows in yellow with its days, with the game closed too, and its button
+    /// installs it now; while the game runs the button stays grey and a click on it reports nothing. Below a day the
+    /// line stays as it was: only in the game, without a button.
+    #[test]
+    fn an_update_waiting_for_days_shows_with_its_button_which_is_grey_in_the_game() {
+        let rows = rows();
+        let status = Message::Plain("x".into());
+        let scheme = theme::by_id("original").expect("original");
+        let size = vec2(420.0, 500.0);
+        let click = |v: &View, target: Pos2| -> bool {
+            let ctx = egui::Context::default();
+            crate::install(&ctx);
+            let press = |pressed| egui::Event::PointerButton {
+                pos: target,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Default::default(),
+            };
+            let mut asked = false;
+            let steps =
+                [vec![], vec![egui::Event::PointerMoved(target)], vec![press(true)], vec![press(false)], vec![]];
+            for events in steps {
+                let input = egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, size)),
+                    events,
+                    ..Default::default()
+                };
+                let mut output = ctx.run_ui(input, |ui| asked |= show(ui, v).update_now);
+                output.textures_delta.clear();
+            }
+            asked
+        };
+        for choice in [language::Choice::De, language::Choice::En] {
+            language::set_thread_language(choice);
+            let mut v = view(scheme, &rows, &status, Shown::Open);
+            v.update = Some("5.3.0");
+            let waiting =
+                tf("ov_update_wartet", &[("0", "5.3.0".into()), ("1", tf("zeit_tage", &[("0", 3.into())]).into())]);
+            // Below a day: the old line in the game, nothing without it, no button.
+            let (out, painted) = frame(&v, size, None);
+            assert!(out.update_button.is_none() && !painted.contains(&waiting), "{choice:?}");
+            assert!(painted.contains(&tf("ov_update", &[("0", "5.3.0".into())])), "{choice:?}");
+            // Three days, game closed: the yellow line with a usable button, and a click asks for the update.
+            v.update_days = Some(3);
+            v.game = false;
+            let (out, painted) = frame(&v, size, None);
+            assert!(painted.contains(&waiting), "{choice:?}: {painted:?}");
+            assert!(!painted.contains(&tf("ov_update", &[("0", "5.3.0".into())])), "{choice:?}: one line, not two");
+            let (button, usable) = out.update_button.expect("the button of the line");
+            assert!(usable && button.min.x >= 0.0 && button.max.x <= size.x, "{choice:?}: {button:?}");
+            assert!(click(&v, button.center()), "{choice:?}: the click asks for the update");
+            // In the game: the line stays, the button is grey and a click asks for nothing.
+            v.game = true;
+            let (out, painted) = frame(&v, size, None);
+            assert!(painted.contains(&waiting), "{choice:?}");
+            let (button, usable) = out.update_button.expect("the button of the line");
+            assert!(!usable, "{choice:?}: grey in the game");
+            assert!(!click(&v, button.center()), "{choice:?}: no update in the game");
+        }
+        language::set_thread_language(language::Choice::De);
     }
 
     /// The rocket stands in the bar only while a way to start the game is known, inside the window at

@@ -196,15 +196,7 @@ impl HintWindow {
     /// Where the window goes, in screen pixels and at its size: wrapped and cut to `area` where the text is wider
     /// or taller than the screen, on the screen of the symbol, clear of the symbol (`anchor`) and wholly in view,
     /// whichever edge the overlay stands at.
-    fn place(
-        &mut self,
-        ctx: &egui::Context,
-        text: &str,
-        ppp: f32,
-        near: (i32, i32),
-        anchor: Rect,
-        area: Rect,
-    ) -> Rect {
+    fn place(&mut self, ctx: &egui::Context, text: &str, ppp: f32, near: (i32, i32), anchor: Rect, area: Rect) -> Rect {
         // The text wraps at the widest the screen has room for, with the strip kept free at both edges.
         let free = (area.w - 2 * versekit_core::overlay::HINT_RESERVE).max(1) as f32;
         let room = (free / ppp - FRAME.x).clamp(1.0, MAX_WIDTH);
@@ -232,8 +224,7 @@ impl HintWindow {
             return;
         }
         self.looked += 1;
-        let title =
-            versekit_core::language::window_title(&versekit_core::language::t("ov_hinweis_fenstertitel"));
+        let title = versekit_core::language::window_title(&versekit_core::language::t("ov_hinweis_fenstertitel"));
         #[cfg(windows)]
         {
             self.native = crate::win::own_window_titled(&title);
@@ -305,14 +296,18 @@ mod tests {
         let ctx = egui::Context::default();
         versekit_ui::install(&ctx);
         let mut hint = HintWindow::new();
-        let long = "Ein sehr langer Hinweis, der in ein so kleines Fenster nicht in einer Zeile passt und umbrechen muss";
+        let long =
+            "Ein sehr langer Hinweis, der in ein so kleines Fenster nicht in einer Zeile passt und umbrechen muss";
         let symbol = Rect::new(15, 10, 10, 10);
         let mut output = ctx.run_ui(egui::RawInput::default(), |_| {
             let window = hint.place(&ctx, long, 1.0, (20, 15), symbol, tiny);
             let asked = (hint.size.x.ceil() as i32, hint.size.y.ceil() as i32);
             assert!(asked.0 > tiny.w || asked.1 > tiny.h, "the premise: the text asks for more than the screen has");
             assert!(tiny.holds(window), "{window:?} is not on the small screen");
-            assert!(window.w <= tiny.w - 2 && window.h <= tiny.h - 2, "{window:?} is cut to the screen, with its strip");
+            assert!(
+                window.w <= tiny.w - 2 && window.h <= tiny.h - 2,
+                "{window:?} is cut to the screen, with its strip"
+            );
             assert!(window.w < asked.0 || window.h < asked.1, "the window is smaller than the text asked: {window:?}");
         });
         output.textures_delta.clear();
@@ -392,8 +387,9 @@ mod tests {
         hint.known.push((area, 2.0));
         let symbol = Rect::new(area.x + 100, area.y + 100, 26, 26);
         let pointer = Some(Pointer { hidden: false, x: area.x + 113, y: area.y + 113 });
-        let mut output =
-            ctx.run_ui(egui::RawInput::default(), |ui| hint.step(ui.ctx(), Some("Hinweis"), pointer, Some(symbol), scheme));
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            hint.step(ui.ctx(), Some("Hinweis"), pointer, Some(symbol), scheme)
+        });
         output.textures_delta.clear();
         // (The window of this test then reports the 1.0 of its context: the placement of the frame is what counts.)
         let window = hint.window().expect("placed");

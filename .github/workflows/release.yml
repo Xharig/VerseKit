@@ -3,6 +3,8 @@
 #   Windows: dist/VerseKit-Setup.exe (Inno Setup; the program file inside is target/release/versekit.exe)
 #   Linux:   VerseKit-x86_64.AppImage (built in Ubuntu 22.04, packaging/appimage.sh)
 #   Both:    SHA256SUMS.txt over exactly these two files
+#   All three get a build provenance (Sigstore, `gh attestation verify <file> --repo Xharig/VerseKit`), kept by
+#   GitHub apart from the release files; the program checks it after a download (`provenance.rs`).
 #
 # A tag with -rc, -beta or -alpha becomes a pre-release: the program offers it only to whoever runs a test
 # version or asked for them. Every update needs SHA256SUMS.txt; without it nobody installs anything.
@@ -62,7 +64,7 @@ jobs:
           cargo clippy --release --workspace --locked -- -D warnings
           cargo test --locked -p versekit-gamedata --test no_key
           cargo test --locked -p versekit-app
-          cargo test --locked -p versekit-core --lib -- updater update_run update_helper update_swap auto_update autostart backup
+          cargo test --locked -p versekit-core --lib -- updater update_run update_helper update_swap auto_update autostart backup provenance
 
       - name: Build the program
         run: cargo build --release --locked -p versekit-app
@@ -202,6 +204,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # For the build provenance only: the token of this run for Sigstore, and storing the attestation.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         # With the whole history and the tags: the release text links the changes since the test version before.
@@ -236,6 +241,27 @@ jobs:
           cat SHA256SUMS.txt
           test "$(wc -l < SHA256SUMS.txt)" = "2"
           if grep -q '/' SHA256SUMS.txt; then echo "a path in SHA256SUMS.txt" >&2; exit 1; fi
+
+      # The build provenance of the three files, signed with a certificate that names this repository, this
+      # workflow and the ref of the run (the tag on a tag push). While the program only notes it, a failure must
+      # not stop a release: continue-on-error, and the next step makes the failure visible. Without
+      # continue-on-error once the program refuses an update without it.
+      - name: Build provenance
+        id: herkunft
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: |
+            dateien/windows/VerseKit-Setup.exe
+            dateien/linux/VerseKit-x86_64.AppImage
+            SHA256SUMS.txt
+
+      - name: Build provenance failed
+        if: steps.herkunft.outcome == 'failure'
+        run: |
+          echo "::warning title=Build provenance::No build provenance for $TAG - the release goes out without it, the program notes that after every update"
+          echo "### ⚠️ No build provenance for $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "The release goes out without it. Re-run the job to make it." >> "$GITHUB_STEP_SUMMARY"
 
       # A fault of GitHub during the upload (5xx) does not end the job here: the next step repairs and checks.
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3

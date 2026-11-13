@@ -532,6 +532,8 @@ pub struct UpdateTexts<'a> {
     pub news: &'a str,
     /// Why the strong button cannot be used yet (its hover); `None`: it can.
     pub update_blocked: Option<&'a str>,
+    /// The update has waited a day or more: the bar stands out with a yellow frame and a bold message.
+    pub urgent: bool,
 }
 
 /// What the player chose in the bar for a new version.
@@ -560,9 +562,15 @@ pub fn restart_bar(ui: &mut Ui, scheme: &Scheme, texts: &UpdateTexts) -> Option<
 /// and a plain button.
 fn notice_bar(ui: &mut Ui, scheme: &Scheme, icon: &str, texts: &UpdateTexts) -> Option<UpdateChoice> {
     let mut choice = None;
+    // Waiting for days: the surface of a card with a yellow frame, so that the bold text keeps its contrast.
+    let (fill, frame) = if texts.urgent {
+        (scheme.surface, Stroke::new(2.0, color(scheme.yellow)))
+    } else {
+        (scheme.accent_dark, Stroke::new(1.0, color(scheme.accent)))
+    };
     egui::Frame::new()
-        .fill(color(scheme.accent_dark))
-        .stroke(Stroke::new(1.0, color(scheme.accent)))
+        .fill(color(fill))
+        .stroke(frame)
         .corner_radius(control_radius(scheme))
         .inner_margin(egui::Margin::symmetric(8, 6))
         .show(ui, |ui| {
@@ -571,7 +579,11 @@ fn notice_bar(ui: &mut Ui, scheme: &Scheme, icon: &str, texts: &UpdateTexts) -> 
                 if let Some(image) = crate::icons::themed(icon, scheme, IconTint::Highlight, 16.0) {
                     ui.add(image);
                 }
-                ui.label(texts.message);
+                if texts.urgent {
+                    ui.label(egui::RichText::new(texts.message).strong().color(color(scheme.fg)));
+                } else {
+                    ui.label(texts.message);
+                }
                 let strong =
                     widgets::Button::new(texts.update, ButtonKind::Strong, scheme).blocked(texts.update_blocked);
                 if ui.add(strong).clicked() {
@@ -1095,8 +1107,14 @@ mod tests {
     fn settings_parts_draw_in_every_scheme() {
         let ctx = egui::Context::default();
         crate::install(&ctx);
-        let texts =
-            UpdateTexts { message: "5.1 ist da.", update: "Aktualisieren", news: "Was ist neu", update_blocked: None };
+        let texts = UpdateTexts {
+            message: "5.1 ist da.",
+            update: "Aktualisieren",
+            news: "Was ist neu",
+            update_blocked: None,
+            urgent: false,
+        };
+        let waiting = UpdateTexts { message: "5.1 wartet seit 3 Tagen.", urgent: true, ..texts };
         for s in theme::schemes() {
             let (mut place, mut bar, mut on) = (OverlayPlace::Free, BarSide::Bottom, true);
             frame(&ctx, vec![], &mut |ui| {
@@ -1106,6 +1124,7 @@ mod tests {
                 });
                 step_list(ui, s, &["A", "B"], 1, &[true, false]);
                 update_bar(ui, s, &texts);
+                update_bar(ui, s, &waiting);
                 overlay_place(ui, s, &mut place, &mut bar, &TEXTS);
             });
         }

@@ -34,7 +34,7 @@ pub const OPEN: &str = "[SCBPW]";
 pub const CLOSE: &str = "[/SCBPW]";
 
 /// The headings that tell a block as ours or as one from the same source.
-pub const HEADINGS: [&str; 12] = [
+pub const HEADINGS: [&str; 14] = [
     "BAUPLÄNE AUS DIESEM AUFTRAG",
     "BLUEPRINTS FROM THIS CONTRACT",
     "MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP",
@@ -47,6 +47,8 @@ pub const HEADINGS: [&str; 12] = [
     "VERSEKIT: BLUEPRINT & CRAFTING",
     CONTRACT_HEADINGS[0],
     CONTRACT_HEADINGS[1],
+    super::item_stats::HEADINGS[0],
+    super::item_stats::HEADINGS[1],
 ];
 
 /// The headings of the block of a contract without blueprints. That block has no boxes and is ours all the same.
@@ -57,9 +59,15 @@ pub static CONTRACT_BLOCK: LazyLock<Regex> = LazyLock::new(|| {
     compile(&format!("<EM4>(?:{})</EM4>", CONTRACT_HEADINGS.map(regex::escape).join("|")))
 });
 
-/// Whether a piece holds what marks a block as ours: a box, or the heading of a contract block.
+/// The heading of a block of stock values as written, which only this tool writes.
+pub static STATS_BLOCK: LazyLock<Regex> = LazyLock::new(|| {
+    compile(&format!("<EM4>(?:{})</EM4>", super::item_stats::HEADINGS.map(regex::escape).join("|")))
+});
+
+/// Whether a piece holds what marks a block as ours: a box, or the heading of a contract block or of a block of
+/// stock values.
 pub fn is_ours(text: &str) -> bool {
-    has_box(text) || CONTRACT_BLOCK.is_match(text)
+    has_box(text) || CONTRACT_BLOCK.is_match(text) || STATS_BLOCK.is_match(text)
 }
 
 /// The box before a blueprint the player has, and before one he lacks.

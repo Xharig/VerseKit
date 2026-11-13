@@ -165,12 +165,25 @@ pub fn catalog_file(paths: &Paths) -> String {
     crate::catalog_cache::current_file(paths)
 }
 
-/// `catalog.load()['geholt']`.
+/// The stand of the catalog the notes are written from, remembered in [`SETTING_CATALOG`]: a different one has them
+/// written anew. The 4.12 cache names the time it was fetched (`geholt`); the catalog built from the game data has
+/// none, so its stand is its version and a digest of its contents without the stamp of its build (`quelle`), which
+/// changes with every build that brings other data. Empty without a catalog.
 pub fn catalog_stand(paths: &Paths) -> String {
-    match jsonio::read_json(&catalog_file(paths)).ok().and_then(|d| d.get("geholt").cloned()) {
-        Some(value) if injection::texts::truthy(Some(&value)) => injection::texts::py_str(&value),
-        _ => String::new(),
+    let Ok(data) = jsonio::read_json(&catalog_file(paths)) else { return String::new() };
+    if let Some(value) = data.get("geholt").filter(|value| injection::texts::truthy(Some(value))) {
+        return injection::texts::py_str(value);
     }
+    let Value::Object(fields) = &data else { return String::new() };
+    if !matches!(data.get("bauplaene"), Some(Value::Object(_))) {
+        return String::new();
+    }
+    let contents = Value::Object(fields.iter().filter(|(key, _)| key != "quelle").cloned().collect());
+    let raw = jsonio::dumps(&contents, None, false);
+    let digest = ring::digest::digest(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY, raw.as_bytes());
+    let hex: String = digest.as_ref().iter().take(6).map(|b| format!("{b:02x}")).collect();
+    let version = data.get("version").and_then(Value::as_str).unwrap_or_default();
+    format!("{version}@{hex}")
 }
 
 /// Everything the writing reads, the rank thresholds read when they do

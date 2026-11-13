@@ -43,12 +43,16 @@
 //! | `ship_sync` | the hangar against the ships over there: identifiers, plan and change sets, without the net |
 //! | `orgstock` | the storage of the own units: reading, booking, looking up goods |
 //! | `demand` | what the open orders of the own units still need, in memory only |
+//! | `refinery_sync` | the refinery jobs against the own refinery orders: plan and taking over, without the net |
+//! | `bank` | the Kartellbank: accounts, own requests, the queue of bank staff, in memory only |
+//! | `refinery_area` | the area refinery: feed, keys, change sets, the orders over there into the jobs |
 //! | `demo` | a made-up Basetool in memory for the preview and the tests |
 //!
 //! ⚠ No token, key or login code leaves these modules: not into the error
 //! log, the report or the backup. Errors carry the server's code only.
 
 pub mod area_support;
+pub mod bank;
 pub mod blueprint_area;
 pub mod blueprint_sync;
 #[cfg(windows)]
@@ -71,6 +75,8 @@ pub mod orgunits;
 pub mod overview;
 pub mod pacing;
 pub mod proof;
+pub mod refinery_area;
+pub mod refinery_sync;
 pub mod schedule;
 pub mod scopes;
 pub mod secrets;

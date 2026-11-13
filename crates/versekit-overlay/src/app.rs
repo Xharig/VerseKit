@@ -36,10 +36,11 @@ use std::time::{Duration, Instant};
 
 use eframe::egui;
 use egui::{ViewportCommand, WindowLevel};
+use versekit_core::armistice::Zone;
 use versekit_core::basetool::demand::{self, Material};
 use versekit_core::contested;
 use versekit_core::game_start::{self, Spawner};
-use versekit_core::language::{self, Lang, Phrase};
+use versekit_core::language::{self, Arg, Lang, Phrase};
 use versekit_core::live_contracts::Line as ContractLine;
 use versekit_core::overlay::{
     self, BarSide, Corner, DRAG_SLACK, Event, Hotkey, Layout, MIN_BAR_WIDTH, Message, Mode, OPEN_EXTRA_HEIGHT, Pointer,
@@ -110,9 +111,12 @@ mod os {
     pub fn allow_typing(_hwnd: isize, _on: bool) -> bool {
         false
     }
+    /// The place of the window as macOS has it (it moves a window that lies over the menu bar and tells nothing
+    /// else): found by its title, as there is no handle. Empty where it cannot be asked.
     #[cfg(target_os = "macos")]
     pub fn window_rect(_hwnd: isize) -> Rect {
-        Rect::default()
+        let title = versekit_core::language::window_title(&versekit_core::language::t("ov_fenstertitel"));
+        versekit_core::screen::window_area_titled(&title).map_or_else(Rect::default, Rect::from_area)
     }
 }
 
@@ -131,6 +135,8 @@ fn bell(version: Option<&str>) -> view::Extra {
 
 /// How long the hiding of a contract can be taken back.
 pub const UNHIDE_SECONDS: f64 = 10.0;
+/// The least time, in seconds, the notice of an armistice zone stays.
+pub const ZONE_SECONDS_MIN: f64 = 10.0;
 
 /// A contract the player hid by hand, kept for taking it back.
 #[derive(Clone, Debug)]
@@ -286,8 +292,18 @@ pub struct OverlayApp {
     /// Until then (seconds of the run) the line of the scanner shows in the open overlay, also where the
     /// player did not ask for it: a reading opened the overlay, and it should show why.
     scanner_line_until: f64,
+    /// The armistice zone the player left or entered last, shown until the moment (seconds of the run).
+    zone_note: Option<(Zone, f64)>,
     /// The materials the unit wants, as the main window last handed them over; in memory only.
     demand: Arc<Mutex<Vec<Material>>>,
+    /// What the main window last handed over of the Kartellbank; in memory only.
+    bank: Arc<Mutex<versekit_core::basetool::bank::Handed>>,
+    /// The round of queue news last seen; `None` before the first handing over (whose round is taken, not told).
+    bank_round: Option<u64>,
+    /// Whether a main window runs: without one the bank it handed over is not shown any more.
+    main_alive: fn() -> bool,
+    /// When the main window was last looked for.
+    main_looked: Option<Instant>,
     pub rows: Rows,
     /// The running contracts, as the watcher tells them.
     pub contracts: Vec<ContractLine>,
@@ -304,6 +320,8 @@ pub struct OverlayApp {
     pub status: Message,
     location: Option<Phrase>,
     pub update: Option<String>,
+    /// Whole days the version on offer has waited, from one day on.
+    pub update_days: Option<u64>,
     news: Receiver<News>,
     asks: Option<Sender<Ask>>,
     game_news: Receiver<GameNews>,
@@ -436,6 +454,10 @@ pub struct OverlayApp {
     pub launched: Option<(std::path::PathBuf, Vec<String>)>,
     /// Under `--probe`: the overlay was closed (the window stays for the checks).
     pub quit_asked: bool,
+    /// The program asked the overlay to end (an update handed over, a request of the main window), not the player.
+    pub ended_by_program: bool,
+    /// The player ended the overlay: its button, „Quit“ at the icon. Only then an update comes at the end.
+    pub ended_by_player: bool,
     /// The closing of the overlay was done.
     closed: bool,
     /// The main program this overlay started.
@@ -456,6 +478,8 @@ pub struct OverlayApp {
     /// it hands to egui in the next frame, and the pointer moves the window
     /// was told of (window pixels).
     pub pointer_override: Option<Pointer>,
+    /// Where the window system says the window stands, instead of asking it: a double for the tests.
+    pub window_override: Option<Rect>,
     pub injected: Vec<egui::Event>,
     pub nudged: Vec<(i32, i32)>,
 }
@@ -587,7 +611,7 @@ impl OverlayApp {
     /// The system moved the window: the visible part and the open place move along. A place sent to the
     /// window system that did not arrive yet is no such move (see [`system_move`]).
     fn follow_system_move(&mut self) {
-        let real = os::window_rect(self.hwnd);
+        let real = self.window_override.unwrap_or_else(|| os::window_rect(self.hwnd));
         if (real.x, real.y) == (self.canvas.x, self.canvas.y) {
             self.place_sent = None;
         }
@@ -995,6 +1019,27 @@ impl OverlayApp {
         }
     }
 
+    /// How long the notice of an armistice zone stays, and how long it opens a folded overlay: the time the player set
+    /// for the opening, but not less than ten seconds, which a warning needs to be read.
+    fn zone_seconds(&self) -> f64 {
+        self.popup_seconds().max(ZONE_SECONDS_MIN)
+    }
+
+    /// The HUD told that the player left or entered an armistice zone: the notice stands in the open overlay for a
+    /// while, if the player did not switch it off. Leaving it, when weapons are free again, also opens a folded or
+    /// waiting overlay; entering it opens nothing.
+    pub(crate) fn zone_told(&mut self, zone: Zone, now: f64) {
+        if !self.settings.sections.contains(Section::Armistice) {
+            return;
+        }
+        let seconds = self.zone_seconds();
+        self.zone_note = Some((zone, now + seconds));
+        if zone == Zone::Left {
+            self.read_control_now();
+            self.vis.found(now, seconds);
+        }
+    }
+
     fn take_news(&mut self) {
         let now = self.now();
         // A settings file that broke here, in the window's own reading, is told like the one the watcher finds.
@@ -1055,6 +1100,7 @@ impl OverlayApp {
                     self.search.take_log(&lines.join("\n"), versekit_ui::handle_search::now());
                 }
                 News::OwnHandle(handle) => self.search.set_own_handle(Some(handle)),
+                News::Zone(zone) => self.zone_told(zone, now),
             }
         }
         // How a start went: a reason is shown and noted, as in 4.12.
@@ -1194,6 +1240,17 @@ impl OverlayApp {
         }
     }
 
+    /// The player asked for the waiting update now (the button of its line, only while the game is closed): the
+    /// thread of the updates fetches it at once. Without that thread (sample contents, the self-check) the main
+    /// window opens on the page about the update instead.
+    pub fn update_now(&mut self) {
+        if self.args.probe.is_none() && crate::ask_update_now() {
+            self.status = Phrase::new("ov_update_holt").into();
+        } else {
+            self.open_main(Signal::OpenAbout);
+        }
+    }
+
     /// The lines of the refinery jobs for this frame, while their part is shown: the file is read again once
     /// [`REFINERY_READ_EVERY`] is over, the time left counts every second.
     fn refinery_lines(&mut self, ctx: &egui::Context) -> Vec<(String, bool)> {
@@ -1211,6 +1268,46 @@ impl OverlayApp {
             ctx.request_repaint_after(Duration::from_secs(1));
         }
         lines
+    }
+
+    /// The lines of the Kartellbank under the jobs: the balance of each account, then the pending own requests or
+    /// the queue. The streamer mode covers the balances. Nothing while the main window handed no bank over.
+    fn bank_lines(&self) -> Vec<(String, bool)> {
+        let handed = self.bank.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        bank_lines_of(&handed.shown_at(versekit_core::export::now_unix() as f64))
+    }
+
+    /// A pass of the main window found new entries in the queue: one notice next to the clock per round. The round
+    /// of the first handing over is taken without a notice. Without a main window (looked for every few seconds)
+    /// the bank handed over is thrown away.
+    fn bank_news(&mut self) {
+        if self.main_looked.is_none_or(|at| at.elapsed() >= Duration::from_secs(5)) {
+            self.main_looked = Some(Instant::now());
+            if !(self.main_alive)() {
+                let mut handed = self.bank.lock().unwrap_or_else(|e| e.into_inner());
+                if !handed.is_empty() {
+                    *handed = versekit_core::basetool::bank::Handed { news: handed.news, at: handed.at, ..Default::default() };
+                }
+            }
+        }
+        let (news, at) = {
+            let handed = self.bank.lock().unwrap_or_else(|e| e.into_inner());
+            (handed.news, handed.at)
+        };
+        if at.is_none() {
+            return;
+        }
+        match self.bank_round {
+            None => self.bank_round = Some(news.round),
+            Some(seen) if news.round > seen => {
+                self.bank_round = Some(news.round);
+                if news.count > 0 {
+                    let text = language::tf("ov_bank_neu_text", &[("0", Arg::Int(news.count as i64))]);
+                    self.notices.push((language::t("ov_bank_neu_titel"), text));
+                }
+            }
+            Some(_) => {}
+        }
     }
 
     /// The lines of the jobs of the fabricator for this frame, while their part is shown, read as the refinery
@@ -1302,6 +1399,7 @@ impl OverlayApp {
         }
         // An update was handed over: the program ends as the player would end it, so that its file can be replaced.
         if crate::QUIT_ASKED.swap(false, Ordering::Relaxed) && self.args.probe.is_none() {
+            self.ended_by_program = true;
             self.act(ctx, Action::Quit);
         }
         self.take_told();
@@ -1318,8 +1416,11 @@ impl OverlayApp {
         if let Some(version) = told.update {
             self.update = version;
         }
-        for (key, argument) in told.say {
-            self.status = Phrase::new(&key).with("0", argument).into();
+        if let Some(days) = told.days {
+            self.update_days = days;
+        }
+        if let Some(said) = told.say.into_iter().last() {
+            self.status = said;
         }
     }
 
@@ -1336,6 +1437,7 @@ impl OverlayApp {
     /// Hands the messages for the system on: at the icon (Windows) or by `notify-send`.
     /// Switched off by the setting `systemmeldung`; without an icon Windows has no way to show one.
     fn deliver_notices(&mut self) {
+        self.bank_news();
         // The message about the update of the start waits until the icon stands.
         #[cfg(windows)]
         let ready = self.tray.as_ref().is_some_and(|tray| tray.placed());
@@ -1522,6 +1624,13 @@ impl OverlayApp {
         let now = self.now();
         match action {
             Action::Quit => {
+                // The button or „Quit“ at the icon: the player's end. The program's own request is not.
+                if !self.ended_by_program {
+                    self.ended_by_player = true;
+                    if self.args.probe.is_none() {
+                        crate::ENDED_BY_PLAYER.store(true, Ordering::Relaxed);
+                    }
+                }
                 self.closing();
                 // Under `--probe` the window stays for the checks after it.
                 if self.args.probe.is_some() {
@@ -1934,6 +2043,7 @@ impl OverlayApp {
         } else {
             Vec::new()
         };
+        let bank = if shown == Shown::Open { self.bank_lines() } else { Vec::new() };
         // Counter check: the content is lost after coming back from the strip.
         let lost = self.counter.as_deref() == Some("leer") && self.was_waiting;
         let empty = Rows::default();
@@ -1958,6 +2068,7 @@ impl OverlayApp {
             contracts_max: self.settings.contracts_max as usize,
             hidden: self.hidden_note.as_ref().map(|n| n.title.as_str()).filter(|_| contracts_shown),
             refinery: &refinery,
+            bank: &bank,
             launcher: self.launcher,
             status: &self.status,
             location: self.location.as_ref().filter(|_| sections.contains(Section::Location)),
@@ -1966,6 +2077,12 @@ impl OverlayApp {
             signature: signature.as_deref(),
             demand: wanted.as_deref(),
             update: self.update.as_deref().filter(|_| sections.contains(Section::Update)),
+            update_days: self.update_days.filter(|_| self.update.is_some()),
+            zone: self
+                .zone_note
+                .filter(|(_, until)| now < *until)
+                .map(|(zone, _)| zone)
+                .filter(|_| sections.contains(Section::Armistice)),
             game: self.vis.game(),
             locked: self.settings.click_through,
             bar: self.settings.layout.bar,
@@ -2014,6 +2131,13 @@ impl OverlayApp {
         }
         if out.unhide {
             self.unhide_contract();
+        }
+        // The overlay only shows the bank; a click on its line opens the bank page of the main window.
+        if out.open_bank {
+            self.open_main(Signal::OpenBank);
+        }
+        if out.update_now {
+            self.update_now();
         }
         self.expire_hidden_note();
         if let Some(kind) = out.drag
@@ -2353,6 +2477,34 @@ struct Parts {
     afk_asked: Arc<AtomicU8>,
     /// Where the demand the main window hands over lands.
     demand: Arc<Mutex<Vec<Material>>>,
+    /// Where the bank the main window hands over lands.
+    bank: Arc<Mutex<versekit_core::basetool::bank::Handed>>,
+}
+
+/// The overlay lines of a bank handed over (see [`OverlayApp::bank_lines`]).
+fn bank_lines_of(handed: &versekit_core::basetool::bank::Handed) -> Vec<(String, bool)> {
+    let mut lines: Vec<(String, bool)> = handed
+        .accounts
+        .iter()
+        .map(|(_, name, balance)| {
+            let shown = if versekit_core::streamer::active() {
+                versekit_core::streamer::placeholder()
+            } else {
+                versekit_core::formats::money(language::current(), *balance as f64)
+            };
+            (language::tf("ov_bank_konto", &[("0", Arg::from(name.as_str())), ("1", Arg::from(shown))]), false)
+        })
+        .collect();
+    match handed.queue {
+        Some(waiting) if waiting > 0 => {
+            lines.push((language::tf("ov_bank_warteschlange", &[("0", Arg::Int(waiting))]), true));
+        }
+        _ if handed.pending > 0 => {
+            lines.push((language::tf("ov_bank_offen", &[("0", Arg::Int(handed.pending))]), false));
+        }
+        _ => {}
+    }
+    lines
 }
 
 impl OverlayApp {
@@ -2421,8 +2573,14 @@ impl OverlayApp {
             search_reload_due: false,
             scanner_line_until: 0.0,
             demand: p.demand,
+            bank: p.bank,
+            bank_round: None,
+            main_alive: || window_signal::find(Role::Main).is_some(),
+            main_looked: None,
             update: p.args.update.clone(),
+            update_days: None,
             counter: p.args.counter.clone(),
+            zone_note: None,
             args: p.args,
             vis,
             rows: if sample { OverlayApp::sample_rows() } else { Rows::default() },
@@ -2518,6 +2676,8 @@ impl OverlayApp {
             hangar_start: None,
             launched: None,
             quit_asked: false,
+            ended_by_program: false,
+            ended_by_player: false,
             closed: false,
             main_child: None,
             learn_child: None,
@@ -2527,6 +2687,7 @@ impl OverlayApp {
             overview_asked: p.overview_asked,
             frame_asked: p.frame_asked,
             pointer_override: None,
+            window_override: None,
             injected: Vec::new(),
             nudged: Vec::new(),
         }
@@ -2665,6 +2826,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     | Signal::OpenAbout
                     | Signal::OpenMining
                     | Signal::OpenStockScan
+                    | Signal::OpenBank
                     | Signal::AntiAfkOn
                     | Signal::AntiAfkOff
                     | Signal::DemandWanted => return,
@@ -2675,12 +2837,19 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             // The demand of the unit comes from the main window, in memory only; a main window that runs already is
             // asked for it, one that starts later hands it over by itself.
             let demand: Arc<Mutex<Vec<Material>>> = Arc::new(Mutex::new(Vec::new()));
-            let (handed, ctx) = (demand.clone(), cc.egui_ctx.clone());
+            let bank: Arc<Mutex<versekit_core::basetool::bank::Handed>> = Arc::default();
+            let (handed, bank_handed, ctx) = (demand.clone(), bank.clone(), cc.egui_ctx.clone());
             window_signal::on_data(move |kind, bytes| {
-                if kind == window_signal::DataKind::Demand {
-                    *handed.lock().unwrap_or_else(|e| e.into_inner()) = demand::taken_over(&bytes);
-                    ctx.request_repaint();
+                match kind {
+                    window_signal::DataKind::Demand => {
+                        *handed.lock().unwrap_or_else(|e| e.into_inner()) = demand::taken_over(&bytes);
+                    }
+                    window_signal::DataKind::Bank => {
+                        *bank_handed.lock().unwrap_or_else(|e| e.into_inner()) =
+                            versekit_core::basetool::bank::taken_over(&bytes);
+                    }
                 }
+                ctx.request_repaint();
             });
             window_signal::send_to(Role::Main, Signal::DemandWanted);
             let (news_tx, news_rx) = mpsc::channel();
@@ -2894,6 +3063,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 frame_asked,
                 afk_asked,
                 demand,
+                bank,
             });
             #[cfg(windows)]
             if let Some(file) = &args.probe {
@@ -3059,6 +3229,7 @@ mod tests {
         let hints = |app: &OverlayApp| {
             app.rows.iter().filter(|row| matches!(row, Row::Hint { text, .. } if text.render() == hint)).count()
         };
+        bench.app.settings.info_bar = false;
         bench.app.rows.clear();
         bench.search_key.send(()).unwrap();
         bench.app.take_news();
@@ -3194,6 +3365,7 @@ mod tests {
             frame_asked: Arc::new(AtomicBool::new(false)),
             afk_asked: Arc::new(AtomicU8::new(0)),
             demand: Arc::new(Mutex::new(Vec::new())),
+            bank: Arc::default(),
         });
         Bench { app, news, game, control, search_key, picture_key, main_key }
     }
@@ -3417,20 +3589,20 @@ mod tests {
         assert!(!app.info.shown(), "switched off: gone");
     }
 
-    /// The info bar stays hidden while the game does not run, even with its switch on.
+    /// The info bar shows without the game by default; whoever switched that off gets a bar that waits hidden.
     #[test]
-    fn the_info_bar_waits_hidden_while_the_game_does_not_run() {
+    fn the_info_bar_shows_without_the_game_unless_the_player_switched_that_off() {
         let _screens = screen::fixed(laptop());
         let ctx = egui::Context::default();
         versekit_ui::install(&ctx);
         let mut bench = bench_at(Args::default(), false, None, 2.0);
         let app = &mut bench.app;
-        assert!(app.settings.info_bar && !app.settings.info_bar_always, "the defaults: on, but not without the game");
+        assert!(app.settings.info_bar && app.settings.info_bar_always, "the defaults: on, also without the game");
         run_frame(app, &ctx);
-        assert!(!app.info.shown(), "no game: no bar");
-        app.settings.info_bar_always = true;
+        assert!(app.info.shown(), "no game, nothing chosen: the bar shows");
+        app.settings.info_bar_always = false;
         run_frame(app, &ctx);
-        assert!(app.info.shown(), "asked for without the game: the bar shows");
+        assert!(!app.info.shown(), "switched off without the game: the bar waits hidden");
     }
 
     /// Without the game the overlay waits hidden, and the pointer on its place neither opens it nor gets a hint; with
@@ -3552,6 +3724,165 @@ mod tests {
             assert!(screen.holds(window), "zoom {zoom}: {window:?} lies on the work area");
             assert_eq!(window.right(), 3420 - 8, "in the corner at the right");
             assert_eq!(window.bottom(), 70 + 2034 - 8, "at the bottom, above the dock");
+        }
+    }
+
+    /// The numbers of a trace from the Mac of the dev machine (area y 70, scale 2 times a text zoom of 1.18): the
+    /// pointer rests on the gear, and the hint window stood 8 pixels under an anchor that lay 70 pixels above the
+    /// gear: the overlay believed its window to stand at the top of the screen, macOS had moved it below the menu
+    /// bar and said nothing. The overlay learns where the system has its window (as it does on Windows and X11), and
+    /// the anchor lies under the pointer; the hint stands under the real gear and covers no button.
+    #[test]
+    fn the_anchor_lies_where_the_system_has_the_window_not_where_it_was_asked_to_be() {
+        let _screens = screen::fixed(laptop());
+        let ctx = egui::Context::default();
+        versekit_ui::install(&ctx);
+        let zoom = 2.3636364 / 2.0;
+        ctx.set_zoom_factor(zoom);
+        let mut bench = bench_at(Args { game: true, ..Args::default() }, true, None, 2.0);
+        let app = &mut bench.app;
+        let info = egui::ViewportInfo { native_pixels_per_point: Some(2.0), ..Default::default() };
+        let frame = |app: &mut OverlayApp, time: f64, event: Option<egui::Event>| {
+            let input = egui::RawInput {
+                viewports: std::iter::once((egui::ViewportId::ROOT, info.clone())).collect(),
+                time: Some(time),
+                events: event.into_iter().collect(),
+                ..Default::default()
+            };
+            let mut out = ctx.run_ui(input, |ui| app.frame(ui));
+            out.textures_delta.clear();
+        };
+        frame(app, 0.0, None);
+        app.apply_control(Control { corner: Some("oben-links".into()), bar: Some("unten".into()), ..Control::default() });
+        for n in 0..3 {
+            frame(app, f64::from(n) * 0.1, None);
+        }
+        // The overlay believes its window stands at the very top of the screen; macOS has put it below the menu bar.
+        let believed = app.canvas;
+        for r in [&mut app.canvas, &mut app.current, &mut app.last_open] {
+            r.y = 0;
+        }
+        let real = Rect::new(believed.x, 70, believed.w, believed.h);
+        app.window_override = Some(real);
+        app.place_sent = None;
+        let ppp = ctx.pixels_per_point();
+        assert!((ppp - 2.3636364).abs() < 1e-3, "the scale of the trace: {ppp}");
+        let gear = app.buttons.iter().find(|(a, _)| *a == Action::Overview).map(|(_, r)| *r).expect("gear");
+        let c = gear.center();
+        // The pointer is where the gear really is: the window of the system plus the point of the gear.
+        let (px, py) = (real.x + (c.x * ppp) as i32, real.y + (c.y * ppp) as i32);
+        app.pointer_override = Some(Pointer { hidden: false, x: px, y: py });
+        let mut time = 1.0;
+        for n in 0..10 {
+            time += 0.3;
+            frame(app, time, (n == 0).then_some(egui::Event::PointerMoved(c)));
+        }
+        assert_eq!((app.canvas.x, app.canvas.y), (real.x, real.y), "the overlay follows the window of the system");
+        let told = app.hint_rect.expect("the hint says where its symbol is");
+        let symbol = Rect::new(
+            app.canvas.x + (told.min.x * ppp).round() as i32,
+            app.canvas.y + (told.min.y * ppp).round() as i32,
+            (told.width() * ppp).round() as i32,
+            (told.height() * ppp).round() as i32,
+        );
+        assert!(symbol.contains(px, py), "the anchor {symbol:?} lies under the pointer ({px},{py})");
+        let hint = app.hint_window.window().expect("the hint window");
+        assert!(!hint.overlaps(symbol), "{hint:?} covers the gear {symbol:?}");
+        assert!(hint.y >= symbol.bottom(), "the hint stands under the gear: {hint:?} under {symbol:?}");
+    }
+
+    /// The pointer sweeps over every button of the bar, as a hand does, on the retina laptop with the overlay in each
+    /// corner and the bar at either side, at two text sizes: the window of the hint stands wholly on the screen and
+    /// never on the symbol the pointer is on.
+    #[test]
+    fn the_hint_stays_off_every_button_of_the_bar_on_the_retina_laptop() {
+        let layouts = [
+            ("oben-links", "unten"),
+            ("oben-links", "oben"),
+            ("oben-rechts", "unten"),
+            ("oben-rechts", "oben"),
+            ("unten-links", "unten"),
+            ("unten-links", "oben"),
+            ("unten-rechts", "unten"),
+            ("unten-rechts", "oben"),
+        ];
+        // The retina laptop, and the scales of Windows screens: 125 %, 150 % and 200 % (1920 x 1080 points, and 4K).
+        let screens = [
+            (2.0f32, (2880, 1864), (0, 76, 2880, 1788)),
+            (1.5, (2880, 1620), (0, 0, 2880, 1572)),
+            (1.25, (2400, 1350), (0, 0, 2400, 1310)),
+            (2.0, (3840, 2160), (0, 0, 3840, 2112)),
+        ];
+        for ((native, area, work_area), zoom) in screens.into_iter().flat_map(|s| [(s, 1.0f32), (s, 1.45)]) {
+            for (corner, bar) in layouts {
+                let setup = Setup {
+                    scale: native,
+                    primary: 0,
+                    monitors: vec![monitor((0, 0, area.0, area.1), work_area)],
+                };
+                let _screens = screen::fixed(setup);
+                let ctx = egui::Context::default();
+                versekit_ui::install(&ctx);
+                ctx.set_zoom_factor(zoom);
+                let mut bench = bench_at(Args { game: true, ..Args::default() }, true, None, native);
+                let app = &mut bench.app;
+                let info = egui::ViewportInfo { native_pixels_per_point: Some(native), ..Default::default() };
+                let frame = |app: &mut OverlayApp| {
+                    let input = egui::RawInput {
+                        viewports: std::iter::once((egui::ViewportId::ROOT, info.clone())).collect(),
+                        ..Default::default()
+                    };
+                    let mut out = ctx.run_ui(input, |ui| app.frame(ui));
+                    out.textures_delta.clear();
+                };
+                frame(app);
+                app.apply_control(Control {
+                    corner: Some(corner.into()),
+                    bar: Some(bar.into()),
+                    ..Control::default()
+                });
+                for _ in 0..3 {
+                    frame(app);
+                }
+                let ppp = ctx.pixels_per_point();
+                let work = work_at(0, 0);
+                let mut clock = 0.0;
+                let buttons: Vec<egui::Rect> = app.buttons.iter().map(|(_, r)| *r).collect();
+                assert!(buttons.len() >= 6, "the buttons of the bar are there: {}", buttons.len());
+                for button in buttons {
+                    let c = button.center();
+                    let (x, y) = (app.canvas.x + (c.x * ppp) as i32, app.canvas.y + (c.y * ppp) as i32);
+                    app.pointer_override = Some(Pointer { hidden: false, x, y });
+                    for n in 0..8 {
+                        clock += 0.3;
+                        let input = egui::RawInput {
+                            viewports: std::iter::once((egui::ViewportId::ROOT, info.clone())).collect(),
+                            time: Some(clock),
+                            events: if n == 0 { vec![egui::Event::PointerMoved(c)] } else { vec![] },
+                            ..Default::default()
+                        };
+                        let mut out = ctx.run_ui(input, |ui| app.frame(ui));
+                        out.textures_delta.clear();
+                    }
+                    let what = format!("zoom {zoom} {corner}/{bar} pointer ({x},{y})");
+                    let hint = app.hint_window.window().unwrap_or_else(|| panic!("{what}: no hint window"));
+                    let on_screen = |r: egui::Rect| {
+                        Rect::new(
+                            app.canvas.x + (r.min.x * ppp).round() as i32,
+                            app.canvas.y + (r.min.y * ppp).round() as i32,
+                            (r.width() * ppp).round() as i32,
+                            (r.height() * ppp).round() as i32,
+                        )
+                    };
+                    // What the pointer is on (the button; the grip no longer lies over one): the hint has to say
+                    // where that is, and the window of the hint keeps off it.
+                    let told = app.hint_rect.unwrap_or_else(|| panic!("{what}: the hint does not say where it is"));
+                    assert!(told.contains(c), "{what}: {told:?} is not where the pointer is ({c:?})");
+                    let symbol = on_screen(told);
+                    assert!(work.holds(hint), "{what}: {hint:?} runs off {work:?}");
+                    assert!(!hint.overlaps(symbol), "{what}: {hint:?} covers the symbol {symbol:?}");
+                }
+            }
         }
     }
 
@@ -3744,6 +4075,54 @@ mod tests {
         bench.app.apply_control(Control { place: Some(Place::Remembered), place_nr: 1, ..Control::default() });
         assert_eq!(bench.app.last_open, Rect::new(40, 50, 410, 330), "back where the data say");
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// The bank the main window handed over: one line per account, then the queue or the pending own requests; the
+    /// streamer mode covers the balances; the round of the first handing over is taken without a notice, every later
+    /// round gives one; without a main window and after seven days nothing is shown.
+    #[test]
+    fn the_overlay_shows_the_bank_and_tells_new_queue_entries_once() {
+        use versekit_core::basetool::bank::{self, Account, Bank, News, Queue, QueueEntry, Request};
+        language::set_thread_language(language::Choice::De);
+        let mut bench = bench(Args::default(), false, None);
+        let app = &mut bench.app;
+        app.main_alive = || true;
+        let now = versekit_core::export::now_unix() as f64;
+        assert!(app.bank_lines().is_empty(), "nothing handed over");
+        let mut read = Bank {
+            accounts: vec![Account { id: "a".into(), no: "KB-1".into(), name: "KRT".into(), balance: 1_250_000, ..Account::default() }],
+            requests: vec![Request { id: "r".into(), status: "PENDING".into(), ..Request::default() }],
+            open_cap: 20,
+            ..Bank::default()
+        };
+        // A main window that ran a while already: its round is taken, not told.
+        *app.bank.lock().unwrap() = bank::taken_over(&bank::handover(Some(&read), News { round: 4, count: 2 }, now));
+        app.bank_news();
+        assert!(app.notices.is_empty(), "the first handing over is no news");
+        versekit_core::streamer::set_thread_active(Some(false));
+        let lines: Vec<String> = app.bank_lines().into_iter().map(|(l, _)| l).collect();
+        assert_eq!(lines, ["KB-1 KRT: 1.250.000 aUEC", "Bank: offene Anträge 1"]);
+        versekit_core::streamer::set_thread_active(Some(true));
+        assert!(!app.bank_lines()[0].0.contains("1.250.000"), "streamer mode covers the balance");
+        versekit_core::streamer::set_thread_active(None);
+
+        read.queue = Some(Queue { open: vec![QueueEntry { id: "q".into(), ..QueueEntry::default() }], ..Queue::default() });
+        *app.bank.lock().unwrap() = bank::taken_over(&bank::handover(Some(&read), News { round: 5, count: 1 }, now));
+        assert_eq!(app.bank_lines().last().map(|(l, _)| l.as_str()), Some("Bank: Warteschlange 1"));
+        app.bank_news();
+        assert_eq!(app.notices.len(), 1, "one notice");
+        app.bank_news();
+        assert_eq!(app.notices.len(), 1, "the same round: no second notice");
+
+        // Handed over more than seven days ago: nothing shows.
+        *app.bank.lock().unwrap() = bank::taken_over(&bank::handover(Some(&read), News { round: 5, count: 1 }, now - bank::KEEP - 60.0));
+        assert!(app.bank_lines().is_empty());
+        // The main window is gone: what it handed over goes.
+        *app.bank.lock().unwrap() = bank::taken_over(&bank::handover(Some(&read), News { round: 5, count: 1 }, now));
+        app.main_alive = || false;
+        app.main_looked = None;
+        app.bank_news();
+        assert!(app.bank_lines().is_empty());
     }
 
     /// "Die Einheit sucht: …" stands under the signature line when the unit wants one of the ores behind it, as the
@@ -3946,6 +4325,64 @@ mod tests {
         assert_eq!(bench.app.vis.shown(now), Shown::Open);
     }
 
+    /// Leaving an armistice zone is the warning: it opens the waiting strip and the folded bar for a while and puts the
+    /// notice up; entering one puts the notice up without opening anything.
+    #[test]
+    fn leaving_an_armistice_zone_opens_the_overlay_and_entering_one_only_notes_it() {
+        use versekit_core::armistice::Zone;
+        let mut left = popup_bench(versekit_core::overlay::Events::default());
+        left.news.send(News::Zone(Zone::Left)).expect("sent");
+        left.app.take_news();
+        let now = left.app.now();
+        assert_eq!(left.app.vis.shown(now), Shown::Open, "left: the strip opens");
+        assert!(matches!(left.app.zone_note, Some((Zone::Left, until)) if until > now));
+        let mut entered = popup_bench(versekit_core::overlay::Events::default());
+        entered.news.send(News::Zone(Zone::Entered)).expect("sent");
+        entered.app.take_news();
+        let now = entered.app.now();
+        assert_eq!(entered.app.vis.shown(now), Shown::Strip, "entered: stays a strip");
+        assert!(matches!(entered.app.zone_note, Some((Zone::Entered, _))), "entered: the notice stands all the same");
+        // The folded bar of the always-on mode opens for leaving too.
+        let mut always = bench(Args::default(), false, None);
+        let now = always.app.now();
+        assert_eq!(always.app.vis.shown(now), Shown::Bar);
+        always.news.send(News::Zone(Zone::Left)).expect("sent");
+        always.app.take_news();
+        let now = always.app.now();
+        assert_eq!(always.app.vis.shown(now), Shown::Open);
+    }
+
+    /// The switch "Schutzzone-Hinweis" takes both the notice and the opening away, and it is on without a setting.
+    #[test]
+    fn the_armistice_notice_is_on_without_a_setting_and_its_switch_takes_all_of_it_away() {
+        use versekit_core::armistice::Zone;
+        let mut on = popup_bench(versekit_core::overlay::Events::default());
+        assert!(on.app.settings.sections.contains(Section::Armistice), "on by default");
+        let mut off = popup_bench(versekit_core::overlay::Events::default());
+        off.app.settings.sections = off.app.settings.sections.with(Section::Armistice, false);
+        for bench in [&mut on, &mut off] {
+            bench.news.send(News::Zone(Zone::Left)).expect("sent");
+            bench.app.take_news();
+        }
+        let now = off.app.now();
+        assert_eq!(off.app.vis.shown(now), Shown::Strip, "switched off: no opening");
+        assert!(off.app.zone_note.is_none(), "switched off: no notice");
+        assert!(on.app.zone_note.is_some());
+    }
+
+    /// The notice stays at least ten seconds, longer when the player set a longer opening, and is gone afterwards.
+    #[test]
+    fn the_armistice_notice_stays_for_the_opening_time_but_not_less_than_ten_seconds() {
+        use versekit_core::armistice::Zone;
+        for (popup, held) in [(6, 10.0), (30, 30.0)] {
+            let mut bench = popup_bench(versekit_core::overlay::Events::default());
+            bench.app.settings.popup_seconds = popup;
+            bench.app.zone_told(Zone::Left, 100.0);
+            let (_, until) = bench.app.zone_note.expect("a notice");
+            assert_eq!(until, 100.0 + held, "popup {popup} s");
+        }
+    }
+
     #[test]
     fn several_events_in_a_row_share_one_clock() {
         let mut bench = popup_bench(versekit_core::overlay::Events::default().with(Event::Scanner, true));
@@ -4066,18 +4503,60 @@ mod tests {
     #[test]
     fn what_the_update_thread_tells_is_taken_over_by_the_overlay() {
         let mut bench = bench(Args::default(), false, None);
+        let said = |key: &str| -> Message { Phrase::new(key).with("0", "5.0.1").into() };
         let told = crate::Told {
             update: Some(Some("5.0.1".into())),
-            say: vec![("up_auto_wartet".into(), "5.0.1".into()), ("up_auto_laeuft".into(), "5.0.1".into())],
+            days: Some(Some(3)),
+            say: vec![said("up_auto_wartet"), said("up_auto_laeuft")],
         };
         bench.app.apply_told(told);
         assert_eq!(bench.app.update.as_deref(), Some("5.0.1"));
+        assert_eq!(bench.app.update_days, Some(3));
         assert_eq!(bench.app.status.render(), language::tf("up_auto_laeuft", &[("0", "5.0.1".into())]));
-        // Nothing newer any more: the version goes, a status line stays as it was.
-        bench.app.apply_told(crate::Told { update: Some(None), say: Vec::new() });
-        assert_eq!(bench.app.update, None);
+        // A sentence written already stands as it is.
+        bench.app.apply_told(crate::Told { say: vec![Message::Plain("fertig".into())], ..crate::Told::default() });
+        assert_eq!(bench.app.status.render(), "fertig");
+        assert_eq!(bench.app.update_days, Some(3), "days not told, days stay");
+        // Nothing newer any more: the version and its days go, a status line stays as it was.
+        bench.app.apply_told(crate::Told { update: Some(None), days: Some(None), say: Vec::new() });
+        assert_eq!((bench.app.update.as_deref(), bench.app.update_days), (None, None));
         bench.app.apply_told(crate::Told::default());
         assert_eq!(bench.app.update, None, "nothing told, nothing changes");
+    }
+
+    /// Only the player's end counts (the button, „Quit“ at the icon): the end the program asks for itself (an update
+    /// handed over, a request of the main window) does not, so no update comes at that end. The self-check never
+    /// marks the process.
+    #[test]
+    fn only_the_end_by_the_player_counts_for_an_update_at_the_end() {
+        let args = Args { probe: Some("probe.txt".into()), ..Args::default() };
+        let ctx = egui::Context::default();
+        let mut by_player = bench(args.clone(), false, None);
+        assert!(!by_player.app.ended_by_player);
+        by_player.app.act(&ctx, Action::Quit);
+        assert!(by_player.app.ended_by_player, "the button or the icon");
+        let mut by_program = bench(args, false, None);
+        by_program.app.ended_by_program = true;
+        by_program.app.act(&ctx, Action::Quit);
+        assert!(!by_program.app.ended_by_player, "the program's own request");
+        assert!(!crate::ended_by_player(), "the self-check leaves the process unmarked");
+    }
+
+    /// The button of a waiting update hands the request to the thread of the updates when there is one; the
+    /// self-check has none and opens the page about the update in the main window instead.
+    #[test]
+    fn the_button_of_a_waiting_update_without_a_thread_of_updates_opens_the_page_about_it() {
+        let args = Args {
+            probe: Some("probe.txt".into()),
+            main_program: Some(std::path::PathBuf::from("versekit-test.exe")),
+            ..Args::default()
+        };
+        let mut bench = bench(args, false, None);
+        bench.app.update = Some("5.0.1".into());
+        bench.app.update_days = Some(2);
+        bench.app.update_now();
+        assert!(matches!(bench.app.pending_page, Some((Signal::OpenAbout, _))), "the page about the update opens");
+        assert!(bench.app.launched.is_some(), "the main window is started");
     }
 
     /// The bell is there while a version is on offer, names it, stands in the accent, and opens „Update & Über“.

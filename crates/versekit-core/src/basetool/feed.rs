@@ -210,7 +210,19 @@ pub enum Sent {
 
 /// One change set with a fresh `Idempotency-Key`.
 pub fn send_change_set(conn: &Connection, config: &Config, route: &str, body: &Value) -> Result<Sent, ApiError> {
-    match conn.request("POST", route, Some(body), &[], Some(&new_idempotency_key())) {
+    send_change_set_with(conn, config, route, body, &new_idempotency_key())
+}
+
+/// One change set under `key`: a set sent again after a lost answer under the key it first went with is not
+/// applied twice.
+pub fn send_change_set_with(
+    conn: &Connection,
+    config: &Config,
+    route: &str,
+    body: &Value,
+    key: &str,
+) -> Result<Sent, ApiError> {
+    match conn.request("POST", route, Some(body), &[], Some(key)) {
         Ok(answer) => Ok(Sent::Answer(answer)),
         Err(error) if error.code == MASS_CHANGE => {
             Ok(Sent::Held { confirm_url: hold::confirm_address(config, &error), error })

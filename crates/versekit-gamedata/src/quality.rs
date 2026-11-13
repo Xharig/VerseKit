@@ -157,23 +157,43 @@ pub fn damage(ammo: Option<&Ammo>) -> (Option<Damage>, bool) {
 
 /// The damage per second of a weapon, `None` when it has no fire mode or no
 /// damage (scmdb `qo`).
+///
+/// ⚠ One bullet of a shot: a scattergun shoots several, see [`pellets`].
 pub fn dps(item: &ItemValues) -> Option<f64> {
     let weapon = item.weapon.as_ref()?;
+    let (damage, _) = damage(weapon.ammo.as_ref());
+    let damage = damage?;
+    let entry = dps_entry(weapon)?;
+    let rate = truthy(entry.fire_rate).or(truthy(entry.delay))?;
+    Some(rate / 60.0 * damage.total() * truthy(entry.damage_multiplier).unwrap_or(1.0))
+}
+
+/// The fire action the damage per second counts: the first action that fires, else the first entry of a sequence
+/// that fires or has a delay.
+fn dps_entry(weapon: &crate::values::Weapon) -> Option<&FireAction> {
     if weapon.fire_modes.is_empty() {
         return None;
     }
-    let (damage, _) = damage(weapon.ammo.as_ref());
-    let damage = damage?;
     let fires = |action: &FireAction| action.fire_rate.unwrap_or(0.0) > 0.0;
-    let entry = weapon.fire_modes.iter().map(|mode| &mode.action).find(|action| fires(action)).or_else(|| {
+    weapon.fire_modes.iter().map(|mode| &mode.action).find(|action| fires(action)).or_else(|| {
         weapon
             .fire_modes
             .iter()
             .filter(|mode| mode.action.kind == "sequence")
             .find_map(|mode| mode.sequence.iter().find(|entry| fires(entry) || entry.delay.unwrap_or(0.0) > 0.0))
-    })?;
-    let rate = truthy(entry.fire_rate).or(truthy(entry.delay))?;
-    Some(rate / 60.0 * damage.total() * truthy(entry.damage_multiplier).unwrap_or(1.0))
+    })
+}
+
+/// The bullets of one shot of the weapon whose damage per second [`dps`] counts: a scattergun shoots several, each
+/// with the damage of the ammunition (Salvation Distortion Scattergun: 8 × 60 = 480, as erkul.games counts). 1
+/// where the weapon shoots one or nothing is known.
+pub fn pellets(item: &ItemValues) -> f64 {
+    item.weapon
+        .as_ref()
+        .and_then(dps_entry)
+        .and_then(|entry| entry.pellet_count)
+        .filter(|count| *count > 1)
+        .map_or(1.0, |count| count as f64)
 }
 
 /// The item after the quality of its materials.

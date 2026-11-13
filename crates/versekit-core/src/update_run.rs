@@ -545,17 +545,26 @@ pub struct SetupJob {
     pub lock: PathBuf,
     /// The processes of the program the installer waits for before it installs (`/VKPIDS`), this one first.
     pub wait_for: Vec<u32>,
+    /// The player ended the program: the installer shows no window and does not start the program again
+    /// ([`NO_START_SWITCH`]).
+    pub at_exit: bool,
 }
+
+/// Tells the installer of an update not to start the program again: the player ended it.
+pub const NO_START_SWITCH: &str = "/VKKEINSTART";
 
 /// The command line of the installer: silent with its progress window, no message boxes, no restart of the
 /// computer, running programs closed, into the folder of the running program (⚠ else a second copy), with its
 /// log; then [`UPDATE_SWITCH`] and what the update run needs. ⚠ Every path in quotes: the installer reads
-/// `/NAME="a b"` as one value.
+/// `/NAME="a b"` as one value. At the end of the program (`at_exit`) without the progress window and with
+/// [`NO_START_SWITCH`].
 pub fn setup_arguments(job: &SetupJob) -> String {
     let pids = job.wait_for.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+    let (silent, no_start) =
+        if job.at_exit { ("/VERYSILENT", format!(" {NO_START_SWITCH}")) } else { ("/SILENT", String::new()) };
     format!(
-        "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR=\"{}\" /LOG=\"{}\" {UPDATE_SWITCH} \
-         /VKPIDS={pids} /VKSPERRE=\"{}\" /VKERGEBNIS=\"{}\" /VKPROTOKOLL=\"{}\"",
+        "{silent} /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR=\"{}\" /LOG=\"{}\" {UPDATE_SWITCH} \
+         /VKPIDS={pids} /VKSPERRE=\"{}\" /VKERGEBNIS=\"{}\" /VKPROTOKOLL=\"{}\"{no_start}",
         job.target_dir.display(),
         job.setup_log.display(),
         job.lock.display(),
@@ -597,6 +606,7 @@ pub fn setup_job(paths: &Paths, downloaded: &updater::Downloaded, program: &Path
         result: PathBuf::from(paths.app_file(RESULT_FILE)),
         lock: PathBuf::from(paths.app_file(LOCK_FILE)),
         wait_for,
+        at_exit: false,
     }
 }
 

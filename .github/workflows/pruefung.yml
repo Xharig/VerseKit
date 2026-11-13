@@ -46,7 +46,7 @@ jobs:
         run: |
           cargo test --locked -p versekit-gamedata --test no_key
           cargo test --locked -p versekit-app
-          cargo test --locked -p versekit-core --lib -- updater update_run update_helper update_swap auto_update autostart backup
+          cargo test --locked -p versekit-core --lib -- updater update_run update_helper update_swap auto_update autostart backup provenance
           cargo test --locked -p versekit-core --test language_files
 
       - name: Nothing private in the repository

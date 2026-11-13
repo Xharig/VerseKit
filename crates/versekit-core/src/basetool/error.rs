@@ -53,7 +53,9 @@ impl Action {
 }
 
 /// Codes after which a later attempt can succeed.
-pub const RETRY: [&str; 11] = [
+pub const RETRY: [&str; 12] = [
+    // The bank switched off for connected applications: only the bank area waits.
+    "BANK_EXCHANGE_DISABLED",
     "RATE_LIMITED",
     "DPOP_PROOF_LIMIT",
     "QUOTA_EXCEEDED",
@@ -155,6 +157,23 @@ impl ApiError {
         if self.code != crate::testmode::BASETOOL_LOCKED && !self.is_server_side() {
             crate::errors::record(label, self);
         }
+    }
+
+    /// The error with nothing of the request but its kind, for an area whose data are private (the bank): code,
+    /// status and wait, the path with every id after `accounts` or `requests` replaced, no problem document.
+    pub fn private(&self) -> ApiError {
+        let mut after_list = false;
+        let path = self
+            .path
+            .split('/')
+            .map(|segment| {
+                let hidden = after_list;
+                after_list = matches!(segment, "accounts" | "requests");
+                if hidden { "{id}".to_string() } else { segment.to_string() }
+            })
+            .collect::<Vec<_>>()
+            .join("/");
+        ApiError { code: self.code.clone(), status: self.status, retry_after: self.retry_after, problem: Map::new(), path }
     }
 
     /// A text value of the problem document, or `None`.
@@ -288,6 +307,8 @@ pub fn error_text_key(code: &str) -> Option<&'static str> {
         "SCOPE_MISSING" => "s_btv_f_rechte",
         "ISSUER_MISMATCH" => "s_btv_f_aussteller",
         "QUOTA_EXCEEDED" => "s_btv_f_kontingent",
+        "BANK_EXCHANGE_DISABLED" => "s_btv_f_bank_aus",
+        "NOT_BANK_STAFF" => "s_btv_f_kein_bankpersonal",
         "RATE_LIMITED" => "s_btv_f_bremse",
         "account_mismatch" => "s_btv_konto_falsch",
         "account_unknown" => "s_btv_konto_unbekannt",

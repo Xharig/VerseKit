@@ -77,7 +77,7 @@ fn applied(told: &[Notice]) -> bool {
 fn looked(recipes: Result<Updated, String>) -> Done {
     Done {
         ran: None,
-        looked: Some(Looked { recipes: Some(recipes), mining: None, craft: false }),
+        looked: Some(Looked { recipes: Some(recipes), craft: false }),
         catalog: None,
         refreshed: None,
         denied: Vec::new(),
@@ -253,7 +253,7 @@ fn a_current_recipe_file_is_looked_at_again_after_six_hours() {
     let mut watch = watch(Arc::default());
     let (sender, receiver) = mpsc::channel();
     sender.send(looked(Ok(Updated::Current(2)))).unwrap();
-    watch.in_flight = Some(InFlight { job: false, catalog: false, refresh: false, mining: false, done: receiver });
+    watch.in_flight = Some(InFlight { job: false, catalog: false, refresh: false, done: receiver });
     watch.started = true;
     watch.tick(&paths, 10.0);
     assert_eq!(watch.recipes_next, 10.0 + RECIPES_POLL_SECONDS);
@@ -292,7 +292,7 @@ fn new_recipes_have_the_notes_written_anew() {
     for (now, updated) in [(2.0, Updated::Written(3)), (3.0, Updated::Corrected(3))] {
         let (sender, receiver) = mpsc::channel();
         sender.send(looked(Ok(updated.clone()))).unwrap();
-        watch.in_flight = Some(InFlight { job: false, catalog: false, refresh: false, mining: false, done: receiver });
+        watch.in_flight = Some(InFlight { job: false, catalog: false, refresh: false, done: receiver });
         let told = settle(&mut watch, &paths, now);
         assert!(applied(&told), "the notes come again with {updated:?}: {told:?}");
         assert_eq!(watch.recipes_next, now + RECIPES_POLL_SECONDS);
@@ -370,6 +370,114 @@ fn a_catalog_behind_at_the_start_is_built_once_the_game_is_closed_and_the_notes_
         assert!(!applied(&settle(&mut watch, &paths, now)), "once: {now}");
     }
     assert_eq!(*built.lock().unwrap(), 1, "built once");
+}
+
+/// A patch while the watch runs, with the game closed: the `Data.p4k` of the throwaway game folder changes. The
+/// stand-in catalog lags behind the archive it was not built from, as the real one does, and its build writes the
+/// catalog of the game data (`katalog-spieldaten.json`) that names the new contract of the patch. The look of the
+/// notes at a patch is left out (the stand-in archive has no stamp), as it is when the notes are not kept current.
+#[test]
+fn a_patch_while_the_watch_runs_builds_the_catalog_from_the_game_data_and_writes_the_notes_from_it() {
+    use super::super::tests::{TWO_CONTRACTS, own_catalog};
+    let s = Setup::new("wache-patch-katalog");
+    s.set_up_german();
+    std::fs::write(s.ini(), TWO_CONTRACTS).unwrap();
+    let paths = Arc::new(Paths::new(s.paths.host.clone()));
+    let archive = paths.archive_file().expect("the archive of the game folder");
+    let built_from = paths.app_file("gebaut-aus.txt");
+    std::fs::write(&archive, "4.10.2-live.1").unwrap();
+    std::fs::write(&built_from, "4.10.2-live.1").unwrap();
+    std::fs::write(paths.app_file(sources::CATALOG_V5), own_catalog("4.10.2-live.1", &["Bounty_title_001"])).unwrap();
+    let read = |file: &str| std::fs::read_to_string(file).unwrap_or_default();
+    let (archive_of, from_of) = (archive.clone(), built_from.clone());
+    let behind: CatalogCheck = Arc::new(move |_: &Paths| read(&archive_of) != read(&from_of));
+    let count = Arc::new(Mutex::new(0));
+    let (counted, archive_of) = (Arc::clone(&count), archive.clone());
+    let build: CatalogBuild = Arc::new(move |paths: &Paths| {
+        *counted.lock().unwrap() += 1;
+        let version = read(&archive_of);
+        let keys: &[&str] = if version.starts_with("4.10.3") {
+            &["Bounty_title_001", "Bounty_title_002"]
+        } else {
+            &["Bounty_title_001"]
+        };
+        std::fs::write(paths.app_file(sources::CATALOG_V5), own_catalog(&version, keys)).ok()?;
+        std::fs::write(paths.app_file("gebaut-aus.txt"), &version).ok()?;
+        Some(CatalogBuilt { version, blueprints: 1 })
+    });
+    let mut watch = watch(Arc::default()).with_catalog_refresh(behind, build);
+    watch.archive_free = archive_free;
+    FREE.with(|free| free.set(true));
+    settle(&mut watch, &paths, 0.0);
+    let before = std::fs::read_to_string(s.ini()).unwrap();
+    assert!(before.contains("Kopfgeld <EM4>[BP]</EM4>") && !before.contains("Neues Kopfgeld <EM4>"), "{before}");
+    assert_eq!(*count.lock().unwrap(), 0, "up to date at the start");
+    // The launcher writes the new patch into the archive.
+    std::fs::write(&archive, "4.10.3-live.2 patched").unwrap();
+    for step in 1..=40 {
+        settle(&mut watch, &paths, f64::from(step) * 5.0);
+    }
+    assert_eq!(*count.lock().unwrap(), 1, "built from the new archive, without a page open and without a restart");
+    let after = std::fs::read_to_string(s.ini()).unwrap();
+    assert!(after.contains("Neues Kopfgeld <EM4>[BP]</EM4>"), "the notes name the new contract: {after}");
+    for now in [400.0, 1000.0, 4000.0] {
+        settle(&mut watch, &paths, now);
+    }
+    assert_eq!(*count.lock().unwrap(), 1, "once for that patch");
+}
+
+/// A build of the catalog that writes the catalog of the game data with both contracts of [`TWO_CONTRACTS`], and
+/// counts its runs.
+fn catalog_of_the_patch() -> (CatalogBuild, Arc<Mutex<usize>>) {
+    use super::super::tests::own_catalog;
+    let count = Arc::new(Mutex::new(0));
+    let counted = Arc::clone(&count);
+    let build: CatalogBuild = Arc::new(move |paths: &Paths| {
+        *counted.lock().unwrap() += 1;
+        let catalog = own_catalog("4.10.3-live.2", &["Bounty_title_001", "Bounty_title_002"]);
+        std::fs::write(paths.app_file(sources::CATALOG_V5), catalog).ok()?;
+        Some(CatalogBuilt { version: "4.10.3-live.2".to_string(), blueprints: 1 })
+    });
+    (build, count)
+}
+
+#[test]
+fn a_catalog_built_in_a_run_without_the_notes_has_them_written_with_the_next_tick() {
+    use super::super::tests::{TWO_CONTRACTS, own_catalog};
+    let s = Setup::new("wache-katalog-angaben");
+    s.set_up_german();
+    std::fs::write(s.ini(), TWO_CONTRACTS).unwrap();
+    std::fs::write(s.paths.app_file(sources::CATALOG_V5), own_catalog("4.10.2-live.1", &["Bounty_title_001"])).unwrap();
+    let paths = Arc::new(Paths::new(s.paths.host.clone()));
+    let (build, count) = catalog_of_the_patch();
+    let mut watch = watch(Arc::default()).with_catalog(build);
+    watch.archive_free = archive_free;
+    FREE.with(|free| free.set(true));
+    assert!(applied(&settle(&mut watch, &paths, 0.0)));
+    // A build that is due (a retry after a patch) in a run of its own, long before the next timed look at the texts.
+    watch.catalog_due = true;
+    settle(&mut watch, &paths, 10.0);
+    assert_eq!(*count.lock().unwrap(), 1);
+    let told = settle(&mut watch, &paths, 11.0);
+    assert!(applied(&told), "{told:?}");
+    assert!(std::fs::read_to_string(s.ini()).unwrap().contains("Neues Kopfgeld <EM4>[BP]</EM4>"));
+}
+
+#[test]
+fn a_patch_and_a_catalog_behind_in_the_same_run_build_it_once() {
+    let s = Setup::new("wache-katalog-einmal");
+    let paths = Arc::new(Paths::new(s.paths.host.clone()));
+    let (build, count) = catalog_of_the_patch();
+    let mut watch =
+        watch(Arc::default()).with_catalog(Arc::clone(&build)).with_catalog_refresh(Arc::new(|_: &Paths| false), build);
+    watch.archive_free = archive_free;
+    FREE.with(|free| free.set(true));
+    settle(&mut watch, &paths, 0.0);
+    watch.refresh_due = true;
+    watch.catalog_due = true;
+    settle(&mut watch, &paths, 10.0);
+    assert_eq!(*count.lock().unwrap(), 1, "the catalog brought up to date serves the patch as well");
+    assert!(!watch.catalog_due && !watch.refresh_due);
 }
 
 #[test]
@@ -504,28 +612,43 @@ fn a_failed_build_for_new_craft_data_is_told_when_the_retry_works() {
     assert!(told.iter().any(|n| matches!(n, Notice::CraftData { .. })), "{told:?}");
 }
 
+/// A patch while VerseKit was closed leaves the mining data of the old build: the first look at scmdb brings those of
+/// the build it names, without a patch seen by the running process and without a page open.
 #[test]
-fn the_mining_data_are_fetched_after_a_patch_and_not_without_one() {
+fn the_mining_data_of_an_older_build_are_fetched_at_the_start_without_a_patch_seen() {
     let s = Setup::new("wache-bergbau");
     let paths = Arc::new(Paths::new(s.paths.host.clone()));
     let mining_file = paths.app_file(crate::stock_data::MINING_FILE);
-    let scmdb = BuildScmdb::new("4.3.2-live.1");
+    let old =
+        r#"{"format": 1, "build": "4.2.0-live.0", "locations": [{"name": "Old"}], "refineries": [], "elemente": {}}"#;
+    std::fs::write(&mining_file, old).unwrap();
+    assert!(!crate::stock_fetch::mining_current(&paths, MINING_BUILD));
+    let scmdb = BuildScmdb::new(MINING_BUILD);
     let mut watch = watch_with(Arc::clone(&scmdb));
-    for now in [0.0, 400.0, RECIPES_POLL_SECONDS, 2.0 * RECIPES_POLL_SECONDS] {
+    settle(&mut watch, &paths, 0.0);
+    assert_eq!(scmdb.asked_for("mining_data-4.3.2-live.1"), 1, "the start fetches those of the build");
+    assert!(crate::stock_fetch::mining_current(&paths, MINING_BUILD), "and keeps them");
+    for now in [1.0, 400.0, RECIPES_POLL_SECONDS, 2.0 * RECIPES_POLL_SECONDS] {
         settle(&mut watch, &paths, now);
     }
-    assert!(scmdb.asked_for("versions.json") >= 2, "scmdb was looked at");
-    assert_eq!(scmdb.asked_for("mining_data-"), 0, "without a patch no mining data");
-    assert!(!std::path::Path::new(&mining_file).exists());
-    let at = 2.0 * RECIPES_POLL_SECONDS + 100.0;
-    watch.upkeep.patch_at = at;
-    settle(&mut watch, &paths, at);
-    assert_eq!(scmdb.asked_for("mining_data-4.3.2-live.1"), 1, "the patch fetches those of the build");
-    assert!(crate::stock_fetch::mining_current(&paths, "4.3.2-live.1"), "and keeps them");
-    for now in [at + 1.0, at + 400.0, at + RECIPES_POLL_SECONDS] {
-        settle(&mut watch, &paths, now);
-    }
-    assert_eq!(scmdb.asked_for("mining_data-"), 1, "once for that patch");
+    assert!(scmdb.asked_for("versions.json") >= 2, "scmdb was looked at again");
+    assert_eq!(scmdb.asked_for("mining_data-"), 1, "current data are not fetched again");
+}
+
+/// The build at scmdb changes while the watch runs and no patch is seen (the game is patched while VerseKit is
+/// closed, or the archive could not be read): the next look still brings the mining data of the new build.
+#[test]
+fn a_new_build_at_scmdb_brings_its_mining_data_with_the_next_look_whether_or_not_a_patch_was_seen() {
+    let s = Setup::new("wache-bergbau-neuer-stand");
+    let paths = Arc::new(Paths::new(s.paths.host.clone()));
+    let scmdb = BuildScmdb::new("4.2.0-live.0");
+    let mut watch = watch_with(Arc::clone(&scmdb));
+    settle(&mut watch, &paths, 0.0);
+    assert_eq!(scmdb.asked_for("mining_data-"), 1, "scmdb has none for that build");
+    *scmdb.build.lock().unwrap() = MINING_BUILD.to_string();
+    settle(&mut watch, &paths, RECIPES_POLL_SECONDS);
+    assert_eq!(scmdb.asked_for("mining_data-4.3.2-live.1"), 1);
+    assert!(crate::stock_fetch::mining_current(&paths, MINING_BUILD));
 }
 
 #[test]
@@ -540,11 +663,9 @@ fn mining_data_that_could_not_be_had_are_asked_for_with_the_next_look() {
     watch.upkeep.patch_at = 100.0;
     settle(&mut watch, &paths, 100.0);
     assert_eq!(scmdb.asked_for("mining_data-9.9.9"), 1);
-    assert!(watch.mining_due, "still due");
     *scmdb.build.lock().unwrap() = "4.3.2-live.1".to_string();
     settle(&mut watch, &paths, 100.0 + RECIPES_POLL_SECONDS);
     assert_eq!(scmdb.asked_for("mining_data-4.3.2-live.1"), 1, "the next look fetches them");
-    assert!(!watch.mining_due);
 }
 
 #[test]

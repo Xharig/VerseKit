@@ -33,7 +33,7 @@ use crate::color;
 use crate::widgets::{self, ButtonKind};
 
 /// The rows of the group "Start" this module draws, after the start with the system and the graphics card.
-pub(super) const FIRST_ROW: usize = 2;
+pub(super) const FIRST_ROW: usize = 3;
 
 /// What a click in one of the rows asks for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -657,3 +657,111 @@ fn stock_mark_is_count_and_hash() {
     // The first twelve hex digits of sha1("a\nb").
     assert_eq!(stock_mark(&owned), "2-fcd127ffa101");
 }
+
+/// The cooler `item_DescCOOL_A` of [`GAME`] and [`GAPS_GAME`] with its stock values.
+fn with_stats(inputs: Inputs) -> Inputs {
+    let cooler = item_stats::ItemStats {
+        name: "item_NameCOOL_A".into(),
+        text: "item_DescCOOL_A".into(),
+        kind: item_stats::kind::COOLER.into(),
+        values: [(item_stats::value::COOLING.to_string(), 38.0), (item_stats::value::EM.to_string(), 1490.0)]
+            .into_iter()
+            .collect(),
+    };
+    Inputs { item_stats: vec![cooler], ..inputs }
+}
+
+fn line_of<'t>(text: &'t str, key: &str) -> &'t str {
+    text.lines().find(|l| l.starts_with(&format!("{key}="))).expect("the line")
+}
+
+#[test]
+fn the_stock_values_stand_under_the_description_and_go_again() {
+    let fx = Fixture::new("stats", "german_(germany)", GAME);
+    assert!(matches!(
+        apply_texts(&fx.paths, &fx.ini, "german_(germany)", &with_stats(inputs(&[])), false),
+        Outcome::Done(_)
+    ));
+    let text = fx.text();
+    assert!(
+        line_of(&text, "item_DescCOOL_A").ends_with(&format!(
+            "Klasse: Militär\\n\\n{}\\n\\n<EM4>VERSEKIT: WERTE AB WERK</EM4>\\nKühlleistung 38\\nEM 1.490",
+            texts::rule()
+        )),
+        "{text}"
+    );
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &with_stats(inputs(&[])), false);
+    assert_eq!(fx.text(), text, "a second run changes nothing");
+    remove_texts(&fx.paths, &fx.ini, "german_(germany)");
+    assert_eq!(fx.text(), GAME);
+}
+
+#[test]
+fn the_stock_values_follow_the_language_of_the_file() {
+    let fx = Fixture::new("stats-en", "english", GAME);
+    apply_texts(&fx.paths, &fx.ini, "english", &with_stats(inputs(&[])), false);
+    let text = fx.text();
+    assert!(line_of(&text, "item_DescCOOL_A").ends_with("<EM4>VERSEKIT: STOCK STATS</EM4>\\nCooling 38\\nEM 1,490"));
+}
+
+#[test]
+fn without_the_setting_no_stock_values_and_switching_off_takes_them_out() {
+    let fx = Fixture::new("stats-off", "german_(germany)", GAME);
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &with_stats(inputs(&[])), false);
+    assert!(fx.text().contains("WERTE AB WERK"));
+    fx.paths.set_setting(item_stats::SETTING, Value::Bool(false));
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &with_stats(inputs(&[])), false);
+    let text = fx.text();
+    assert!(!text.contains("WERTE AB WERK"), "{text}");
+    assert_eq!(line_of(&text, "item_DescCOOL_A"), line_of(GAME, "item_DescCOOL_A"));
+}
+
+#[test]
+fn a_crafted_item_shows_its_values_and_its_blueprint_below_one_rule() {
+    let fx = Fixture::new("stats-craft", "english", GAPS_GAME);
+    apply_texts(&fx.paths, &fx.ini, "english", &with_stats(gaps_inputs()), false);
+    let text = fx.text();
+    let line = line_of(&text, "item_DescCOOL_A");
+    assert_eq!(line.matches(&texts::rule()).count(), 1, "{line}");
+    let values = line.find("VERSEKIT: STOCK STATS").expect("the values");
+    let blueprint = line.find("VERSEKIT: BLUEPRINT & CRAFTING").expect("the blueprint");
+    assert!(values < blueprint, "{line}");
+    assert!(
+        line.contains("EM 1,490\\n\\n<EM4>VERSEKIT: BLUEPRINT & CRAFTING</EM4>\\nBlueprint: [  ] missing"),
+        "{line}"
+    );
+    remove_texts(&fx.paths, &fx.ini, "english");
+    assert_eq!(fx.text(), GAPS_GAME);
+}
+
+#[test]
+fn a_block_of_stock_values_is_found_by_its_form_when_the_note_is_lost() {
+    let base = "Hersteller: X\\nGröße: 1";
+    let stats = item_stats::block(&["Kühlleistung 38".to_string()], &item_stats::GERMAN);
+    assert_eq!(form::strip_form(&format!("{base}{stats}"), Fallback::Block), base);
+    let blueprint =
+        format!("\\n\\n{}\\n\\n<EM4>VERSEKIT: BAUPLAN & HERSTELLUNG</EM4>\\nBauplan: [  ] fehlt", texts::rule());
+    assert_eq!(form::strip_form(&format!("{base}{}", item_stats::joined(&stats, &blueprint)), Fallback::Block), base);
+    assert_eq!(form::split_foreign_block(&format!("{base}{stats}")).1, "", "ours, not a foreign block");
+}
+
+/// Blocks written while the name still had its hyphen (`VERSE-KIT: …`) are ours all the same: taking the texts back
+/// finds and cuts them, and writing again replaces them by the block of today.
+#[test]
+fn a_block_with_the_old_name_in_its_heading_is_found_and_taken_out() {
+    for (language, heading, line) in [
+        ("german_(germany)", "VERSE-KIT: BAUPLAN & HERSTELLUNG", "Bauplan: [  ] fehlt"),
+        ("english", "VERSE-KIT: BLUEPRINT & CRAFTING", "Blueprint: [  ] missing"),
+    ] {
+        let base = "Hersteller: X\\nGröße: 1";
+        let old = format!("\\n\\n{}\\n\\n<EM4>{heading}</EM4>\\n{line}", texts::rule());
+        assert_eq!(form::strip_form(&format!("{base}{old}"), Fallback::Block), base, "{heading}");
+        let game = format!("item_DescCOOL_A={base}{old}\n");
+        let fx = Fixture::new("old-heading", language, &game);
+        remove_texts(&fx.paths, &fx.ini, language);
+        assert_eq!(fx.text(), format!("item_DescCOOL_A={base}\n"), "{language}: the old block is cut");
+        let fx = Fixture::new("old-heading-again", language, &game);
+        apply_texts(&fx.paths, &fx.ini, language, &inputs(&[]), false);
+        assert!(!fx.text().contains("VERSE-KIT"), "{language}: nothing of the old heading stays: {}", fx.text());
+    }
+}

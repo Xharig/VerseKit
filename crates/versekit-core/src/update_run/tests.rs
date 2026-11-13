@@ -192,6 +192,7 @@ fn the_installer_is_told_the_update_run_on_its_command_line() {
         result: PathBuf::from(r"C:\d\Intern\update-ergebnis.txt"),
         lock: PathBuf::from(r"C:\d\Intern\update-sperre.json"),
         wait_for: vec![4242, 77],
+        at_exit: false,
     };
     assert_eq!(
         setup_arguments(&job),
@@ -200,6 +201,35 @@ fn the_installer_is_told_the_update_run_on_its_command_line() {
             r#"/LOG="C:\d\update-setup.txt" /VKUPDATE /VKPIDS=4242,77 /VKSPERRE="C:\d\Intern\update-sperre.json" "#,
             r#"/VKERGEBNIS="C:\d\Intern\update-ergebnis.txt" /VKPROTOKOLL="C:\d\Diagnose\update-helfer.txt""#
         )
+    );
+}
+
+/// At the end of the program the installer shows no window and does not start the program again; the rest of the
+/// command line stays the same.
+#[test]
+fn at_the_end_of_the_program_the_installer_runs_without_a_window_and_starts_nothing_again() {
+    let job = SetupJob {
+        target_dir: PathBuf::from(r"C:\Programme\VerseKit"),
+        setup_log: PathBuf::from(r"C:\d\update-setup.txt"),
+        log: PathBuf::from(r"C:\d\update-helfer.txt"),
+        result: PathBuf::from(r"C:\d\update-ergebnis.txt"),
+        lock: PathBuf::from(r"C:\d\update-sperre.json"),
+        wait_for: vec![4242],
+        ..SetupJob::default()
+    };
+    let running = setup_arguments(&job);
+    let ended = setup_arguments(&SetupJob { at_exit: true, ..job });
+    assert!(running.starts_with("/SILENT ") && !running.contains(NO_START_SWITCH), "{running}");
+    assert!(ended.starts_with("/VERYSILENT ") && ended.ends_with(&format!(" {NO_START_SWITCH}")), "{ended}");
+    assert_eq!(ended.replacen("/VERYSILENT", "/SILENT", 1).replace(&format!(" {NO_START_SWITCH}"), ""), running);
+    // The installer knows the switch and starts nothing after it, but still frees the lock.
+    let setup = repository_file("packaging/installer.iss");
+    assert!(setup.contains(&format!("'{NO_START_SWITCH}'")), "the switch in installer.iss");
+    let end = &setup[setup.find("procedure DeinitializeSetup").expect("the end of the installer")..];
+    let (lock, no_start, start) = (end.find("DeleteFile(Path)"), end.find("if IsNoStart() then"), end.find("Exec(Exe"));
+    assert!(
+        lock < no_start && no_start < start && lock.is_some(),
+        "lock freed, then no start: {lock:?} {no_start:?} {start:?}"
     );
 }
 
@@ -234,6 +264,14 @@ fn the_check_of_the_delivery_starts_the_setup_as_the_program_does() {
     .fold(template.replace("{pids}", "4242"), |text, (field, path)| text.replace(field, &path.to_string_lossy()));
     assert_eq!(filled, setup_arguments(&job));
     assert!(script.contains(&format!("\nLIFE_SIGN = '{LIFE_SIGN}'\n")), "the sign of life in the check");
+    // The update at the end of the program, as the check builds it from the same line.
+    assert!(script.contains(&format!("\nNO_START = '{NO_START_SWITCH}'\n")), "the switch of the end in the check");
+    assert!(
+        script.contains("UPDATE_ARGUMENTS.replace('/SILENT', '/VERYSILENT', 1) + ' ' + NO_START"),
+        "the check builds the line of the end"
+    );
+    let at_the_end = format!("{} {NO_START_SWITCH}", filled.replacen("/SILENT", "/VERYSILENT", 1));
+    assert_eq!(at_the_end, setup_arguments(&SetupJob { at_exit: true, ..job.clone() }));
     // The installer: the same sign and the same names of the files it writes to or removes.
     let setup = repository_file("packaging/installer.iss");
     for (name, value) in

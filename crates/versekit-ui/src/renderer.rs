@@ -37,6 +37,9 @@ use versekit_core::paths::Paths;
 
 #[cfg(windows)]
 mod dx12;
+mod lost;
+
+pub use lost::{AFTER_LOSS, restart_args, split_switch, started_after_loss, take_switch};
 
 /// The renderer of every window of the program.
 pub const RENDERER: eframe::Renderer = eframe::Renderer::Wgpu;
@@ -324,7 +327,10 @@ pub fn remember_overlay(paths: &Paths, stage: Stage) -> bool {
 
 /// Did the overlay last start without transparency (a stage without DirectComposition)?
 pub fn overlay_opaque(paths: &Paths) -> bool {
-    get(&read_state(paths), KEY_OVERLAY).and_then(Value::as_str).and_then(Stage::from_id).is_some_and(|s| !s.transparent())
+    get(&read_state(paths), KEY_OVERLAY)
+        .and_then(Value::as_str)
+        .and_then(Stage::from_id)
+        .is_some_and(|s| !s.transparent())
 }
 
 /// The stage this process draws with on Windows; `None` before the first window or elsewhere.
@@ -367,20 +373,53 @@ static REFUSED: std::sync::Mutex<Vec<Stage>> = std::sync::Mutex::new(Vec::new())
 /// `eframe::run_native` for every window of the program. On Windows, when wgpu draws the window, the stage is
 /// chosen first ([`ladder`] of `look`, on a hidden window) and the window drawn with the device that passed; when
 /// none works the program says so, notes it in the crash file and the error comes back.
+///
+/// A graphics device that is lost while the window runs (a reset of the graphics driver) ends the window without a
+/// crash and starts the program anew as it was started ([`lost`]); then `Ok` comes back and the process is to end.
 pub fn run_native(
     app_name: &str,
     #[cfg_attr(not(windows), allow(unused_mut))] mut options: eframe::NativeOptions,
     #[cfg_attr(not(windows), allow(unused_variables))] look: Look,
     app_creator: eframe::AppCreator<'_>,
 ) -> eframe::Result {
+    let quiet = QUIET.load(std::sync::atomic::Ordering::Relaxed);
     #[cfg(windows)]
     if options.renderer == eframe::Renderer::Wgpu {
-        match dx12::prepare(look, QUIET.load(std::sync::atomic::Ordering::Relaxed)) {
+        match dx12::prepare(look, quiet) {
             Ok(existing) => options.wgpu_options.wgpu_setup = WgpuSetup::Existing(existing),
             Err(text) => return Err(eframe::Error::AppCreation(text.into())),
         }
     }
-    eframe::run_native(app_name, options, app_creator)
+    let watched: eframe::AppCreator<'_> = Box::new(move |cc| {
+        if let Some(state) = &cc.wgpu_render_state {
+            lost::watch(&state.device, Some(cc.egui_ctx.clone()), quiet);
+        }
+        app_creator(cc)
+    });
+    match lost::LOSS.guard(|| eframe::run_native(app_name, options, watched)) {
+        Ok(result) => result,
+        Err(text) => lost::restart(&text).map_err(|error| {
+            let version = env!("CARGO_PKG_VERSION");
+            let paths = versekit_core::diagnostics::current().map_or_else(versekit_core::paths::global, |(p, _)| p);
+            let lines = [text, error];
+            let head = versekit_core::diagnostics::GRAPHICS_WINDOW;
+            versekit_core::diagnostics::note_hard_end(
+                paths,
+                versekit_core::diagnostics::GRAPHICS,
+                head,
+                &lines,
+                version,
+            );
+            eframe::Error::AppCreation(lines.join(" | ").into())
+        }),
+    }
+}
+
+/// Is the graphics device of this process lost, with the program starting anew? Then a wgpu error is no fault of
+/// the stage that draws.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn device_lost() -> bool {
+    lost::LOSS.restarting()
 }
 
 #[cfg(test)]
@@ -514,7 +553,8 @@ mod tests {
         use versekit_core::paths::Host;
         let dir = versekit_core::testdir::Dir::new(&format!("grafik-{name}"));
         let text = dir.path().to_string_lossy().into_owned();
-        let vars = [(versekit_core::legacy::ENV_HOME, text.as_str()), ("HOME", text.as_str()), ("USERPROFILE", text.as_str())];
+        let vars =
+            [(versekit_core::legacy::ENV_HOME, text.as_str()), ("HOME", text.as_str()), ("USERPROFILE", text.as_str())];
         (Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &vars, &text)), dir)
     }
 

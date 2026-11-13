@@ -30,7 +30,7 @@ use std::time::Duration;
 
 use egui::{RichText, Ui};
 use versekit_core::game_texts::{self, Archive, Placed};
-use versekit_core::injection::{self, Outcome, item_info, ranks};
+use versekit_core::injection::{self, Outcome, item_info, item_stats, ranks};
 use versekit_core::jsonio::Value;
 use versekit_core::language::{self, Arg, t, tf};
 use versekit_core::net::Net;
@@ -736,6 +736,7 @@ pub fn show_game(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) -> Op
             (ranks::SETTING, "s_sp_rang", "s_sp_rang_h", "s_sp_rang_sagen"),
             (injection::SETTING_TITLE_REP, "s_sp_titelruf", "s_sp_titelruf_h", "s_sp_titelruf_sagen"),
             (item_info::SETTING, "s_sp_itinfo", "s_sp_itinfo_h", "s_sp_itinfo_sagen"),
+            (item_stats::SETTING, "s_sp_werte", "s_sp_werte_h", "s_sp_werte_sagen"),
         ];
         for (setting, label, help, said) in details {
             if let Some(on) = switch(ui, scheme, &t(label), &t(help), paths.setting_bool(setting, true)) {
@@ -1752,6 +1753,7 @@ mod tests {
             ("s_sp_rang", ranks::SETTING),
             ("s_sp_titelruf", injection::SETTING_TITLE_REP),
             ("s_sp_itinfo", item_info::SETTING),
+            ("s_sp_werte", item_stats::SETTING),
         ] {
             assert!(page.click(&Which::Game, &mut state, Role::CheckBox, &t(label)), "{label}");
             settle(&mut state);

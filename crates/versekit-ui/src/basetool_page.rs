@@ -35,6 +35,7 @@
 use std::sync::{Arc, OnceLock};
 
 use egui::{Align, Key, RichText, Ui, vec2};
+use versekit_core::basetool::bank::{BankArea, BankStore};
 use versekit_core::basetool::blueprint_area::{self, BlueprintArea, BlueprintHost, FileBlueprintHost};
 use versekit_core::basetool::connection::{Connection, system_clock};
 use versekit_core::basetool::decisions;
@@ -47,10 +48,14 @@ use versekit_core::basetool::orgstock::{OrgStock, OrgStockArea};
 use versekit_core::basetool::orgunits::{OrgUnit, OrgUnitsArea, label as unit_label};
 use versekit_core::basetool::overview::{self, AreaCard, CARDS, DecisionCard, DecisionKind, DemandInfo, Verdict};
 use versekit_core::basetool::pacing;
+use versekit_core::basetool::refinery_area::RefineryArea;
 use versekit_core::basetool::scopes::{
     SCOPES_DEMAND_DETAILS, SCOPES_ORGSTOCK_DETAILS, SCOPES_ORGSTOCK_WRITE, SCOPES_ORGUNITS, SETTING_DEMAND,
-    SETTING_LABEL, SETTING_NEW_SHIP_UNIT, SETTING_ORGSTOCK, SETTING_ORGSTOCK_WRITE, SETTING_SHIPS, SETTING_STOCK,
-    all_in, enabled,
+    SETTING_LABEL, SETTING_NEW_SHIP_UNIT, SETTING_ORGSTOCK, SETTING_ORGSTOCK_WRITE, SETTING_REFINERY,
+    SETTING_REFINERY_UNIT, SETTING_SHIPS, SETTING_STOCK, all_in, enabled,
+};
+use versekit_core::basetool::scopes::{
+    SCOPES_BANK_QUEUE, SCOPES_BANK_REQUEST, SETTING_BANK, SETTING_BANK_QUEUE,
 };
 use versekit_core::basetool::secrets::{Backend, SystemSecrets};
 use versekit_core::basetool::ship_area::ShipArea;
@@ -78,6 +83,8 @@ pub struct Wire {
     pub org_stock: Arc<OrgStock>,
     /// What the open orders of the units still need, in memory only.
     pub demand: Arc<DemandStore>,
+    /// The Kartellbank, in memory only.
+    pub bank: Arc<BankStore>,
     pub units: Shared<Vec<OrgUnit>>,
     /// Set by the first page that draws; the sync wakes the window through it.
     pub repaint: Arc<OnceLock<egui::Context>>,
@@ -123,6 +130,7 @@ impl Wire {
             sync: world.sync,
             org_stock: world.org_stock,
             demand: world.demand,
+            bank: BankStore::new(),
             units: world.units,
             repaint,
             own_account: own,
@@ -182,6 +190,7 @@ impl Wire {
         };
         let org_stock = OrgStock::new();
         let demand = DemandStore::new();
+        let bank = BankStore::new();
         let units = OrgUnitsArea::default();
         let unit_list = units.units.clone();
         let account = own_account();
@@ -207,7 +216,8 @@ impl Wire {
             own_account,
             waker,
             // The order of 4.12: blueprints, stock, the list of units, the hangar, the demand, then the unit
-            // storage (an error of the demand stops the pass, so the storage after it waits).
+            // storage (an error of the demand stops the pass, so the storage after it waits). The refinery comes
+            // last; its errors stop nothing.
             areas: vec![
                 Box::new(BlueprintArea::new(blueprints)),
                 Box::new(StockArea),
@@ -215,12 +225,15 @@ impl Wire {
                 Box::new(ships),
                 Box::new(DemandArea { store: demand.clone() }),
                 Box::new(OrgStockArea { store: org_stock.clone() }),
+                Box::new(RefineryArea::new(unit_list.clone())),
+                Box::new(BankArea { store: bank.clone() }),
             ],
         });
         Some(Wire {
             sync,
             org_stock,
             demand,
+            bank,
             units: unit_list,
             repaint,
             own_account: account,
@@ -245,6 +258,7 @@ impl Wire {
         let unit_list = units.units.clone();
         let org_stock = OrgStock::new();
         let demand = DemandStore::new();
+        let bank = BankStore::new();
         let catalog = Arc::new(versekit_core::collection::NoCatalog);
         let blueprints = Arc::new(FileBlueprintHost::new(paths.clone(), catalog));
         let clock = system_clock();
@@ -262,12 +276,15 @@ impl Wire {
                 Box::new(ShipArea::new(unit_list.clone())),
                 Box::new(DemandArea { store: demand.clone() }),
                 Box::new(OrgStockArea { store: org_stock.clone() }),
+                Box::new(RefineryArea::new(unit_list.clone())),
+                Box::new(BankArea { store: bank.clone() }),
             ],
         });
         Wire {
             sync,
             org_stock,
             demand,
+            bank,
             units: unit_list,
             repaint: Arc::new(OnceLock::new()),
             own_account: Some("PlayerOne".into()),
@@ -368,6 +385,7 @@ enum Act {
     ConfirmAccount,
     Decide(DecisionKind, bool, Vec<String>),
     NewShipUnit(String),
+    RefineryUnit(String),
     Label,
 }
 
@@ -460,6 +478,10 @@ impl ConnectionState {
             Act::NewShipUnit(id) => {
                 sync.set_setting(SETTING_NEW_SHIP_UNIT, Value::str(id));
             }
+            Act::RefineryUnit(id) => {
+                sync.set_setting(SETTING_REFINERY_UNIT, Value::str(id));
+                sync.request_now();
+            }
             Act::Label => self.keep_label(&wire),
         }
     }
@@ -514,7 +536,7 @@ struct Frame {
     status_generation: u64,
     login: Option<Arc<Login>>,
     login_generation: u64,
-    switches: [bool; 5],
+    switches: [bool; CARDS.len()],
     write_on: bool,
     any_on: bool,
     now: f64,
@@ -966,6 +988,19 @@ fn area_card(ui: &mut Ui, scheme: &Scheme, wire: &Wire, f: &Frame, state: &Map, 
             SETTING_DEMAND => {
                 consent(ui, scheme, wire, f, SCOPES_DEMAND_DETAILS, "s_btv_rechte_zusatz", acts);
             }
+            SETTING_REFINERY => {
+                consent(ui, scheme, wire, f, SCOPES_ORGUNITS, "s_btv_einheit_recht_raffinerie", acts);
+                refinery_unit(ui, scheme, wire, f, acts);
+            }
+            SETTING_BANK => {
+                let queue_on = wire.sync.paths().setting_bool(SETTING_BANK_QUEUE, false);
+                queue_row(ui, scheme, queue_on, acts);
+                let mut wanted: Vec<&str> = SCOPES_BANK_REQUEST.to_vec();
+                if queue_on {
+                    wanted.extend_from_slice(SCOPES_BANK_QUEUE);
+                }
+                consent(ui, scheme, wire, f, &wanted, "s_btv_rechte_zusatz", acts);
+            }
             SETTING_ORGSTOCK => {
                 write_row(ui, scheme, f, acts);
                 let mut wanted: Vec<&str> = SCOPES_ORGSTOCK_DETAILS.to_vec();
@@ -986,6 +1021,8 @@ fn area_name(setting: &str) -> &'static str {
         SETTING_STOCK => overview::COUNTS_STOCK,
         SETTING_SHIPS => overview::COUNTS_SHIPS,
         SETTING_DEMAND => overview::COUNTS_DEMAND,
+        SETTING_REFINERY => overview::COUNTS_REFINERY,
+        SETTING_BANK => overview::COUNTS_BANK,
         _ => overview::COUNTS_BLUEPRINTS,
     }
 }
@@ -1024,6 +1061,21 @@ fn write_row(ui: &mut Ui, scheme: &Scheme, f: &Frame, acts: &mut Vec<Act>) {
     }
 }
 
+/// The switch of the bank queue for bank staff: a voluntary right of its own.
+fn queue_row(ui: &mut Ui, scheme: &Scheme, on: bool, acts: &mut Vec<Act>) {
+    ui.add_space(4.0);
+    let title = t("s_btv_bank_warteschlange");
+    let mut flip = on;
+    crate::settings::setting_row(ui, scheme, &title, &t("s_btv_bank_warteschlange_h"), false, |row| {
+        let switch = row.add(widgets::Toggle::new(&mut flip, scheme));
+        let (enabled, now) = (switch.enabled(), flip);
+        switch.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, now, &title));
+    });
+    if flip != on {
+        acts.push(Act::Switch(SETTING_BANK_QUEUE, flip));
+    }
+}
+
 /// The unit for new ships: only with more than one unit; a unit the member
 /// left goes back to "as before".
 fn new_ship_unit(ui: &mut Ui, scheme: &Scheme, wire: &Wire, f: &Frame, acts: &mut Vec<Act>) {
@@ -1053,6 +1105,37 @@ fn new_ship_unit(ui: &mut Ui, scheme: &Scheme, wire: &Wire, f: &Frame, acts: &mu
     });
     if chosen != current {
         acts.push(Act::NewShipUnit(chosen));
+    }
+}
+
+/// The unit new refinery orders belong to: only with more than one unit (the only one is taken by itself). Without a
+/// choice no order is created; a unit the member left goes back to none.
+fn refinery_unit(ui: &mut Ui, scheme: &Scheme, wire: &Wire, f: &Frame, acts: &mut Vec<Act>) {
+    if f.units.len() < 2 {
+        return;
+    }
+    let mut entries: Vec<(String, String)> = vec![(String::new(), t("s_btv_raffinerie_einheit_keine"))];
+    entries.extend(f.units.iter().map(|u| (u.id.clone(), unit_label(u))));
+    let mut current = wire.sync.paths().setting(SETTING_REFINERY_UNIT).unwrap_or_default();
+    if !entries.iter().any(|(id, _)| *id == current) {
+        if !current.is_empty() {
+            acts.push(Act::RefineryUnit(String::new()));
+        }
+        current.clear();
+    }
+    let shown = entries.iter().find(|(id, _)| *id == current).map(|(_, l)| l.clone()).unwrap_or_default();
+    let name = t("s_btv_raffinerie_einheit");
+    ui.add_space(4.0);
+    let mut chosen = current.clone();
+    crate::settings::setting_row(ui, scheme, &name, &t("s_btv_raffinerie_einheit_h"), false, |row| {
+        crate::settings::choice_box(row, "basetool-raffinerie-einheit", &name, &shown, |list| {
+            for (id, label) in &entries {
+                list.selectable_value(&mut chosen, id.clone(), label.as_str());
+            }
+        });
+    });
+    if chosen != current {
+        acts.push(Act::RefineryUnit(chosen));
     }
 }
 

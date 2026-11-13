@@ -654,6 +654,7 @@ fn ui_program_sources() -> Vec<(String, String)> {
                     "sample/control_column.rs",
                     "sample/streamer_mode.rs",
                     "sample/silent_buttons.rs",
+                    "bank_page/tests.rs",
                 ];
                 if test_only.contains(&name.as_str()) {
                     continue;

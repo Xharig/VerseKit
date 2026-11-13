@@ -30,8 +30,10 @@
 //! is touched), galerie (the pictures of the gallery of 5.0, 700 × 430),
 //! webseite (one picture of the whole window per page of the website, 1400 × 860; a fourth word names a
 //! single picture, e.g. `beziehungen`), overlay (the overlay window on made-up finds, for the website and
-//! the README), echt (the pages that read the game folder and the data folder, on a made-up installation in a
-//! throwaway folder, the hangar with the slots of the game data among them; `--markt=<folder>` gives the price
+//! the README), updatewartet (a check picture of an update that has waited three days, in the overlay and the
+//! bar of the main window, with the game closed and running), echt (the pages that read the game folder and the
+//! data folder, on a made-up installation in a throwaway folder, the hangar with the slots of the game data among
+//! them and `hangarwerte` with the hover of the base values of a ship; `--markt=<folder>` gives the price
 //! lists and the slot files to copy; a fourth word names a single picture), verbunden (the pages that need a connection to the
 //! Basetool, on the demonstration Basetool of the program), farbschemata (the page "Darstellung" in each colour
 //! scheme).
@@ -427,6 +429,17 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
 
 /// What a page gets done before its picture, so that it shows what it is for: a search typed into its field.
 fn touch(name: &str, english: bool, s: &mut Shots) {
+    if name == "hangarwerte" {
+        // The pointer rests on the name of the Cutlass Black: its base values in the hover.
+        match s.texts("Cutlass Black").first().copied() {
+            Some(ship) => {
+                s.hover(ship.left_center() + vec2(6.0, 0.0));
+                s.steps(12);
+            }
+            None => println!("{name}: Schiff „Cutlass Black“ nicht gefunden"),
+        }
+        return;
+    }
     if name == "meinlager-verkauf" {
         // The purpose filter of the stock: only what lies there to sell.
         let all = versekit_core::language::t("s_ml_alle_zwecke");
@@ -679,8 +692,11 @@ fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>,
         let mut s = Shots { dir: dir.to_string(), harness };
         s.steps(12);
         touch(name, english, &mut s);
-        s.harness.remove_cursor();
-        s.steps(3);
+        // A picture of a hover keeps the pointer where it rests.
+        if name != "hangarwerte" {
+            s.harness.remove_cursor();
+            s.steps(3);
+        }
         let image = (0..5)
             .find_map(|_| {
                 s.harness.render().ok().or_else(|| {
@@ -694,6 +710,36 @@ fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>,
         small.save(&file).expect("Bild speichern");
         println!("gespeichert: {file}");
     }
+}
+
+/// The page "Kartellbank" on its own, with the made-up bank of the page (no connection), as
+/// `screenshot-kartellbank[-en].png`.
+fn bank_picture(dir: &str, english: bool) {
+    use versekit_ui::bank_page::{BankState, show_page};
+    let mut installed = false;
+    let mut state = BankState::default();
+    let mut harness = Harness::builder()
+        .with_size(vec2(1000.0, 900.0))
+        .with_pixels_per_point(SCALE)
+        .with_max_steps(50)
+        .with_accessibility_check(false)
+        .wgpu()
+        .build_ui(move |ui| {
+            if !installed {
+                versekit_ui::install(ui.ctx());
+                installed = true;
+                ui.ctx().request_repaint();
+                return;
+            }
+            let scheme = versekit_core::theme::current();
+            ui.painter().rect_filled(ui.max_rect(), 0.0, versekit_ui::color(scheme.bg));
+            egui::ScrollArea::vertical().show(ui, |ui| show_page(ui, scheme, &mut state));
+        });
+    harness.run_steps(8);
+    let image = harness.render().expect("render");
+    let file = format!("{dir}/screenshot-kartellbank{}.png", if english { "-en" } else { "" });
+    image.save(&file).expect("Bild speichern");
+    println!("gespeichert: {file}");
 }
 
 /// The pictures for checking the work of 5.1.4 by eye, without a window on any screen and at the full pixel size
@@ -753,8 +799,9 @@ fn review_pictures(dir: &str) {
 /// (`install.rs`): the window model on real data, with nothing of the computer touched. Named as the website takes
 /// them, like [`website_pictures`].
 fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&std::path::Path>) {
-    let pages: [(&str, &str); 19] = [
+    let pages: [(&str, &str); 20] = [
         ("hangar", "hf_hangar"),
+        ("hangarwerte", "hf_hangar"),
         ("bergung", "hf_bergung"),
         ("zerlegen", "hf_bergung"),
         ("wasistneu", "hf_wasistneu"),
@@ -935,6 +982,7 @@ fn overlay_picture(dir: &str, english: bool) {
                 contracts_max: 10,
                 hidden: None,
                 refinery: &[],
+                bank: &[],
                 launcher: true,
                 status: &status,
                 location: None,
@@ -943,6 +991,8 @@ fn overlay_picture(dir: &str, english: bool) {
                 signature: None,
                 demand: None,
                 update: None,
+                update_days: None,
+                zone: None,
                 game: true,
                 locked: false,
                 bar: BarSide::Top,
@@ -971,6 +1021,130 @@ fn overlay_picture(dir: &str, english: bool) {
         })
         .expect("render");
     let file = format!("{dir}/screenshot-overlay{}.png", if english { "-en" } else { "" });
+    image.save(&file).expect("Bild speichern");
+    println!("gespeichert: {file}");
+}
+
+/// A check picture of an update that has waited three days: the overlay with the game closed (the button can be
+/// used) and with the game running (grey), and the bar of the main window above every page (usable, and grey in the
+/// game). Marked across the top as a check picture with made-up versions.
+fn update_waiting_picture(dir: &str, english: bool) {
+    use versekit_core::language::{Arg, t, tf};
+    use versekit_core::overlay::{BarSide, DEFAULT_WIDTH, Message, Rows, Shown};
+    use versekit_ui::overlay::{self, View};
+    use versekit_ui::settings::{UpdateTexts, update_bar};
+    const MARGIN: f32 = 12.0;
+    const OVERLAY_HEIGHT: f32 = 150.0;
+    const BAR_WIDTH: f32 = 760.0;
+    let scheme = versekit_core::theme::current();
+    let rows = Rows::default();
+    let status = Message::Plain(t("ov_spiel_aus"));
+    let playing = Message::Plain(t("ov_spiel_an"));
+    let days = versekit_core::auto_update::days_text(3);
+    let message = tf("s_ul_wartet", &[("version", Arg::from("5.3.0")), ("tage", Arg::from(days))]);
+    let (update_word, news_word, blocked) = (t("s_ul_jetzt"), t("was_ist_neu"), t("ov_update_nach_spiel"));
+    let width = DEFAULT_WIDTH as f32;
+    let size = vec2(MARGIN * 3.0 + width * 2.0, 28.0 + OVERLAY_HEIGHT + 2.0 * 70.0 + 4.0 * MARGIN);
+    let mut installed = false;
+    let mut harness = Harness::builder()
+        .with_size(size)
+        .with_pixels_per_point(SCALE)
+        .with_max_steps(50)
+        .with_accessibility_check(false)
+        .wgpu()
+        .build_ui(move |ui| {
+            if !installed {
+                versekit_ui::install(ui.ctx());
+                installed = true;
+                ui.ctx().request_repaint();
+                return;
+            }
+            ui.painter().rect_filled(ui.max_rect(), 0.0, egui::Color32::from_rgb(0x0a, 0x10, 0x1c));
+            // The mark of a check picture across the top.
+            let stripe = Rect::from_min_size(pos2(0.0, 0.0), vec2(size.x, 22.0));
+            ui.painter().rect_filled(stripe, 0.0, egui::Color32::from_rgb(0xb0, 0x10, 0x10));
+            ui.painter().text(
+                stripe.center(),
+                egui::Align2::CENTER_CENTER,
+                "PRÜFBILD · erfundene Versionen (5.3.0 wartet seit 3 Tagen), nicht live",
+                egui::FontId::proportional(13.0),
+                egui::Color32::WHITE,
+            );
+            for (column, game) in [(0.0, false), (1.0, true)] {
+                let view = View {
+                    scheme,
+                    shown: Shown::Open,
+                    rows: &rows,
+                    contracts: &[],
+                    contracts_max: 10,
+                    hidden: None,
+                    refinery: &[],
+                    bank: &[],
+                    launcher: true,
+                    status: if game { &playing } else { &status },
+                    location: None,
+                    shard: None,
+                    shard_hint: None,
+                    signature: None,
+                    demand: None,
+                    update: Some("5.3.0"),
+                    update_days: Some(3),
+                    zone: None,
+                    game,
+                    locked: false,
+                    bar: BarSide::Top,
+                    anchored: (false, false),
+                    opacity: 1.0,
+                    extras: &[],
+                    menu: true,
+                    drag_under_buttons: false,
+                    hangar: None,
+                    hints_outside: false,
+                };
+                let at = Rect::from_min_size(
+                    pos2(MARGIN + column * (width + MARGIN), 28.0 + MARGIN),
+                    vec2(width, OVERLAY_HEIGHT),
+                );
+                let mut child = ui.new_child(egui::UiBuilder::new().max_rect(at));
+                child.set_clip_rect(at);
+                overlay::show(&mut child, &view);
+            }
+            for (row, grey) in [(0.0, false), (1.0, true)] {
+                let texts = UpdateTexts {
+                    message: &message,
+                    update: &update_word,
+                    news: &news_word,
+                    update_blocked: grey.then_some(blocked.as_str()),
+                    urgent: true,
+                };
+                let at = Rect::from_min_size(
+                    pos2(MARGIN, 28.0 + OVERLAY_HEIGHT + 2.0 * MARGIN + row * 70.0),
+                    vec2(BAR_WIDTH, 60.0),
+                );
+                let mut child = ui.new_child(egui::UiBuilder::new().max_rect(at));
+                child.painter().rect_filled(at.expand(4.0), 0.0, egui::Color32::from_rgb(0x12, 0x18, 0x24));
+                update_bar(&mut child, scheme, &texts);
+            }
+        });
+    harness.run_steps(12);
+    // The pointer over the grey button of the bar in the game: its hint says why.
+    let grey = harness
+        .query_all_by_role_and_label(Role::Button, &t("s_ul_jetzt"))
+        .map(|n| n.rect())
+        .max_by(|a, b| a.min.y.total_cmp(&b.min.y));
+    if let Some(grey) = grey {
+        harness.hover_at(grey.center());
+        harness.run_steps(40);
+    }
+    let image = (0..5)
+        .find_map(|_| {
+            harness.render().ok().or_else(|| {
+                std::thread::sleep(std::time::Duration::from_millis(800));
+                None
+            })
+        })
+        .expect("render");
+    let file = format!("{dir}/PRUEFBILD-update-wartet{}.png", if english { "-en" } else { "-de" });
     image.save(&file).expect("Bild speichern");
     println!("gespeichert: {file}");
 }
@@ -1033,6 +1207,17 @@ fn main() {
 
     if what == "overlay" {
         overlay_picture(&dir, english);
+        return;
+    }
+
+    // The page "Kartellbank" alone, with its made-up bank.
+    if what == "kartellbank" {
+        bank_picture(&dir, english);
+        return;
+    }
+
+    if what == "updatewartet" {
+        update_waiting_picture(&dir, english);
         return;
     }
 

@@ -147,6 +147,23 @@ pub struct Ship {
     pub unit: Option<String>,
 }
 
+/// A refinery order over there.
+#[derive(Clone, Debug)]
+pub struct RefineryOrder {
+    pub id: String,
+    pub client_key: Option<String>,
+    pub status: String,
+    pub place: String,
+    pub ends_at: String,
+    /// Output material, yield in units, quality.
+    pub goods: Vec<(String, i64, i64)>,
+    pub game_data: i64,
+    pub picked_up: bool,
+}
+
+/// The refineries the made-up Basetool offers for refinery orders (also places of `catalog/locations`).
+pub const REFINERIES: [&str; 2] = ["CRU-L1 Ambitious Dream Station", "ARC-L1 Wide Forest Station"];
+
 #[derive(Clone, Debug)]
 struct Fault {
     route: String,
@@ -209,10 +226,26 @@ struct World {
     material_refusals: Vec<(String, String)>,
     /// The class of an item in the catalogue (`scRecord`, lower case) and its `bt`.
     records: Vec<(String, String)>,
-    /// The answers to change sets by their `Idempotency-Key`.
-    replays: Vec<(String, Response)>,
+    /// The answers to change sets by their `Idempotency-Key`, with the body that came under it.
+    replays: Vec<(String, Option<Vec<u8>>, Response)>,
     /// The next change set on each of these routes is applied, but its answer is lost on the way back.
     lose_answers: Vec<String>,
+    orders: Vec<RefineryOrder>,
+    order_log: Vec<Log>,
+    bank: BankWorld,
+}
+
+/// The Kartellbank over there.
+struct BankWorld {
+    /// The bank switch of the Basetool for connected applications.
+    on: bool,
+    /// Accounts as the route answers them.
+    accounts: Vec<Value>,
+    /// The member's requests by id, and the log of their changes for the feed.
+    requests: Vec<(String, Value)>,
+    log: Vec<Log>,
+    /// The queue entries; `None`: the member is no bank staff.
+    queue: Option<Vec<Value>>,
 }
 
 type Touch = Box<dyn FnOnce() + Send>;
@@ -247,6 +280,9 @@ impl ExchangeDouble {
             ("bt-hadanite", "Hadanite", false),
             ("bt-pistol", "Pistol", true),
             ("bt-medpen", "Medpen", true),
+            ("bt-gold-ore", "Gold (Ore)", false),
+            ("bt-iron-ore", "Iron (Ore)", false),
+            ("bt-quantainium-raw", "Quantainium (Raw)", false),
         ];
         ExchangeDouble {
             world: Mutex::new(World {
@@ -289,8 +325,122 @@ impl ExchangeDouble {
                 records: Vec::new(),
                 replays: Vec::new(),
                 lose_answers: Vec::new(),
+                orders: Vec::new(),
+                order_log: Vec::new(),
+                bank: BankWorld { on: true, accounts: Vec::new(), requests: Vec::new(), log: Vec::new(), queue: None },
             }),
         }
+    }
+
+    /// The bank switch of the Basetool for connected applications.
+    pub fn set_bank(&self, on: bool) {
+        self.world().bank.on = on;
+    }
+
+    /// An account the member views; gives its id.
+    pub fn add_account(&self, no: &str, name: &str, balance: i64, requestable: bool) -> String {
+        let mut world = self.world();
+        let id = format!("acc-{}", world.next);
+        world.next += 1;
+        world.bank.accounts.push(object(vec![
+            ("accountId", Value::str(&id)),
+            ("accountNo", Value::str(no)),
+            ("name", Value::str(name)),
+            ("type", Value::str("ORG_UNIT")),
+            ("balance", Value::int(balance)),
+            ("balanceTarget", Value::Null),
+            ("delta30d", Value::int(0)),
+            ("sparkline", Value::Array(vec![Value::int(balance)])),
+            ("requestable", Value::Bool(requestable)),
+            ("ownLimit", Value::Null),
+            ("approvalExempt", Value::Bool(false)),
+        ]));
+        id
+    }
+
+    /// The queue of a bank employee with entries of these ids; `None` makes the member no bank staff.
+    pub fn set_queue(&self, ids: Option<&[&str]>) {
+        self.world().bank.queue = ids.map(|ids| {
+            ids.iter()
+                .map(|id| {
+                    object(vec![
+                        ("id", Value::str(*id)),
+                        ("type", Value::str("WITHDRAWAL")),
+                        ("amount", Value::int(2500)),
+                        ("requesterHandle", Value::Null),
+                        ("mayConfirm", Value::Bool(true)),
+                        ("link", Value::str(format!("https://beispiel.profit-base.invalid/bank/requests/{id}"))),
+                    ])
+                })
+                .collect()
+        });
+    }
+
+    /// The bank decides a request (or the member does so in the web): its status changes.
+    pub fn decide_bank_request(&self, id: &str, status: &str) {
+        let mut world = self.world();
+        world.bank_change(id, |request| set_field(request, "status", Value::str(status)));
+    }
+
+    /// The member's requests as the Basetool holds them.
+    pub fn bank_requests(&self) -> Vec<Value> {
+        self.world().bank.requests.iter().map(|(_, r)| r.clone()).collect()
+    }
+
+    /// A refinery order over there, made in the web (`key` none) or by an installation; gives its id.
+    pub fn add_refinery_order(
+        &self,
+        key: Option<&str>,
+        place: &str,
+        status: &str,
+        ends_at: &str,
+        goods: &[(&str, i64, i64)],
+    ) -> String {
+        let mut world = self.world();
+        let id = format!("ro-{}", world.next);
+        world.next += 1;
+        world.orders.push(RefineryOrder {
+            id: id.clone(),
+            client_key: key.map(str::to_string),
+            status: status.into(),
+            place: place.into(),
+            ends_at: ends_at.into(),
+            goods: goods.iter().map(|(m, a, q)| ((*m).to_string(), *a, *q)).collect(),
+            game_data: 1,
+            picked_up: false,
+        });
+        let revision = world.bump();
+        world.order_log.push(Log { revision, key: id.clone(), gone_by: None });
+        id
+    }
+
+    /// Changes an order as the web does (status, end); its counter moves.
+    pub fn change_refinery_order(&self, id: &str, status: Option<&str>, ends_at: Option<&str>) {
+        let mut world = self.world();
+        if let Some(order) = world.orders.iter_mut().find(|o| o.id == id) {
+            if let Some(status) = status {
+                order.status = status.into();
+            }
+            if let Some(ends_at) = ends_at {
+                order.ends_at = ends_at.into();
+            }
+            order.game_data += 1;
+        }
+        let revision = world.bump();
+        world.order_log.push(Log { revision, key: id.into(), gone_by: None });
+    }
+
+    /// An order deleted in the web: its deletion mark comes with the feed.
+    pub fn delete_refinery_order(&self, id: &str) {
+        let mut world = self.world();
+        world.orders.retain(|o| o.id != id);
+        let revision = world.bump();
+        world.order_log.push(Log { revision, key: id.into(), gone_by: None });
+    }
+
+    /// The refinery orders over there.
+    pub fn refinery_orders(&self) -> Vec<RefineryOrder> {
+        self.world().orders.clone()
     }
 
     /// The next change set on `route` is applied, but VerseKit gets a 503 instead of the answer.
@@ -640,7 +790,15 @@ impl ExchangeDouble {
         if let Some(at) = world.faults.iter().position(|f| route.starts_with(&f.route) && f.times > 0) {
             world.faults[at].times -= 1;
             let fault = world.faults[at].clone();
-            let mut response = problem(fault.status, &fault.code);
+            // A scripted fault brings a detail and a correlation id, as the Basetool's problem documents do.
+            let mut response = answer(
+                fault.status,
+                object(vec![
+                    ("code", Value::str(&fault.code)),
+                    ("detail", Value::str(format!("Detail-Geheimnis {route}"))),
+                    ("correlationId", Value::str("korrelation-geheim")),
+                ]),
+            );
             if let Some(seconds) = fault.retry_after {
                 response.headers.push(("Retry-After".into(), seconds.to_string()));
             }
@@ -671,8 +829,27 @@ impl ExchangeDouble {
                 answer(200, object(vec![("items", Value::Array(items))]))
             }
             ("GET", "/catalog/locations") => {
-                let items = world.places.iter().map(|p| object(vec![("name", Value::str(p))])).collect();
+                let items = world
+                    .places
+                    .iter()
+                    .map(String::as_str)
+                    .chain(REFINERIES)
+                    .map(|p| object(vec![("name", Value::str(p))]))
+                    .collect();
                 answer(200, object(vec![("items", Value::Array(items))]))
+            }
+            ("GET", "/me/refinery-orders") => {
+                // The snapshot holds the open orders only, the feed every change.
+                let cursor = arg("cursor");
+                let items: Vec<(String, Value)> = world
+                    .orders
+                    .iter()
+                    .filter(|o| cursor.is_some() || o.status == "OPEN" || o.status == "IN_PROGRESS")
+                    .map(|o| (o.id.clone(), o.json()))
+                    .collect();
+                let (log, revision, expire) =
+                    (world.order_log.clone(), world.revision, std::mem::take(&mut world.expire_cursor));
+                feed(&cursor, &items, &log, revision, expire)
             }
             ("POST", "/catalog/resolve") => world.resolve(body),
             ("GET", "/me/blueprints") => {
@@ -707,6 +884,17 @@ impl ExchangeDouble {
                     (world.ship_log.clone(), world.revision, std::mem::take(&mut world.expire_cursor));
                 feed(&arg("cursor"), &items, &log, revision, expire)
             }
+            (_, bank) if bank.starts_with("/bank/") => {
+                if !world.bank.on {
+                    let mut response = problem(503, "BANK_EXCHANGE_DISABLED");
+                    response.headers.push(("Retry-After".into(), "300".into()));
+                    return response;
+                }
+                if method == "POST" {
+                    world.bodies.push((bank.to_string(), body.clone()));
+                }
+                world.bank_answer(method, bank, &arg("cursor"), body)
+            }
             ("POST", changes) if changes.ends_with("/changes") => {
                 world.bodies.push((changes.to_string(), body.clone()));
                 if let Some(at) = world.hold.iter().position(|r| r == changes) {
@@ -728,6 +916,7 @@ impl ExchangeDouble {
                         world.change_stock(body)
                     }
                     "/me/ships/changes" => world.change_ships(body),
+                    "/me/refinery-orders/changes" => world.change_refinery(body),
                     _ => problem(404, "NOT_FOUND"),
                 }
             }
@@ -763,6 +952,40 @@ impl Lot {
                 object(vec![("personal", quantity(self.amount - self.shared())), ("pools", Value::Array(pools))]),
             ),
         ])
+    }
+}
+
+impl RefineryOrder {
+    fn json(&self) -> Value {
+        let goods: Vec<Value> = self
+            .goods
+            .iter()
+            .enumerate()
+            .map(|(i, (name, amount, quality))| {
+                object(vec![
+                    ("id", Value::str(format!("{}-g{i}", self.id))),
+                    ("output", object(vec![("name", Value::str(name))])),
+                    ("inputQuantity", Value::int(0)),
+                    ("outputQuantity", Value::int(*amount)),
+                    ("quality", Value::int(*quality)),
+                ])
+            })
+            .collect();
+        let mut pairs = vec![
+            ("id", Value::str(&self.id)),
+            ("status", Value::str(&self.status)),
+            ("versions", object(vec![("gameData", Value::int(self.game_data)), ("finances", Value::int(0))])),
+            ("location", object(vec![("name", Value::str(&self.place))])),
+            ("endsAt", Value::str(&self.ends_at)),
+            ("goods", Value::Array(goods)),
+        ];
+        if let Some(key) = &self.client_key {
+            pairs.push(("clientKey", Value::str(key)));
+        }
+        if self.picked_up {
+            pairs.push(("pickedUpAt", Value::str(&self.ends_at)));
+        }
+        object(pairs)
     }
 }
 
@@ -873,7 +1096,188 @@ fn ops_of(body: &Value) -> Vec<Value> {
     }
 }
 
+fn set_field(value: &mut Value, key: &str, new: Value) {
+    if let Value::Object(pairs) = value {
+        match pairs.iter_mut().find(|(k, _)| k == key) {
+            Some((_, old)) => *old = new,
+            None => pairs.push((key.into(), new)),
+        }
+    }
+}
+
 impl World {
+    /// Changes a request of the member and logs it for the feed; its version grows.
+    fn bank_change(&mut self, id: &str, change: impl FnOnce(&mut Value)) {
+        let Some(at) = self.bank.requests.iter().position(|(k, _)| k == id) else { return };
+        let version = amount_of(self.bank.requests[at].1.get("version")) as i64;
+        change(&mut self.bank.requests[at].1);
+        set_field(&mut self.bank.requests[at].1, "version", Value::int(version + 1));
+        let revision = self.bump();
+        self.bank.log.push(Log { revision, key: id.into(), gone_by: None });
+    }
+
+    /// The bank routes, the switch already looked at.
+    fn bank_answer(&mut self, method: &str, route: &str, cursor: &Option<String>, body: &Value) -> Response {
+        let pending = self
+            .bank
+            .requests
+            .iter()
+            .filter(|(_, r)| r.get("status").and_then(Value::as_str) == Some("PENDING"))
+            .count();
+        match (method, route) {
+            ("GET", "/bank/accounts") => answer(
+                200,
+                object(vec![
+                    ("items", Value::Array(self.bank.accounts.clone())),
+                    ("removed", Value::Array(Vec::new())),
+                    ("hasMore", Value::Bool(false)),
+                    ("nextCursor", Value::Null),
+                ]),
+            ),
+            ("GET", "/bank/requests") => {
+                let since: u64 = cursor.as_ref().map_or(0, |c| c.trim_start_matches('c').parse().unwrap_or(0));
+                let items: Vec<Value> = match cursor {
+                    None => self.bank.requests.iter().map(|(_, r)| r.clone()).collect(),
+                    Some(_) => {
+                        let mut keys: Vec<&String> = Vec::new();
+                        for entry in self.bank.log.iter().filter(|l| l.revision > since) {
+                            if !keys.contains(&&entry.key) {
+                                keys.push(&entry.key);
+                            }
+                        }
+                        keys.iter()
+                            .filter_map(|k| self.bank.requests.iter().find(|(id, _)| id == *k).map(|(_, r)| r.clone()))
+                            .collect()
+                    }
+                };
+                answer(
+                    200,
+                    object(vec![
+                        ("items", Value::Array(items)),
+                        ("removed", Value::Array(Vec::new())),
+                        ("hasMore", Value::Bool(false)),
+                        ("nextCursor", Value::str(format!("c{}", self.revision))),
+                        ("openRequestCap", Value::int(20)),
+                    ]),
+                )
+            }
+            ("GET", "/bank/queue") => match &self.bank.queue {
+                None => problem(403, "NOT_BANK_STAFF"),
+                Some(open) => answer(
+                    200,
+                    object(vec![
+                        ("open", Value::Array(open.clone())),
+                        ("toApprove", Value::Array(Vec::new())),
+                        ("oldestOverdue", Value::Bool(false)),
+                        ("hasMore", Value::Bool(false)),
+                        ("nextCursor", Value::Null),
+                    ]),
+                ),
+            },
+            ("GET", path) if path.ends_with("/bookings") => {
+                // The note names the account, so a test sees whose bookings came.
+                let account = path.trim_start_matches("/bank/accounts/").trim_end_matches("/bookings");
+                let booking = object(vec![
+                    ("postingId", Value::str(format!("p-{account}"))),
+                    ("type", Value::str("DEPOSIT")),
+                    ("amount", Value::int(1000)),
+                    ("createdAt", Value::str("2026-11-08T19:30:00Z")),
+                    ("note", Value::str(decode(account))),
+                    ("counterpartyHandle", Value::Null),
+                ]);
+                answer(200, object(vec![("items", Value::Array(vec![booking])), ("hasMore", Value::Bool(false))]))
+            }
+            ("GET", path) if path.ends_with("/balance-series") => {
+                let point = object(vec![("date", Value::str("2026-11-08")), ("balance", Value::int(1000))]);
+                answer(200, object(vec![("points", Value::Array(vec![point])), ("balanceTarget", Value::Null)]))
+            }
+            ("POST", "/bank/requests") => {
+                if pending >= 20 {
+                    return problem(409, "BANK_OPEN_REQUEST_CAP");
+                }
+                let account = text_of(body.get("sourceAccountId"));
+                let Some(source) = self
+                    .bank
+                    .accounts
+                    .iter()
+                    .find(|a| a.get("accountId").and_then(Value::as_str) == Some(account.as_str()))
+                    .cloned()
+                else {
+                    return problem(404, "NOT_FOUND");
+                };
+                let id = format!("req-{}", self.next);
+                self.next += 1;
+                let amount = amount_of(body.get("amount")) as i64;
+                let request = object(vec![
+                    ("id", Value::str(&id)),
+                    ("version", Value::int(0)),
+                    ("status", Value::str("PENDING")),
+                    ("createdAt", Value::str(format!("2026-11-09T12:00:{:02}Z", self.next % 60))),
+                    ("type", Value::str(text_of(body.get("type")))),
+                    ("amount", Value::int(amount)),
+                    ("note", Value::str(text_of(body.get("note")))),
+                    (
+                        "account",
+                        object(vec![
+                            ("id", Value::str(&account)),
+                            ("no", source.get("accountNo").cloned().unwrap_or(Value::Null)),
+                            ("name", source.get("name").cloned().unwrap_or(Value::Null)),
+                        ]),
+                    ),
+                    ("client", Value::str("versekit")),
+                ]);
+                self.bank.requests.push((id.clone(), request));
+                let revision = self.bump();
+                self.bank.log.push(Log { revision, key: id.clone(), gone_by: None });
+                answer(
+                    201,
+                    object(vec![
+                        ("id", Value::str(&id)),
+                        ("status", Value::str("PENDING")),
+                        ("version", Value::int(0)),
+                        ("amount", Value::int(amount)),
+                    ]),
+                )
+            }
+            ("POST", path) if path.ends_with("/correction") || path.ends_with("/cancel") => {
+                let id = path.trim_start_matches("/bank/requests/").split('/').next().unwrap_or_default().to_string();
+                let Some((_, request)) = self.bank.requests.iter().find(|(k, _)| *k == id).cloned() else {
+                    return problem(404, "NOT_FOUND");
+                };
+                if request.get("status").and_then(Value::as_str) != Some("PENDING") {
+                    return problem(409, "BANK_REQUEST_NOT_PENDING");
+                }
+                if amount_of(request.get("version")) != amount_of(body.get("version")) {
+                    return problem(409, "VERSION_CONFLICT");
+                }
+                let cancel = path.ends_with("/cancel");
+                let body = body.clone();
+                self.bank_change(&id, |r| {
+                    if cancel {
+                        set_field(r, "status", Value::str("CANCELLED"));
+                    } else {
+                        for key in ["amount", "note", "justification"] {
+                            if let Some(v) = body.get(key) {
+                                set_field(r, key, v.clone());
+                            }
+                        }
+                    }
+                });
+                let after = self.bank.requests.iter().find(|(k, _)| *k == id).map(|(_, r)| r.clone()).unwrap_or(Value::Null);
+                answer(
+                    200,
+                    object(vec![
+                        ("id", Value::str(&id)),
+                        ("status", after.get("status").cloned().unwrap_or(Value::Null)),
+                        ("version", after.get("version").cloned().unwrap_or(Value::Null)),
+                        ("amount", after.get("amount").cloned().unwrap_or(Value::Null)),
+                    ]),
+                )
+            }
+            _ => problem(404, "NOT_FOUND"),
+        }
+    }
+
     fn bump(&mut self) -> u64 {
         self.revision += 1;
         self.revision
@@ -1239,6 +1643,128 @@ impl World {
         let effects = self.effects_of("/me/ships/changes", applied);
         results_with(applied, 0, report, self.revision, &effects)
     }
+
+    /// The refinery change set: `create`, `update` of the timer, `pickup` without store lines, by the rules of the
+    /// resource (keys, counters, refineries, raw inputs, units). Store lines are refused: Verse-Kit never sends them.
+    fn change_refinery(&mut self, body: &Value) -> Response {
+        let (mut applied, mut unchanged) = (0, 0);
+        let mut report = Vec::new();
+        for (index, op) in ops_of(body).iter().enumerate() {
+            let key = text_of(op.get("clientKey"));
+            let id = text_of(op.get("id"));
+            let found = self.orders.iter().position(|o| {
+                (!id.is_empty() && o.id == id) || (id.is_empty() && !key.is_empty() && o.client_key.as_deref() == Some(&key))
+            });
+            let counter = match op.get("versions").and_then(|v| v.get("gameData")) {
+                Some(Value::Int(n)) => n.parse::<i64>().ok(),
+                _ => None,
+            };
+            match text_of(op.get("op")).as_str() {
+                "create" => {
+                    if let Some(at) = self.orders.iter().position(|o| o.client_key.as_deref() == Some(&key)) {
+                        let mut refused = failure(index, "rejected", "ALREADY_EXISTS");
+                        if let Value::Object(pairs) = &mut refused {
+                            pairs.push(("id".into(), Value::str(&self.orders[at].id)));
+                        }
+                        report.push(refused);
+                        continue;
+                    }
+                    let unit = text_of(op.get("orgUnit").and_then(|u| u.get("id")));
+                    if !self.units.iter().any(|(u, _)| *u == unit) {
+                        report.push(failure(index, "rejected", "NOT_A_MEMBER"));
+                        continue;
+                    }
+                    let place = text_of(op.get("location").and_then(|l| l.get("name")));
+                    let Some(refinery) = REFINERIES.iter().find(|r| lower(r) == lower(&place)) else {
+                        let known = self.places.iter().any(|p| lower(p) == lower(&place));
+                        report.push(if known {
+                            failure(index, "rejected", "NOT_A_REFINERY")
+                        } else {
+                            failure(index, "unmatched", "UNMATCHED")
+                        });
+                        continue;
+                    };
+                    let mut goods = Vec::new();
+                    let mut reason = "";
+                    for good in match op.get("goods") {
+                        Some(Value::Array(goods)) => goods.clone(),
+                        _ => Vec::new(),
+                    } {
+                        let bt = text_of(good.get("input").and_then(|i| i.get("bt")));
+                        match self.materials.iter().find(|(b, _, item)| *b == bt && !item) {
+                            Some((_, name, _)) if name.ends_with(" (Ore)") || name.ends_with(" (Raw)") => {
+                                let output = name.trim_end_matches(" (Ore)").trim_end_matches(" (Raw)").to_string();
+                                let amount = amount_of(good.get("outputQuantity")) as i64;
+                                let quality = amount_of(good.get("quality")) as i64;
+                                goods.push((output, amount, quality));
+                            }
+                            Some(_) => reason = "MATERIAL_NOT_RAW",
+                            None => reason = "UNMATCHED",
+                        }
+                    }
+                    if goods.is_empty() && reason.is_empty() {
+                        reason = "GOODS_REQUIRED";
+                    }
+                    if !reason.is_empty() {
+                        report.push(failure(index, "rejected", reason));
+                        continue;
+                    }
+                    let new_id = format!("ro-{}", self.next);
+                    self.next += 1;
+                    let status = text_of(op.get("status"));
+                    self.orders.push(RefineryOrder {
+                        id: new_id.clone(),
+                        client_key: Some(key),
+                        status: if status.is_empty() { "OPEN".into() } else { status },
+                        place: (*refinery).to_string(),
+                        ends_at: text_of(op.get("endsAt")),
+                        goods,
+                        game_data: 0,
+                        picked_up: false,
+                    });
+                    let revision = self.bump();
+                    self.order_log.push(Log { revision, key: new_id, gone_by: None });
+                    applied += 1;
+                }
+                kind @ ("update" | "pickup") => {
+                    let Some(at) = found else {
+                        report.push(failure(index, "rejected", "ORDER_UNKNOWN"));
+                        continue;
+                    };
+                    if kind == "pickup" && op.get("lines").is_some() {
+                        report.push(failure(index, "rejected", "SCOPE_MISSING"));
+                        continue;
+                    }
+                    let order = &mut self.orders[at];
+                    if kind == "pickup" && order.status == "COMPLETED" {
+                        unchanged += 1;
+                        continue;
+                    }
+                    if kind == "pickup" && order.status == "CANCELED" {
+                        report.push(failure(index, "rejected", "ORDER_CANCELED"));
+                        continue;
+                    }
+                    if counter != Some(order.game_data) {
+                        report.push(failure(index, "rejected", "VERSION_CONFLICT"));
+                        continue;
+                    }
+                    if kind == "pickup" {
+                        order.status = "COMPLETED".into();
+                        order.picked_up = true;
+                    } else if let Some(ends) = op.get("endsAt").and_then(Value::as_str) {
+                        order.ends_at = ends.into();
+                    }
+                    order.game_data += 1;
+                    let order_id = order.id.clone();
+                    let revision = self.bump();
+                    self.order_log.push(Log { revision, key: order_id, gone_by: None });
+                    applied += 1;
+                }
+                _ => report.push(failure(index, "rejected", "UNKNOWN_OP")),
+            }
+        }
+        results(applied, unchanged, report, self.revision)
+    }
 }
 
 impl ExchangeDouble {
@@ -1309,9 +1835,17 @@ impl Transport for ExchangeDouble {
     /// it for 24 hours; nothing is applied a second time.
     fn send(&self, request: &Request) -> Result<Response, ApiError> {
         let key = crate::basetool::proof::header(&request.headers, "Idempotency-Key").map(str::to_string);
+        // Every write of the API carries a key; a key comes back only with the body it was used for.
+        let route = request.url.strip_prefix(API).unwrap_or_default();
+        if request.method == "POST" && key.is_none() && (route.ends_with("/changes") || route.starts_with("/bank/")) {
+            return Ok(problem(400, "IDEMPOTENCY_KEY_MISSING"));
+        }
         if let Some(key) = &key {
-            let known = self.world().replays.iter().find(|(k, _)| k == key).map(|(_, r)| r.clone());
-            if let Some(known) = known {
+            let known = self.world().replays.iter().find(|(k, _, _)| k == key).map(|(_, b, r)| (b.clone(), r.clone()));
+            if let Some((body, known)) = known {
+                if body != request.body {
+                    return Ok(problem(422, "IDEMPOTENCY_KEY_REUSED"));
+                }
                 self.world().seen.push(format!("{} {} (replay)", request.method, request.url));
                 return Ok(known);
             }
@@ -1321,7 +1855,7 @@ impl Transport for ExchangeDouble {
         if let Some(key) = key
             && (200..300).contains(&response.status)
         {
-            world.replays.push((key, response.clone()));
+            world.replays.push((key, request.body.clone(), response.clone()));
             let route = request.url.strip_prefix(API).unwrap_or_default().to_string();
             if let Some(at) = world.lose_answers.iter().position(|r| *r == route) {
                 world.lose_answers.remove(at);

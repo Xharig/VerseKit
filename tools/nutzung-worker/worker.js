@@ -15,6 +15,10 @@
 //                             neueste Datei bei GitHub weiter — auch wenn das
 //                             Zählen scheitert. Vorschau-Roboter zählen nicht.
 //                             `?ref=<kanal>` zählt dazu den Kanal (`channel`).
+//   nutzung-versekit.xharig.com/besuch?ref=<kanal>   öffentlich. Die Webseite
+//                             meldet damit einen Besuch über einen
+//                             gekennzeichneten Link; gezählt wird je Tag und
+//                             Kanal (`visit`), sonst nichts.
 //   statistik-versekit.xharig.com      privat. Davor sitzt Cloudflare Access (Anmeldung
 //                             über GitHub); der Worker prüft dessen Zeichen
 //                             ZUSÄTZLICH selbst (`verifyAccess`). Fehlt die
@@ -45,7 +49,7 @@ const FIELDS = ['actions', 'alter', 'autostart', 'clicks', 'entry', 'game', 'mis
 // Alter der Installation in ganzen Tagen; alles ab 31 meldet das Programm als 31.
 export const MAX_AGE = 31;
 // Kanal-Kennzeichen an den Kurzlinks (`?ref=discord`). Alles andere wird verworfen.
-const REF_RE = /^[a-z]{1,20}$/;
+export const REF_RE = /^[a-z]{1,20}$/;
 const COUNTRY_RE = /^[A-Z][A-Z0-9]$/;   // ISO-Kürzel; Cloudflare nutzt auch T1 (Tor), XX (unbekannt)
 const STATS_HOST = 'statistik-versekit.xharig.com';
 const MAX_DAYS = 400;
@@ -439,19 +443,28 @@ async function data(env, ctx, days) {
   // Jahre klein); Alter und Kanäle nur die letzten Wochen, mehr braucht der
   // Vergleich mit der Vorwoche nicht.
   const recent = new Date(Date.now() - SUCCESS_DAYS * 86400000).toISOString().slice(0, 10);
-  const [sums, ages, refs] = await Promise.all([
+  // Die Download-Kanäle reichen mindestens so weit zurück wie der gewählte
+  // Zeitraum: die Liste „Herkunft" zeigt den ganzen Zeitraum, die Wochenzahl
+  // oben braucht nur die letzten Tage. Die Besuche reichen genauso weit, damit
+  // beide Spalten der Herkunft denselben Zeitraum zeigen. Beide Abfragen holen
+  // höchstens MAX_ROWS Zeilen, die größten zuerst (je Tag gibt es dank
+  // countChannel ohnehin höchstens 31).
+  const channelsSince = since < recent ? since : recent;
+  const [sums, ages, refs, visits] = await Promise.all([
     env.DB.prepare('SELECT tag, SUM(n) AS n FROM tage GROUP BY tag ORDER BY tag').all()
       .then((r) => r.results || []).catch(() => []),
     env.DB.prepare('SELECT tag, tage, n FROM installationen_alter WHERE tag >= ?1').bind(recent).all()
       .then((r) => r.results || []).catch(() => []),
-    env.DB.prepare('SELECT tag, kanal, n FROM downloads_kanal WHERE tag >= ?1').bind(recent).all()
-      .then((r) => r.results || []).catch(() => []),
+    env.DB.prepare('SELECT tag, kanal, n FROM downloads_kanal WHERE tag >= ?1 ORDER BY n DESC LIMIT ?2')
+      .bind(channelsSince, MAX_ROWS).all().then((r) => r.results || []).catch(() => []),
+    env.DB.prepare('SELECT tag, kanal, n FROM besuche WHERE tag >= ?1 ORDER BY n DESC LIMIT ?2')
+      .bind(channelsSince, MAX_ROWS).all().then((r) => r.results || []).catch(() => []),
   ]);
   return { tage: t.results || [], merkmale: m.results || [], downloads: dl.liste,
            downloads_stand: dl.stand, downloads_alt: dl.alt, kurzlinks: links.results || [],
            bestand: bestand.results || [], verlauf: verlauf.results || [],
            seiten: nav[0], seiten_wege: nav[1], seiten_klicks: nav[2], seiten_fehlgriffe: nav[3],
-           seiten_handlungen: nav[4], tage_summe: sums, alter: ages, kanaele: refs };
+           seiten_handlungen: nav[4], tage_summe: sums, alter: ages, kanaele: refs, besuche: visits };
 }
 
 // Wie weit „Alter" und „Kanäle" zurückreichen: drei Wochen für das Bleiben
@@ -487,6 +500,26 @@ export function channel(request) {
   return ref !== null && REF_RE.test(ref) ? ref : null;
 }
 
+// Je Tag höchstens MAX_CHANNELS verschiedene Kanäle: jeder gültige Name wäre
+// sonst eine neue Zeile, und die Mengenbremse greift nur je Adresse. Gibt es an
+// dem Tag schon so viele, zählt ein NEUER Name unter `sonstige`; ein Kanal, der
+// an dem Tag schon steht, zählt weiter unter seinem Namen. Eine einzige
+// Anweisung, damit zwei gleichzeitige Meldungen die Grenze nicht umgehen.
+// `table` kommt nur aus dem Code (downloads_kanal, besuche), nie aus der Anfrage.
+export const MAX_CHANNELS = 30;
+export const OTHER_CHANNEL = 'sonstige';
+export const MAX_ROWS = 500;
+
+export function countChannel(db, table, day, kanal) {
+  return db.prepare(
+    `INSERT INTO ${table} (tag, kanal, n) SELECT ?1, CASE ` +
+    `WHEN ?2 = ?3 OR EXISTS (SELECT 1 FROM ${table} WHERE tag = ?1 AND kanal = ?2) ` +
+    `OR (SELECT COUNT(*) FROM ${table} WHERE tag = ?1 AND kanal <> ?3) < ?4 ` +
+    `THEN ?2 ELSE ?3 END, 1 WHERE true ` +
+    'ON CONFLICT (tag, kanal) DO UPDATE SET n = n + 1'
+  ).bind(day, kanal, OTHER_CHANNEL, MAX_CHANNELS).run();
+}
+
 async function countDownload(request, env, link) {
   if (!env.DB || !env.LIMIT || !countsAsDownload(request)) return;
   // Dieselbe Adresse mehrfach in kurzer Zeit (Doppelklick, Abbruch und neu)
@@ -502,11 +535,35 @@ async function countDownload(request, env, link) {
   const kanal = channel(request);
   if (kanal) {
     // Abgefangen: fehlt die Tabelle noch, zählt der Download oben trotzdem.
-    await env.DB.prepare(
-      'INSERT INTO downloads_kanal (tag, kanal, n) VALUES (?1, ?2, 1) ' +
-      'ON CONFLICT (tag, kanal) DO UPDATE SET n = n + 1'
-    ).bind(day, kanal).run().catch(() => {});
+    await countChannel(env.DB, 'downloads_kanal', day, kanal).catch(() => {});
   }
+}
+
+// ------------------------------------------------------------ Besuche
+
+// `GET /besuch?ref=<kanal>`: die Webseite meldet einmal beim Laden, dass
+// jemand über einen gekennzeichneten Link kam (`versekit.xharig.com/?ref=pipeline`).
+// Gezählt wird je Tag und Kanal, sonst nichts: keine Adresse, keine Kennung,
+// kein Land. Roboter zählen nicht (wie bei den Downloads), dieselbe Adresse
+// mehrfach in kurzer Zeit zählt einmal. Die Antwort ist immer leer; ein
+// kaputter Zähler fällt dem Besucher nicht auf.
+async function visit(request, env) {
+  if (request.method !== 'GET') return answer(405, 'nur GET');
+  if (!env.DB || !env.LIMIT) return answer(503, 'nicht eingerichtet');
+  const kanal = channel(request);
+  if (!kanal) return answer(400, 'ref');
+  if (!countsAsDownload(request)) return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
+  try {
+    const ip = request.headers.get('cf-connecting-ip') || 'unbekannt';
+    const { success } = await env.LIMIT.limit({ key: 'besuch:' + ip });
+    if (success) {
+      const day = new Date().toISOString().slice(0, 10);
+      await countChannel(env.DB, 'besuche', day, kanal);
+    }
+  } catch (e) {
+    // fehlt die Tabelle noch oder klemmt die Datenbank: nichts zählen, nichts melden
+  }
+  return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 }
 
 function shortLink(request, env, ctx, link) {
@@ -558,8 +615,13 @@ async function exportAll(env) {
   for (const t of tables) {
     out[t] = (await env.DB.prepare('SELECT * FROM ' + t).all()).results || [];
   }
-  for (const t of [...NAV_TABLES, 'downloads_kanal', 'installationen_alter']) {
+  for (const t of [...NAV_TABLES, 'installationen_alter']) {
     out[t] = await env.DB.prepare('SELECT * FROM ' + t).all()
+      .then((r) => r.results || []).catch(() => []);
+  }
+  // Die Kanal-Tabellen wachsen mit Namen aus dem Netz: nur die größten Zeilen.
+  for (const t of ['downloads_kanal', 'besuche']) {
+    out[t] = await env.DB.prepare('SELECT * FROM ' + t + ' ORDER BY n DESC LIMIT ?1').bind(MAX_ROWS).all()
       .then((r) => r.results || []).catch(() => []);
   }
   return out;
@@ -623,6 +685,7 @@ export default {
     // they catch on the website (`/windowsxyz`) goes on to the website itself.
     if (SHORT_HOSTS.includes(url.hostname)) return fetch(request);
     if (url.pathname === '/ping') return ping(request, env);
+    if (url.pathname === '/besuch') return visit(request, env);
     return answer(404, 'nicht hier');
   },
 };

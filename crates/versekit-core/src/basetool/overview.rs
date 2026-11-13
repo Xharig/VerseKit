@@ -29,8 +29,9 @@ use std::collections::BTreeSet;
 use crate::basetool::error::error_text;
 use crate::basetool::hold::held_routes;
 use crate::basetool::scopes::{
-    ROUTE_BLUEPRINTS, ROUTE_SHIPS, ROUTE_STOCK, SCOPES_BLUEPRINTS, SCOPES_DEMAND, SCOPES_HANGAR, SCOPES_ORGSTOCK,
-    SCOPES_STOCK, SEND_ROUTES, SETTING_BLUEPRINTS, SETTING_DEMAND, SETTING_ORGSTOCK, SETTING_SHIPS, SETTING_STOCK,
+    ROUTE_BLUEPRINTS, ROUTE_REFINERY, ROUTE_SHIPS, ROUTE_STOCK, SCOPES_BANK, SCOPES_BLUEPRINTS, SCOPES_DEMAND,
+    SCOPES_HANGAR, SCOPES_ORGSTOCK, SCOPES_REFINERY, SCOPES_STOCK, SEND_ROUTES, SETTING_BANK, SETTING_BLUEPRINTS,
+    SETTING_DEMAND, SETTING_ORGSTOCK, SETTING_REFINERY, SETTING_SHIPS, SETTING_STOCK,
 };
 use crate::basetool::sync::{Phase, Status};
 use crate::formats;
@@ -42,6 +43,8 @@ pub const COUNTS_STOCK: &str = "stock";
 pub const COUNTS_SHIPS: &str = "ships";
 pub const COUNTS_DEMAND: &str = "demand";
 pub const COUNTS_ORGSTOCK: &str = "orgstock";
+pub const COUNTS_REFINERY: &str = "refinery";
+pub const COUNTS_BANK: &str = "bank";
 
 /// An area as a card of the page: switch, the rights it needs, title and
 /// explanation. In the order of the page.
@@ -52,7 +55,7 @@ pub struct AreaCard {
     pub help: &'static str,
 }
 
-pub const CARDS: [AreaCard; 5] = [
+pub const CARDS: [AreaCard; 7] = [
     AreaCard {
         setting: SETTING_BLUEPRINTS,
         scopes: SCOPES_BLUEPRINTS,
@@ -68,6 +71,13 @@ pub const CARDS: [AreaCard; 5] = [
         title: "s_btv_staffellager",
         help: "s_btv_staffellager_h",
     },
+    AreaCard {
+        setting: SETTING_REFINERY,
+        scopes: SCOPES_REFINERY,
+        title: "s_btv_raffinerie",
+        help: "s_btv_raffinerie_h",
+    },
+    AreaCard { setting: SETTING_BANK, scopes: SCOPES_BANK, title: "s_btv_bank", help: "s_btv_bank_h" },
 ];
 
 /// What the unit demand holds, once that area exists.
@@ -247,6 +257,55 @@ pub fn area_lines(setting: &str, counts: &Map, state: &Map, demand: Option<&Dema
                 refused(&mut lines, c, sub);
             }
         }
+        SETTING_REFINERY => {
+            let sub = object(state, "refinery").unwrap_or(&empty);
+            let c = object(counts, COUNTS_REFINERY).unwrap_or(&empty);
+            if let Some(code) = field(c, "error").and_then(Value::as_str).filter(|e| !e.is_empty()) {
+                lines.push(error_text(code));
+            }
+            if count(c, "unreadable") != 0 {
+                lines.push(t("s_btv_raffinerie_unlesbar"));
+            }
+            if field(sub, "server").is_some() {
+                lines.push(tf("s_btv_raffinerie_ueberblick", &[n("n", size(sub, "server"))]));
+            }
+            if field(c, "created").is_some() {
+                lines.push(tf(
+                    "s_btv_raffinerie_stand",
+                    &[
+                        n("angelegt", count(c, "created")),
+                        n("geaendert", count(c, "updated")),
+                        n("abgeholt", count(c, "picked_up")),
+                        n("uebernommen", count(c, "taken")),
+                    ],
+                ));
+                for (key, text) in [
+                    ("no_place", "s_btv_raffinerie_ort"),
+                    ("no_material", "s_btv_raffinerie_material"),
+                    ("no_unit", "s_btv_raffinerie_einheit_fehlt"),
+                ] {
+                    if count(c, key) != 0 {
+                        lines.push(tf(text, &[n("n", count(c, key))]));
+                    }
+                }
+                refused(&mut lines, c, sub);
+            }
+        }
+        SETTING_BANK => {
+            // The counts only: amounts stay on the bank page, in memory.
+            let c = object(counts, COUNTS_BANK).unwrap_or(&empty);
+            if let Some(code) = field(c, "error").and_then(Value::as_str).filter(|e| !e.is_empty()) {
+                lines.push(error_text(code));
+            } else if field(c, "accounts").is_some() {
+                lines.push(tf(
+                    "s_btv_bank_stand",
+                    &[n("konten", count(c, "accounts")), n("offen", count(c, "pending"))],
+                ));
+                if field(c, "queue").is_some() {
+                    lines.push(tf("s_btv_bank_warteschlange_stand", &[n("n", count(c, "queue"))]));
+                }
+            }
+        }
         _ => {}
     }
     lines
@@ -258,6 +317,7 @@ pub fn route_of(setting: &str) -> Option<&'static str> {
         SETTING_BLUEPRINTS => Some(ROUTE_BLUEPRINTS),
         SETTING_STOCK => Some(ROUTE_STOCK),
         SETTING_SHIPS => Some(ROUTE_SHIPS),
+        SETTING_REFINERY => Some(ROUTE_REFINERY),
         _ => None,
     }
 }

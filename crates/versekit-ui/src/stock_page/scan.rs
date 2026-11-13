@@ -75,6 +75,8 @@ pub(super) struct Scan {
     pub(super) cells: Vec<Cell>,
     /// The block is to be scrolled into view once (the tile asked for a reading).
     pub(super) scroll: bool,
+    /// Materials and sum of the job whose lines went into the field: booking them picks up that job.
+    pub(super) read_job: Option<(Vec<String>, String)>,
 }
 
 impl Scan {
@@ -162,6 +164,7 @@ pub(super) fn show_jobs(state: &mut StockState, jobs: Vec<ScannedJob>, kept: boo
     state.scan.choice.clear();
     if jobs.len() <= 1 {
         let job = jobs.into_iter().next();
+        state.scan.read_job = job.as_ref().map(|j| (j.materials.clone(), j.total.clone()));
         let (text, unsure, cells, station) =
             job.map_or_else(Default::default, |j| (j.text, j.unsure, j.cells, j.station));
         result(state, &text, &unsure, kept, cells, &station);
@@ -282,8 +285,19 @@ pub(super) fn notes(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     if let Some(i) = chosen {
         let job = state.scan.choice.swap_remove(i);
         state.scan.choice.clear();
+        state.scan.read_job = Some((job.materials.clone(), job.total.clone()));
         let kept = state.scan.kept;
         result(state, &job.text, &job.unsure, kept, job.cells, &job.station);
+    }
+}
+
+/// After booking: the refinery job the yield came from is picked up (the Basetool sync closes its order; the stock
+/// reaches the Basetool through the stock sync alone). Nothing on the sample contents.
+pub(super) fn picked_up(state: &mut StockState, booked: &[String]) {
+    let read = state.scan.read_job.take();
+    if let Some(paths) = &state.scan.paths {
+        let read = read.as_ref().map(|(materials, total)| (materials.as_slice(), total.as_str()));
+        refinery_jobs::mark_picked_up(paths, booked, read, versekit_core::export::now_unix() as f64);
     }
 }
 

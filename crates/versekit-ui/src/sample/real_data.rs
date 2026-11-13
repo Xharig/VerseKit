@@ -1086,8 +1086,32 @@ fn on_a_copy_the_switch_of_the_start_with_the_system_holds_and_its_entry_names_t
     let text = std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
     let exec = text.lines().find_map(|l| l.strip_prefix("Exec=")).unwrap_or_default().replace("\\\\", "\\");
     assert!(exec.contains("--daten") && exec.contains(&root), "the entry starts the program on the copy: {exec}");
+    assert!(versekit_core::autostart::has_system_start(&exec), "and tells the program it is the system: {exec}");
     assert!(!page.change_autostart(false).is_empty() && !page.autostart_on && !file.exists());
     let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The switch "open the main window on start": on without the key (also for players who set up long ago), read from
+/// the file when the player switched it off, and written under its key with the other settings.
+#[test]
+fn the_switch_for_the_main_window_at_the_start_is_on_without_a_key_and_is_stored_under_its_key() {
+    use versekit_core::overlay::keys::MAIN_AT_START;
+    let _language = crate::language_lock();
+    let (mut page, dir) = real_page("hauptfenster-start", "{}\n", &[]);
+    assert!(page.main_at_start, "no key: on");
+    let (off, other) = real_page("hauptfenster-start-aus", "{\"hauptfenster_beim_start\": false}\n", &[]);
+    assert!(!off.main_at_start, "switched off in the file");
+    // The row stands in the group Start of the page General, with its explanation.
+    page.go_to("hf_allgemein");
+    let texts = draw(&mut page, 1280.0, 2400.0).1;
+    assert!(shows(&texts, &language::t("s_ei_hauptfenster")), "the row: {texts:?}");
+    // A change is stored under the key the program reads at the start.
+    page.main_at_start = false;
+    page.save_settings_and_wait();
+    let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+    assert!(file.contains(MAIN_AT_START) && file.contains("false"), "stored: {file}");
+    let _ = std::fs::remove_dir_all(dir);
+    let _ = std::fs::remove_dir_all(other);
 }
 
 #[test]

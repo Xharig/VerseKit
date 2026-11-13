@@ -206,3 +206,6 @@ s_ei_taste_num_geteilt
 s_ei_taste_num_mal
 s_ei_taste_num_minus
 s_ei_taste_num_plus
+
+# The short name of the overlay shortcut in the messages about a taken key: the word "Overlay" in both languages.
+s_hk_kurz_overlay

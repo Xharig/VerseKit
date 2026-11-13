@@ -27,6 +27,7 @@ use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use egui::{Frame, Margin, RichText, Sense, Stroke, Ui, UiBuilder};
+use versekit_core::auto_update;
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::net::Fake;
 use versekit_core::paths::Paths;
@@ -232,6 +233,8 @@ pub struct UpdateUi {
     question: Option<Question>,
     /// Seconds a click still waits after a failed download, as of the last frame of the page.
     manual_wait: Option<f64>,
+    /// Since when a newer version is on offer and not installed (`auto_update::offered_since`), as of the last read.
+    offered_since: Option<f64>,
 }
 
 /// An environment that fetches nothing: the pages of a window without an updater (and every check of this
@@ -269,7 +272,13 @@ impl UpdateUi {
             note: None,
             question: None,
             manual_wait: None,
+            offered_since: None,
         }
+    }
+
+    /// Whole days the version on offer has waited at `now` (seconds since 1970), from one day on.
+    pub fn waiting_days(&self, now: f64) -> Option<u64> {
+        auto_update::days_waiting(self.offered_since, now)
     }
 
     /// Why a click cannot fetch right now: a fetch is under way, or a download failed a moment ago (in any process
@@ -302,6 +311,9 @@ impl UpdateUi {
         self.releases = updater::cache_read(paths).releases;
         let source = updater::packaging(self.env.appimage.as_deref(), &self.env.own_version) == Packaging::Source;
         self.view = View::of(&self.releases, &self.env.own_version, self.wants_prerelease(test_on), source);
+        // The same offer as the thread of the overlay counts, so that both keep the same moment.
+        let offered = updater::known_newer(paths, &self.env.own_version).is_some();
+        self.offered_since = auto_update::offered_since(paths, &self.env.own_version, offered, updater::now());
     }
 
     /// The remembered releases, for the page „Was ist neu“.
@@ -468,6 +480,12 @@ impl UpdateUi {
         widgets::card(ui, scheme, |ui| {
             ui.set_width(ui.available_width());
             widgets::card_title(ui, scheme, &t("hf_update"));
+            if let (Some(days), Some(version)) = (self.waiting_days(updater::now()), self.newer()) {
+                let days = auto_update::days_text(days);
+                let text = tf("s_ul_wartet", &[("version", Arg::from(version)), ("tage", Arg::from(days))]);
+                ui.add(egui::Label::new(RichText::new(text).strong().color(color(scheme.yellow))).wrap());
+                ui.add_space(4.0);
+            }
             small(ui, &t("s_up_sofort_h"), color(scheme.sub));
             ui.add_space(4.0);
             let fetch_word = t("s_up_sofort");

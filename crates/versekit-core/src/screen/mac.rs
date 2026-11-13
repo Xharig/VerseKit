@@ -20,7 +20,7 @@
 //! lower left corner of the main screen; the window functions (winit, egui)
 //! count from its upper left corner, in points.
 
-use objc2_app_kit::{NSEvent, NSScreen};
+use objc2_app_kit::{NSApplication, NSEvent, NSScreen};
 use objc2_foundation::MainThreadMarker;
 
 use super::{Monitor, Setup, from_cocoa, point_from_cocoa};
@@ -46,6 +46,25 @@ pub(super) fn query() -> Option<Setup> {
         })
         .collect();
     Some(Setup { scale: scale as f32, primary: 0, monitors })
+}
+
+/// Where the window titled `title` of this program stands, in pixels of `setup` (left, top, width, height), as the
+/// system has it: not where the program asked it to be put. macOS moves a window that lies over the menu bar, and
+/// nothing else tells. `None` outside the main thread, which is the only one that may ask, and without such a window.
+pub(super) fn window_area(setup: &Setup, title: &str) -> Option<super::Area> {
+    let mtm = MainThreadMarker::new()?;
+    let primary = setup.primary_area(false)?;
+    let scale = f64::from(setup.scale);
+    let windows = NSApplication::sharedApplication(mtm).windows();
+    (0..windows.count()).find_map(|i| {
+        let window = windows.objectAtIndex(i);
+        if window.title().to_string() != title {
+            return None;
+        }
+        let frame = window.frame();
+        let rect = (frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
+        Some(from_cocoa(rect, f64::from(primary.3) / scale, scale))
+    })
 }
 
 /// Where the pointer is, in pixels of `setup`.

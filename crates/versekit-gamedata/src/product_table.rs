@@ -216,7 +216,9 @@ fn weapon(item: &ItemValues, made: &ItemValues, out: &mut Builder) {
         info.push(with("s_ps_magazin", &[Arg::Int(count)]));
     }
     out.info(&info);
-    let (base_dps, made_dps) = (quality::dps(item), quality::dps(made));
+    // A scattergun counts all the pellets of a shot, as the values under the description of the item do.
+    let all_pellets = |item: &ItemValues| quality::dps(item).map(|dps| dps * quality::pellets(item));
+    let (base_dps, made_dps) = (all_pellets(item), all_pellets(made));
     let (base_damage, detonation) = quality::damage(weapon.ammo.as_ref());
     let (made_damage, _) = quality::damage(made.weapon.as_ref().and_then(|w| w.ammo.as_ref()));
     let mut label = match base_damage.as_ref().and_then(crate::values::Damage::single_kind) {
@@ -583,4 +585,62 @@ pub fn formatted(row: &Row) -> Shown {
 pub fn table(item: &ItemValues, factors: &quality::Factors) -> Vec<Line> {
     let made = quality::crafted(item, factors);
     lines(item, &made)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::values::{Ammo, Damage, FireAction, FireMode, Weapon};
+
+    /// A ship weapon firing `rate` shots a minute of `pellets` bullets with `damage` each.
+    fn gun(rate: f64, pellets: i64, damage: f64) -> ItemValues {
+        ItemValues {
+            item_type: ItemType::Weapon,
+            cg_item_type: Some("WeaponGun".into()),
+            weapon: Some(Weapon {
+                fire_modes: vec![FireMode {
+                    action: FireAction {
+                        name: Some("Single".into()),
+                        kind: "single".into(),
+                        fire_rate: Some(rate),
+                        damage_multiplier: Some(1.0),
+                        pellet_count: Some(pellets),
+                        ..FireAction::default()
+                    },
+                    sequence: Vec::new(),
+                }],
+                ammo: Some(Ammo { damage: Some(Damage([damage, 0.0, 0.0, 0.0, 0.0, 0.0])), ..Ammo::default() }),
+                magazine: None,
+            }),
+            ..ItemValues::default()
+        }
+    }
+
+    fn dps_row(item: &ItemValues) -> Row {
+        let label = t("s_ps_dps");
+        lines(item, item)
+            .into_iter()
+            .find_map(|line| match line {
+                Line::Row(row) if row.label == label => Some(row),
+                _ => None,
+            })
+            .expect("the row with the damage per second")
+    }
+
+    #[test]
+    fn the_table_counts_all_the_pellets_of_a_scattergun() {
+        // Salvation Distortion Scattergun (S4): 8 pellets of 60, 60 shots a minute: 480, as erkul.games.
+        let row = dps_row(&gun(60.0, 8, 60.0));
+        assert_eq!(row.base, 480.0);
+        assert_eq!(row.made, Some(480.0));
+    }
+
+    #[test]
+    fn the_table_of_a_weapon_with_one_bullet_is_unchanged() {
+        // M5A Cannon: one bullet of 410.184, 100 shots a minute.
+        let row = dps_row(&gun(100.0, 1, 410.184));
+        assert!((row.base - 100.0 / 60.0 * 410.184).abs() < 1e-9);
+        let without_count = gun(100.0, 0, 410.184);
+        assert!((dps_row(&without_count).base - 100.0 / 60.0 * 410.184).abs() < 1e-9);
+    }
 }

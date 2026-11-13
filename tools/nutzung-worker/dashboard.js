@@ -26,7 +26,7 @@ const SEITE_CSS = `
    Nur, was basis.css nicht kennt. Farben für Windows und Linux: blau und
    orange bleiben auch bei Rot-Grün-Schwäche gut trennbar (Okabe und Ito). */
 :root{--win:#56b4e9;--lin:#f08a4b;
-  --weg-blau:#4a8de0;--weg-rosa:#e08fd0;--weg-grau:#6b7685;--weg-rot:#c8382c;--weg-eis:#8ee5f0;--weg-suche:#1f9d6b}
+  --weg-blau:#4a8de0;--weg-rosa:#e08fd0;--weg-grau:#6b7685;--weg-rot:#c8382c;--weg-eis:#8ee5f0;--weg-suche:#9a7bff}
 [hidden]{display:none !important}
 .kopf nav{gap:14px}
 .marke em{margin-left:-5px;font-style:normal;font-weight:400;color:var(--leise)}
@@ -111,6 +111,11 @@ section.block.klein{grid-column:span 2}
 .bar .fill{height:100%;background:var(--neon)}
 .bar .n{min-width:52px;text-align:right;color:var(--leise);font-variant-numeric:tabular-nums}
 .bar .grp{margin-left:8px;color:var(--leise);font-size:12px}
+/* Seitenliste: Name in einer Zeile (zu lang: „…“, ganz im Tooltip), Bereich
+   immer darunter, damit jede Zeile gleich hoch ist */
+.bar .nm{min-width:0}
+.bar .nm .t{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .nm .grp{display:block;margin-left:0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Versionen: Name und Zahl oben, der Balken darunter (passt auch halbbreit);
    nur auf mittlerer Breite, wo die Liste die ganze Zeile hat, alles in einer Zeile */
 .versionen .bar{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}

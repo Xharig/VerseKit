@@ -39,6 +39,7 @@
 
 pub mod form;
 pub mod item_info;
+pub mod item_stats;
 pub mod ranks;
 pub mod reputation;
 pub mod sources;
@@ -194,6 +195,9 @@ pub struct Inputs {
     /// The text keys of the crafted items from the catalog of the game data;
     /// empty for a catalog without them.
     pub item_texts: item_info::ItemTexts,
+    /// The stock values of weapons and components from the catalog of the game
+    /// data; empty for a catalog without them.
+    pub item_stats: Vec<item_stats::ItemStats>,
     /// The version the menu line names (empty: none).
     pub version: String,
 }
@@ -573,6 +577,13 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
         )
     };
 
+    // The stock values of weapons and components, before the blueprint part of the same description.
+    let stats_block = if remove_only || !paths.setting_bool(item_stats::SETTING, true) {
+        HashMap::new()
+    } else {
+        item_stats::build(&lines, &inputs.item_stats, item_stats::words_for(language))
+    };
+
     // Every description of a contract that gets notes gets the same block,
     // found by the beginning title and descriptions share; the first wins.
     let mut stem_block: HashMap<String, &Map> = HashMap::new();
@@ -672,6 +683,13 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
                 touched = clean != base;
             } else if let Some(tag) = name_suffix.get(key) {
                 clean = form::name_with_detail(&base, tag);
+                touched = true;
+            } else if let Some(stats) = stats_block.get(key) {
+                let block = match item_block.get(key) {
+                    Some(blueprint) => item_stats::joined(stats, blueprint),
+                    None => stats.clone(),
+                };
+                clean = form::append_block(&base, &block);
                 touched = true;
             } else if let Some(block) = item_block.get(key) {
                 clean = form::append_block(&base, block);

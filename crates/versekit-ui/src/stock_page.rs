@@ -2347,6 +2347,7 @@ fn book_refinery(state: &mut StockState) {
         }
         let typed: Vec<(String, f64, i64)> = read.entries.iter().map(|y| (y.material.clone(), y.amount, y.quality)).collect();
         scan::learn_from_booking(state, &typed);
+        scan::picked_up(state, &read.entries.iter().map(|y| y.material.clone()).collect::<Vec<_>>());
         // A place that was left empty remembers nothing: the field starts on the last real one.
         if !place.is_empty() {
             state.refinery_last = place.clone();

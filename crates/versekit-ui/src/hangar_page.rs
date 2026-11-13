@@ -37,6 +37,7 @@ use versekit_core::basetool::scopes::SETTING_SHIPS;
 use versekit_core::cart::Sources as CartSources;
 use versekit_core::equipment;
 use versekit_core::fleet_analysis;
+use versekit_core::formats;
 use versekit_core::hangar::{self, CATALOG, Held, Imported, Rejected, Saved};
 use versekit_core::hangar_formats::{self, ReadFail};
 use versekit_core::hangar_inbox::{self as inbox, Event, Files, Gate, Inbox};
@@ -846,6 +847,67 @@ fn slot_info(state: &HangarState, entry: &Map) -> SlotInfo {
     SlotInfo { count: state.erkul.slot_count(id), concept: state.uex.is_concept(id.name) }
 }
 
+/// A number of the stored files: a whole or a decimal one.
+fn number(value: Option<&Value>) -> Option<f64> {
+    match value? {
+        Value::Float(x) if x.is_finite() => Some(*x),
+        Value::Int(text) => text.parse().ok(),
+        _ => None,
+    }
+}
+
+/// The base values of a ship for the hover over its name, as label and value: SCM speed, size and cargo from the
+/// game data ([`versekit_core::erkul_slots::GAME_SHIPS_FILE`], field `werte`), the in-game price from the UEX
+/// files. A value the data lack is left out, and so is its line.
+fn ship_values(state: &HangarState, entry: &Map) -> Vec<(String, String)> {
+    let lang = versekit_core::language::current();
+    let mut lines = Vec::new();
+    let stored = state.stores.erkul.ships.entry(versekit_core::erkul_slots::ship_id(entry));
+    let values = stored.and_then(|ship| ship.iter().find(|(k, _)| k == "werte")).and_then(|(_, v)| v.as_object());
+    if let Some(values) = values {
+        let field = |key: &str| values.iter().find(|(k, _)| k == key).map(|(_, v)| v);
+        if let Some(scm) = number(field("scm")).filter(|v| *v > 0.0) {
+            lines.push((t("s_hg_werte_scm"), format!("{} m/s", formats::count(lang, scm.round() as i64))));
+        }
+        let size: Vec<f64> = match field("masse") {
+            Some(Value::Array(items)) => items.iter().filter_map(|v| number(Some(v))).filter(|v| *v > 0.0).collect(),
+            _ => Vec::new(),
+        };
+        if size.len() == 3 {
+            let metres: Vec<String> = size.iter().map(|v| formats::fixed(lang, *v, 1)).collect();
+            lines.push((t("s_hg_werte_masse"), format!("{} m", metres.join(" × "))));
+        }
+        if let Some(scu) = number(field("fracht")).filter(|v| *v >= 0.0) {
+            lines.push((t("s_hg_werte_fracht"), formats::amount(lang, scu, "SCU")));
+        }
+    }
+    // The UEX list writes the maker into the name; the price rows are joined by that name.
+    let name = hangar::field_text(entry, "name");
+    let listed = state.uex.name_of(name).unwrap_or(name);
+    let offers = state.stores.market.buy_at(listed);
+    if let Some(cheapest) = offers.first() {
+        let price = crate::shopping_page::auec(cheapest.price);
+        let several = offers.iter().any(|offer| offer.price > cheapest.price);
+        lines.push((
+            t("s_hg_werte_preis"),
+            if several { tf("s_hg_werte_preis_ab", &[("0", Arg::from(price))]) } else { price },
+        ));
+    }
+    lines
+}
+
+/// The hover over a ship's name: the full name, then its base values in two columns.
+fn values_tip(ui: &mut Ui, scheme: &Scheme, name: &str, lines: &[(String, String)]) {
+    ui.label(RichText::new(name).strong());
+    egui::Grid::new("hangar-schiffswerte").num_columns(2).spacing([GAP, 2.0]).show(ui, |grid| {
+        for (label, value) in lines {
+            grid.label(RichText::new(label).color(color(scheme.sub)));
+            grid.label(value);
+            grid.end_row();
+        }
+    });
+}
+
 /// `_melt_caption`: the caption of a melt state, with the CCU data.
 fn melt_caption(meltable: Option<bool>, upgradeable: bool) -> String {
     match fleet_analysis::state_for(meltable, upgradeable) {
@@ -1044,8 +1106,21 @@ fn ship_row(
                 action = Some(RowAction::Remove(hangar::field_text(entry, "name").to_string(), maker));
             }
             // The name takes the room left of the button, from the left edge.
+            // The hover over the name: the full name and the base values; without values only the full name of a
+            // cut name, as every label does. Looked up only while the pointer is on the name.
             line.with_layout(egui::Layout::left_to_right(egui::Align::Center), |line| {
-                line.add(egui::Label::new(RichText::new(hangar::field_text(entry, "name")).strong()).truncate());
+                let name = hangar::field_text(entry, "name");
+                let label = egui::Label::new(RichText::new(name).strong()).truncate().show_tooltip_when_elided(false);
+                let response = line.add(label);
+                if response.hovered() {
+                    let values = ship_values(state, entry);
+                    let font = egui::TextStyle::Body.resolve(line.style());
+                    let full =
+                        line.fonts_mut(|f| f.layout_no_wrap(name.to_string(), font, egui::Color32::WHITE).size().x);
+                    if !values.is_empty() || full > response.rect.width() + 0.5 {
+                        response.on_hover_ui(|tip| values_tip(tip, scheme, name, &values));
+                    }
+                }
             });
         });
     });
@@ -4160,5 +4235,169 @@ mod tests {
         let was = hangar::fully_fitted(&ship);
         assert!(!ready_after_tick(&mut ship, was, &tick(false)), "a tick taken back");
         assert!(!hangar::field_true(&ship, "einsatzbereit"));
+    }
+
+    /// A page with a Gladius whose base values are in the game data and whose price is at two terminals, and a
+    /// Carrack the data know nothing of.
+    fn values_page(name: &str) -> (HangarState, std::path::PathBuf) {
+        let dir =
+            std::env::temp_dir().join(format!("versekit-hangarseite-{name}-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("folder");
+        let game = dir.join(versekit_core::erkul_slots::GAME_SHIPS_FILE);
+        let ships = format!(
+            r#"{{"format": {}, "werte_stand": 1, "spielversion": "4.10", "schiffe": {{"aegsgladius": {{"name": "Aegis Gladius",
+            "id": "AEGS_Gladius", "plaetze": [], "slots": [], "werte": {{"scm": 226.0, "masse": [21.0, 17.5, 5.5],
+            "fracht": 0.0}}}}}}, "hersteller": {{"aegisdynamics": "aegs"}}}}"#,
+            ships::ERKUL_FILE_FORMAT
+        );
+        std::fs::write(&game, ships).expect("ships");
+        let uex = dir.join(ships::UEX_FILE);
+        std::fs::write(
+            &uex,
+            r#"{"format": 5, "schiffe": {"7": {"name": "Aegis Gladius"}, "8": {"name": "Anvil Carrack"}}}"#,
+        )
+        .expect("UEX");
+        let market = r#"{"schiffe": {"7": {"name": "Aegis Gladius"}}, "kauf": {"7": [
+            {"stelle": "a", "ort": "Lorville", "system": "Stanton", "preis": 1600000},
+            {"stelle": "b", "ort": "Area18", "system": "Stanton", "preis": 1530000}]}}"#;
+        let mut stores = Stores::empty();
+        stores.market = versekit_core::ship_market::Market::from_value(&jsonio::loads(market).expect("market"));
+        stores.erkul.ships = ErkulShips::load(&game.to_string_lossy());
+        let hangar = r#"{"format": 1, "schiffe": [
+            {"name": "Gladius", "hersteller": "Aegis Dynamics", "herkunft": "pledge", "belegung": {}},
+            {"name": "Carrack", "hersteller": "Anvil Aerospace", "herkunft": "pledge", "belegung": {}}]}"#;
+        let data = match jsonio::loads(hangar) {
+            Ok(Value::Object(map)) => map,
+            other => panic!("{other:?}"),
+        };
+        let state = HangarState {
+            held: Held::detached(data),
+            uex: UexShips::load(&uex.to_string_lossy()),
+            stores: Arc::new(stores),
+            ..HangarState::default()
+        };
+        (state, dir)
+    }
+
+    /// The texts of a frame with the room they take and the room they may take (their clip rectangle).
+    fn texts_with_clip(output: &egui::FullOutput) -> Vec<(String, egui::Rect, egui::Rect)> {
+        fn walk(shape: &egui::Shape, clip: egui::Rect, out: &mut Vec<(String, egui::Rect, egui::Rect)>) {
+            match shape {
+                egui::Shape::Text(text) => {
+                    out.push((text.galley.text().to_string(), text.galley.rect.translate(text.pos.to_vec2()), clip))
+                }
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|shape| walk(shape, clip, out)),
+                _ => {}
+            }
+        }
+        let mut out = Vec::new();
+        output.shapes.iter().for_each(|clipped| walk(&clipped.shape, clipped.clip_rect, &mut out));
+        out
+    }
+
+    /// The page drawn with the pointer on the name `name` (found in the frame before); the texts of the last frame.
+    fn hovered_on(
+        ctx: &egui::Context,
+        state: &mut HangarState,
+        size: egui::Vec2,
+        name: &str,
+    ) -> Vec<(String, egui::Rect, egui::Rect)> {
+        let scheme = versekit_core::theme::current();
+        // The time of the context runs on from its last frame.
+        let mut time = ctx.input(|input| input.time);
+        let mut frame = |events: Vec<egui::Event>| {
+            time += 1.0;
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
+                time: Some(time),
+                events,
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| show_page(ui, scheme, state));
+            });
+            output.textures_delta.clear();
+            texts_with_clip(&output)
+        };
+        let mut texts = Vec::new();
+        for _ in 0..3 {
+            texts = frame(Vec::new());
+        }
+        let at = texts
+            .iter()
+            .find(|(text, _, _)| text == name)
+            .map(|(_, rect, _)| rect.left_center() + egui::vec2(4.0, 0.0))
+            .unwrap_or_else(|| panic!("{name} is not on the page"));
+        frame(vec![egui::Event::PointerMoved(at)]);
+        for _ in 0..3 {
+            texts = frame(Vec::new());
+        }
+        texts
+    }
+
+    /// The hover over the name shows the base values of the game data and the price of the UEX files, in both
+    /// languages and at every size: nothing of it is cut off and it stays on the screen, also in a narrow window. A
+    /// ship the data know nothing of gets no hover over a name that is not cut.
+    #[test]
+    fn the_hover_over_the_name_shows_the_base_values_and_nothing_of_it_is_cut() {
+        let _language = crate::language_lock();
+        steady_scheme();
+        let (mut state, dir) = values_page("werte");
+        let mut findings = Vec::new();
+        for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
+            versekit_core::language::set_thread_language(choice);
+            let lang = versekit_core::language::current();
+            let price = tf("s_hg_werte_preis_ab", &[("0", Arg::from(crate::shopping_page::auec(1_530_000.0)))]);
+            let size = format!(
+                "{} × {} × {} m",
+                formats::fixed(lang, 21.0, 1),
+                formats::fixed(lang, 17.5, 1),
+                formats::fixed(lang, 5.5, 1)
+            );
+            let shown = [
+                t("s_hg_werte_scm"),
+                "226 m/s".to_string(),
+                t("s_hg_werte_masse"),
+                size,
+                t("s_hg_werte_fracht"),
+                "0 SCU".to_string(),
+                t("s_hg_werte_preis"),
+                price,
+            ];
+            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                for width in [380.0, 1100.0] {
+                    let ctx = egui::Context::default();
+                    crate::install(&ctx);
+                    crate::apply_size(&ctx, points);
+                    ctx.global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
+                    let screen = egui::vec2(width, 900.0);
+                    let texts = hovered_on(&ctx, &mut state, screen, "Gladius");
+                    let place = format!("{choice:?} Größe {points} Breite {width}");
+                    for wanted in &shown {
+                        match texts.iter().find(|(text, _, _)| text == wanted) {
+                            None => findings.push(format!("{place}: „{wanted}“ fehlt")),
+                            Some((_, rect, clip)) => {
+                                if !clip.expand(0.5).contains_rect(*rect) {
+                                    findings.push(format!("{place}: „{wanted}“ abgeschnitten {rect:?} in {clip:?}"));
+                                }
+                                if !egui::Rect::from_min_size(egui::Pos2::ZERO, screen).expand(0.5).contains_rect(*rect)
+                                {
+                                    findings.push(format!("{place}: „{wanted}“ außerhalb des Bildschirms {rect:?}"));
+                                }
+                            }
+                        }
+                    }
+                    let carrack = hovered_on(&ctx, &mut state, screen, "Carrack");
+                    if carrack.iter().any(|(text, _, _)| *text == t("s_hg_werte_scm") || *text == t("s_hg_werte_preis"))
+                    {
+                        findings.push(format!("{place}: die Carrack hat keine Werte, zeigt aber welche"));
+                    }
+                }
+            }
+        }
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let _ = std::fs::remove_dir_all(dir);
+        assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 }

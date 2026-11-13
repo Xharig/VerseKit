@@ -146,6 +146,8 @@ pub(super) struct Wizard {
     show_time: bool,
     all_blueprints: bool,
     tray: bool,
+    /// A start by hand opens the main window (`overlay::keys::MAIN_AT_START`), on unless the player switched it off.
+    main_at_start: bool,
     notes: [bool; 4],
     /// Why nothing can be saved in the data folder (empty: it can), and when that was looked at last.
     storage_blocked: Option<String>,
@@ -256,6 +258,7 @@ impl SamplePage {
             show_time: flag("spielzeit_zeigen", false),
             all_blueprints: flag(export::ALL_SETTING, false),
             tray: flag(overlay::keys::TRAY, true),
+            main_at_start: flag(overlay::keys::MAIN_AT_START, overlay::MAIN_AT_START_DEFAULT),
             notes: [
                 flag(game_texts::SETTING_ON, true),
                 flag(game_texts::SETTING_AUTO, true),
@@ -1087,6 +1090,11 @@ impl SamplePage {
                 let said = self.change_autostart(on);
                 self.pin_notice = Some((ui.input(|i| i.time), said));
             }
+        }
+        // Whether a start by hand opens the main window (on, as the settings have it without a choice).
+        if Self::switch_row(ui, scheme, &t("s_ei_hauptfenster"), &t("as_hauptfenster_h"), &mut wizard.main_at_start) {
+            // The page stores it with its other settings; a second writer would only repeat that.
+            self.main_at_start = wizard.main_at_start;
         }
         // The icon next to the clock exists on Windows only; elsewhere not even shown.
         if cfg!(windows) && Self::switch_row(ui, scheme, &t("s_tray"), &t("as_tray_h"), &mut wizard.tray) {
@@ -1974,12 +1982,46 @@ mod tests {
             assert!(shows(&texts, &language::t(key)), "{key} is a button");
         }
         assert!(shows(&texts, &language::t("as_basetool_text")), "the Basetool is named as optional");
-        // The release page the buttons of Chrome and Edge open: the one of the Hangar-Exporter.
-        let page = versekit_core::credits::HANGAR_EXPORTER;
-        assert!(page.starts_with("https://github.com/Drachennarr/Hangar-Exporter-Releases/releases/"));
+        // The buttons of Chrome and Edge open the entry in the Chrome Web Store; Firefox keeps the release page of
+        // the Hangar-Exporter where its file cannot be opened.
+        let page = versekit_core::exporter::chrome_page();
+        assert!(page.starts_with("https://chromewebstore.google.com/detail/hgmnaolojobpmeieccpholmjacbjkpbm"));
+        assert!(!page.contains("utm"), "no tracking tail: {page}");
+        let releases = versekit_core::credits::HANGAR_EXPORTER;
+        assert!(releases.starts_with("https://github.com/Drachennarr/Hangar-Exporter-Releases/releases/"));
         // Nothing here is written: the step only shows and opens a page.
         let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
         assert!(!file.contains("hangar"), "nothing of the hangar written: {file}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_start_step_asks_whether_a_start_by_hand_opens_the_main_window_with_the_answer_yes() {
+        let _language = crate::language_lock();
+        let (page, dir) = page_with_game("einrichtung-hauptfenster");
+        let mut bench = Bench::new(page);
+        bench.page.open_setup();
+        if let Some(w) = bench.page.setup.as_mut() {
+            w.state.step = w.steps.iter().position(|s| *s == Step::Start).unwrap();
+        }
+        let texts = bench.settle();
+        assert!(shows(&texts, &language::t("s_ei_hauptfenster")), "the question: {texts:?}");
+        let wizard = bench.page.setup.as_ref().expect("the assistant");
+        assert!(wizard.main_at_start && bench.page.main_at_start, "the answer is yes before anyone chose");
+        let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(!file.contains("hauptfenster_beim_start"), "nothing is written for the answer yes: {file}");
+        // A click says no, and that is written down at once.
+        let switch = bench
+            .named(&language::t("s_ei_hauptfenster"))
+            .into_iter()
+            .max_by(|a, b| a.center().x.total_cmp(&b.center().x))
+            .expect("the switch has a name for a screen reader");
+        bench.click_at(switch.center() - egui::vec2(3.0, 3.0));
+        bench.settle();
+        assert!(!bench.page.main_at_start, "the page follows the assistant");
+        assert!(bench.page.setup.as_ref().is_some_and(|w| !w.main_at_start));
+        let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(file.contains("hauptfenster_beim_start") && file.contains("false"), "written: {file}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

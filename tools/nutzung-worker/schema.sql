@@ -37,6 +37,18 @@ CREATE TABLE IF NOT EXISTS downloads_kanal (
   PRIMARY KEY (tag, kanal)
 );
 
+-- Besuche der Webseite mit Kennzeichen: `versekit.xharig.com/?ref=<kanal>`
+-- meldet sich einmal beim Laden an `/besuch?ref=<kanal>` (nur a–z, höchstens
+-- 20 Zeichen, sonst verworfen), je Tag. Ohne Kennzeichen wird nichts
+-- gezählt. Keine IP, keine Kennung, kein Cookie; bewusst NICHT mit Land
+-- oder System verknüpft.
+CREATE TABLE IF NOT EXISTS besuche (
+  tag   TEXT    NOT NULL,
+  kanal TEXT    NOT NULL,
+  n     INTEGER NOT NULL,
+  PRIMARY KEY (tag, kanal)
+);
+
 -- Alter der meldenden Installationen in Tagen (0–30, 31 = älter), je Tag.
 -- Ab VerseKit 5.2. Daraus: neue Installationen (Alter 0) und wer nach 7
 -- Tagen noch dabei ist (Alter 7). Keine Kennung, NICHT mit `tage` verknüpft.

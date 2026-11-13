@@ -98,6 +98,7 @@ Bauplan erhalten
 # Names of accounts and ranks as the game and the Basetool give them.
 Neutral
 PlayerOne
+Staffel Mamba
 
 # Names of licences (the licence MIT is no German word).
 MIT

@@ -19,9 +19,13 @@
 //!
 //! The entry carries the name of the program, not the old one: a value `VerseKit` under
 //! `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` on Windows, a file `versekit.desktop` in
-//! `$XDG_CONFIG_HOME/autostart` elsewhere. The command is the quoted path of the program, with no argument:
-//! the start with the system is the normal start (the overlay; the setup assistant if the program is not set
-//! up yet).
+//! `$XDG_CONFIG_HOME/autostart` elsewhere. The command is the quoted path of the program with the switch
+//! [`SYSTEM_START`]: the start with the system is the normal start (the overlay; the setup assistant if the
+//! program is not set up yet).
+//!
+//! The command of an entry carries the switch [`SYSTEM_START`]: it tells the program that the system started
+//! it, not the player. Only a start by hand opens the main window by itself. An entry without the switch (written
+//! by an earlier version or by the installer) gets it at the next start by hand ([`add_system_start`]).
 //!
 //! ⚠ The state is the entry itself, never a setting of its own: "no second truth" (4.12). What the entry says
 //! is what the switch shows.
@@ -44,6 +48,10 @@ pub const NAME: &str = "VerseKit";
 
 /// The names entries had before: the one of 4.12 and the one of the earlier test versions of this program.
 pub const EARLIER_NAMES: [&str; 2] = [legacy::AUTOSTART_NAME, "Verse-Kit"];
+
+/// The switch of a start by the system (the entry of the start with the system, the installer writes the same).
+/// Without it a start is a start by hand.
+pub const SYSTEM_START: &str = "--systemstart";
 
 /// Where an autostart entry lives: a value by name, with the command it runs.
 pub trait Store {
@@ -80,15 +88,39 @@ pub fn command_for(windows: bool, program: &Path, appimage: Option<&str>, argume
         Some(image) if !image.trim().is_empty() => image.to_string(),
         _ => program.to_string_lossy().into_owned(),
     };
-    let one = |part: &str| {
-        if windows { format!("\"{}\"", part.replace('"', "")) } else { crate::desktop_entry::exec_argument(part) }
-    };
-    let mut line = one(&target);
+    let mut line = quoted(windows, &target);
     for argument in arguments {
         line.push(' ');
-        line.push_str(&one(argument));
+        line.push_str(&quoted(windows, argument));
     }
     line
+}
+
+/// One part of a command in quotes, as the system wants it (see [`command_for`]).
+fn quoted(windows: bool, part: &str) -> String {
+    if windows { format!("\"{}\"", part.replace('"', "")) } else { crate::desktop_entry::exec_argument(part) }
+}
+
+/// Does the command say that the system started the program ([`SYSTEM_START`])?
+pub fn has_system_start(command: &str) -> bool {
+    command.split_whitespace().any(|part| part.trim_matches('"') == SYSTEM_START)
+}
+
+/// Gives an entry that is on and lacks the switch [`SYSTEM_START`] the switch, behind its own command: the program
+/// and its other arguments stay as they are. Done at a start by hand, so that the start with the system is told
+/// apart from it from then on. An entry that is off (none, no command, switched off by the system) is left alone:
+/// writing it again could switch it on. True when it was changed.
+pub fn add_system_start(store: &dyn Store) -> bool {
+    add_system_start_for(cfg!(windows), store)
+}
+
+fn add_system_start_for(windows: bool, store: &dyn Store) -> bool {
+    let Some(command) = store.get(NAME).filter(|command| !command.trim().is_empty()) else { return false };
+    if has_system_start(&command) || !store.approved(NAME) {
+        return false;
+    }
+    let extended = format!("{} {}", command.trim_end(), quoted(windows, SYSTEM_START));
+    store.put(NAME, &extended).is_ok()
 }
 
 /// Is the program started with the system? The entry exists and says something.
@@ -672,6 +704,47 @@ mod tests {
         assert!(text.starts_with("[Desktop Entry]\n") && text.contains("Terminal=false"));
         assert_eq!(desktop_command(&text).as_deref(), Some("\"/opt/versekit\""));
         assert_eq!(desktop_command("[Desktop Entry]\nName=x\n"), None);
+    }
+
+    #[test]
+    fn the_switch_of_the_system_start_is_found_in_the_command_however_it_is_quoted() {
+        assert!(has_system_start(r#""C:\P\versekit.exe" "--systemstart""#));
+        assert!(has_system_start(r#""C:\P\versekit.exe" --systemstart"#));
+        assert!(has_system_start(r#""/h/V.AppImage" "--daten" "/h/k" "--systemstart""#));
+        assert!(!has_system_start(r#""C:\P\versekit.exe""#));
+        assert!(!has_system_start(r#""C:\P\versekit.exe" "--daten" "C:\k""#));
+        assert!(!has_system_start(r#""C:\systemstart\versekit.exe""#), "a folder of that name is no switch");
+        assert!(!has_system_start(""));
+    }
+
+    #[test]
+    fn an_entry_that_is_on_gets_the_switch_behind_its_own_command_once() {
+        for windows in [true, false] {
+            let own = r#""C:\P\versekit.exe" "--daten" "C:\k""#;
+            let store = Memory::with(NAME, own);
+            assert!(add_system_start_for(windows, &store), "windows {windows}");
+            let now = store.get(NAME).unwrap();
+            assert!(now.starts_with(own), "the program and its arguments stay as they are: {now}");
+            assert!(has_system_start(&now), "{now}");
+            assert!(!add_system_start_for(windows, &store), "a second time changes nothing");
+            assert_eq!(store.get(NAME).as_deref(), Some(now.as_str()));
+        }
+    }
+
+    /// ⚠ The start with the system is voluntary: writing an entry again must never switch one on.
+    #[test]
+    fn an_entry_that_is_off_or_not_there_is_left_alone() {
+        let nothing = Memory::default();
+        assert!(!add_system_start(&nothing) && nothing.entries().is_empty(), "no entry, none made");
+        let empty = Memory::with(NAME, "  ");
+        assert!(!add_system_start(&empty));
+        assert_eq!(empty.get(NAME).as_deref(), Some("  "), "an entry without a command reads as off");
+        let off = Memory::with_switched_off(NAME, "\"C:/P/versekit.exe\"");
+        assert!(!add_system_start(&off));
+        assert_eq!(off.get(NAME).as_deref(), Some("\"C:/P/versekit.exe\""), "the entry of the task manager stays");
+        let refusing = Memory { refuse_put: true, ..Memory::with(NAME, "\"C:/P/versekit.exe\"") };
+        assert!(!add_system_start(&refusing), "a registry that takes nothing is no change");
+        assert_eq!(refusing.get(NAME).as_deref(), Some("\"C:/P/versekit.exe\""));
     }
 
     /// The registry code, in a key of its own that has nothing to do with the start of programs

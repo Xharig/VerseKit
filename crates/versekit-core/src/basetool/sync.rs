@@ -66,7 +66,8 @@ fn data_folder(paths: &Paths) -> String {
 
 /// Called after a write of the own stock files, the hangar or `asop.json`
 /// (`basetool_sync.store_saved`): with stock or hangar switched on the next
-/// pass follows soon, collected. Writes of the sync itself do not count.
+/// pass follows soon, collected. The refinery jobs count with the refinery
+/// switched on. Writes of the sync itself do not count.
 pub fn store_saved(file: &str) {
     let folder = crate::pypath::Flavor::native().dirname(file);
     let engines: Vec<Arc<Engine>> = {
@@ -76,7 +77,9 @@ pub fn store_saved(file: &str) {
     };
     for engine in engines {
         let switches: &dyn Switches = engine.paths.as_ref();
-        if switches.on(scopes::SETTING_STOCK) || switches.on(scopes::SETTING_SHIPS) {
+        let refinery = crate::pypath::Flavor::native().basename(file) == crate::refinery_jobs::FILE
+            && switches.on(scopes::SETTING_REFINERY);
+        if switches.on(scopes::SETTING_STOCK) || switches.on(scopes::SETTING_SHIPS) || refinery {
             engine.note_local_change();
         }
     }
@@ -224,6 +227,10 @@ pub trait Area: Send {
     fn forget_after(&self, action: Action) -> bool {
         action != Action::Retry
     }
+    /// Its data are private: its errors go into the error log with code, status and the path without ids only.
+    fn private(&self) -> bool {
+        false
+    }
     /// One pass; returns the counts.
     fn run(&mut self, pass: &mut Pass<'_>) -> Result<Map, ApiError>;
     /// Throw everything away: switched off, right missing, disconnected.
@@ -265,6 +272,8 @@ struct Engine {
     collection_seen: Mutex<Option<Option<FileStamp>>>,
     /// The end of a wait after `Retry-After` the last pass left in the state.
     resume_at: Mutex<Option<f64>>,
+    /// Isolated areas told `Retry-After`, by name: until then they do not run (in memory only).
+    area_waits: Mutex<std::collections::HashMap<&'static str, f64>>,
 }
 
 /// When a file was written and how long it is.
@@ -434,6 +443,13 @@ impl Engine {
                     area.forget();
                     continue;
                 }
+                // An isolated area that was told `Retry-After` waits alone; the others go on.
+                let now = self.now();
+                if let Some(until) = lock(&self.area_waits).get(area.name()).copied().filter(|until| *until > now) {
+                    let waiting = vec![("waiting".into(), Value::int(1)), ("until".into(), Value::Float(until))];
+                    map_set(&mut counts, area.name(), Value::Object(waiting));
+                    continue;
+                }
                 let mut pass = Pass {
                     conn: &self.conn,
                     paths: &self.paths,
@@ -447,12 +463,19 @@ impl Engine {
                     applying: &self.applying,
                 };
                 match area.run(&mut pass) {
-                    Ok(result) => map_set(&mut counts, area.name(), Value::Object(result)),
+                    Ok(result) => {
+                        lock(&self.area_waits).remove(area.name());
+                        map_set(&mut counts, area.name(), Value::Object(result))
+                    }
                     Err(error) if area.isolated() => {
                         if area.forget_after(error.action()) {
                             area.forget();
                         }
-                        error.record(&format!("basetool_sync.{}", area.name()));
+                        if let Some(wait) = error.retry_after {
+                            lock(&self.area_waits).insert(area.name(), now + wait as f64);
+                        }
+                        let logged = if area.private() { error.private() } else { error.clone() };
+                        logged.record(&format!("basetool_sync.{}", area.name()));
                         let failed = vec![("error".into(), Value::str(&error.code))];
                         map_set(&mut counts, area.name(), Value::Object(failed));
                     }
@@ -685,6 +708,7 @@ impl SyncHandle {
             passing: Mutex::new(()),
             collection_seen: Mutex::new(None),
             resume_at: Mutex::new(None),
+            area_waits: Mutex::new(std::collections::HashMap::new()),
         });
         SyncHandle {
             engine,

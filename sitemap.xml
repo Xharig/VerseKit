@@ -50,6 +50,18 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/fragen/"/>
   </url>
   <url>
+    <loc>https://versekit.xharig.com/deine-daten/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/deine-daten/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/deine-daten/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/deine-daten/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/en/deine-daten/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/deine-daten/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/deine-daten/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/deine-daten/"/>
+  </url>
+  <url>
     <loc>https://versekit.xharig.com/aenderungen/</loc>
     <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/aenderungen/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/aenderungen/"/>

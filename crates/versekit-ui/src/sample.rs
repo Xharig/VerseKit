@@ -92,7 +92,7 @@ mod update_ui;
 use crate::layout::{self, GAP};
 use crate::widgets::{self, ButtonKind};
 use crate::{
-    apply, axes_page, basetool_page, blickwinkel_page, blueprint_list, blueprint_progress, color, contested_page,
+    apply, axes_page, bank_page, basetool_page, blickwinkel_page, blueprint_list, blueprint_progress, color, contested_page,
     contract_log, crafting_page, data_folder, demand_page, diagnose_page, equipment_box, extension, farm_page,
     game_texts_page, grafik_page, hangar_page, highlight, icons, import_page, joysticks_page, mining_page, notes_page,
     org_stock_page, refineries_page, routes_page, salvage_page, selling_page, settings, shopping_page, shops_page,
@@ -350,6 +350,8 @@ pub struct SamplePage {
     streamer: bool,
     /// The daily usage report and the counting for it are on (`usage::SETTING`).
     usage_on: bool,
+    /// A start by hand opens the main window (`overlay::keys::MAIN_AT_START`).
+    main_at_start: bool,
     /// The page "Shader-Cache".
     shader: shader_page::ShaderState,
     grafik: grafik_page::GrafikState,
@@ -437,6 +439,8 @@ pub struct SamplePage {
     org_stock: org_stock_page::OrgStockState,
     /// What the units still need (in memory only), on the sync of the connection.
     demand: demand_page::DemandState,
+    /// The Kartellbank (in memory only), on the sync of the connection.
+    bank: bank_page::BankState,
     /// The connection to the made-up Basetool; the unit storage is there only
     /// with it connected, its switch on and its right granted.
     connection: basetool_page::ConnectionState,
@@ -743,6 +747,10 @@ pub struct MainSignals {
     demand_wanted: Arc<AtomicBool>,
     /// The demand last handed to the overlay, and when it was last tried.
     demand_handed: Arc<std::sync::Mutex<DemandHanded>>,
+    /// The overlay asked for the bank (it started; the same signal as the demand).
+    bank_wanted: Arc<AtomicBool>,
+    /// What of the bank was last handed to the overlay.
+    bank_handed: Arc<std::sync::Mutex<DemandHanded>>,
 }
 
 /// What the main window last handed the overlay of the demand of the unit.
@@ -805,11 +813,15 @@ impl MainSignals {
             | Signal::OpenTranslation
             | Signal::OpenAbout
             | Signal::OpenMining
-            | Signal::OpenStockScan => {
+            | Signal::OpenStockScan
+            | Signal::OpenBank => {
                 self.page.store(signal as u8, Ordering::Relaxed);
                 return;
             }
-            Signal::DemandWanted => &self.demand_wanted,
+            Signal::DemandWanted => {
+                self.bank_wanted.store(true, Ordering::Relaxed);
+                &self.demand_wanted
+            }
             // Anti-AFK is switched in the overlay; the main window is the one who asks.
             Signal::AntiAfkOn | Signal::AntiAfkOff | Signal::ShowFrame => return,
         };
@@ -824,6 +836,9 @@ impl MainSignals {
         }
         self.hand_demand(page, window_signal::find, |overlay, bytes| {
             window_signal::send_data(overlay, window_signal::DataKind::Demand, bytes)
+        });
+        self.hand_bank(page, window_signal::find, |overlay, bytes| {
+            window_signal::send_data(overlay, window_signal::DataKind::Bank, bytes)
         });
         let shown = self.overview.swap(false, Ordering::Relaxed);
         if shown {
@@ -842,6 +857,7 @@ impl MainSignals {
             code if code == Signal::OpenAbout as u8 => ("hf_ueber", "hf_gruppe_info"),
             code if code == Signal::OpenMining as u8 => ("hf_bergbau", "hf_gruppe_abbau"),
             code if code == Signal::OpenStockScan as u8 => ("hf_meinlager", "hf_gruppe_logistik"),
+            code if code == Signal::OpenBank as u8 => ("hf_bank", "hf_gruppe_handel"),
             _ => ("", ""),
         };
         if !key.is_empty() {
@@ -875,6 +891,32 @@ impl MainSignals {
         let wanted = wire.demand.for_overlay(wire.sync.area_visible(SETTING_DEMAND), wire.sync.now());
         let bytes = demand::handover(&wanted);
         let mut handed = self.demand_handed.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !handed.due(&bytes, asked, std::time::Instant::now()) {
+            return;
+        }
+        if let Some(overlay) = find(Role::Overlay)
+            && send(overlay, &bytes)
+        {
+            handed.handed(bytes);
+        }
+    }
+
+    /// Hands what the overlay shows of the bank to the running overlay when it asked or when it changed: the
+    /// balances, the pending own requests, the queue and its news while the bank page is there; an empty bank while
+    /// it is not, without a connection and for the made-up Basetool of the preview. In memory only.
+    fn hand_bank(&self, page: &SamplePage, find: impl Fn(Role) -> Option<isize>, send: impl Fn(isize, &[u8]) -> bool) {
+        use versekit_core::basetool::{bank, scopes::SETTING_BANK};
+        let asked = self.bank_wanted.swap(false, Ordering::Relaxed);
+        let bytes = match page.connection.wire().filter(|wire| wire.demo.is_none()) {
+            Some(wire) => {
+                let now = wire.sync.now();
+                let visible = wire.sync.area_visible(SETTING_BANK);
+                let data = visible.then(|| wire.bank.current(now).1).flatten();
+                bank::handover(data.as_deref(), wire.bank.news(), now)
+            }
+            None => bank::handover(None, bank::News::default(), versekit_core::export::now_unix() as f64),
+        };
+        let mut handed = self.bank_handed.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if !handed.due(&bytes, asked, std::time::Instant::now()) {
             return;
         }
@@ -1318,6 +1360,7 @@ impl SamplePage {
             mangohud: false,
             streamer: false,
             usage_on: true,
+            main_at_start: versekit_core::overlay::MAIN_AT_START_DEFAULT,
             shader:shader_page::ShaderState::default(),
             grafik: grafik_page::GrafikState::default(),
             fov: blickwinkel_page::FovState::default(),
@@ -1364,6 +1407,7 @@ impl SamplePage {
             shops: shops_page::ShopsState::default(),
             org_stock: org_stock_page::OrgStockState::new(Some(org_stock_page::Link::demo()), None),
             demand: demand_page::DemandState::default(),
+            bank: bank_page::BankState::default(),
             connection: basetool_page::ConnectionState::new(None),
             head_sync: crate::head_sync::HeadSync::default(),
             contracts: contract_log::LogData::sample(),
@@ -1590,6 +1634,7 @@ impl SamplePage {
         self.stock.connect(wire.as_ref().map(stock_share::Link::from_wire));
         self.hangar.connect(wire.as_ref().map(stock_share::Link::from_wire));
         self.demand = demand_page::DemandState::new(wire.as_ref().map(demand_page::Link::from_wire), Some(paths));
+        self.bank = bank_page::BankState::new(wire.as_ref().map(bank_page::Link::from_wire));
         self.connection = basetool_page::ConnectionState::new(wire);
     }
 
@@ -1606,6 +1651,7 @@ impl SamplePage {
         self.stock.connect(Some(stock_share::Link::from_wire(&wire)));
         self.hangar.connect(Some(stock_share::Link::from_wire(&wire)));
         self.demand = demand_page::DemandState::new(Some(demand_page::Link::from_wire(&wire)), None);
+        self.bank = bank_page::BankState::new(Some(bank_page::Link::from_wire(&wire)));
         self.connection = basetool_page::ConnectionState::new(Some(wire));
     }
 
@@ -1613,13 +1659,13 @@ impl SamplePage {
     /// its switch on, its right granted and the connection standing. Without
     /// a connection of the preview (the sample page) every page is there.
     fn page_hidden(&self, page: &str) -> bool {
-        use versekit_core::basetool::scopes::{SETTING_DEMAND, SETTING_ORGSTOCK};
+        use versekit_core::basetool::scopes::{SETTING_BANK, SETTING_DEMAND, SETTING_ORGSTOCK};
         // A module that is switched off hides its pages (the page "Module" itself is never one of them).
         if self.module_hidden.contains(&page) {
             return true;
         }
         // A connection an embedding program gave the storage shows the pages of the Basetool as they are.
-        if self.storage_given && matches!(page, "hf_staffellager" | "hf_bedarf") {
+        if self.storage_given && matches!(page, "hf_staffellager" | "hf_bedarf" | "hf_bank") {
             return false;
         }
         match (page, self.connection.wire()) {
@@ -1629,6 +1675,9 @@ impl SamplePage {
             // The unit demand is there with the connection standing, its switch on and its right granted.
             ("hf_bedarf", Some(wire)) => !wire.sync.area_visible(SETTING_DEMAND),
             ("hf_bedarf", None) => self.real(),
+            // The bank: its switch on, its right granted, the connection standing.
+            ("hf_bank", Some(wire)) => !wire.sync.area_visible(SETTING_BANK),
+            ("hf_bank", None) => self.real(),
             _ => false,
         }
     }
@@ -2197,7 +2246,8 @@ impl SamplePage {
         let Some(host) = self.store.as_ref().map(|s| &s.paths.host).filter(|host| host.copy.is_some()) else {
             return false;
         };
-        let arguments = versekit_core::desktop_entry::run_arguments(host);
+        let mut arguments = versekit_core::desktop_entry::run_arguments(host);
+        arguments.push(autostart::SYSTEM_START.to_string());
         let command = autostart::command(program, appimage, &arguments);
         let store = autostart::CopyFolder(autostart::copy_folder(host));
         self.use_autostart(Box::new(store), command);
@@ -2257,6 +2307,8 @@ impl SamplePage {
         self.streamer = versekit_core::streamer::load(paths);
         self.apply_streamer(paths);
         self.usage_on = versekit_core::usage::enabled(paths);
+        self.main_at_start = paths
+            .setting_bool(versekit_core::overlay::keys::MAIN_AT_START, versekit_core::overlay::MAIN_AT_START_DEFAULT);
         self.start_command = paths.setting(game_start::STARTER_SETTING).unwrap_or_default();
         self.overlay_clickable = paths.setting_bool("durchklickbar", false);
         self.overlay_rows = paths.setting_int(
@@ -2401,6 +2453,7 @@ impl SamplePage {
             ("mangohud", Value::Bool(self.mangohud)),
             (versekit_core::streamer::SETTING, Value::Bool(self.streamer)),
             (versekit_core::usage::SETTING, Value::Bool(self.usage_on)),
+            (versekit_core::overlay::keys::MAIN_AT_START, Value::Bool(self.main_at_start)),
             ("durchklickbar", Value::Bool(self.overlay_clickable)),
             ("max_zeilen", Value::int(self.overlay_rows)),
             ("durchklick_auto", Value::Bool(self.overlay_auto)),
@@ -3034,6 +3087,12 @@ impl SamplePage {
         !self.update_loaded && !self.update_name().is_empty()
     }
 
+    /// Whole days the version on offer has waited, from one day on; only on real data (the sample page names a
+    /// made-up version that waits for nothing).
+    fn update_days(&self) -> Option<u64> {
+        self.updates.waiting_days(versekit_core::updater::now()).filter(|_| self.real())
+    }
+
     /// The page „Update & Über“ on real data; what the player asked for in it.
     fn show_about(&mut self, ui: &mut egui::Ui, scheme: &Scheme) -> Option<update_page::PageOut> {
         let store = self.store.as_ref()?;
@@ -3509,16 +3568,34 @@ impl SamplePage {
             if self.update_waits() {
                 let name = self.update_name();
                 let version = [("version", Arg::from(name.as_str()))];
-                let message = tf("s_ul_da", &version);
+                let days = self.update_days();
+                let message = match days {
+                    Some(days) => tf(
+                        "s_ul_wartet",
+                        &[
+                            ("version", Arg::from(name.as_str())),
+                            ("tage", Arg::from(versekit_core::auto_update::days_text(days))),
+                        ],
+                    ),
+                    None => tf("s_ul_da", &version),
+                };
                 let (update_word, news_word) = (t("s_ul_jetzt"), t("was_ist_neu"));
                 // While a version is being fetched the button waits (on real data the fetching is the one in
-                // the thread; the sample page times a stand-in).
-                let blocked = (self.real() && self.updates.is_busy()).then(|| t("up_laeuft_schon"));
+                // the thread; the sample page times a stand-in). An update that has waited for days never comes
+                // in the game: the button stays grey while it runs, and says why.
+                let blocked = if self.real() && self.updates.is_busy() {
+                    Some(t("up_laeuft_schon"))
+                } else if days.is_some() && self.game_seen.is_some_and(|(_, running)| running) {
+                    Some(t("ov_update_nach_spiel"))
+                } else {
+                    None
+                };
                 let texts = settings::UpdateTexts {
                     message: &message,
                     update: &update_word,
                     news: &news_word,
                     update_blocked: blocked.as_deref(),
+                    urgent: days.is_some(),
                 };
                 match settings::update_bar(&mut page, scheme, &texts) {
                     Some(settings::UpdateChoice::Update) if self.real() => {
@@ -3895,6 +3972,7 @@ impl SamplePage {
                                 update: &restart_word,
                                 news: &later_word,
                                 update_blocked: None,
+                                urgent: false,
                             };
                             match settings::restart_bar(page, scheme, &texts) {
                                 Some(settings::UpdateChoice::Update) => {
@@ -3943,6 +4021,7 @@ impl SamplePage {
                         let mut clock_changed = false;
                         let streamer = &mut self.streamer;
                         let usage_on = &mut self.usage_on;
+                        let main_at_start = &mut self.main_at_start;
                         let mut streamer_changed = false;
                         let play_head = &mut self.play_head;
                         let mut play_head_changed = false;
@@ -3997,7 +4076,11 @@ impl SamplePage {
                                     (4, 0) if real && !cfg!(target_os = "linux") => {
                                         row.label(RichText::new(choices[0].as_str()).color(color(scheme.sub)));
                                     }
+                                    // A start by hand opens this window: stored at the end of the frame.
                                     (0, 1) => {
+                                        row.add(widgets::Toggle::new(main_at_start, scheme));
+                                    }
+                                    (0, 2) => {
                                         if row.add(widgets::Toggle::new(gpu, scheme)).changed() {
                                             *later = false;
                                         }
@@ -4449,7 +4532,7 @@ impl SamplePage {
                                         hotkey_taken = Some(by);
                                     } else if let Some(by) = earlier_holder(r, &active_hotkeys(rows_now)) {
                                         // Read so from the settings: not registered, and the line says by which.
-                                        let by = language::t(versekit_core::overlay::Shortcut::ALL[by].label_key());
+                                        let by = language::t(versekit_core::overlay::Shortcut::ALL[by].short_key());
                                         let text = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(by))]);
                                         ui.horizontal(|line| {
                                             line.add_space(widgets::TOGGLE_SIZE.x + line.spacing().item_spacing.x);
@@ -4638,7 +4721,7 @@ impl SamplePage {
                             ];
                             let (modifiers, key) = rows[by];
                             let combination = hotkey_text(modifiers, key).unwrap_or_default();
-                            let by = language::t(versekit_core::overlay::Shortcut::ALL[by].label_key());
+                            let by = language::t(versekit_core::overlay::Shortcut::ALL[by].short_key());
                             let text = language::tf(
                                 "s_hk_doppelt",
                                 &[("0", language::Arg::from(combination)), ("1", language::Arg::from(by))],
@@ -5207,6 +5290,7 @@ impl SamplePage {
                     "hf_verkauf" => selling_page::show_page(page, scheme, &mut self.selling),
                     "hf_staffellager" => org_stock_page::show_page(page, scheme, &mut self.org_stock),
                     "hf_bedarf" => demand_page::show_page(page, scheme, &mut self.demand),
+                    "hf_bank" => bank_page::show_page(page, scheme, &mut self.bank),
                     "hf_fortschritt" => {
                         // A jump that brings its filter along.
                         if let Some((to, from)) =
@@ -5733,7 +5817,10 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
     ("hf_gruppe_logistik", &[("hf_hangar", "plane"), ("hf_meinlager", "package"), ("hf_staffellager", "boxes")]),
     ("hf_gruppe_herst", &[("hf_herstellung", "zap"), ("hf_farmliste", "diamond")]),
     ("hf_gruppe_abbau", &[("hf_bergbau", "compass"), ("hf_raffinerien", "factory"), ("hf_bergung", "wrench")]),
-    ("hf_gruppe_handel", &[("hf_laeden", "store"), ("hf_verkauf", "coins"), ("hf_routen", "route")]),
+    (
+        "hf_gruppe_handel",
+        &[("hf_laeden", "store"), ("hf_verkauf", "coins"), ("hf_routen", "route"), ("hf_bank", "landmark")],
+    ),
     (
         "hf_gruppe_beschaffung",
         &[("hf_bedarf", "arrow-left-right"), ("hf_einkaufsliste", "receipt"), ("hf_contested", "timer")],
@@ -5820,6 +5907,8 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_btv_bedarf", "", &[]),
                     ("s_btv_staffellager", "", &[]),
                     ("s_btv_staffellager_buchen", "", &[]),
+                    ("s_btv_raffinerie", "", &[]),
+                    ("s_btv_bank", "", &[]),
                 ],
             ),
         ],
@@ -5903,6 +5992,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_zeige_raffinerie", "s_ov_zeige_raffinerie_h", &[]),
                     ("s_ov_zeige_werkbank", "s_ov_zeige_werkbank_h", &[]),
                     ("s_ov_zeige_update", "s_ov_zeige_update_h", &[]),
+                    ("s_ov_zeige_schutzzone", "s_ov_zeige_schutzzone_h", &[]),
                     // After the switches: the most contracts for the count in the head of the bar.
                     ("s_ov_auftraege_max", "s_ov_auftraege_max_h", &[]),
                 ],
@@ -6210,10 +6300,11 @@ fn settings_of(page: &str) -> Groups {
     PAGE_SETTINGS.iter().find(|(p, _)| *p == page).map_or(&[], |(_, groups)| *groups)
 }
 
-/// The group "Start" of the page General. From the third row on the rows of `desktop_rows`
+/// The group "Start" of the page General. From the fourth row on the rows of `desktop_rows`
 /// (`desktop_rows::FIRST_ROW`); the entry in the application menu is the last one.
 const GENERAL_START: &[Row] = &[
     ("autostart_win", "s_ei_autostart_h", &[]),
+    ("s_ei_hauptfenster", "s_ei_hauptfenster_h", &[]),
     // No "look for updates": v5 always looks quietly and installs on a click or
     // once the game has ended, so nobody runs an old version.
     ("s_ei_gpu", "s_ei_gpu_h", &[]),
@@ -6615,6 +6706,7 @@ fn base_infos(page: &str) -> Vec<String> {
         "hf_herstellung" => texts(&["s_pl_herstellung", "s_lg_anzahl", "s_lg_bauen", "s_mz_knopf", "s_he_regler_kopf"]),
         "hf_farmliste" => texts(&["s_mz_titel", "s_mz_weg", "s_fl_sammel_kopf", "s_fl_alles_da"]),
         "hf_bedarf" => texts(&["s_bd_rohstoffe", "s_bd_gegenstaende", "s_bd_auftraege", "s_bt_jetzt"]),
+        "hf_bank" => texts(&["s_bank_konten", "s_bank_antraege", "s_bank_warteschlange", "s_bank_neu"]),
         "hf_einkaufsliste" => texts(&[
             "s_ek_lead",
             "s_wk_route",
@@ -6694,6 +6786,7 @@ fn search_form(text: &str) -> String {
 fn search_words(page: &str) -> &'static [&'static str] {
     match page {
         "k_basetool_verbindung" | "hf_staffellager" | "hf_bedarf" => &["basetool"],
+        "hf_bank" => &["basetool", "kartellbank", "bank", "konto", "account"],
         // The two pages this one took over, by their old names and by what they were about.
         "hf_bergung" => &[
             "wrack",
@@ -6854,7 +6947,9 @@ fn usage_page_id(key: &str) -> Option<&'static str> {
         "hf_ueber" => Some("ueber"),
         "hf_diagnose" => Some("diagnose"),
         ASOP_PAGE => Some("asop"),
-        // Pages the receiver of the counters does not know yet are not counted, even where they can be pinned.
+        // The receiver of the counters has no id for the bank page: its views count with the Basetool connection.
+        "hf_bank" => Some("basetool"),
+        // Any other page by its name in the overview, where the receiver knows that name; otherwise none.
         _ => versekit_core::overview::page_name(key).filter(|id| versekit_core::usage::PAGES.contains(id)),
     }
 }
@@ -7261,7 +7356,7 @@ mod tests {
         assert!(shows(&signals, &mut page), "the gear, the icon and a second start ask for the overview");
         assert!(!shows(&signals, &mut page), "done once");
         for signal in
-            [Signal::OpenGeneral, Signal::OpenTranslation, Signal::OpenAbout, Signal::OpenMining, Signal::OpenStockScan]
+            [Signal::OpenGeneral, Signal::OpenTranslation, Signal::OpenAbout, Signal::OpenMining, Signal::OpenStockScan, Signal::OpenBank]
         {
             signals.note(signal);
             assert!(shows(&signals, &mut page), "{signal:?}");
@@ -7307,6 +7402,7 @@ mod tests {
             (Signal::OpenAbout, "hf_ueber"),
             (Signal::OpenMining, "hf_bergbau"),
             (Signal::OpenStockScan, "hf_meinlager"),
+            (Signal::OpenBank, "hf_bank"),
         ] {
             signals.note(signal);
             apply(&signals, &mut page);

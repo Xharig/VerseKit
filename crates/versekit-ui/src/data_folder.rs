@@ -203,6 +203,7 @@ impl DataFolderState {
             update: &t("s_da_neustart_knopf"),
             news: &t("hf_update_spaeter"),
             update_blocked: None,
+            urgent: false,
         };
         let choice = settings::restart_bar(ui, scheme, &texts);
         ui.add_space(GAP);

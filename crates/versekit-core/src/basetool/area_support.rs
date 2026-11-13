@@ -174,9 +174,12 @@ pub fn pull_generic(
         Err(error) => Err(error),
         Ok(fetched) => {
             for page in &fetched.pages {
+                // A deletion mark names its entry by `key`, the refinery feed by `id`.
                 for stone in list(page, "removed") {
-                    if let Some(key) = stone.get("key").and_then(Value::as_str) {
-                        known.remove(key);
+                    for field in ["key", "id"] {
+                        if let Some(key) = stone.get(field).and_then(Value::as_str) {
+                            known.remove(key);
+                        }
                     }
                 }
                 for item in list(page, "items") {
@@ -189,6 +192,61 @@ pub fn pull_generic(
             Ok((known, false))
         }
     }
+}
+
+/// The send routes whose change sets keep their `Idempotency-Key` until an answer comes: the same set sent again
+/// after a lost answer goes under the key it first went with.
+pub const KEPT_KEY_ROUTES: [&str; 1] = [crate::basetool::scopes::ROUTE_REFINERY];
+
+/// Where the kept keys stand in the sync state: route → hash of the change set → key.
+const KEPT_KEYS: &str = "kept_keys";
+
+fn kept_keys(state: &mut Map, route: &str) -> Map {
+    let mut all = take_object(state, KEPT_KEYS);
+    let of_route = take_object(&mut all, route);
+    put_object(state, KEPT_KEYS, all);
+    of_route
+}
+
+fn put_kept_keys(state: &mut Map, route: &str, keys: Map) {
+    let mut all = take_object(state, KEPT_KEYS);
+    if keys.is_empty() {
+        all.retain(|(k, _)| k != route);
+    } else {
+        put_object(&mut all, route, keys);
+    }
+    put_object(state, KEPT_KEYS, all);
+}
+
+/// The key a change set goes with: the one it was first sent with, else a new one, kept before it goes out.
+fn kept_key(state: &mut Map, route: &str, change_set: &Value) -> String {
+    let hash = hold::op_hash(change_set);
+    let mut keys = kept_keys(state, route);
+    let key = match get_str(&keys, &hash) {
+        Some(key) => key.to_string(),
+        None => {
+            let key = crate::basetool::connection::new_idempotency_key();
+            map_set(&mut keys, &hash, Value::str(&key));
+            key
+        }
+    };
+    put_kept_keys(state, route, keys);
+    key
+}
+
+/// The change set was answered: its key goes.
+fn forget_kept_key(state: &mut Map, route: &str, change_set: &Value) {
+    let hash = hold::op_hash(change_set);
+    let mut keys = kept_keys(state, route);
+    keys.retain(|(k, _)| *k != hash);
+    put_kept_keys(state, route, keys);
+}
+
+/// Keys of change sets the plan no longer holds go: a set that changed is another write.
+fn prune_kept_keys(state: &mut Map, route: &str, hashes: &[String]) {
+    let mut keys = kept_keys(state, route);
+    keys.retain(|(k, _)| hashes.contains(k));
+    put_kept_keys(state, route, keys);
 }
 
 /// What came of sending a list of change sets.
@@ -233,9 +291,24 @@ pub fn send_unless_held(pass: &mut Pass<'_>, route: &str, sets: &[ChangeSet]) ->
         return Ok(out);
     }
     let mut answered: Vec<pacing::Answered> = Vec::new();
+    let keep = KEPT_KEY_ROUTES.contains(&route);
+    if keep {
+        let hashes: Vec<String> = to_send.iter().map(|(set, _)| hold::op_hash(set)).collect();
+        prune_kept_keys(pass.state, route, &hashes);
+    }
     for (number, (change_set, keys)) in to_send.iter().enumerate() {
-        let sent = match feed::send_change_set(pass.conn, pass.conn.config(), route, change_set) {
-            Ok(sent) => sent,
+        let key = if keep {
+            kept_key(pass.state, route, change_set)
+        } else {
+            crate::basetool::connection::new_idempotency_key()
+        };
+        let sent = match feed::send_change_set_with(pass.conn, pass.conn.config(), route, change_set, &key) {
+            Ok(sent) => {
+                if keep {
+                    forget_kept_key(pass.state, route, change_set);
+                }
+                sent
+            }
             Err(error) => match pacing::wait_after(pass.state, pass.now, &error) {
                 Some(until) => {
                     error.record("basetool_sync.send");

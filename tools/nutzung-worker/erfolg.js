@@ -82,6 +82,16 @@ export function newWeek(ages, today) {
   return { jetzt: first <= now[0] ? sum(now) : null, vorher: first <= prev[0] ? sum(prev) : null };
 }
 
+// b2) Solange es noch keine volle Woche mit Alters-Meldungen gibt: die Neuen
+// (Alter 0) vom ersten Meldetag bis gestern, dazu der erste Meldetag. Ohne
+// Alters-Meldungen null.
+export function newSince(ages, today) {
+  const first = firstAge(ages);
+  if (first === null) return null;
+  const n = ages.reduce((a, r) => a + (r.tage === 0 && r.tag >= first && r.tag < today ? r.n : 0), 0);
+  return { n, seit: first };
+}
+
 // c) Bleiben sie: von den Neuen eines Tages t (Alter 0) wie viele am Tag t+7
 // noch aktiv sind (Alter 7). Für „diese Woche" die Neuen, deren t+7 in der
 // Woche liegt, also t in der Vorwoche; für die Vorwoche eine Woche früher.
@@ -139,11 +149,36 @@ export function firstData(values) {
 // Bei Gleichstand der alphabetisch erste, damit die Anzeige nicht springt.
 export function topChannel(kanaele, today) {
   const set = new Set(weekDays(today, 0));
-  const m = {};
+  // Ohne Prototyp: ein Kanal namens „constructor" (gültig, nur Kleinbuchstaben) darf nicht
+  // auf die Eigenschaften eines normalen Objekts treffen.
+  const m = Object.create(null);
   let total = 0;
   for (const r of kanaele) if (set.has(r.tag)) { m[r.kanal] = (m[r.kanal] || 0) + r.n; total += r.n; }
   const best = Object.keys(m).sort().reduce((a, k) => (a === null || m[k] > m[a] ? k : a), null);
   return best === null ? null : { kanal: best, n: m[best], gesamt: total };
+}
+
+// Herkunft im Zeitraum: je Kanal die Downloads (`kanaele` = downloads_kanal)
+// und die Besuche der Webseite (`besuche`), beides [{ tag, kanal, n }], nur
+// die Tage aus `days`. `kurzlinks` = [{ tag, n }] sind ALLE Downloads über die
+// Kurzlinks; was davon kein Kennzeichen trug, steht als eigene Zeile
+// `{ kanal: null, downloads, besuche: null }` (Besuche ohne Kennzeichen
+// werden nicht gezählt). Absteigend nach Downloads, dann Besuchen, dann Name;
+// leer, wenn es im Zeitraum weder Downloads noch Besuche gab.
+export function channelList(kanaele, besuche, kurzlinks, days) {
+  const set = new Set(days);
+  const m = Object.create(null);
+  const row = (k) => (m[k] = m[k] || { kanal: k, downloads: 0, besuche: 0 });
+  let tagged = 0, all = 0;
+  for (const r of kanaele) if (set.has(r.tag)) { row(r.kanal).downloads += r.n; tagged += r.n; }
+  for (const r of besuche) if (set.has(r.tag)) row(r.kanal).besuche += r.n;
+  for (const r of kurzlinks) if (set.has(r.tag)) all += r.n;
+  const rows = Object.keys(m).map((k) => m[k]);
+  if (!rows.length && !all) return [];
+  rows.push({ kanal: null, downloads: Math.max(0, all - tagged), besuche: null });
+  const name = (r) => (r.kanal === null ? '' : r.kanal);
+  return rows.sort((a, b) => (b.downloads - a.downloads) || ((b.besuche || 0) - (a.besuche || 0))
+    || (a.kanal === null ? 1 : b.kanal === null ? -1 : name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0));
 }
 
 // Aktive Nutzer je Woche (Montag bis Sonntag, UTC): Schnitt der vollen Tage
@@ -188,5 +223,5 @@ export function releaseMarks(downloads, bestand) {
 }
 
 // Alle Funktionen, in der Reihenfolge, in der client.js sie einsetzt.
-export const ERFOLG = [dayBefore, weekDays, trend, activeWeek, firstAge, newWeek, stayWeek,
-  downloadsWeek, siteWeek, firstData, topChannel, weeklyActive, releaseMarks];
+export const ERFOLG = [dayBefore, weekDays, trend, activeWeek, firstAge, newWeek, newSince, stayWeek,
+  downloadsWeek, siteWeek, firstData, topChannel, channelList, weeklyActive, releaseMarks];

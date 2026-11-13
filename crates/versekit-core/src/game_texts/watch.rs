@@ -17,7 +17,7 @@
 
 //! The background of the game's texts as one thing, for the process that keeps them (the overlay): the language
 //! line at the start, the clocks of [`Upkeep`], the look whether the game still runs, the look at scmdb (the recipe
-//! file with the list of the known data errors, the craft data of the catalog, the mining data after a patch), the
+//! file with the list of the known data errors, the craft data of the catalog, the mining data of the build), the
 //! catalog after a patch, and the runs on a thread of their own, one at a time.
 //!
 //! [`Watch::tick`] is cheap (a few file stamps); fetching and writing happen on the thread, which takes over the
@@ -35,7 +35,7 @@ use crate::net::Net;
 use crate::paths::Paths;
 use crate::recipe_file::{self, Updated};
 use crate::scmdb::FetchError;
-use crate::stock_fetch::{self, Outcome};
+use crate::stock_fetch;
 
 /// How often the clocks are looked at.
 pub const TICK_SECONDS: f64 = 1.0;
@@ -47,6 +47,9 @@ pub const RECIPES_POLL_SECONDS: f64 = 6.0 * 3600.0;
 pub const RECIPES_RETRY_SECONDS: f64 = 300.0;
 /// How soon a build of the catalog that gave no catalog is tried again.
 pub const CATALOG_RETRY_SECONDS: f64 = 300.0;
+/// How often the watch looks whether the archive or the catalog file changed (two file stamps). A change counts
+/// once the files stood still for one more look: only then is the catalog asked whether it lags behind.
+pub const CATALOG_LOOK_SECONDS: f64 = 15.0;
 
 /// What a build of the catalog gave: the build of the game it is for and the number of its blueprints.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,8 +74,6 @@ pub type CatalogCheck = Arc<dyn Fn(&Paths) -> bool + Send + Sync>;
 struct Looked {
     /// The recipe file, when it was looked at (or the build could not be had).
     recipes: Option<Result<Updated, String>>,
-    /// The mining data of the build, when they were due.
-    mining: Option<Outcome>,
     /// The catalog was built because its craft data lagged behind.
     craft: bool,
 }
@@ -94,7 +95,6 @@ struct InFlight {
     job: bool,
     catalog: bool,
     refresh: bool,
-    mining: bool,
     done: Receiver<Done>,
 }
 
@@ -113,6 +113,12 @@ pub struct Watch {
     refresh: Option<(CatalogCheck, CatalogBuild)>,
     /// The catalog lags behind: it is brought up to date once the archive may be read.
     refresh_due: bool,
+    /// The stamps of the archive and the catalog file at the last look ([`CATALOG_LOOK_SECONDS`]).
+    catalog_marks: Option<(Stamp, Stamp)>,
+    /// They changed at the last look: the next look that finds them still asks whether the catalog lags behind.
+    catalog_settling: bool,
+    /// When the archive and the catalog file are looked at next.
+    catalog_look_next: f64,
     /// Not before this time.
     refresh_at: f64,
     /// The catalog was brought up to date: the notes are written anew once the game is closed.
@@ -136,8 +142,6 @@ pub struct Watch {
     catalog_at: f64,
     /// A build for new craft data failed: the next build that works is told.
     craft_pending: bool,
-    /// A patch was finished and its mining data are not fetched yet.
-    mining_due: bool,
     in_flight: Option<InFlight>,
     /// The writes the lock refused on the threads of the runs, not told yet.
     denied: Vec<String>,
@@ -163,6 +167,12 @@ fn stamp_of(path: &str) -> Stamp {
     std::fs::metadata(path).ok().map(|meta| (meta.len(), meta.modified().ok()))
 }
 
+/// The stamps of the installed archive and of the catalog file built from it.
+fn catalog_marks(paths: &Paths) -> (Stamp, Stamp) {
+    let archive = paths.archive_file().and_then(|file| stamp_of(&file));
+    (archive, stamp_of(&paths.app_file(crate::catalog_cache::LIST_CACHE_FILE)))
+}
+
 /// The own blueprints (`sources::owned`): read again only when the collection file changed (or another one is
 /// meant), else those of the last read.
 fn owned_of<'a>(
@@ -184,14 +194,15 @@ fn owned_of<'a>(
 /// What the look at scmdb is to do.
 struct Look {
     recipes: bool,
-    mining: bool,
     /// The look whether the craft data lag behind, with the build of the catalog.
     craft: Option<(CraftCheck, CatalogBuild)>,
 }
 
 /// The look at scmdb on the thread: its current build, the recipe file of it with the list of the known data errors
-/// when `look.recipes`, the mining data when `look.mining`, and the catalog when its craft data lag behind
-/// (`look.craft`, unless `built` holds the build of this run already).
+/// when `look.recipes`, the mining data of that build (with every look: a patch seen by this process, one while
+/// VerseKit was closed and one that scmdb has the data for later all end the same way, and a file complete for the
+/// build costs one read), and the catalog when its craft data lag behind (`look.craft`, unless `built` holds the
+/// build of this run already).
 fn look_at_scmdb(
     paths: &Paths,
     supply: &dyn recipe_file::Supply,
@@ -201,22 +212,22 @@ fn look_at_scmdb(
     let build = match recipe_file::current_build(supply) {
         Ok(build) => build,
         Err(error) => {
-            return Looked { recipes: look.recipes.then_some(Err(error)), mining: None, craft: false };
+            return Looked { recipes: look.recipes.then_some(Err(error)), craft: false };
         }
     };
     let recipes = look.recipes.then(|| recipe_file::update_for(paths, supply, &build));
-    let (mining, craft) = (look.mining, look.craft.as_ref());
     let fetch = |name: &str| supply.file(name).map_err(FetchError::Failed);
-    let mining = mining.then(|| stock_fetch::update_mining_with(paths, &build, &fetch));
+    // What comes of it is kept in the file or recorded as an error; the next look asks again if it failed.
+    stock_fetch::update_mining_with(paths, &build, &fetch);
     let mut craft_built = false;
     if built.is_none()
-        && let Some((behind, build_catalog)) = craft
+        && let Some((behind, build_catalog)) = look.craft.as_ref()
         && behind(paths, &build)
     {
         *built = Some(build_catalog(paths));
         craft_built = true;
     }
-    Looked { recipes, mining, craft: craft_built }
+    Looked { recipes, craft: craft_built }
 }
 
 impl Watch {
@@ -233,6 +244,9 @@ impl Watch {
             archive_looked: None,
             refresh: None,
             refresh_due: false,
+            catalog_marks: None,
+            catalog_settling: false,
+            catalog_look_next: 0.0,
             refresh_at: 0.0,
             notes_due: false,
             started: false,
@@ -246,7 +260,6 @@ impl Watch {
             catalog_due: false,
             catalog_at: 0.0,
             craft_pending: false,
-            mining_due: false,
             in_flight: None,
             denied: Vec::new(),
             owned: None,
@@ -273,7 +286,9 @@ impl Watch {
     /// The same watch, which at its first tick asks `behind` whether the catalog lags behind the installed game data
     /// (after an update of VerseKit that changed its layout, or a patch while VerseKit was closed) and then brings it
     /// up to date with `refresh` as soon as the game is closed, without a page having to be open; after that the
-    /// notes in the game's texts are written anew (while they are kept current by themselves).
+    /// notes in the game's texts are written anew (while they are kept current by themselves). It asks again each
+    /// time the archive or the catalog file changed and stood still ([`CATALOG_LOOK_SECONDS`]): a patch while the
+    /// watch runs, whether or not the notes are kept current.
     pub fn with_catalog_refresh(mut self, behind: CatalogCheck, refresh: CatalogBuild) -> Watch {
         self.refresh = Some((behind, refresh));
         self
@@ -318,12 +333,15 @@ impl Watch {
             self.started = true;
             notices.extend(check_game_languages(paths));
             self.refresh_due = self.refresh.as_ref().is_some_and(|(behind, _)| behind(paths));
+            self.catalog_marks = Some(catalog_marks(paths));
+            self.catalog_look_next = now + CATALOG_LOOK_SECONDS;
         }
         if now - self.last_tick < TICK_SECONDS {
             return notices;
         }
         self.last_tick = now;
         self.look_at_the_game(paths, now);
+        self.look_at_the_catalog(paths, now);
         // The notes wait for the game to be closed as the build did: written anew with the next run of the texts.
         if self.notes_due && self.archive_free_now(paths, now) {
             self.notes_due = false;
@@ -337,7 +355,6 @@ impl Watch {
         if self.upkeep.patch_at > 0.0 && self.upkeep.patch_at != self.patch_seen {
             self.patch_seen = self.upkeep.patch_at;
             self.recipes_next = 0.0;
-            self.mining_due = true;
             if self.catalog.is_some() {
                 self.catalog_due = true;
                 self.catalog_at = 0.0;
@@ -357,8 +374,7 @@ impl Watch {
             }
             _ => None,
         };
-        let mining = (recipes || craft.is_some()) && self.mining_due;
-        let look = Look { recipes, mining, craft };
+        let look = Look { recipes, craft };
         let catalog = self.catalog_due && now >= self.catalog_at;
         if job.is_none() && !look.recipes && look.craft.is_none() && !catalog && !refresh {
             return notices;
@@ -376,7 +392,7 @@ impl Watch {
             // A thread that broke off must not leave the watch waiting for ever.
             Err(TryRecvError::Disconnected) => None,
         };
-        let (job, had_catalog, had_refresh, had_mining) = (flight.job, flight.catalog, flight.refresh, flight.mining);
+        let (job, had_catalog, had_refresh) = (flight.job, flight.catalog, flight.refresh);
         self.in_flight = None;
         let (ran, looked, catalog, refreshed) = match done {
             Some(done) => {
@@ -384,7 +400,7 @@ impl Watch {
                 (done.ran, done.looked, done.catalog, done.refreshed)
             }
             None => {
-                let broken = Looked { recipes: Some(Err("broken off".to_string())), mining: None, craft: false };
+                let broken = Looked { recipes: Some(Err("broken off".to_string())), craft: false };
                 (None, Some(broken), had_catalog.then_some(None), had_refresh.then_some(None))
             }
         };
@@ -411,6 +427,8 @@ impl Watch {
                     notices.push(Notice::CraftData { build: built.version, items: built.blueprints });
                 }
                 self.craft_pending = false;
+                // The notes follow the new catalog once the game is closed.
+                self.notes_due = true;
             }
             Some(None) => {
                 // No catalog came: tried again in a while, and new craft data are told when it works.
@@ -422,10 +440,6 @@ impl Watch {
             None => {}
         }
         let Some(looked) = looked else { return true };
-        // Mining data that could not be had are asked for again with the next look.
-        if (had_mining && looked.mining.is_none()) || matches!(looked.mining, Some(Outcome::Failed(_))) {
-            self.mining_due = true;
-        }
         match looked.recipes {
             Some(Ok(updated)) => {
                 self.recipes_next = now + RECIPES_POLL_SECONDS;
@@ -442,6 +456,26 @@ impl Watch {
             None => {}
         }
         true
+    }
+
+    /// Every [`CATALOG_LOOK_SECONDS`], while no build to bring the catalog up to date is due: whether the archive or
+    /// the catalog file changed since the last look. Once they stood still for a look, the catalog is asked whether it
+    /// lags behind; then it is brought up to date like at the start.
+    fn look_at_the_catalog(&mut self, paths: &Paths, now: f64) {
+        let Some(behind) = self.refresh.as_ref().map(|(behind, _)| Arc::clone(behind)) else { return };
+        if self.refresh_due || now < self.catalog_look_next {
+            return;
+        }
+        self.catalog_look_next = now + CATALOG_LOOK_SECONDS;
+        let marks = catalog_marks(paths);
+        if self.catalog_marks.as_ref() != Some(&marks) {
+            self.catalog_settling = self.catalog_marks.is_some();
+            self.catalog_marks = Some(marks);
+            return;
+        }
+        if std::mem::take(&mut self.catalog_settling) {
+            self.refresh_due = behind(paths);
+        }
     }
 
     /// Every [`GAME_LOOK_SECONDS`]: a game that ran and runs no longer ended its session.
@@ -472,15 +506,18 @@ impl Watch {
         if has_refresh {
             self.refresh_due = false;
         }
-        let (recipes, mining, craft) = (look.recipes, look.mining, look.craft.is_some());
-        self.mining_due &= !mining;
+        let (recipes, craft) = (look.recipes, look.craft.is_some());
         let scmdb = (look.recipes || look.craft.is_some()).then_some(look);
         let lock = crate::writeguard::state();
         let work = move || {
             crate::writeguard::adopt(&lock);
             // The catalog and the recipes first: the notes of the same run are written with them.
             let refreshed = refresh.map(|build| build(&paths_now));
-            let mut built = catalog.map(|build| build(&paths_now));
+            // A catalog just brought up to date is not built a second time for the patch.
+            let mut built = match (&refreshed, catalog) {
+                (Some(Some(fresh)), Some(_)) => Some(Some(fresh.clone())),
+                (_, catalog) => catalog.map(|build| build(&paths_now)),
+            };
             let looked = scmdb.map(|look| look_at_scmdb(&paths_now, supply.as_ref(), &look, &mut built));
             let ran = job.map(|job| run(&job, &paths_now, net.as_ref(), archive.as_ref(), &version));
             let denied = crate::writeguard::take_denied();
@@ -493,7 +530,7 @@ impl Watch {
         let started = std::thread::Builder::new().name("spieltexte".into()).spawn_with_language(work).is_ok();
         if started {
             self.in_flight =
-                Some(InFlight { job: has_job, catalog: has_catalog, refresh: has_refresh, mining, done: receiver });
+                Some(InFlight { job: has_job, catalog: has_catalog, refresh: has_refresh, done: receiver });
             return;
         }
         // Without a thread no run comes: the clocks must not wait for it.
@@ -507,10 +544,9 @@ impl Watch {
         if craft {
             self.craft_next = now + RECIPES_RETRY_SECONDS;
         }
-        // The catalog and the mining data stay due for the next run.
+        // The catalog stays due for the next run.
         self.catalog_due |= has_catalog;
         self.refresh_due |= has_refresh;
-        self.mining_due |= mining;
     }
 }
 

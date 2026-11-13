@@ -72,6 +72,8 @@ const ROUTE_COLORS = { seitenleiste: 'var(--neon)', sprung: 'var(--weg-blau)', o
   suche: 'var(--weg-suche)' };
 const pageName = (p) => (PAGES[p] || ['', p])[1];
 const stepName = (k) => (Number(k) >= MAX_CLICKS ? MAX_CLICKS + '+' : String(k));
+// „1 Klick“, sonst „Klicks“ (auch „0 Klicks“ und „10+ Klicks“).
+const clicksText = (k) => stepName(k) + (stepName(k) === '1' ? ' Klick' : ' Klicks');
 const NONE = '–';
 
 // Ansicht: ausführlich (wie bisher) oder kompakt. Die Wahl merkt sich der
@@ -313,6 +315,9 @@ function render(d, span) {
   const allDay = {}; for (const r of sums) allDay[r.tag] = (allDay[r.tag] || 0) + r.n;
   const ages = d.alter || [];
   const a = activeWeek(sums, today), nw = newWeek(ages, today), st = stayWeek(ages, today);
+  // Ohne volle Woche: bisherige Neue seit dem ersten Meldetag, und ab wann „Bleiben" rechnen kann.
+  const since = nw.jetzt === null ? newSince(ages, today) : null;
+  const stayFrom = st.jetzt === null && ages.length ? dayBefore(firstAge(ages), -14) : null;
   const dw = downloadsWeek(d.verlauf || [], today), ch = topChannel(d.kanaele || [], today);
   const k = card('Wie läuft VerseKit?');
   const kpi = (v, l) => $('div', { class: 'kpi' }, [$('div', { class: 'v', text: String(v) }), $('div', { class: 'l', text: l })]);
@@ -331,25 +336,34 @@ function render(d, span) {
   const noAges = !ages.length;
   const ta = trend(a.jetzt, a.vorher, 'prozent');
   if (a.vorher !== null && ta.art !== 'keiner') ta.text += ' (' + num1(a.vorher) + ')';
-  const tb = trend(nw.jetzt, nw.vorher, 'prozent');
-  if (nw.vorher !== null && tb.art !== 'keiner') tb.text += ' (' + int(nw.vorher) + ')';
-  const tst = trend(st.jetzt, st.vorher, 'punkte');
+  const tb = since ? { art: 'keiner', pfeil: '', text: 'seit ' + short(since.seit) + ', volle Woche ab '
+      + short(dayBefore(since.seit, -7)) } : trend(nw.jetzt, nw.vorher, 'prozent');
+  if (!since && nw.vorher !== null && tb.art !== 'keiner') tb.text += ' (' + int(nw.vorher) + ')';
+  const tst = stayFrom ? { art: 'keiner', pfeil: '', text: 'erste Zahl ab ' + short(stayFrom) }
+    : trend(st.jetzt, st.vorher, 'punkte');
   const sw = siteWeek(d.kurzlinks || [], today);
   const td = trend(sw.jetzt, sw.vorher, 'prozent');
   if (td.art !== 'keiner') td.text += ' (' + int(sw.vorher) + ')';
-  const reachMore = (ch ? 'stärkster Kanal: ' + ch.kanal + ' (' + int(ch.n) + ' von ' + int(ch.gesamt) + ')' : 'Kanal: noch keine Kennzeichen')
+  const reachMore = (ch ? 'stärkster Kanal: ' + ch.kanal + ' (' + int(ch.n) + ' von ' + int(ch.gesamt) + ', alle unter Herkunft)' : 'Kanal: noch keine Kennzeichen')
     + (dw.jetzt === null ? '' : ' · alle GitHub-Downloads mit Updates: ' + int(dw.jetzt));
   const pct0 = (x) => Math.round(x * 100) + ' %';
+  // Wie viele gestern noch auf einer Fassung vor 5.0 liefen, unabhängig vom Zeitraum.
+  const oldYesterday = d.tage.filter((r) => r.tag === yesterday && parseInt(String(r.version), 10) < 5)
+    .reduce((a, r) => a + r.n, 0);
+  const activeYesterday = perDay[yesterday] || 0;
+  const yesterdayLabel = 'aktiv gestern' + (activeYesterday
+    ? ', davon ' + oldYesterday + ' vor 5.0 (' + pct0(oldYesterday / activeYesterday) + ')' : '');
   const thirty = (() => { let sum = 0; for (let i = 1; i <= 30; i++) sum += allDay[dayBefore(today, i)] || 0; return sum / 30; })();
   k.appendChild($('div', { class: 'winkel datenblatt' }, [$('div', { class: 'zellen' }, [
     $('div', { class: 'kpis vier' }, [
       goal(a.jetzt === null ? NONE : num1(a.jetzt), ta, 'Nutzen es Leute? Aktive Installationen je Tag, Schnitt der letzten 7 Tage'),
-      goal(noAges ? null : nw.jetzt === null ? NONE : int(nw.jetzt), tb, 'Kommen neue dazu? Neue Installationen in den letzten 7 Tagen'),
+      goal(noAges ? null : since ? int(since.n) : nw.jetzt === null ? NONE : int(nw.jetzt), tb,
+        since ? 'Kommen neue dazu? Neue Installationen bisher' : 'Kommen neue dazu? Neue Installationen in den letzten 7 Tagen'),
       goal(noAges ? null : st.jetzt === null ? NONE : pct0(st.jetzt), tst,'Bleiben sie? Von den Neuen nach 7 Tagen noch aktiv',
-        noAges ? '' : st.neu ? 'von ' + int(st.neu) + ' Neuen der Vorwoche' : 'Vorwoche ohne Neue'),
+        noAges || stayFrom ? '' : st.neu ? 'von ' + int(st.neu) + ' Neuen der Vorwoche' : 'Vorwoche ohne Neue'),
       goal(int(sw.jetzt), td, 'Reichweite: neue Downloads über die Webseite in den letzten 7 Tagen (ohne Auto-Updates)', reachMore)]),
     $('div', { class: 'kpis sechs neben' }, [
-      kpi(perDay[today] || 0, 'aktiv heute bisher'), kpi(perDay[yesterday] || 0, 'aktiv gestern'),
+      kpi(perDay[today] || 0, 'aktiv heute bisher'), kpi(activeYesterday, yesterdayLabel),
       kpi(num1(thirty), 'Schnitt letzte 30 Tage'),
       kpi(peak, 'bester abgeschlossener Tag im Zeitraum' + (peak && peakDay ? ' (' + short(peakDay) + ')' : '')),
       kpi(int(dlTotal), 'Downloads gesamt (mit gelöschten)'),
@@ -382,6 +396,15 @@ function render(d, span) {
         when: (i) => 'Woche ab ' + short(weeks[i].ab) + (weeks[i].tage < 7 ? ' (' + weeks[i].tage + ' Tage)' : '') });
     wc.appendChild(erklaerung('Je Woche (Montag bis Sonntag, UTC) der Schnitt der aktiven Installationen je Tag, über die ganze Zeit seit der ersten Meldung. Senkrechte Linie = in dieser Woche kam eine fertige Version heraus.'));
   }
+
+  // Herkunft: alle Kanäle des gewählten Zeitraums mit ihren Downloads (Kurzlinks
+  // mit ?ref=) und Besuchen (Webseite mit ?ref=), dazu die Downloads ohne Kennzeichen.
+  const hc = card('Herkunft: Downloads und Besuche (Zeitraum)');
+  const origin = channelList(d.kanaele || [], d.besuche || [], d.kurzlinks || [], days);
+  const dlWord = (v) => int(v) + (v === 1 ? ' Download' : ' Downloads');
+  zusammen(hc, bars(hc, origin.map((r) => [r.kanal === null ? 'ohne Kennzeichen' : r.kanal, r.downloads, r.besuche]),
+    (v, visits) => dlWord(v) + (visits === null ? '' : ' · ' + int(visits) + (visits === 1 ? ' Besuch' : ' Besuche'))));
+  hc.appendChild(erklaerung('Downloads = über xharig.com/windows und /linux, Besuche = Aufrufe von versekit.xharig.com mit demselben Kennzeichen (?ref=). Beides je Kanal, absteigend nach Downloads. Ohne Kennzeichen = Downloads ohne ?ref=; Besuche ohne Kennzeichen werden nicht gezählt. Roboter zählen nicht, dieselbe Adresse höchstens ein paar Mal je Minute. Ein Besuch ist kein Mensch: wer die Seite neu lädt, zählt erneut. Besuche gibt es erst, seit die Webseite das Kennzeichen meldet, und die Übersicht lädt sie nur für die letzten 35 Tage. Je Tag zählen höchstens 30 verschiedene Kanäle einzeln, weitere neue Namen stehen unter sonstige.'));
 
   // Alles Weitere ist für die Entwicklung: eingeklappt unter einer Überschrift.
   // Die Wahl merkt sich der Browser (nur bequem, fehlt der Speicher, bleibt es zu).
@@ -552,11 +575,23 @@ function render(d, span) {
   lc.appendChild(erklaerung('Nutzer/Tag = aktive Nutzer je Tag im Durchschnitt der letzten 7 Tage, Downloads = im gewählten Zeitraum, klein darunter der Anteil. Downloads hier = über xharig.com/windows und /linux (Knöpfe der Webseite). Direkt bei GitHub und per Auto-Update verrät GitHub kein Land.'));
 
   // Zwei Reihen zu je drei kleinen Blöcken.
-  const lastDay = [...days].reverse().find((t) => perDay[t]) || today;
-  const vers = {}; for (const r of d.tage) if (r.tag === lastDay) vers[r.version] = (vers[r.version] || 0) + r.n;
+  // Versionen über die letzten 7 vollen Tage, unabhängig vom Zeitraum oben
+  // (über 90 Tage zählten sonst die Wochen vor einer Version mit, Robert 12.11.);
+  // alles vor 5.0 zusammen in einer Zeile.
+  const spanDays = new Set(days.slice(-8, -1).filter((t) => perDay[t]));
+  const vers = {}; let beforeFive = 0, spanBase = 0;
+  for (const r of d.tage) {
+    if (!spanDays.has(r.tag)) continue;
+    spanBase += r.n;
+    if (parseInt(String(r.version), 10) < 5) beforeFive += r.n;
+    else vers[r.version] = (vers[r.version] || 0) + r.n;
+  }
+  // „vor 5.0“ zuerst (die Zahl für den Namenswechsel), danach die neueste Version oben.
+  const versRows = Object.entries(vers).sort((a, b) => versionDesc(a[0], b[0])).slice(0, 9);
+  if (beforeFive) versRows.unshift(['vor 5.0', beforeFive]);
+  const spanPct = (v) => spanBase ? Math.round((v / spanBase) * 100) + ' %' : NONE;
   const klein = (title, rows, fmt) => { const b = card(title, 'klein'); zusammen(b, bars(b, rows, fmt)); };
-  klein('Versionen ' + (lastDay === today ? 'heute' : lastDay === yesterday ? 'gestern' : 'am ' + short(lastDay)),
-    Object.entries(vers).sort((a, b) => versionDesc(a[0], b[0])).slice(0, 10), (v) => v);
+  klein('Versionen (Durchschnitt letzte 7 vollen Tage)', versRows, spanPct);
   const sys = { Windows: 0, Linux: 0 };
   for (const r of d.tage) if (win.has(r.tag)) sys[r.system === 'linux' ? 'Linux' : 'Windows'] += r.n;
   klein('System (Durchschnitt 7 Tage)', Object.entries(sys), pct);
@@ -638,7 +673,8 @@ function pageBlocks(d, inSpan) {
       return seg;
     });
     const line = $('div', { class: 'bar' + (v ? '' : ' dim') }, [
-      $('span', {}, [document.createTextNode(pageName(p)), $('span', { class: 'grp', text: PAGES[p][0] })]),
+      $('span', { class: 'nm' }, [$('span', { class: 't', text: pageName(p), title: pageName(p) }),
+        $('span', { class: 'grp', text: PAGES[p][0] })]),
       $('div', { class: 'track stack' }, parts),
       $('span', { class: 'n', text: String(v) })]);
     if (i >= SEITEN_SHOWN) { seitenExtra.push(line); line.hidden = true; }
@@ -670,7 +706,7 @@ function pageBlocks(d, inSpan) {
   const targets = Object.keys(dist).filter((p) => PAGES[p])
     .map((p) => [p, Object.values(dist[p]).reduce((a, x) => a + x, 0)])
     .sort((a, b) => (b[1] - a[1]) || (order.indexOf(a[0]) - order.indexOf(b[0])));
-  zusammen(kc, targets.length ? pageName(targets[0][0]) + ': Median ' + stepName(median(dist[targets[0][0]])) + ' Klicks' : '');
+  zusammen(kc, targets.length ? pageName(targets[0][0]) + ': Median ' + clicksText(median(dist[targets[0][0]])) : '');
   if (!targets.length) {
     kc.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
   } else {
@@ -688,7 +724,7 @@ function pageBlocks(d, inSpan) {
       for (let k = 0; k <= MAX_CLICKS; k++) {
         const b = $('div'); b.style.height = (((m[k] || 0) / hi) * 100).toFixed(0) + '%';
         if (!m[k]) b.style.background = 'var(--linie)';
-        b.title = stepName(k) + ' Klicks: ' + (m[k] || 0); hist.appendChild(b);
+        b.title = clicksText(k) + ': ' + (m[k] || 0); hist.appendChild(b);
       }
       const tr = $('tr', {}, [$('td', { text: pageName(p) }), $('td', { class: 'num', text: String(n) }),
         $('td', { class: 'num', text: stepName(median(m)) }), $('td', { class: 'num' }, [hist])]);

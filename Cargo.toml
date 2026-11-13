@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "5.2.10"
+version = "5.3.0"
 edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0-only"
@@ -26,8 +26,8 @@ libc = "0.2"
 # Deflate for the zip archives of the translations (already in use through flate2).
 miniz_oxide = "0.9"
 # Screens and pointer on macOS (NSScreen, NSEvent): the versions eframe and winit already bring in.
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSEvent", "NSScreen", "objc2-core-foundation"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSEvent", "NSScreen", "NSApplication", "NSWindow", "NSResponder", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry", "NSArray", "NSString"] }
 # p4kx at its release v0.4.2: the Basetool catalog with the contracts (`offeredAt`, `giverFaction`,
 # `blueprintRewards`) and the loadouts of the ships and parts (#445), from which the slots of the ships come.
 # The repository is public; cargo fetches it with the git command line (`.cargo/config.toml`).

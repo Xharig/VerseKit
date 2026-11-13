@@ -1543,6 +1543,16 @@ const NEST_HEIGHT: (i32, i32) = (8, 40);
 /// the digit is high, and no digit is higher than the highest nest ([`NEST_HEIGHT`]).
 const GROUND_RUN: i32 = NEST_HEIGHT.1;
 
+/// How many bright points a cell of the grid needs to count as part of a nest.
+const NEST_CELL_POINTS: i32 = 5;
+/// How many cells to the left and right the next cell of a nest may lie away: the first look.
+const NEST_REACH: i32 = 2;
+/// The same for the second look. With the bright ground left out the lowest rows of the digits are gone too, so
+/// of each digit only one or two cells keep their points and, depending on where the grid of cells falls on the
+/// pill, the cells of two neighbouring digits lie three apart: with a reach of two the row falls into pieces and
+/// no piece is a pill (the report of 12.11.2026: `6,740` right above bright ground, 205 of 2673 places).
+const GROUND_NEST_REACH: i32 = 3;
+
 /// [`pill_candidates`] with the runs of bright ground left out: the second look of [`search`].
 ///
 /// ⚠ The report of 10.11.2026 (Drake Golem, 3840 × 2160): the pill stands under the middle screen of the cockpit,
@@ -1590,7 +1600,8 @@ fn candidates_in(raw: &[u8], width: i32, height: i32, ground_run: Option<i32>) -
         }
         y += 2;
     }
-    let hot: BTreeSet<(i32, i32)> = cells.into_iter().filter(|(_, n)| *n >= 5).map(|(k, _)| k).collect();
+    let reach = if ground_run.is_some() { GROUND_NEST_REACH } else { NEST_REACH };
+    let hot: BTreeSet<(i32, i32)> = cells.into_iter().filter(|(_, n)| *n >= NEST_CELL_POINTS).map(|(k, _)| k).collect();
     let mut seen: BTreeSet<(i32, i32)> = BTreeSet::new();
     let mut found: Vec<(f64, (i32, i32, i32, i32))> = Vec::new();
     for &start in &hot {
@@ -1603,7 +1614,7 @@ fn candidates_in(raw: &[u8], width: i32, height: i32, ground_run: Option<i32>) -
         while let Some((cy, cx)) = stack.pop() {
             group.push((cy, cx));
             for dy in -1..=1 {
-                for dx in -2..=2 {
+                for dx in -reach..=reach {
                     let near = (cy + dy, cx + dx);
                     if hot.contains(&near) && seen.insert(near) {
                         stack.push(near);

@@ -424,6 +424,9 @@ impl Inner {
 }
 
 unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    // Signing out or shutting down: an update at the end of the program must not start any more. The window lives
+    // in a thread of its own and still answers while the program ends.
+    versekit_core::auto_update::note_window_message(msg, wparam);
     if let Some(inner) = current() {
         match msg {
             WM_TRAY => {

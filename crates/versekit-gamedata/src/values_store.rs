@@ -320,7 +320,21 @@ pub fn start(channel_folder: Option<&Path>, cache_file: &str, supply: Arc<dyn Su
                     let file = folder.join(crate::ship_slots::PARTS_FILE);
                     file.exists() && format_of(&file) != Some(crate::ship_slots::PARTS_FORMAT)
                 });
-            archive_changed || scmdb_missing || slots_missing || refining_missing || parts_outdated
+            // The ships carry their base values (size, SCM speed, cargo) since the hover of the hangar page: a file
+            // from before is read again once, the same way.
+            let ship_values_outdated = stamp.source == "archive"
+                && !archive.is_empty()
+                && supply.game_closed()
+                && Path::new(cache_file).parent().is_some_and(|folder| {
+                    let file = folder.join(crate::ship_slots::SHIPS_FILE);
+                    file.exists() && values_mark_of(&file) != Some(crate::ship_slots::VALUES_MARK)
+                });
+            archive_changed
+                || scmdb_missing
+                || slots_missing
+                || refining_missing
+                || parts_outdated
+                || ship_values_outdated
         }
     };
     let source = stored.as_ref().map(|s| s.stamp.source.clone()).unwrap_or_default();
@@ -342,6 +356,19 @@ fn format_of(file: &Path) -> Option<i64> {
     let text = std::str::from_utf8(&head[..read]).ok()?;
     let rest = text.trim_start().strip_prefix('{')?.trim_start().strip_prefix("\"format\"")?.trim_start().strip_prefix(':')?;
     let digits: String = rest.trim_start().chars().take_while(char::is_ascii_digit).collect();
+    digits.parse().ok()
+}
+
+/// The mark of the base values a stored ships file carries right after its format (`{"format": 4, "werte_stand": 1,
+/// …`), read from its first bytes; `None` for a file without it (one from before the base values).
+fn values_mark_of(file: &Path) -> Option<i64> {
+    use std::io::Read as _;
+    let mut head = [0u8; 96];
+    let read = fs::File::open(file).ok()?.read(&mut head).ok()?;
+    let text = std::str::from_utf8(&head[..read]).ok()?;
+    let (_, rest) = text.split_once("\"werte_stand\"")?;
+    let digits: String =
+        rest.trim_start().strip_prefix(':')?.trim_start().chars().take_while(char::is_ascii_digit).collect();
     digits.parse().ok()
 }
 
@@ -665,9 +692,18 @@ mod tests {
         assert!(start(Some(&dir), &file, Arc::new(Playing)).rebuild.is_none(), "but not while the game runs");
         let current = format!(r#"{{"format": {}, "spielversion": "4.10", "teile": {{}}}}"#, crate::ship_slots::PARTS_FORMAT);
         fs::write(&parts, current).unwrap();
+        // The ships without their base values (from before the hover of the hangar page) are read once again; not
+        // while the game runs.
+        assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the ships lack their base values");
+        assert!(start(Some(&dir), &file, Arc::new(Playing)).rebuild.is_none(), "but not while the game runs");
+        let ships = format!(r#"{{"format": 4, "werte_stand": {}, "schiffe": {{}}}}"#, crate::ship_slots::VALUES_MARK);
+        fs::write(dir.join(crate::ship_slots::SHIPS_FILE), ships).unwrap();
         let current = start(Some(&dir), &file, Arc::new(Offline));
         assert!(current.values.is_some());
-        assert!(current.rebuild.is_none(), "same archive, scmdb filled, slots, parts and processing methods there");
+        assert!(
+            current.rebuild.is_none(),
+            "same archive, scmdb filled, slots, parts, ship values and processing methods there"
+        );
         fs::write(&archive, b"archive of a new patch").unwrap();
         let changed = start(Some(&dir), &file, Arc::new(Offline));
         assert!(changed.values.is_some(), "the old values are shown while the new ones are read");
@@ -689,6 +725,23 @@ mod tests {
         assert_eq!(format_of(&file), Some(2));
         fs::write(&file, b"[]").unwrap();
         assert_eq!(format_of(&file), None);
+    }
+
+    /// The mark of the base values is read from the first bytes of the ships file as the reading writes it, also
+    /// with a long game version after it: were it written elsewhere, every start would read the archive again.
+    #[test]
+    fn the_mark_of_the_ship_values_is_read_from_what_the_reading_writes() {
+        let dir = folder("werte-stand");
+        let file = dir.join(crate::ship_slots::SHIPS_FILE);
+        let written = crate::ship_slots::ships_file(&crate::ship_slots::Catalogs::default());
+        jsonio::write_text_atomic(&file.to_string_lossy(), &jsonio::dumps(&written, None, false), Newline::Native)
+            .unwrap();
+        assert_eq!(values_mark_of(&file), Some(crate::ship_slots::VALUES_MARK));
+        // Counter-check: a file from before the base values, and one that is no ships file.
+        fs::write(&file, br#"{"format": 4, "spielversion": "sc-alpha-4.10.2.12913470", "schiffe": {}}"#).unwrap();
+        assert_eq!(values_mark_of(&file), None);
+        fs::write(&file, b"[]").unwrap();
+        assert_eq!(values_mark_of(&file), None);
     }
 
     /// A supply without network whose game runs.

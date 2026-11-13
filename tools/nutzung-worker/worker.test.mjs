@@ -768,7 +768,7 @@ test('Export über den echten Weg: Dienst-Zeichen bekommt alle Tabellen', async 
 // ---------------------------------------------------------------- Erfolg: Alter, Kanal, Vorwoche
 
 import { channel, MAX_AGE } from './worker.js';
-import { trend, activeWeek, newWeek, stayWeek, downloadsWeek, topChannel, weeklyActive,
+import { trend, activeWeek, newWeek, newSince, stayWeek, downloadsWeek, topChannel, weeklyActive,
          releaseMarks, weekDays, dayBefore, ERFOLG } from './erfolg.js';
 
 test('Vorbedingung: das Alter der Installation wird je Tag und Alter gezählt (echtes SQLite)', async () => {
@@ -904,6 +904,14 @@ test('Vorwoche: begann die Zählung erst in dieser Woche, gibt es keinen Verglei
   assert.deepEqual(activeWeek([], HEUTE), { jetzt: null, vorher: null });
 });
 
+test('Neue bisher: ohne volle Woche zählen die Neuen ab dem ersten Meldetag bis gestern', () => {
+  assert.equal(newSince([], HEUTE), null);
+  const ages = [{ tag: dayBefore(HEUTE, 4), tage: 0, n: 3 }, { tag: dayBefore(HEUTE, 2), tage: 0, n: 2 },
+                { tag: dayBefore(HEUTE, 2), tage: 1, n: 9 }, { tag: HEUTE, tage: 0, n: 7 }];
+  assert.deepEqual(newSince(ages, HEUTE), { n: 5, seit: dayBefore(HEUTE, 4) });
+  assert.equal(newWeek(ages, HEUTE).jetzt, null);
+});
+
 test('Neue und Bleiben: ohne Alters-Meldungen null, mit Meldungen aus Alter 0 und 7', () => {
   assert.deepEqual(newWeek([], HEUTE), { jetzt: null, vorher: null });
   assert.deepEqual(stayWeek([], HEUTE), { jetzt: null, vorher: null, neu: 0 });
@@ -1017,4 +1025,328 @@ test('die Tageskurve beginnt am ersten Tag mit Meldungen', () => {
   assert.equal(firstData([0, 0, 0, 4, 0, 6]), 3);
   assert.equal(firstData([0, 0]), 0);
   assert.equal(firstData([2, 0]), 0);
+});
+
+// ---------------------------------------------------------------- Besuche der Webseite mit ?ref=
+
+import { channelList } from './erfolg.js';
+
+function visitReq(query, { agent = 'Mozilla/5.0 (Windows NT 10.0) Firefox/130.0', method = 'GET', host = 'nutzung-versekit.xharig.com' } = {}) {
+  const req = new Request(`https://${host}/besuch${query}`, { method, headers: { 'user-agent': agent, 'cf-connecting-ip': '203.0.113.11' } });
+  Object.defineProperty(req, 'cf', { value: { country: 'RU', city: 'Moskau' } });
+  return req;
+}
+const visitRows = (e) => rows(e.DB.db, 'besuche');
+const TODAY = () => new Date().toISOString().slice(0, 10);
+
+test('Vorbedingung: ein Besuch mit gültigem ?ref= wird je Tag und Kanal gezählt (echtes SQLite)', async () => {
+  const e = { ...env(), DB: realD1() };
+  for (const ref of ['pipeline', 'pipeline', 'forum']) {
+    const r = await worker.fetch(visitReq('?ref=' + ref), e);
+    assert.equal(r.status, 204, ref);
+    assert.equal(await r.text(), '', 'leere Antwort');
+  }
+  assert.deepEqual(visitRows(e), [{ tag: TODAY(), kanal: 'forum', n: 1 }, { tag: TODAY(), kanal: 'pipeline', n: 2 }]);
+  const cols = e.DB.db.prepare('PRAGMA table_info(besuche)').all().map((x) => x.name);
+  assert.deepEqual(cols, ['tag', 'kanal', 'n'], 'kein Land, keine Kennung');
+});
+
+test('Besuch: ein falsches oder fehlendes ?ref= wird abgelehnt und nichts gezählt', async () => {
+  const bad = ['', '?ref=', '?x=1', '?ref=Discord', '?ref=dis-cord', '?ref=' + 'a'.repeat(21), '?ref=x1', '?ref=%C3%BC',
+               '?ref=%3Cscript%3E', '?ref=a%20b', '?ref=../etc', '?ref=a;DROP'];
+  for (const q of bad) {
+    const e = { ...env(), DB: realD1() };
+    const r = await worker.fetch(visitReq(q), e);
+    assert.equal(r.status, 400, q);
+    assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM besuche').get().n, 0, q);
+  }
+  // Grenze: genau 20 Zeichen gelten.
+  const e = { ...env(), DB: realD1() };
+  assert.equal((await worker.fetch(visitReq('?ref=' + 'a'.repeat(20)), e)).status, 204);
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM besuche').get().n, 1);
+});
+
+test('Besuch: Roboter zählen nicht, nur GET gilt, ohne Einrichtung kommt 503', async () => {
+  let e = { ...env(), DB: realD1() };
+  for (const agent of ['Discordbot/2.0', 'Googlebot/2.1', 'curl/8.0', 'HeadlessChrome/120', '']) {
+    const r = await worker.fetch(visitReq('?ref=pipeline', { agent }), e);
+    assert.equal(r.status, 204, agent);
+  }
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM besuche').get().n, 0, 'Roboter');
+  for (const method of ['POST', 'PUT', 'DELETE']) {
+    const req = visitReq('?ref=pipeline', { method });
+    assert.equal((await worker.fetch(req, e)).status, 405, method);
+  }
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM besuche').get().n, 0, 'andere Methoden');
+  assert.equal((await worker.fetch(visitReq('?ref=pipeline'), env0())).status, 503, 'ohne Datenbank');
+});
+
+test('Besuch: die Mengenbremse hält Wiederholungen zurück, ein klemmender Zähler stört nicht', async () => {
+  let e = { ...env(), DB: realD1(), LIMIT: { limit: async () => ({ success: false }) } };
+  assert.equal((await worker.fetch(visitReq('?ref=pipeline'), e)).status, 204);
+  assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM besuche').get().n, 0, 'gebremst');
+  const keys = [];
+  e = { ...env(), DB: realD1(), LIMIT: { limit: async ({ key }) => { keys.push(key); return { success: true }; } } };
+  await worker.fetch(visitReq('?ref=pipeline'), e);
+  assert.deepEqual(keys, ['besuch:203.0.113.11'], 'eigener Schlüssel, getrennt von Downloads und Meldungen');
+  e = { ...env(), DB: realD1() };
+  e.DB.db.exec('DROP TABLE besuche');
+  assert.equal((await worker.fetch(visitReq('?ref=pipeline'), e)).status, 204, 'Tabelle fehlt');
+  e = { ...env(), DB: { prepare: () => ({ bind: () => ({ run: async () => { throw new Error('weg'); } }) }) } };
+  assert.equal((await worker.fetch(visitReq('?ref=pipeline'), e)).status, 204, 'Datenbank klemmt');
+});
+
+test('Besuch: weder IP noch Land noch Stadt landen in der Datenbank', async () => {
+  const e = { ...env(), DB: realD1() };
+  await worker.fetch(visitReq('?ref=pipeline'), e);
+  const stored = JSON.stringify(e.DB.db.prepare('SELECT * FROM besuche').all());
+  for (const secret of ['203.0.113.11', 'Moskau', 'RU']) assert.ok(!stored.includes(secret), secret);
+});
+
+test('Besuch: nur unter der Zähler-Adresse; auf der Webseite und auf dem Statistik-Host zählt /besuch nicht', async () => {
+  // Auf dem Statistik-Host sitzt die Übersicht: ohne Zeichen 403, mit Zeichen 404, gezählt wird nie.
+  {
+    const e = { ...env(), DB: realD1() };
+    const req = () => { const r = new Request('https://statistik-versekit.xharig.com/besuch?ref=pipeline',
+      { headers: { 'user-agent': 'Mozilla/5.0 Firefox/130.0', 'cf-connecting-ip': '203.0.113.11' } }); return r; };
+    assert.equal((await worker.fetch(req(), e, ctxCollect(), verify)).status, 403);
+    const signed = new Request(req(), { headers: { 'user-agent': 'Mozilla/5.0 Firefox/130.0', 'cf-access-jwt-assertion': await token() } });
+    assert.equal((await worker.fetch(signed, e, ctxCollect(), verify)).status, 404);
+    assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM besuche').get().n, 0);
+  }
+  // /besuch auf der Webseiten-Adresse geht an die Webseite weiter (nicht an den Zähler).
+  const before = globalThis.fetch; const seen = [];
+  globalThis.fetch = async (req) => { seen.push(new URL(req.url).pathname); return new Response('seite'); };
+  try {
+    const e = { ...env(), DB: realD1() };
+    const req = new Request('https://xharig.com/besuch?ref=pipeline', { headers: { 'user-agent': 'Mozilla/5.0 Firefox/130.0' } });
+    await worker.fetch(req, e, ctxCollect());
+    assert.deepEqual(seen, ['/besuch']);
+    assert.equal(e.DB.db.prepare('SELECT COUNT(*) AS n FROM besuche').get().n, 0);
+  } finally {
+    globalThis.fetch = before;
+  }
+});
+
+test('die Übersicht und die Sicherung enthalten die Besuche; Kanäle reichen über den ganzen Zeitraum', async () => {
+  const e = { ...env(), DB: realD1() };
+  const old = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  e.DB.db.exec("INSERT INTO downloads_kanal VALUES ('" + old(60) + "', 'forum', 4), ('" + old(2) + "', 'forum', 1)");
+  e.DB.db.exec("INSERT INTO besuche VALUES ('" + old(60) + "', 'forum', 9), ('" + old(2) + "', 'pipeline', 7)");
+  globalThis.fetch = async () => new Response('[]');
+  const get = async (days) => (await worker.fetch(statsReq('/daten?tage=' + days, await token()), e, undefined, verify)).json();
+  const d90 = await get(90);
+  assert.deepEqual(d90.kanaele.map((r) => [r.kanal, r.n]).sort(), [['forum', 1], ['forum', 4]], '90 Tage: auch der alte Eintrag');
+  assert.deepEqual(d90.besuche.map((r) => [r.kanal, r.n]).sort(), [['forum', 9], ['pipeline', 7]], 'Besuche über denselben Zeitraum wie die Kanäle');
+  const d30 = await get(30);
+  assert.deepEqual(d30.besuche.map((r) => [r.kanal, r.n]), [['pipeline', 7]]);
+  assert.deepEqual(d30.kanaele.map((r) => r.n), [1], 'die Wochenzahl braucht nur die letzten Tage');
+  e.DB.db.exec('DROP TABLE besuche');
+  assert.deepEqual((await get(90)).besuche, [], 'fehlt die Tabelle, bleibt der Block leer statt der Seite');
+  const e2 = { ...env0(), DB: realD1(), SERVICE_ID: 'abc.access' };
+  e2.DB.db.exec("INSERT INTO besuche VALUES ('2026-11-01', 'pipeline', 3)");
+  const j = await (await worker.fetch(statsReq('/export', await token({ email: undefined, common_name: 'abc.access' })), e2, undefined, verify)).json();
+  assert.deepEqual(j.besuche, [{ tag: '2026-11-01', kanal: 'pipeline', n: 3 }]);
+});
+
+test('Kanalliste: alle Kanäle des Zeitraums, absteigend, dazu „ohne Kennzeichen“', () => {
+  const days = ['2026-11-01', '2026-11-02', '2026-11-03'];
+  const dl = [{ tag: '2026-11-01', kanal: 'forum', n: 2 }, { tag: '2026-11-02', kanal: 'forum', n: 1 },
+              { tag: '2026-11-02', kanal: 'discord', n: 5 }, { tag: '2026-10-01', kanal: 'reddit', n: 99 }];
+  const visits = [{ tag: '2026-11-01', kanal: 'forum', n: 10 }, { tag: '2026-11-03', kanal: 'pipeline', n: 20 },
+                  { tag: '2026-11-03', kanal: 'forum', n: 5 }, { tag: '2026-10-01', kanal: 'reddit', n: 99 }];
+  // Alle Downloads über die Kurzlinks: 8 mit Kennzeichen (2+1+5) und 4 ohne; der alte Tag zählt nicht.
+  const short = [{ tag: '2026-11-01', n: 6 }, { tag: '2026-11-02', n: 6 }, { tag: '2026-10-01', n: 500 }];
+  assert.deepEqual(channelList(dl, visits, short, days), [
+    { kanal: 'discord', downloads: 5, besuche: 0 },
+    { kanal: null, downloads: 4, besuche: null },
+    { kanal: 'forum', downloads: 3, besuche: 15 },
+    { kanal: 'pipeline', downloads: 0, besuche: 20 }]);
+  const list = channelList(dl, visits, short, days);
+  assert.deepEqual(list.map((r) => r.kanal), ['discord', null, 'forum', 'pipeline']);
+  assert.equal(list.filter((r) => r.kanal === null).length, 1, '„ohne Kennzeichen“ genau einmal');
+  assert.equal(list.find((r) => r.kanal === null).downloads, 4);
+  assert.ok(!list.some((r) => r.kanal === 'reddit'), 'außerhalb des Zeitraums');
+});
+
+test('Kanalliste: Gleichstand nach Besuchen, dann Name; leer ohne jede Zahl; Kanalname „constructor“', () => {
+  const days = ['2026-11-01'];
+  const dl = [{ tag: '2026-11-01', kanal: 'zeta', n: 2 }, { tag: '2026-11-01', kanal: 'alfa', n: 2 },
+              { tag: '2026-11-01', kanal: 'mitte', n: 2 }];
+  const vs = [{ tag: '2026-11-01', kanal: 'mitte', n: 7 }];
+  assert.deepEqual(channelList(dl, vs, [{ tag: '2026-11-01', n: 6 }], days).map((r) => r.kanal),
+    ['mitte', 'alfa', 'zeta', null]);
+  assert.deepEqual(channelList([], [], [], days), []);
+  assert.deepEqual(channelList([], [], [{ tag: '2026-10-01', n: 4 }], days), [], 'nur Zahlen außerhalb');
+  // Nur Downloads ohne Kennzeichen: eine Zeile.
+  assert.deepEqual(channelList([], [], [{ tag: '2026-11-01', n: 4 }], days), [{ kanal: null, downloads: 4, besuche: null }]);
+  const odd = channelList([{ tag: '2026-11-01', kanal: 'constructor', n: 3 }], [{ tag: '2026-11-01', kanal: 'constructor', n: 1 }],
+    [{ tag: '2026-11-01', n: 3 }], days);
+  assert.deepEqual(odd, [{ kanal: 'constructor', downloads: 3, besuche: 1 }, { kanal: null, downloads: 0, besuche: null }]);
+  assert.deepEqual(topChannel([{ tag: '2026-11-01', kanal: 'constructor', n: 3 }], '2026-11-02'), { kanal: 'constructor', n: 3, gesamt: 3 });
+});
+
+// Das Skript der Webseite (assets/besuch.js), in einer leeren Umgebung ausgeführt:
+// es sieht nur die Adresse und `fetch`, nichts sonst.
+import vm from 'node:vm';
+const BESUCH = readFileSync(new URL('../../assets/besuch.js', import.meta.url), 'utf-8');
+
+function runBesuch(search, { fetchFails = false } = {}) {
+  const calls = [];
+  const sandbox = {
+    window: { location: { search } }, URLSearchParams,
+    fetch: (url, opts) => { calls.push([url, opts]); return fetchFails ? Promise.reject(new Error('aus')) : Promise.resolve(); },
+  };
+  vm.runInNewContext(BESUCH, sandbox);
+  return calls;
+}
+
+test('Webseite: mit gültigem ?ref= geht genau eine Meldung an den Zähler, ohne Cookie und Kennung', () => {
+  const calls = runBesuch('?ref=pipeline');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], 'https://nutzung-versekit.xharig.com/besuch?ref=pipeline');
+  assert.equal(calls[0][1].method, 'GET');
+  assert.equal(calls[0][1].credentials, 'omit', 'keine Cookies');
+  assert.equal(calls[0][1].mode, 'no-cors');
+  assert.equal(calls[0][1].keepalive, true);
+  assert.equal(calls[0][1].referrerPolicy, 'no-referrer');
+  assert.equal(runBesuch('?x=1&ref=forum&y=2').length, 1, 'ref zwischen anderen Angaben');
+});
+
+test('Webseite: ohne oder mit falschem ?ref= wird nichts gesendet', () => {
+  for (const q of ['', '?', '?ref=', '?x=1', '?ref=Discord', '?ref=dis-cord', '?ref=' + 'a'.repeat(21), '?ref=x1', '?ref=%3Cscript%3E',
+                   '?ref=a%26b=c', '?ref=../x']) {
+    assert.equal(runBesuch(q).length, 0, q);
+  }
+  assert.equal(runBesuch('?ref=' + 'a'.repeat(20)).length, 1, 'genau 20 Zeichen gelten');
+});
+
+test('Webseite: ein gescheiterter Abruf bricht die Seite nicht ab; Skript ohne Speicher und ohne Inline-Code', async () => {
+  assert.doesNotThrow(() => runBesuch('?ref=pipeline', { fetchFails: true }));
+  await new Promise((r) => setImmediate(r));   // die abgelehnte Zusage darf nichts Unbehandeltes hinterlassen
+  assert.doesNotThrow(() => vm.runInNewContext(BESUCH, { window: {}, URLSearchParams, fetch: () => { throw new Error('x'); } }));
+  const code = BESUCH.replace(/\/\/[^\n]*/g, '');   // Kommentare dürfen das Wort nennen
+  for (const word of ['cookie', 'localStorage', 'sessionStorage', 'indexedDB', 'sendBeacon', 'eval(', 'innerHTML']) {
+    assert.ok(!code.toLowerCase().includes(word.toLowerCase()), word);
+  }
+  // Dieselbe Regel wie im Worker: eine Adresse, die der Zähler ablehnt, wird gar nicht erst gesendet.
+  const toml = readFileSync(new URL('./wrangler.toml', import.meta.url), 'utf-8');
+  assert.ok(toml.includes('pattern = "nutzung-versekit.xharig.com"'), 'Adresse des Zählers');
+});
+
+import { REF_RE, MAX_CHANNELS, OTHER_CHANNEL, MAX_ROWS, countChannel } from './worker.js';
+
+test('„Dieselbe Regel“: Skript der Webseite und Worker nehmen genau dieselben Kennzeichen', async () => {
+  // Der Quelltext der Regel im Skript ist der des Workers ...
+  const inScript = BESUCH.match(/\/\^\[a-z\]\{1,20\}\$\//);
+  assert.ok(inScript, 'Regel im Skript nicht gefunden');
+  assert.equal(inScript[0], String(REF_RE), 'Skript und REF_RE weichen ab');
+  // ... und für jede Eingabe sagen beide dasselbe: das Skript sendet genau dann, wenn REF_RE sie annimmt.
+  const inputs = ['pipeline', 'a', 'z', 'a'.repeat(20), 'a'.repeat(21), '', 'A', 'Discord', 'dis-cord', 'dis_cord', 'x1', '1',
+                  'ü', 'a b', 'a\nb', 'a\n', ' a', 'a ', '../x', '<script>', 'a%b', 'a.b', 'ab\u0000', 'аbc', 'ǆ', 'ﬁ'];
+  let accepted = 0;
+  for (const x of inputs) {
+    const sent = runBesuch('?ref=' + encodeURIComponent(x)).length === 1;
+    const worker_ = channel(new Request('https://nutzung-versekit.xharig.com/besuch?ref=' + encodeURIComponent(x))) !== null;
+    assert.equal(REF_RE.test(x), sent, 'Skript und REF_RE: ' + JSON.stringify(x));
+    assert.equal(REF_RE.test(x), worker_, 'Worker und REF_RE: ' + JSON.stringify(x));
+    if (sent) accepted += 1;
+  }
+  assert.ok(accepted >= 4 && accepted < inputs.length, 'Vorbedingung: die Liste enthält Angenommenes und Abgelehntes');
+});
+
+test('Kanalflut: 1000 verschiedene Namen ergeben je Tag höchstens 30 Kanäle plus „sonstige“ (Besuche und Downloads)', async () => {
+  const names = [];
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  for (let i = 0; i < 1000; i++) names.push(letters[i % 26] + letters[Math.floor(i / 26) % 26] + letters[Math.floor(i / 676)]);
+  assert.equal(new Set(names).size, 1000);
+  const e = { ...env(), DB: realD1() };
+  for (const n of names) {
+    assert.equal((await worker.fetch(visitReq('?ref=' + n), e)).status, 204);
+    const c = ctxCollect(); await worker.fetch(short('/windows?ref=' + n), e, c); await Promise.all(c.p);
+  }
+  for (const table of ['besuche', 'downloads_kanal']) {
+    const all = e.DB.db.prepare('SELECT kanal, n FROM ' + table).all();
+    assert.ok(all.length <= MAX_CHANNELS + 1, table + ': ' + all.length + ' Zeilen');
+    assert.equal(all.length, MAX_CHANNELS + 1, table + ': die Grenze wird erreicht');
+    const rest = all.find((r) => r.kanal === OTHER_CHANNEL);
+    assert.equal(rest.n, 1000 - MAX_CHANNELS, table + ': der Rest steht unter sonstige');
+    assert.equal(all.reduce((s, r) => s + r.n, 0), 1000, table + ': nichts geht verloren');
+  }
+});
+
+test('Kanalflut: ein Kanal, der schon steht, zählt weiter; sonstige selbst zählt; die Grenze gilt je Tag', async () => {
+  const e = { ...env(), DB: realD1() };
+  const db = e.DB.db;
+  const put = (day, k) => countChannel(e.DB, 'besuche', day, k);
+  const name = (i) => 'kanal' + String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26));
+  for (let i = 0; i < MAX_CHANNELS; i++) await put('2026-11-01', name(i));
+  await put('2026-11-01', 'neu');             // 31. Name: wandert nach sonstige
+  await put('2026-11-01', name(0));           // bekannter Name: zählt weiter
+  await put('2026-11-01', OTHER_CHANNEL);     // „sonstige“ direkt gewählt: derselbe Topf
+  await put('2026-11-02', 'neu');             // anderer Tag: wieder Platz
+  const n = (day, k) => (db.prepare('SELECT n FROM besuche WHERE tag = ? AND kanal = ?').get(day, k) || {}).n;
+  assert.equal(n('2026-11-01', 'neu'), undefined);
+  assert.equal(n('2026-11-01', OTHER_CHANNEL), 2);
+  assert.equal(n('2026-11-01', name(0)), 2);
+  assert.equal(n('2026-11-02', 'neu'), 1);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM besuche WHERE tag = '2026-11-01'").get().n, MAX_CHANNELS + 1);
+});
+
+test('Kanalflut: ein früh gewähltes „sonstige“ nimmt keinen der 30 Plätze weg', async () => {
+  const e = { ...env(), DB: realD1() };
+  await countChannel(e.DB, 'besuche', '2026-11-01', OTHER_CHANNEL);
+  const name = (i) => 'kanal' + String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26));
+  for (let i = 0; i < MAX_CHANNELS; i++) await countChannel(e.DB, 'besuche', '2026-11-01', name(i));
+  const named = e.DB.db.prepare("SELECT COUNT(*) AS n FROM besuche WHERE tag = '2026-11-01' AND kanal <> ?").get(OTHER_CHANNEL).n;
+  assert.equal(named, MAX_CHANNELS, 'alle 30 Namen stehen einzeln da');
+  assert.equal(e.DB.db.prepare("SELECT n FROM besuche WHERE kanal = ?").get(OTHER_CHANNEL).n, 1, 'sonstige blieb bei 1');
+});
+
+test('Kanalflut: Übersicht und Sicherung holen höchstens MAX_ROWS Zeilen, die größten zuerst', async () => {
+  const e = { ...env0(), DB: realD1(), SERVICE_ID: 'abc.access' };
+  const db = e.DB.db;
+  const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  db.exec('BEGIN');
+  const ins = db.prepare('INSERT INTO besuche VALUES (?, ?, ?)'), ins2 = db.prepare('INSERT INTO downloads_kanal VALUES (?, ?, ?)');
+  for (let d = 1; d <= 20; d++) for (let k = 0; k < 40; k++) {   // 800 Zeilen, von Hand an der Grenze vorbei geschrieben
+    ins.run(day(d), 'k' + String.fromCharCode(97 + (k % 26)) + String.fromCharCode(97 + Math.floor(k / 26)), k + 1);
+    ins2.run(day(d), 'k' + String.fromCharCode(97 + (k % 26)) + String.fromCharCode(97 + Math.floor(k / 26)), k + 1);
+  }
+  db.exec('COMMIT');
+  globalThis.fetch = async () => new Response('[]');
+  const d = await (await worker.fetch(statsReq('/daten?tage=30', await token({ email: MAIL })), { ...e, ERLAUBTE_MAIL: MAIL, SERVICE_ID: '' }, undefined, verify)).json();
+  assert.equal(d.besuche.length, MAX_ROWS);
+  assert.equal(d.kanaele.length, MAX_ROWS);
+  assert.equal(d.besuche[0].n, 40, 'die größten zuerst');
+  assert.ok(d.besuche.every((r, i, a) => i === 0 || a[i - 1].n >= r.n), 'absteigend');
+  const j = await (await worker.fetch(statsReq('/export', await token({ email: undefined, common_name: 'abc.access' })), e, undefined, verify)).json();
+  assert.equal(j.besuche.length, MAX_ROWS);
+  assert.equal(j.downloads_kanal.length, MAX_ROWS);
+});
+
+test('Webseite: alle zehn Seiten laden das Skript, kein Inline-Skript dafür, die Adresse stimmt', () => {
+  const pages = ['', 'rundgang/', 'herunterladen/', 'fragen/', 'aenderungen/'];
+  for (const lang of ['', 'en/']) {
+    for (const p of pages) {
+      const file = lang + p + 'index.html';
+      const html = readFileSync(new URL('../../' + file, import.meta.url), 'utf-8');
+      const up = '../'.repeat(file.split('/').length - 1);
+      assert.ok(html.includes('<script src="' + up + 'assets/besuch.js?v=1"></script>'), file);
+      assert.ok(!/<script>[^<]*besuch/.test(html), file + ' Inline-Skript');
+    }
+  }
+  // Die Datei steht so im Repo, dass die Seite sie ausliefert.
+  assert.ok(BESUCH.includes("'https://nutzung-versekit.xharig.com/besuch?ref='"));
+});
+
+test('die Seite zeigt die Herkunft zwischen Wochenkurve und Entwicklungs-Klappe', async () => {
+  const { dashboardHtml } = await import('./dashboard.js');
+  const code = dashboardHtml('abc').split('<script nonce="abc">')[1].split('</script>')[0];
+  assert.doesNotThrow(() => new Function(code), 'Syntaxfehler im Skript der Seite');
+  const at = (t) => code.indexOf(t);
+  assert.ok(at('function channelList(') >= 0, 'die Rechnung fehlt im Skript');
+  assert.ok(at("card('Aktive Nutzer je Woche'") < at("card('Herkunft: Downloads und Besuche (Zeitraum)')")
+    && at("card('Herkunft: Downloads und Besuche (Zeitraum)')") < at('target = dev;'), 'Reihenfolge der Seite');
+  assert.ok(code.includes("'ohne Kennzeichen'") && code.includes('d.besuche'), 'Zeile ohne Kennzeichen und Besuche');
 });

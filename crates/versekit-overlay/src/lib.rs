@@ -95,6 +95,15 @@ use versekit_core::{font_size, language, theme, trail, writeguard};
 
 /// Set by [`ask_to_quit`]; the overlay ends at its next frame.
 static QUIT_ASKED: AtomicBool = AtomicBool::new(false);
+/// Set when the player ended the overlay (its button, „Quit“ at the icon), not the program itself (an update handed
+/// over, a request of the main window, the system closing the window).
+static ENDED_BY_PLAYER: AtomicBool = AtomicBool::new(false);
+
+/// Did the player end the overlay of this process? Only then the program installs a waiting update at its end.
+pub fn ended_by_player() -> bool {
+    ENDED_BY_PLAYER.load(Ordering::Relaxed)
+}
+
 /// The window of the overlay of this process, to wake it.
 static CONTEXT: OnceLock<eframe::egui::Context> = OnceLock::new();
 
@@ -112,11 +121,30 @@ pub fn ask_to_quit() {
 struct Told {
     /// The version on offer: `Some(None)` is „nothing newer“.
     update: Option<Option<String>>,
-    /// Sentences for the status line: (text key, its argument).
-    say: Vec<(String, String)>,
+    /// Whole days it has waited, from one day on: `Some(None)` is „not a day yet, or nothing waits“.
+    days: Option<Option<u64>>,
+    /// Sentences for the status line.
+    say: Vec<versekit_core::overlay::Message>,
 }
 
-static TOLD: std::sync::Mutex<Told> = std::sync::Mutex::new(Told { update: None, say: Vec::new() });
+static TOLD: std::sync::Mutex<Told> = std::sync::Mutex::new(Told { update: None, days: None, say: Vec::new() });
+
+/// What a click on „install now“ in the overlay sets going: set by the program that runs the updates.
+static UPDATE_NOW: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+
+/// The program that runs the updates says here what the button „install now“ of a waiting update does. Without it
+/// the button does nothing (the overlay with sample contents, the self-check).
+pub fn on_update_now(hook: impl Fn() + Send + Sync + 'static) {
+    let _ = UPDATE_NOW.set(Box::new(hook));
+}
+
+/// The player asked for the waiting update now; `false` when nobody takes the request.
+fn ask_update_now() -> bool {
+    UPDATE_NOW.get().is_some_and(|hook| {
+        hook();
+        true
+    })
+}
 
 fn told() -> std::sync::MutexGuard<'static, Told> {
     TOLD.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -135,9 +163,22 @@ pub fn set_update(version: Option<String>) {
     wake();
 }
 
+/// Tells the overlay how many whole days the version on offer has waited, from one day on; `None`: not a day yet,
+/// or nothing waits. From a day on the line of the update shows with the game closed too, with its button.
+pub fn set_update_days(days: Option<u64>) {
+    told().days = Some(days);
+    wake();
+}
+
 /// Tells the overlay a sentence for its status line: the text of `key` with `argument` in place of `{0}`.
 pub fn tell(key: &str, argument: &str) {
-    told().say.push((key.to_string(), argument.to_string()));
+    told().say.push(versekit_core::language::Phrase::new(key).with("0", argument).into());
+    wake();
+}
+
+/// Tells the overlay a sentence for its status line that is written already (in the language of the program).
+pub fn say(text: String) {
+    told().say.push(versekit_core::overlay::Message::Plain(text));
     wake();
 }
 

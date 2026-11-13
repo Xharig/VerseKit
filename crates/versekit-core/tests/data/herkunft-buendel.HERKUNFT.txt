@@ -1,0 +1,13 @@
+herkunft-buendel.json.sn
+
+Ein echter, öffentlicher Herkunftsnachweis (Sigstore-Bündel v0.3, SLSA-Provenance v1) der GitHub-Kommandozeile,
+abgerufen am 12.11.2026 über die öffentliche Schnittstelle
+https://api.github.com/repos/cli/cli/attestations/sha256:4c806978ffce1cec70853302a56d70ac6da4f19bae7adca4e1a8ab00633dd91d
+(Release v2.103.3), so gespeichert, wie GitHub ihn unter `bundle_url` ausliefert: Snappy-gepackt.
+
+Signiert vom Workflow https://github.com/cli/cli/.github/workflows/deployment.yml@refs/heads/trunk, Zertifikat von
+sigstore-intermediate, Eintrag im öffentlichen Transparenzlog rekor.sigstore.dev. Unter den 21 Dateien des
+Nachweises steht gh_2.103.3_linux_386.deb mit
+sha256 5b3b310d80e6bdb144d256b4c3794f01eac0cf3f6df44e893e5c85573f1138e5.
+
+Keine Namen, keine Kennungen außer den öffentlichen des Projekts cli/cli.

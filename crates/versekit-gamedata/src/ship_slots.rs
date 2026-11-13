@@ -42,6 +42,7 @@ use versekit_core::erkul_slots::SWAPPABLE;
 use versekit_core::jsonio::{Map, Value};
 
 use crate::fields::{component, structs, structure, text};
+use crate::ship_values::ShipValues;
 
 /// The slots of the ships, in the form of `erkul-schiffe.json`.
 pub const SHIPS_FILE: &str = versekit_core::erkul_slots::GAME_SHIPS_FILE;
@@ -49,6 +50,9 @@ pub const SHIPS_FILE: &str = versekit_core::erkul_slots::GAME_SHIPS_FILE;
 pub const PARTS_FILE: &str = versekit_core::erkul_slots::GAME_PARTS_FILE;
 /// The format of [`SHIPS_FILE`]: the one of `erkul-schiffe.json`.
 pub const SHIPS_FORMAT: i64 = versekit_core::ships::ERKUL_FILE_FORMAT;
+/// Which base values of the ships [`SHIPS_FILE`] holds (`werte_stand`, 1: size, SCM speed and cargo). Its format is
+/// the one of erkul's file and stays; a file with another mark is read again once (`values_store`).
+pub const VALUES_MARK: i64 = 1;
 /// The format of [`PARTS_FILE`]: the one of `erkul-teile.json` with the class name and the tags a paint
 /// requires; a file of an older format is read again once (`values_store`).
 pub const PARTS_FORMAT: i64 = versekit_core::erkul_slots::GAME_PARTS_FORMAT;
@@ -168,6 +172,8 @@ pub struct Catalogs {
     build: String,
     /// What the DataForge says about paints ([`PaintFacts::read`]); empty where it was not read.
     pub paints: PaintFacts,
+    /// Size and SCM speed of the ships ([`ShipValues::read`]); empty where it was not read.
+    pub values: ShipValues,
 }
 
 impl Catalogs {
@@ -400,7 +406,21 @@ fn maker_of(catalogs: &Catalogs, ship: &Json) -> (String, String) {
     (name, code)
 }
 
-/// The slots of the player ships in the form of `erkul-schiffe.json`.
+/// The flight controller a port tree has at the factory: the identifier of the first part of the kind
+/// `FlightController`, all the way down.
+fn flight_controller<'c>(catalogs: &'c Catalogs, ports: &'c [Json]) -> Option<&'c str> {
+    ports.iter().find_map(|port| {
+        let guid = port["itemGuid"].as_str();
+        let kind = catalogs.item(guid).and_then(|part| part["type"].as_str());
+        if kind == Some("FlightController") {
+            return guid;
+        }
+        flight_controller(catalogs, port["ports"].as_array().map(Vec::as_slice).unwrap_or_default())
+    })
+}
+
+/// The slots of the player ships in the form of `erkul-schiffe.json`, each with its base values (`werte`, see
+/// [`ShipValues::of`]) where the data have them.
 pub fn ships_file(catalogs: &Catalogs) -> Value {
     let mut ships: Map = Vec::new();
     let mut makers: Map = Vec::new();
@@ -426,18 +446,21 @@ pub fn ships_file(catalogs: &Catalogs) -> Value {
         }
         let own = english(&ship["name"]);
         let name = [maker.as_str(), own.as_str()].iter().filter(|t| !t.is_empty()).copied().collect::<Vec<_>>().join(" ");
-        ships.push((
-            key,
-            Value::Object(vec![
-                ("name".to_string(), Value::str(if name.is_empty() { class } else { &name })),
-                ("id".to_string(), Value::str(class)),
-                ("plaetze".to_string(), Value::Array(counts(&sizes))),
-                ("slots".to_string(), Value::Array(slots)),
-            ]),
-        ));
+        let mut entry: Map = vec![
+            ("name".to_string(), Value::str(if name.is_empty() { class } else { &name })),
+            ("id".to_string(), Value::str(class)),
+            ("plaetze".to_string(), Value::Array(counts(&sizes))),
+            ("slots".to_string(), Value::Array(slots)),
+        ];
+        if let Some(values) = catalogs.values.of(ship, flight_controller(catalogs, &ports)) {
+            entry.push(("werte".to_string(), values));
+        }
+        ships.push((key, Value::Object(entry)));
     }
     Value::Object(vec![
         ("format".to_string(), Value::int(SHIPS_FORMAT)),
+        // Right after the format, where `values_store` reads it from the first bytes.
+        ("werte_stand".to_string(), Value::int(VALUES_MARK)),
         ("spielversion".to_string(), Value::str(&catalogs.build)),
         ("quelle".to_string(), Value::str("spieldaten")),
         ("schiffe".to_string(), Value::Object(ships)),

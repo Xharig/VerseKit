@@ -1001,3 +1001,92 @@ fn the_second_look_leaves_every_reading_of_the_first_as_it_was() {
         }
     }
 }
+
+/// Four scan images of a player (a Windows screen of 3840 x 2160 at 150 %): the pill stands right above bright ground.
+const BRIGHT_GROUND_PICTURES: &str = include_str!("../../tests/data/signatur-heller-grund.json");
+
+fn bright_ground_pictures() -> Vec<(u64, Gray)> {
+    images_of(BRIGHT_GROUND_PICTURES).into_iter().map(|(key, raster)| (number_of(&key), raster)).collect()
+}
+
+/// The possible values of the other tests and the four numbers of these images.
+fn bright_ground_values() -> Vec<u64> {
+    let mut values = values();
+    values.extend(bright_ground_pictures().iter().map(|(n, _)| *n));
+    values.sort();
+    values.dedup();
+    values
+}
+
+/// BGRA bytes of the area the player drew on the model of the screen (466, 339, 71, 54 per mille of 3840 x 2160, so
+/// 272 x 117 points), the crop `dx`, `dy` points off its usual place and its edge points carried on as ground: the
+/// stripes of the cockpit screen and the bright ground under the pill run on across the whole area.
+fn drawn_area(crop: &Gray, dx: i32, dy: i32) -> (Vec<u8>, i32, i32) {
+    let (width, height) = (272i32, 117i32);
+    let mut raw = vec![0u8; (width * height * 4) as usize];
+    for y in 0..height {
+        for x in 0..width {
+            let (cx, cy) = (x - (60 + dx), y - (54 + dy));
+            let v = crop.at(cx.clamp(0, crop.w as i32 - 1), cy.clamp(0, crop.h as i32 - 1));
+            let at = ((y * width + x) * 4) as usize;
+            raw[at..at + 4].copy_from_slice(&[v, v, v, 255]);
+        }
+    }
+    (raw, width, height)
+}
+
+#[test]
+fn the_four_scan_images_of_the_player_are_read_by_the_shipped_digits_in_both_grey_images() {
+    let known = shipped();
+    let values = bright_ground_values();
+    let pictures = bright_ground_pictures();
+    assert_eq!(pictures.len(), 4);
+    for (number, crop) in pictures {
+        for ground in [false, true] {
+            let reading = read_in(&crop, &known, &values, ground);
+            assert_eq!(reading.value, Some(number), "ground {ground}: {reading:?}");
+        }
+    }
+}
+
+/// The report of 12.11.2026 (scan "now works more often but not always"). The crop reads, the pill is not found:
+/// with the bright ground left out the lowest rows of the digits go too, and where the grid of cells (8 points)
+/// falls on the pill, the cells of the digits lie three apart; with a reach of two cells the nest falls into
+/// pieces (`6,740` at 205 of 2673 places measured, the pieces `7 4 0` alone without the location symbol).
+#[test]
+fn a_pill_right_above_bright_ground_is_found_wherever_the_grid_of_cells_falls_on_it() {
+    let known = both(&shipped());
+    let values = bright_ground_values();
+    let mut missed = Vec::new();
+    for (number, crop) in bright_ground_pictures() {
+        for dx in [-40, -24, -8, 0, 8, 24, 40] {
+            for dy in [-16, -8, -3, 0, 3, 8, 16] {
+                let (raw, width, height) = drawn_area(&crop, dx, dy);
+                let value = search(&raw, width, height, &known, &values, 12).reading.value;
+                assert!(value.is_none_or(|v| v == number), "{number} at ({dx}, {dy}) read as {value:?}");
+                if value.is_none() {
+                    missed.push((number, dx, dy));
+                }
+            }
+        }
+    }
+    assert!(missed.is_empty(), "not found: {missed:?}");
+}
+
+/// The wider reach of the second look must not make the first look read anything else: where the first look has a
+/// reading, the search gives it unchanged.
+#[test]
+fn the_wider_reach_of_the_second_look_leaves_the_first_look_as_it_was() {
+    let known = both(&shipped());
+    let values = bright_ground_values();
+    for (_, crop) in bright_ground_pictures() {
+        for (dx, dy) in [(-20, 0), (20, 0), (0, 10), (0, -10)] {
+            let (raw, width, height) = drawn_area(&crop, dx, dy);
+            let boxes: Vec<_> = pill_candidates(&raw, width, height).into_iter().take(12).collect();
+            let first = look(&raw, width, &boxes, &known, &values, false);
+            if first.reading.value.is_some() {
+                assert_eq!(search(&raw, width, height, &known, &values, 12), first);
+            }
+        }
+    }
+}

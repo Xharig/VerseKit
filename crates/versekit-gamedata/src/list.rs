@@ -57,7 +57,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use versekit_core::catalog_cache::{self, Blueprint as ListBlueprint, CatalogCache, Mission, Place, Way};
-use versekit_core::injection::reputation;
+use versekit_core::injection::{item_stats, reputation};
 use versekit_core::jsonio::{self, Map, Value};
 use versekit_core::paths::{Host, Paths, name_key};
 use versekit_core::text::py_strip;
@@ -74,7 +74,8 @@ pub const CACHE_FILE: &str = "katalog-spieldaten.json";
 /// 4: the blueprints carry the tag, subtype and kind of their recipe.
 /// 5: the file carries the text keys of every crafted item (`beschreibungen`).
 /// 6: building it also writes the reputation and terms of every contract read from the game data (`auftragsruf.json`).
-pub const CACHE_FORMAT: i64 = 6;
+/// 7: the file carries the stock values of every weapon and component (`werte`).
+pub const CACHE_FORMAT: i64 = 7;
 
 /// The lock file beside the cache file that keeps two builds of the same catalog apart, in one process and between
 /// the main window and the overlay.
@@ -582,7 +583,8 @@ impl Rebuild {
             map.push(("scmdb".into(), Value::str(marker)));
             map.push(("versuch".into(), Value::str(if asked { now() } else { 0 }.to_string())));
         }
-        if let Err(error) = write_cache(&self.cache_file, &stamp, &built.catalog, &built.item_texts)
+        if let Err(error) =
+            write_cache_with(&self.cache_file, &stamp, &built.catalog, &built.item_texts, &built.item_stats)
             && !writeguard::refused(&error)
         {
             versekit_core::errors::record("list.cache_write", &error);
@@ -695,12 +697,27 @@ fn stamp(archive: Option<&Path>) -> Value {
     ])
 }
 
+#[cfg(test)]
 fn write_cache(file: &str, stamp: &Value, catalog: &CatalogCache, item_texts: &Map) -> std::io::Result<()> {
+    write_cache_with(file, stamp, catalog, item_texts, &Map::new())
+}
+
+/// Writes the catalog with the text keys (`beschreibungen`) and the stock values (`werte`) of the items.
+fn write_cache_with(
+    file: &str,
+    stamp: &Value,
+    catalog: &CatalogCache,
+    item_texts: &Map,
+    item_values: &Map,
+) -> std::io::Result<()> {
     let mut data = catalog_cache::to_value(catalog);
     if let Value::Object(map) = &mut data {
         map.insert(0, ("quelle".into(), stamp.clone()));
         if !item_texts.is_empty() {
             map.push((catalog_cache::ITEM_TEXTS.into(), Value::Object(item_texts.clone())));
+        }
+        if !item_values.is_empty() {
+            map.push((item_stats::CATALOG_KEY.into(), Value::Object(item_values.clone())));
         }
     }
     jsonio::write_text_atomic(file, &jsonio::dumps(&data, None, false), jsonio::Newline::Native)
@@ -733,6 +750,8 @@ struct Built {
     catalog: CatalogCache,
     /// The text keys of the crafted items ([`item_texts`]); empty without the game data.
     item_texts: Map,
+    /// The stock values of weapons and components (`description_stats`); empty without the game data.
+    item_stats: Map,
     /// The scmdb build whose catalog completed this one; `None` when scmdb
     /// could not be had.
     scmdb: Option<String>,
@@ -876,11 +895,13 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
     let (fixes, fixes_error) = supply.corrections(wanted.as_deref());
     let fixes_missing = fixes_error.is_some();
     let mut own_reputation = None;
+    let mut own_stats = Map::new();
     let read = game.and_then(Result::ok).map(|game| {
         let catalog = game.localization(Language::English).and_then(|texts| {
             let contracts = game.contract_catalog()?;
-            let catalog = game.blueprints_with(&texts, &fixes, &contracts)?;
+            let (catalog, stats) = game.blueprints_and_stats(&texts, &fixes, &contracts)?;
             own_reputation = Some(game.contract_reputation(&contracts, &catalog.shown_keys, &fixes));
+            own_stats = stats;
             Ok(catalog)
         });
         if let Err(error) = &catalog {
@@ -943,7 +964,9 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
     // A build without the network does not feed the history: its names are
     // not yet corrected by scmdb's list, and the window builds again anyway.
     stamp_since(paths, &mut catalog, cache_file, !supply.is_off());
-    Some(Built { catalog, item_texts: texts, scmdb: scmdb_build, asked: wanted.is_some() })
+    // The values come from the archive alone; a catalog of scmdb's stands in without them.
+    let item_stats = if own.is_some() { own_stats } else { Map::new() };
+    Some(Built { catalog, item_texts: texts, item_stats, scmdb: scmdb_build, asked: wanted.is_some() })
 }
 
 /// Sets the patch each blueprint came with from this device's history and,
@@ -1697,6 +1720,32 @@ mod tests {
         let read = versekit_core::injection::item_info::item_texts_from_catalog(&jsonio::read_json(&cache).unwrap());
         assert_eq!(read["80fd0b3b"].text, "item_Desc_cds_heavy_armor_01_Shared");
         assert_eq!(read["bef9cd69"].name, "item_Name_cds_heavy_armor_01_arms");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_stock_values_are_written_and_read_back_by_the_writing() {
+        use versekit_core::injection::item_stats::{self, kind, value};
+        let values = jsonio::loads(
+            r#"{"0a1b": {"name": "item_NameCOOL_A", "text": "item_DescCOOL_A", "art": "kuehler",
+                "w": {"kuehlung": 38.0, "em": 1490.0}}}"#,
+        )
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .clone();
+        let dir = std::env::temp_dir().join(format!("versekit-itemstats-{}", versekit_core::testdir::run_tag()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let cache = dir.join(CACHE_FILE).to_string_lossy().into_owned();
+        write_cache_with(&cache, &stamp(None), &CatalogCache::default(), &Map::new(), &values).unwrap();
+        let read = item_stats::from_catalog(&jsonio::read_json(&cache).unwrap());
+        assert_eq!(read.len(), 1);
+        assert_eq!((read[0].text.as_str(), read[0].kind.as_str()), ("item_DescCOOL_A", kind::COOLER));
+        assert_eq!(read[0].values[value::COOLING], 38.0);
+        // Without values the file has no key for them.
+        write_cache(&cache, &stamp(None), &CatalogCache::default(), &Map::new()).unwrap();
+        assert!(item_stats::from_catalog(&jsonio::read_json(&cache).unwrap()).is_empty());
         let _ = fs::remove_dir_all(dir);
     }
 

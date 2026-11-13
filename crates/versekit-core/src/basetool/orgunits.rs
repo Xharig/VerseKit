@@ -25,7 +25,7 @@
 use crate::basetool::connection::Connection;
 use crate::basetool::error::{ApiError, py_str, truthy};
 use crate::basetool::feed::list;
-use crate::basetool::scopes::{SCOPES_ORGUNITS, SETTING_SHIPS, SETTING_STOCK, all_in};
+use crate::basetool::scopes::{SCOPES_ORGUNITS, SETTING_REFINERY, SETTING_SHIPS, SETTING_STOCK, all_in};
 use crate::basetool::sync::{Area, Pass, Shared};
 use crate::jsonio::{Map, Value};
 
@@ -90,7 +90,8 @@ impl Area for OrgUnitsArea {
     }
 
     fn runs(&self, ready: &[&'static str], capabilities: &[String]) -> bool {
-        (ready.contains(&SETTING_SHIPS) || ready.contains(&SETTING_STOCK)) && all_in(SCOPES_ORGUNITS, capabilities)
+        [SETTING_SHIPS, SETTING_STOCK, SETTING_REFINERY].iter().any(|s| ready.contains(s))
+            && all_in(SCOPES_ORGUNITS, capabilities)
     }
 
     fn isolated(&self) -> bool {

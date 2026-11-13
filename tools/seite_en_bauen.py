@@ -43,7 +43,7 @@ import sys
 WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADRESSE = "https://versekit.xharig.com/"
 # German pages, relative to the site root ("" is the start page).
-SEITEN = ["", "rundgang/", "herunterladen/", "fragen/", "aenderungen/"]
+SEITEN = ["", "rundgang/", "herunterladen/", "fragen/", "deine-daten/", "aenderungen/"]
 
 KOPF = ("<!-- Generated from %sindex.html by tools/seite_en_bauen.py."
         " Do not edit; change the German page and run the script. -->\n")

@@ -219,6 +219,23 @@ pub const GRAPHICS: &str = "grafik";
 pub const GRAPHICS_NONE: &str = "Grafik: kein Weg zum Zeichnen";
 /// The head of the crash file and of the error when the window fails after the choice.
 pub const GRAPHICS_WINDOW: &str = "Grafik: Fehler im Fenster";
+/// The note when the graphics device was lost while the window ran and the program starts anew.
+pub const GRAPHICS_LOST: &str = "Gerät verloren, Programm startet neu";
+
+/// The graphics device of this process is lost and the program starts anew: a panic from now on is the end of the
+/// window, noted as such and no crash ([`mark_graphics_lost`]).
+static GRAPHICS_LOST_MARK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// From now on a panic of this process is the end of a window whose graphics device was lost, and the program starts
+/// anew: noted in the error log, without a crash file.
+pub fn mark_graphics_lost() {
+    GRAPHICS_LOST_MARK.store(true, std::sync::atomic::Ordering::Release);
+}
+
+/// Is a panic now the end of a window with a lost graphics device ([`mark_graphics_lost`])?
+fn graphics_lost() -> bool {
+    GRAPHICS_LOST_MARK.load(std::sync::atomic::Ordering::Acquire)
+}
 
 /// The line of the trail and the error log about the graphics stage: `Grafik: grafikkarte-dcomp`.
 pub fn graphics_line(text: &str) -> String {
@@ -249,6 +266,12 @@ pub fn panic_trace(file: &str, line: u32, thread: &str, message: &str) -> String
     format!("File \"{file}\", line {line}, in {thread}\n    {first}")
 }
 
+/// The note of a panic that ends a window whose graphics device was lost: the place and the first line of `message`.
+fn lost_note(message: &str, file: &str, line: u32) -> String {
+    let first = message.lines().next().unwrap_or_default();
+    format!("{}: {first} ({file}:{line})", graphics_line(GRAPHICS_LOST))
+}
+
 fn install_panic_hook() {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -258,6 +281,11 @@ fn install_panic_hook() {
         let (file, line, column) = info.location().map_or(("?", 0, 0), |l| (l.file(), l.line(), l.column()));
         let trace = panic_trace(file, line, &thread, &message);
         let main = thread == "main";
+        if main && graphics_lost() {
+            note(GRAPHICS, &lost_note(&message, file, line));
+            previous(info);
+            return;
+        }
         let label = if main { "unbehandelt".to_string() } else { format!("thread:{thread}") };
         record(&label, "panic", &message, Some(&trace));
         if main {
@@ -273,6 +301,17 @@ fn install_panic_hook() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_end_of_a_window_with_a_lost_device_is_noted_with_its_place() {
+        let note = lost_note("Failed to create staging buffer for index data.\nmore", "renderer.rs", 1033);
+        assert_eq!(
+            note,
+            "Grafik: Gerät verloren, Programm startet neu: Failed to create staging buffer for index data. \
+             (renderer.rs:1033)"
+        );
+        assert!(!graphics_lost(), "nothing marks it before a device is lost");
+    }
 
     #[test]
     fn the_trace_reads_like_a_call_site() {

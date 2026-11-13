@@ -24,7 +24,9 @@ Checks the Windows delivery end to end, on an invisible desktop of its own:
      to, in a data folder with a space and an umlaut); no copy of the program file, nothing started from the
      temporary folder. Once the setup has written its sign of life the program is ended as it ends itself
      before an update. Checks: the setup waited for the program, exit code 0 written, the lock removed, the
-     version in "Apps & Features" is the second one, the setup started the program again exactly once,
+     version in "Apps & Features" is the second one, the setup started the program again exactly once;
+     then the same update as at the end of the program (/VERYSILENT, /VKKEINSTART): exit code 0, the lock
+     removed, and no program runs afterwards,
   4. runs the setup as the update helper of 5.2.2 and earlier does (without /VKUPDATE): the setup starts
      nothing, the file named under its key is started and runs once,
   5. uninstalls and checks that the entries are gone.
@@ -64,6 +66,8 @@ UPDATE_ARGUMENTS = ('/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DI
                     '/VKUPDATE /VKPIDS={pids} /VKSPERRE="{sperre}" /VKERGEBNIS="{ergebnis}" '
                     '/VKPROTOKOLL="{protokoll}"')
 LIFE_SIGN = 'Installer started'
+# The switch of an update at the end of the program (`update_run::NO_START_SWITCH`): the setup starts nothing again.
+NO_START = '/VKKEINSTART'
 
 RESULTS = []
 
@@ -193,6 +197,34 @@ def inside(setup1, setup2):
         again = processes(target)
         check(len(again) == 1, 'the setup started the program again from the installation folder, once (%s)' % again)
         check('Starting the program %s' % program in log, 'from the installation folder')
+
+        # 3b. The update at the end of the program (`update_run::setup_arguments` with `at_exit`): the player ended
+        #     the program, the setup runs without a window and does not start it again.
+        shutil.copy(setup2, setup)
+        with open(lock, 'w', encoding='utf-8') as f:
+            json.dump({'pid': 0, 'zeit': time.time()}, f)
+        offset = len(open(log_file, encoding='utf-8', errors='replace').read()) if os.path.exists(log_file) else 0
+        waiting_for = processes(target) or [0]
+        arguments = (UPDATE_ARGUMENTS.replace('/SILENT', '/VERYSILENT', 1) + ' ' + NO_START).format(
+            ziel=target, setuplog=os.path.join(data, 'update-setup-ende.txt'),
+            pids=','.join(str(pid) for pid in waiting_for), sperre=lock, ergebnis=result_file, protokoll=log_file)
+        started = time.time()
+        updating = subprocess.Popen('"%s" %s' % (setup, arguments), env=env, cwd=fetched, creationflags=NO_WINDOW)
+        signed = False
+        while not signed and time.time() - started < 30 and updating.poll() is None:
+            time.sleep(0.25)
+            text = open(log_file, encoding='utf-8', errors='replace').read() if os.path.exists(log_file) else ''
+            signed = LIFE_SIGN in text[offset:]
+        check(signed, 'at the end: the setup wrote its sign of life (after %.1f s)' % (time.time() - started))
+        end_program()
+        rc = updating.wait(timeout=300)
+        check(rc == 0, 'at the end: the setup ends with 0 (exit code %s)' % rc)
+        log = open(log_file, encoding='utf-8', errors='replace').read()[offset:] if os.path.exists(log_file) else ''
+        print('     update log at the end:\n' + '\n'.join('       ' + line for line in log.splitlines()))
+        check('not started again' in log, 'at the end: the setup says it starts nothing again')
+        check(not os.path.exists(lock), 'at the end: the lock is removed')
+        time.sleep(4)
+        check(processes(target) == [], 'at the end: no program runs afterwards')
 
         # 4. The way of the helper of 5.2.2 and earlier: it waits until the program has ended, runs the setup
         #    without /VKUPDATE, then starts the file the setup names under its key. The setup itself starts nothing.

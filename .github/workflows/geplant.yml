@@ -20,6 +20,12 @@
 #   dass release.yml anspringt" funktioniert also nicht. Deshalb ruft dieser
 #   Ablauf den Bau selbst auf — release.yml ist dafuer als workflow_call aufrufbar.
 #
+# ⚠ Herkunftsnachweis: Auf diesem Weg nennt das Zertifikat release.yml mit dem
+#   Zweig, von dem dieser Ablauf gestartet wurde, nicht den Tag des Releases.
+#   Das Programm erkennt den Nachweis deshalb nicht an und schreibt bei jedem
+#   Update „NOT verified“ ins Protokoll. Einen passenden Nachweis liefert nur der
+#   Tag-Push oben.
+#
 # Woran es NICHT scheitern soll:
 #   Jeden Samstag blind zu taggen waere schlimmer als gar keine Automatik. Ueber
 #   die Freigabe entscheidet `release_faellig.py`: Es muss eine neue Nummer in
@@ -128,3 +134,6 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
+      # The job release of release.yml makes the build provenance; a called workflow gets no more than this.
+      id-token: write
+      attestations: write

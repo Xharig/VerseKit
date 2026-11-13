@@ -29,9 +29,10 @@ use crate::credits::HANGAR_EXPORTER;
 /// The folder next to the program file with the Hangar-Exporter of the installer.
 pub const FOLDER: &str = "erweiterung";
 
-/// The entry of the Hangar-Exporter in the Chrome Web Store, once it is there; Edge installs from it as well.
-/// Until then the buttons of Chrome and Edge open the release page with the package and its instructions.
-pub const CHROME_STORE: Option<&str> = None;
+/// The entry of the Hangar-Exporter in the Chrome Web Store; Edge installs from it as well. Without an entry the
+/// buttons of Chrome and Edge open the release page with the package and its instructions.
+pub const CHROME_STORE: Option<&str> =
+    Some("https://chromewebstore.google.com/detail/hgmnaolojobpmeieccpholmjacbjkpbm");
 
 /// The page the buttons of Chrome and Edge open.
 pub fn chrome_page() -> &'static str {
@@ -214,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn firefox_gets_the_file_and_the_others_the_release_page() {
+    fn firefox_gets_the_file_and_chrome_and_edge_the_store() {
         let xpi = PathBuf::from("/p/erweiterung/hangar-exporter-0.5.0.xpi");
         let program = PathBuf::from("/usr/bin/browser");
         assert_eq!(
@@ -225,16 +226,19 @@ mod tests {
             plan(Browser::Firefox, None, Some(program.clone())),
             Opening::Page { program: program.clone(), url: HANGAR_EXPORTER }
         );
+        let store = "https://chromewebstore.google.com/detail/hgmnaolojobpmeieccpholmjacbjkpbm";
+        assert_eq!(CHROME_STORE, Some(store), "the entry in the Chrome Web Store, without a tracking tail");
         for browser in [Browser::Chrome, Browser::Edge] {
             assert_eq!(
                 plan(browser, Some(&xpi), Some(program.clone())),
-                Opening::Page { program: program.clone(), url: HANGAR_EXPORTER }
+                Opening::Page { program: program.clone(), url: store },
+                "{browser:?}"
             );
+            assert_eq!(plan(browser, Some(&xpi), None), Opening::Default(store), "{browser:?} not installed");
         }
-        for browser in Browser::ALL {
-            assert_eq!(plan(browser, Some(&xpi), None), Opening::Default(HANGAR_EXPORTER), "not installed");
-        }
-        assert!(crate::browser::web_address(HANGAR_EXPORTER));
+        // Firefox keeps the release page where the file cannot be opened.
+        assert_eq!(plan(Browser::Firefox, Some(&xpi), None), Opening::Default(HANGAR_EXPORTER), "not installed");
+        assert!(crate::browser::web_address(HANGAR_EXPORTER) && crate::browser::web_address(store));
     }
 
     #[test]

@@ -54,6 +54,81 @@ fn a_fresh_release_waits_two_minutes_and_never_comes_in_the_game() {
     assert_eq!(next_step(Some(&r), published + 300.0, false, true), Step::Nothing, "failed a short while ago");
 }
 
+const DAY: f64 = 86_400.0;
+
+/// The moment the offer is first seen is kept across looks and processes; a still newer version keeps it, the update
+/// (another running version) and the end of the offer start again; a moment in the future starts again at once.
+#[test]
+fn the_wait_counts_from_the_first_offer_and_ends_with_the_update() {
+    let (_dir, paths, _temp, _downloaded) = world("auto-wartet-seit");
+    let start = parse_moment("2026-11-10T08:00:00Z").unwrap();
+    assert_eq!(offered_since(&paths, "5.2.4", false, start), None, "nothing offered");
+    assert_eq!(offered_since(&paths, "5.2.4", true, start), Some(start));
+    // Later looks, another process (a fresh Paths on the same files), a still newer version: the first moment stays.
+    assert_eq!(offered_since(&paths, "5.2.4", true, start + 3.0 * DAY), Some(start));
+    let other = Paths::new(paths.host.clone());
+    assert_eq!(offered_since(&other, "v5.2.4", true, start + 5.0 * DAY), Some(start), "same version with its v");
+    assert_eq!(days_waiting(Some(start), start + 5.0 * DAY + 10.0), Some(5));
+    // Updated: the new version counts from its own first offer.
+    assert_eq!(offered_since(&paths, "5.3.0", true, start + 6.0 * DAY), Some(start + 6.0 * DAY));
+    // Nothing newer any more: the moment goes, and a later offer starts again.
+    assert_eq!(offered_since(&paths, "5.3.0", false, start + 7.0 * DAY), None);
+    assert_eq!(paths.setting(OFFERED_SETTING), None, "the setting is emptied");
+    assert_eq!(offered_since(&paths, "5.3.0", true, start + 8.0 * DAY), Some(start + 8.0 * DAY));
+    // A clock set back: a moment in the future never holds the count.
+    assert_eq!(offered_since(&paths, "5.3.0", true, start + 2.0 * DAY), Some(start + 2.0 * DAY));
+    // A broken value starts again.
+    paths.set_setting(OFFERED_SETTING, crate::jsonio::Value::str("5.3.0|gestern"));
+    assert_eq!(offered_since(&paths, "5.3.0", true, start + 9.0 * DAY), Some(start + 9.0 * DAY));
+}
+
+#[test]
+fn the_wait_shows_from_one_whole_day() {
+    let since = parse_moment("2026-11-10T08:00:00Z").unwrap();
+    assert_eq!(days_waiting(None, since + 9.0 * DAY), None, "nothing waits");
+    assert_eq!(days_waiting(Some(since), since), None);
+    assert_eq!(days_waiting(Some(since), since + DAY - 1.0), None, "not yet a whole day");
+    assert_eq!(days_waiting(Some(since), since + DAY), Some(1));
+    assert_eq!(days_waiting(Some(since), since + 2.0 * DAY - 1.0), Some(1));
+    assert_eq!(days_waiting(Some(since), since + 30.0 * DAY), Some(30));
+    assert_eq!(days_waiting(Some(since), since - DAY), None, "a moment in the future shows nothing");
+}
+
+/// The end of the program installs only the installer of Windows, only while the game is closed and nothing else
+/// holds the update back; the end of the Windows session wins over everything.
+#[test]
+fn the_end_of_the_program_installs_only_the_installer_and_never_in_the_game_or_at_the_end_of_windows() {
+    let ready = ExitFacts { offered: true, packaging: Some(Packaging::Exe), ..ExitFacts::default() };
+    assert_eq!(at_exit(ready), AtExit::Install);
+    assert_eq!(at_exit(ExitFacts { offered: false, ..ready }), AtExit::Nothing, "nothing on offer");
+    for packaging in [Packaging::AppImage, Packaging::Source] {
+        assert_eq!(at_exit(ExitFacts { packaging: Some(packaging), ..ready }), AtExit::Nothing, "{packaging:?}");
+    }
+    assert_eq!(at_exit(ExitFacts { packaging: None, ..ready }), AtExit::Nothing, "packaging unknown");
+    assert_eq!(at_exit(ExitFacts { game_running: true, ..ready }), AtExit::GameRuns);
+    assert_eq!(at_exit(ExitFacts { failed_recently: true, ..ready }), AtExit::Nothing);
+    assert_eq!(at_exit(ExitFacts { download_paused: true, ..ready }), AtExit::Nothing);
+    assert_eq!(at_exit(ExitFacts { locked: true, ..ready }), AtExit::Nothing, "another update under way");
+    assert_eq!(at_exit(ExitFacts { another_running: true, ..ready }), AtExit::Nothing, "a new start of the player");
+    let ending = ExitFacts { session_ending: true, ..ready };
+    assert_eq!(at_exit(ending), AtExit::SessionEnds);
+    assert_eq!(at_exit(ExitFacts { game_running: true, ..ending }), AtExit::SessionEnds);
+}
+
+/// Only the messages of the end of the session count: asked, or told that it ends; not told that it goes on, and no
+/// other message.
+#[test]
+fn only_the_messages_of_the_end_of_the_session_count_as_its_end() {
+    assert!(ends_session(WM_QUERYENDSESSION, 0), "asked whether it may end");
+    assert!(ends_session(WM_ENDSESSION, 1), "told that it ends");
+    assert!(!ends_session(WM_ENDSESSION, 0), "told that it goes on");
+    for other in [0x0010, 0x0002, 0x0012, 0x0400] {
+        assert!(!ends_session(other, 1), "message {other:#x}");
+    }
+    // The real numbers of Windows.
+    assert_eq!((WM_QUERYENDSESSION, WM_ENDSESSION), (0x11, 0x16));
+}
+
 /// A throwaway data folder in the real layout, a temporary folder, and a fetched installer.
 fn world(name: &str) -> (Dir, Paths, PathBuf, Downloaded) {
     let dir = Dir::new(name);
@@ -88,6 +163,7 @@ fn request<'a>(
         target_version: "v5.0.1",
         automatic: true,
         show_window: false,
+        at_exit: false,
         temp,
         env: vec![("PATH".into(), std::env::var("PATH").unwrap_or_default())],
     }

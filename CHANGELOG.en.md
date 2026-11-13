@@ -6,6 +6,134 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.0 - 2026-11-13
+
+> The Cartel Bank comes into the program, refinery orders sync with the
+> Basetool, and weapons and components show their stats right in the game.
+> Updates now also arrive when VerseKit only runs with the game, and after a
+> patch VerseKit picks up the new game data by itself.
+
+### New
+
+- **Stats right in the game:** When you look at a weapon or component at a
+  terminal, in the freight elevator or in your inventory, its stock stats
+  now stand below the description, so you can compare before you buy. Ship
+  weapons show DPS, alpha, fire rate, range, projectile speed, penetration,
+  spread, power, EM, ammo and durability; personal weapons damage, range and
+  magazine; shields shield HP, regeneration, the delay after a hit and after
+  going down, resistance and absorption; coolers their cooling and power
+  plants their output in pips, both with power, EM, IR, durability,
+  distortion and resistances;
+  quantum drives speed, fuel, spool and cooldown; missiles damage, radius,
+  lock and speed; armour resistances, temperature range and radiation. The
+  stats come from the game data of your installation. On craftable items
+  they stand above the blueprint details. Turn them on or off under
+  Game settings › Game › “Stats in item descriptions”.
+- **Ship stats on hover:** In “My hangar”, hovering a ship's name shows a
+  small window with the ship's base stats: SCM speed, size (length × width ×
+  height), cargo in SCU and the cheapest in-game price. Compare two ships
+  without clicking back and forth. The stats come from the game data of
+  your installation, the price from the shop prices; whatever is missing is
+  left out. Suggested by MindBurnt [R/SC]
+- **Cartel Bank:** The new page “Cartel Bank” under Trade shows your Cartel
+  Bank accounts from the Basetool with balance and the curve of the last
+  30 days, and on a click the latest bookings and daily balances
+  of an account. You raise deposits, withdrawals and transfers right here,
+  and correct or withdraw pending requests. Bank staff see their queue with a
+  switch of its own; it is still worked on in the Basetool, and every entry
+  takes you there in one click. The overlay shows the balances, pending
+  requests and the queue and reports new entries in it; a click opens the
+  page. Bank data stays in memory only and is never written to disk. Turn it
+  on under Settings › “Connection & sync” › “Show the Cartel Bank”.
+- **Sync refinery orders with the Basetool:** Refinery jobs VerseKit reads
+  at the terminal are created in the Basetool, and their end time is kept up
+  to date there. Orders you create in the Basetool come to VerseKit as
+  timers, and the overlay reports them when they are done. When you book the
+  yield into My Inventory, the order counts as picked up in the Basetool; the
+  goods themselves still go through the stock sync, so nothing is booked
+  twice. Turn it on under Settings › “Connection & sync” › “Sync refinery
+  orders”.
+- **Armistice zone left, weapons free:** When you leave an armistice zone, the
+  overlay shows “Armistice zone left, weapons free” in a yellow box and opens
+  for a moment, even when it is folded or waiting as a strip. When you enter
+  one, it says “Armistice zone entered, combat prohibited” without opening the
+  overlay. VerseKit reads the message the game itself shows, in every game
+  language. Turn it on or off under Overlay › Shown in the overlay ›
+  “Armistice zone notice”, on by default.
+- **Main window on start:** When you start VerseKit yourself, the main window
+  now opens. Before, nothing but the icon next to the clock showed while the
+  game was not running. When VerseKit starts with the system, the window
+  stays closed. Turn it on or off under Settings › General › “Open main
+  window on start”, on by default, also in the setup. Reported by oGundalf
+- **Info bar visible without the game too:** The narrow bar with the server
+  shard and frame rates now stays on screen without Star Citizen running, so
+  nobody overlooks it. If you switched it off without the game, your choice
+  stays. Turn it on or off under Settings › Overlay › Info bar › “Show without
+  the game running too”.
+
+### Improved
+
+- **Hangar-Exporter straight from the Chrome Web Store:** The buttons for
+  Chrome and Edge now open the entry in the Chrome Web Store, and Edge
+  installs from there. The detour through the developer package is gone.
+- **Updates with a build provenance:** Every new version gets a signed proof
+  when it is built on GitHub that it comes from exactly this project and this
+  release. GitHub keeps it apart from the download files, so a swapped
+  download stands out. VerseKit checks the proof itself after every update
+  download and writes the result into the error report under “Last update
+  attempt”. For now this does not stop an update, since older versions have
+  no proof. If you want to check a file by hand, the security page
+  (`SECURITY.en.md`) shows how.
+- **Updates arrive even if VerseKit only runs with the game:** VerseKit
+  never installs an update while Star Citizen runs. Whoever starts and quits
+  VerseKit only together with the game therefore stayed on an old version.
+  On Windows a waiting update is now installed when you quit VerseKit and the
+  game is closed, without a window and without VerseKit coming back up
+  afterwards. If Windows is signing out or shutting down at that moment,
+  VerseKit leaves the update for the next time. If an update has waited a
+  day or longer, the overlay and the main window say so clearly, with the
+  button “Update now”. While the game runs the button is greyed out and says
+  why.
+
+### Fixed
+
+- **Crash when dragging to another screen:** Dragging the window from one
+  screen to another could freeze and crash VerseKit, main window and
+  overlay at once. It happened when Windows briefly reset the graphics card.
+  Now VerseKit starts itself anew after a short moment in that case instead
+  of crashing. Reported by Autobrake
+- **Blueprint notes on new contracts after a patch:** After a patch, new
+  contracts in the game had no blueprint notes. VerseKit did not always
+  read the new game data by itself, and a new catalogue did not get the
+  notes in the game written anew. Now VerseKit reads the new game data by
+  itself as soon as the game is closed after the patch, even when only the
+  overlay runs and no page is open, and then writes the notes anew. As
+  before, VerseKit reads the game data only while the game is closed, so
+  the new notes show from the next game start. Reported by Bushwick4712
+- **Mining data after a patch:** After a patch the mining data stayed at the
+  old build if VerseKit was not running during the patch. Now VerseKit
+  fetches the data for the new build by itself, right at the start and
+  every six hours after that, even when no page is open. Reported by
+  Bushwick4712
+- **scmdb.net: “port in use” while nothing else ran:** On Windows the port
+  of the connection could stay taken after VerseKit was closed, and the
+  next start could not reach scmdb.net. Now VerseKit really frees the port
+  when it closes. Reported by oGundalf
+- **C-788 Cannon: fire rate and DPS under the description:** They said 40
+  shots a minute and 650 DPS. The game data give the weapon 50 shots a
+  minute plus a pause of 40 a minute, which does not slow a weapon that
+  loops over a single shot. Now it says 50 shots a minute and 813 DPS, as
+  erkul.games does. Every other size 4 ship weapon stays as it was.
+- **Scatterguns in the crafting table:** The table of a craftable part
+  counted only one pellet per shot for a scattergun (60 DPS for the
+  Salvation). Now it counts all pellets, like the stats under the
+  description and like erkul.games (480 DPS).
+- **Keyboard shortcuts: messages with the short name:** If you picked a
+  shortcut another one already holds, or one was set twice, the message
+  named the whole settings row, for example “Keyboard shortcut: handle
+  search”. Now it names just the shortcut: “Handle search”, “Game picture”,
+  “Main window”, “Read refinery” or “Overlay”.
+
 ## v5.2.10 - 2026-11-11
 
 > The signature scanner now reads even when a bright planet stands right

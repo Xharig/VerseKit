@@ -41,6 +41,7 @@ pub mod contract_log;
 pub mod crafting_page;
 pub mod crafting_shop;
 pub mod data_folder;
+pub mod bank_page;
 pub mod demand_page;
 pub mod detection_page;
 pub mod diagnose_page;

@@ -696,17 +696,27 @@ mod exclusive {
 
     use windows_sys::Win32::Networking::WinSock::{
         AF_INET, IN_ADDR, IN_ADDR_0, INVALID_SOCKET, IPPROTO_TCP, SO_EXCLUSIVEADDRUSE, SOCK_STREAM, SOCKADDR,
-        SOCKADDR_IN, SOL_SOCKET, SOMAXCONN, WSADATA, WSAStartup, bind, closesocket, listen as listen_on, setsockopt,
-        socket,
+        SOCKADDR_IN, SOL_SOCKET, SOMAXCONN, WSA_FLAG_NO_HANDLE_INHERIT, WSA_FLAG_OVERLAPPED, WSADATA, WSASocketW,
+        WSAStartup, bind, closesocket, listen as listen_on, setsockopt,
     };
 
+    /// ⚠ Not inheritable: a socket from plain `socket()` is, and every program this process starts (the main
+    /// window, the installer of an update) would get a copy. After this process ends, such a copy keeps the port
+    /// taken by an owner that no longer exists, and the next start finds it in use.
     pub fn listen(port: u16) -> std::io::Result<TcpListener> {
         // SAFETY: the calls get values that live during them; the socket is closed on every way out but the one
         // that hands it to the listener, which owns it then.
         unsafe {
             let mut data: WSADATA = std::mem::zeroed();
             WSAStartup(0x0202, &mut data);
-            let raw = socket(i32::from(AF_INET), SOCK_STREAM, IPPROTO_TCP);
+            let raw = WSASocketW(
+                i32::from(AF_INET),
+                SOCK_STREAM,
+                IPPROTO_TCP,
+                std::ptr::null(),
+                0,
+                WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT,
+            );
             if raw == INVALID_SOCKET {
                 return Err(std::io::Error::last_os_error());
             }
@@ -732,6 +742,23 @@ mod exclusive {
                 return fail(raw);
             }
             Ok(TcpListener::from_raw_socket(raw as u64))
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::os::windows::io::AsRawSocket;
+
+        use windows_sys::Win32::Foundation::{GetHandleInformation, HANDLE, HANDLE_FLAG_INHERIT};
+
+        #[test]
+        fn the_listening_socket_is_not_handed_down_to_programs_this_process_starts() {
+            let listener = super::listen(0).expect("a free port");
+            let mut flags = 0u32;
+            // SAFETY: the handle belongs to the listener, which lives during the call.
+            let read = unsafe { GetHandleInformation(listener.as_raw_socket() as HANDLE, &mut flags) };
+            assert_ne!(read, 0, "{}", std::io::Error::last_os_error());
+            assert_eq!(flags & HANDLE_FLAG_INHERIT, 0, "the socket is inheritable");
         }
     }
 }

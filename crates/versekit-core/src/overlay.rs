@@ -71,10 +71,14 @@ pub const DEFAULT_PICTURE_HOTKEY: &str = "Alt+Umschalt+B";
 pub const DEFAULT_MAIN_HOTKEY: &str = "Alt+Umschalt+F";
 /// The info bar stands over the running game while its setting is missing; a stored setting wins.
 pub const INFO_BAR_DEFAULT: bool = true;
-/// The info bar waits hidden without the game while its setting is missing; a stored setting wins.
-pub const INFO_BAR_ALWAYS_DEFAULT: bool = false;
+/// The info bar shows without the game too while its setting is missing; a stored setting wins (a player who
+/// switched it off keeps that, one who never chose gets the bar).
+pub const INFO_BAR_ALWAYS_DEFAULT: bool = true;
 /// The overlay shows without the game too while its setting is missing; a stored setting wins.
 pub const OVERLAY_ALWAYS_DEFAULT: bool = true;
+/// A start by hand opens the main window while its setting is missing (also for players who set up before);
+/// a stored setting wins.
+pub const MAIN_AT_START_DEFAULT: bool = true;
 /// After a game exit, a log written this recently still counts as running
 /// while the process list says the game is gone.
 pub const EXIT_QUIET_SECONDS: f64 = 30.0;
@@ -122,6 +126,9 @@ pub mod keys {
     /// The icon next to the clock, and the messages of the system.
     pub const TRAY: &str = "tray";
     pub const SYSTEM_NOTICE: &str = "systemmeldung";
+    /// A start by hand opens the main window ([`super::MAIN_AT_START_DEFAULT`] without the key). A start with the
+    /// system never does.
+    pub const MAIN_AT_START: &str = "hauptfenster_beim_start";
     /// The line of the Executive Hangar in the open overlay (the page Contested Zones sets it).
     pub const HANGAR_TIMER: &str = "overlay_hangar_timer";
     /// The own frame rate of `r_DisplayInfo` read from the picture of the game, beside the shard (off by default).
@@ -134,8 +141,7 @@ pub mod keys {
     /// The info bar: a small window of its own with the shard and the scanned material
     /// ([`super::INFO_BAR_DEFAULT`] without the key).
     pub const INFO_BAR: &str = "infoleiste";
-    /// The info bar shows while the game does not run too ([`super::INFO_BAR_ALWAYS_DEFAULT`] without the key:
-    /// without the game it waits hidden).
+    /// The info bar shows while the game does not run too ([`super::INFO_BAR_ALWAYS_DEFAULT`] without the key).
     pub const INFO_BAR_ALWAYS: &str = "infoleiste_ohne_spiel";
     /// The overlay shows while the game does not run too ([`super::OVERLAY_ALWAYS_DEFAULT`] without the key:
     /// without the game it waits hidden).
@@ -159,6 +165,8 @@ pub mod keys {
     pub const SHOW_REFINERY: &str = "overlay_zeige_raffinerie";
     /// The jobs of the fabricator in the open overlay.
     pub const SHOW_WORKBENCH: &str = "overlay_zeige_werkbank";
+    /// The notice that an armistice zone was left or entered.
+    pub const SHOW_ARMISTICE: &str = "overlay_zeige_schutzzone";
     /// How many contracts the game lets a player hold, for the count in the head of the bar
     /// ([`super::CONTRACTS_MAX_DEFAULT`] without the key).
     pub const CONTRACTS_MAX: &str = "overlay_auftraege_hoechstzahl";
@@ -711,16 +719,19 @@ pub enum Section {
     Workbench,
     /// The line that a newer version is ready.
     Update,
+    /// The notice that the player left an armistice zone (and entered one); it also opens a folded overlay.
+    Armistice,
 }
 
 impl Section {
-    pub const ALL: [Section; 6] = [
+    pub const ALL: [Section; 7] = [
         Section::Shard,
         Section::Location,
         Section::Contracts,
         Section::Refinery,
         Section::Workbench,
         Section::Update,
+        Section::Armistice,
     ];
 
     /// The settings key of the switch.
@@ -732,6 +743,7 @@ impl Section {
             Section::Refinery => keys::SHOW_REFINERY,
             Section::Workbench => keys::SHOW_WORKBENCH,
             Section::Update => keys::SHOW_UPDATE,
+            Section::Armistice => keys::SHOW_ARMISTICE,
         }
     }
 
@@ -914,14 +926,15 @@ impl Shortcut {
         }
     }
 
-    /// The text key of its name in the settings of the overlay.
-    pub fn label_key(self) -> &'static str {
+    /// The text key of its short name, without „Tastenkombination:“ in front: how a message names the shortcut that
+    /// holds a key.
+    pub fn short_key(self) -> &'static str {
         match self {
-            Shortcut::Overlay => "s_ei_ov_taste",
-            Shortcut::Scan => "s_hk_scan",
-            Shortcut::Search => "s_hk_suche",
-            Shortcut::Picture => "s_hk_bild",
-            Shortcut::Main => "s_hk_haupt",
+            Shortcut::Overlay => "s_hk_kurz_overlay",
+            Shortcut::Scan => "s_hk_kurz_scan",
+            Shortcut::Search => "s_hk_kurz_suche",
+            Shortcut::Picture => "s_hk_kurz_bild",
+            Shortcut::Main => "s_hk_kurz_haupt",
         }
     }
 
@@ -2158,7 +2171,14 @@ mod tests {
         paths.set_setting(keys::SHOW_CONTRACTS, Value::Bool(false));
         let read = Settings::read(&paths).sections;
         assert!(!read.contains(Section::Contracts));
-        for section in [Section::Location, Section::Shard, Section::Refinery, Section::Workbench, Section::Update] {
+        for section in [
+            Section::Location,
+            Section::Shard,
+            Section::Refinery,
+            Section::Workbench,
+            Section::Update,
+            Section::Armistice,
+        ] {
             assert!(read.contains(section), "{section:?}");
         }
         // The jobs of the fabricator by their own switch, the others stay.
@@ -2460,22 +2480,24 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// Without its keys the info bar stands over the running game and waits hidden without it; a choice stored
-    /// before, either way, stays.
+    /// Without its keys the info bar stands over the running game and without it too (also for a player who set
+    /// the program up before and never chose); a choice stored before, either way, stays.
     #[test]
-    fn the_info_bar_is_on_with_the_game_and_off_without_it_until_the_player_chooses() {
+    fn the_info_bar_is_on_with_and_without_the_game_until_the_player_chooses() {
         let (paths, dir) = events_paths("infoleiste-lesen");
         let read = || {
             let s = Settings::read(&paths);
             (s.info_bar, s.info_bar_always)
         };
-        assert_eq!(read(), (true, false), "nothing written: on with the game, hidden without it");
-        assert_eq!((Settings::default().info_bar, Settings::default().info_bar_always), (true, false));
+        assert_eq!(read(), (true, true), "nothing written: on with the game and without it");
+        assert_eq!((Settings::default().info_bar, Settings::default().info_bar_always), (true, true));
         paths.set_setting(keys::INFO_BAR, Value::Bool(false));
-        assert_eq!(read(), (false, false), "switched off before: stays off");
+        assert_eq!(read(), (false, true), "switched off before: stays off");
         paths.set_setting(keys::INFO_BAR, Value::Bool(true));
+        paths.set_setting(keys::INFO_BAR_ALWAYS, Value::Bool(false));
+        assert_eq!(read(), (true, false), "hidden without the game before: stays hidden");
         paths.set_setting(keys::INFO_BAR_ALWAYS, Value::Bool(true));
-        assert_eq!(read(), (true, true), "shown without the game before: stays shown");
+        assert_eq!(read(), (true, true), "shown without the game: stays shown");
         let _ = std::fs::remove_dir_all(dir);
     }
 

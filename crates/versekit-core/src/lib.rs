@@ -26,6 +26,7 @@
 pub mod anti_afk;
 pub mod anti_afk_key;
 pub mod archive_lock;
+pub mod armistice;
 pub mod asop;
 pub mod auto_update;
 pub mod autostart;
@@ -122,6 +123,7 @@ pub mod phrases;
 pub mod places;
 pub mod play_stats;
 pub mod playtime;
+pub mod provenance;
 pub mod pyfloat;
 pub mod pypath;
 pub mod quality_mix;

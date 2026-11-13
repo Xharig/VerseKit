@@ -1229,7 +1229,7 @@ pub(in crate::sample) mod tests {
         bench.height = 3000.0;
         bench.page.go_to("hf_overlay");
         let texts = bench.settle();
-        let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_ei_ov_taste")))]);
+        let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1260,7 +1260,7 @@ pub(in crate::sample) mod tests {
         bench.settle();
         assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Alt+H"), "kept");
         let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone());
-        let holder = language::t("s_hk_suche");
+        let holder = language::t("s_hk_kurz_suche");
         let expected = language::tf(
             "s_hk_doppelt",
             &[("0", language::Arg::from("Alt+Umschalt+H")), ("1", language::Arg::from(holder.as_str()))],
@@ -1277,7 +1277,7 @@ pub(in crate::sample) mod tests {
         bench.height = 3000.0;
         bench.page.go_to("hf_overlay");
         let texts = bench.settle();
-        let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_ei_ov_taste")))]);
+        let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
         let _ = std::fs::remove_dir_all(dir);
 
@@ -2368,6 +2368,7 @@ pub(in crate::sample) mod tests {
                 "s_ov_zeige_raffinerie",
                 "s_ov_zeige_werkbank",
                 "s_ov_zeige_update",
+                "s_ov_zeige_schutzzone",
                 "s_ov_auftraege_max",
             ] {
                 let text = language::t(key).to_lowercase();
@@ -2503,8 +2504,8 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// The switch of the info bar stands on the page Overlay in both languages, is on at first while its companion
-    /// "without the game" is off, is written when switched off and is what the overlay reads.
+    /// The switch of the info bar stands on the page Overlay in both languages, is on at first with its companion
+    /// "without the game", is written when switched off and is what the overlay reads.
     #[test]
     fn the_switch_of_the_info_bar_stands_on_the_page_is_on_at_first_and_reaches_the_overlay() {
         let _language = crate::language_lock();
@@ -2512,7 +2513,7 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         bench.page.go_to("hf_overlay");
         assert!(bench.page.overlay_info_bar, "on by default");
-        assert!(!bench.page.overlay_info_bar_always, "without the game off by default");
+        assert!(bench.page.overlay_info_bar_always, "without the game on by default");
         for lang in [language::Choice::De, language::Choice::En] {
             language::set_thread_language(lang);
             // From the top, in steps shorter than the window, so that no part of the page is scrolled past unseen.
@@ -2547,7 +2548,7 @@ pub(in crate::sample) mod tests {
         assert!(!before.contains("\"infoleiste\""), "nothing written yet");
         let host = || Paths::new(super::super::real_data::host_in(&dir, &[]));
         let read = versekit_core::overlay::Settings::read(&host());
-        assert!(read.info_bar && !read.info_bar_always, "the overlay reads it on, without the game off");
+        assert!(read.info_bar && read.info_bar_always, "the overlay reads it on, without the game too");
         bench.page.overlay_info_bar = false;
         bench.settle();
         let written = std::fs::read_to_string(&file).unwrap();

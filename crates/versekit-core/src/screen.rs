@@ -429,6 +429,19 @@ fn ask() -> Option<Setup> {
     mac::query()
 }
 
+/// Where the window titled `title` of this program stands, in screen pixels, as the system has it. Only macOS
+/// can be asked this way (the other systems give the window place by their handles); `None` elsewhere, outside the
+/// main thread and without such a window.
+#[cfg(target_os = "macos")]
+pub fn window_area_titled(title: &str) -> Option<Area> {
+    mac::window_area(&current(), title)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn window_area_titled(_title: &str) -> Option<Area> {
+    None
+}
+
 #[cfg(all(unix, not(target_os = "macos")))]
 fn ask() -> Option<Setup> {
     x11::query()

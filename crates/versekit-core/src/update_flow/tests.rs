@@ -130,6 +130,8 @@ fn job<'a>(
 ) -> Job<'a> {
     Job {
         paths: &c.paths,
+        // Answers nothing: only the tests of the build provenance give it a GitHub of its own.
+        net: Arc::new(Fake::default()),
         download_net: net,
         own_version: "5.0.0",
         appimage: Some(&c.text),
@@ -138,6 +140,7 @@ fn job<'a>(
         now: auto_update::parse_moment("2026-11-20T10:00:00Z").unwrap(),
         automatic: false,
         show_window: false,
+        at_exit: false,
         game_running: game,
         start,
         alive_wait: Duration::from_millis(300),
@@ -164,6 +167,52 @@ fn run_quiet(job: &Job<'_>, release: &Release) -> (Done, Vec<Event>) {
 
 fn lock_free(c: &Case) -> bool {
     !update_run::lock_held(&c.paths, updater::now())
+}
+
+/// ⚠ At the end of the program an AppImage is left as it is: its new version would have to be started to know that
+/// it lives, and the program would come up again right after the player ended it. Nothing is fetched, no lock taken.
+#[test]
+fn at_the_end_of_the_program_an_appimage_is_neither_fetched_nor_exchanged() {
+    let c = case("flow-ende-appimage");
+    let net = github(b"neu");
+    let release = release_of(&net, &c.paths);
+    let asked = net.asked().len();
+    let ended = Job { at_exit: true, automatic: true, ..job(&c, &net, &never, &no_game) };
+    assert_eq!(run_quiet(&ended, &release), (Done::Stopped(None), Vec::new()));
+    assert_eq!(net.asked().len(), asked, "nothing fetched");
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"alt", "the old file stays");
+    assert!(lock_free(&c));
+    // The same job while the program runs exchanges it.
+    let running = Job { automatic: true, ..job(&c, &net, &lives, &no_game) };
+    assert_eq!(run_quiet(&running, &release).0, Done::Quit);
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"neu");
+}
+
+/// Under Windows a download at the end of the program that fails keeps no pause: the next start fetches at once.
+/// The same download while the program runs keeps it.
+#[cfg(windows)]
+#[test]
+fn under_windows_a_failed_download_at_the_end_keeps_no_pause() {
+    let c = case("flow-ende-pause");
+    let installer = "VerseKit-Setup.exe";
+    let assets = format!(
+        r#"{{"name":"{installer}","browser_download_url":"{BASE}/{installer}"}},{{"name":"SHA256SUMS.txt","browser_download_url":"{BASE}/SHA256SUMS.txt"}}"#
+    );
+    // The installer itself does not come.
+    let net = Fake::default()
+        .with(updater::API, api("2026-11-20T09:00:00Z", &assets).into_bytes())
+        .with(&format!("{BASE}/SHA256SUMS.txt"), format!("{}  {installer}\n", sha(b"neu")).into_bytes());
+    let release = release_of(&net, &c.paths);
+    let program = c.dir.path().join("SC-BP-Watcher.exe");
+    let mut ended = Job { automatic: true, at_exit: true, ..job(&c, &net, &never, &no_game) };
+    ended.appimage = None;
+    ended.program = &program;
+    assert!(matches!(run_quiet(&ended, &release).0, Done::Stopped(Some(_))));
+    assert_eq!(update_run::download_pause_left(&c.paths, "v5.0.1", ended.now + 1.0), None, "no pause at the end");
+    assert!(lock_free(&c));
+    let running = Job { at_exit: false, ..ended };
+    assert!(matches!(run_quiet(&running, &release).0, Done::Stopped(Some(_))));
+    assert!(update_run::download_pause_left(&c.paths, "v5.0.1", running.now + 1.0).is_some(), "a pause while it runs");
 }
 
 #[cfg(windows)]
@@ -613,4 +662,109 @@ fn the_runner_says_when_no_version_is_known_and_a_test_version_needs_its_channel
     assert_eq!(runner.take_said(), [t("s_ub_keine_bekannt")]);
     runner.start(&env, c.paths.host.clone(), true);
     assert_eq!(wait_until_idle(&runner), State::Quit);
+}
+
+// ------------------------------------------------------------ build provenance (weak: noted, never a stop)
+
+/// A real attestation of another project (cli/cli), as GitHub delivers it behind `bundle_url`.
+const FOREIGN_BUNDLE: &[u8] = include_bytes!("../../tests/data/herkunft-buendel.json.sn");
+const BUNDLE_URL: &str = "https://tmaproduction.blob.core.windows.net/attestations/1/2.json.sn?sig=x";
+
+/// Where the update asks GitHub for the attestations of a file with `content`.
+fn provenance_url(content: &[u8]) -> String {
+    provenance::Builder::release("v5.0.1").api_url(&sha(content))
+}
+
+/// The update log of a case, as the report shows it under „Letzter Update-Versuch“.
+fn report_lines(c: &Case) -> String {
+    crate::report_facts::update_lines(&c.paths, crate::language::Lang::De, c.dir.path()).join("\n")
+}
+
+/// The job of `job` whose provenance question goes to `net` as well.
+fn job_asking<'a>(
+    c: &'a Case,
+    net: &'a Arc<Fake>,
+    start: &'a dyn Fn(&Path) -> io::Result<Box<dyn Started>>,
+) -> Job<'a> {
+    Job { net: Arc::clone(net) as Arc<dyn Net>, ..job(c, &**net, start, &no_game) }
+}
+
+// ⚠ Every test of this part has `provenance` in its name: the checks of the workflows pick them by it.
+
+#[test]
+fn an_update_without_a_provenance_installs_and_says_so_in_the_report() {
+    let c = case("flow-herkunft-ohne");
+    let net = Arc::new(github(b"neu"));
+    let release = release_of(&*net, &c.paths);
+    assert_eq!(run_quiet(&job_asking(&c, &net, &lives), &release).0, Done::Quit);
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"neu", "installed as before");
+    let asked =
+        net.asked().iter().filter(|u| u.starts_with(provenance::API_BASE) && u.contains("/attestations/")).count();
+    assert_eq!(asked, 1, "one request to the API per update: {:?}", net.asked());
+    assert!(net.asked().contains(&provenance_url(b"neu")));
+    let lines = report_lines(&c);
+    assert!(
+        lines.contains("v5.0.1: Build provenance: GitHub has no attestation for this file - update continues"),
+        "{lines}"
+    );
+}
+
+#[test]
+fn an_update_runs_on_when_github_cannot_tell_the_provenance() {
+    let c = case("flow-herkunft-netz");
+    let net = Arc::new(github(b"neu").with_rate_limit(&provenance_url(b"neu"), 900));
+    let release = release_of(&*net, &c.paths);
+    assert_eq!(run_quiet(&job_asking(&c, &net, &lives), &release).0, Done::Quit);
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"neu");
+    let lines = report_lines(&c);
+    assert!(lines.contains("v5.0.1: Build provenance not checked, GitHub not reachable (rate limit"), "{lines}");
+}
+
+#[test]
+fn a_provenance_of_someone_else_is_noted_and_the_update_runs_on() {
+    let c = case("flow-herkunft-fremd");
+    let list = format!(r#"{{"attestations":[{{"bundle_url":"{BUNDLE_URL}","bundle":null}}]}}"#);
+    let net = Arc::new(
+        github(b"neu").with(&provenance_url(b"neu"), list.into_bytes()).with(BUNDLE_URL, FOREIGN_BUNDLE.to_vec()),
+    );
+    let release = release_of(&*net, &c.paths);
+    assert_eq!(run_quiet(&job_asking(&c, &net, &lives), &release).0, Done::Quit);
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"neu");
+    let lines = report_lines(&c);
+    assert!(lines.contains("v5.0.1: Build provenance NOT verified ("), "{lines}");
+    assert!(lines.contains("update continues"), "{lines}");
+}
+
+#[test]
+fn only_a_provenance_that_does_not_hold_goes_into_the_error_log() {
+    let reported: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink = Arc::clone(&reported);
+    crate::errors::set_sink(move |label, message| {
+        if label == "updates.provenance" && message.starts_with("v9.9.") {
+            sink.lock().unwrap_or_else(PoisonError::into_inner).push(message.to_string());
+        }
+    });
+    let c = case("flow-herkunft-protokoll");
+    let builder = provenance::Builder::release("v9.9.1");
+    write_provenance(&c.paths, "v9.9.1", &builder, &provenance::Outcome::Verified);
+    write_provenance(&c.paths, "v9.9.2", &builder, &provenance::Outcome::Missing);
+    write_provenance(&c.paths, "v9.9.3", &builder, &provenance::Outcome::Unreachable("HTTP 504".into()));
+    write_provenance(&c.paths, "v9.9.4", &builder, &provenance::Outcome::Unverified("built elsewhere".into()));
+    let log = fs::read_to_string(c.paths.app_file(update_run::LOG_FILE)).unwrap();
+    assert!(
+        log.contains(
+            "v9.9.1: Build provenance verified: built by \
+             https://github.com/Xharig/VerseKit/.github/workflows/release.yml@refs/tags/v9.9.1"
+        ),
+        "{log}"
+    );
+    for version in ["v9.9.2: ", "v9.9.3: ", "v9.9.4: "] {
+        assert!(log.contains(version), "every outcome in the update log: {log}");
+    }
+    let reported = reported.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    assert_eq!(
+        reported,
+        ["v9.9.4: Build provenance NOT verified (built elsewhere) - update continues"],
+        "only an attestation that does not hold is an error"
+    );
 }

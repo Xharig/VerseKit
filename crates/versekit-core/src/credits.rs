@@ -173,7 +173,7 @@ const fn person(
 }
 
 /// Everyone named on the page, in the order of the page.
-pub const PEOPLE: [Person; 39] = [
+pub const PEOPLE: [Person; 40] = [
     person("Haldjas", "pr0", &["s_dkv_haldjas_idee"], &["s_dkv_haldjas_bugs"]),
     person("rurudotorg", "SC4M", &["s_dkv_rurudotorg_idee"], &["s_dkv_rurudotorg_bugs", "s_dkv_rurudotorg_bugs2"]),
     person("Morkhan", "KRT", &["s_dkv_morkhan_idee"], &["s_dk_morkhan_bugs", "s_dkv_morkhan_bugs2"]),
@@ -182,7 +182,7 @@ pub const PEOPLE: [Person; 39] = [
         "Bushwick4712",
         "KRT",
         &["s_dkv_bushwick_idee", "s_dkv_bushwick_idee2", "s_dkv_bushwick_idee3", "s_dkv_bushwick_idee4"],
-        &["s_dkv_bushwick_bugs", "s_dkv_bushwick_bugs2", "s_dkv_bushwick_bugs3"],
+        &["s_dkv_bushwick_bugs", "s_dkv_bushwick_bugs2", "s_dkv_bushwick_bugs3", "s_dkv_bushwick_bugs4"],
     ),
     person("Choopa", "", &["s_dkv_choopa_idee"], &[]),
     person("YoshimitsuDE", "KRT", &["s_dkv_yoshimitsu_idee"], &[]),
@@ -216,12 +216,7 @@ pub const PEOPLE: [Person; 39] = [
     person("ryze", "KRT", &["s_dkv_ryze_idee"], &[]),
     person("Drachennarr", "KRT", &["s_dkv_drachennarr_idee"], &["s_dkv_drachennarr_bugs"]),
     person("Maluh", "KRT", &["s_dkv_maluh_idee"], &[]),
-    person(
-        "P6",
-        "KRT",
-        &["s_dkv_p6_idee", "s_dkv_p6_idee2", "s_dkv_p6_idee3"],
-        &["s_dkv_p6_bugs", "s_dk_p6_bugs2"],
-    ),
+    person("P6", "KRT", &["s_dkv_p6_idee", "s_dkv_p6_idee2", "s_dkv_p6_idee3"], &["s_dkv_p6_bugs", "s_dk_p6_bugs2"]),
     person("sotth", "", &["s_dkv_sotth_idee"], &[]),
     person("Rhino", "", &["s_dkv_rhino_idee"], &["s_dkv_rhino_bugs"]),
     person("F_i_r_e", "KRT", &[], &["s_dkv_fire_bugs"]),
@@ -252,7 +247,7 @@ pub const PEOPLE: [Person; 39] = [
     person("DarthUrmel", "KRT", &["s_dkv_darthurmel_idee"], &[]),
     person("smokyjohn", "KRT", &["s_dkv_smokyjohn_idee"], &[]),
     person("Lenoro", "KRT", &[], &["s_dkv_lenoro_bugs"]),
-    person("MindBurnt", "R/SC", &["s_dkv_mindburnt_idee"], &[]),
+    person("MindBurnt", "R/SC", &["s_dkv_mindburnt_idee", "s_dkv_mindburnt_idee2"], &[]),
     person(
         "Shockwaffel",
         "KRT",
@@ -274,7 +269,8 @@ pub const PEOPLE: [Person; 39] = [
     person("KillingJoke271", "KRT", &[], &["s_dkv_killingjoke_bugs"]),
     person("Keendary", "KRT", &["s_dkv_keendary_idee"], &["s_dkv_keendary_bugs"]),
     person("LOGGAN89", "", &[], &["s_dkv_loggan_bugs"]),
-    person("oGundalf", "", &[], &["s_dkv_ogundalf_bugs"]),
+    person("oGundalf", "", &[], &["s_dkv_ogundalf_bugs", "s_dkv_ogundalf_bugs2"]),
+    person("Autobrake", "", &[], &["s_dkv_autobrake_bugs"]),
 ];
 
 /// The notice for the trademark and fan content, as the fan kit asks: its

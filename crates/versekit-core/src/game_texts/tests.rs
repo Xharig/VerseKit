@@ -831,3 +831,52 @@ fn the_reputation_of_another_build_is_not_written() {
     assert_eq!(prepare(&s.paths, &archive, "").reputation.terms.len(), 1, "no known version");
     assert!(prepare(&s.paths, &archive, "4.11.0").reputation.terms.is_empty(), "another build");
 }
+
+/// The text file of [`Setup::set_up_german`] with a second contract, which only the catalog of a newer patch names.
+pub(super) const TWO_CONTRACTS: &str = "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\nBounty_title_002=Neues Kopfgeld\nBounty_desc_002=Fang sie.\n";
+
+/// A catalog as VerseKit builds it from the game data (`katalog-spieldaten.json`): a version, the stamp of the
+/// archive it was read from, no time of fetching, and the contracts `keys` that give a blueprint.
+pub(super) fn own_catalog(version: &str, keys: &[&str]) -> String {
+    let missions: Vec<String> = keys
+        .iter()
+        .map(|key| {
+            let text = key.replace("title", "desc");
+            format!(
+                r#""{key}": {{"bp": ["Atzkav Sniper Rifle"], "rep": 0, "titel_key": "{key}", "text_key": "{text}"}}"#
+            )
+        })
+        .collect();
+    format!(
+        r#"{{"quelle": {{"format": 7, "archiv_stand": "{version}"}}, "version": "{version}", "geholt": "", "bauplaene": {{}}, "missionen": {{{}}}}}"#,
+        missions.join(", ")
+    )
+}
+
+#[test]
+fn a_new_catalog_of_the_game_data_has_the_notes_written_anew_with_the_next_run() {
+    let s = Setup::new("eigener-katalog-neu");
+    s.set_up_german();
+    fs::write(s.ini(), TWO_CONTRACTS).unwrap();
+    let own = s.paths.app_file(sources::CATALOG_V5);
+    fs::write(&own, own_catalog("4.10.2-live.1", &["Bounty_title_001"])).unwrap();
+    let (archive, net) = (FakeArchive::default(), Fake::default());
+    let job = Job {
+        channels: Vec::new(),
+        source: Some("dymerz_de".into()),
+        own_original: false,
+        stock_only: false,
+        rewrite: false,
+    };
+    run(&job, &s.paths, &net, &archive, "");
+    let first = fs::read_to_string(s.ini()).unwrap();
+    assert!(first.contains("Kopfgeld <EM4>[BP]</EM4>") && !first.contains("Neues Kopfgeld <EM4>"), "{first}");
+    assert!(run(&job, &s.paths, &net, &archive, "").notices.is_empty(), "nothing new, nothing written");
+    // A patch: the catalog is built anew from the game data and names the new contract.
+    fs::write(&own, own_catalog("4.10.3-live.2", &["Bounty_title_001", "Bounty_title_002"])).unwrap();
+    let ran = run(&job, &s.paths, &net, &archive, "");
+    assert!(ran.notices.iter().any(|n| matches!(n, Notice::Applied(_))), "{:?}", ran.notices);
+    let after = fs::read_to_string(s.ini()).unwrap();
+    assert!(after.contains("Neues Kopfgeld <EM4>[BP]</EM4>"), "{after}");
+    assert!(run(&job, &s.paths, &net, &archive, "").notices.is_empty(), "once");
+}

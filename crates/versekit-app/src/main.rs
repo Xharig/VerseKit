@@ -85,7 +85,10 @@ fn take_in_older_files(data: Option<&str>) -> Option<String> {
 }
 
 fn main() -> eframe::Result {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // A start after a lost graphics device waits for the program before it to be gone (`renderer::take_switch`).
+    let args = versekit_ui::renderer::take_switch(std::env::args().skip(1).collect(), |pid| {
+        versekit_core::update_run::pid_alive(i64::from(pid))
+    });
     // ⚠ A `--daten` that does not arrive (misspelled, no value) must not turn into a run on the player's own
     // data: the start with the system and the real files would be touched by a test run.
     if refuses(&args) {
@@ -123,6 +126,7 @@ fn main() -> eframe::Result {
         return learn_window::run(&args);
     }
     let by_main_window = args.iter().any(|a| a == BY_MAIN_WINDOW);
+    let kind = StartKind::from_args(&args);
     let role = role_of(&args);
     let mut overlay = versekit_overlay::Args::parse(args);
     // One run on this desktop only: a start while the program runs hands over (the overlay brings up the main
@@ -169,15 +173,17 @@ fn main() -> eframe::Result {
     if taken_in.is_some() {
         overlay.notice = taken_in;
     }
-    if begin_own_run(
+    let own_run = begin_own_run(
         &mut overlay,
         &versekit_core::autostart::System,
         &autostart_command(&[]),
         custom_home(),
         versekit_core::paths::Host::current(),
         env!("CARGO_PKG_VERSION"),
-    ) {
-        after_update(
+    );
+    let mut after_update_start = false;
+    if own_run {
+        after_update_start = after_update(
             &mut overlay,
             &versekit_core::paths::Paths::new(versekit_core::paths::Host::current()),
             env!("CARGO_PKG_VERSION"),
@@ -189,6 +195,15 @@ fn main() -> eframe::Result {
     if backed_up {
         overlay.open_overview = true;
     }
+    // A start by hand opens the main window by itself, unless the player switched that off.
+    let kind = StartKind {
+        check,
+        after_update: after_update_start,
+        after_loss: versekit_ui::renderer::started_after_loss(),
+        ..kind
+    };
+    let data = overlay.data.clone();
+    open_main_window_at_start(&mut overlay, kind, || main_window_wanted(data.as_deref()));
     // The catalog of the shops follows the patch and the range of goods in the process that runs all the time.
     if overlay.probe.is_none()
         && (overlay.real || overlay.data.is_some())
@@ -203,7 +218,14 @@ fn main() -> eframe::Result {
         overlay.main_program = Some(own);
         overlay.main_args = main_window_args(overlay.data.as_deref());
     }
-    versekit_overlay::run(overlay)
+    let ended = versekit_overlay::run(overlay);
+    // The player ended the program: an update on offer comes now, while the game is closed (the installer of
+    // Windows, without a window). Whoever runs the program only with the game would otherwise never get one. Not
+    // when the program ended itself (an update handed over, a restart asked for by the main window).
+    if own_run && ended.is_ok() && versekit_overlay::ended_by_player() {
+        updates::install_at_exit(env!("CARGO_PKG_VERSION"));
+    }
+    ended
 }
 
 /// Writes the places of the own data of the run (`data_removal::places`) into `target`, one per line, for the
@@ -363,12 +385,15 @@ fn take_over_own_data(
         return false;
     }
     versekit_core::autostart::migrate(store, command);
+    // An entry from before the switch gets it now, so that the next start with the system is told from one by hand.
+    versekit_core::autostart::add_system_start(store);
     true
 }
 
 /// What the start does for the player's own data, and only for it: the real files, the start with the system
-/// of 4.12 taken over ([`take_over_own_data`]), and once a day "the program runs", always on, no switch
-/// (`SC_BP_NO_NET` ends it). Not for a copy of the data, a check, or a data folder named from outside.
+/// of 4.12 taken over ([`take_over_own_data`]), and once a day "the program runs", on unless the player
+/// switches it off (`usage::SETTING`) or `SC_BP_NO_NET` is set. Not for a copy of the data, a check, or a data
+/// folder named from outside.
 fn begin_own_run(
     overlay: &mut versekit_overlay::Args,
     store: &dyn versekit_core::autostart::Store,
@@ -400,12 +425,13 @@ fn start_usage(host: versekit_core::paths::Host, version: &str) {
 /// temporary folder `temp`, and the installers fetched before (`updater::installer_folder`). The outcome goes to the overlay as a message of the system; the main window
 /// opens after an update that asks for it. A failed automatic update is remembered, so that it is not tried
 /// again at once. ⚠ The jump from 4.12 is not told in this version (it comes with 5.1), only cleaned up.
+/// Returns whether this start follows an update (there is an outcome): that start is no start by hand.
 fn after_update(
     overlay: &mut versekit_overlay::Args,
     paths: &versekit_core::paths::Paths,
     version: &str,
     temp: &std::path::Path,
-) {
+) -> bool {
     use versekit_core::{update_run, updater};
     let now = updater::now();
     let outcome = update_run::evaluate(paths, version, now);
@@ -413,20 +439,76 @@ fn after_update(
     // The run mark is left only while an update runs: its installer stays.
     let running = update_run::read_run(paths).map(|run| std::path::PathBuf::from(run.installer));
     update_run::remove_fetched(&updater::installer_folder(paths), running.as_deref(), now);
-    let Some(outcome) = outcome else { return };
+    let Some(outcome) = outcome else { return false };
     update_run::remember_failure(paths, &outcome, now);
     if outcome.from_previous_program() {
-        return;
+        return true;
     }
     overlay.notice = Some(outcome.message());
     overlay.open_overview = update_run::should_open_window(Some(&outcome));
+    true
 }
 
 /// What the start with the system runs: this very program (an AppImage starts that file), with `arguments`
-/// (`desktop_entry::run_arguments`: the copy of the data of the run, none on the user's own data).
+/// (`desktop_entry::run_arguments`: the copy of the data of the run, none on the user's own data) and the switch
+/// that tells the start with the system from a start by hand (`autostart::SYSTEM_START`).
 pub(crate) fn autostart_command(arguments: &[String]) -> String {
     let program = std::env::current_exe().unwrap_or_default();
-    versekit_core::autostart::command(&program, std::env::var("APPIMAGE").ok().as_deref(), arguments)
+    let mut all = arguments.to_vec();
+    all.push(versekit_core::autostart::SYSTEM_START.to_string());
+    versekit_core::autostart::command(&program, std::env::var("APPIMAGE").ok().as_deref(), &all)
+}
+
+/// How a start of the overlay came about, for the question whether the main window opens by itself.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct StartKind {
+    /// The system started it (`autostart::SYSTEM_START`), not the player.
+    system: bool,
+    /// The main window started it (the end of the assistant, a restart): that window is open already.
+    by_main_window: bool,
+    /// The self-check.
+    check: bool,
+    /// The start follows an update: the outcome of the update decides about the window (`after_update`).
+    after_update: bool,
+    /// The program started anew after its graphics device was lost: a main window that was open starts anew by itself.
+    after_loss: bool,
+}
+
+impl StartKind {
+    /// What the switches of the start say (the self-check and the update are known later).
+    fn from_args(args: &[String]) -> StartKind {
+        StartKind {
+            system: args.iter().any(|a| a == versekit_core::autostart::SYSTEM_START),
+            by_main_window: args.iter().any(|a| a == BY_MAIN_WINDOW),
+            ..StartKind::default()
+        }
+    }
+
+    /// Does the start open the main window by itself? Only a start by hand does, and only if the player wants it
+    /// (`wanted` is asked last, so a start that cannot open it does not read the settings).
+    fn opens_main_window(self, wanted: impl FnOnce() -> bool) -> bool {
+        !(self.system || self.by_main_window || self.check || self.after_update || self.after_loss) && wanted()
+    }
+}
+
+/// Asks the overlay to open the main window on the overview right at its start, when `kind` and the player's
+/// wish (`wanted`) say so ([`StartKind::opens_main_window`]). Never takes back what is asked already.
+fn open_main_window_at_start(overlay: &mut versekit_overlay::Args, kind: StartKind, wanted: impl FnOnce() -> bool) {
+    if kind.opens_main_window(wanted) {
+        overlay.open_overview = true;
+    }
+}
+
+/// The setting "open the main window at the start" of the run (`overlay::keys::MAIN_AT_START`): the copy of the
+/// data after `--daten`, else the user's own data.
+fn main_window_wanted(data: Option<&str>) -> bool {
+    run_paths(data).is_some_and(|paths| wants_main_window(&paths))
+}
+
+/// The setting "open the main window at the start": on unless the player switched it off.
+fn wants_main_window(paths: &versekit_core::paths::Paths) -> bool {
+    use versekit_core::overlay::{MAIN_AT_START_DEFAULT, keys};
+    paths.setting_bool(keys::MAIN_AT_START, MAIN_AT_START_DEFAULT)
 }
 
 /// The command line of the main window the overlay starts: the switch, and the copy of the data if there is one.
@@ -456,7 +538,9 @@ mod tests {
         let store = old_system();
         assert!(take_over_own_data(own, &store, "\"C:/neu/versekit.exe\"", false));
         assert!(own.real, "own data: the real files");
-        assert_eq!(store.get(NAME).as_deref(), Some("\"C:/neu/versekit.exe\""), "the new entry is set");
+        let entry = store.get(NAME).unwrap_or_default();
+        assert!(entry.starts_with("\"C:/neu/versekit.exe\""), "the new entry is set: {entry}");
+        assert!(versekit_core::autostart::has_system_start(&entry), "and carries the switch of the system: {entry}");
         assert_eq!(store.get(old), None, "the old one goes");
 
         // A copy of the data and the self-check never touch the start with the system.
@@ -476,6 +560,118 @@ mod tests {
         let store = old_system();
         assert!(!take_over_own_data(&mut named, &store, "\"C:/neu/versekit.exe\"", true));
         assert!(store.get(old).is_some() && store.get(NAME).is_none(), "{:?}", store.entries());
+    }
+
+    /// The start with the system of a player who set it up with an earlier version: the entry has no switch. The
+    /// next start by hand on the player's own data writes it, a copy of the data, a check or a data folder named
+    /// from outside never touch it.
+    #[test]
+    fn an_entry_from_before_the_switch_gets_it_at_the_next_start_by_hand_on_the_players_own_data() {
+        use versekit_core::autostart::{Memory, NAME, Store, has_system_start};
+        let plain = "\"C:/P/versekit.exe\"";
+        let own = &mut versekit_overlay::Args::parse(Vec::<String>::new());
+        let store = Memory::with(NAME, plain);
+        assert!(take_over_own_data(own, &store, plain, false));
+        let entry = store.get(NAME).unwrap_or_default();
+        assert!(entry.starts_with(plain) && has_system_start(&entry), "{entry}");
+
+        for (mut args, custom) in [
+            (versekit_overlay::Args::parse(["--daten".to_string(), "C:/kopie".to_string()]), false),
+            (versekit_overlay::Args::parse(["--probe".to_string(), "probe.json".to_string()]), false),
+            (versekit_overlay::Args::parse(Vec::<String>::new()), true),
+        ] {
+            let store = Memory::with(NAME, plain);
+            assert!(!take_over_own_data(&mut args, &store, plain, custom));
+            assert_eq!(store.get(NAME).as_deref(), Some(plain), "left as it was");
+        }
+
+        // The start with the system is voluntary: an entry that is off is not written again.
+        let own = &mut versekit_overlay::Args::parse(Vec::<String>::new());
+        let off = Memory::with_switched_off(NAME, plain);
+        assert!(take_over_own_data(own, &off, plain, false));
+        assert_eq!(off.get(NAME).as_deref(), Some(plain));
+        let none = Memory::default();
+        assert!(take_over_own_data(own, &none, plain, false));
+        assert!(none.get(NAME).is_none(), "no entry is made by the start");
+    }
+
+    /// The command of the start with the system carries the switch, on the player's own data and on a copy.
+    #[test]
+    fn the_start_with_the_system_runs_with_the_switch_that_tells_it_from_a_start_by_hand() {
+        use versekit_core::autostart::{SYSTEM_START, has_system_start};
+        assert!(has_system_start(&autostart_command(&[])));
+        let copy = autostart_command(&["--daten".to_string(), "C:/kopie".to_string()]);
+        assert!(has_system_start(&copy) && copy.contains("--daten"), "{copy}");
+        assert!(autostart_command(&[]).contains(SYSTEM_START));
+    }
+
+    /// Only a start by hand opens the main window by itself, and only while the player wants it.
+    #[test]
+    fn only_a_start_by_hand_that_is_wanted_opens_the_main_window() {
+        let by_hand = StartKind::default();
+        let run = |kind: StartKind, wanted: bool| {
+            let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
+            open_main_window_at_start(&mut overlay, kind, || wanted);
+            overlay.open_overview
+        };
+        assert!(run(by_hand, true), "a start by hand opens it");
+        assert!(!run(by_hand, false), "not when the player switched it off");
+        for kind in [
+            StartKind { system: true, ..by_hand },
+            StartKind { by_main_window: true, ..by_hand },
+            StartKind { check: true, ..by_hand },
+            StartKind { after_update: true, ..by_hand },
+            StartKind { after_loss: true, ..by_hand },
+        ] {
+            assert!(!run(kind, true), "{kind:?}");
+            // A start that cannot open it does not read the settings.
+            let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
+            open_main_window_at_start(&mut overlay, kind, || panic!("the settings must not be read"));
+            assert!(!overlay.open_overview);
+        }
+        // What is asked already (a backup, an update) stays asked.
+        let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
+        overlay.open_overview = true;
+        open_main_window_at_start(&mut overlay, by_hand, || false);
+        assert!(overlay.open_overview);
+    }
+
+    /// The switches of the start tell the start with the system and the start by the main window from one by hand.
+    #[test]
+    fn the_switches_of_a_start_tell_the_system_and_the_main_window_from_the_player() {
+        let args = |list: &[&str]| list.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
+        assert_eq!(StartKind::from_args(&args(&[])), StartKind::default(), "no switch: by hand");
+        assert_eq!(StartKind::from_args(&args(&["--daten", "C:/k"])), StartKind::default());
+        let system = StartKind::from_args(&args(&[versekit_core::autostart::SYSTEM_START]));
+        assert!(system.system && !system.by_main_window);
+        let main = StartKind::from_args(&args(&[BY_MAIN_WINDOW, "--daten", "C:/k"]));
+        assert!(main.by_main_window && !main.system);
+    }
+
+    /// The switch of the start with the system is read from the arguments of the start as the program gets them.
+    #[test]
+    fn the_overlay_takes_the_switch_of_the_system_start_and_goes_on() {
+        let mut args = vec![versekit_core::autostart::SYSTEM_START.to_string()];
+        assert!(!refuses(&args), "no folder named, no refusal");
+        assert_eq!(role_of(&args), Some(versekit_core::diagnostics::Role::Overlay), "it is the overlay");
+        args.extend(["--daten".to_string(), "C:/k".to_string()]);
+        assert!(!refuses(&args) && data_folder(&args) == Some("C:/k"));
+        let parsed = versekit_overlay::Args::parse(args);
+        assert_eq!(parsed.data.as_deref(), Some("C:/k"), "the other switches are read as before");
+    }
+
+    /// The setting is on without the key (also for players who set up long ago) and off when the player says so.
+    #[test]
+    fn the_main_window_at_the_start_is_on_until_the_player_switches_it_off() {
+        use versekit_core::jsonio::Value;
+        let (host, dir) = host_for("fenster-start", &[], "http://127.0.0.1:9/");
+        let paths = versekit_core::paths::Paths::new(host);
+        assert!(wants_main_window(&paths), "without the key it is on");
+        paths.set_setting(versekit_core::overlay::keys::MAIN_AT_START, Value::Bool(false));
+        assert!(!wants_main_window(&paths), "switched off");
+        paths.set_setting(versekit_core::overlay::keys::MAIN_AT_START, Value::Bool(true));
+        assert!(wants_main_window(&paths));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// A receiver on this computer that takes the report as the real one would (204); each body it gets goes to
@@ -669,7 +865,7 @@ mod tests {
         // By click, done: told, and the main window opens.
         update_run::begin_run(&paths, &run("v5.0.1", "5.0.0", false)).unwrap();
         let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
-        after_update(&mut overlay, &paths, "5.0.1", &temp);
+        assert!(after_update(&mut overlay, &paths, "5.0.1", &temp), "a start after an update");
         assert!(overlay.notice.as_deref().is_some_and(|n| n.contains("v5.0.1")), "{:?}", overlay.notice);
         assert!(overlay.open_overview);
         assert!(!leftover.exists() && update_run::read_run(&paths).is_none());
@@ -677,18 +873,18 @@ mod tests {
         // Automatic and failed: told, the window opens, and the version is not tried again at once.
         update_run::begin_run(&paths, &run("v5.0.2", "5.0.1", true)).unwrap();
         let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
-        after_update(&mut overlay, &paths, "5.0.1", &temp);
+        assert!(after_update(&mut overlay, &paths, "5.0.1", &temp));
         assert!(overlay.notice.is_some() && overlay.open_overview);
         assert!(update_run::failed_recently(&paths, "v5.0.2", now + 1.0));
         // The jump from 4.12: cleaned up without a word.
         update_run::begin_run(&paths, &run("v5.0.0", "4.12.2", true)).unwrap();
         let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
-        after_update(&mut overlay, &paths, "5.0.0", &temp);
+        assert!(after_update(&mut overlay, &paths, "5.0.0", &temp), "the jump counts as an update start");
         assert!(overlay.notice.is_none() && !overlay.open_overview);
         assert!(update_run::read_run(&paths).is_none());
         // Without a run mark nothing happens.
         let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
-        after_update(&mut overlay, &paths, "5.0.0", &temp);
+        assert!(!after_update(&mut overlay, &paths, "5.0.0", &temp), "no update, a start like any other");
         assert!(overlay.notice.is_none());
     }
 

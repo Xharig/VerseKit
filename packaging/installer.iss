@@ -163,8 +163,10 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#ProgramFile}"; Tasks: deskt
 [Registry]
 ; The start with Windows, when it was chosen, on a new installation only: over an existing one the program
 ; takes over the entry of an earlier name itself and keeps it switched off when the user switched it off.
+; The switch tells the program that the system started it (`autostart::SYSTEM_START`): only a start by hand opens
+; the main window by itself.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#RunValue}"; \
-  ValueData: """{app}\{#ProgramFile}"""; Flags: uninsdeletevalue; Tasks: autostart; Check: IsNewInstallation
+  ValueData: """{app}\{#ProgramFile}"" ""--systemstart"""; Flags: uninsdeletevalue; Tasks: autostart; Check: IsNewInstallation
 Root: HKCU; Subkey: "{#ProgramKey}"; ValueType: string; ValueName: "Programm"; ValueData: "{app}\{#ProgramFile}"; \
   Flags: uninsdeletekey
 
@@ -180,6 +182,7 @@ Filename: "{app}\{#ProgramFile}"; Description: "{cm:LaunchProgram,{#AppName}}"; 
     /VKSPERRE="..."           the lock, removed before the program is started again
     /VKERGEBNIS="..."         where the exit code goes
     /VKPROTOKOLL="..."        the update log the lines go to
+    /VKKEINSTART              the player ended the program: it is not started again afterwards
   Without /VKUPDATE (by hand, or the helper of 5.2.2 and earlier) none of this happens.
   The program steps down only once this process has written LIFE_SIGN into the update log
   (`update_run::LIFE_SIGN`); both sides change together. }
@@ -233,18 +236,31 @@ begin
   Result := not WasInstalled;
 end;
 
-{ Was Setup started with /VKUPDATE? }
-function IsUpdateRun(): Boolean;
+{ Was Setup started with the switch `Switch` (without a value, case does not matter)? }
+function HasSwitch(const Switch: String): Boolean;
 var
   I: Integer;
 begin
   Result := False;
   for I := 1 to ParamCount do
-    if CompareText(ParamStr(I), '/VKUPDATE') = 0 then
+    if CompareText(ParamStr(I), Switch) = 0 then
     begin
       Result := True;
       Exit;
     end;
+end;
+
+{ Was Setup started with /VKUPDATE? }
+function IsUpdateRun(): Boolean;
+begin
+  Result := HasSwitch('/VKUPDATE');
+end;
+
+{ Was Setup started with /VKKEINSTART? The player ended the program and the update came at its end: the program is
+  not started again. }
+function IsNoStart(): Boolean;
+begin
+  Result := HasSwitch('/VKKEINSTART');
 end;
 
 { The file a switch names, only when its name is `Name`; else empty. }
@@ -381,6 +397,11 @@ begin
   Path := UpdateFile('VKSPERRE', LOCK_NAME);
   if Path <> '' then
     DeleteFile(Path);
+  if IsNoStart() then
+  begin
+    UpdateLog('The program was ended by the player - not started again');
+    Exit;
+  end;
   Exe := UpdatedProgram();
   if not FileExists(Exe) then
     UpdateLog('No program to start: ' + Exe)

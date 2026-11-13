@@ -158,22 +158,36 @@ fn fire_mode(trees: &mut Trees<'_, '_>, value: &StructValue<'_>) -> Option<FireM
         return None;
     }
     let own = action(trees, value);
-    let sequence = structs(Some(value), "sequenceEntries")
+    let entries: Vec<_> = structs(Some(value), "sequenceEntries").collect();
+    let counts = delays_count(text(Some(value), "mode"), entries.len());
+    let sequence = entries
+        .into_iter()
         .filter_map(|entry| {
             let inner = structure(Some(entry), "weaponAction")?;
             let mut action = action(trees, inner);
             action.delay = number(Some(entry), "delay");
-            // A delay in shots per minute limits the rate the entry fires
-            // at: the slower of the two counts.
-            if text(Some(entry), "unit") == Some("RPM")
-                && let Some(delay) = action.delay.filter(|delay| *delay > 0.0)
-            {
-                action.fire_rate = Some(action.fire_rate.map_or(delay, |rate| rate.min(delay)));
-            }
+            action.fire_rate = limited_rate(action.fire_rate, action.delay, text(Some(entry), "unit"), counts);
             Some(action)
         })
         .collect();
     Some(FireMode { action: own, sequence })
+}
+
+/// Whether the delays between the entries of a sequence set its pace. A sequence that loops over one entry is
+/// no sequence: the entry fires at its own rate and its delay is the pause before it fires again (the C-788:
+/// rate 50, delay 40 per minute; erkul.games shows 50 shots a minute). Two entries or more, and
+/// every other kind of sequence (`Individually`, `Automatically`), wait the delays out.
+fn delays_count(mode: Option<&str>, entries: usize) -> bool {
+    entries >= 2 || mode.is_some_and(|mode| mode != "Looping")
+}
+
+/// The rate an entry of a sequence fires at: its own, and where the delays count, a delay in shots per minute
+/// limits it, the slower of the two counts. A delay in seconds does not.
+fn limited_rate(fire_rate: Option<f64>, delay: Option<f64>, unit: Option<&str>, counts: bool) -> Option<f64> {
+    match delay.filter(|delay| counts && unit == Some("RPM") && *delay > 0.0) {
+        Some(delay) => Some(fire_rate.map_or(delay, |rate| rate.min(delay))),
+        None => fire_rate,
+    }
 }
 
 /// The ammunition container that holds the item's ammunition: its own, else
@@ -184,6 +198,14 @@ fn ammo_container<'t>(tree: &'t RecordTree<'_>, magazine: Option<&'t RecordTree<
         return own;
     }
     magazine.and_then(|magazine| component(magazine, "SAmmoContainerComponentParams")).or(own)
+}
+
+/// The ammunition record of the weapon `tree`: the one its own container names, else the one of its magazine.
+pub(crate) fn ammo_record<'f>(tree: &RecordTree<'_>, trees: &mut Trees<'f, '_>) -> Option<std::rc::Rc<RecordTree<'f>>> {
+    let params = component(tree, "SCItemWeaponComponentParams")?;
+    let magazine = trees.follow(Some(params), "ammoContainerRecord");
+    let container = ammo_container(tree, magazine.as_deref());
+    trees.follow(container, "ammoParamsRecord")
 }
 
 fn weapon(tree: &RecordTree<'_>, trees: &mut Trees<'_, '_>) -> Option<Weapon> {
@@ -249,5 +271,41 @@ pub(crate) fn read(tree: &RecordTree<'_>, trees: &mut Trees<'_, '_>, texts: &Loc
         armor: None,
         corrected: Vec::new(),
         extra: crate::values::ItemExtra::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The sequences of the game data of 4.10.2 (read from a Data.p4k): mode, entries, rate and delay per entry.
+    #[test]
+    fn a_loop_over_one_entry_keeps_its_own_rate_and_a_real_sequence_waits_its_delays() {
+        // C-788 Cannon: one entry, 50 shots a minute, delay 40 a minute: 50 (erkul.games shows 50).
+        let one = delays_count(Some("Looping"), 1);
+        assert!(!one);
+        assert_eq!(limited_rate(Some(50.0), Some(40.0), Some("RPM"), one), Some(50.0));
+        // 'WAR' Cannon, the other loop over one entry whose delay is below its rate.
+        assert_eq!(limited_rate(Some(200.0), Some(50.0), Some("RPM"), one), Some(200.0));
+        // Attrition-4 Repeater: two entries of 350 and 350: unchanged.
+        let two = delays_count(Some("Looping"), 2);
+        assert!(two);
+        assert_eq!(limited_rate(Some(350.0), Some(350.0), Some("RPM"), two), Some(350.0));
+        // DR Model-XJ1 Repeater: two entries, rate 400, delay 350: the slower one.
+        assert_eq!(limited_rate(Some(400.0), Some(350.0), Some("RPM"), two), Some(350.0));
+        // A delay above the rate never speeds an entry up, and a delay in seconds does not slow it.
+        assert_eq!(limited_rate(Some(60.0), Some(100.0), Some("RPM"), two), Some(60.0));
+        assert_eq!(limited_rate(Some(750.0), Some(1.0), Some("Seconds"), two), Some(750.0));
+        // An entry without a rate takes the delay as its rate where the delays count.
+        assert_eq!(limited_rate(None, Some(300.0), Some("RPM"), two), Some(300.0));
+        assert_eq!(limited_rate(None, Some(300.0), Some("RPM"), one), None);
+    }
+
+    #[test]
+    fn a_sequence_of_another_kind_than_looping_counts_its_delays_even_with_one_entry() {
+        assert!(delays_count(Some("Automatically"), 1));
+        assert!(delays_count(Some("Individually"), 2));
+        assert!(!delays_count(None, 1));
+        assert!(delays_count(None, 2));
     }
 }

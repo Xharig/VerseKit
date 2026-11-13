@@ -39,7 +39,7 @@ use crate::paths::Paths;
 /// ⚠ The key `modul_basetool` is also the switch of the Basetool area of the overview: one switch for both
 /// views.
 pub const SWITCHABLE: [(&str, &[&str]); 8] = [
-    ("basetool", &["k_basetool_verbindung", "hf_bedarf"]),
+    ("basetool", &["k_basetool_verbindung", "hf_bedarf", "hf_bank"]),
     ("schiffe", &["hf_hangar"]),
     ("werkstatt", &["hf_herstellung", "hf_farmliste"]),
     ("bergbau", &["hf_bergbau", "hf_raffinerien"]),
