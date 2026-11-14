@@ -135,6 +135,9 @@ pub(super) struct Wizard {
     /// The channels installed next to the game folder as typed, and the folder they were looked up for.
     channels_for: String,
     channels: Vec<String>,
+    /// Another folder than the one found that the RSI Launcher starts the game from, (channel, folder), for the
+    /// folder in `channels_for`: offered with a button, never taken without a click.
+    launcher: Option<(String, String)>,
     /// Is there anything to read in the folder as typed: a `Game.log`, or kept logs of earlier sessions? A game
     /// never started has neither, and the step then has no reading to show or wait for.
     reads: bool,
@@ -251,6 +254,7 @@ impl SamplePage {
             game_confirmed: None,
             data_seen: paths.map(|p| p.app_folder()).unwrap_or_default(),
             channels_for: String::new(),
+            launcher: None,
             reads: true,
             channels: Vec::new(),
             picture_pinned: false,
@@ -800,11 +804,26 @@ impl SamplePage {
             wizard.channels_for = folder.to_string();
             wizard.channels = scoped.installed_channels().into_iter().map(|(name, ..)| name).collect();
             wizard.reads = log || !scoped.log_backups(None).is_empty();
+            wizard.launcher = versekit_core::launcher_log::offer(&store.paths, folder);
         }
         if !wizard.channels.is_empty() {
             ui.add_space(4.0);
             let said = tf("as_kanaele", &[("0", Arg::from(wizard.channels.join(", ")))]);
             ui.add(egui::Label::new(RichText::new(said).small().color(color(scheme.sub))).wrap());
+        }
+        // The launcher starts the game from another folder than the one found or typed: offered, one click.
+        if let Some((channel, other)) = wizard.launcher.clone() {
+            ui.add_space(8.0);
+            let head = tf("s_pf_launcher_titel", &[("0", Arg::from(channel.as_str()))]);
+            Self::state_line(ui, scheme.accent, "rocket", &head);
+            ui.add(egui::Label::new(RichText::new(&other).small().monospace().color(color(scheme.sub))).wrap());
+            ui.add_space(4.0);
+            let word = t("s_pf_launcher_nehmen");
+            let take = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("check");
+            if ui.add(take).on_hover_text(t("s_pf_launcher_hilfe")).clicked() {
+                wizard.game_text = other;
+                wizard.launcher = None;
+            }
         }
         // A game that was never started has nothing to read: no promise of a reading, nothing to wait for.
         if !wizard.reads {
@@ -1485,6 +1504,50 @@ mod tests {
         assert!(file.contains("spiel_ordner"), "the folder is written down: {file}");
         let texts = bench.settle();
         assert!(!shows(&texts, &language::t("ov_bestand_fehler")), "no fault");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The folder found is not the one the RSI Launcher starts the game from: the step says so and offers the
+    /// launcher's folder; the field changes only by the click.
+    #[test]
+    fn the_game_step_offers_the_folder_of_the_launcher_and_takes_it_by_a_click() {
+        let _language = crate::language_lock();
+        let dir = super::super::real_data::folder("einrichtung-launcher");
+        let text = dir.to_string_lossy().into_owned();
+        let (mine, theirs) =
+            (dir.join("Alt").join("StarCitizen").join("LIVE"), dir.join("Neu").join("StarCitizen").join("LIVE"));
+        for folder in [&mine, &theirs] {
+            std::fs::create_dir_all(folder).unwrap();
+        }
+        std::fs::write(mine.join("Game.log"), "x").unwrap();
+        std::fs::write(theirs.join("Data.p4k"), "x").unwrap();
+        let (mine, theirs) = (mine.to_string_lossy().into_owned(), theirs.to_string_lossy().into_owned());
+        let logs = dir.join("rsilauncher").join("logs");
+        std::fs::create_dir_all(&logs).unwrap();
+        let line = format!(
+            r#"{{ "t":"2026-11-13 10:00:00.000", "[main][info] ": "[Launcher::launch] Launching Star Citizen LIVE from ({})"  }},"#,
+            theirs.replace('\\', "\\\\")
+        );
+        std::fs::write(logs.join("log.log"), line).unwrap();
+        let stored = Value::Object(vec![("spiel_ordner".into(), Value::str(mine.as_str()))]);
+        std::fs::write(dir.join("einstellungen.json"), versekit_core::jsonio::dumps(&stored, None, false)).unwrap();
+        theme::set_current("original");
+        language::set_thread_language(language::Choice::De);
+        let host = super::super::real_data::host_in(&dir, &[("APPDATA", text.as_str())]);
+        let mut bench = Bench::new(SamplePage::with_settings(Paths::new(host)));
+        bench.page.open_setup();
+        for _ in 0..2 {
+            bench.click(&language::t("s_mlg_bestaetigen"));
+        }
+        let title = tf("s_pf_launcher_titel", &[("0", Arg::from("LIVE"))]);
+        let texts = until_shown(&mut bench, &title);
+        assert!(shows(&texts, &title) && shows(&texts, &theirs), "the offer stands under the folder found: {texts:?}");
+        assert_eq!(bench.page.setup.as_ref().map(|w| w.game_text.clone()).as_deref(), Some(mine.as_str()), "unchanged");
+        bench.click(&language::t("s_pf_launcher_nehmen"));
+        let texts = until_shown(&mut bench, &language::t("spiel_gefunden"));
+        assert_eq!(bench.page.setup.as_ref().map(|w| w.game_text.clone()).as_deref(), Some(theirs.as_str()), "taken");
+        assert!(!shows(&texts, &title), "no offer for the folder that is in the field: {texts:?}");
+        assert!(shows(&texts, &language::t("spiel_gefunden")), "the game is found there without a log: {texts:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
 

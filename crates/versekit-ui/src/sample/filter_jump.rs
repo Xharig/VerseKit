@@ -341,6 +341,27 @@ fn the_account_words_find_the_own_account_and_not_the_card_the_connection_page_s
     language::set_thread_language(language::Choice::De);
 }
 
+#[test]
+fn the_menu_filter_finds_the_basetool_parts_only_where_they_show() {
+    use versekit_core::basetool::scopes::SETTING_BANK;
+    let _language = crate::language_lock();
+    language::set_thread_language(language::Choice::De);
+    let gated = |filter: &str, page: &str, open: &dyn Fn(&str) -> bool| {
+        super::nav_hits_gated(filter, "hf_gruppe_einst", page, false, open)
+    };
+    let bank = t("s_ov_zeige_kartellbank");
+    let bank_hit = format!("{} › {bank}", t("hf_overlay"));
+    assert!(!gated(&bank, "hf_overlay", &|_| false).contains(&bank_hit), "no bank, no switch");
+    assert!(!gated(&bank, "hf_overlay", &|setting| setting != SETTING_BANK).contains(&bank_hit));
+    assert!(gated(&bank, "hf_overlay", &|setting| setting == SETTING_BANK).contains(&bank_hit), "the bank shows");
+    let now = t("s_bt_jetzt");
+    for page in ["hf_liste", "hf_meinlager", "hf_hangar"] {
+        let hit = format!("{} › {now}", t(page));
+        assert!(!gated(&now, page, &|_| false).contains(&hit), "{page}: no button, no hit");
+        assert!(gated(&now, page, &|_| true).contains(&hit), "{page}: the button stands, the hit too");
+    }
+}
+
 /// While blueprints of another account did not count, the blueprint tile of the overview leads to the own account
 /// on the page Allgemein and frames its row; without any it leads where it always leads.
 #[test]

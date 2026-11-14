@@ -40,7 +40,9 @@ use crate::{color, control_radius, icons};
 /// The order of the items within a subcategory.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(super) enum Sort {
+    /// By size, then by name.
     #[default]
+    Size,
     NameUp,
     NameDown,
     Maker,
@@ -169,6 +171,7 @@ pub(super) fn matching(state: &mut CraftingState, marks: &[Have]) -> (Vec<usize>
     let places = &state.places;
     let sort = state.sort;
     // By size first, as every list of parts (`size_order`): an item without a size last.
+    // Only the order "size" goes by size; the orders by name go by name alone.
     let size = |i: usize| {
         let size = state.sizes.get(i).copied().flatten();
         (size.is_none(), size.unwrap_or(0))
@@ -178,7 +181,8 @@ pub(super) fn matching(state: &mut CraftingState, marks: &[Have]) -> (Vec<usize>
         let (pa, pb) = (places[a], places[b]);
         let group = (pa.category, pa.sub_order()).cmp(&(pb.category, pb.sub_order()));
         group.then_with(|| match sort {
-            Sort::NameUp => size(a).cmp(&size(b)).then(a.cmp(&b)),
+            Sort::Size => size(a).cmp(&size(b)).then(a.cmp(&b)),
+            Sort::NameUp => a.cmp(&b),
             Sort::NameDown => b.cmp(&a),
             Sort::Maker => lower(&items[a].manufacturer).cmp(&lower(&items[b].manufacturer)).then(a.cmp(&b)),
         })
@@ -381,9 +385,13 @@ fn category_bar(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
 
 /// The button with the order of the list; it opens the menu of the orders.
 fn sort_button(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
-    let sorts =
-        [(Sort::NameUp, "s_fb_sort_auf"), (Sort::NameDown, "s_fb_sort_ab"), (Sort::Maker, "s_fb_sort_hersteller")];
-    let now = sorts.iter().find(|(s, _)| *s == state.sort).map_or("s_fb_sort_auf", |(_, key)| key);
+    let sorts = [
+        (Sort::Size, "s_fb_sort_groesse"),
+        (Sort::NameUp, "s_fb_sort_auf"),
+        (Sort::NameDown, "s_fb_sort_ab"),
+        (Sort::Maker, "s_fb_sort_hersteller"),
+    ];
+    let now = sorts.iter().find(|(s, _)| *s == state.sort).map_or("s_fb_sort_groesse", |(_, key)| key);
     let word = t(now);
     let response = ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("arrow-down-up"));
     let response = response.on_hover_text(t("s_fb_sortieren"));

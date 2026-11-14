@@ -344,6 +344,33 @@ mod tests {
         assert!(entry_for(&table, "@TESTGANG_RAID_E_TITLE_001").is_some());
     }
 
+    /// A cooldown after abandoning that spans variants stands as a span with its spread; a title whose variants
+    /// state no "can be taken again after abandoning" names only the flag it has.
+    #[test]
+    fn a_span_for_the_cooldown_after_abandoning_and_a_missing_flag() {
+        let variant = |abandoned: i64| Terms {
+            abandoned: Some(abandoned),
+            abandoned_spread: Some(1),
+            again_abandoned: None,
+            again_failed: Some(false),
+            ..Terms::default()
+        };
+        let table = summarize(&[("t".into(), variant(1)), ("t".into(), variant(60))]);
+        let entry = entry_for(&table, "t").unwrap();
+        assert_eq!(
+            jsonio::dumps(&Value::Object(entry.clone()), None, false),
+            r#"{"warte_abbruch": [1, 60], "warte_abbruch_streuung": 1, "wieder_fehlschlag": false}"#
+        );
+        assert_eq!(
+            lines(entry, &words_for("english", true), false),
+            ["# Cooldown after abandoning: 1–60 minutes (±1)", "# Can be taken again: after failing No"]
+        );
+        assert_eq!(
+            lines(entry, &words_for("german_(germany)", true), false),
+            ["# Wartezeit nach Abbruch: 1–60 Minuten (±1)", "# Wieder annehmbar: nach Fehlschlag Nein"]
+        );
+    }
+
     #[test]
     fn the_lines_in_both_languages() {
         let table = summarize(&[("t_title".into(), terms(Some(45), Some(13500), Some(false), "t_desc"))]);

@@ -67,9 +67,14 @@ const MATRIX_MATCHES: [&str; 2] = ["sicher", "naeherung"];
 
 /// How the CSV of the Hangar Extension puts the maker before the ship name;
 /// longest names first.
-const CSV_MAKERS: [(&str, &str); 24] = [
+const CSV_MAKERS: [(&str, &str); 30] = [
     ("Roberts Space Industries", "RSI"),
     ("Consolidated Outland", "CNOU"),
+    ("Grey's Market", "GREY"),
+    ("Grey\u{2019}s Market", "GREY"),
+    ("Grey's", "GREY"),
+    ("Grey\u{2019}s", "GREY"),
+    ("C.O.", "CNOU"),
     ("Musashi Industrial & Starflight Concern", "MISC"),
     ("Aegis", "AEGS"),
     ("Anvil", "ANVL"),
@@ -91,6 +96,7 @@ const CSV_MAKERS: [(&str, &str); 24] = [
     ("Tumbril", "TMBL"),
     ("Vanduul", "VNCL"),
     ("Xi'an", "XIAN"),
+    ("Xi\u{2019}an", "XIAN"),
     ("Xian", "XIAN"),
 ];
 
@@ -2221,6 +2227,42 @@ mod tests {
         let next = from_hangar_ships(&ship_list(&cutlass)).unwrap();
         let swapped = import_entries(&mut data, &next);
         assert_eq!(swapped.removed, vec!["Prowler Utility".to_string()]);
+        assert_eq!(ships(&data).len(), 1);
+    }
+
+    const SHIV_JSON: &str = r#"[{"manufacturer": {"code": "GREY", "name": "Grey's Market", "shortName": "Grey's"},
+        "code": "GREY_Shiv", "matrix": "Shiv", "focus": "Heavy Fighter", "status": "Flight-Ready",
+        "insurance": "LTI", "name": "Shiv"}]"#;
+
+    fn shiv_csv(apostrophe: char) -> String {
+        format!(
+            "Pledge ID,Pledge Date,Pledge Cost,Meltable,Giftable,Pledge Name,Pledge Content,Content Type\n\
+             7,2024-01-01,$50,Yes,No,Shiv,Grey{apostrophe}s Shiv,Ship\n\
+             7,2024-01-01,$50,Yes,No,Shiv,Lifetime Insurance,Insurance\n\
+             7,2024-01-01,$50,Yes,No,Shiv,Self-Land Hangar,\n"
+        )
+    }
+
+    #[test]
+    fn the_csv_takes_the_maker_grey_off_the_ship_name() {
+        for apostrophe in ['\'', '\u{2019}'] {
+            let entries = crate::hangar_formats::read_text(&shiv_csv(apostrophe), &ShipNames::default()).unwrap();
+            assert_eq!(entries.len(), 1);
+            assert_eq!((text(&entries[0], "name"), text(&entries[0], "hkurz")), ("Shiv", "GREY"));
+        }
+    }
+
+    #[test]
+    fn json_and_csv_of_the_extension_keep_one_shiv() {
+        let names = ShipNames::default();
+        let json = crate::hangar_formats::read_text(SHIV_JSON, &names).unwrap();
+        let csv = crate::hangar_formats::read_text(&shiv_csv('\''), &names).unwrap();
+        let mut data = empty();
+        assert_eq!(import_entries(&mut data, &json).new, 1);
+        for entries in [&csv, &json, &csv] {
+            let done = import_entries(&mut data, entries);
+            assert_eq!((done.new, done.removed.len()), (0, 0), "{:?}", done.removed);
+        }
         assert_eq!(ships(&data).len(), 1);
     }
 

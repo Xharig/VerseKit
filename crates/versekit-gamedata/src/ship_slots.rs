@@ -50,9 +50,10 @@ pub const SHIPS_FILE: &str = versekit_core::erkul_slots::GAME_SHIPS_FILE;
 pub const PARTS_FILE: &str = versekit_core::erkul_slots::GAME_PARTS_FILE;
 /// The format of [`SHIPS_FILE`]: the one of `erkul-schiffe.json`.
 pub const SHIPS_FORMAT: i64 = versekit_core::ships::ERKUL_FILE_FORMAT;
-/// Which base values of the ships [`SHIPS_FILE`] holds (`werte_stand`, 1: size, SCM speed and cargo). Its format is
-/// the one of erkul's file and stays; a file with another mark is read again once (`values_store`).
-pub const VALUES_MARK: i64 = 1;
+/// Which base values of the ships [`SHIPS_FILE`] holds (`werte_stand`, 1: size, SCM speed and cargo; 2: the cargo
+/// counts the mining pods of the Mole, the Prospector and the Golem, and the 135c and the Nomad have none). Its format
+/// is the one of erkul's file and stays; a file with another mark is read again once (`values_store`).
+pub const VALUES_MARK: i64 = 2;
 /// The format of [`PARTS_FILE`]: the one of `erkul-teile.json` with the class name and the tags a paint
 /// requires; a file of an older format is read again once (`values_store`).
 pub const PARTS_FORMAT: i64 = versekit_core::erkul_slots::GAME_PARTS_FORMAT;
@@ -419,18 +420,59 @@ fn flight_controller<'c>(catalogs: &'c Catalogs, ports: &'c [Json]) -> Option<&'
     })
 }
 
-/// Whether a port tree holds cargo space that p4kx does not count as a cargo grid: the mining pods of the Mole, the
-/// Prospector and the Golem (`Cargo_ShipMining_Pod_*`) and the cargo area of the 135c (`ORIG_135c_Cargo_Area`). The
-/// sum of the grids of such a ship is too low (LIVE 4.10.3: 0 SCU for the Prospector, the Golem and the 135c, 32 for
-/// the Mole, whose rear lift is its only grid), so it is no cargo value.
-fn cargo_outside_grids(catalogs: &Catalogs, ports: &[Json]) -> bool {
-    ports.iter().any(|port| {
-        let class = catalogs.item(port["itemGuid"].as_str()).and_then(|part| part["className"].as_str()).unwrap_or_default();
+/// The cargo space of a port tree that p4kx does not count as a cargo grid, in SCU: the mining pods of the Mole, the
+/// Prospector and the Golem (`Cargo_ShipMining_Pod_*`, containers that hold a capacity of their own, read by
+/// [`ShipValues::read`]; the collapsed spare pods in the hull hold nothing). `Some(0.0)` for a tree without any. `None`
+/// where there is space that cannot be counted: the cargo area of the 135c (`ORIG_135c_Cargo_Area`) and the cargo bed
+/// of the Nomad (`Door_Ship_Exterior_CNOU_Nomad_Cargo_Bed`) hold no capacity in the data (LIVE 4.10.3: 0 SCU of
+/// grids, while the ships carry 6 and 24 SCU), nor does a pod without one; the sum of the grids of such a ship is
+/// too low, so it is no cargo value.
+fn cargo_outside_grids(catalogs: &Catalogs, ports: &[Json]) -> Option<f64> {
+    let mut scu = 0.0;
+    for port in ports {
+        let guid = port["itemGuid"].as_str();
+        let class = catalogs.item(guid).and_then(|part| part["className"].as_str()).unwrap_or_default();
         let class = class.to_ascii_lowercase();
-        class.contains("_shipmining_pod_")
-            || class.ends_with("_cargo_area")
-            || cargo_outside_grids(catalogs, port["ports"].as_array().map(Vec::as_slice).unwrap_or_default())
-    })
+        if class.contains("_shipmining_pod_") {
+            // A collapsed pod is a spare that is stored, not a hold.
+            if !class.ends_with("_collapsed") {
+                scu += guid.and_then(|guid| catalogs.values.pods.get(&guid.to_ascii_lowercase()))?;
+            }
+        } else if class.ends_with("_cargo_area") || class.ends_with("_cargo_bed") {
+            return None;
+        }
+        scu += cargo_outside_grids(catalogs, port["ports"].as_array().map(Vec::as_slice).unwrap_or_default())?;
+    }
+    Some(scu)
+}
+
+/// How many cargo grids of a port tree belong to a fabricator: a part that is a cargo grid entity at a port whose
+/// name says fabricator, or below one.
+fn fabricator_grids(catalogs: &Catalogs, ports: &[Json]) -> u64 {
+    fabricator_grids_below(catalogs, ports, false)
+}
+
+fn fabricator_grids_below(catalogs: &Catalogs, ports: &[Json], in_fabricator: bool) -> u64 {
+    let mut count = 0;
+    for port in ports {
+        let class = catalogs
+            .item(port["itemGuid"].as_str())
+            .and_then(|part| part["className"].as_str())
+            .or_else(|| port["itemClassName"].as_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        let name = port["name"].as_str().unwrap_or_default().to_ascii_lowercase();
+        let in_fabricator = in_fabricator || name.contains("fabricator");
+        if in_fabricator && class.contains("cargogrid") {
+            count += 1;
+        }
+        count += fabricator_grids_below(
+            catalogs,
+            port["ports"].as_array().map(Vec::as_slice).unwrap_or_default(),
+            in_fabricator,
+        );
+    }
+    count
 }
 
 /// The slots of the player ships in the form of `erkul-schiffe.json`, each with its base values (`werte`, see
@@ -466,8 +508,9 @@ pub fn ships_file(catalogs: &Catalogs) -> Value {
             ("plaetze".to_string(), Value::Array(counts(&sizes))),
             ("slots".to_string(), Value::Array(slots)),
         ];
-        let counted = !cargo_outside_grids(catalogs, &ports);
-        if let Some(values) = catalogs.values.of(ship, flight_controller(catalogs, &ports), counted) {
+        let outside = cargo_outside_grids(catalogs, &ports);
+        let fabricators = fabricator_grids(catalogs, &ports);
+        if let Some(values) = catalogs.values.of(ship, flight_controller(catalogs, &ports), outside, fabricators) {
             entry.push(("werte".to_string(), values));
         }
         ships.push((key, Value::Object(entry)));
@@ -735,20 +778,71 @@ mod tests {
     }
 
     #[test]
-    fn a_ship_with_mining_pods_or_a_cargo_area_has_cargo_outside_its_grids() {
+    fn the_cargo_grid_of_a_fabricator_port_does_not_take_the_cargo_of_a_ship() {
+        let mut catalogs = Catalogs::default();
+        catalogs.add(&serde_json::json!({
+            "source": {"build": {"branch": "b", "changeNumber": "1"}},
+            "manufacturers": [],
+            "ships": [
+                {"guid": "s1", "className": "TEST_Freighter", "name": {"en": "Freighter"}, "playability": "player",
+                 "cargoScu": 456.0, "cargoGridsWithIssue": 1},
+                {"guid": "s2", "className": "TEST_Barge", "name": {"en": "Barge"}, "playability": "player",
+                 "cargoScu": 20.0, "cargoGridsWithIssue": 1}
+            ],
+            "items": [
+                {"guid": "bench", "className": "Bench_Fabricator", "type": "Container"},
+                {"guid": "grid", "className": "Bench_CargoGridEntity_1SCU", "type": "Container"},
+                {"guid": "other", "className": "Some_CargoGridEntity_1SCU", "type": "Container"}
+            ],
+            "loadouts": [
+                {"entityGuid": "s1", "entityKind": "ship", "issues": [], "ports": [
+                    {"name": "hardpoint_fabricator", "types": [], "flags": [], "itemGuid": "bench", "ports": [
+                        {"name": "$slot_subitem_01", "types": [], "flags": [], "itemGuid": "grid", "ports": []}
+                    ]}
+                ]},
+                {"entityGuid": "s2", "entityKind": "ship", "issues": [], "ports": [
+                    {"name": "hardpoint_storage", "types": [], "flags": [], "itemGuid": "other", "ports": []}
+                ]}
+            ]
+        }));
+        let file = ships_file(&catalogs);
+        let cargo = |key: &str| {
+            file.get("schiffe")
+                .and_then(|ships| ships.get(key))
+                .and_then(|ship| ship.get("werte"))
+                .and_then(|values| values.get("fracht"))
+                .cloned()
+        };
+        assert_eq!(cargo("testfreighter"), Some(Value::Float(456.0)));
+        assert_eq!(cargo("testbarge"), None, "a grid of another port stays unreadable");
+    }
+
+    #[test]
+    fn the_mining_pods_of_a_ship_are_counted_and_a_cargo_area_without_capacity_cannot_be() {
         let mut catalogs = Catalogs::default();
         catalogs.add(&serde_json::json!({"items": [
             {"guid": "pod", "className": "Cargo_ShipMining_Pod_Mole"},
+            {"guid": "spare", "className": "Cargo_ShipMining_Pod_Mole_Collapsed"},
+            {"guid": "nameless", "className": "Cargo_ShipMining_Pod_Unknown"},
             {"guid": "area", "className": "ORIG_135c_Cargo_Area"},
             {"guid": "grid", "className": "ANVL_Pisces_CargoGrid"},
-            {"guid": "door", "className": "Door_Ship_Exterior_CNOU_Nomad_Cargo_Bed"}
+            {"guid": "door", "className": "Door_Ship_Exterior_AEGS_Reclaimer_Cargo_Door"},
+            {"guid": "bed", "className": "Door_Ship_Exterior_CNOU_Nomad_Cargo_Bed"}
         ]}));
+        catalogs.values.pods.insert("pod".to_string(), 12.0);
         let port = |guid: &str, below: Vec<Json>| serde_json::json!({"name": "p", "itemGuid": guid, "ports": below});
-        // At the top and further down the tree.
-        assert!(cargo_outside_grids(&catalogs, &[port("pod", vec![])]));
-        assert!(cargo_outside_grids(&catalogs, &[port("grid", vec![port("area", vec![])])]));
+        // The Mole in LIVE 4.10.3: eight pods, sixteen collapsed spares, at the top and further down the tree.
+        let mut mole: Vec<Json> = (0..8).map(|_| port("pod", vec![])).collect();
+        mole.extend((0..16).map(|_| port("spare", vec![])));
+        assert_eq!(cargo_outside_grids(&catalogs, &mole), Some(96.0), "the spares hold nothing");
+        assert_eq!(cargo_outside_grids(&catalogs, &[port("grid", vec![port("pod", vec![])])]), Some(12.0));
+        // Space whose capacity the data do not give cannot be counted: the cargo area, a pod without a capacity.
+        assert_eq!(cargo_outside_grids(&catalogs, &[port("grid", vec![port("area", vec![])])]), None);
+        assert_eq!(cargo_outside_grids(&catalogs, &[port("pod", vec![]), port("nameless", vec![])]), None);
+        assert_eq!(cargo_outside_grids(&catalogs, &[port("bed", vec![])]), None, "the cargo bed of the Nomad");
         // Counter-check: a ship with cargo grids and a door named cargo has all its cargo in the grids.
-        assert!(!cargo_outside_grids(&catalogs, &[port("grid", vec![]), port("door", vec![]), port("unknown", vec![])]));
-        assert!(!cargo_outside_grids(&catalogs, &[]));
+        let plain = [port("grid", vec![]), port("door", vec![]), port("unknown", vec![])];
+        assert_eq!(cargo_outside_grids(&catalogs, &plain), Some(0.0));
+        assert_eq!(cargo_outside_grids(&catalogs, &[]), Some(0.0));
     }
 }

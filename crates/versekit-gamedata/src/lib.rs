@@ -55,6 +55,7 @@ pub mod scmdb_catalog;
 pub mod ship_slots;
 pub mod ship_values;
 mod sources;
+pub mod texts_watch;
 pub mod value_source;
 pub mod values;
 mod values_read;
@@ -66,7 +67,7 @@ use std::path::{Path, PathBuf};
 use p4kx_archive::{Archive, Entry};
 use p4kx_dataforge::DataForge;
 
-pub use catalog::{Blueprint, Catalog, Item, Manufacturer, Source, SourceKind, Text};
+pub use catalog::{Blueprint, Catalog, Item, Manufacturer, Offered, Source, SourceKind, Text};
 pub use contract_facts::ContractFacts;
 pub use error::Error;
 pub use localization::{Language, Localization};
@@ -164,6 +165,34 @@ impl GameData {
     /// `sc-alpha-4.10.2`, or `None` when it is unknown.
     pub fn branch(&self) -> Option<&str> {
         self.archive.build().map(p4kx_archive::Build::branch)
+    }
+
+    /// The language folders of the game: every folder of `Data/Localization` that holds a `global.ini`
+    /// (`german` and `french` there only carry fonts), English first, the others in the order of the archive.
+    pub fn languages(&self) -> Vec<String> {
+        let mut found: Vec<String> = Vec::new();
+        for entry in self.archive.entries() {
+            if let Some(folder) = localization_folder(entry.path())
+                && !found.contains(&folder)
+            {
+                found.push(folder);
+            }
+        }
+        if let Some(at) = found.iter().position(|folder| folder == "english") {
+            found.swap(0, at);
+        }
+        found
+    }
+
+    /// Tells `versekit_core::game_ini` the language folders of this archive, when it is the archive of the game
+    /// this run reads (`paths::archive_file`): the list of the game is then the one of the `Data.p4k`, not the
+    /// built-in one. Any other archive (a copy, a test) changes nothing. True when the list was taken.
+    pub fn learn_languages(&self) -> bool {
+        let Some(main) = versekit_core::paths::global().archive_file() else { return false };
+        let (main, own) = (Path::new(&main), self.archive.path());
+        let same = main == own
+            || std::fs::canonicalize(main).ok().zip(std::fs::canonicalize(own).ok()).is_some_and(|(a, b)| a == b);
+        same && versekit_core::game_ini::set_game_languages(&self.languages())
     }
 
     /// The texts of `language`, with English as fallback for keys the
@@ -298,6 +327,7 @@ impl GameData {
     /// Whom each contract credits reputation and the terms of each, in the form of `auftraege` and `angaben` in
     /// `auftragsruf.json` (see [`contract_reputation::from_catalogs`]); `contracts` is the catalog of the contract
     /// generators ([`GameData::contract_catalog`]), `keys` the keys the entries show ([`Catalog::shown_keys`]),
+    /// `offered` where they are offered ([`Catalog::offered`], for the regions, [`contract_reputation::regions`]),
     /// `corrections` the known errors.
     ///
     /// # Errors
@@ -308,6 +338,7 @@ impl GameData {
         &self,
         contracts: &[u8],
         keys: &std::collections::HashMap<String, ShownKeys>,
+        offered: &std::collections::HashMap<String, Offered>,
         corrections: &[corrections::Correction],
     ) -> Result<contract_reputation::Contracts, Error> {
         let catalog = |filter: &str| {
@@ -319,8 +350,13 @@ impl GameData {
         let factions = catalog(contract_reputation::FACTION_RECORDS)?;
         let reputation = catalog(reputation_ranks::REPUTATION_RECORDS)?;
         let build = self.scmdb_build().unwrap_or_default();
-        contract_reputation::from_catalogs(contracts, keys, &factions, &reputation, corrections, &build)
-            .map_err(|source| Error::Reputation { source: Box::new(source) })
+        let failed = |source: serde_json::Error| Error::Reputation { source: Box::new(source) };
+        let mut read =
+            contract_reputation::from_catalogs(contracts, keys, &factions, &reputation, corrections, &build)
+                .map_err(failed)?;
+        let entries: serde_json::Value = serde_json::from_slice(contracts).map_err(failed)?;
+        read.regions = contract_reputation::regions(&entries, keys, offered);
+        Ok(read)
     }
 
     /// The Basetool catalog of p4kx for the records whose path matches `filter` (a p4kx Filter), as JSON.
@@ -578,6 +614,18 @@ fn scmdb_build(branch: &str, channel: &str, change: &str) -> Option<String> {
     (digits && !channel.is_empty()).then(|| format!("{version}-{channel}.{change}"))
 }
 
+/// The language folder (lower case) a `global.ini` of `Data/Localization/<folder>/` belongs to, `None` for any
+/// other entry.
+fn localization_folder(path: &str) -> Option<String> {
+    const HEAD: &str = "data\\localization\\";
+    let head = path.get(..HEAD.len())?;
+    if !same_entry_path(head, HEAD) {
+        return None;
+    }
+    let (folder, file) = path[HEAD.len()..].split_once(['\\', '/'])?;
+    (!folder.is_empty() && file.eq_ignore_ascii_case("global.ini")).then(|| folder.to_lowercase())
+}
+
 /// Compares two entry paths ignoring ASCII case and the kind of separator.
 fn same_entry_path(a: &str, b: &str) -> bool {
     a.len() == b.len()
@@ -590,7 +638,7 @@ fn same_entry_path(a: &str, b: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{channel_of, same_entry_path, scmdb_build};
+    use super::{channel_of, localization_folder, same_entry_path, scmdb_build};
 
     #[test]
     fn the_channel_is_read_from_the_end_of_the_folder_name() {
@@ -650,6 +698,48 @@ mod tests {
         let gone = super::GameData::open_file_after(dir.join("none.p4k"), &|| false, Duration::from_millis(5));
         assert!(gone.is_err() && started.elapsed() < Duration::from_secs(2));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_languages_are_the_folders_of_the_archive_that_hold_a_global_ini() {
+        use p4kx_testkit::{ArchiveBuilder, TestEntry};
+        let dir = std::env::temp_dir().join(format!("versekit-sprachen-p4k-{}", versekit_core::testdir::run_tag()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("Data.p4k");
+        let text = |path: &str| TestEntry::stored(path, b"a_name=Text\n".to_vec());
+        ArchiveBuilder::new()
+            .entry(text("Data\\Localization\\german_(germany)\\global.ini"))
+            .entry(text("Data\\Localization\\chinese_(traditional)\\global.ini"))
+            .entry(text("Data\\Localization\\english\\global.ini"))
+            .entry(text("Data\\Localization\\spanish_(latin_america)\\global.ini"))
+            // Folders with fonts only, a file of the folder above them and another place: no language.
+            .entry(text("Data\\Localization\\german\\HUD_Font_LocFont.swf"))
+            .entry(text("Data\\Localization\\global.set"))
+            .entry(text("Data\\Localization\\english\\UI\\global.ini"))
+            .entry(text("Data\\Other\\french_(france)\\global.ini"))
+            .write_to(&file)
+            .unwrap();
+        let game = super::GameData::open_file_after(&file, &|| true, std::time::Duration::from_millis(5)).unwrap();
+        let languages = game.languages();
+        assert_eq!(languages[0], "english");
+        let mut sorted = languages.clone();
+        sorted.sort();
+        assert_eq!(sorted, ["chinese_(traditional)", "english", "german_(germany)", "spanish_(latin_america)"]);
+        // A copy of an archive is not the archive of the game: the list of the program stays as it is.
+        assert!(!game.learn_languages());
+        drop(game);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_global_ini_names_its_language_folder_in_any_spelling() {
+        assert_eq!(localization_folder("Data\\Localization\\English\\global.ini").as_deref(), Some("english"));
+        let korean = localization_folder("data/localization/korean_(south_korea)/GLOBAL.INI");
+        assert_eq!(korean.as_deref(), Some("korean_(south_korea)"));
+        assert_eq!(localization_folder("Data\\Localization\\german\\HUD_Font_LocFont.swf"), None);
+        assert_eq!(localization_folder("Data\\Localization\\global.ini"), None);
+        assert_eq!(localization_folder("Data\\Localization\\\\global.ini"), None);
+        assert_eq!(localization_folder("Data\\Loc"), None);
     }
 
     #[test]

@@ -20,7 +20,9 @@
 //! | System | Way | State |
 //! |---|---|---|
 //! | Windows | GDI (`BitBlt`) | built |
-//! | Linux | Wayland portal | not built |
+//! | Linux | X11 (`GetImage` on the window of the game, also under XWayland), [`x11`] | built |
+//! | Linux | Wayland portal (a game as a pure Wayland window) | not built |
+//! | macOS | — | not built |
 //!
 //! ⚠ Physical pixels, not the scaled ones of a program without DPI awareness: grabbed in the scaled
 //! computation the picture is compressed and washed out, and with digits nine points wide that is the end of
@@ -64,10 +66,19 @@ pub fn is_game_path(path: &str) -> bool {
     path.replace('/', "\\").rsplit('\\').next().is_some_and(|name| name.eq_ignore_ascii_case(GAME_EXE))
 }
 
-/// Can this system grab at all?
+/// Can this system grab at all? Under Linux where the windows are on X11 (an X server, also XWayland).
 pub fn supported() -> bool {
-    cfg!(windows)
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        x11::in_use()
+    }
+    #[cfg(not(all(unix, not(target_os = "macos"))))]
+    {
+        cfg!(windows)
+    }
 }
+
+mod x11;
 
 /// A rectangle: left, top, width, height in physical screen points.
 pub type Area = (i32, i32, i32, i32);
@@ -86,7 +97,7 @@ mod system {
     };
     use windows_sys::Win32::UI::HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetThreadDpiAwarenessContext};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetForegroundWindow, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible,
+        EnumWindows, GetClassNameW, GetForegroundWindow, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible,
     };
 
     use super::{Area, GrabError, MAX_POINTS, is_game_path};
@@ -164,6 +175,26 @@ mod system {
         // SAFETY: calls without arguments the system owns; a zero handle is "no window".
         let window = unsafe { GetForegroundWindow() };
         program_of(window).map(|path| (window, path))
+    }
+
+    /// The window in front with the file name of its program and its class; `None` where there is none.
+    pub fn foreground_window() -> Option<super::Front> {
+        // SAFETY: calls without arguments the system owns; a zero handle is "no window".
+        let window = unsafe { GetForegroundWindow() };
+        if window.is_null() {
+            return None;
+        }
+        let mut pid = 0u32;
+        // SAFETY: `pid` lives during the call.
+        unsafe { GetWindowThreadProcessId(window, &raw mut pid) };
+        let program = program_of(window)
+            .map(|path| path.replace('/', "\\").rsplit('\\').next().unwrap_or_default().to_string())
+            .unwrap_or_default();
+        let mut buffer = [0u16; 256];
+        // SAFETY: the buffer is as large as the length says and lives during the call.
+        let length = unsafe { GetClassNameW(window, buffer.as_mut_ptr(), buffer.len() as i32) };
+        let class = String::from_utf16_lossy(&buffer[..usize::try_from(length).unwrap_or(0)]);
+        Some(super::Front { program, class, own: pid == std::process::id() })
     }
 
     /// The path of the program a window belongs to.
@@ -247,7 +278,11 @@ pub fn find_game_rect() -> Option<Area> {
     {
         system::find_game_rect()
     }
-    #[cfg(not(windows))]
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        x11::find_game_rect()
+    }
+    #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
     {
         None
     }
@@ -259,7 +294,11 @@ pub fn grab_raw(area: Area) -> Result<Vec<u8>, GrabError> {
     {
         system::grab_raw(area)
     }
-    #[cfg(not(windows))]
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        x11::grab_raw(area)
+    }
+    #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
     {
         let _ = area;
         Err(GrabError::Unsupported)
@@ -273,7 +312,11 @@ pub fn foreground_is_game() -> bool {
     {
         system::foreground_is_game()
     }
-    #[cfg(not(windows))]
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        x11::foreground_is_game()
+    }
+    #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
     {
         false
     }
@@ -285,15 +328,195 @@ pub fn game_rect() -> Option<Area> {
     {
         system::game_rect()
     }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        x11::game_rect()
+    }
+    #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
+    {
+        None
+    }
+}
+
+/// The window in front while it is not the game: the file name of its program, its window class and whether it is
+/// a window of this program (the overlay, the tray).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Front {
+    pub program: String,
+    pub class: String,
+    pub own: bool,
+}
+
+/// The window in front, whatever it is; `None` where there is none (the system hands the front from one window to
+/// the next) or this system cannot ask.
+pub fn foreground_window() -> Option<Front> {
+    #[cfg(windows)]
+    {
+        system::foreground_window()
+    }
     #[cfg(not(windows))]
     {
         None
     }
 }
 
+/// Programs whose windows come and go on their own: the notifications, the start menu, the search, the input panel.
+const PASSING_PROGRAMS: [&str; 4] =
+    ["shellexperiencehost.exe", "searchhost.exe", "startmenuexperiencehost.exe", "textinputhost.exe"];
+
+/// Window classes of the folder windows of the explorer: the player opened them, they do not pass.
+const FOLDER_CLASSES: [&str; 2] = ["cabinetwclass", "explorewclass"];
+
+/// Does the window in front come and go on its own, so that the game is still the one the player plays: no window
+/// at all (the front changes hands), a window of this program (the overlay, the tray, a notification of its own), a
+/// notification, the start menu, the task bar of the shell. A browser, a folder window or the launcher does not: that
+/// is the player leaving the game.
+pub fn is_passing(front: Option<&Front>) -> bool {
+    let Some(front) = front else { return true };
+    let program = front.program.to_ascii_lowercase();
+    front.own
+        || PASSING_PROGRAMS.contains(&program.as_str())
+        || (program == "explorer.exe" && !FOLDER_CLASSES.contains(&front.class.to_ascii_lowercase().as_str()))
+}
+
+/// How long the game still counts as the window in front after the front went to a window that passes ([`is_passing`]).
+/// A notification of Windows or a click on the overlay takes the front for a moment; the signature scan used to stop
+/// at that and showed nothing for as long as the display lingered.
+pub const FRONT_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// After so long without the game in front a line goes to the log, once per pause.
+pub const PAUSE_NOTE_AFTER: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// At most so many lines of that kind per run: a player who plays with a browser beside the game does not flood the log.
+const PAUSE_NOTES_MAX: u32 = 5;
+
+/// Remembers where the game stood while it was in front, to bridge the moments in which a window that passes has the
+/// front, and to say why it paused when it did not come back.
+#[derive(Debug, Default)]
+pub struct FrontKeeper {
+    /// The window of the game as it was seen in front last, and when.
+    last: Option<(Area, std::time::Instant)>,
+    /// Since when something else than the game is in front; `None` while the game is.
+    away_since: Option<std::time::Instant>,
+    /// The line for this pause is written.
+    told: bool,
+    notes: u32,
+}
+
+impl FrontKeeper {
+    /// The area to read now. `front` is the window of the game while it is in front; `passing` says that what is in
+    /// front instead comes and goes ([`is_passing`]); `anywhere` asks for the window of the game wherever it stands
+    /// (called only when it is needed). Within [`FRONT_GRACE`] of the last time the game was in front, a passing window
+    /// does not stop the reading; a window that stays does, at once.
+    pub fn area(
+        &mut self,
+        now: std::time::Instant,
+        front: Option<Area>,
+        passing: bool,
+        anywhere: impl FnOnce() -> Option<Area>,
+    ) -> Option<Area> {
+        if let Some(area) = front {
+            self.last = Some((area, now));
+            self.away_since = None;
+            self.told = false;
+            return Some(area);
+        }
+        self.away_since.get_or_insert(now);
+        match self.last {
+            Some((_, seen)) if passing && now.saturating_duration_since(seen) <= FRONT_GRACE => anywhere(),
+            _ => None,
+        }
+    }
+
+    /// The line for the log when the game has been out of the front for [`PAUSE_NOTE_AFTER`] (`gave` is what
+    /// [`FrontKeeper::area`] gave): once per pause and at most a few per run. `what` says what is in front.
+    pub fn pause_note(
+        &mut self,
+        now: std::time::Instant,
+        gave: Option<Area>,
+        what: impl FnOnce() -> String,
+    ) -> Option<String> {
+        let since = self.away_since?;
+        let long = now.saturating_duration_since(since) >= PAUSE_NOTE_AFTER;
+        if gave.is_some() || !long || self.told || self.notes >= PAUSE_NOTES_MAX || self.last.is_none() {
+            return None;
+        }
+        self.told = true;
+        self.notes += 1;
+        Some(format!(
+            "Signature scan paused: the game has not been in front for {:.1} s, in front is {}",
+            now.saturating_duration_since(since).as_secs_f64(),
+            what()
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{Duration, Instant};
+
+    fn front(program: &str, class: &str, own: bool) -> Front {
+        Front { program: program.into(), class: class.into(), own }
+    }
+
+    #[test]
+    fn windows_that_come_and_go_pass_and_the_ones_the_player_opens_do_not() {
+        assert!(is_passing(None), "no window: the front changes hands");
+        assert!(is_passing(Some(&front("versekit-overlay.exe", "x", true))), "the overlay");
+        assert!(is_passing(Some(&front("ShellExperienceHost.exe", "Windows.UI.Core.CoreWindow", false))), "a notification");
+        assert!(is_passing(Some(&front("explorer.exe", "Shell_TrayWnd", false))), "the task bar");
+        for stays in [("firefox.exe", "MozillaWindowClass"), ("explorer.exe", "CabinetWClass"), ("RSI Launcher.exe", "Chrome_WidgetWin_1")] {
+            assert!(!is_passing(Some(&front(stays.0, stays.1, false))), "{stays:?}");
+        }
+    }
+
+    /// The report of 12.11.2026: the scan paused for "longer than 2 to 3 seconds" though Star Citizen was in front.
+    /// A window that passes (a notification, the overlay) takes the front for a moment; the game is still read then.
+    #[test]
+    fn a_window_that_passes_does_not_stop_the_reading_and_one_that_stays_does() {
+        let game: Area = (0, 0, 1920, 1080);
+        let t0 = Instant::now();
+        let at = |s: f64| t0 + Duration::from_secs_f64(s);
+        let mut keeper = FrontKeeper::default();
+        assert_eq!(keeper.area(at(0.0), None, true, || Some(game)), None, "never seen in front: nothing to bridge");
+        assert_eq!(keeper.area(at(1.0), Some(game), false, || None), Some(game));
+        // A notification takes the front: the window of the game is read where it stands.
+        assert_eq!(keeper.area(at(2.0), None, true, || Some((0, 0, 1920, 1080))), Some(game));
+        assert_eq!(keeper.area(at(5.5), None, true, || Some(game)), Some(game), "still within the grace");
+        // The grace is over: not endless, a window that stays at the front is the player leaving.
+        assert_eq!(keeper.area(at(6.5), None, true, || Some(game)), None);
+        // Back in front: all as before.
+        assert_eq!(keeper.area(at(7.0), Some(game), false, || None), Some(game));
+        // A browser in front stops the reading at once, within the grace as well.
+        assert_eq!(keeper.area(at(7.5), None, false, || Some(game)), None);
+        // Counter-check: the game closed meanwhile (no window anywhere): nothing is read.
+        assert_eq!(keeper.area(at(8.0), Some(game), false, || None), Some(game));
+        assert_eq!(keeper.area(at(8.5), None, true, || None), None);
+    }
+
+    #[test]
+    fn a_long_pause_tells_why_once_and_a_short_one_says_nothing() {
+        let game: Area = (0, 0, 1920, 1080);
+        let t0 = Instant::now();
+        let at = |s: f64| t0 + Duration::from_secs_f64(s);
+        let mut keeper = FrontKeeper::default();
+        let note = |keeper: &mut FrontKeeper, s: f64, front: Option<Area>, passing: bool| {
+            let gave = keeper.area(at(s), front, passing, || None);
+            keeper.pause_note(at(s), gave, || "firefox.exe (MozillaWindowClass)".to_string())
+        };
+        assert_eq!(note(&mut keeper, 0.0, None, false), None, "the game was never in front: no pause");
+        assert_eq!(note(&mut keeper, 1.0, Some(game), false), None);
+        assert_eq!(note(&mut keeper, 2.0, None, false), None, "just away");
+        assert_eq!(note(&mut keeper, 3.5, None, false), None, "short of three seconds");
+        let line = note(&mut keeper, 5.2, None, false).expect("a pause of more than three seconds");
+        assert!(line.contains("firefox.exe (MozillaWindowClass)") && line.contains("3.2 s"), "{line}");
+        assert_eq!(note(&mut keeper, 6.0, None, false), None, "once per pause");
+        // The next pause is told again.
+        assert_eq!(note(&mut keeper, 7.0, Some(game), false), None);
+        assert_eq!(note(&mut keeper, 8.0, None, false), None);
+        assert!(note(&mut keeper, 11.5, None, false).is_some());
+    }
 
     #[test]
     fn the_game_is_known_by_the_file_name_of_its_program_in_any_spelling() {

@@ -58,7 +58,12 @@ pub const LAST_SETTING: &str = "letzte_sicherung";
 ///
 /// ⚠ In doubt something does NOT belong here. A backup too large costs seconds, one too small costs the
 /// inventory.
-pub const RELOADABLE: [&str; 17] = [
+pub const RELOADABLE: [&str; 19] = [
+    // v5: the two caches built from the `Data.p4k` (the catalog of the blueprint list and the values of the crafting
+    // page). They are rebuilt from the game at the next start, are megabytes large and belong to the game folder of
+    // the old computer, so they do not go into a backup, and an older backup that holds them does not bring them back.
+    "Intern/katalog-spieldaten.json",
+    "Intern/werte-spieldaten.json",
     // v5: what the overlay tells the main window about anti-AFK. A state of the running program, never a
     // setting: a backup that took it along would bring a "on" back to a program that has it off.
     "Intern/anti-afk.json",
@@ -86,7 +91,9 @@ pub const RELOADABLE: [&str; 17] = [
 
 /// Whole folders that stay outside: the export is written anew at every find, the diagnosis holds the
 /// error logs of the old computer.
-pub const RELOADABLE_FOLDERS: [&str; 2] = ["export", "Diagnose"];
+/// The data folders of the side channels ([`crate::paths::CHANNEL_DATA_FOLDER`]) hold what is built from their
+/// archives, like the caches above.
+pub const RELOADABLE_FOLDERS: [&str; 3] = ["export", "Diagnose", crate::paths::CHANNEL_DATA_FOLDER];
 
 /// File endings a backup never writes into the data folder: it holds data only. A program file in it would
 /// be startable by a path that is read in (game folder, start program).
@@ -205,8 +212,19 @@ pub fn include(rel: &str) -> bool {
         return false;
     }
     // The backup itself not into the backup, if somebody puts it in the data folder; nor the files that are
-    // only there while something is written (they may be gone when they are read).
-    !(path.ends_with(".zip") || path.ends_with(".tmp") || path.ends_with(".teil"))
+    // only there while something is written (they may be gone when they are read). ⚠ Nor a lock file
+    // (`Intern/katalog-neubau.lock` of the build of the catalog): it holds nothing, and while a build runs its
+    // bytes are locked, so reading it fails (os error 33, Karasimsek 5.2.10 → 5.3.0).
+    !(path.ends_with(".zip") || path.ends_with(".tmp") || path.ends_with(".teil") || path.ends_with(LOCK_SUFFIX))
+}
+
+/// The ending of a lock file: a file that only carries a lock of the system, never data.
+const LOCK_SUFFIX: &str = ".lock";
+
+/// Does another process (or another handle) hold this file so that it cannot be read now? Under Windows a lock on
+/// its bytes (`ERROR_LOCK_VIOLATION`, 33) or a sharing mode that shuts readers out (`ERROR_SHARING_VIOLATION`, 32).
+fn held_by_another(error: &std::io::Error) -> bool {
+    cfg!(windows) && matches!(error.raw_os_error(), Some(32 | 33))
 }
 
 /// The names of [`RELOADABLE`] without their folder, in lower case.
@@ -396,16 +414,26 @@ pub(crate) fn write_marked(
     let result = (|| -> Result<usize, String> {
         let mut archive = zip::Builder::new(jsonio::local_time());
         let mut count = 0;
+        let mut held = Vec::new();
         for (full, name) in &files {
             let content = match fs::read(full) {
                 Ok(content) => content,
                 // A file that was there when the folder was listed and is gone now (a trace of the running
                 // program): nothing to keep.
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                // ⚠ Held by another process right now: the backup goes on without it and says so, instead of
+                // there being no backup at all (none of the program's own data files is held like this).
+                Err(error) if held_by_another(&error) => {
+                    held.push(format!("{name} ({error})"));
+                    continue;
+                }
                 Err(error) => return Err(error.to_string()),
             };
             archive.add(name, &content).map_err(|e| e.to_string())?;
             count += 1;
+        }
+        if !held.is_empty() {
+            errors::note("backup.write", &format!("held by another process, left out: {}", held.join(", ")));
         }
         archive.add(INFO_FILE, info_text(marker, version, count).as_bytes()).map_err(|e| e.to_string())?;
         let bytes = archive.finish().map_err(|e| e.to_string())?;
@@ -1491,6 +1519,70 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    /// The two caches of v5 that are rebuilt from the `Data.p4k` (the catalog and the values of the crafting
+    /// page) are no data of one's own: a backup does not carry them (megabytes, and wrong on another computer
+    /// with another game folder), and an older backup that holds them does not bring them back over a fresh one.
+    #[test]
+    fn the_caches_built_from_the_game_data_do_not_go_into_a_backup_and_are_not_restored() {
+        let (paths, dir) = paths_in("spieldaten-caches");
+        put(&paths, "Bauplaene/bestand.json", "{\"a\": 1}");
+        put(&paths, "Intern/katalog-spieldaten.json", "{\"katalog\": 1}");
+        put(&paths, "Intern/werte-spieldaten.json", "{\"werte\": 1}");
+        assert_eq!(tree(&paths), ["Bauplaene/bestand.json"], "neither cache comes along");
+        for cache in ["Intern/katalog-spieldaten.json", "intern\\Werte-Spieldaten.json"] {
+            assert!(!include(cache), "{cache}");
+        }
+        // A backup of 5.3.x that still holds both: they are skipped, the fresh ones in the folder stay as they are.
+        let info = format!("{MARKER}\r\n\r\nErstellt am 01.01.2026 09:00 mit Verse-Kit 5.\r\n");
+        let source = dir.join("alt.zip");
+        fs::write(
+            &source,
+            zip::tests::build(&[
+                ("Bauplaene/bestand.json", b"{\"a\": 2}", true),
+                ("Intern/katalog-spieldaten.json", b"{\"katalog\": 0}", true),
+                ("Intern/werte-spieldaten.json", b"{\"werte\": 0}", true),
+                (INFO_FILE, info.as_bytes(), true),
+            ]),
+        )
+        .unwrap();
+        // `count` is what the archive holds; what is written shows in the files.
+        let restored = restore(&paths, &source.to_string_lossy(), &[]).unwrap();
+        assert_eq!(restored.count, 3);
+        let read = |rel: &str| fs::read_to_string(Path::new(&paths.app_folder()).join(rel)).unwrap();
+        assert_eq!(read("Bauplaene/bestand.json"), "{\"a\": 2}");
+        assert_eq!(read("Intern/katalog-spieldaten.json"), "{\"katalog\": 1}");
+        assert_eq!(read("Intern/werte-spieldaten.json"), "{\"werte\": 1}");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// The data a side channel keeps in its own folder are built from its archive like the caches of the main
+    /// installation: not into a backup, and not back out of an older one.
+    #[test]
+    fn the_data_folders_of_the_side_channels_are_no_data_of_ones_own() {
+        let (paths, dir) = paths_in("kanaele");
+        put(&paths, "Bauplaene/bestand.json", "{\"a\": 1}");
+        put(&paths, "Kanaele/PTU/katalog-spieldaten.json", "{\"katalog\": 1}");
+        put(&paths, "Kanaele/PTU/einstellungen.json", "{}");
+        assert_eq!(tree(&paths), ["Bauplaene/bestand.json"], "nothing of the channels comes along");
+        assert!(!include("kanaele/EPTU/auftragsruf.json"));
+        let info = format!("{MARKER}\r\n\r\nErstellt am 01.01.2026 09:00 mit Verse-Kit 5.\r\n");
+        let source = dir.join("alt.zip");
+        fs::write(
+            &source,
+            zip::tests::build(&[
+                ("Bauplaene/bestand.json", b"{\"a\": 2}", true),
+                ("Kanaele/PTU/katalog-spieldaten.json", b"{\"katalog\": 0}", true),
+                (INFO_FILE, info.as_bytes(), true),
+            ]),
+        )
+        .unwrap();
+        restore(&paths, &source.to_string_lossy(), &[]).unwrap();
+        let read = |rel: &str| fs::read_to_string(Path::new(&paths.app_folder()).join(rel)).unwrap();
+        assert_eq!(read("Bauplaene/bestand.json"), "{\"a\": 2}");
+        assert_eq!(read("Kanaele/PTU/katalog-spieldaten.json"), "{\"katalog\": 1}", "the fresh one stays");
+        let _ = fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn traces_of_the_running_program_do_not_go_into_a_backup() {
         let (paths, dir) = paths_in("spuren");
@@ -1498,6 +1590,59 @@ mod tests {
         put(&paths, "Bestand/x.json.123-1.tmp", "halb");
         put(&paths, "Bestand/y.json.teil", "halb");
         assert_eq!(tree(&paths), ["Bestand/x.json"]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// The names in the backup `target`, without the attachment.
+    fn names_in(target: &str) -> Vec<String> {
+        let data = fs::read(target).unwrap();
+        zip::entries(&data).unwrap().into_iter().map(|e| e.name).filter(|n| n != INFO_FILE).collect()
+    }
+
+    /// Karasimsek, 5.2.10 → 5.3.0: the backup before the update broke off with os error 33 while a build of the
+    /// catalog held `Intern/katalog-neubau.lock` (a lock on its bytes, `LockFileEx`). A lock file is no data: it
+    /// does not come along, and the backup is written.
+    #[test]
+    fn a_lock_file_held_by_a_build_of_the_catalog_does_not_stop_the_backup_before_an_update() {
+        let (paths, dir) = paths_in("sperrdatei");
+        put(&paths, "Bauplaene/bestand.json", "{\"a\": 1}");
+        // Beside the catalog of v5, as `versekit_gamedata::list::BUILD_LOCK_FILE` lies.
+        let catalog = paths.app_file("katalog-spieldaten.json");
+        let lock_file = Path::new(&catalog).parent().unwrap().join("katalog-neubau.lock");
+        let holder = jsonio::ProcessLock::open(&lock_file.to_string_lossy()).unwrap();
+        assert!(matches!(holder.acquire(std::time::Duration::ZERO), jsonio::Taken::Held));
+        let (written, caught) = errors::captured(|| write_before_update(&paths, "5.2.10"));
+        let target = written.expect("the backup is written although the lock is held");
+        assert!(caught.iter().all(|c| c.note), "no error: {caught:?}");
+        assert_eq!(names_in(&target), ["Bauplaene/bestand.json"], "the lock file does not come along");
+        assert!(!include("Intern/katalog-neubau.lock") && !include("x/Irgendwas.LOCK"), "no lock file ever");
+        holder.release();
+        drop(holder);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// A file of one's own that another process holds a lock on (none of the program does so): the backup is
+    /// written without it, and a note names it, instead of no backup at all.
+    #[cfg(windows)]
+    #[test]
+    fn a_data_file_another_process_locks_is_left_out_with_a_note_and_the_rest_is_written() {
+        let (paths, dir) = paths_in("gesperrt");
+        put(&paths, "Bauplaene/bestand.json", "{\"a\": 1}");
+        put(&paths, "Lager/lager.json", "{}");
+        let locked = Path::new(&paths.app_folder()).join("Lager").join("lager.json");
+        let holder = fs::OpenOptions::new().read(true).write(true).open(&locked).unwrap();
+        holder.try_lock().unwrap();
+        let (written, caught) =
+            errors::captured(|| write_marked(&paths, &dir.join("s.zip").to_string_lossy(), "5", &[], MARKER));
+        assert_eq!(written, Ok(1), "the rest is written");
+        assert_eq!(names_in(&dir.join("s.zip").to_string_lossy()), ["Bauplaene/bestand.json"]);
+        assert!(caught.iter().all(|c| c.note), "no error: {caught:?}");
+        assert!(
+            caught.iter().any(|c| c.label == "backup.write" && c.text.contains("Lager/lager.json")),
+            "a note names the file: {caught:?}"
+        );
+        holder.unlock().unwrap();
+        drop(holder);
         let _ = fs::remove_dir_all(dir);
     }
 

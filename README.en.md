@@ -37,7 +37,7 @@ VerseKit sits on top of Star Citizen as a narrow overlay and reports every new b
 - **Where to get what you miss:** For every blueprint that comes from a contract: the faction, contract, rank and reward, easiest route first.
 - **Details in the game:** The contract texts show which blueprints a contract pays out and which you already have. Every craftable item in the terminal says whether you own the blueprint, where it comes from and what crafting takes. Weapons and components show their stats, so you can compare before you buy.
 - **Crafting and inventory:** Ingredients, crafting time and what your material does to the stats, and under “For ship” only parts that fit one of your ships. Plus your inventory, what you still lack, shop purchases and sales as a suggestion from the log, fabricator jobs with time left and moving home after a patch.
-- **Mining and refining:** Locations for every resource, the best refinery and the right refining method. On Windows the scanner reads the signature while you scan, and Alt+Shift+R reads the refinery terminal, in the German game and for long lists too.
+- **Mining and refining:** Locations for every resource, the best refinery and the right refining method. On Windows and Linux (X11) the scanner reads the signature while you scan, and on Windows Alt+Shift+R reads the refinery terminal, in the German game and for long lists too.
 - **Trade:** Shops, the best buyers and trade routes with real profit.
 - **Your hangar:** Pull your ships from the pledge store, fit every slot on its own (from the game data of your installation) and share the loadout as a code or a file.
 - **Handle search:** Who is behind a handle or an org? Name, organisations and rank, plus marking friend, foe or watched, right from the info bar over the game.
@@ -75,6 +75,12 @@ Everything else folds open below. Technical matters like files, settings and env
 <sub>The blueprint list: search, five filters, and where each blueprint comes from</sub>
 </td>
 </tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-overlay-schutzzone-en.png" alt="The overlay shows a yellow “Armistice zone left, weapons free” notice and, on entering, “Armistice zone entered, combat prohibited”" width="68%"><br>
+<sub><b>Armistice zone</b>: when you leave one, the overlay says “weapons free”, even if it is folded. When you enter one, it says “combat prohibited”</sub>
+</td>
+</tr>
 </table>
 
 </details>
@@ -95,6 +101,12 @@ VerseKit writes into the game's mission text **which** blueprints a contract han
 <sub><b>0 of 12</b>: nothing here that you already own</sub>
 </td>
 </tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/spiel-werte.png" alt="Terminal in Star Citizen: the ship weapon Ardor-3 Salvaged Repeater with the VerseKit block “Stock stats” below the description (the game picture is in German)" width="40%"><br>
+<sub><b>Stock stats</b>: weapons and components show their stats below the description, here a ship weapon at the terminal, so you can compare before you buy. The game picture is in German</sub>
+</td>
+</tr>
 </table>
 
 </details>
@@ -113,6 +125,12 @@ A new blueprint raises the question: **does this part fit any of my ships?** For
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-hangar-en.png" alt="My hangar with four ships added" width="100%"><br>
 <sub><b>My hangar</b>: pulled from the pledge store or added by hand</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-hangarwerte-en.png" alt="My hangar: a small window over the ship name Cutlass Black shows speed, size, cargo and buy price" width="100%"><br>
+<sub><b>Ship values on hover</b>: move the mouse over a ship's name and a small window shows SCM speed, size, cargo and the cheapest in-game price</sub>
 </td>
 </tr>
 <tr>
@@ -199,6 +217,12 @@ Buying and selling: **where is a part or ship on the shelf, where do I offload m
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-routen-en.png" alt="Trade routes" width="100%"><br>
 <sub><b>Routes</b>: the best runs from where you are</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-kartellbank-en.png" alt="Cartel Bank: two accounts with balance and curve of the last 30 days, sample data" width="100%"><br>
+<sub><b>Cartel Bank</b>: your accounts from the Basetool with balance and history, plus requests for deposits, withdrawals and transfers. The picture shows sample data</sub>
 </td>
 </tr>
 </table>
@@ -400,7 +424,7 @@ What makes the difference day to day:
 | <img src="assets/symbole/22/blickwinkel-gruen.png" width="22" alt=""> **Field of view** | **Are you sitting right in front of your screen?** Measure your screen width with a bank card, enter your seating distance, and you get the field of view your setup delivers, with a rating |
 | <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Shops** | **Where a finished part sits on the shelf, and what it costs there.** Parts of every item group, also missiles, bombs, ammunition and weapon attachments, drinks, food, medicine, clothing, liveries and decorations, plus ships to buy or rent. The **Location** field shows only what is sold there, say in Levski. Pick a place and you see its shops, and a click shows a shop's whole offer with prices. A shop like CenterMass you also find by its name in the field “Location or shop”. Click a part and you get every shop with price, location and system, cheapest first, used stock with its condition. **Put any part into the shopping basket with an amount**: the shopping list adds up the costs, shows every place to buy, plans the route with the fewest stops and lets you tick off stops. You save a set as a template. Every row shows **class, size, grade and manufacturer**, and you filter by them |
 | <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routes** | **Trade routes with real profit instead of a price list.** Tell it where you are, how much cargo space and money you have, and you get the run with buy price, sell price and profit. Optionally across several stops, sorted by profit or shortest hop, also as a round trip. One button searches the best route **anywhere in the verse**. Pick your ship and the cargo capacity fills itself in |
-| <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Controls** | **What is bound to which key, and rebind without switching to the game.** The bindings in plain language (“Eject” instead of `v_eject`) for joystick, keyboard, mouse and gamepad in one searchable list: *changed by me*, *everything* or *default*. To **rebind**, click a row and press the button you mean. If the input is already taken you see it beforehand. Plus which stick has which number and whether your bindings still point at a connected device. Works for **any** device |
+| <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Controls** | **What is bound to which key, and rebind without switching to the game.** The bindings in plain language (“Eject” instead of `v_eject`) for joystick, keyboard, mouse and gamepad in one searchable list: *changed by me*, *everything* or *default*. To **rebind**, click a row and press the button you mean. If the input is already taken you see it beforehand. Plus which stick has which number and whether your bindings still point at a connected device. **If the game swaps your sticks**, VerseKit says so at start and moves the bindings back with one click, with preview, backup and undo. Works for **any** device |
 | <img src="assets/symbole/22/einrichtung-gruen.png" width="22" alt=""> **Setup wizard** | Walks you through everything important on first start and is **repeatable any time** |
 | <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **Backup** | Everything only you have, in **one file**: blueprint inventory, both stocks, mission log, watchlist, settings and controls. The same button restores it. On restoring, VerseKit asks separately whether profiles and the active mapping are replaced. Nothing happens while the game is running, and a copy is always made first. The downloaded reference data stays out. **On the first start of VerseKit 5** it backs up your 4.12 data into the “Sicherungen” folder before it changes anything |
 | <img src="assets/symbole/22/anzeige-gruen.png" width="22" alt=""> **Graphics** | Renderer, window mode, VSync, upscaling with technique and model, motion blur, film grain, sharpening and chromatic aberration, without starting the game. Plus the performance index and its rating from Low to Ultra, with the date of the last rating. It only writes while the game is closed, and backs up the file first |

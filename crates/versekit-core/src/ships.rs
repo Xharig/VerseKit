@@ -239,6 +239,16 @@ fn is_abbrev(short: &str, long: &str) -> bool {
     at == short.len()
 }
 
+/// A word of one or two letters behind the maker in a code: the mark of a variant (`ES`, `CL`, `MR`, `LX`, `M`).
+fn is_variant_mark(word: &str) -> bool {
+    word.len() <= 2 && word.bytes().all(|b| b.is_ascii_lowercase())
+}
+
+/// Is the word at `at` the end of a word the name has written together (`f7c` and `m` of `F7C-M`)?
+fn splits_a_word(own: &[String], at: usize, wanted: &HashSet<String>) -> bool {
+    at > 0 && wanted.contains(&format!("{}{}", own[at - 1], own[at]))
+}
+
 /// `erkul._matches_wordwise`: does `wanted` cover every word of this erkul
 /// code? The score, `0` when not.
 fn matches_wordwise(own: &[String], wanted: &HashSet<String>, chain: &str) -> i64 {
@@ -257,6 +267,10 @@ fn matches_wordwise(own: &[String], wanted: &HashSet<String>, chain: &str) -> i6
         if wanted.contains(word) {
             score += 3;
             named |= at > 0;
+        } else if at > 0 && is_variant_mark(word) && !splits_a_word(own, at, wanted) {
+            // The mark of a variant of the family (`es`, `cl`, `mr` of `rsi_zeus_es`): another variant is another
+            // ship, whatever letters the maker's name and the words of the ship happen to have.
+            return 0;
         } else if wanted.iter().any(|g| g.starts_with(word.as_str())) {
             score += 2;
         } else if wanted.iter().any(|g| is_abbrev(word, g)) || (!chain.is_empty() && chain.contains(word.as_str())) {
@@ -606,6 +620,60 @@ mod tests {
         assert_eq!(e.slot_count(aegis("Idris-M")), Some(1));
         assert_eq!(e.slot_count(aegis("Idris M")), Some(1));
         assert_eq!(e.slot_count(aegis("Idris P")), Some(2));
+    }
+
+    /// The Zeus Mk II comes in three variants. `es` is in `industries`: the letters of the maker's name must not
+    /// make `RSI_Zeus_ES` the ship of a `Zeus Mk II MR`.
+    #[test]
+    fn a_variant_of_a_family_is_the_ship_asked_for_and_no_other() {
+        let rsi = |name| ShipId { name, maker: "Roberts Space Industries", short: "", maker_short: "RSI" };
+        let both = erkul(&[("a", "RSI_Zeus_ES", 1), ("b", "RSI_Zeus_CL", 2)]);
+        assert_eq!(both.slot_count(rsi("Zeus Mk II ES")), Some(1));
+        assert_eq!(both.slot_count(rsi("Zeus Mk II CL")), Some(2));
+        // The variant erkul does not list is not found; it does not take one of the others.
+        assert_eq!(both.slot_count(rsi("Zeus Mk II MR")), None);
+        let all = erkul(&[("a", "RSI_Zeus_ES", 1), ("b", "RSI_Zeus_CL", 2), ("c", "RSI_Zeus_MR", 3)]);
+        assert_eq!(all.slot_count(rsi("Zeus Mk II MR")), Some(3));
+        assert_eq!(all.slot_count(rsi("Zeus Mk II ES")), Some(1));
+        // The same by the codes of erkul's index, as the fetch asks.
+        let codes: Vec<String> = ["RSI_Zeus_ES", "RSI_Zeus_CL"].iter().map(|c| c.to_string()).collect();
+        let code = |name| erkul_code_wordwise(&codes, name, "Roberts Space Industries", "RSI");
+        assert_eq!(code("Zeus Mk II CL").as_deref(), Some("RSI_Zeus_CL"));
+        assert_eq!(code("Zeus Mk II MR"), None);
+        // A mark that the name has written together with the word before it still counts.
+        let hornet = erkul(&[("a", "ANVL_Hornet_F7C_R", 4), ("b", "ANVL_Hornet_F7C_M", 5)]);
+        let anvil = |name| ShipId { name, maker: "Anvil Aerospace", short: "", maker_short: "ANVL" };
+        assert_eq!(hornet.slot_count(anvil("F7C-R Hornet Mk I")), Some(4));
+        assert_eq!(hornet.slot_count(anvil("F7C-M Hornet Mk I")), Some(5));
+    }
+
+    /// The codes of erkul's index on 13.11.2026 (LIVE 4.10.3), as the fetch reads them: the hangar names of the
+    /// Constellation family find their code, `Mk IV` is no word of any of them.
+    #[test]
+    fn the_constellations_find_their_codes_in_the_index_of_erkul() {
+        let codes: Vec<String> = [
+            "rsi_constellation_andromeda_gs",
+            "rsi_constellation_aquila_gs",
+            "rsi_constellation_mk5_centaurus",
+            "rsi_constellation_phoenix_gs",
+            "rsi_constellation_taurus_gs",
+            "aegs_idris_m",
+            "aegs_idris_p",
+            "rsi_zeus_cl",
+            "rsi_zeus_es",
+        ]
+        .iter()
+        .map(|c| c.to_string())
+        .collect();
+        let code = |name| erkul_code_wordwise(&codes, name, "Roberts Space Industries", "RSI");
+        let andromeda = Some("rsi_constellation_andromeda_gs");
+        assert_eq!(code("Constellation Mk IV Andromeda").as_deref(), andromeda);
+        assert_eq!(code("Constellation Andromeda").as_deref(), andromeda);
+        assert_eq!(code("Constellation Mk IV Aquila").as_deref(), Some("rsi_constellation_aquila_gs"));
+        assert_eq!(code("Constellation Mk IV Phoenix").as_deref(), Some("rsi_constellation_phoenix_gs"));
+        assert_eq!(code("Constellation Mk V Centaurus").as_deref(), Some("rsi_constellation_mk5_centaurus"));
+        // Counter-check: a name that is none of them takes none.
+        assert_eq!(code("Constellation Mk IV Zenith"), None);
     }
 
     #[test]

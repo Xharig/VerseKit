@@ -266,7 +266,7 @@ fn strip_bom(bytes: &[u8]) -> &[u8] {
 }
 
 /// `@Schluessel_Name` → `Schluessel_Name`; otherwise None.
-fn unresolved_key(name: &str) -> Option<&str> {
+pub(crate) fn unresolved_key(name: &str) -> Option<&str> {
     let key = name.strip_prefix('@')?;
     (!key.is_empty() && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')).then_some(key)
 }

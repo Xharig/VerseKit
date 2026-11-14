@@ -27,6 +27,8 @@
 //! | KRT Profit Basetool | `blueprints[].productName` (+ `receivedAt`) |
 //! | Basetool envelope (SC Extractor and others) | `format: "basetool.blueprints"`, `formatVersion` 1.x, `items[].ref` |
 //! | Blueprint DB (Star Citizen Deutsch) | `blueprints[].key` with `isDone` or `isMarked`, only `isDone: true` |
+//! | Lexicore, backup | `lexicoreBackup: 1`, list `owned.<channel>` (+ `history.<channel>` for the times) |
+//! | Lexicore, raw file `owned/LIVE.json` | a list of `{key, name}` objects or texts |
 //!
 //! A list of `blueprints[].key` alone (without `isDone` or `isMarked`) is
 //! not read.
@@ -38,9 +40,9 @@
 //! This module decides nothing alone: [`preview`] says what would happen;
 //! only [`merge`] writes.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
-use crate::collection::Collection;
+use crate::collection::{Collection, loose_key};
 use crate::formats;
 use crate::jsonio::{self, Map, Value};
 use crate::paths::name_key;
@@ -63,6 +65,8 @@ pub enum Kind {
     /// The Basetool: the older output and the envelope read to the player under one name.
     Basetool,
     BlueprintDb,
+    /// Lexicore: its backup file and the raw list of what is owned.
+    Lexicore,
 }
 
 impl Kind {
@@ -74,6 +78,7 @@ impl Kind {
             Kind::ScmdbNew => "scmdb2",
             Kind::Basetool => "basetool",
             Kind::BlueprintDb => "bpdb",
+            Kind::Lexicore => "lexicore",
         }
     }
 }
@@ -125,10 +130,29 @@ fn is_envelope(data: &Value) -> bool {
     major == Some("1") && list(data, "items").is_some()
 }
 
+/// The mark of a backup file of Lexicore.
+const LEXICORE_MARK: &str = "lexicoreBackup";
+
+/// The raw file of Lexicore (`owned/LIVE.json`): a list, each entry an object with a `key` or a `name`, or a text.
+fn is_lexicore_list(items: &[Value]) -> bool {
+    !items.is_empty()
+        && items.iter().all(|e| match e {
+            Value::Str(_) => true,
+            Value::Object(_) => has(e, "key") || has(e, "name"),
+            _ => false,
+        })
+}
+
 /// Which format the loaded file is; `None` for an unknown one.
 pub fn detect(data: &Value) -> Option<Kind> {
+    if let Value::Array(items) = data {
+        return is_lexicore_list(items).then_some(Kind::Lexicore);
+    }
     if !matches!(data, Value::Object(_)) {
         return None;
+    }
+    if matches!(data.get(LEXICORE_MARK), Some(Value::Int(n)) if n == "1") {
+        return Some(Kind::Lexicore);
     }
     if is_envelope(data) {
         return Some(Kind::Basetool);
@@ -269,6 +293,85 @@ fn envelope_entries(items: &[Value], resolve_key: &dyn Fn(&str) -> String) -> Ve
     out
 }
 
+/// A name as Lexicore compares them: lower case, quotes taken out, white space made one blank.
+fn lexicore_plain(name: &str) -> String {
+    let kept: String = name.to_lowercase().chars().filter(|c| !"\"'`„“”‘’‚‛«»‹›".contains(*c)).collect();
+    kept.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Did `resolve_key` only make the key readable (`item name x y`, or the key itself) and not find its text?
+fn lexicore_unresolved(resolved: &str, key: &str) -> bool {
+    let spelled = |text: &str| text.to_lowercase().replace(' ', "_");
+    let key = key.to_lowercase();
+    let bare = ["_name", "_title"].iter().find_map(|tail| key.strip_suffix(tail)).unwrap_or(&key);
+    resolved.starts_with('@') || spelled(resolved) == key || spelled(resolved) == bare
+}
+
+/// What Lexicore keeps of what is owned: the list of one channel and the times of its history.
+///
+/// A backup holds a channel per game channel: `LIVE`, else the first that has entries. Each entry is an object
+/// with a `key` (the key of the text in the `global.ini` without the `@`, lower case) and a `name` (English, lower
+/// case, without quotes), or a text: the name, or `@key` (also with the wide `＠`). The name is made from the key
+/// first, the way a find in the log is (`resolve_key`), and from the `name` where the key is missing or not
+/// translated anywhere. The time comes from the history of the channel (`{name, ts}`), found by the name without
+/// quotes and in lower case.
+fn lexicore_entries(data: &Value, resolve_key: &dyn Fn(&str) -> String) -> Vec<Entry> {
+    let (items, history): (&[Value], &[Value]) = match data {
+        Value::Array(items) => (items, &[]),
+        _ => {
+            let owned = data.get("owned").and_then(Value::as_object).map(Vec::as_slice).unwrap_or_default();
+            let channel = owned
+                .iter()
+                .find(|(k, v)| k == "LIVE" && matches!(v, Value::Array(a) if !a.is_empty()))
+                .or_else(|| owned.iter().find(|(_, v)| matches!(v, Value::Array(a) if !a.is_empty())));
+            let Some((name, Value::Array(items))) = channel else { return Vec::new() };
+            let history = data.get("history").and_then(|h| list(h, name)).map(Vec::as_slice).unwrap_or_default();
+            (items, history)
+        }
+    };
+    let mut times: Vec<(String, Option<String>)> = Vec::new();
+    for e in history {
+        if let Some(name) = text(e, "name").map(lexicore_plain).filter(|n| !n.is_empty())
+            && !times.iter().any(|(n, _)| *n == name)
+        {
+            times.push((name, time_from(e.get("ts"))));
+        }
+    }
+    let mut out = Vec::new();
+    for item in items {
+        let (key, own_name) = match item {
+            Value::Str(s) => {
+                let (s, bare) = (py_strip(s), py_strip(s).trim_start_matches(['@', '\u{ff20}']));
+                if bare.len() != s.len() { (bare.to_string(), String::new()) } else { (String::new(), s.to_string()) }
+            }
+            _ => {
+                let key = text(item, "key").map(|k| py_strip(k).trim_start_matches(['@', '\u{ff20}']).to_string());
+                (key.unwrap_or_default(), text(item, "name").map(|n| py_strip(n).to_string()).unwrap_or_default())
+            }
+        };
+        let mut name = own_name.clone();
+        if !key.is_empty() {
+            let resolved = resolve_key(&format!("@{key}"));
+            if !lexicore_unresolved(&resolved, &key) {
+                name = resolved;
+            } else if name.is_empty() {
+                // A key nowhere translated, and no name: as the envelope of the Basetool does, the key stays.
+                name = key.clone();
+            }
+        }
+        if name.is_empty() {
+            continue;
+        }
+        let when = [&own_name, &name]
+            .iter()
+            .map(|n| lexicore_plain(n))
+            .find_map(|n| times.iter().find(|(known, _)| *known == n).map(|(_, t)| t.clone()))
+            .flatten();
+        out.push(Entry { name, time: when });
+    }
+    out
+}
+
 /// Reads a file: the format and its blueprints. An unreadable or unknown file gives `None` (the page
 /// says so; no exception in the middle of a flow).
 pub fn read(path: &str, resolve_key: &dyn Fn(&str) -> String) -> (Option<Kind>, Vec<Entry>) {
@@ -323,6 +426,7 @@ pub fn read_value(data: &Value, resolve_key: &dyn Fn(&str) -> String) -> (Option
                 }
             }
         }
+        Some(Kind::Lexicore) => entries = lexicore_entries(data, resolve_key),
         None => {}
     }
     (kind, entries)
@@ -346,9 +450,16 @@ pub fn preview(entries: &[Entry], data: &Map, catalog_names: &[String]) -> Previ
     };
     let known: BTreeSet<String> = catalog_names.iter().map(|n| name_key(n)).collect();
     let known_short: BTreeSet<String> = catalog_names.iter().map(|n| name_key(&strip_suffix(n))).collect();
+    // A name in lower case only and without quotes (Lexicore writes them so) is taken as the catalog spells it.
+    let spelled: HashMap<String, &String> = catalog_names.iter().map(|n| (loose_key(n), n)).collect();
+    let shown = |name: &str| -> String {
+        let catalog = (name == name.to_lowercase()).then(|| spelled.get(&loose_key(name))).flatten();
+        catalog.map_or_else(|| name.to_string(), |n| (*n).clone())
+    };
     let mut out = Preview::default();
     let mut seen = BTreeSet::new();
     for entry in entries {
+        let entry = &Entry { name: shown(&entry.name), time: entry.time.clone() };
         let key = name_key(&entry.name);
         if key.is_empty() || !seen.insert(key.clone()) {
             continue;
@@ -374,7 +485,17 @@ pub fn preview(entries: &[Entry], data: &Map, catalog_names: &[String]) -> Previ
 /// Takes the entries into the stand; the number of new ones. What is there stays untouched; a time from
 /// the file is taken over: it is more exact than "just read in".
 pub fn merge(collection: &Collection<'_>, entries: &[Entry], data: &mut Map, save: bool) -> usize {
-    let added = entries.iter().filter(|e| collection.add(data, &e.name, SOURCE, e.time.as_deref())).count();
+    // A name in lower case only and without quotes (Lexicore writes them so) is stored as the catalog spells it.
+    let known = collection.catalog.known().ok();
+    let shown = |name: &str| -> String {
+        let spelled = known
+            .as_ref()
+            .filter(|_| name == name.to_lowercase())
+            .and_then(|k| k.get(&name_key(name)).or_else(|| k.get_loose(&loose_key(name))));
+        spelled.flatten().map_or_else(|| name.to_string(), str::to_string)
+    };
+    let added =
+        entries.iter().filter(|e| collection.add(data, &shown(&e.name), SOURCE, e.time.as_deref())).count();
     if save && added > 0 {
         collection.save(data);
     }
@@ -572,6 +693,151 @@ mod tests {
         // Nothing new: nothing written.
         let mut again = collection.load();
         assert_eq!(merge(&collection, &entries, &mut again, true), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The resolver of the Lexicore tests: one key has its text, the others are only made readable, as
+    /// `resolve_key` does for a key nowhere translated.
+    fn translated(key: &str) -> String {
+        match key {
+            "@item_name_known" => "Known Helmet".to_string(),
+            other => other.trim_start_matches('@').replace('_', " "),
+        }
+    }
+
+    const LEXICORE_BACKUP: &str = r#"{"lexicoreBackup": 1, "app": "Lexicore", "version": "0.7.11",
+        "exportedAt": "2026-11-13T10:00:00.000Z", "config": {"telemetry": "left out"},
+        "owned": {"LIVE": [
+            {"key": null, "name": "zenith laser sniper rifle battery (22 cap)"},
+            {"key": "item_name_known", "name": "known helmet"},
+            {"key": "item_name_nowhere_01", "name": "nowhere helmet"},
+            {"key": "item_name_nowhere_02", "name": null},
+            "yubarev igniter pistol",
+            "＠item_name_known",
+            {"key": null, "name": null}],
+          "PTU": ["only on the ptu"]},
+        "history": {"LIVE": [
+            {"name": "Yubarev \"Igniter\" Pistol", "ts": "2026-11-01T10:00:00.000Z"},
+            {"name": "Zenith Laser Sniper Rifle Battery (22 Cap)", "ts": null}],
+          "PTU": [{"name": "Only On The PTU", "ts": "2026-11-02T10:00:00Z"}]}}"#;
+
+    #[test]
+    fn a_backup_of_lexicore_is_read_by_key_then_by_name_with_the_times_of_its_history() {
+        let data = value(LEXICORE_BACKUP);
+        let (kind, entries) = read_value(&data, &translated);
+        assert_eq!(kind, Some(Kind::Lexicore));
+        // The key first; a key nowhere translated gives way to the name, and stands for itself without one.
+        assert_eq!(
+            names(&entries),
+            [
+                "zenith laser sniper rifle battery (22 cap)",
+                "Known Helmet",
+                "nowhere helmet",
+                "item_name_nowhere_02",
+                "yubarev igniter pistol",
+                "Known Helmet",
+            ]
+        );
+        let local = |stamp| formats::local_time(stamp).map(|t| formats::strftime("%Y-%m-%d %H:%M:%S", &t));
+        // The name of the history has capitals and quotes; the match is by the name without them.
+        assert_eq!(entries[4].time, local(at("2026-11-01T10:00:00Z")));
+        // A time of `null` and a name that is not in the history have none.
+        assert_eq!(entries[0].time, None);
+        assert_eq!(entries[1].time, None);
+    }
+
+    #[test]
+    fn lexicore_takes_live_else_the_first_channel_with_entries_and_the_history_of_that_channel() {
+        let only_ptu = value(
+            r#"{"lexicoreBackup": 1, "owned": {"LIVE": [], "PTU": ["only on the ptu"], "HOTFIX": ["another"]},
+                "history": {"LIVE": [{"name": "Only On The PTU", "ts": "2026-01-01T00:00:00Z"}],
+                            "PTU": [{"name": "Only On The PTU", "ts": "2026-11-02T10:00:00Z"}]}}"#,
+        );
+        let (kind, entries) = read_value(&only_ptu, &translated);
+        assert_eq!(kind, Some(Kind::Lexicore));
+        assert_eq!(names(&entries), ["only on the ptu"]);
+        let local = |stamp| formats::local_time(stamp).map(|t| formats::strftime("%Y-%m-%d %H:%M:%S", &t));
+        assert_eq!(entries[0].time, local(at("2026-11-02T10:00:00Z")), "the history of PTU, not of LIVE");
+        // Nothing owned anywhere: a known format without entries (the page calls it a wish list).
+        let (kind, entries) = read_value(&value(r#"{"lexicoreBackup": 1, "owned": {"LIVE": []}}"#), &translated);
+        assert_eq!((kind, entries.len()), (Some(Kind::Lexicore), 0));
+    }
+
+    #[test]
+    fn the_raw_list_of_lexicore_is_read_and_other_lists_are_not() {
+        let raw = value(
+            r#"[{"key": "item_name_known", "name": "known helmet"}, {"key": null, "name": "Lower Case Gun"},
+                "just a name", "@item_name_nowhere_03"]"#,
+        );
+        let (kind, entries) = read_value(&raw, &translated);
+        assert_eq!(kind, Some(Kind::Lexicore));
+        assert_eq!(names(&entries), ["Known Helmet", "Lower Case Gun", "just a name", "item_name_nowhere_03"]);
+        assert!(entries.iter().all(|e| e.time.is_none()), "the raw file has no history");
+        // Counter-checks: another version of the backup, an empty list, a list of numbers or of other objects.
+        assert_eq!(detect(&value(r#"{"lexicoreBackup": 2, "owned": {"LIVE": ["x"]}}"#)), None);
+        assert_eq!(detect(&value("[]")), None);
+        assert_eq!(detect(&value("[1, 2]")), None);
+        assert_eq!(detect(&value(r#"[{"id": 1}]"#)), None);
+        // The other formats keep their marks.
+        assert_eq!(detect(&value(r#"{"blueprints": [{"key": "a", "isDone": true}]}"#)), Some(Kind::BlueprintDb));
+    }
+
+    #[test]
+    fn what_lexicore_wrote_in_lower_case_is_shown_and_stored_as_the_catalog_spells_it() {
+        use crate::collection::{self, Catalog, Known, NoExports};
+        use crate::phrases::{BackRoute, NoArchive};
+        struct Spelled;
+        impl Catalog for Spelled {
+            fn known(&self) -> Result<Known, String> {
+                let entry = |name: &str| (name_key(name), Some(name.to_string()));
+                Ok(Known::new([
+                    entry("Zenith Laser Sniper Rifle Battery (22 Cap)"),
+                    entry("Yubarev \"Igniter\" Pistol"),
+                    entry("Known Helmet"),
+                ]))
+            }
+        }
+        let dir = std::env::temp_dir().join(format!("versekit-importer-lexicore-{}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("folder");
+        let data_dir = dir.to_string_lossy().replace('\\', "/");
+        let host = crate::paths::Host::new(
+            crate::pypath::Flavor::native(),
+            &[(crate::legacy::ENV_HOME, &data_dir)],
+            &data_dir,
+        );
+        let paths = crate::paths::Paths::new(host);
+        let back = BackRoute { paths: &paths, archive: &NoArchive };
+        let collection = Collection {
+            paths: &paths,
+            catalog: &Spelled,
+            names: &back,
+            exports: &NoExports,
+            clock: collection::now_text,
+        };
+        let entries = [
+            Entry { name: "zenith laser sniper rifle battery (22 cap)".into(), time: None },
+            // Lexicore takes the quotes out of a name; the catalog has them.
+            Entry { name: "yubarev igniter pistol".into(), time: None },
+            Entry { name: "not in the catalog".into(), time: None },
+        ];
+        let catalog = ["Zenith Laser Sniper Rifle Battery (22 Cap)", "Yubarev \"Igniter\" Pistol"].map(String::from);
+        let mut data = collection.load();
+        let view = preview(&entries, &data, &catalog);
+        assert_eq!(
+            view.new,
+            ["Zenith Laser Sniper Rifle Battery (22 Cap)", "Yubarev \"Igniter\" Pistol", "not in the catalog"]
+        );
+        assert_eq!(view.unknown, ["not in the catalog"]);
+        assert_eq!(merge(&collection, &entries, &mut data, false), 3);
+        assert_eq!(
+            collection::names(&data),
+            ["Yubarev \"Igniter\" Pistol", "Zenith Laser Sniper Rifle Battery (22 Cap)", "not in the catalog"]
+        );
+        // What is stored is found again: the second preview sees it as present, and nothing is added twice.
+        let again = preview(&entries, &data, &catalog);
+        assert_eq!((again.present.len(), again.new.len()), (3, 0));
+        assert_eq!(merge(&collection, &entries, &mut data, false), 0);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

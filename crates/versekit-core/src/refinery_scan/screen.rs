@@ -34,7 +34,7 @@ use crate::stock_data::StockData;
 use crate::win_ocr::{self, Bitmap, Recognition};
 
 use super::digits::{Cell, Digits, Gray};
-use super::{Area, Index, Keep, Reason, ScanError, ScannedJob, State, read_image};
+use super::{Area, Index, Keep, Ocr, Reason, ScanError, ScannedJob, State, own_ocr, read_image};
 
 /// How many pictures of readings that were not sure are kept for a bug report.
 pub const KEEP_SCANS: usize = 3;
@@ -44,9 +44,15 @@ pub const KEEP_FOLDER: &str = "raffinerie-bilder";
 /// The reading that waits for the page Mein Lager.
 pub const HANDOVER_FILE: &str = "raffinerie-lesung.json";
 
-/// Can this system read the screen at all (Windows with its text recognition)?
+/// Can this system read the screen at all: grab it, and read with the text recognition of Windows or the own one
+/// ([`super::own_ocr`], under Linux)?
 pub fn supported() -> bool {
-    win_ocr::supported() && screen_grab::supported()
+    screen_grab::supported() && (win_ocr::supported() || own_ocr::supported())
+}
+
+/// The recognition the reading of the screen uses: the one of Windows under Windows, the own one elsewhere.
+fn recognition(bitmap: &Bitmap) -> Box<dyn Ocr + '_> {
+    if win_ocr::supported() { Box::new(Recognition::new(bitmap)) } else { Box::new(own_ocr::Recognition::new(bitmap)) }
 }
 
 /// The folder of the kept pictures, beside the files of the program.
@@ -134,8 +140,8 @@ pub fn read_screen(paths: &Paths, rect: screen_grab::Area) -> Result<(Vec<Scanne
         win_ocr::png_of(&bitmap, area, most).is_ok_and(|png| keep(paths, &png, kind))
     };
     let learned = Digits::load(paths);
-    let mut ocr = Recognition::new(&bitmap);
-    read_image(size, Some(&bitmap), &mut ocr, &index(paths), &learned, Some(&mut keep_one))
+    let mut ocr = recognition(&bitmap);
+    read_image(size, Some(&bitmap), &mut *ocr, &index(paths), &learned, Some(&mut keep_one))
 }
 
 /// A part cut to the picture, as `ocr_image` lays the part of a table aside.

@@ -107,6 +107,11 @@ impl ContractFacts {
         self.entries.get(&(contract, sub))
     }
 
+    /// Every contract entry with the `id` of its contract and of its sub contract.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&(Guid, Option<Guid>), &Facts)> {
+        self.entries.iter()
+    }
+
     /// The number of contract entries.
     pub fn len(&self) -> usize {
         self.entries.len()

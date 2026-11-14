@@ -34,6 +34,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
+use std::path::Path;
 use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -43,6 +44,7 @@ use regex::Regex;
 use crate::errors;
 use crate::given::{Fixed, Given, GivenBy};
 use crate::jsonio::{self, Map, Newline, ReadError, Value};
+use crate::launcher_log;
 use crate::legacy;
 use crate::pypath::Flavor;
 use crate::text::{lines_universal, py_isspace, py_strip};
@@ -670,6 +672,8 @@ struct State {
     /// The last look through the usual places for the game found no log: when, and the first game installed
     /// without one.
     auto_scan: Option<(Instant, Option<String>)>,
+    /// The game folder of the side channel these paths belong to ([`Paths::for_channel`]).
+    channel_root: Option<String>,
 }
 
 /// A game channel with a Game.log: name, folder, modification time of the Game.log.
@@ -690,6 +694,10 @@ pub fn global() -> &'static Paths {
 
 /// The data folder inside a copy of the data (see [`Paths::for_copy`]).
 pub const COPY_DATA_FOLDER: &str = "VerseKit-Daten";
+
+/// The folder in the data folder that holds the own data of the side channels, one subfolder per channel
+/// ([`Paths::for_channel`]).
+pub const CHANNEL_DATA_FOLDER: &str = "Kanaele";
 
 impl Paths {
     /// The paths of a copy of the user's data in `root`: `root` stands in for
@@ -767,6 +775,25 @@ impl Paths {
         let copy = Paths::new(self.host.clone());
         copy.state().given = self.state().given.clone();
         copy
+    }
+
+    /// The own data of a side channel: its own folder `Kanaele/<channel>` in the data folder, flat like a data folder
+    /// given by `SC_BP_HOME`, with its own settings, and the `Data.p4k` in `root` (the game folder of that channel)
+    /// as the archive to read. Everything built from an archive (catalog, reputation, ranks, names, values) lands
+    /// there, never beside the files of the main installation.
+    pub fn for_channel(&self, channel: &str, root: &str) -> Paths {
+        let mut host = self.host.clone();
+        let folder = self.host.flavor.join_all(&self.app_folder(), &[CHANNEL_DATA_FOLDER, channel]);
+        host.set_var(legacy::ENV_HOME, &folder);
+        let own = Paths::new(host);
+        own.set_given_archive(&self.join(root, ARCHIVE_NAME), GivenBy::CommandLine);
+        own.state().channel_root = Some(root.to_string());
+        own
+    }
+
+    /// The game folder of the side channel these paths belong to; `None` for the paths of the main installation.
+    pub fn channel_root(&self) -> Option<String> {
+        self.state().channel_root.clone()
     }
 
     /// Fix the data folder from outside: the page shows who decided and
@@ -1565,6 +1592,20 @@ impl Paths {
             {
                 return unlogged.or(installed);
             }
+            // The folder the launcher starts the game from, as its log says: before the usual places, which may
+            // hold an old copy, and without a log of the game being there yet (a first installation). A folder
+            // that is set and holds the game stays: the program does not switch by itself, the page offers it.
+            if unlogged.is_none() {
+                let near = self.setting("spiel_ordner");
+                let launched = launcher_log::launched_folders(self, near.as_deref().map(Path::new));
+                let pick = launched.iter().find(|(_, folder)| is_file(&self.join(folder, "Game.log")));
+                if let Some((_, folder)) = pick.or(launched.first()) {
+                    if !is_file(&self.join(folder, "Game.log")) {
+                        self.state().auto_scan = Some((Instant::now(), Some(folder.clone())));
+                    }
+                    return Some(folder.clone());
+                }
+            }
             let mut first: Option<String> = None;
             for base in self.auto_bases() {
                 if !is_dir(&base) {
@@ -1708,6 +1749,13 @@ impl Paths {
         }
         if only_given {
             return bases;
+        }
+        // Where the launcher puts the channels it starts, before the usual places.
+        for (_, folder) in launcher_log::launched_folders(self, None) {
+            let base = f.dirname(&folder);
+            if !base.is_empty() && !bases.contains(&base) {
+                bases.push(base);
+            }
         }
         for base in self.auto_bases() {
             if !bases.contains(&base) {
@@ -2244,6 +2292,25 @@ mod tests {
         fs::write(path, text).unwrap();
     }
 
+    /// The own data of a side channel lie in a folder of their own, flat, with their own settings and the archive of
+    /// that channel; the main installation keeps its files.
+    #[test]
+    fn a_side_channel_has_a_data_folder_of_its_own() {
+        let home = scratch("channel-data");
+        let main = linux(&home);
+        let own = main.for_channel("PTU", "/games/PTU");
+        assert_eq!(own.channel_root().as_deref(), Some("/games/PTU"));
+        assert_eq!(main.channel_root(), None);
+        let folder = own.app_folder();
+        assert!(folder.ends_with("Kanaele/PTU"), "{folder}");
+        assert!(folder.starts_with(&main.app_folder()), "{folder}");
+        assert_eq!(own.archive_file().as_deref(), Some("/games/PTU/Data.p4k"));
+        assert_eq!(own.app_file("katalog-spieldaten.json"), format!("{folder}/katalog-spieldaten.json"));
+        own.set_setting("kanal_test", Value::str("a"));
+        assert_eq!(main.setting("kanal_test"), None, "the settings of the channel are its own");
+        assert_ne!(main.app_file("katalog-spieldaten.json"), own.app_file("katalog-spieldaten.json"));
+    }
+
     /// A JSON object from text fields, backslashes in paths escaped correctly.
     fn object(fields: &[(&str, &str)]) -> String {
         let map = fields.iter().map(|(k, v)| (k.to_string(), Value::str(*v))).collect();
@@ -2706,6 +2773,83 @@ mod tests {
         touch(&p.join(&live, "Data.p4k"), "");
         touch(&p.join_all(&sc, &["PTU", "Game.log"]), "");
         assert_eq!(p.game_folder().as_deref(), Some(p.join(&sc, "PTU").as_str()));
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// A Linux machine whose Wine prefix holds the log of the launcher; `lines` are the lines of that log, with the
+    /// prefix to name in it. Gives (home, paths, `drive_c`).
+    fn launcher_world(name: &str, lines: &[&str]) -> (String, Paths, String) {
+        let home = scratch(name).replace('\\', "/");
+        let p = linux(&home);
+        let drive_c = p.join_all(&home, &["Games", "star-citizen", "drive_c"]);
+        let logs = p.join_all(&drive_c, &["users", "spieler", "AppData", "Roaming", "rsilauncher", "logs"]);
+        touch(&p.join(&logs, "log.log"), &lines.join("\n"));
+        (home, p, drive_c)
+    }
+
+    fn launch_line(channel: &str, folder: &str) -> String {
+        format!(
+            r#"{{ "t":"2026-11-13 10:00:00.000", "[main][info] ": "[Launcher::launch] Launching Star Citizen {channel} from ({})"  }},"#,
+            folder.replace('\\', "\\\\")
+        )
+    }
+
+    fn same(a: Option<String>, b: &str) -> bool {
+        a.is_some_and(|a| a.replace('\\', "/") == b.replace('\\', "/"))
+    }
+
+    /// A first installation: no `Game.log`, no setting, and a folder the usual places do not know. The launcher's
+    /// log names it, and it counts as the game folder; a game folder given from outside still wins over it.
+    #[test]
+    fn the_folder_the_launcher_starts_is_the_game_folder_of_a_first_installation() {
+        let (home, p, drive_c) = launcher_world("launcher-erst", &[]);
+        let live = p.join_all(&drive_c, &["Spiele", "Mein SC", "StarCitizen", "LIVE"]);
+        touch(&p.join(&live, "Data.p4k"), "");
+        assert_eq!(p.game_folder(), None, "no log of the launcher: the places it does not know are not looked at");
+        let line = launch_line("LIVE", r"C:\Spiele\Mein SC\StarCitizen\LIVE");
+        let logs = p.join_all(&drive_c, &["users", "spieler", "AppData", "Roaming", "rsilauncher", "logs", "log.log"]);
+        touch(&logs, &line);
+        assert!(same(p.game_folder(), &live), "found by the launcher: {:?}", p.game_folder());
+        assert_eq!(p.game_log(None), None, "and no log to read there yet");
+        // The channels next to it come from the same place.
+        touch(&p.join_all(&drive_c, &["Spiele", "Mein SC", "StarCitizen", "PTU", "Data.p4k"]), "");
+        let channels: Vec<String> = p.installed_channels().into_iter().map(|(name, ..)| name).collect();
+        assert_eq!(channels, ["LIVE", "PTU"], "the folder above the launcher's channel is a base for the channels");
+        // From outside only the given copy counts, never the launcher's installation.
+        let copy = p.join(&home, "kopie");
+        fs::create_dir_all(&copy).unwrap();
+        p.set_given_game(&copy, GivenBy::Named("test".into()));
+        assert_eq!(p.game_folder(), None, "a copy without a game: nothing, not the launcher's folder");
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// The setting wins over the launcher while its folder holds the game: the program never switches by itself
+    /// (the page offers the launcher's folder). A game folder set but gone gives way to the launcher's.
+    #[test]
+    fn the_launcher_never_replaces_a_game_folder_that_is_set_and_there() {
+        let (home, p, drive_c) = launcher_world("launcher-gesetzt", &[]);
+        let mine = p.join_all(&home, &["Platte", "StarCitizen", "LIVE"]);
+        touch(&p.join(&mine, "Game.log"), "");
+        let theirs = p.join_all(&drive_c, &["Spiele", "StarCitizen", "LIVE"]);
+        touch(&p.join(&theirs, "Data.p4k"), "");
+        let logs = p.join_all(&drive_c, &["users", "spieler", "AppData", "Roaming", "rsilauncher", "logs", "log.log"]);
+        touch(&logs, &launch_line("LIVE", r"C:\Spiele\StarCitizen\LIVE"));
+        touch(&p.settings_file(), &object(&[("spiel_ordner", &mine)]));
+        assert_eq!(p.game_folder(), Some(mine.clone()), "the setting with its log wins");
+        // The setting is gone (a drive that was unplugged): the launcher's folder is the answer.
+        fs::remove_dir_all(&mine).unwrap();
+        assert!(same(p.game_folder(), &theirs), "{:?}", p.game_folder());
+        // Nothing set at all, a log in a usual place and the launcher's folder without one: the launcher's is the
+        // game that is started.
+        touch(&p.settings_file(), &object(&[]));
+        let usual = p.join_all(&drive_c, &["Program Files", "Roberts Space Industries", "StarCitizen", "LIVE"]);
+        touch(&p.join(&usual, "Game.log"), "");
+        assert!(same(p.game_folder(), &theirs), "the launcher before the usual places: {:?}", p.game_folder());
+        // The launcher names a folder that is not installed (anymore): the usual places apply as before.
+        // (A new look: what a game without a log was found at stands for a moment.)
+        touch(&logs, &launch_line("LIVE", r"C:\Weg\StarCitizen\LIVE"));
+        let later = linux(&home);
+        assert!(same(later.game_folder(), &usual), "{:?}", later.game_folder());
         let _ = fs::remove_dir_all(&home);
     }
 

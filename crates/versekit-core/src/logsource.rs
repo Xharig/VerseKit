@@ -1187,6 +1187,11 @@ pub struct LogTail<'s, 'p> {
     pub last_text: String,
     /// The last reading took a whole block and more may follow: the next one should not wait.
     pub behind: bool,
+    /// The log under the path was another one at the last reading (a new game session): the reading began at its
+    /// start. Set by [`new_names`](Self::new_names), cleared by the next call.
+    pub restarted: bool,
+    /// What tells the log read last from the one of another session ([`logread::Session`]).
+    pub session: Option<logread::Session>,
     pub contracts: Option<Box<dyn ContractScan + 's>>,
 }
 
@@ -1202,6 +1207,8 @@ impl<'s, 'p> LogTail<'s, 'p> {
             account_id: None,
             last_text: String::new(),
             behind: false,
+            restarted: false,
+            session: None,
             contracts: None,
         }
     }
@@ -1245,10 +1252,21 @@ impl<'s, 'p> LogTail<'s, 'p> {
         }
         self.last_text.clear();
         self.behind = false;
+        self.restarted = false;
         let Some(path) = self.locate() else { return Vec::new() };
         let Some(size) = file_size(&path).map(i128::from) else { return Vec::new() };
-        if size < self.offset {
+        // ⚠ The size alone does not tell: a new log can be longer than the place the reader stood at already.
+        let session = logread::open(&path).ok().map(|opened| opened.session);
+        let other = match (&self.session, &session) {
+            (Some(before), Some(now)) => !now.continues(before),
+            _ => false,
+        };
+        if session.is_some() {
+            self.session = session;
+        }
+        if size < self.offset || other {
             // Log rotated → new game session, new login.
+            self.restarted = true;
             self.offset = 0;
             self.account = None;
             self.account_id = None;
@@ -1753,6 +1771,33 @@ mod tests {
         fs::write(lab.game_log(), bp("Kurz")).unwrap();
         let mut tail = LogTail::new(&src, ReadState::open(&paths), rx());
         assert_eq!(names(&tail.new_names()), ["Kurz"]);
+    }
+
+    /// A new game session is told by the head of its log, also when the new file is longer than the place the
+    /// reader stood at (the size alone says nothing then).
+    #[test]
+    fn a_log_with_another_head_is_a_new_session_though_it_is_not_shorter() {
+        let lab = Lab::new("neuer-kopf");
+        fs::write(lab.game_log(), format!("{}{}", login("Spieler"), bp("Vorher"))).unwrap();
+        let paths = lab.paths();
+        let src = LogSource::with_clock(&paths, Sources::default(), clock().1);
+        let mut tail = LogTail::new(&src, ReadState::open(&paths), rx());
+        tail.new_names();
+        lab.append(&bp("Eins"));
+        assert_eq!(names(&tail.new_names()), ["Eins"]);
+        assert!(!tail.restarted, "the same log, grown");
+        lab.append(&bp("Zwei"));
+        tail.new_names();
+        assert!(!tail.restarted);
+        let longer = format!("{}{}", login("Zweit"), bp("Neu").repeat(10));
+        fs::write(lab.game_log(), &longer).unwrap();
+        assert!(i128::try_from(longer.len()).unwrap() > tail.offset, "not shorter than the old place");
+        tail.new_names();
+        assert!(tail.restarted, "another head: another session");
+        assert_eq!(tail.account.as_deref(), Some("Zweit"));
+        assert_eq!(i128::try_from(longer.len()).unwrap(), tail.offset, "read from the start");
+        tail.new_names();
+        assert!(!tail.restarted, "told once");
     }
 
     #[test]

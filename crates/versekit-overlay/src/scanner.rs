@@ -360,8 +360,11 @@ impl Scanner {
 
     /// The number with its material in one line, for the open overlay when the player asked for it, or when
     /// the reading itself opened the overlay (`forced`).
+    /// Under Linux there is no window above the signature yet: the line stands in the overlay whenever the info
+    /// bar does not show the reading.
     pub fn line(&self, forced: bool) -> Option<String> {
-        if !self.layout.overlay_line && !forced {
+        let no_window = cfg!(not(windows)) && !self.window_off;
+        if !self.layout.overlay_line && !forced && !no_window {
             return None;
         }
         self.shown.as_ref().map(|text| t("ov_signatur").replace("{0}", &text.line()))

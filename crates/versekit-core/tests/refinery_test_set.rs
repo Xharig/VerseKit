@@ -31,8 +31,12 @@
 //! and learned digits of that copy (read only) and measures a second time with the learned digits; without it a
 //! list of the refinable ores and no places. `VERSEKIT_RAFFINERIE_AUFTRAG=<folder name>` measures one folder only;
 //! `VERSEKIT_RAFFINERIE_DEBUG=1` also prints every reading of every table with the columns taken from its heads.
-
-#![cfg(windows)]
+//!
+//! The recognition: `VERSEKIT_RAFFINERIE_LESER=windows` (the default under Windows) or `eigen` (the own one,
+//! [`own_ocr`], the default elsewhere) with the shipped font or the one in `VERSEKIT_SCHRIFT=<file>`.
+//! `VERSEKIT_RAFFINERIE_TEIL=gerade|ungerade` measures the folders with an even or odd number only (the other
+//! half taught that font, `refinery_font.rs`). Beside the lines right the run counts the fields read wrong: a
+//! value that stands but is not the one expected (an empty field is unsure, not wrong).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -41,17 +45,57 @@ use std::time::Instant;
 use serde_json::Value;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::refinery_scan::digits::Digits;
+use versekit_core::refinery_scan::own_ocr::{self, Font};
 use versekit_core::refinery_scan::{
     Index, Job, Ocr, PASSES, ScanError, Word, find_tables, header_columns, join_scrolled, match_material, merge_words,
     read_image, rows, screen, search_jobs,
 };
-use versekit_core::win_ocr::{Bitmap, Recognition};
+use versekit_core::win_ocr::Bitmap;
 
 const SET: &str = "VERSEKIT_RAFFINERIE_PRUEFSATZ";
 const COPY: &str = "VERSEKIT_KOPIE";
 const ONLY: &str = "VERSEKIT_RAFFINERIE_AUFTRAG";
 const DEBUG: &str = "VERSEKIT_RAFFINERIE_DEBUG";
+const READER: &str = "VERSEKIT_RAFFINERIE_LESER";
+const FONT: &str = "VERSEKIT_SCHRIFT";
+const PART: &str = "VERSEKIT_RAFFINERIE_TEIL";
 const GOLDEN: &str = "golden-expected.json";
+
+/// The recognition a measurement reads with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Reader {
+    Windows,
+    Own,
+}
+
+impl Reader {
+    fn chosen() -> Reader {
+        match std::env::var(READER).as_deref() {
+            Ok("eigen") => Reader::Own,
+            Ok("windows") => Reader::Windows,
+            _ if cfg!(windows) => Reader::Windows,
+            _ => Reader::Own,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Reader::Windows => "Erkennung von Windows",
+            Reader::Own => "eigene Erkennung",
+        }
+    }
+
+    /// The recognition over one picture.
+    fn over<'a>(self, bitmap: &'a Bitmap, font: &'a Font) -> Box<dyn Ocr + 'a> {
+        match self {
+            #[cfg(windows)]
+            Reader::Windows => Box::new(versekit_core::win_ocr::Recognition::new(bitmap)),
+            #[cfg(not(windows))]
+            Reader::Windows => panic!("the recognition of Windows only under Windows"),
+            Reader::Own => Box::new(own_ocr::Recognition { bitmap, font }),
+        }
+    }
+}
 
 /// The ores of the refinery terminal, for a run without a copy of real data.
 const ORES: [&str; 24] = [
@@ -86,7 +130,7 @@ type Cache = HashMap<PathBuf, HashMap<String, Vec<Vec<Word>>>>;
 
 /// The recognition of one picture that keeps every answer, so a second measurement reads nothing anew.
 struct Remembered<'a> {
-    inner: Recognition<'a>,
+    inner: Box<dyn Ocr + 'a>,
     known: HashMap<String, Vec<Vec<Word>>>,
 }
 
@@ -233,6 +277,8 @@ struct Tally {
     yield_: usize,
     missing: usize,
     extra: usize,
+    /// Fields that stand but are wrong: another material, a quality or a yield other than the expected.
+    wrong: usize,
 }
 
 impl Tally {
@@ -244,6 +290,7 @@ impl Tally {
         self.yield_ += other.yield_;
         self.missing += other.missing;
         self.extra += other.extra;
+        self.wrong += other.wrong;
     }
 }
 
@@ -269,6 +316,9 @@ fn compare(expected: &[Expected], read: &[Read]) -> (Tally, Tally, Vec<String>) 
                 tally.quality = usize::from(quality);
                 tally.yield_ = usize::from(yield_);
                 tally.whole = usize::from(material && quality && yield_);
+                tally.wrong = usize::from(!material)
+                    + usize::from(got.quality.is_some() && !quality)
+                    + usize::from(got.amount.is_some() && !yield_);
                 if tally.whole == 0 {
                     let mut wrong = Vec::new();
                     if !material {
@@ -354,12 +404,19 @@ struct Reading {
     pictures: Vec<String>,
 }
 
-fn read_folder(folder: &Folder, index: &Index, learned: &Digits, cache: &mut Cache) -> Reading {
+/// What a measurement reads with: the recognition and, for the own one, the font.
+#[derive(Clone, Copy)]
+struct With<'a> {
+    reader: Reader,
+    font: &'a Font,
+}
+
+fn read_folder(folder: &Folder, index: &Index, learned: &Digits, cache: &mut Cache, with: With) -> Reading {
     let mut reading = Reading { field: String::new(), station: String::new(), pictures: Vec::new() };
     for path in &folder.pictures {
         let bitmap = load(path);
         let started = Instant::now();
-        let mut ocr = Remembered { inner: Recognition::new(&bitmap), known: cache.remove(path).unwrap_or_default() };
+        let mut ocr = Remembered { inner: with.reader.over(&bitmap, with.font), known: cache.remove(path).unwrap_or_default() };
         let read = read_image((bitmap.width, bitmap.height), Some(&bitmap), &mut ocr, index, learned, None);
         let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         if read.as_ref().is_ok_and(|(jobs, _)| jobs.is_empty()) {
@@ -434,15 +491,15 @@ fn read_folder(folder: &Folder, index: &Index, learned: &Digits, cache: &mut Cac
 }
 
 /// One measurement over every folder, printed.
-fn measure(label: &str, folders: &[Folder], index: &Index, learned: &Digits, cache: &mut Cache) {
-    println!("\n######## {label}");
+fn measure(label: &str, folders: &[Folder], index: &Index, learned: &Digits, cache: &mut Cache, with: With) {
+    println!("\n######## {label}, {}", with.reader.name());
     let (mut all, mut bookable) = (Tally::default(), Tally::default());
     let (mut stations, mut stations_right) = (0, 0);
     let mut groups: Vec<(String, Tally)> = Vec::new();
     let mut table = Vec::new();
     let mut details = Vec::new();
     for folder in folders {
-        let reading = read_folder(folder, index, learned, cache);
+        let reading = read_folder(folder, index, learned, cache, with);
         let read: Vec<Read> = reading.field.lines().filter_map(Read::parse).collect();
         let (tally, booked, notes) = compare(&folder.expected, &read);
         all.add(&tally);
@@ -503,7 +560,7 @@ fn measure(label: &str, folders: &[Folder], index: &Index, learned: &Digits, cac
     }
     let print = |name: &str, t: &Tally| {
         println!(
-            "{name}: {} Zeilen, ganz richtig {} ({}), Material {} ({}), Qualitaet {} ({}), Ausbeute {} ({}), fehlend {}, zusaetzlich {}, Menge nicht gelesen",
+            "{name}: {} Zeilen, ganz richtig {} ({}), Material {} ({}), Qualitaet {} ({}), Ausbeute {} ({}), fehlend {}, zusaetzlich {}, FALSCH GELESEN {} Felder, Menge nicht gelesen",
             t.expected,
             t.whole,
             share(t.whole, t.expected),
@@ -515,6 +572,7 @@ fn measure(label: &str, folders: &[Folder], index: &Index, learned: &Digits, cac
             share(t.yield_, t.expected),
             t.missing,
             t.extra,
+            t.wrong,
         );
     };
     println!();
@@ -551,15 +609,29 @@ fn the_test_set_of_refinery_pictures_is_measured() {
         surface.iter().filter_map(|word| match_material(word, &index).map(|material| (*word, material))).collect();
     println!("Woerter des Terminals als Material: {taken:?}");
     assert!(taken.is_empty(), "{taken:?}");
-    let folders = folders(&set, &index);
+    let mut folders = folders(&set, &index);
+    let number = |name: &str| name.chars().filter(char::is_ascii_digit).collect::<String>().parse::<u32>().unwrap_or(0);
+    match std::env::var(PART).as_deref() {
+        Ok("gerade") => folders.retain(|f| number(&f.name) % 2 == 0),
+        Ok("ungerade") => folders.retain(|f| number(&f.name) % 2 == 1),
+        _ => {}
+    }
     assert!(folders.iter().any(|f| !f.pictures.is_empty()), "no pictures");
+    let font = match std::env::var_os(FONT) {
+        Some(file) => Font::from_bytes(&std::fs::read(&file).expect("the font")).expect("a font"),
+        None => Font::shipped().clone(),
+    };
+    let with = With { reader: Reader::chosen(), font: &font };
+    if with.reader == Reader::Own {
+        println!("Schrift: {} Bilder", font.glyphs.len());
+    }
     let mut cache = HashMap::new();
     let source = if copy.is_some() { "Materialien und Orte der Kopie" } else { "Liste der Erze, keine Orte" };
-    measure(&format!("ohne gelernte Ziffern, {source}"), &folders, &index, &Digits::default(), &mut cache);
+    measure(&format!("ohne gelernte Ziffern, {source}"), &folders, &index, &Digits::default(), &mut cache, with);
     if let Some(paths) = &copy {
         let learned = Digits::load(paths);
         if !learned.is_empty() {
-            measure(&format!("mit gelernten Ziffern der Kopie, {source}"), &folders, &index, &learned, &mut cache);
+            measure(&format!("mit gelernten Ziffern der Kopie, {source}"), &folders, &index, &learned, &mut cache, with);
         }
     }
 }
@@ -577,7 +649,7 @@ fn the_comparison_counts_each_wrong_field() {
     let (all, bookable, notes) = compare(&expected, &read);
     assert_eq!(
         all,
-        Tally { expected: 3, whole: 1, material: 2, quality: 2, yield_: 1, missing: 1, extra: 1 },
+        Tally { expected: 3, whole: 1, material: 2, quality: 2, yield_: 1, missing: 1, extra: 1, wrong: 1 },
         "{notes:?}"
     );
     assert_eq!(bookable.expected, 2);

@@ -70,6 +70,10 @@ pub type CraftCheck = Arc<dyn Fn(&Paths, &str) -> bool + Send + Sync>;
 /// data gives it: `versekit_gamedata::list::catalog_behind`).
 pub type CatalogCheck = Arc<dyn Fn(&Paths) -> bool + Send + Sync>;
 
+/// The build of the running game the notes are written for (`4.10.3` or `4.10.3-live.13165946`), `""` when unknown:
+/// the reputation and the rank thresholds are only taken for it.
+pub type GameVersion = Arc<dyn Fn(&Paths) -> String + Send + Sync>;
+
 /// What the look at scmdb on the thread did.
 struct Looked {
     /// The recipe file, when it was looked at (or the build could not be had).
@@ -104,6 +108,8 @@ pub struct Watch {
     net: Arc<dyn Net>,
     archive: Arc<dyn Archive>,
     recipes: Arc<dyn recipe_file::Supply>,
+    /// The build of the game the notes of a run are written for.
+    game_version: GameVersion,
     game_running: fn(&Paths) -> bool,
     /// Whether the archive may be read now (the game is closed and the launcher does not patch it).
     archive_free: fn(&Paths) -> bool,
@@ -239,6 +245,7 @@ impl Watch {
             net,
             archive,
             recipes,
+            game_version: Arc::new(crate::stock_fetch::live_build),
             game_running: crate::mission_log::game_running,
             archive_free: crate::archive_lock::may_read_installed,
             archive_looked: None,
@@ -291,6 +298,13 @@ impl Watch {
     /// watch runs, whether or not the notes are kept current.
     pub fn with_catalog_refresh(mut self, behind: CatalogCheck, refresh: CatalogBuild) -> Watch {
         self.refresh = Some((behind, refresh));
+        self
+    }
+
+    /// The same watch, which writes the notes of a run for the build `version` names (without it: the live build UEX
+    /// named last, `stock_fetch::live_build`).
+    pub fn with_game_version(mut self, version: GameVersion) -> Watch {
+        self.game_version = version;
         self
     }
 
@@ -492,7 +506,7 @@ impl Watch {
 
     fn start(&mut self, paths: &Arc<Paths>, job: Option<super::Job>, look: Look, builds: Builds, now: f64) {
         let has_job = job.is_some();
-        let version = if has_job { crate::stock_fetch::live_build(paths) } else { String::new() };
+        let version = if has_job { (self.game_version)(paths) } else { String::new() };
         let (sender, receiver) = mpsc::channel();
         let (paths_now, net, archive, supply) =
             (Arc::clone(paths), Arc::clone(&self.net), Arc::clone(&self.archive), Arc::clone(&self.recipes));

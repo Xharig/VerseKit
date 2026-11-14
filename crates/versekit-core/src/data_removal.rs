@@ -130,6 +130,7 @@ pub const KNOWN_FILES: &[&str] = &[
     "hangar.json",
     "hochwasser.json",
     "injektion-urtext.json",
+    "joystick-reihenfolge.json",
     "joystick-saetze.json",
     "katalog-cache.json",
     "katalog-neubau.lock",
@@ -604,6 +605,12 @@ fn clear_data_folder(paths: &Paths, place: &Place, out: &mut Removal) {
             }
         }
         remove_if_empty(paths, &path, out);
+    }
+    // The data of the side channels: the program made every file below, whatever its name.
+    let channels = f.join(folder, crate::paths::CHANNEL_DATA_FOLDER);
+    if is_real_dir(&channels) {
+        clear_whole(Path::new(&channels), out);
+        remove_if_empty(paths, &channels, out);
     }
     for common in COMMON_FOLDERS {
         let path = f.join(folder, common);

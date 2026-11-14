@@ -6,6 +6,125 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.3 - 2026-11-14
+
+> Collects your reports of the last days and gets VerseKit ready for the next
+> big patch: contract details come entirely from your own game data, the
+> overlay no longer loses the shard, and the joystick order can be fixed with
+> one click.
+
+### New
+
+- **Correct the joystick order:** VerseKit remembers which stick has which
+  number and tells you at start when the game has swapped them. Under
+  Controls a preview shows which bindings move; one click puts them back on
+  the right stick. VerseKit makes a backup first, and undo works within the
+  same session. While the game runs VerseKit changes nothing, and identical
+  sticks are never guessed.
+- **Mining scanner on Linux:** On Linux with X11 (XWayland too) the mining
+  scanner now reads the signature; the reading shows in the overlay. The
+  refinery does not read along on Linux yet.
+
+### Improved
+
+- **No Basetool leftovers without a connection:** Without a connection
+  VerseKit no longer shows Basetool switches and hints: the "Cartel Bank"
+  switch in the overlay, "Sync now" in the menu filter, the place
+  requirement in My Inventory and the Basetool line in the "Services" tile.
+  Saved switches stay as they are.
+- **Cartel Bank balances in the overlay can be switched off:** The overlay
+  always showed the accounts of the Cartel Bank. Now there is a switch of its
+  own under Overlay › Shown in the overlay › “Cartel Bank”, off by default.
+  The line with the open requests, the line of the queue and the notice of
+  new entries in it are not affected. If you want the balances in the
+  overlay, switch them on there.
+- **Importing the collection from Lexicore:** The backup ("Backup
+  exportieren") and the file `owned\LIVE.json` of Lexicore can now be
+  imported. Blueprints VerseKit does not know are added and marked; where the
+  backup records a date, VerseKit takes it over.
+- **Contract details without internet too:** After a patch, the contract
+  details in the game text stay complete, even without internet: reputation,
+  cooldowns and terms follow the game version from the game data instead of
+  UEX.
+- **Game folder from the RSI Launcher:** VerseKit recognises the
+  installation the launcher really starts, even after a fresh install without
+  a Game.log. If the game folder set differs, VerseKit offers it with one
+  click; it only switches by itself when none is set yet.
+- **Contract details from the own game data:** contract titles of the
+  contractors, regions, ranks and the blueprint and crafting notes now come
+  from the Data.p4k instead of scmdb. Where the game data give a blueprint only
+  during the contract instead of at its completion, the title shows “[BP]?”.
+
+### Fixed
+
+- **The overlay no longer loses the shard:** When the overlay showed "No
+  shard" although the game was on a shard, it only came back with the next
+  join. VerseKit now picks it up again from the running Game.log: on "Read
+  everything again", after the game detection dropped out briefly, and when
+  a new Game.log begins that is longer than the old one.
+- **Hangar import, Shiv:** The CSV of the Hangar Extension now knows Grey's
+  Market: the ship is called "Shiv" there as in the JSON instead of "Grey's
+  Shiv", and importing one file after the other no longer removes it and
+  adds it again (Reported by Aeternitas26).
+- **Contractor:** A contractor with a placeholder is filled like the title;
+  where a placeholder is left or there is no text, no contractor is shown
+  instead of the raw text.
+- **Ship cargo with a device grid:** A small cargo grid on a device port made
+  the cargo of a ship disappear. Now only the cargo of the holds counts, and
+  the value stays.
+- **Test channels such as PTU:** The contract notes in the text file of a test
+  channel now come from the game data of that channel instead of those of the
+  main channel. If a channel has no data of its own, VerseKit writes no notes
+  there and says so in the log.
+- **Tray menu:** The menu of the notification-area icon takes its choice only
+  from the open menu, no longer from messages of other programs.
+- **Languages for own text sources:** The list of game languages now comes
+  from the game data instead of a fixed list: with Traditional Chinese and
+  Latin American Spanish, without Polish and Turkish, which the game no
+  longer has since 4.10.3.
+- **Fuel nozzles in the collection:** Blueprints stored as "@Nozzle_…_Name"
+  get their name (e.g. "Marlin") when the collection is loaded; newly found
+  ones are entered under their name right away.
+- **Ship slots (erkul):** A ship variant (e.g. Zeus Mk II MR) no longer gets
+  the slots of another variant of the same family (Zeus ES); where there is
+  no data for the variant, it stays without.
+
+- **Updates without error entries:** The backup before an update stopped
+  when the catalog was being rebuilt at that moment ("another process has
+  locked a portion of the file"). It now skips lock files and writes the
+  rest. The first start after an update no longer reports "access denied"
+  while the setup file is still running for a moment; it is removed at a
+  later start. (Reported by Karasimsek)
+- **Crash note even without the version file:** When VerseKit could not
+  write its version file during a crash, the next start showed no note. Now
+  it does.
+- **"Newly craftable" kept coming back:** The overlay announced the same
+  blueprint again after every restart. What was announced now stays known.
+- **Signature scan paused with the game in front:** Briefly shown windows
+  such as the overlay, the tray or a Windows notification no longer stop
+  the scan. (Reported by MindBurnt)
+- **Backup without game data caches:** The two caches of the game data no
+  longer go into the backup; VerseKit rebuilds them itself.
+- **Data folder that cannot be written:** When VerseKit cannot store the
+  game data it read, it no longer reads the Data.p4k again on every page
+  and reports the error once.
+- **Switching on a shortcut:** When the default key is already taken by
+  another shortcut, the switch no longer jumps back; VerseKit takes a free
+  spare key.
+- **Ship cargo with pods:** Prospector, Golem and MOLE count their pods.
+  Ships without a cargo figure in the game data (135c, Nomad) no longer
+  show a cargo line instead of "0 SCU".
+- **Broken setup file:** A damaged installer no longer opens a Windows
+  error window during the update.
+- **Crafting "Name A to Z":** The list sorted by size first and only then by
+  name. Now "Name A to Z" goes by the name alone; the old order is called
+  "Size, then name" and stays the default. Reported by Aeternitas26
+- **Fabricator line in Crafting:** "2 in progress, 4 waiting, 10 in the
+  history" read like your own jobs. The line now says what the fabricator
+  holds at most. Reported by Aeternitas26
+- **What to farm:** When a material stands more than once, each row now
+  names its minimum quality ("Q 500+"). Suggested by Aeternitas26
+
 ## v5.3.2 - 2026-11-13
 
 > 5.3.1 only brought the contract notes back once VerseKit built its

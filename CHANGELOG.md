@@ -6,6 +6,127 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.3 - 2026-11-14
+
+> Sammelt eure Meldungen der letzten Tage und macht VerseKit fit für den
+> nächsten großen Patch: Auftragsangaben kommen ganz aus euren eigenen
+> Spieldaten, das Overlay verliert den Shard nicht mehr, und die Joystick-
+> Reihenfolge lässt sich mit einem Klick berichtigen.
+
+### Neu
+
+- **Joystick-Reihenfolge berichtigen:** VerseKit merkt sich, welcher Stick
+  welche Nummer hat, und meldet beim Start, wenn das Spiel sie vertauscht hat.
+  Unter Steuerung zeigt eine Vorschau, welche Belegungen umziehen; ein Klick
+  hängt sie wieder an den richtigen Stick. Vorher legt VerseKit eine
+  Sicherung an, Rückgängig geht in derselben Sitzung. Bei laufendem Spiel
+  ändert VerseKit nichts, baugleiche Sticks werden nie geraten.
+- **Mining-Scanner unter Linux:** Unter Linux mit X11 (auch XWayland) liest
+  der Mining-Scanner jetzt die Signatur; die Lesung steht im Overlay. Die
+  Raffinerie liest unter Linux noch nicht mit.
+
+### Verbessert
+
+- **Ohne Basetool-Verbindung keine Basetool-Reste:** Ohne Verbindung zeigt
+  VerseKit keine Basetool-Schalter und -Hinweise mehr: den Schalter
+  „Kartellbank“ im Overlay, „Jetzt abgleichen“ im Menüfilter, die Ortspflicht
+  in Mein Lager und die Zeile „Basetool“ in der Kachel „Dienste“. Gespeicherte
+  Schalter bleiben unverändert.
+- **Kontostände der Kartellbank im Overlay abschaltbar:** Das Overlay zeigte
+  die Konten der Kartellbank immer. Jetzt gibt es dafür unter Overlay ›
+  Anzeigen im Overlay › „Kartellbank“ einen eigenen Schalter, ab Werk aus.
+  Die Zeile mit den offenen Anträgen, die Zeile der Warteschlange und die
+  Meldung über neue Einträge darin bleiben davon unberührt. Wer die
+  Kontostände im Overlay sehen will, schaltet sie dort wieder ein.
+- **Bestand einlesen aus Lexicore:** Die Sicherung („Backup exportieren“)
+  und die Datei `owned\LIVE.json` von Lexicore lassen sich jetzt einlesen.
+  Baupläne, die VerseKit nicht kennt, kommen markiert mit hinein; wo die
+  Sicherung ein Datum vermerkt hat, übernimmt VerseKit es.
+- **Auftragsangaben auch ohne Internet:** Nach einem Patch bleiben die
+  Auftragsangaben im Spieltext vollständig, auch ohne Internet: Ruf,
+  Wartezeiten und Bedingungen richten sich nach dem Spielstand aus den
+  Spieldaten statt nach UEX.
+- **Spielordner aus dem RSI Launcher:** VerseKit erkennt die Installation,
+  die der Launcher wirklich startet, auch nach einer Neuinstallation ohne
+  Game.log. Weicht der eingestellte Spielordner ab, bietet VerseKit ihn mit
+  einem Klick an; umgestellt wird nur, wenn noch keiner eingestellt ist.
+- **Auftragsangaben aus den eigenen Spieldaten:** Auftragstitel der
+  Auftraggeber, Regionen, Ränge und die Angaben zu Bauplan und Herstellung
+  kommen jetzt aus der Data.p4k statt von scmdb. Gibt es einen Bauplan laut
+  Spieldaten nur während des Auftrags statt beim Abschluss, steht „[BP]?“ am
+  Titel.
+
+### Behoben
+
+- **Overlay verliert den Shard nicht mehr:** Zeigte das Overlay „Kein Shard“,
+  obwohl das Spiel auf einem Shard lief, kam er erst mit dem nächsten Beitritt
+  zurück. Jetzt holt VerseKit ihn aus dem laufenden Game.log nach: bei
+  „Alles neu einlesen“, nach kurzem Aussetzen der Spielerkennung und wenn ein
+  neues Game.log beginnt, das länger ist als das alte.
+- **Hangar-Import, Shiv:** Die CSV der Hangar Extension kennt Grey’s Market
+  jetzt: das Schiff heißt dort wie im JSON „Shiv“ statt „Grey's Shiv“, und
+  ein Import im Wechsel trägt es nicht mehr aus und neu ein (Gemeldet von
+  Aeternitas26).
+- **Auftraggeber:** Ein Auftraggeber mit Platzhalter wird wie der Titel
+  gefüllt; bleibt ein Platzhalter übrig oder fehlt der Text, steht kein
+  Auftraggeber da statt des Rohtexts.
+- **Schiffsfracht mit Gerätegitter:** Ein kleines Frachtgitter an einem
+  Geräteplatz ließ die Frachtangabe eines Schiffs verschwinden. Jetzt zählt
+  nur die Fracht der Frachträume, und die Angabe bleibt stehen.
+- **Testkanäle wie PTU:** Die Auftragsangaben im Spieltext eines Testkanals
+  kommen jetzt aus den Spieldaten dieses Kanals statt aus denen des
+  Hauptkanals. Hat ein Kanal keine eigenen Daten, schreibt VerseKit dort keine
+  Angaben und sagt es im Protokoll.
+- **Tray-Menü:** Das Menü am Symbol im Infobereich nimmt seine Auswahl nur
+  noch aus dem geöffneten Menü, nicht mehr aus Nachrichten anderer Programme.
+- **Sprachen für eigene Textquellen:** Die Liste der Spielsprachen kommt aus
+  den Spieldaten und nicht mehr aus einer festen Liste: mit Traditionell
+  Chinesisch und Lateinamerikanischem Spanisch, ohne Polnisch und Türkisch,
+  die es im Spiel seit 4.10.3 nicht mehr gibt.
+- **Tankdüsen im Bestand:** Baupläne, die als „@Nozzle_…_Name“ im Bestand
+  standen, bekommen beim Laden ihren Namen (z. B. „Marlin“); neu gefundene
+  werden gleich unter dem Namen eingetragen.
+- **Schiffsplätze (erkul):** Eine Schiffsvariante (z. B. Zeus Mk II MR)
+  bekommt nicht mehr die Plätze einer anderen Variante derselben Familie
+  (Zeus ES); gibt es für die Variante keine Daten, bleibt sie ohne.
+
+- **Update ohne Fehlermeldungen:** Die Sicherung vor dem Update brach ab,
+  wenn gerade der Katalog neu gebaut wurde („anderer Prozess hat einen Teil
+  der Datei gesperrt“). Sie überspringt jetzt Sperrdateien und schreibt den
+  Rest. Der erste Start nach dem Update meldet nicht mehr „Zugriff
+  verweigert“, wenn die Setup-Datei noch kurz läuft; sie wird bei einem
+  späteren Start entfernt. (Gemeldet von Karasimsek)
+- **Absturz-Hinweis auch ohne Versionsdatei:** Konnte VerseKit bei einem
+  Absturz die Versionsdatei nicht schreiben, kam beim nächsten Start kein
+  Hinweis. Jetzt kommt er.
+- **„Neu craftbar“ kam immer wieder:** Das Overlay meldete denselben Bauplan
+  nach jedem Neustart erneut. Gemeldetes bleibt jetzt gemerkt.
+- **Signatur-Scan pausierte trotz Spiel vorn:** Kurz eingeblendete Fenster
+  wie Overlay, Tray oder eine Windows-Benachrichtigung halten den Scan nicht
+  mehr an. (Gemeldet von MindBurnt)
+- **Sicherung ohne Spieldaten-Caches:** Die zwei Caches der Spieldaten
+  kommen nicht mehr in die Sicherung; VerseKit baut sie selbst neu.
+- **Nicht beschreibbarer Datenordner:** Kann VerseKit die gelesenen
+  Spieldaten nicht speichern, liest es die Data.p4k nicht mehr bei jeder
+  Seite neu und meldet den Fehler einmal.
+- **Kürzel einschalten:** Liegt die Standardtaste schon auf einem anderen
+  Kürzel, springt der Schalter nicht mehr zurück; VerseKit nimmt eine freie
+  Ausweichtaste.
+- **Schiffsfracht mit Pods:** Prospector, Golem und MOLE zählen ihre Pods
+  mit. Schiffe ohne Frachtangabe in den Spieldaten (135c, Nomad) zeigen
+  keine Frachtzeile mehr statt „0 SCU“.
+- **Kaputte Setup-Datei:** Ein beschädigter Installer öffnet beim Update
+  kein Windows-Fehlerfenster mehr.
+- **Herstellung „Name A–Z“:** Die Liste sortierte dabei zuerst nach Größe
+  und erst dann nach Name. Jetzt geht „Name A–Z“ nur nach dem Namen; die
+  bisherige Ordnung heißt „Größe, dann Name“ und bleibt der Standard.
+  Gemeldet von Aeternitas26
+- **Fabrikator-Zeile in der Herstellung:** „2 in Arbeit, 4 wartend, 10 im
+  Verlauf“ las sich wie eigene Aufträge. Die Zeile sagt jetzt, was der
+  Fabrikator höchstens fasst. Gemeldet von Aeternitas26
+- **Was ich farmen muss:** Steht ein Material mehrmals da, nennt jede Zeile
+  jetzt ihre Mindestqualität („ab Q 500“). Vorschlag von Aeternitas26
+
 ## v5.3.2 - 2026-11-13
 
 > 5.3.1 brachte die Auftragsangaben nur zurück, wenn VerseKit seine Bauplan-Liste

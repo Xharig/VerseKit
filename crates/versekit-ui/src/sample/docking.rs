@@ -757,7 +757,7 @@ pub(crate) mod tests {
         let texts = look(&mut page);
         let foot: Vec<&String> = texts.iter().map(|(text, _)| text).filter(|text| text.contains("·")).collect();
         assert!(shows(&texts, &language::t("ov_spiel_an")), "a fresh log: the game runs, foot {foot:?}");
-        assert!(!shows(&texts, "Stanton · 4.3.1"), "no made-up game state");
+        assert!(!shows(&texts, "Stanton · 4.10.3"), "no made-up game state");
         assert!(!shows(&texts, super::super::SAMPLE_UPDATE), "no made-up version");
         assert!(!shows(&texts, "ist da."), "no version named: no update bar");
         // The overview counts the data that are open, or says the page comes later.
@@ -815,7 +815,7 @@ pub(crate) mod tests {
         assert!(shows(&draw(&mut sample, width, height).1, "Basetool-Daten werden geladen"));
         let texts = look(&mut sample);
         let bar = format!("VerseKit {} ist da.", super::super::SAMPLE_UPDATE);
-        assert!(shows(&texts, "Stanton · 4.3.1") && shows(&texts, &bar));
+        assert!(shows(&texts, "Stanton · 4.10.3") && shows(&texts, &bar));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

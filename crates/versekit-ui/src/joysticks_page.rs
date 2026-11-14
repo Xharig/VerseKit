@@ -33,6 +33,7 @@ use egui::{RichText, Ui};
 use versekit_core::device_hub::{self, Entry, SourceStamp, Status, Step, Summary, Watchdog};
 use versekit_core::game_files;
 use versekit_core::input_device::{self, SystemDevice};
+use versekit_core::joystick_order;
 use versekit_core::joysticks::{self, Assigned, Comparison, Device, State};
 use versekit_core::joysticks_write;
 use versekit_core::language::{Arg, t, tf};
@@ -65,6 +66,8 @@ struct FileData {
     seen: Vec<Device>,
     stored: Vec<Assigned>,
     compare: Comparison,
+    /// The remembered order of the sticks and what is shifted against it.
+    order: joystick_order::Check,
 }
 
 /// One look at the system and the files.
@@ -99,6 +102,8 @@ pub struct JoystickState {
     list: crate::joysticks_list::ListState,
     /// A change that waits for the yes of the player.
     pending: Option<Pending>,
+    /// The last correction of the order, as long as it can be taken back.
+    undo: Option<joystick_order::Applied>,
 }
 
 impl Default for JoystickState {
@@ -118,6 +123,7 @@ impl Default for JoystickState {
             notice: None,
             list: crate::joysticks_list::ListState::default(),
             pending: None,
+            undo: None,
         }
     }
 }
@@ -256,7 +262,8 @@ fn read_look(
     let own = joysticks::bindings(paths, None, None);
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
     let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    Look { quiet, system, files: Arc::new(FileData { id, own, stamp, state, seen, stored, compare }) }
+    let order = joystick_order::check(paths, None, None);
+    Look { quiet, system, files: Arc::new(FileData { id, own, stamp, state, seen, stored, compare, order }) }
 }
 
 /// The path of a device so it fits in a line. Under Linux it is short (`/dev/input/js0`) and stays; under
@@ -307,17 +314,17 @@ fn status_color(scheme: &Scheme, status: Status) -> Color {
 }
 
 /// One line of a list: number of the game, name with a second line, state.
-struct Row {
-    tone: Color,
-    number: String,
-    number_bound: bool,
-    name: String,
-    sub: String,
-    state: String,
+pub(crate) struct Row {
+    pub(crate) tone: Color,
+    pub(crate) number: String,
+    pub(crate) number_bound: bool,
+    pub(crate) name: String,
+    pub(crate) sub: String,
+    pub(crate) state: String,
     /// What a screen reader says for the whole line, and what shows when the mouse rests on it.
-    spoken: String,
-    help: String,
-    salt: String,
+    pub(crate) spoken: String,
+    pub(crate) help: String,
+    pub(crate) salt: String,
 }
 
 /// The width of a text in the given style.
@@ -343,7 +350,7 @@ fn columns(ui: &Ui, states: &[String]) -> (f32, f32) {
 
 /// A line of a list with the bar of its state at the left. The line is one stop for the keyboard and the
 /// screen reader, with the whole sentence.
-fn list_row(ui: &mut Ui, scheme: &Scheme, row: &Row, columns: (f32, f32)) {
+pub(crate) fn list_row(ui: &mut Ui, scheme: &Scheme, row: &Row, columns: (f32, f32)) {
     let tone = color(row.tone);
     let radius = control_radius(scheme);
     let inner = egui::Frame::new()
@@ -390,12 +397,12 @@ fn list_row(ui: &mut Ui, scheme: &Scheme, row: &Row, columns: (f32, f32)) {
 }
 
 /// A small grey text, wrapped.
-fn small(ui: &mut Ui, scheme: &Scheme, text: &str) {
+pub(crate) fn small(ui: &mut Ui, scheme: &Scheme, text: &str) {
     widgets::reading(ui, RichText::new(text).small().color(color(scheme.sub)));
 }
 
 /// The name of a block: the title of its card.
-fn block_title(ui: &mut Ui, scheme: &Scheme, text: &str) {
+pub(crate) fn block_title(ui: &mut Ui, scheme: &Scheme, text: &str) {
     widgets::card_title(ui, scheme, text);
 }
 
@@ -419,6 +426,31 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut JoystickState, paths:
         ui.add(egui::Label::new(RichText::new(t("s_js_hinweis")).small().color(color(scheme.sub))).wrap());
     });
     if state.look.is_some() {
+        ui.add_space(GAP);
+        let mut order_act = None;
+        if let Some(look) = &state.look {
+            let view = crate::joysticks_order::View {
+                check: &look.files.order,
+                quiet: look.quiet.as_deref(),
+                file_state: look.files.state,
+                has_sticks: !look.files.stored.is_empty(),
+                asking: matches!(state.pending, Some(Pending::Order)),
+                undo: state.undo.as_ref(),
+            };
+            widgets::card(ui, scheme, |ui| {
+                ui.set_min_width(ui.available_width());
+                order_act = crate::joysticks_order::show(ui, scheme, &view);
+            });
+        }
+        use crate::joysticks_order::OrderAct;
+        match order_act {
+            Some(OrderAct::Remember) => act = Some(Act::Remember),
+            Some(OrderAct::Ask) => act = Some(Act::Ask(Pending::Order)),
+            Some(OrderAct::Cancel) => act = Some(Act::Cancel),
+            Some(OrderAct::Confirm) => act = Some(Act::Confirm),
+            Some(OrderAct::Undo) => act = Some(Act::Undo),
+            None => {}
+        }
         ui.add_space(GAP);
         widgets::card(ui, scheme, |ui| {
             ui.set_min_width(ui.available_width());
@@ -461,6 +493,10 @@ enum Act {
     Cancel,
     /// The yes: the change under the question is made.
     Confirm,
+    /// Write down the order the sticks have now (an own file, not a file of the game).
+    Remember,
+    /// Take the last correction of the order back.
+    Undo,
 }
 
 /// A change that waits for the yes of the player.
@@ -470,6 +506,8 @@ enum Pending {
     Swap { old_id: String, new_id: String },
     /// Throw away the own bindings (so many).
     Reset { count: usize },
+    /// Put the lines of the shifted sticks on their numbers.
+    Order,
 }
 
 impl JoystickState {
@@ -478,6 +516,30 @@ impl JoystickState {
         match act {
             Act::Ask(pending) => self.pending = Some(pending),
             Act::Cancel => self.pending = None,
+            Act::Remember => {
+                self.notice = Some(match joystick_order::remember(paths, None, None) {
+                    Ok(count) => Said::note(tf(
+                        "s_jr_gemerkt_ok",
+                        &[("0", Arg::from(i64::try_from(count).unwrap_or(i64::MAX)))],
+                    )),
+                    Err(failure) => Said::fault(tf("s_js_schief", &[("0", Arg::from(failure.text().as_str()))])),
+                });
+                self.invalidate();
+            }
+            Act::Undo => {
+                let Some(applied) = self.undo.take() else { return };
+                self.notice = Some(match joystick_order::undo(paths, &applied, None, None) {
+                    Ok(()) => Said::note(t("s_jr_rueck_ok")),
+                    Err(failure) => {
+                        // A game that runs is a reason to try again later; a file that changed is the end of it.
+                        if failure.game_not_quiet() {
+                            self.undo = Some(applied);
+                        }
+                        Said::fault(tf("s_js_schief", &[("0", Arg::from(failure.text().as_str()))]))
+                    }
+                });
+                self.invalidate();
+            }
             Act::Confirm => {
                 let Some(pending) = self.pending.take() else { return };
                 let (result, done_key) = match &pending {
@@ -485,6 +547,14 @@ impl JoystickState {
                         (joysticks_write::swap_id(paths, old_id, new_id, None, None), "s_js_fertig")
                     }
                     Pending::Reset { .. } => (joysticks_write::reset(paths, None, None), "s_js_zurueck_ok"),
+                    Pending::Order => match joystick_order::correct(paths, None, None) {
+                        Ok(applied) => {
+                            let done = applied.done.clone();
+                            self.undo = Some(applied);
+                            (Ok(done), "s_jr_fertig")
+                        }
+                        Err(failure) => (Err(failure), "s_jr_fertig"),
+                    },
                 };
                 self.notice = Some(match result {
                     Ok(done) => {
@@ -1433,6 +1503,126 @@ mod tests {
         // Right after the yes, with no time gone by: the page has read the file again.
         let texts = bench.settle();
         assert!(shows(&texts, &t("s_gh_alles_gut")) && !shows(&texts, &t("s_gh_tausch_knopf")), "{texts:?}");
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    // ------------------------------------------------------------------ the order of the sticks
+
+    /// The heads say left = 2 and right = 1; the lines were made for left = 1 and right = 2 (shifted).
+    fn order_maps() -> String {
+        format!(
+            "<ActionMaps><ActionProfiles>\n <options type=\"joystick\" instance=\"2\" Product=\" Stick L  {{{LEFT}}}\"/>\n <options type=\"joystick\" instance=\"1\" Product=\" Stick R  {{{RIGHT}}}\"/>\n <actionmap name=\"a\"><action name=\"b\"><rebind input=\"js1_button1\"/></action><action name=\"c\"><rebind input=\"js2_button2\"/></action></actionmap>\n</ActionProfiles></ActionMaps>\n"
+        )
+    }
+
+    fn order_bench(name: &str) -> Bench {
+        Bench::new(
+            name,
+            &log(&[(0, "Stick L", LEFT), (1, "Stick R", RIGHT)]),
+            Some(&order_maps()),
+            vec![stick("Stick L", LEFT), stick("Stick R", RIGHT)],
+        )
+    }
+
+    /// What the player wrote down earlier: left was 1, right was 2.
+    fn remember_old_order(bench: &Bench) {
+        let text = format!(
+            "{{\"stand\":\"2026-11-13 20:00\",\"geraete\":[{{\"kennung\":\"{LEFT}\",\"name\":\"Stick L\",\"nummer\":1}},{{\"kennung\":\"{RIGHT}\",\"name\":\"Stick R\",\"nummer\":2}}]}}"
+        );
+        std::fs::write(bench.paths.app_file(joystick_order::FILE), text).expect("memory");
+    }
+
+    #[test]
+    fn without_a_memory_the_block_offers_to_remember_and_remembering_touches_no_file_of_the_game() {
+        let _guard = setup();
+        let mut bench = order_bench("reihe-merken");
+        let file = actionmaps(&bench.home);
+        let before = std::fs::read(&file).expect("file");
+        let texts = bench.settle();
+        assert!(shows(&texts, &t("s_jr_titel")) && shows(&texts, &t("s_jr_nichts")), "{texts:?}");
+        assert!(!shows(&texts, &t("s_jr_berichtigen")), "nothing remembered, nothing to put right: {texts:?}");
+        bench.click(&t("s_jr_merken"));
+        let said = bench.state.take_notice().expect("told");
+        assert!(!said.fault && said.text.contains('2'), "{said:?}");
+        assert_eq!(std::fs::read(&file).expect("file"), before, "the file of the game is untouched");
+        let texts = bench.later(4.0);
+        assert!(shows(&texts, &t("s_jr_passt")) && shows(&texts, &t("s_jr_merken_neu")), "{texts:?}");
+        assert!(!shows(&texts, &t("s_jr_berichtigen")), "{texts:?}");
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    #[test]
+    fn a_shifted_order_is_shown_before_it_is_asked_and_then_corrected_with_a_copy_and_taken_back() {
+        let _guard = setup();
+        let mut bench = order_bench("reihe-berichtigen");
+        remember_old_order(&bench);
+        let file = actionmaps(&bench.home);
+        let before = std::fs::read(&file).expect("file");
+        let texts = bench.settle();
+        // The preview stands before any click: what moves and how many lines.
+        assert!(shows(&texts, &t("s_jr_anders")), "{texts:?}");
+        assert!(shows(&texts, "js1 → js2") && shows(&texts, "js2 → js1"), "{texts:?}");
+        assert!(shows(&texts, &t("s_jr_belegung_eins")), "one line each: {texts:?}");
+        // The question names the number of lines; "no" writes nothing.
+        bench.click(&t("s_jr_berichtigen"));
+        let texts = bench.settle();
+        let question = tf("s_jr_frage", &[("0", Arg::from(2))]);
+        assert!(shows(&texts, question.lines().next().unwrap_or_default()), "{texts:?}");
+        assert_eq!(std::fs::read(&file).expect("file"), before, "asked, nothing written");
+        bench.click(&t("abbrechen"));
+        let texts = bench.settle();
+        assert!(!shows(&texts, &t("s_mlg_bestaetigen")) && shows(&texts, &t("s_jr_berichtigen")), "{texts:?}");
+        // Yes: the lines are on the other numbers, a copy was made first, the way back is offered.
+        bench.click(&t("s_jr_berichtigen"));
+        bench.click(&t("s_mlg_bestaetigen"));
+        let after = std::fs::read_to_string(&file).expect("file");
+        assert!(after.contains("input=\"js2_button1\"") && after.contains("input=\"js1_button2\""), "{after}");
+        assert_eq!(versekit_core::game_files::backups(&file).len(), 1, "a copy was made first");
+        let said = bench.state.take_notice().expect("told");
+        assert!(!said.fault && said.text.contains("actionmaps.xml.versekit-"), "{said:?}");
+        let texts = bench.later(4.0);
+        assert!(shows(&texts, &t("s_jr_passt")) && !shows(&texts, &t("s_jr_berichtigen")), "{texts:?}");
+        assert!(shows(&texts, &t("s_jr_rueckgaengig")), "the way back is there: {texts:?}");
+        // Back: the file is as it was and the page finds the order shifted again.
+        bench.click(&t("s_jr_rueckgaengig"));
+        assert_eq!(std::fs::read(&file).expect("file"), before);
+        let said = bench.state.take_notice().expect("told");
+        assert!(!said.fault, "{said:?}");
+        let texts = bench.later(4.0);
+        assert!(shows(&texts, &t("s_jr_berichtigen")) && !shows(&texts, &t("s_jr_rueckgaengig")), "{texts:?}");
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    #[test]
+    fn while_the_game_runs_the_order_is_not_corrected_and_the_button_says_why() {
+        let _guard = setup();
+        let mut bench = order_bench("reihe-laeuft");
+        remember_old_order(&bench);
+        std::fs::write(format!("{}/StarCitizen/LIVE/Game.log", bench.home), log(&[(0, "Stick L", LEFT)])).expect("log");
+        bench.state.invalidate();
+        let texts = bench.later(4.0);
+        assert!(shows(&texts, &t("s_gf_spiel")), "{texts:?}");
+        let file = actionmaps(&bench.home);
+        let before = std::fs::read(&file).expect("file");
+        bench.click(&t("s_jr_berichtigen"));
+        let texts = bench.settle();
+        assert!(!shows(&texts, &t("s_mlg_bestaetigen")), "a blocked button asks nothing: {texts:?}");
+        assert_eq!(std::fs::read(&file).expect("file"), before);
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    #[test]
+    fn a_stick_that_is_not_in_the_file_is_named_and_the_others_can_still_be_put_right() {
+        let _guard = setup();
+        let mut bench = order_bench("reihe-fehlt");
+        let third = "5555EEEE-0000-0000-0000-504944564944";
+        let text = format!(
+            "{{\"stand\":\"2026-11-13 20:00\",\"geraete\":[{{\"kennung\":\"{LEFT}\",\"name\":\"Stick L\",\"nummer\":1}},{{\"kennung\":\"{RIGHT}\",\"name\":\"Stick R\",\"nummer\":2}},{{\"kennung\":\"{third}\",\"name\":\"Pedale\",\"nummer\":3}}]}}"
+        );
+        std::fs::write(bench.paths.app_file(joystick_order::FILE), text).expect("memory");
+        let texts = bench.settle();
+        let said = tf("s_jr_nicht_gefunden", &[("0", Arg::from("Pedale"))]);
+        assert!(shows(&texts, &said) && shows(&texts, &t("s_jr_berichtigen")), "{texts:?}");
         let _ = std::fs::remove_dir_all(&bench.home);
     }
 

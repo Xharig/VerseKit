@@ -25,7 +25,7 @@ use std::time::SystemTime;
 
 use common::channel;
 use versekit_gamedata::corrections::{Correction, Field, Outcome, Section};
-use versekit_gamedata::{Error, GameData, Language, Source, SourceKind, Text};
+use versekit_gamedata::{Error, GameData, Language, ShownKeys, Source, SourceKind, Text};
 
 fn key_text(key: &str, text: &str) -> Text {
     Text { key: Some(key.to_string()), text: Some(text.to_string()) }
@@ -79,6 +79,7 @@ fn blueprints_with_item_and_sources() {
         contractor: Some(key_text("@Highpoint_from", "Highpoint")),
         faction: Some(key_text("@Highpoint_RepUI_Name", "Highpoint Wilderness Specialists")),
         description_key: None,
+        shown: ShownKeys::default(),
         systems: Vec::new(),
         places: vec![key_text("@Stanton1", "Hurston")],
         rank: Some(key_text("@Rank_Two", "Rank Two")),
@@ -92,6 +93,7 @@ fn blueprints_with_item_and_sources() {
         reward_uec: Some(12000),
         chance: Some(0.5),
         pool: "BP_MISSIONREWARD_rifles".to_string(),
+        uncertain: Vec::new(),
     };
     // The sub contract is a source of its own: its title, its mission type,
     // its own place instead of the handler's; a target without a property is
@@ -124,6 +126,7 @@ fn blueprints_with_item_and_sources() {
         contractor: None,
         faction: Some(key_text("@Foxwell_Name", "Foxwell Enforcement")),
         description_key: None,
+        shown: ShownKeys::default(),
         systems: Vec::new(),
         places: Vec::new(),
         rank: None,
@@ -137,6 +140,7 @@ fn blueprints_with_item_and_sources() {
         reward_uec: None,
         chance: None,
         pool: "BP_MISSIONREWARD_rifles".to_string(),
+        uncertain: Vec::new(),
     };
     assert_eq!(rifle.sources, [sub, contract, untitled, scenario], "the unreleased contract stays out");
 

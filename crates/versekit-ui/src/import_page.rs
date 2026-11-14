@@ -136,6 +136,7 @@ fn kind_name(kind: Kind) -> String {
         // Both scmdb formats read the same to the player.
         Kind::ScmdbOld | Kind::ScmdbNew => "scmdb.net".to_string(),
         Kind::BlueprintDb => t("s_be_art_bpdb"),
+        Kind::Lexicore => t("s_be_art_lexicore"),
     }
 }
 

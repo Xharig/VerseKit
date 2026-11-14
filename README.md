@@ -37,7 +37,7 @@ VerseKit liegt als schmales Overlay über Star Citizen und meldet jeden neuen Ba
 - **Woher du Fehlendes bekommst:** Zu jedem Bauplan, den es über einen Auftrag gibt, Fraktion, Auftrag, Rang und Belohnung, der leichteste Weg zuerst.
 - **Angaben im Spiel:** Die Auftragstexte zeigen, welche Baupläne ein Auftrag bringt und welche du schon hast. An jedem herstellbaren Gegenstand im Terminal steht, ob du den Bauplan hast, woher er kommt und was das Herstellen braucht. Waffen und Komponenten zeigen ihre Werte, damit du vor dem Kauf vergleichen kannst.
 - **Herstellen und Lager:** Zutaten, Herstellzeit und was dein Material aus den Werten macht, unter „Für Schiff“ nur Teile, die in eines deiner Schiffe passen. Dazu dein Lager, was dir noch fehlt, Käufe und Verkäufe im Laden als Vorschlag aus dem Log, Fabrikator-Aufträge mit Restzeit und der Umzug nach dem Patch.
-- **Bergbau und Raffinerie:** Fundorte je Rohstoff, die beste Raffinerie und die passende Verarbeitungsmethode. Unter Windows liest der Scanner die Signatur beim Scannen selbst ab, und Alt+Umschalt+R liest das Raffinerie-Terminal, auch im deutschen Spiel und bei langen Listen.
+- **Bergbau und Raffinerie:** Fundorte je Rohstoff, die beste Raffinerie und die passende Verarbeitungsmethode. Unter Windows und Linux (X11) liest der Scanner die Signatur beim Scannen selbst ab, und unter Windows liest Alt+Umschalt+R das Raffinerie-Terminal, auch im deutschen Spiel und bei langen Listen.
 - **Handel:** Shops, die besten Ankäufer und Handelsrouten mit echtem Gewinn.
 - **Dein Hangar:** Schiffe aus dem Pledge-Store holen, jeden Steckplatz einzeln ausstatten (aus den Spieldaten deiner Installation) und die Ausstattung als Code oder Datei teilen.
 - **Handle-Suche:** Wer steckt hinter einem Handle oder einer Org? Name, Organisationen und Rang, dazu Freund, Feind oder Beobachtet markieren, direkt aus der Info-Leiste über dem Spiel.
@@ -75,6 +75,12 @@ Alles Weitere zum Aufklappen. Technisches wie Dateien, Einstellungen und Umgebun
 <sub>Die Bauplan-Liste: Suche, fünf Filter und die Herkunft je Bauplan</sub>
 </td>
 </tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-overlay-schutzzone.png" alt="Das Overlay meldet gelb „Schutzzone verlassen, Waffen frei“ und beim Betreten „Schutzzone betreten, Kampf verboten“" width="68%"><br>
+<sub><b>Schutzzone</b>: Verlässt du eine, meldet das Overlay „Waffen frei“, auch wenn es eingeklappt ist. Betrittst du eine, steht dort „Kampf verboten“</sub>
+</td>
+</tr>
 </table>
 
 </details>
@@ -95,6 +101,12 @@ VerseKit schreibt in die Auftragstexte des Spiels, **welche** Baupläne ein Auft
 <sub><b>0 von 12</b>: noch nichts dabei, was du hast</sub>
 </td>
 </tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/spiel-werte.png" alt="Terminal in Star Citizen: die Schiffswaffe Ardor-3 Salvaged Repeater mit dem VerseKit-Block „Werte ab Werk“ unter der Beschreibung" width="40%"><br>
+<sub><b>Werte ab Werk</b>: Waffen und Komponenten zeigen unter der Beschreibung ihre Werte, hier eine Schiffswaffe am Terminal. So vergleichst du vor dem Kauf</sub>
+</td>
+</tr>
 </table>
 
 </details>
@@ -113,6 +125,12 @@ Ein neuer Bauplan wirft die Frage auf: **passt das Teil in eines meiner Schiffe?
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-hangar.png" alt="Mein Hangar mit vier eingetragenen Schiffen" width="100%"><br>
 <sub><b>Mein Hangar</b>: aus dem Pledge-Store geholt oder von Hand eingetragen</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-hangarwerte.png" alt="Mein Hangar: ein Fenster über dem Schiffsnamen Cutlass Black zeigt Geschwindigkeit, Maße, Fracht und Kaufpreis" width="100%"><br>
+<sub><b>Schiffswerte beim Überfahren</b>: Fährst du mit der Maus über einen Schiffsnamen, zeigt ein kleines Fenster SCM-Geschwindigkeit, Maße, Fracht und den günstigsten Kaufpreis</sub>
 </td>
 </tr>
 <tr>
@@ -199,6 +217,12 @@ Kaufen und verkaufen: **Wo steht ein Teil oder Schiff im Regal, wo werde ich die
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-routen.png" alt="Handelsrouten" width="100%"><br>
 <sub><b>Routen</b>: die lohnendsten Fahrten von deinem Standort aus</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-kartellbank.png" alt="Kartellbank: zwei Konten mit Stand und Kurve der letzten 30 Tage, Beispieldaten" width="100%"><br>
+<sub><b>Kartellbank</b>: deine Konten aus dem Basetool mit Stand und Verlauf, dazu Anträge auf Einzahlung, Auszahlung und Überweisung. Das Bild zeigt Beispieldaten</sub>
 </td>
 </tr>
 </table>
@@ -400,7 +424,7 @@ Was im Alltag den Unterschied macht:
 | <img src="assets/symbole/22/blickwinkel-gruen.png" width="22" alt=""> **FOV** | **Sitzt du richtig vor deinem Bildschirm?** Miss die Bildschirmbreite mit einer Bankkarte, gib deinen Sitzabstand an, und du bekommst den Blickwinkel, den dein Aufbau hergibt, samt Bewertung |
 | <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Shops** | **Wo steht das fertige Teil im Regal, und was kostet es dort?** Teile aller Warengruppen, auch Raketen, Bomben, Munition und Waffenaufsätze, dazu Getränke, Essen, Medizin, Kleidung, Lackierungen und Einrichtung, und Schiffe zum Kaufen und Mieten. Mit dem Feld **Ort** siehst du nur, was es dort gibt, etwa in Levski. Wählst du einen Ort, siehst du seine Shops, und ein Klick zeigt das ganze Angebot eines Shops mit Preis. Einen Shop wie CenterMass findest du auch über seinen Namen im Feld „Ort oder Shop“. Teil anklicken zeigt jeden Laden mit Preis, Ort und System, den günstigsten oben, gebrauchte Ware mit Zustand. **Jedes Teil legst du mit einer Menge in den Einkaufskorb**: Die Einkaufsliste rechnet die Kosten, zeigt alle Einkaufsorte, plant die Route mit den wenigsten Stopps und lässt dich Stopps abhaken. Eine Zusammenstellung speicherst du als Vorlage. An jeder Zeile stehen **Klasse, Größe, Güte und Hersteller**, danach filterst du |
 | <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routen** | **Handelsrouten mit echtem Gewinn statt einer Preisliste.** Sag, wo du stehst, wie viel Frachtraum und Geld du hast, und du bekommst die Fahrt mit Einkauf, Verkauf und Gewinn. Auf Wunsch über mehrere Stationen, nach Gewinn oder kürzestem Weg sortiert, auch als Rundreise. Ein Knopf sucht die beste Route **im ganzen Verse**. Wählst du dein Schiff, kommt der Frachtraum von selbst |
-| <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Steuerung** | **Was liegt auf welcher Taste, und umbelegen ohne ins Spiel zu wechseln.** Die Belegung im Klartext („Schleudersitz“ statt `v_eject`) für Joystick, Tastatur, Maus und Gamepad in einer durchsuchbaren Liste: *von mir geändert*, *alles* oder *Werkseinstellung*. Zum **Neubelegen** eine Zeile anklicken und den Knopf drücken. Ist die Eingabe schon vergeben, steht das vorher da. Dazu, welcher Stick welche Nummer hat und ob deine Belegung noch auf ein angeschlossenes Gerät zeigt. Funktioniert für **jedes** Gerät |
+| <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Steuerung** | **Was liegt auf welcher Taste, und umbelegen ohne ins Spiel zu wechseln.** Die Belegung im Klartext („Schleudersitz“ statt `v_eject`) für Joystick, Tastatur, Maus und Gamepad in einer durchsuchbaren Liste: *von mir geändert*, *alles* oder *Werkseinstellung*. Zum **Neubelegen** eine Zeile anklicken und den Knopf drücken. Ist die Eingabe schon vergeben, steht das vorher da. Dazu, welcher Stick welche Nummer hat und ob deine Belegung noch auf ein angeschlossenes Gerät zeigt. **Vertauscht das Spiel deine Sticks**, sagt VerseKit es beim Start und hängt die Belegungen mit einem Klick zurück, mit Vorschau, Sicherung und Rückgängig. Funktioniert für **jedes** Gerät |
 | <img src="assets/symbole/22/einrichtung-gruen.png" width="22" alt=""> **Einrichtungsassistent** | Führt beim ersten Start durch alles Wichtige und ist **jederzeit wiederholbar** |
 | <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **Sicherung** | Alles, was nur du hast, in **eine Datei**: Bauplan-Bestand, beide Lager, Auftrags-Protokoll, Merkliste, Einstellungen und Steuerung. Derselbe Knopf spielt sie wieder ein. Beim Einspielen fragt VerseKit getrennt, ob Profile und aktive Belegung ersetzt werden. Bei laufendem Spiel passiert nichts, und vorher entsteht immer eine Kopie. Die heruntergeladenen Nachschlagewerke bleiben draußen. **Beim ersten Start von VerseKit 5** sichert es deine Daten aus 4.12 im Ordner „Sicherungen“, bevor es etwas ändert |
 | <img src="assets/symbole/22/anzeige-gruen.png" width="22" alt=""> **Grafik** | Renderer, Fenstermodus, VSync, Upscaling mit Technik und Modell, Bewegungsunschärfe, Filmkörnung, Schärfen und chromatische Aberration, ohne ins Spiel zu müssen. Dazu der Leistungsindex und die Einstufung von Niedrig bis Ultra, mit Datum der letzten Messung. Geschrieben wird nur bei geschlossenem Spiel, vorher legt VerseKit eine Sicherung der Datei an |

@@ -358,20 +358,26 @@ impl Contracts {
         self.reset(run);
     }
 
-    /// Everything once more from the log; what is no longer running is told.
-    fn reset(&mut self, run: &Run) {
+    /// Everything once more from the log; what is no longer running is told. Gives the log that was read.
+    fn reset(&mut self, run: &Run) -> Option<StartLog> {
         let before = self.live.reset();
-        let _ = self.at_start(run);
+        let log = self.at_start(run);
         let mut out = Vec::new();
         self.live.after_reset(&before, &mut out);
         run.tell_all(out);
+        log
     }
 }
 
 /// The shard of the running session, from the text the contracts read anyway: the whole running log at the start,
 /// then each new section. Nothing of the log is read for it alone.
+///
+/// The joins, and when the running log was last searched for them.
 #[derive(Default)]
-struct Shards(Joins);
+struct Shards(Joins, Option<Instant>);
+
+/// How often a log without a known shard is searched for the join.
+const RECOVER_EVERY: Duration = Duration::from_secs(30);
 
 impl Shards {
     /// The whole running log: the joins of its session.
@@ -379,6 +385,23 @@ impl Shards {
         self.0.clear();
         self.0.take(log);
         run.tell(News::Shard(self.0.clone()));
+    }
+
+    /// No shard is known although the log goes on (`grew`): the joins are looked for in the running log, not more
+    /// than once in [`RECOVER_EVERY`] (the log can be large, and before the first join there is nothing to find).
+    fn recover(&mut self, run: &Run, grew: bool, now: Instant) {
+        if !grew || !self.0.list().is_empty() || self.1.is_some_and(|at| now.duration_since(at) < RECOVER_EVERY) {
+            return;
+        }
+        self.1 = Some(now);
+        let Some(file) = run.paths.game_log(None) else { return };
+        let Ok(log) = StartLog::read(&file) else { return };
+        let mut found = Joins::default();
+        found.take(log.lines());
+        if !found.list().is_empty() {
+            self.0 = found;
+            run.tell(News::Shard(self.0.clone()));
+        }
     }
 
     /// A new section; `fresh` when it begins a new log (the game was started anew): the joins before it go.
@@ -394,6 +417,8 @@ impl Shards {
 
     /// The game ended: there is no shard any more.
     fn ended(&mut self, run: &Run) {
+        // A log that goes on after this (the process was only lost for a moment) is looked at again at once.
+        self.1 = None;
         if !self.0.list().is_empty() {
             self.0.clear();
             run.tell(News::Shard(self.0.clone()));
@@ -881,7 +906,6 @@ fn keep_texts_while(
     mut active: impl FnMut() -> bool + Send + 'static,
 ) {
     use std::sync::Arc;
-    use versekit_core::game_texts::watch::Watch as TextsWatch;
     use versekit_core::translation;
     let started = std::thread::Builder::new().name("spieltexte-wache".into()).spawn_with_language(move || {
         writeguard::adopt(&guard);
@@ -891,36 +915,8 @@ fn keep_texts_while(
             Duration::from_secs(translation::TIMEOUT_SECONDS),
             200 * 1024 * 1024,
         ));
-        let user_agent = versekit_core::basetool::config::user_agent(env!("CARGO_PKG_VERSION"));
-        let recipes = Arc::new(versekit_core::recipe_file::Scmdb { user_agent });
-        // After a patch, and when scmdb has new craft data for the catalog, the catalog of the contract data is built
-        // anew; the round of the log reads it again when its file changed.
-        let catalog: versekit_core::game_texts::watch::CatalogBuild = Arc::new(|paths: &Paths| {
-            versekit_gamedata::list::rebuild_now(paths).run().map(|built| {
-                versekit_core::game_texts::watch::CatalogBuilt {
-                    version: built.version.clone(),
-                    blueprints: built.blueprints.len(),
-                }
-            })
-        });
-        let behind: versekit_core::game_texts::watch::CraftCheck =
-            Arc::new(|paths: &Paths, build: &str| versekit_gamedata::list::craft_data_behind(paths, build));
-        // A catalog that lags behind the game data at the start (an update of VerseKit with a new layout, a patch
-        // while VerseKit was closed) is built anew without a page open, as soon as the game is closed.
-        let lags: versekit_core::game_texts::watch::CatalogCheck =
-            Arc::new(|paths: &Paths| versekit_gamedata::list::catalog_behind(paths));
-        let refresh: versekit_core::game_texts::watch::CatalogBuild = Arc::new(|paths: &Paths| {
-            versekit_gamedata::list::refresh_catalog(paths).map(|built| {
-                versekit_core::game_texts::watch::CatalogBuilt {
-                    version: built.version.clone(),
-                    blueprints: built.blueprints.len(),
-                }
-            })
-        });
-        let mut watch = TextsWatch::new(net, Arc::new(versekit_ui::game_texts_page::GameArchive), recipes)
-            .with_catalog(catalog)
-            .with_craft_check(behind)
-            .with_catalog_refresh(lags, refresh);
+        // The round of the log reads the catalog again when its file changed.
+        let mut watch = versekit_gamedata::texts_watch::watch(net);
         let start = Instant::now();
         loop {
             let mut told = Vec::new();
@@ -1144,7 +1140,8 @@ fn run(
         }
         // After the blueprints: a blueprint just received stands in the collection when the contract is checked.
         contracts.report(&run, &tail.last_text);
-        shards.section(&run, &tail.last_text, tail.offset < offset || tail.path != path);
+        shards.section(&run, &tail.last_text, tail.restarted || tail.offset < offset || tail.path != path);
+        shards.recover(&run, !tail.last_text.is_empty(), Instant::now());
         tell_log_lines(&run, &tail.last_text);
         periodic.refinery(&run);
         periodic.starter(&run);
@@ -1195,7 +1192,7 @@ fn answer(
     run.refresh();
     match ask {
         Ask::Rescan => {
-            rescan(run, source, contracts);
+            rescan(run, source, contracts, shards);
             // Reading everything again looks at the catalog too, without waiting for its minute.
             periodic.catalog_next = Instant::now();
         }
@@ -1220,7 +1217,7 @@ fn rescan_requested(paths: &Paths, seen: &mut i64) -> bool {
 /// All logs once more, also the known ones, and the mission log judged anew (4.12 `_alles_neu_einlesen`). The
 /// answer always shows, also a zero: in the status line, as a row that stays, and kept in the settings, from
 /// where the main window tells it as a notice.
-fn rescan(run: &mut Run, source: &LogSource, contracts: &mut Contracts) {
+fn rescan(run: &mut Run, source: &LogSource, contracts: &mut Contracts, shards: &mut Shards) {
     // The phrases may have changed since the start (a language file came, an own phrase was added).
     run.pattern = phrases::pattern(&source.sources.collect().0);
     let unix_now =
@@ -1260,8 +1257,10 @@ fn rescan(run: &mut Run, source: &LogSource, contracts: &mut Contracts) {
     run.say(text.clone().into());
     run.tell(News::Row(Row::Hint { text: text.into(), contract: None }));
     result.save(run.paths);
-    // And the state of the contracts with it: dropped, then read again from the log.
-    contracts.reset(run);
+    // And the state of the contracts with it: dropped, then read again from the log; the shard from the same text.
+    if let Some(log) = contracts.reset(run) {
+        shards.whole(run, log.lines());
+    }
 }
 
 #[cfg(test)]
@@ -2145,6 +2144,113 @@ mod tests {
         let _ = std::fs::remove_dir_all(home);
     }
 
+    /// Sets up the run of a test over a log with one join: `told` gets what the thread tells the window.
+    macro_rules! shard_run {
+        ($paths:ident, $run:ident, $told:ident, $source:ident) => {
+            let names = BackRoute { paths: &$paths, archive: &NoArchive };
+            let collection = Collection {
+                paths: &$paths,
+                catalog: &collection::NoCatalog,
+                names: &names,
+                exports: &collection::NoExports,
+                clock: collection::now_text,
+            };
+            let (news, $told) = std::sync::mpsc::channel();
+            let data = collection.load();
+            let $source = LogSource::new(&$paths, LogSource::sources_of(&$paths));
+            let pattern = phrases::pattern(&$source.sources.collect().0);
+            #[allow(unused_mut)]
+            let mut $run = Run {
+                paths: &$paths,
+                collection,
+                data,
+                stamp: None,
+                seen: HashSet::new(),
+                meta: HashMap::new(),
+                pattern,
+                news,
+                wake: Box::new(|| {}),
+                said: false,
+            };
+        };
+    }
+
+    fn join_line(time: &str, id: &str) -> String {
+        format!("<2026-10-30T{time}.000Z> [Notice] <Join PU> address[35.241.242.86] port[64388] shard[{id}]\n")
+    }
+
+    /// The shards the window was told since the last look, each as the ids of its joins.
+    fn shards_told(told: &std::sync::mpsc::Receiver<News>) -> Vec<Vec<String>> {
+        told.try_iter()
+            .filter_map(|news| match news {
+                News::Shard(joins) => Some(joins.list().iter().map(|j| j.shard.id.clone()).collect()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// "Read everything again" builds the shard from the running log anew; before, the result of reading the
+    /// log was thrown away, and a lost shard stayed lost.
+    #[test]
+    fn reading_all_logs_again_brings_the_shard_back() {
+        let (home, game, paths) = home_with_game("shard-neu-einlesen");
+        let id = "pub_euw1b_13165946_220";
+        std::fs::write(format!("{game}/Game.log"), format!("{}nothing\n", join_line("16:00:00", id))).expect("log");
+        shard_run!(paths, run, told, source);
+        let mut tail = LogTail::new(&source, ReadState::open(&paths), run.pattern.clone());
+        let mut contracts = Contracts::new(&paths, &mut tail);
+        let mut shards = Shards::default();
+        rescan(&mut run, &source, &mut contracts, &mut shards);
+        assert_eq!(shards_told(&told), [vec![id.to_string()]]);
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    /// A short "game off" in the same session does not cost the shard: the log goes on with the same joins, and
+    /// they are read again. A real end, with the log standing still, leaves none.
+    #[test]
+    fn a_short_game_off_in_the_same_session_does_not_cost_the_shard() {
+        let (home, game, paths) = home_with_game("shard-flackern");
+        let id = "pub_euw1b_13165946_220";
+        std::fs::write(format!("{game}/Game.log"), format!("{}nothing\n", join_line("16:00:00", id))).expect("log");
+        shard_run!(paths, run, told, source);
+        let mut shards = Shards::default();
+        let t0 = Instant::now();
+        shards.recover(&run, true, t0);
+        assert_eq!(shards_told(&told), [vec![id.to_string()]]);
+        // The end of the game, and the log does not grow: no shard.
+        shards.ended(&run);
+        shards.recover(&run, false, t0 + Duration::from_secs(3));
+        assert_eq!(shards_told(&told), [Vec::<String>::new()]);
+        // The process was only lost for a moment: the log goes on, the shard is back at once.
+        shards.recover(&run, true, t0 + Duration::from_secs(6));
+        assert_eq!(shards_told(&told), [vec![id.to_string()]]);
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    /// Without a shard and with a log that goes on, the joins are looked for in the log, not more than once in a
+    /// while; a shard that is known is left alone.
+    #[test]
+    fn without_a_shard_the_running_log_is_searched_for_the_join() {
+        let (home, game, paths) = home_with_game("shard-suchen");
+        std::fs::write(format!("{game}/Game.log"), "nothing yet\n").expect("log");
+        shard_run!(paths, run, told, source);
+        let mut shards = Shards::default();
+        let t0 = Instant::now();
+        shards.recover(&run, true, t0);
+        assert!(shards_told(&told).is_empty(), "no join in the log: nothing to say");
+        let id = "pub_euw1b_13165946_220";
+        std::fs::write(format!("{game}/Game.log"), format!("nothing yet\n{}", join_line("16:00:00", id))).expect("log");
+        shards.recover(&run, true, t0 + Duration::from_secs(5));
+        assert!(shards_told(&told).is_empty(), "looked just now: the log is not read again at once");
+        shards.recover(&run, false, t0 + Duration::from_secs(60));
+        assert!(shards_told(&told).is_empty(), "the log did not grow");
+        shards.recover(&run, true, t0 + Duration::from_secs(61));
+        assert_eq!(shards_told(&told), [vec![id.to_string()]]);
+        shards.recover(&run, true, t0 + Duration::from_secs(200));
+        assert!(shards_told(&told).is_empty(), "a known shard is not read again");
+        let _ = std::fs::remove_dir_all(home);
+    }
+
     /// Reading all logs again takes the blueprints in, judges the mission log anew and keeps the four numbers for the
     /// main window; the sentence stands in the status line until the next round.
     #[test]
@@ -2195,7 +2301,7 @@ mod tests {
         };
         let mut tail = LogTail::new(&source, ReadState::open(&paths), pattern);
         let mut contracts = Contracts::new(&paths, &mut tail);
-        rescan(&mut run, &source, &mut contracts);
+        rescan(&mut run, &source, &mut contracts, &mut Shards::default());
         let result = RescanResult::load(&paths).expect("the result is kept for the main window");
         assert_eq!(
             (result.files, result.blueprints, result.contracts_new, result.contracts_corrected),
@@ -2260,7 +2366,7 @@ mod tests {
         };
         let mut tail = LogTail::new(&source, ReadState::open(&paths), pattern);
         let mut contracts = Contracts::new(&paths, &mut tail);
-        rescan(&mut run, &source, &mut contracts);
+        rescan(&mut run, &source, &mut contracts, &mut Shards::default());
         let result = RescanResult::load(&paths).expect("the failure is kept for the main window");
         assert!(result.failed, "{result:?}");
         assert_eq!(result.files, 0);

@@ -20,13 +20,14 @@
 //! (`reputationScopes`). The rows have the form of `auftraege` in `auftragsruf.json`, as
 //! [`crate::contract_info::reputation`] builds them from scmdb's file.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use serde_json::Value as Json;
 use versekit_core::injection::reputation::{key as reputation_key, merge_parties};
 use versekit_core::injection::terms::Terms;
 use versekit_core::jsonio::{self, Map, Value};
 
+use crate::Offered;
 use crate::scmdb_catalog::Fixes;
 use crate::sources::{ShownKeys, entry_key};
 
@@ -39,6 +40,8 @@ pub(crate) const FACTION_RECORDS: &str = "libs/foundry/records/factions/factionr
 pub struct Contracts {
     pub parties: Map,
     pub terms: Map,
+    /// Where the contracts of each title play ([`regions`]); empty until the places of the entries are known.
+    pub regions: Map,
 }
 
 /// [`Contracts`] from the catalogs as JSON: of the contract generators, the faction reputation records
@@ -63,7 +66,116 @@ pub fn from_catalogs(
     Ok(Contracts {
         parties: parties(&contracts, keys, &factions, &scopes, &Fixes::new(corrections, build)),
         terms: versekit_core::injection::terms::summarize(&terms(&contracts, keys, &standings(&reputation))),
+        regions: Map::new(),
     })
+}
+
+/// A region as [`regions`] writes it read back: system → its planets, empty for the whole system.
+pub fn parse_region(region: &str) -> std::collections::BTreeMap<String, BTreeSet<String>> {
+    let mut found = std::collections::BTreeMap::new();
+    let mut rest = region.trim();
+    while !rest.is_empty() {
+        let (part, after) = match (rest.find(','), rest.find('(')) {
+            (Some(comma), Some(open)) if open < comma => {
+                let close = rest[open..].find(')').map_or(rest.len(), |at| open + at + 1);
+                (&rest[..close], rest[close..].trim_start_matches(',').trim_start())
+            }
+            (Some(comma), _) => (&rest[..comma], rest[comma + 1..].trim_start()),
+            (None, _) => (rest, ""),
+        };
+        let (system, planets) = match part.split_once('(') {
+            Some((system, planets)) => (
+                system.trim(),
+                planets.trim_end_matches(')').split(',').map(|p| p.trim().to_string()).filter(|p| !p.is_empty()).collect(),
+            ),
+            None => (part.trim(), BTreeSet::new()),
+        };
+        if !system.is_empty() {
+            found.insert(system.to_string(), planets);
+        }
+        rest = after;
+    }
+    found
+}
+
+/// `own` with what `theirs` adds (another region of the same title, e.g. scmdb's, which also names where a contract
+/// leads): every system of either in sorted order; a system either names whole stays whole, else the planets of
+/// both, the whole system above [`crate::contract_info::MAX_PLANETS`].
+pub fn join_regions(own: &str, theirs: &str) -> String {
+    let mut joined = parse_region(own);
+    for (system, planets) in parse_region(theirs) {
+        match joined.get_mut(&system) {
+            Some(known) if known.is_empty() => {}
+            Some(known) if planets.is_empty() => known.clear(),
+            Some(known) => known.extend(planets),
+            None => {
+                joined.insert(system, planets);
+            }
+        }
+    }
+    joined
+        .into_iter()
+        .map(|(system, planets)| {
+            if planets.is_empty() || planets.len() > crate::contract_info::MAX_PLANETS {
+                system
+            } else {
+                format!("{system} ({})", planets.into_iter().collect::<Vec<_>>().join(", "))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// `{key: 'Stanton (Crusader, microTech), Pyro'}` over the released contract entries of `contracts` (a catalog of the
+/// contract generators), the key being the text key of each title the entry shows ([`shown`]) without `@` in lower
+/// case, the places those of the star map ([`Offered`], by [`entry_key`]). As [`crate::contract_info`] reads them
+/// from scmdb's file (`reputation.prepare_regions` of 4.12): the systems of all entries of a title in sorted order,
+/// each with its planets in brackets; only the system where the title plays at every planet of it any contract is
+/// offered at, or at more than [`crate::contract_info::MAX_PLANETS`].
+pub fn regions(contracts: &Json, keys: &HashMap<String, ShownKeys>, offered: &HashMap<String, Offered>) -> Map {
+    let mut everywhere: HashMap<&str, BTreeSet<&str>> = HashMap::new();
+    let mut gathered: Vec<(String, Offered)> = Vec::new();
+    let mut index: HashMap<String, usize> = HashMap::new();
+    for contract in entries(contracts) {
+        let id = contract.get("guid").and_then(Json::as_str).unwrap_or_default();
+        let sub = contract.get("subContractGuid").and_then(Json::as_str);
+        let Some(places) = offered.get(&entry_key(id, sub)) else { continue };
+        for (system, planets) in &places.planets {
+            everywhere.entry(system).or_default().extend(planets.iter().map(String::as_str));
+        }
+        for title in shown(contract, keys).0.into_iter().map(reputation_key).filter(|key| !key.is_empty()) {
+            let at = *index.entry(title.clone()).or_insert_with(|| {
+                gathered.push((title, Offered::default()));
+                gathered.len() - 1
+            });
+            let slot = &mut gathered[at].1;
+            slot.systems.extend(places.systems.iter().cloned());
+            for (system, planets) in &places.planets {
+                slot.planets.entry(system.clone()).or_default().extend(planets.iter().cloned());
+            }
+        }
+    }
+    let mut out = Map::new();
+    for (key, slot) in gathered {
+        let parts: Vec<String> = slot
+            .systems
+            .iter()
+            .map(|system| {
+                let planets = slot.planets.get(system).cloned().unwrap_or_default();
+                let all = everywhere.get(system.as_str());
+                let at_every = all.is_some_and(|all| !all.is_empty() && all.iter().all(|p| planets.contains(*p)));
+                if !at_every && !planets.is_empty() && planets.len() <= crate::contract_info::MAX_PLANETS {
+                    format!("{system} ({})", planets.into_iter().collect::<Vec<_>>().join(", "))
+                } else {
+                    system.clone()
+                }
+            })
+            .collect();
+        if !parts.is_empty() {
+            out.push((key, Value::Str(parts.join(", "))));
+        }
+    }
+    out
 }
 
 /// GUID (lower case) → English name and `minReputation` of the standings (`reputationStandings`) of a catalog; a
@@ -359,6 +471,77 @@ mod tests {
         let found = parties(&catalog(json!([one])), &keys, &factions, &scopes, &Fixes::new(&[], "t"));
         let titles: Vec<&str> = found.iter().map(|(k, _)| k.as_str()).collect();
         assert_eq!(titles, ["hockrow_blackbox_space_e_title_001", "hockrow_blackbox_space_e_title_002"]);
+    }
+
+    /// The regions read like scmdb's: every system of the title's entries in sorted order, its planets in brackets
+    /// unless the title plays at every planet any contract of the system is offered at or at more than four.
+    #[test]
+    fn the_regions_name_the_systems_and_the_planets_of_a_title() {
+        let titled = |guid: &str, title: &str| {
+            let mut one = entry(guid, title, json!([]));
+            one["guid"] = json!(guid);
+            one
+        };
+        let places = |list: &[(&str, &[&str])]| {
+            let mut offered = Offered::default();
+            for (system, planets) in list {
+                offered.systems.insert((*system).to_string());
+                if !planets.is_empty() {
+                    offered.planets.insert((*system).to_string(), planets.iter().map(|p| p.to_string()).collect());
+                }
+            }
+            offered
+        };
+        let stanton = ["ArcCorp", "Crusader", "Hurston", "microTech"];
+        let all = catalog(json!([
+            titled("g1", "@Two_Title"),
+            titled("g2", "@Every_Title"),
+            titled("g3", "@Wide_Title"),
+            titled("g4", "@Wide_Title"),
+            titled("g5", "@recovery_title"),
+            titled("g6", "@Nowhere_Title"),
+        ]));
+        let offered: HashMap<String, Offered> = [
+            ("g1", places(&[("Stanton", &["microTech", "Crusader"])])),
+            ("g2", places(&[("Stanton", &stanton)])),
+            ("g3", places(&[("Stanton", &["Hurston"])])),
+            ("g4", places(&[("Pyro", &[]), ("Nyx", &["Nyx I"])])),
+            ("g5", places(&[("Stanton", &["Hurston"])])),
+        ]
+        .into_iter()
+        .map(|(guid, places)| (entry_key(guid, None), places))
+        .collect();
+        let keys: HashMap<String, ShownKeys> = [(
+            entry_key("g5", None),
+            ShownKeys { title: vec!["@BitZeros_RecoverItem_Generic_Title_001".into()], description: Vec::new() },
+        )]
+        .into_iter()
+        .collect();
+        let found = regions(&all, &keys, &offered);
+        assert_eq!(
+            jsonio::dumps(&Value::Object(found), None, false),
+            concat!(
+                r#"{"two_title": "Stanton (Crusader, microTech)", "every_title": "Stanton", "#,
+                // Nyx I is the only planet of Nyx any contract is offered at: the whole system.
+                r#""wide_title": "Nyx, Pyro, Stanton (Hurston)", "#,
+                r#""bitzeros_recoveritem_generic_title_001": "Stanton (Hurston)"}"#
+            ),
+            "a title without places has no region"
+        );
+    }
+
+    #[test]
+    fn a_region_reads_back_and_joins_another() {
+        let parsed = parse_region("Nyx, Pyro (Bloom, Pyro IV), Stanton");
+        assert_eq!(parsed.len(), 3);
+        assert_eq!(parsed["Pyro"].iter().collect::<Vec<_>>(), ["Bloom", "Pyro IV"]);
+        assert!(parsed["Nyx"].is_empty() && parsed["Stanton"].is_empty());
+        assert!(parse_region("").is_empty());
+        assert_eq!(join_regions("Stanton (Hurston)", "Stanton (microTech), Nyx"), "Nyx, Stanton (Hurston, microTech)");
+        assert_eq!(join_regions("Stanton (Hurston)", "Stanton"), "Stanton", "a whole system stays whole");
+        assert_eq!(join_regions("Stanton", "Stanton (Hurston)"), "Stanton");
+        assert_eq!(join_regions("Pyro (Bloom, Pyro I)", "Pyro (Monox, Pyro V, Pyro IV)"), "Pyro", "more than four");
+        assert_eq!(join_regions("Pyro (Bloom)", ""), "Pyro (Bloom)");
     }
 
     #[test]

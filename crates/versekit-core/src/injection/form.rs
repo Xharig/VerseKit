@@ -106,7 +106,7 @@ pub static UNMARKED_BLOCK: LazyLock<Regex> = LazyLock::new(|| compile(&format!("
 /// `injection.UNMARKED`: the title addition or a block, without marks.
 pub static UNMARKED: LazyLock<Regex> = LazyLock::new(|| {
     compile(&format!(
-        r"(?s)(?:{s}*<EM4>\[(?:BP|Bauplan)(?:{s}+\d+/\d+)?!?(?: [\d.,]+ Rep)?\]</EM4>{s}*$|{tail})",
+        r"(?s)(?:{s}*<EM4>\[(?:BP|Bauplan)(?:{s}+\d+/\d+)?!?(?: [\d.,]+ Rep)?\]\??</EM4>{s}*$|{tail})",
         s = PY_SPACE,
         tail = block_tail()
     ))

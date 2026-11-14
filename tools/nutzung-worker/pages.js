@@ -44,6 +44,8 @@ export const PAGES = {
   darstellung: ['Einstellungen', 'Darstellung'],
   ordner: ['Einstellungen', 'Installation & Pfade'],
   module: ['Einstellungen', 'Module'],
+  erkennung: ['Einstellungen', 'Erkennung'],
+  startprogramme: ['Einstellungen', 'Startprogramme'],
   basetool: ['Einstellungen', 'Verbindung & Abgleich'],
   bestand: ['Einstellungen', 'Sichern & Zurücksetzen'],
   spiel: ['Spiel-Einstellungen', 'Spiel'],
@@ -60,8 +62,6 @@ export const PAGES = {
   handlesuche: ['Info', 'Handle-Suche'],
   diagnose: ['Info', 'Fehler melden'],
   danke: ['Info', 'Danke & Lizenzen'],
-  erkennung: ['Für Fortgeschrittene', 'Erkennung'],
-  startprogramme: ['Für Fortgeschrittene', 'Startprogramme'],
   // Bereichsseiten der Kartenansicht (`cards.area_page_id`).
   bereich_bauplaene: ['Karten', 'Bereich Baupläne'],
   bereich_logistik: ['Karten', 'Bereich Flotte & Logistik'],

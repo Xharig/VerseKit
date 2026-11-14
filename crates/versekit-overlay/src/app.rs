@@ -1271,10 +1271,13 @@ impl OverlayApp {
     }
 
     /// The lines of the Kartellbank under the jobs: the balance of each account, then the pending own requests or
-    /// the queue. The streamer mode covers the balances. Nothing while the main window handed no bank over.
+    /// the queue. The streamer mode covers the balances. Nothing while the main window handed no bank over. The
+    /// balances stand only with the switch "Kartellbank"; the line of the open requests or of the queue stands
+    /// without it, and the notice of new queue entries ([`Self::bank_news`]) does not depend on it at all.
     fn bank_lines(&self) -> Vec<(String, bool)> {
         let handed = self.bank.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        bank_lines_of(&handed.shown_at(versekit_core::export::now_unix() as f64))
+        let balances = self.settings.sections.contains(Section::Bank);
+        bank_lines_of(&handed.shown_at(versekit_core::export::now_unix() as f64), balances)
     }
 
     /// A pass of the main window found new entries in the queue: one notice next to the clock per round. The round
@@ -2482,10 +2485,11 @@ struct Parts {
 }
 
 /// The overlay lines of a bank handed over (see [`OverlayApp::bank_lines`]).
-fn bank_lines_of(handed: &versekit_core::basetool::bank::Handed) -> Vec<(String, bool)> {
+fn bank_lines_of(handed: &versekit_core::basetool::bank::Handed, balances: bool) -> Vec<(String, bool)> {
     let mut lines: Vec<(String, bool)> = handed
         .accounts
         .iter()
+        .filter(|_| balances)
         .map(|(_, name, balance)| {
             let shown = if versekit_core::streamer::active() {
                 versekit_core::streamer::placeholder()
@@ -2922,9 +2926,10 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             let refinery = crate::refinery::RefineryKey::new(settings.scan_hotkey, scan_rx);
             #[cfg_attr(target_os = "macos", allow(unused_mut))]
             let mut registered: Result<(), String> = Err("kein System, das es kann".into());
-            #[cfg_attr(not(windows), allow(unused_mut))]
+            #[cfg_attr(target_os = "macos", allow(unused_mut))]
             let mut scan_registered: Result<(), String> = Err("kein System, das es kann".into());
-            // The refinery scan reads only where the screen can be read (Windows with its text recognition).
+            // The refinery scan reads only where the screen can be read (Windows with its text recognition, Linux
+            // on X11 with the own one).
             #[cfg(windows)]
             if args.probe.is_none() && versekit_core::refinery_scan::screen::supported() {
                 let ctx = cc.egui_ctx.clone();
@@ -2933,7 +2938,14 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                         .then_some(())
                         .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
             }
-            #[cfg(not(windows))]
+            #[cfg(all(unix, not(target_os = "macos")))]
+            if args.probe.is_none() && versekit_core::refinery_scan::screen::supported() {
+                let ctx = cc.egui_ctx.clone();
+                scan_registered = hotkey_x11::start(refinery.hotkey.clone(), scan_tx, move || ctx.request_repaint())
+                    .then_some(())
+                    .ok_or_else(|| "kein X-Server".to_string());
+            }
+            #[cfg(target_os = "macos")]
             drop(scan_tx);
             #[cfg(windows)]
             if args.probe.is_none() {
@@ -2978,7 +2990,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             // The hotkey of the picture of the game grabs the screen: only where that works, as the refinery scan.
             let (picture_tx, picture_rx) = mpsc::channel();
             let picture = crate::picture::PictureKey::new(settings.picture_hotkey, picture_rx);
-            #[cfg_attr(not(windows), allow(unused_mut))]
+            #[cfg_attr(target_os = "macos", allow(unused_mut))]
             let mut picture_registered: Result<(), String> = Err("kein System, das es kann".into());
             #[cfg(windows)]
             if args.probe.is_none() && versekit_core::screen_grab::supported() {
@@ -2988,7 +3000,14 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                         .then_some(())
                         .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
             }
-            #[cfg(not(windows))]
+            #[cfg(all(unix, not(target_os = "macos")))]
+            if args.probe.is_none() && versekit_core::screen_grab::supported() {
+                let ctx = cc.egui_ctx.clone();
+                picture_registered = hotkey_x11::start(picture.hotkey.clone(), picture_tx, move || ctx.request_repaint())
+                    .then_some(())
+                    .ok_or_else(|| "kein X-Server".to_string());
+            }
+            #[cfg(target_os = "macos")]
             drop(picture_tx);
             // The hotkey of the main window, the same way as the one of the handle search.
             let main_hotkey = Arc::new(Mutex::new(settings.main_hotkey));
@@ -4086,6 +4105,7 @@ mod tests {
         language::set_thread_language(language::Choice::De);
         let mut bench = bench(Args::default(), false, None);
         let app = &mut bench.app;
+        app.settings.sections = app.settings.sections.with(Section::Bank, true);
         app.main_alive = || true;
         let now = versekit_core::export::now_unix() as f64;
         assert!(app.bank_lines().is_empty(), "nothing handed over");
@@ -4123,6 +4143,40 @@ mod tests {
         app.main_looked = None;
         app.bank_news();
         assert!(app.bank_lines().is_empty());
+    }
+
+    /// The switch "Kartellbank" takes only the balance lines away, and it is off without a setting: the line of the
+    /// open requests, the line of the queue and the notice of new queue entries stay.
+    #[test]
+    fn the_bank_balances_have_their_own_switch_and_the_requests_and_the_news_stay() {
+        use versekit_core::basetool::bank::{self, Account, Bank, News, Queue, QueueEntry, Request};
+        language::set_thread_language(language::Choice::De);
+        let mut bench = bench(Args::default(), false, None);
+        let app = &mut bench.app;
+        app.main_alive = || true;
+        assert!(!app.settings.sections.contains(Section::Bank), "off without a setting");
+        let now = versekit_core::export::now_unix() as f64;
+        let mut read = Bank {
+            accounts: vec![Account { id: "a".into(), no: "KB-1".into(), name: "KRT".into(), balance: 1_250_000, ..Account::default() }],
+            requests: vec![Request { id: "r".into(), status: "PENDING".into(), ..Request::default() }],
+            open_cap: 20,
+            ..Bank::default()
+        };
+        *app.bank.lock().unwrap() = bank::taken_over(&bank::handover(Some(&read), News { round: 4, count: 0 }, now));
+        app.bank_news();
+        let lines = |app: &OverlayApp| -> Vec<String> { app.bank_lines().into_iter().map(|(l, _)| l).collect() };
+        // Off: no balance, the open requests stay.
+        assert_eq!(lines(app), ["Bank: offene Anträge 1"]);
+        // On: the balance stands above them.
+        app.settings.sections = app.settings.sections.with(Section::Bank, true);
+        assert_eq!(lines(app), ["KB-1 KRT: 1.250.000 aUEC", "Bank: offene Anträge 1"]);
+        // Off again, with a queue and a new round: the queue line and the notice stay.
+        app.settings.sections = app.settings.sections.with(Section::Bank, false);
+        read.queue = Some(Queue { open: vec![QueueEntry { id: "q".into(), ..QueueEntry::default() }], ..Queue::default() });
+        *app.bank.lock().unwrap() = bank::taken_over(&bank::handover(Some(&read), News { round: 5, count: 1 }, now));
+        assert_eq!(lines(app), ["Bank: Warteschlange 1"]);
+        app.bank_news();
+        assert_eq!(app.notices.len(), 1, "the notice of new queue entries does not depend on the switch");
     }
 
     /// "Die Einheit sucht: …" stands under the signature line when the unit wants one of the ores behind it, as the

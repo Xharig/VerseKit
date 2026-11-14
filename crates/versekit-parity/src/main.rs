@@ -274,6 +274,10 @@
 //!
 //! `versekit-parity rufstufen` and `auftragsruf` compare the reputation read
 //! from the game data with the stored tables (see `ruf`).
+//!
+//! `versekit-parity regionen <auszug> <merged.json> [--alle]` compares the
+//! regions and the titles with blueprints the game data of an extract give
+//! with scmdb's file of the same build (see `regionen`).
 
 mod abbau;
 mod achsen;
@@ -313,6 +317,7 @@ mod live;
 mod logsource;
 mod mining_catalog;
 mod mission_log;
+mod ohne_netz;
 mod orgstock;
 mod overrides;
 mod patch_changes;
@@ -320,6 +325,7 @@ mod paths;
 mod phrases_learn;
 mod raffinerie;
 mod raffinerie_windows;
+mod regionen;
 mod report;
 mod ruf;
 mod scmdb;
@@ -599,10 +605,40 @@ fn main() -> ExitCode {
             let flag = |name: &str| rest.iter().any(|arg| arg == name);
             catalog_build::run(data, channel, scmdb, flag("--alle"), flag("--aufruester"))
         }
+        [cmd, archive, game, copy, rest @ ..] if cmd == "ohne_netz" => {
+            let after = |name: &str| rest.iter().position(|arg| arg == name).and_then(|at| rest.get(at + 1));
+            let options = ohne_netz::Options {
+                reference: after("--vergleich").map(String::as_str),
+                note_file: after("--urtext").map(String::as_str),
+                keep_caches: rest.iter().any(|arg| arg == "--bestand"),
+                uex_build: after("--uex-stand").map(String::as_str),
+                without_values: rest.iter().any(|arg| arg == ohne_netz::WITHOUT_VALUES),
+                side: rest.iter().position(|arg| arg == ohne_netz::SIDE_CHANNEL).and_then(|at| {
+                    match (rest.get(at + 1), rest.get(at + 2), rest.get(at + 3)) {
+                        (Some(name), Some(p4k), Some(folder)) => Some((name.as_str(), p4k.as_str(), folder.as_str())),
+                        _ => None,
+                    }
+                }),
+                counter: after("--gegenprobe").map(String::as_str),
+            };
+            ohne_netz::run(archive, game, copy, &options)
+        }
+        [cmd, scratch, archive, rest @ ..] if cmd == ohne_netz::CHILD && rest.len() <= 3 => {
+            let side = rest.iter().position(|arg| arg == ohne_netz::SIDE_CHANNEL).and_then(|at| rest.get(at + 1));
+            ohne_netz::child(
+                scratch,
+                archive,
+                rest.iter().any(|arg| arg == ohne_netz::WITHOUT_VALUES),
+                side.map(String::as_str),
+            )
+        }
         [cmd, channel, out] if cmd == "auszug" => extract::run(channel, out),
         [cmd, channel, filter, out] if cmd == "katalogteil" => extract::part(channel, filter, out),
         [cmd, catalog, stored] if cmd == "rufstufen" => ruf::ranks(catalog, stored),
         [cmd, folder, merged, stored] if cmd == "auftragsruf" => ruf::contracts(folder, merged, stored),
+        [cmd, folder, merged, rest @ ..] if cmd == "regionen" && rest.iter().all(|a| a == "--alle") => {
+            regionen::run(folder, merged, !rest.is_empty())
+        }
         [cmd, folder, merged] if cmd == "auftraege_vollstaendig" => vollstaendig::run(folder, merged, None),
         [cmd, folder, merged, flag, title] if cmd == "auftraege_vollstaendig" && flag == "--weglassen" => {
             vollstaendig::run(folder, merged, Some(title))
@@ -667,11 +703,13 @@ fn main() -> ExitCode {
                   versekit-parity katalogteil <kanalordner|p4k-kopie> <filter> <datei>\n       \
                   versekit-parity rufstufen <reputation.json> <rufstufen.json>\n       \
                   versekit-parity auftragsruf <auszug> <merged.json> <auftragsruf.json>\n       \
+         versekit-parity regionen <auszug> <merged.json> [--alle]\n       \
                   versekit-parity auftraege_vollstaendig <auszug> <merged.json> [--weglassen <titel>]\n       \
                   versekit-parity auftragsangaben <merged.json> <katalog-cache.json> <auftragsruf.json> [<cig-datenfehler.json>]\n       \
                   versekit-parity einspielung <szenario> <global.ini> <sprachordner> <schritt> [<fassung>]\n       \
                   versekit-parity katalog_luecke <daten> <auszug> [<scmdb-ordner>] [--alle]\n       \
                   versekit-parity katalog_bau <daten> <kanalordner> <scmdb-ordner> [--alle] [--aufruester]\n       \
+                  versekit-parity ohne_netz <Data.p4k> <spielordner> <datenkopie> [--vergleich <global.ini> [--urtext <injektion-urtext.json>]] [--bestand] [--uex-stand <version>] [--ohne-werte] [--kanal <NAME> <Data.p4k> <spielordner>] [--gegenprobe sperre]\n       \
                   versekit-parity satz <auszug> <typ> <pfadteil> [<muster>]"
             .into()),
     };

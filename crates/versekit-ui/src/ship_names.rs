@@ -61,7 +61,7 @@ fn game_writer(host: Host) -> Writer {
         if !paths.setting_bool(versekit_core::game_texts::SETTING_ON, true) {
             return (t("s_as_aus"), true);
         }
-        let version = versekit_core::stock_fetch::live_build(&paths);
+        let version = versekit_gamedata::texts_watch::game_version(&paths);
         let archive = crate::game_texts_page::GameArchive;
         match versekit_core::game_texts::apply(&paths, &archive, &version) {
             versekit_core::injection::Outcome::Done(_) => (t("s_as_steht"), false),

@@ -73,20 +73,29 @@ pub fn matrix(mode: Mode) -> Option<[f32; 25]> {
     Some(out)
 }
 
-/// `scaled`: the part `area` of `bitmap` enlarged by `scale`, bicubic by GDI+, through the matrix of `mode`.
-/// Width, height and BGRA.
+/// `scaled`: the part `area` of `bitmap` enlarged by `scale`, bicubic by GDI+ (elsewhere by
+/// [`crate::picture_scale`]), through the matrix of `mode`. Width, height and BGRA.
 pub fn scaled(bitmap: &Bitmap, area: Area, scale: f64, mode: Mode) -> Result<(usize, usize, Vec<u8>), String> {
-    let tw = ((area.2 as f64 * scale) as i64).max(1);
-    let th = ((area.3 as f64 * scale) as i64).max(1);
     #[cfg(windows)]
     {
+        let tw = ((area.2 as f64 * scale) as i64).max(1);
+        let th = ((area.3 as f64 * scale) as i64).max(1);
         imp::scaled(bitmap, area, (tw, th), matrix(mode))
     }
     #[cfg(not(windows))]
     {
-        let _ = (bitmap, mode, tw, th);
-        Err("GDI+ only under Windows".into())
+        scaled_own(bitmap, area, scale, mode)
     }
+}
+
+/// As [`scaled`], without the system ([`crate::picture_scale`]): the same on every system.
+pub fn scaled_own(bitmap: &Bitmap, area: Area, scale: f64, mode: Mode) -> Result<(usize, usize, Vec<u8>), String> {
+    let tw = ((area.2 as f64 * scale) as usize).max(1);
+    let th = ((area.3 as f64 * scale) as usize).max(1);
+    let (width, height) = (usize::try_from(bitmap.width).unwrap_or(0), usize::try_from(bitmap.height).unwrap_or(0));
+    crate::picture_scale::scaled(&bitmap.raw, width, height, area, (tw, th), matrix(mode).as_ref())
+        .map(|raw| (tw, th, raw))
+        .ok_or_else(|| "Teil nicht im Bild".into())
 }
 
 /// `png_bytes`: BGRA (top row first) as an RGB PNG.
@@ -441,5 +450,39 @@ mod tests {
         assert!(plain[middle + 1] > 200, "bright inside: {}", plain[middle + 1]);
         let (_, _, dark) = scaled(&bitmap, (2, 2, 4, 4), 3.0, Mode::Dark).expect("dark");
         assert!(dark[middle + 1] < 60, "turned round: {}", dark[middle + 1]);
+    }
+
+    /// The own enlarging (Linux) stays close to the one of GDI+: the learned digits were cut from cells enlarged by
+    /// GDI+, and a cell enlarged otherwise must still lie on them. Digits as the terminal draws them: bright strokes
+    /// two points wide with soft edges on a dark ground, enlarged as a cell is (to 42 points high).
+    #[cfg(windows)]
+    #[test]
+    fn the_own_enlarging_lies_close_to_the_one_of_gdi_plus() {
+        let (width, height) = (40i64, 12i64);
+        let mut raw = Vec::new();
+        for y in 0..height {
+            for x in 0..width {
+                let stroke = (x % 7 < 2) || (y % 5 == 0 && x % 7 < 5);
+                let v: u8 = if stroke { 210 } else if x % 7 == 2 { 90 } else { 18 };
+                raw.extend_from_slice(&[v, v.saturating_add(10), v, 255]);
+            }
+        }
+        let bitmap = Bitmap { width, height, raw };
+        // The most mean difference per mode, of 255. Measured 14.11.2026: 9.6 for the cell, 14.4 dark; the kernel
+        // is not the cause (Keys -0.25 to -1.0 give 9.2 to 11.7). Before the own recognition reads with the learned
+        // digits of Windows, they must be checked against cells enlarged so.
+        let most = [12.0, 18.0];
+        for (n, (area, scale, mode)) in
+            [((2, 1, 30, 9), 42.0 / 9.0, Mode::Plain), ((0, 0, 40, 12), 3.5, Mode::Dark)].into_iter().enumerate()
+        {
+            let (w, h, gdi) = scaled(&bitmap, area, scale, mode).expect("gdi+");
+            let (ow, oh, own) = scaled_own(&bitmap, area, scale, mode).expect("own");
+            assert_eq!((w, h), (ow, oh));
+            let green = |raw: &[u8]| raw.iter().skip(1).step_by(4).map(|v| f64::from(*v)).collect::<Vec<_>>();
+            let (a, b) = (green(&gdi), green(&own));
+            let mean = a.iter().zip(&b).map(|(a, b)| (a - b).abs()).sum::<f64>() / a.len() as f64;
+            eprintln!("{mode:?}: mean difference {mean:.2} of 255");
+            assert!(mean < most[n], "{mode:?}: mean difference {mean:.2} of 255");
+        }
     }
 }

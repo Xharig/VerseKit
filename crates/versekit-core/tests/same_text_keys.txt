@@ -186,6 +186,7 @@ as_exporter_edge
 # Names of the programs and sites whose stand files the import reads, as they call themselves.
 s_be_art_basetool
 s_be_art_bpdb
+s_be_art_lexicore
 erhalten_q_basetool
 erhalten_q_import
 erhalten_q_launcher

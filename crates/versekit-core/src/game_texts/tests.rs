@@ -79,6 +79,26 @@ pub(super) struct FakeArchive {
     keep: bool,
     names: Option<&'static str>,
     names_refreshed: Mutex<usize>,
+    /// What `prepare_channel` answers, and the contracts its catalog names (written beside the files of the channel).
+    channel: Mutex<(Option<ChannelData>, Vec<&'static str>)>,
+    /// How often `prepare_channel` ran.
+    channels_prepared: Mutex<usize>,
+}
+
+impl FakeArchive {
+    /// A side channel whose archive gives a catalog of `version` that names the contracts `keys`.
+    pub(super) fn with_channel(version: &str, keys: &[&'static str]) -> FakeArchive {
+        FakeArchive::default().channel_is(ChannelData::Ready(version.to_string()), keys)
+    }
+
+    pub(super) fn channel_is(self, data: ChannelData, keys: &[&'static str]) -> FakeArchive {
+        *self.channel.lock().unwrap() = (Some(data), keys.to_vec());
+        self
+    }
+
+    fn set_channel_keys(&self, keys: &[&'static str]) {
+        self.channel.lock().unwrap().1 = keys.to_vec();
+    }
 }
 
 const ENGLISH: &str = "Bounty_title_001=Bounty\nBounty_desc_001=Catch him.\n";
@@ -111,6 +131,15 @@ impl Archive for FakeArchive {
             fs::write(paths.app_file(sources::NAMES_FILE), names).unwrap();
         }
     }
+    fn prepare_channel(&self, channel: &Paths) -> ChannelData {
+        *self.channels_prepared.lock().unwrap() += 1;
+        let (data, keys) = self.channel.lock().unwrap().clone();
+        let data = data.unwrap_or(ChannelData::Missing);
+        if let ChannelData::Ready(version) = &data {
+            fs::write(channel.app_file(sources::CATALOG_V5), own_catalog(version, &keys)).unwrap();
+        }
+        data
+    }
 }
 
 /// A file written in text mode with `text`, as the system leaves it: on
@@ -121,6 +150,44 @@ fn native(text: &str) -> String {
 
 fn english_ini(s: &Setup) -> String {
     format!("{}/data/Localization/english/global.ini", s.live)
+}
+
+/// An archive that gives recipes of its own.
+struct RecipeArchive(&'static str);
+
+impl Archive for RecipeArchive {
+    fn stamp(&self, _: &Paths) -> Option<String> {
+        None
+    }
+    fn refresh_original(&self, _: &Paths) -> bool {
+        false
+    }
+    fn fill_gaps(&self, _: &Paths, _: &str) -> usize {
+        0
+    }
+    fn fetch_original(&self, _: &Paths, _: &str, _: bool) -> Result<Placed, String> {
+        Err("none".into())
+    }
+    fn refresh_names(&self, _: &Paths) {}
+    fn recipes(&self, _: &Paths) -> Option<Value> {
+        jsonio::loads(self.0).ok()
+    }
+}
+
+/// The recipes the archive gives come before scmdb's recipe file; without them the file stays the source.
+#[test]
+fn the_recipes_of_the_archive_come_before_the_recipe_file() {
+    let s = Setup::new("recipes");
+    let file = r#"{"format": 1, "build": "b", "blueprints": [{"guid": "g1", "tag": "BP_CRAFT_A", "productName": "From scmdb", "productEntityClass": "e1", "tiers": []}]}"#;
+    fs::write(s.paths.app_file(sources::RECIPES_FILE), file).unwrap();
+    let own = r#"{"format": 1, "build": "b", "blueprints": [{"guid": "g1", "tag": "BP_CRAFT_A", "productName": "From the archive", "productEntityClass": "e1", "tiers": [{"craftTimeSeconds": 60, "slots": [{"name": "Frame", "options": []}]}]}]}"#;
+    let names = |archive: &dyn Archive| -> Vec<String> {
+        prepare(&s.paths, archive, "").items.into_iter().map(|item| item.base).collect()
+    };
+    assert_eq!(names(&RecipeArchive(own)), ["From the archive"]);
+    assert_eq!(prepare(&s.paths, &RecipeArchive(own), "").items[0].first_tier, Some((1, Value::int(60))));
+    assert_eq!(names(&NoArchive), ["From scmdb"], "without recipes of the archive the file counts");
+    assert_eq!(names(&RecipeArchive(r#"{"format": 1, "blueprints": []}"#)), ["From scmdb"], "none from the archive");
 }
 
 #[test]
@@ -164,7 +231,8 @@ fn the_original_in_a_side_channel_leaves_the_main_note_alone() {
     let note = injection::load_origtext(&s.paths);
     let ptu = format!("{}/StarCitizen/PTU", s.root);
     fs::create_dir_all(&ptu).unwrap();
-    let said = switch_side(&s.paths, &Fake::default(), &FakeArchive::default(), "PTU", &ptu, ORIGINAL, &|_| {});
+    let archive = FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]);
+    let said = switch_side(&s.paths, &Fake::default(), &archive, "PTU", &ptu, ORIGINAL, &|_| {});
     assert!(said.as_deref().is_ok_and(|said| said.starts_with("1.0 MB · ")), "placed with its notes: {said:?}");
     let side = fs::read_to_string(format!("{ptu}/data/Localization/english/global.ini")).unwrap();
     assert!(side.starts_with("Bounty_title_001=Bounty <EM4>[BP]</EM4>\n"), "the PTU file carries the notes: {side}");
@@ -639,7 +707,7 @@ fn a_side_channel_gets_its_language_and_the_notes_like_the_main_installation() {
     let job = upkeep.tick(&s.paths, &FakeArchive::default(), &BTreeSet::new(), 1000.0).expect("due at start");
     assert_eq!(job.channels, [("PTU".to_string(), "luftwerft_de".to_string())]);
     let net = Fake::default().with_head(&luftwerft_german("PTU"), &[("etag", "\"a\"")]);
-    let ran = run(&job, &s.paths, &net, &FakeArchive::default(), "");
+    let ran = run(&job, &s.paths, &net, &FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]), "");
     assert!(ran.notices.contains(&Notice::LanguageRepaired("PTU · german_(germany)".into())), "{:?}", ran.notices);
     let cfg = fs::read_to_string(format!("{ptu}/user.cfg")).unwrap();
     assert!(cfg.contains("g_language = german_(germany)") && !cfg.contains("g_language = english"), "{cfg}");
@@ -664,7 +732,8 @@ fn leaving_a_channel_alone_takes_the_notes_out_first() {
     let ptu = s.ptu_with_scdl_leftovers();
     let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
     let before = fs::read_to_string(&german).unwrap();
-    assert!(matches!(apply(&s.paths, &FakeArchive::default(), ""), Outcome::Done(_)));
+    let archive = FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]);
+    assert!(matches!(apply(&s.paths, &archive, ""), Outcome::Done(_)));
     assert!(fs::read_to_string(&german).unwrap().contains("Kopfgeld <EM4>[BP]</EM4>"));
     let spots = leave_alone(&s.paths, Some("PTU"), &ptu);
     assert!(spots > 0, "the spots that went are counted");
@@ -685,7 +754,7 @@ fn removing_also_reaches_a_channel_left_alone_that_still_holds_notes() {
     let ptu = s.ptu_with_scdl_leftovers();
     let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
     let before = fs::read_to_string(&german).unwrap();
-    apply(&s.paths, &FakeArchive::default(), "");
+    apply(&s.paths, &FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]), "");
     assert!(injection::is_applied(&german));
     translation::set_channel_source(&s.paths, "PTU", "");
     assert!(side_channels(&s.paths, s.paths.game_folder().as_deref()).is_empty(), "the channel is no longer tended");
@@ -703,7 +772,8 @@ fn inserting_again_and_choosing_a_source_write_the_notes_into_the_side_channel()
     s.set_up_german();
     let ptu = s.ptu_with_scdl_leftovers();
     let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
-    assert!(matches!(apply(&s.paths, &FakeArchive::default(), ""), Outcome::Done(_)));
+    let archive = FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]);
+    assert!(matches!(apply(&s.paths, &archive, ""), Outcome::Done(_)));
     assert!(fs::read_to_string(&german).unwrap().contains("Kopfgeld <EM4>[BP]</EM4>"));
     remove(&s.paths);
     // TECH-PREVIEW takes a source of its own: the test version of Luftwerft, the language, the notes.
@@ -712,8 +782,7 @@ fn inserting_again_and_choosing_a_source_write_the_notes_into_the_side_channel()
     fs::write(format!("{tech}/Data.p4k"), "").unwrap();
     let url = luftwerft_german("PTU");
     let net = Fake::default().with_head(&url, &[("etag", "\"tp\"")]).with(&url, luftwerft_file("Luftwerft TP"));
-    let said = switch_side(&s.paths, &net, &FakeArchive::default(), "TECH-PREVIEW", &tech, "luftwerft_de", &|_| {})
-        .expect("placed");
+    let said = switch_side(&s.paths, &net, &archive, "TECH-PREVIEW", &tech, "luftwerft_de", &|_| {}).expect("placed");
     assert!(said.contains(" · "), "the notes are told with it: {said}");
     let text = fs::read_to_string(format!("{tech}/data/Localization/german_(germany)/global.ini")).unwrap();
     assert!(text.contains("Kopfgeld <EM4>[BP]</EM4>") && text.contains("Luftwerft TP\\nVerseKit v"), "{text}");
@@ -927,4 +996,132 @@ fn a_new_catalog_of_the_game_data_has_the_notes_written_anew_with_the_next_run()
     let after = fs::read_to_string(s.ini()).unwrap();
     assert!(after.contains("Neues Kopfgeld <EM4>[BP]</EM4>"), "{after}");
     assert!(run(&job, &s.paths, &net, &archive, "").notices.is_empty(), "once");
+}
+
+/// The notes of a side channel are written from what its own archive gives: the main installation has the catalog
+/// before a patch, the channel the one after it.
+impl Setup {
+    /// LIVE with the catalog of `main_keys`, and a PTU whose text file names both contracts.
+    fn live_and_ptu(&self, main_keys: &[&str]) -> (String, String) {
+        fs::write(self.ini(), TWO_CONTRACTS).unwrap();
+        fs::write(self.paths.app_file(sources::CATALOG_V5), own_catalog("4.10.3-live.1", main_keys)).unwrap();
+        let ptu = self.ptu_with_scdl_leftovers();
+        let german = format!("{ptu}/data/Localization/german_(germany)/global.ini");
+        fs::write(&german, format!("Frontend_PU_Version=Luftwerft PTU\n{TWO_CONTRACTS}")).unwrap();
+        (ptu, german)
+    }
+}
+
+fn job_with_side() -> Job {
+    Job {
+        channels: vec![("PTU".into(), "luftwerft_de".into())],
+        source: Some("dymerz_de".into()),
+        own_original: false,
+        stock_only: false,
+        rewrite: false,
+    }
+}
+
+fn ptu_net() -> Fake {
+    Fake::default().with_head(&luftwerft_german("PTU"), &[("etag", "\"a\"")])
+}
+
+#[test]
+fn a_side_channel_gets_its_notes_from_its_own_data() {
+    let s = Setup::new("ptu-eigene-daten");
+    s.set_up_german();
+    let (_, german) = s.live_and_ptu(&["Bounty_title_001"]);
+    let main_catalog = fs::read(s.paths.app_file(sources::CATALOG_V5)).unwrap();
+    let archive = FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001", "Bounty_title_002"]);
+    run(&job_with_side(), &s.paths, &ptu_net(), &archive, "");
+    let side = fs::read_to_string(&german).unwrap();
+    assert!(side.contains("Neues Kopfgeld <EM4>[BP]</EM4>"), "the channel names its own contract: {side}");
+    let main = fs::read_to_string(s.ini()).unwrap();
+    assert!(main.contains("Kopfgeld <EM4>[BP]</EM4>") && !main.contains("Neues Kopfgeld <EM4>"), "{main}");
+    assert_eq!(fs::read(s.paths.app_file(sources::CATALOG_V5)).unwrap(), main_catalog, "the main catalog stays");
+    let own = format!("{}/Kanaele/PTU/{}", s.paths.app_folder(), sources::CATALOG_V5);
+    assert!(game_ini::is_file(&own), "the data of the channel lie in its own folder");
+    // Another catalog of the channel has its notes written anew with the next run, the main file stays.
+    archive.set_channel_keys(&["Bounty_title_001"]);
+    run(&job_with_side(), &s.paths, &ptu_net(), &archive, "");
+    let again = fs::read_to_string(&german).unwrap();
+    assert!(!again.contains("Neues Kopfgeld <EM4>"), "{again}");
+    assert_eq!(fs::read_to_string(s.ini()).unwrap(), main);
+}
+
+#[test]
+fn a_side_channel_without_data_gets_no_notes_and_loses_the_ones_it_has() {
+    let s = Setup::new("ptu-ohne-daten");
+    s.set_up_german();
+    let (_, german) = s.live_and_ptu(&["Bounty_title_001"]);
+    let before = fs::read_to_string(&german).unwrap();
+    let with = FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]);
+    run(&job_with_side(), &s.paths, &ptu_net(), &with, "");
+    assert!(injection::is_applied(&german), "the notes stand");
+    let without = FakeArchive::default();
+    let (_, caught) = crate::errors::captured(|| run(&job_with_side(), &s.paths, &ptu_net(), &without, ""));
+    assert!(!injection::is_applied(&german), "no notes of a foreign build");
+    assert_eq!(fs::read_to_string(&german).unwrap(), before);
+    assert!(caught.iter().any(|c| c.label == "watcher.kanaele"), "the log says it: {caught:?}");
+    // The button "Neu einsetzen" writes none either.
+    let (_, caught) = crate::errors::captured(|| apply(&s.paths, &without, ""));
+    assert!(!injection::is_applied(&german));
+    assert!(caught.iter().any(|c| c.label == "watcher.kanaele"), "{caught:?}");
+}
+
+#[test]
+fn a_side_channel_whose_archive_cannot_be_read_now_keeps_its_file_as_it_is() {
+    let s = Setup::new("ptu-spaeter");
+    s.set_up_german();
+    let (_, german) = s.live_and_ptu(&["Bounty_title_001"]);
+    run(&job_with_side(), &s.paths, &ptu_net(), &FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]), "");
+    let written = fs::read(&german).unwrap();
+    let later = FakeArchive::default().channel_is(ChannelData::Later, &[]);
+    let job = Job { rewrite: true, ..job_with_side() };
+    run(&job, &s.paths, &ptu_net(), &later, "");
+    assert_eq!(fs::read(&german).unwrap(), written);
+}
+
+/// The main installation does not notice a side channel: same notes, same catalog, whether a channel is there or not.
+#[test]
+fn the_main_installation_is_the_same_with_and_without_a_side_channel() {
+    let build = |name: &str, side: bool| {
+        let s = Setup::new(name);
+        s.set_up_german();
+        let (_, _) = s.live_and_ptu(&["Bounty_title_001"]);
+        let archive = FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001", "Bounty_title_002"]);
+        let job = Job { channels: if side { job_with_side().channels } else { Vec::new() }, ..job_with_side() };
+        run(&job, &s.paths, &ptu_net(), &archive, "");
+        let result = (
+            fs::read(s.ini()).unwrap(),
+            fs::read(s.paths.app_file(sources::CATALOG_V5)).unwrap(),
+            // The note names its file and the time it was made; what it keeps of the original wording is what counts.
+            jsonio::read_json(&s.paths.app_file("injektion-urtext.json"))
+                .ok()
+                .and_then(|note| note.get("texte").cloned())
+                .map(|texts| jsonio::dumps(&texts, None, false).into_bytes()),
+        );
+        let prepared = *archive.channels_prepared.lock().unwrap();
+        (result, prepared)
+    };
+    let (alone, built_alone) = build("haupt-allein", false);
+    let (with_side, built_with) = build("haupt-mit-kanal", true);
+    let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
+    assert_eq!(text(&alone.0), text(&with_side.0), "the main text file is the same");
+    assert_eq!(text(&alone.1), text(&with_side.1), "the main catalog is the same");
+    assert_eq!(alone.2.as_deref().map(text), with_side.2.as_deref().map(text), "the main note is the same");
+    assert_eq!(built_alone, 0, "no side channel, no build for one");
+    assert_eq!(built_with, 1);
+}
+
+#[test]
+fn without_a_side_channel_nothing_is_built_for_one() {
+    let s = Setup::new("ptu-keiner");
+    s.set_up_german();
+    let archive = FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]);
+    let job = Job { channels: Vec::new(), ..job_with_side() };
+    run(&job, &s.paths, &Fake::default(), &archive, "");
+    apply(&s.paths, &archive, "");
+    assert_eq!(*archive.channels_prepared.lock().unwrap(), 0);
+    assert!(!std::path::Path::new(&format!("{}/Kanaele", s.paths.app_folder())).exists());
 }

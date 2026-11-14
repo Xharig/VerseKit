@@ -239,7 +239,7 @@ pub fn build(settings: &str, market: Option<&Path>) -> (PathBuf, Host) {
     write(&game.join("user.cfg"), USER_CFG);
     write(
         &game.join("build_manifest.id"),
-        "{\"Data\":{\"Branch\":\"sc-alpha-4.3.1\",\"RequestedP4ChangeNum\":\"9876543\"}}\n",
+        "{\"Data\":{\"Branch\":\"sc-alpha-4.10.3\",\"RequestedP4ChangeNum\":\"13165946\"}}\n",
     );
     write(&game.join("USER/Client/0/Profiles/default/actionmaps.xml"), &actionmaps());
     write(&game.join("USER/Client/0/Profiles/default/attributes.xml"), ATTRIBUTES);

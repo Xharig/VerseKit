@@ -49,6 +49,8 @@ pub(crate) struct Inputs {
     pub(crate) pools: Vec<Guid>,
     pub(crate) generators: Vec<Guid>,
     pub(crate) scenarios: Vec<Guid>,
+    /// The star map objects whose record name ends in `Star` (`StantonStar`, `NyxStar`), the stars among them.
+    pub(crate) stars: Vec<Guid>,
 }
 
 /// The sources of every blueprint, with counts of what awarded them.
@@ -108,6 +110,10 @@ pub(crate) fn collect(
             for list in CONTRACT_LISTS {
                 for contract in structs(Some(handler), list) {
                     let Some(id) = identity(contract) else { continue };
+                    // Pools awarded only at another result than the completion: p4kx leaves them out; they count
+                    // for every entry of the contract, as its own rewards do, marked as not sure.
+                    let uncertain: Vec<_> =
+                        uncertain_rewards(contract).into_iter().filter(|(pool, ..)| pools.contains_key(pool)).collect();
                     // The entries p4kx lists, the contract's and each sub
                     // contract's, that hand out a pool of blueprints.
                     let entries: Vec<_> = std::iter::once(None)
@@ -119,7 +125,9 @@ pub(crate) fn collect(
                             };
                             Some((sub, facts.get(id, sub_id)?))
                         })
-                        .filter(|(_, facts)| facts.rewards.iter().any(|(pool, _)| pools.contains_key(pool)))
+                        .filter(|(_, facts)| {
+                            !uncertain.is_empty() || facts.rewards.iter().any(|(pool, _)| pools.contains_key(pool))
+                        })
                         .collect();
                     if entries.is_empty() {
                         continue;
@@ -132,6 +140,13 @@ pub(crate) fn collect(
                     for (sub, facts) in entries {
                         let source = contract_source(&tree, handler, contract, sub, facts, trees, texts, fixes);
                         award(&mut found, &pools, &source, &facts.rewards);
+                        for (pool, chance, at) in &uncertain {
+                            if facts.rewards.iter().any(|(sure, _)| sure == pool) {
+                                continue;
+                            }
+                            let unsure = Source { uncertain: at.clone(), ..source.clone() };
+                            award(&mut found, &pools, &unsure, &[(*pool, *chance)]);
+                        }
                     }
                 }
             }
@@ -202,12 +217,7 @@ pub(crate) fn shown_keys(
                         let title = layered_param(&layers, "Title")
                             .or_else(|| elements(display, "displayString").first().and_then(key_value));
                         let description = layered_param(&layers, "Description");
-                        let mut resolve = |key: Option<&str>| {
-                            let Some(key) = key else { return Vec::new() };
-                            let shown = shown_keys_of(key, &layers, template_root, trees, texts);
-                            if shown.iter().all(|one| one == key) { Vec::new() } else { shown }
-                        };
-                        let keys = ShownKeys { title: resolve(title), description: resolve(description) };
+                        let keys = entry_shown_keys(title, description, &layers, template_root, trees, texts);
                         if keys != ShownKeys::default() {
                             let sub_text = sub_id.map(|sub| sub.to_string());
                             found.entry(entry_key(&id.to_string(), sub_text.as_deref())).or_insert(keys);
@@ -218,6 +228,24 @@ pub(crate) fn shown_keys(
         }
     }
     found
+}
+
+/// The keys an entry with the title key `title` and the description key `description` shows in their place
+/// ([`shown_keys_of`]); a side whose key stays as it is, is empty.
+fn entry_shown_keys(
+    title: Option<&str>,
+    description: Option<&str>,
+    layers: &[&StructValue<'_>],
+    template: Option<&StructValue<'_>>,
+    trees: &mut Trees<'_, '_>,
+    texts: &Localization,
+) -> ShownKeys {
+    let mut resolve = |key: Option<&str>| {
+        let Some(key) = key else { return Vec::new() };
+        let shown = shown_keys_of(key, layers, template, trees, texts);
+        if shown.iter().all(|one| one == key) { Vec::new() } else { shown }
+    };
+    ShownKeys { title: resolve(title), description: resolve(description) }
 }
 
 /// The keys that stand in for `key` when its English text is one placeholder of an organisation's strings (every one
@@ -484,6 +512,13 @@ fn fill_placeholders(text: &str, mut fill: impl FnMut(&str) -> Option<String>) -
     py_strip(&out).to_string()
 }
 
+/// The contractor `text` with its placeholders filled as in a title. `None` when it has no text, is empty after
+/// the filling or still holds a placeholder.
+fn filled_contractor(text: Text, fill: impl FnMut(&str) -> Option<String>) -> Option<Text> {
+    let filled = fill_placeholders(text.text.as_deref()?, fill);
+    (!filled.is_empty() && !filled.contains("~mission(")).then_some(Text { key: text.key, text: Some(filled) })
+}
+
 /// The localisation key `value` holds, when it is one.
 fn key_value<'f>(value: &Value<'f>) -> Option<&'f str> {
     match *value {
@@ -518,7 +553,8 @@ fn contract_source(
         None => property(&layers, template_root, "Contractor")
             .and_then(|value| organization_string(value, "Name", trees))
             .map(|key| Text::resolve(Some(&key), texts)),
-    };
+    }
+    .and_then(|text| filled_contractor(text, |token| placeholder(token, &layers, template_root, trees, texts)));
     let mission_type = layers
         .iter()
         .find_map(|layer| reference(Some(layer), "missionTypeOverride"))
@@ -570,7 +606,9 @@ fn contract_source(
                 .or_else(|| number(availability, "personalCooldownTime").map(|minutes| minutes.round() as i64))
         });
     let (systems, places) = places(facts, trees, texts);
-    let description_key = crate::catalog::text_key(layered_param(&layers, "Description"));
+    let description_param = layered_param(&layers, "Description");
+    let description_key = crate::catalog::text_key(description_param);
+    let shown = entry_shown_keys(title_key, description_param, &layers, template_root, trees, texts);
     Source {
         kind: SourceKind::Contract,
         id: id.to_string(),
@@ -581,6 +619,7 @@ fn contract_source(
         contractor,
         faction,
         description_key,
+        shown,
         systems,
         places,
         rank: standing.as_ref().map(|standing| Text::resolve(locale_key(Some(standing.root()), "displayName"), texts)),
@@ -596,7 +635,33 @@ fn contract_source(
         reward_uec,
         chance: None,
         pool: String::new(),
+        uncertain: Vec::new(),
     }
+}
+
+/// The names of the flags of `missionResults`, in their order (`EMissionResult`).
+const MISSION_RESULTS: [&str; 5] = ["Completed", "InProgress", "Failed", "Abandoned", "Withdrawn"];
+
+/// The blueprint pools a contract awards only at results other than its completion: each `BlueprintRewards` result
+/// whose first `missionResults` flag (Completed) is not set but another one is, with its chance and the names of
+/// the results it is awarded at. p4kx leaves them out of its catalog (only rewards on completion count there).
+fn uncertain_rewards(contract: &StructValue<'_>) -> Vec<(Guid, Option<f64>, Vec<String>)> {
+    results(contract)
+        .filter(|result| result.type_name() == "BlueprintRewards" && !on_success(result))
+        .filter_map(|result| {
+            let flags = elements(Some(result), "missionResults");
+            let at: Vec<String> = flags
+                .iter()
+                .enumerate()
+                .filter(|(_, flag)| matches!(flag, Value::Bool(true)))
+                .filter_map(|(index, _)| MISSION_RESULTS.get(index).map(|name| (*name).to_string()))
+                .collect();
+            if at.is_empty() {
+                return None;
+            }
+            Some((reference(Some(result), "blueprintPool")?, number(Some(result), "chance"), at))
+        })
+        .collect()
 }
 
 /// What a place of the star map stands for in a contract's list of places.
@@ -644,6 +709,116 @@ fn places(facts: &Facts, trees: &mut Trees<'_, '_>, texts: &Localization) -> (Ve
     (systems, of(PlaceKind::Place))
 }
 
+/// Where every contract entry p4kx lists is offered ([`crate::Offered`]), by [`entry_key`]: the system and the planet
+/// of each object of its localities and of each of its locations, read up the star map ([`whereabouts`]). `stars`
+/// are the candidates for the stars ([`Inputs::stars`]). An entry with no place in a known system is left out.
+pub(crate) fn offered(
+    trees: &mut Trees<'_, '_>,
+    stars: &[Guid],
+    facts: &ContractFacts,
+    texts: &Localization,
+) -> HashMap<String, crate::Offered> {
+    // The folder of each system (`…/starmap/pu/system/nyx/`) → the name of its star.
+    let mut systems: HashMap<String, String> = HashMap::new();
+    for &star in stars {
+        let Some(tree) = trees.get(star) else { continue };
+        let root = Some(tree.root());
+        if text(root, "navIcon") == Some("Star")
+            && let (Some(folder), Some(name)) = (system_folder(tree.record_path()), english_name(root, texts))
+        {
+            systems.entry(folder).or_insert(name);
+        }
+    }
+    let mut known: HashMap<Guid, Option<(String, Option<String>)>> = HashMap::new();
+    let mut found = HashMap::new();
+    for ((contract, sub), facts) in facts.iter() {
+        let mut objects: Vec<Guid> = Vec::new();
+        for &locality in &facts.localities {
+            let Some(locality) = trees.get(locality) else { continue };
+            objects.extend(elements(Some(locality.root()), "availableLocations").iter().filter_map(link));
+        }
+        objects.extend(facts.locations.iter().copied());
+        let mut offered = crate::Offered::default();
+        for object in objects {
+            let place = known.entry(object).or_insert_with(|| whereabouts(object, &systems, trees, texts));
+            let Some((system, planet)) = place else { continue };
+            offered.systems.insert(system.clone());
+            if let Some(planet) = planet {
+                offered.planets.entry(system.clone()).or_default().insert(planet.clone());
+            }
+        }
+        if !offered.systems.is_empty() {
+            let sub = sub.map(|sub| sub.to_string());
+            found.insert(entry_key(&contract.to_string(), sub.as_deref()), offered);
+        }
+    }
+    found
+}
+
+/// The most steps [`whereabouts`] goes up the star map.
+const STAR_MAP_DEPTH: usize = 16;
+
+/// The folder of the system a star map record lies in, `libs/foundry/records/starmap/pu/system/nyx/` in lower case;
+/// for the object of a whole system beside those folders (`…/starmap/pu/nyxsolarsystem`) the folder of its system.
+/// `None` for anything else.
+fn system_folder(record_path: &str) -> Option<String> {
+    const MARK: &str = "/system/";
+    let path = record_path.to_ascii_lowercase();
+    if let Some(at) = path.find(MARK).map(|at| at + MARK.len()) {
+        let end = at + path[at..].find('/')?;
+        return Some(path[..=end].to_string());
+    }
+    let (parent, last) = path.rsplit_once('/')?;
+    let name = last.strip_suffix("solarsystem").filter(|name| !name.is_empty())?;
+    Some(format!("{parent}{MARK}{name}/"))
+}
+
+/// The English name of a star map object; `None` for a placeholder key or an empty text.
+fn english_name(root: Option<&StructValue<'_>>, texts: &Localization) -> Option<String> {
+    locale_key(root, "name")
+        .filter(|key| !is_placeholder_key(key))
+        .and_then(|key| filled(key, texts))
+        .map(|name| py_strip(&name).to_string())
+}
+
+/// The English names of the system and of the planet a star map object lies in. The planet is the first object of
+/// `navIcon` `Planet` going up its parents (the object itself included). The system is the star of the system folder
+/// the object lies in (`systems`, folder → name; the star of Nyx has no child, and its places hang under a hidden
+/// object of the whole system); else the first star going up; else that hidden object at the top. `None` where no
+/// system is found or its name is a placeholder.
+fn whereabouts(
+    object: Guid,
+    systems: &HashMap<String, String>,
+    trees: &mut Trees<'_, '_>,
+    texts: &Localization,
+) -> Option<(String, Option<String>)> {
+    let (mut planet, mut star, mut top) = (None, None, None);
+    let mut folder = None;
+    let mut current = object;
+    for _ in 0..STAR_MAP_DEPTH {
+        let tree = trees.get(current)?;
+        let root = Some(tree.root());
+        if folder.is_none() {
+            folder = system_folder(tree.record_path()).and_then(|folder| systems.get(&folder).cloned());
+        }
+        match text(root, "navIcon") {
+            Some("Planet") if planet.is_none() => planet = english_name(root, texts),
+            Some("Star") if star.is_none() => star = english_name(root, texts),
+            _ => {}
+        }
+        match reference(root, "parent") {
+            Some(parent) => current = parent,
+            None => {
+                if boolean(root, "hideInStarmap") == Some(true) {
+                    top = english_name(root, texts);
+                }
+                break;
+            }
+        }
+    }
+    Some((folder.or(star).or(top)?, planet))
+}
+
 fn scenario_sources(
     tree: &RecordTree<'_>,
     pools: &HashMap<Guid, Pool>,
@@ -679,6 +854,7 @@ fn scenario_sources(
                     contractor: None,
                     faction: faction.clone(),
                     description_key: None,
+                    shown: ShownKeys::default(),
                     systems: Vec::new(),
                     places: Vec::new(),
                     rank: None,
@@ -692,6 +868,7 @@ fn scenario_sources(
                     reward_uec: None,
                     chance: None,
                     pool: String::new(),
+                    uncertain: Vec::new(),
                 };
                 award(found, pools, &source, &rewards);
             }
@@ -703,7 +880,18 @@ fn scenario_sources(
 mod tests {
     use p4kx_dataforge::Guid;
 
-    use super::{fill_placeholders, fix_duplicates};
+    use super::{fill_placeholders, filled_contractor, fix_duplicates, system_folder};
+    use crate::catalog::Text;
+
+    #[test]
+    fn a_star_map_record_lies_in_the_folder_of_its_system() {
+        let folder = Some("libs/foundry/records/starmap/pu/system/nyx/".to_string());
+        assert_eq!(system_folder("libs/foundry/records/starmap/pu/system/nyx/nyxstar"), folder);
+        assert_eq!(system_folder("libs/foundry/records/starmap/pu/system/Nyx/delamar/starmapobject.delamar"), folder);
+        assert_eq!(system_folder("libs/foundry/records/starmap/pu/NyxSolarSystem"), folder, "the whole system");
+        assert_eq!(system_folder("libs/foundry/records/starmap/pu/solarsystem"), None);
+        assert_eq!(system_folder("libs/foundry/records/starmap/pu/somewhere"), None);
+    }
     use crate::corrections::{CatalogFixes, Correction, Field, Section};
 
     fn guid(last: u8) -> Guid {
@@ -741,6 +929,24 @@ mod tests {
         let fixes = CatalogFixes::new(&[duplicate(9, 1, Some(7)), duplicate(8, 1, Some(7))], None);
         fix_duplicates(&mut found, guid(9), &fixes);
         assert_eq!(found, [guid(1), guid(2)]);
+    }
+
+    #[test]
+    fn a_contractor_is_filled_like_a_title_and_never_shown_raw() {
+        let fill = |token: &str| (token == "Contractor|Known").then(|| "Acme Haulers".to_string());
+        let text = |key: &str, text: Option<&str>| Text { key: Some(key.into()), text: text.map(str::to_string) };
+
+        let plain = filled_contractor(text("@Acme_from", Some("Acme")), fill).unwrap();
+        assert_eq!(plain.shown(), "Acme");
+
+        let filled = filled_contractor(text("@Known_from", Some("~mission(Contractor|Known)")), fill).unwrap();
+        assert_eq!(filled.shown(), "Acme Haulers");
+        assert_eq!(filled.key.as_deref(), Some("@Known_from"));
+
+        assert!(filled_contractor(text("@Other_from", Some("~mission(Contractor|Other)")), fill).is_none());
+        assert!(filled_contractor(text("@Owner_from", Some("From ~mission(Owner)")), fill).is_none());
+        assert!(filled_contractor(text("@Empty_from", None), fill).is_none(), "no text: not the key");
+        assert!(filled_contractor(text("@Blank_from", Some("  ")), fill).is_none());
     }
 
     #[test]

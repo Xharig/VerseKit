@@ -263,6 +263,7 @@ fn read_archive_entry(archive: &str, language: &str) -> Result<Vec<u8>, ReadErro
     let folder = Path::new(archive).parent().unwrap_or_else(|| Path::new("."));
     let _topic = versekit_core::archive_lock::reading_for("texts");
     let game = GameData::open(folder).map_err(|error| ReadError::Other(error_text(&error)))?;
+    game.learn_languages();
     match game.read_entry(&archive_path(language)) {
         Ok(bytes) if bytes.is_empty() => Err(ReadError::Empty),
         Ok(bytes) => Ok(bytes),
@@ -387,6 +388,25 @@ static ARCHIVE_TRIED: AtomicBool = AtomicBool::new(false);
 /// Without a readable archive the saved names stay valid.
 pub fn names_or_fetch(paths: &Paths, game_folder: Option<&str>) -> Names {
     names_or_fetch_with(paths, game_folder, &ARCHIVE_TRIED, &read_from_archive)
+}
+
+/// The archive states of the side channels that were tried: folder and stamp. A channel is read once per state of
+/// its archive, whatever the main installation did.
+static CHANNEL_TRIED: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
+
+/// [`names_or_fetch`] for the side channel in `root`: its names are kept in the data folder of `paths`
+/// ([`Paths::for_channel`]) and read from its own archive once per state of that archive.
+pub fn names_or_fetch_channel(paths: &Paths, root: &str) -> Names {
+    let key = (root.to_string(), archive_stamp(root).unwrap_or_default());
+    let first = {
+        let mut tried = CHANNEL_TRIED.lock().unwrap_or_else(|e| e.into_inner());
+        let first = !tried.contains(&key);
+        if first {
+            tried.push(key);
+        }
+        first
+    };
+    names_or_fetch_with(paths, Some(root), &AtomicBool::new(!first), &read_from_archive)
 }
 
 fn names_or_fetch_with(paths: &Paths, game_folder: Option<&str>, tried: &AtomicBool, read: ArchiveRead<'_>) -> Names {

@@ -75,7 +75,10 @@ var GRUPPEN = [
      ben:"Where to sell your cargo, sorted by how much a location takes at once, and where to buy it cheapest."},
     {reiter:"routen", bild:"screenshot-routen.png", de:"Routen", en:"Routes",
      bde:"Sag, wo du stehst, wie viel reinpasst und was du ausgeben willst. Dann rechnet VerseKit, welche Fahrt sich lohnt.",
-     ben:"Say where you are, how much fits and what you want to spend. VerseKit works out which run pays."}
+     ben:"Say where you are, how much fits and what you want to spend. VerseKit works out which run pays."},
+    {reiter:"kartellbank", bild:"screenshot-kartellbank.png", de:"Kartellbank", en:"Cartel Bank",
+     bde:"Mit dem KRT Profit Basetool verbunden: deine Konten mit Stand und dem Verlauf der letzten 30 Tage. Einzahlungen, Auszahlungen und Überweisungen beantragst du hier. Das Bild zeigt Beispieldaten.",
+     ben:"Connected to the KRT Profit Basetool: your accounts with balance and the history of the last 30 days. Request deposits, withdrawals and transfers here. The picture shows sample data."}
   ]},
   {de:"Beschaffung", en:"Procurement", eintraege:[
     {reiter:"bedarf", bild:"screenshot-bedarf.png", de:"Bedarf der Einheit", en:"Unit demand",

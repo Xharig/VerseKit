@@ -1170,7 +1170,7 @@ fn head(ui: &mut Ui, scheme: &Scheme, sure: usize, all: usize, unclear: usize) {
     ui.add_space(6.0);
 }
 
-/// The limits of the fabricator in one line: "2 in progress, 4 waiting, 10 in the history · Dismantling 4/4".
+/// The limits of the fabricator in one line: "holds at most: 2 at once, 4 in the queue, 10 in the history · Dismantling 4/4".
 fn crafter_line(limits: versekit_gamedata::values::CrafterLimits) -> String {
     let mut line =
         tn("s_p9_werkbank", &[Arg::Int(limits.in_progress), Arg::Int(limits.waiting), Arg::Int(limits.history)]);
@@ -2769,8 +2769,8 @@ mod tests {
         let _language = crate::language_lock();
         let both = CrafterLimits { in_progress: 2, waiting: 4, history: 10, dismantle: Some((4, 4)) };
         let lines = [
-            (Choice::De, "Fabrikator: 2 in Arbeit, 4 wartend, 10 im Verlauf  ·  Zerlegen 4/4"),
-            (Choice::En, "Fabricator: 2 in progress, 4 waiting, 10 in the history  ·  Dismantling 4/4"),
+            (Choice::De, "Fabrikator fasst höchstens: 2 gleichzeitig, 4 in der Warteschlange, 10 im Verlauf  ·  Zerlegen 4/4"),
+            (Choice::En, "Fabricator holds at most: 2 at once, 4 in the queue, 10 in the history  ·  Dismantling 4/4"),
         ];
         for (language, line) in lines {
             set_thread_language(language);
@@ -2790,7 +2790,8 @@ mod tests {
         set_thread_language(Choice::De);
         let some = CrafterLimits { dismantle: None, ..both };
         let shown = frame_rects(&mut with_limits("grenzen-ohne-zerlegen", Some(some)), 900.0);
-        assert!(shown.iter().any(|(text, _)| text == "Fabrikator: 2 in Arbeit, 4 wartend, 10 im Verlauf"), "{shown:?}");
+        let line = "Fabrikator fasst höchstens: 2 gleichzeitig, 4 in der Warteschlange, 10 im Verlauf";
+        assert!(shown.iter().any(|(text, _)| text == line), "{shown:?}");
         assert!(!shown.iter().any(|(text, _)| text.contains("Zerlegen 4/4")), "{shown:?}");
     }
 
@@ -2803,7 +2804,7 @@ mod tests {
             assert!(!shown.is_empty(), "the page is there");
             assert!(
                 // The line of the limits begins with the name and a colon; the jobs of the fabricator are another part.
-                shown.iter().all(|(text, _)| !text.starts_with("Fabrikator:") && !text.starts_with("Fabricator:")),
+                shown.iter().all(|(text, _)| !text.starts_with("Fabrikator fasst") && !text.starts_with("Fabricator holds")),
                 "{shown:?}"
             );
         }
@@ -3246,6 +3247,10 @@ mod tests {
         };
         let (shown, _) = list::matching(&mut page, &marks);
         assert_eq!(first_three(&page, &shown), ["Omnisky III Cannon", "Omnisky VI Cannon", "Omnisky IX Cannon"]);
+        // "Name A to Z" goes by the name alone, the size does not count.
+        page.sort = Sort::NameUp;
+        let (up, _) = list::matching(&mut page, &marks);
+        assert_eq!(first_three(&page, &up), ["Omnisky III Cannon", "Omnisky IX Cannon", "Omnisky VI Cannon"]);
         // A sort the player chose wins: names descending leave the size aside.
         page.sort = Sort::NameDown;
         let (down, _) = list::matching(&mut page, &marks);
@@ -3976,6 +3981,7 @@ mod tests {
         let names =
             ["Gladius Valiant", "Hornet Tracker", "Cutlass Black Steel", "Avenger Titan Renegade", "Sabre Raven"];
         let slim = |n: &str| n.to_lowercase().replace(' ', "");
+        let code = |n: &str| n.to_lowercase().replace(' ', "_");
         let hangar = format!(
             r#"{{"schiffe": [{}]}}"#,
             names
@@ -3989,8 +3995,9 @@ mod tests {
             names
                 .iter()
                 .map(|n| format!(
-                    r#""aegis{0}": {{"id": "aegs_{0}", "name": "{n}", "plaetze": [{{"art": "Cooler", "groesse": 1, "anzahl": 2}}]}}"#,
-                    slim(n)
+                    r#""aegis{0}": {{"id": "aegs_{1}", "name": "{n}", "plaetze": [{{"art": "Cooler", "groesse": 1, "anzahl": 2}}]}}"#,
+                    slim(n),
+                    code(n)
                 ))
                 .collect::<Vec<_>>()
                 .join(", ")

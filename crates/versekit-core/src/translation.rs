@@ -36,7 +36,7 @@
 use std::sync::LazyLock;
 
 use crate::errors;
-use crate::game_ini::{self, GAME_LANGUAGES};
+use crate::game_ini;
 use crate::injection;
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::language::{self, Arg, Lang};
@@ -227,7 +227,7 @@ pub fn set_custom(paths: &Paths, url: &str, language: &str, channel: Option<&str
         Some(Value::Object(map)) => map.clone(),
         _ => Map::new(),
     };
-    let language = if GAME_LANGUAGES.contains(&language) { language } else { "english" };
+    let language = if game_ini::is_game_language(language) { language } else { "english" };
     let entry = vec![("url".to_string(), Value::str(&url)), ("sprache".to_string(), Value::str(language))];
     map_set(&mut all, channel.filter(|c| !c.is_empty()).unwrap_or("MAIN"), Value::Object(entry));
     paths.set_setting(SETTING_CUSTOM, Value::Object(all));
@@ -1419,7 +1419,7 @@ pub fn restore_backup(paths: &Paths, target: &str, main: bool) -> std::io::Resul
 /// in the `user.cfg` of a channel folder, line by line; everything else
 /// stays. Before the first change the old file is kept once beside it.
 pub fn set_user_cfg(paths: &Paths, root: &str, language: &str, audio: Option<&str>) -> bool {
-    let known = |l: &str| GAME_LANGUAGES.contains(&l.to_lowercase().as_str());
+    let known = game_ini::is_game_language;
     if !game_ini::is_language_folder(language) || audio.is_some_and(|a| !known(a)) || root.is_empty() {
         return false;
     }

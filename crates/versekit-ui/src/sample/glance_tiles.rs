@@ -610,8 +610,11 @@ impl SamplePage {
             },
             _ => (t_in(lang, "s_uv_basetool_aus"), false),
         };
-        details.push(basetool);
-        tones.push(if linked { Tone::Good } else { Tone::Plain });
+        // Whoever never switched an area of the Basetool on is told nothing about it.
+        if linked || versekit_core::basetool::scopes::enabled(paths) {
+            details.push(basetool);
+            tones.push(if linked { Tone::Good } else { Tone::Plain });
+        }
         let own_version = env!("CARGO_PKG_VERSION");
         let on_offer = self.update_name();
         let newer = !on_offer.is_empty() && versekit_core::version::is_newer(&on_offer, own_version);
@@ -1090,6 +1093,27 @@ mod tests {
         let state = look.poll(&paths, 1000.0).expect("the state kept");
         assert_eq!(state.word, "partial_outage", "the word of CIG, untranslated");
         assert!(!look.busy.load(Ordering::Acquire), "SC_BP_NO_NET: the page is not asked");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_services_tile_names_the_basetool_only_for_who_switched_an_area_on() {
+        use versekit_core::basetool::scopes::SETTING_STOCK;
+        let dir = std::env::temp_dir().join(format!("versekit-dienste-bt-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let paths = Paths::new(super::super::real_data::host_apart(&dir));
+        let page = SamplePage::new();
+        let word = t_in(DE, "s_uv_basetool_aus");
+        let tiles = page.tiles_of_4_12(&paths, DE, 1_000_000);
+        let services = tiles.get("dienste").expect("the services tile");
+        assert!(!services.details.contains(&word), "no area on, no word about the Basetool: {:?}", services.details);
+        assert_eq!(services.details.len(), services.tones.len(), "a line, a tone");
+        paths.set_setting(SETTING_STOCK, Value::Bool(true));
+        let tiles = page.tiles_of_4_12(&paths, DE, 1_000_000);
+        let services = tiles.get("dienste").expect("the services tile");
+        assert!(services.details.contains(&word), "an area on, not connected: {:?}", services.details);
+        assert_eq!(services.details.len(), services.tones.len(), "a line, a tone");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

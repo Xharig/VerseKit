@@ -209,8 +209,15 @@ pub const PEOPLE: [Person; 41] = [
             "s_dkv_aeternitas_idee3",
             "s_dkv_aeternitas_idee4",
             "s_dkv_aeternitas_idee5",
+            "s_dkv_aeternitas_idee6",
         ],
-        &["s_dk_aeternitas_bugs", "s_dkv_aeternitas_bugs2", "s_dkv_aeternitas_bugs3", "s_dkv_aeternitas_bugs4"],
+        &[
+            "s_dk_aeternitas_bugs",
+            "s_dkv_aeternitas_bugs2",
+            "s_dkv_aeternitas_bugs3",
+            "s_dkv_aeternitas_bugs4",
+            "s_dkv_aeternitas_bugs5",
+        ],
     ),
     person("KynoTnis", "ADI", &["s_dkv_kynotnis_idee"], &["s_dkv_kynotnis_bugs"]),
     person("ryze", "KRT", &["s_dkv_ryze_idee"], &[]),
@@ -224,7 +231,7 @@ pub const PEOPLE: [Person; 41] = [
         "greluc",
         "KRT",
         &["s_dkv_greluc_idee", "s_dkv_greluc_idee2"],
-        &["s_dkv_greluc_bugs", "s_dkv_greluc_bugs2", "s_dkv_greluc_bugs3", "s_dkv_greluc_bugs4"],
+        &["s_dkv_greluc_bugs", "s_dkv_greluc_bugs2", "s_dkv_greluc_bugs3", "s_dkv_greluc_bugs4", "s_dkv_greluc_bugs5"],
     ),
     person(
         "Parsul",
@@ -247,7 +254,7 @@ pub const PEOPLE: [Person; 41] = [
     person("DarthUrmel", "KRT", &["s_dkv_darthurmel_idee"], &[]),
     person("smokyjohn", "KRT", &["s_dkv_smokyjohn_idee"], &[]),
     person("Lenoro", "KRT", &[], &["s_dkv_lenoro_bugs"]),
-    person("MindBurnt", "R/SC", &["s_dkv_mindburnt_idee", "s_dkv_mindburnt_idee2"], &[]),
+    person("MindBurnt", "R/SC", &["s_dkv_mindburnt_idee", "s_dkv_mindburnt_idee2"], &["s_dkv_mindburnt_bugs"]),
     person(
         "Shockwaffel",
         "KRT",
@@ -271,7 +278,7 @@ pub const PEOPLE: [Person; 41] = [
     person("LOGGAN89", "", &[], &["s_dkv_loggan_bugs"]),
     person("oGundalf", "", &[], &["s_dkv_ogundalf_bugs", "s_dkv_ogundalf_bugs2"]),
     person("Autobrake", "", &[], &["s_dkv_autobrake_bugs"]),
-    person("Karasimsek", "", &[], &["s_dkv_karasimsek_bugs"]),
+    person("Karasimsek", "", &[], &["s_dkv_karasimsek_bugs", "s_dkv_karasimsek_bugs2"]),
 ];
 
 /// The notice for the trademark and fan content, as the fan kit asks: its

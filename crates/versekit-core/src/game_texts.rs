@@ -81,6 +81,30 @@ pub trait Archive: Send + Sync {
     fn refresh_names(&self, paths: &Paths);
     /// The stored rank thresholds ([`injection::ranks::refresh`]), read from the archive when they do not fit `game_version`.
     fn refresh_ranks(&self, _paths: &Paths, _game_version: &str) {}
+    /// The recipes of the crafting blueprints read from the installed archive, in the form of the recipe file
+    /// (`recipe_file`, `blueprints` with `tag`, `productName`, `productEntityClass` and `tiers`); `None` where the
+    /// archive gave none for the installed build. They come before scmdb's recipe file ([`prepare`]).
+    fn recipes(&self, _paths: &Paths) -> Option<Value> {
+        None
+    }
+    /// Bring the data a side channel's notes are written from up to date, from the `Data.p4k` of that channel alone
+    /// and without the net: catalog, reputation, ranks, names and recipes, kept in the data folder of `channel`
+    /// ([`Paths::for_channel`]), never in the files of the main installation.
+    fn prepare_channel(&self, _channel: &Paths) -> ChannelData {
+        ChannelData::Missing
+    }
+}
+
+/// What the data of a side channel are, after [`Archive::prepare_channel`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ChannelData {
+    /// Built from the archive of the channel as it is now; the build of the game they are for.
+    Ready(String),
+    /// The archive may not be read now (the game runs or the launcher patches it): the file of the channel stays as
+    /// it is until it may.
+    Later,
+    /// The channel has no data of its own: no archive, or the archive gave no catalog.
+    Missing,
 }
 
 /// What placing the original texts did.
@@ -191,9 +215,26 @@ pub fn catalog_stand(paths: &Paths) -> String {
 /// not fit the game version. The reputation and terms of the contracts only for the build they were read from: after a patch, until the
 /// catalog is built anew, the notes name none rather than those of the build before.
 pub fn prepare(paths: &Paths, archive: &dyn Archive, game_version: &str) -> Inputs {
+    prepare_for(paths, paths, archive, game_version)
+}
+
+/// [`prepare`] with the data built from an archive in `paths` and the collection and the shops of `owner`: for a
+/// side channel `paths` is the data folder of that channel ([`Paths::for_channel`]), `owner` the player's.
+fn prepare_for(paths: &Paths, owner: &Paths, archive: &dyn Archive, game_version: &str) -> Inputs {
     archive.refresh_ranks(paths, game_version);
     archive.refresh_names(paths);
     let mut inputs = sources::inputs(paths, &catalog_file(paths), version());
+    if !std::ptr::eq(paths, owner) {
+        inputs.owned = sources::owned(owner);
+        inputs.shops = sources::shops(owner);
+    }
+    // The recipes of the game data win over scmdb's recipe file, which stays as the fallback.
+    if let Some(recipes) = archive.recipes(paths) {
+        let items = injection::item_info::items_from_412(&recipes, None, &inputs.owned);
+        if !items.is_empty() {
+            inputs.items = items;
+        }
+    }
     let table = &inputs.reputation;
     if !game_version.is_empty()
         && !table.version.is_empty()
@@ -214,19 +255,78 @@ pub fn choice(paths: &Paths) -> game_ini::IniChoice {
 /// all files count together; without a file there, the other channels decide.
 pub fn apply(paths: &Paths, archive: &dyn Archive, game_version: &str) -> Outcome {
     let choice = choice(paths);
-    let sides = side_files(paths);
+    let sides = side_kept(paths);
     if choice.path.is_none() && sides.is_empty() {
         return Outcome::NoFile;
     }
-    let inputs = prepare(paths, archive, game_version);
-    let mut outcome = choice
-        .path
-        .as_deref()
-        .map_or(Outcome::NoFile, |path| injection::apply_texts(paths, path, &choice.language, &inputs, false));
-    for (target, language) in &sides {
-        outcome = together(outcome, injection::apply_texts(paths, target, language, &inputs, false));
+    let mut outcome = match choice.path.as_deref() {
+        Some(path) => {
+            let inputs = prepare(paths, archive, game_version);
+            injection::apply_texts(paths, path, &choice.language, &inputs, false)
+        }
+        None => Outcome::NoFile,
+    };
+    // Each side channel from the data of its own archive; one without data gets no notes.
+    let mark = stock_mark(paths, &sources::owned(paths));
+    for (kept, target) in &sides {
+        let Some(side) = side_inputs(paths, archive, kept, target) else { continue };
+        let written = injection::apply_texts(paths, target, &kept.language(paths), &side.inputs(paths, archive), false);
+        if matches!(written, Outcome::Done(_)) {
+            side.keep_marks(&mark);
+        }
+        outcome = together(outcome, written);
     }
     outcome
+}
+
+/// The data a side channel's notes are written from: its own folder of data and the inputs read there.
+struct Side {
+    own: Paths,
+    /// The build of the game the data are for.
+    build: String,
+}
+
+impl Side {
+    /// What the notes are written from: the data of the channel, the collection and the shops of the player.
+    fn inputs(&self, paths: &Paths, archive: &dyn Archive) -> Inputs {
+        prepare_for(&self.own, paths, archive, &self.build)
+    }
+
+    /// Whether the notes of the channel stand for another collection or catalog than the one written last.
+    fn marks_new(&self, mark: &str) -> bool {
+        let stand = catalog_stand(&self.own);
+        self.own.setting(SETTING_STOCK_MARK).as_deref() != Some(mark)
+            || (!stand.is_empty() && self.own.setting(SETTING_CATALOG).as_deref() != Some(stand.as_str()))
+    }
+
+    /// Remember with which collection and catalog the notes of the channel were written.
+    fn keep_marks(&self, mark: &str) {
+        self.own.set_setting(SETTING_STOCK_MARK, Value::str(mark));
+        let stand = catalog_stand(&self.own);
+        if !stand.is_empty() {
+            self.own.set_setting(SETTING_CATALOG, Value::str(stand));
+        }
+    }
+}
+
+/// The inputs for the notes in `target`, the text file of a side channel, from the archive and the data of that
+/// channel alone, never from those of the main installation. `None` where the notes are not to be written: the
+/// archive cannot be read now (the file stays as it is), or the channel has no data of its own (the log says it, and
+/// notes already in the file go, as they would be of another build).
+fn side_inputs(paths: &Paths, archive: &dyn Archive, kept: &Kept, target: &str) -> Option<Side> {
+    let channel = kept.channel.as_deref()?;
+    let own = paths.for_channel(channel, &kept.root);
+    match archive.prepare_channel(&own) {
+        ChannelData::Ready(build) => Some(Side { own, build }),
+        ChannelData::Later => None,
+        ChannelData::Missing => {
+            errors::record("watcher.kanaele", &format!("{channel}: no data of its own, no notes are written"));
+            if injection::is_applied(target) {
+                let _ = injection::remove_texts(paths, target, &kept.language(paths));
+            }
+            None
+        }
+    }
 }
 
 /// `injection.remove_texts` on the file that counts and on the files of the other channels that hold notes.
@@ -401,9 +501,14 @@ pub fn kept_channels(paths: &Paths) -> Vec<Kept> {
 
 /// The text files of the [`side_channels`] that are there, with their language folders.
 fn side_files(paths: &Paths) -> Vec<(String, String)> {
+    side_kept(paths).into_iter().map(|(kept, target)| (target, kept.language(paths))).collect()
+}
+
+/// The [`side_channels`] whose text file is there, with that file.
+fn side_kept(paths: &Paths) -> Vec<(Kept, String)> {
     side_channels(paths, paths.game_folder().as_deref())
         .into_iter()
-        .filter_map(|kept| kept.target(paths).filter(|t| game_ini::is_file(t)).map(|t| (t, kept.language(paths))))
+        .filter_map(|kept| kept.target(paths).filter(|t| game_ini::is_file(t)).map(|t| (kept, t)))
         .collect()
 }
 
@@ -600,7 +705,7 @@ pub fn switch_side(
         fetched_text(source, channel, placed.bytes)
     };
     let kept = Kept { channel: Some(channel.to_string()), root: root.to_string(), source: source.to_string() };
-    let Some(applied) = side_notes(paths, archive, &kept, &crate::stock_fetch::live_build(paths)) else {
+    let Some(applied) = side_notes(paths, archive, &kept) else {
         return Ok(said);
     };
     use crate::language::{Arg, tf};
@@ -616,7 +721,7 @@ pub fn switch_side(
 /// The notes in the text file of a side channel after its source changed: the old file of the channel (another
 /// language folder) gets its wording back first, then the new one is written. `None` while notes are switched off
 /// or there is no file.
-fn side_notes(paths: &Paths, archive: &dyn Archive, kept: &Kept, version: &str) -> Option<Outcome> {
+fn side_notes(paths: &Paths, archive: &dyn Archive, kept: &Kept) -> Option<Outcome> {
     if !paths.setting_bool(SETTING_ON, true) {
         return None;
     }
@@ -624,8 +729,12 @@ fn side_notes(paths: &Paths, archive: &dyn Archive, kept: &Kept, version: &str) 
     if injection::clean_leftover(paths, Some(&target)).is_some() {
         injection::discard_origtext_for(paths, &target);
     }
-    let inputs = prepare(paths, archive, version);
-    Some(injection::apply_texts(paths, &target, &kept.language(paths), &inputs, false))
+    let side = side_inputs(paths, archive, kept, &target)?;
+    let written = injection::apply_texts(paths, &target, &kept.language(paths), &side.inputs(paths, archive), false);
+    if matches!(written, Outcome::Done(_)) {
+        side.keep_marks(&stock_mark(paths, &sources::owned(paths)));
+    }
+    Some(written)
 }
 
 /// `_aktive_quelle` of the 4.12 watcher: the chosen source of the main installation when
@@ -862,14 +971,9 @@ pub struct Ran {
 /// Never fails; problems go to the error log.
 pub fn run(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_version: &str) -> Ran {
     let mut ran = Ran::default();
-    let mut inputs: Option<Inputs> = None;
-    let mut side_written = None;
+    let mut side_mark = None;
     if !job.channels.is_empty() {
-        // Whether the collection or the catalog changed since the last writing; the main installation notes it anew.
         let mark = stock_mark(paths, &sources::owned(paths));
-        let stand = catalog_stand(paths);
-        let marks_new = paths.setting(SETTING_STOCK_MARK).as_deref() != Some(mark.as_str())
-            || (!stand.is_empty() && paths.setting(SETTING_CATALOG).as_deref() != Some(stand.as_str()));
         let sides = side_channels(paths, paths.game_folder().as_deref());
         for (channel, source) in &job.channels {
             let Some(kept) = sides.iter().find(|k| k.channel.as_deref() == Some(channel) && k.source == *source) else {
@@ -893,26 +997,29 @@ pub fn run(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_
                 ran.notices.extend(language_line(paths, kept));
             }
             let Some(target) = kept.target(paths).filter(|t| game_ini::is_file(t)) else { continue };
-            if !paths.setting_bool(SETTING_ON, true)
-                || !(fresh || marks_new || job.rewrite || !injection::is_applied(&target))
-            {
+            if !paths.setting_bool(SETTING_ON, true) {
                 continue;
             }
-            let inputs = inputs.get_or_insert_with(|| prepare(paths, archive, game_version));
-            match injection::apply_texts(paths, &target, &kept.language(paths), inputs, false) {
-                Outcome::Done(_) => side_written = Some((mark.clone(), stand.clone())),
+            // The data of the channel come from its own archive, whatever the main installation holds.
+            let Some(side) = side_inputs(paths, archive, kept, &target) else { continue };
+            if !(fresh || side.marks_new(&mark) || job.rewrite || !injection::is_applied(&target)) {
+                continue;
+            }
+            let inputs = side.inputs(paths, archive);
+            match injection::apply_texts(paths, &target, &kept.language(paths), &inputs, false) {
+                Outcome::Done(_) => {
+                    side.keep_marks(&mark);
+                    side_mark = Some(mark.clone());
+                }
                 other => errors::record("watcher.kanaele", &format!("{other:?}")),
             }
         }
     }
     if job.source.is_some() || job.own_original {
         reconcile(job, paths, net, archive, game_version, &mut ran);
-    } else if let Some((mark, stand)) = side_written {
-        // Without notes in the main installation the side channels keep the marks.
+    } else if let Some(mark) = side_mark {
+        // Without notes in the main installation the collection mark stays with the side channels.
         paths.set_setting(SETTING_STOCK_MARK, Value::str(mark));
-        if !stand.is_empty() {
-            paths.set_setting(SETTING_CATALOG, Value::str(stand));
-        }
     }
     ran
 }

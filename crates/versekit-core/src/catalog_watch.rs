@@ -24,6 +24,10 @@
 //! remembered state covers less than half of the present one: that comes from
 //! another source with another spelling, and every one of the roughly 700
 //! blueprints would count as new.
+//!
+//! ⚠ The remembered state only grows (what was known and what is there now): a blueprint that one build of the
+//! catalog lacks and the next one has again was seen before. Overwritten with the last look, it counted as new
+//! every time it came back (14.11.2026, "Antium Arms Maroon, neu im Spiel craftbar" at every other start).
 
 use std::collections::BTreeSet;
 
@@ -107,10 +111,14 @@ impl Watch {
         }
         let _lock = jsonio::lock_saves();
         let now: BTreeSet<String> = items.iter().map(|i| i.key.clone()).collect();
-        let fresh = match catalog_new(&now, &remembered(paths)) {
+        let known = remembered(paths);
+        // ⚠ The remembered state only grows: an item that one build of the catalog lacks (a special case, a source that
+        // does not have it) and the next one has again was seen before and is not new a second time.
+        let kept: BTreeSet<String> = known.union(&now).cloned().collect();
+        let fresh = match catalog_new(&now, &known) {
             Some(fresh) if !fresh.is_empty() => fresh,
             _ => {
-                remember(paths, &now, stamp);
+                remember(paths, &kept, stamp);
                 return Vec::new();
             }
         };
@@ -124,7 +132,7 @@ impl Watch {
                 title: watchlist::matching(&list, &item.name),
             })
             .collect();
-        remember(paths, &now, stamp);
+        remember(paths, &kept, stamp);
         found
     }
 }
@@ -146,6 +154,36 @@ mod tests {
         assert_eq!(catalog_new(&set(&["a", "b"]), &set(&["a", "b", "x"])), Some(Vec::new()));
         // Exactly half still counts.
         assert_eq!(catalog_new(&set(&["a", "b"]), &set(&["a", "x"])), Some(vec!["b".to_string()]));
+    }
+
+    /// "Antium Arms Maroon · neu im Spiel craftbar" came again and again (14.11.2026): a blueprint that is missing from
+    /// one build of the catalog (a special case in the type mapping, a source that lacks it) and there again in the next
+    /// counted as new every time, because the remembered state was overwritten with what the last look saw. The
+    /// remembered state only grows.
+    #[test]
+    fn an_item_that_is_missing_from_one_catalog_and_back_in_the_next_is_not_new_again() {
+        use crate::paths::Host;
+        use crate::pypath::Flavor;
+        let dir = crate::testdir::Dir::new("katalogwache-kumulativ");
+        let home = dir.path().to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, home.as_str())], &home));
+        let item = |key: &str| Item { key: key.into(), name: key.to_uppercase(), kind: "Rüstung".into() };
+        let catalog = |keys: &[&str]| -> Vec<Item> { keys.iter().map(|k| item(k)).collect() };
+        let names = |found: &[Found]| found.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
+        let mut watch = Watch::default();
+        // A: the base, with the special case x.
+        assert!(watch.look(&paths, "1", &catalog(&["a", "b", "c", "x"]), "1").is_empty(), "the base");
+        // B: without x (another build of the catalog). Nothing new.
+        assert!(watch.look(&paths, "2", &catalog(&["a", "b", "c"]), "2").is_empty());
+        // C: x is back: it was seen before, so it is not new.
+        let found = watch.look(&paths, "3", &catalog(&["a", "b", "c", "x"]), "3");
+        assert!(found.is_empty(), "told as new again: {:?}", names(&found));
+        // Counter-check: what was never seen is new, once.
+        let found = watch.look(&paths, "4", &catalog(&["a", "b", "c", "x", "d"]), "4");
+        assert_eq!(names(&found), ["D"]);
+        assert!(watch.look(&paths, "5", &catalog(&["a", "b", "c", "x", "d"]), "5").is_empty());
+        // The state only grows and is read in the same form as before.
+        assert_eq!(remembered(&paths), set(&["a", "b", "c", "d", "x"]));
     }
 
     /// Two watches on the same data folder (overlay and main window): the second waits for the first one's write

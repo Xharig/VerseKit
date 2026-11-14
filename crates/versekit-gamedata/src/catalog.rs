@@ -148,6 +148,10 @@ pub struct Source {
     /// The text key of the contract's description, without `@` (the parameter `Description`); `None` where the data
     /// name none.
     pub description_key: Option<String>,
+    /// The keys the game shows in place of the title and the description the contract names, where their English
+    /// text is one placeholder for a string of the contractor (`@recovery_title` shows
+    /// `@BitZeros_RecoverItem_Generic_Title_001` at BitZeros); empty where it shows the keys it names.
+    pub shown: crate::sources::ShownKeys,
     /// The star systems the contract is offered in: the stars among the places the data list (their map icon is a
     /// star), in stored order.
     pub systems: Vec<Text>,
@@ -182,6 +186,10 @@ pub struct Source {
     pub chance: Option<f64>,
     /// The record name of the reward pool.
     pub pool: String,
+    /// The results of the contract the pool is awarded at where that is not its completion (`InProgress`,
+    /// `Failed`, `Abandoned`, `Withdrawn`, as the flags of `missionResults` name them): whether the game gives the
+    /// blueprint is not sure then. Empty for a pool awarded on completion.
+    pub uncertain: Vec<String>,
 }
 
 /// One crafting blueprint.
@@ -235,6 +243,18 @@ pub struct Catalog {
     /// The keys every contract entry shows where they differ from those it names, by
     /// [`crate::sources::entry_key`].
     pub shown_keys: HashMap<String, crate::sources::ShownKeys>,
+    /// Where every contract entry is offered, by [`crate::sources::entry_key`]; also the entries that give no
+    /// blueprint.
+    pub offered: HashMap<String, Offered>,
+}
+
+/// Where a contract entry is offered: the star systems of its places (the localities and locations it is offered
+/// at), and per system the planets they lie at (a moon, a station or an outpost counts for its planet), by English
+/// name in sorted order.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Offered {
+    pub systems: std::collections::BTreeSet<String>,
+    pub planets: std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
 }
 
 pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFixes, facts: &ContractFacts) -> Catalog {
@@ -259,6 +279,7 @@ pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFi
             "BlueprintPoolRecord" => inputs.pools.push(record.guid()),
             "ContractGenerator" => inputs.generators.push(record.guid()),
             "ScenarioProgress" => inputs.scenarios.push(record.guid()),
+            "StarMapObject" if name.to_ascii_lowercase().ends_with("star") => inputs.stars.push(record.guid()),
             _ => {}
         }
     }
@@ -293,6 +314,7 @@ pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFi
     }
     catalog.blueprints.sort_by_cached_key(|blueprint| blueprint.class_name.to_ascii_lowercase());
     catalog.shown_keys = sources::shown_keys(&mut trees, &inputs.generators, texts);
+    catalog.offered = sources::offered(&mut trees, &inputs.stars, facts, texts);
     catalog.failed = trees.into_failed();
     catalog.corrections = fixes.into_report();
     catalog

@@ -29,7 +29,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
 use egui::{RichText, Ui};
-use versekit_core::game_texts::{self, Archive, Placed};
+use versekit_core::game_texts::{self, Archive};
 use versekit_core::injection::{self, Outcome, item_info, item_stats, ranks};
 use versekit_core::jsonio::Value;
 use versekit_core::language::{self, Arg, t, tf};
@@ -37,7 +37,6 @@ use versekit_core::net::Net;
 use versekit_core::paths::Paths;
 use versekit_core::theme::{Color, Scheme};
 use versekit_core::translation::{self, CUSTOM, ORIGINAL};
-use versekit_gamedata::game_text;
 
 use crate::color;
 use crate::layout::GAP;
@@ -47,38 +46,7 @@ mod anti_afk;
 mod user_cfg;
 
 /// The `Data.p4k` of the player, through `versekit-gamedata`.
-pub struct GameArchive;
-
-impl Archive for GameArchive {
-    fn stamp(&self, paths: &Paths) -> Option<String> {
-        game_text::archive_stamp(&paths.game_folder()?)
-    }
-    fn refresh_original(&self, paths: &Paths) -> bool {
-        game_text::refresh_original(paths, None)
-    }
-    fn fill_gaps(&self, paths: &Paths, target: &str) -> usize {
-        game_text::fill_gaps(paths, target, None)
-    }
-    fn fetch_original(&self, paths: &Paths, root: &str, set_language: bool) -> Result<Placed, String> {
-        let set = |language: &str| translation::set_user_cfg(paths, root, language, None);
-        match game_text::fetch_original(paths, "english", Some(root), set_language, &set) {
-            Ok(game_text::FetchOutcome::Written { bytes }) => Ok(Placed { said: megabytes(bytes), written: true }),
-            Err(game_text::FetchError::Read(error)) => Err(error.text_key().map_or_else(|| error.to_string(), t)),
-            Err(game_text::FetchError::UnknownTarget) => Err(t("s_tq_kein_spiel")),
-            Err(other) => Err(other.to_string()),
-        }
-    }
-    fn refresh_names(&self, paths: &Paths) {
-        game_text::names_or_fetch(paths, None);
-    }
-    fn refresh_ranks(&self, paths: &Paths, game_version: &str) {
-        versekit_gamedata::reputation_ranks::refresh(paths, game_version);
-    }
-}
-
-fn megabytes(bytes: usize) -> String {
-    tf("s_tq_mb", &[("0", Arg::from(language::py_fixed(bytes as f64 / 1_048_576.0, 1, false)))])
-}
+pub use versekit_gamedata::texts_watch::GameArchive;
 
 /// The net of the pages: a stand-in in the tests of this crate.
 fn net() -> Arc<dyn Net> {
@@ -320,7 +288,7 @@ impl GameTextsState {
     /// `_inj_refresh`: write the notes anew.
     fn apply_now(&mut self) {
         self.start(|paths, _, archive, out| {
-            let version = versekit_core::stock_fetch::live_build(paths);
+            let version = versekit_gamedata::texts_watch::game_version(paths);
             let behind = versekit_gamedata::list::catalog_behind(paths);
             let said = applied_text(&game_texts::apply(paths, archive, &version), behind);
             let _ = out.send(Message::Done(said.0, said.1));
@@ -450,7 +418,7 @@ impl GameTextsState {
                     net,
                     archive,
                     &source,
-                    &versekit_core::stock_fetch::live_build(paths),
+                    &versekit_gamedata::texts_watch::game_version(paths),
                     &progress,
                 ) {
                     Ok(done) => {
@@ -621,7 +589,7 @@ fn check_one(paths: &Paths, net: &dyn Net, archive: &dyn Archive, check: &Check)
             net,
             archive,
             source,
-            &versekit_core::stock_fetch::live_build(paths),
+            &versekit_gamedata::texts_watch::game_version(paths),
             &progress,
         ) {
             Ok(done) => switched_text(&done, versekit_gamedata::list::catalog_behind(paths)),
@@ -1209,10 +1177,10 @@ fn custom_box(
         );
         hint(ui, scheme, &t("s_tq_sprache_h"));
         ui.horizontal_wrapped(|row| {
-            for language in versekit_core::game_ini::GAME_LANGUAGES {
+            for language in versekit_core::game_ini::game_languages() {
                 let kind = if custom.language == language { ButtonKind::Strong } else { ButtonKind::Normal };
-                if row.add(widgets::Button::new(language, kind, scheme)).clicked() {
-                    custom.language = language.to_string();
+                if row.add(widgets::Button::new(&language, kind, scheme)).clicked() {
+                    custom.language = language;
                 }
             }
         });

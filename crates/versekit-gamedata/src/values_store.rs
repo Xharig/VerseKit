@@ -210,7 +210,7 @@ pub struct Stamp {
     source: String,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct Stored {
     stamp: Stamp,
     values: GameValues,
@@ -239,9 +239,118 @@ pub fn kept(cache_file: &str) -> Option<GameValues> {
     read_cache(cache_file).map(|stored| stored.values)
 }
 
+/// The values kept in `cache_file` when they were read from the archive in `channel_folder` as it is now (same
+/// path, size and time); `None` otherwise, e.g. after a patch until the values are read again, or for values of
+/// scmdb.
+pub fn kept_for_archive(channel_folder: &Path, cache_file: &str) -> Option<GameValues> {
+    let stored = read_cache(cache_file)?;
+    let (archive, size, modified) = archive_stamp(Some(channel_folder));
+    let stamp = &stored.stamp;
+    (stamp.source == "archive" && !archive.is_empty() && stamp.archive == archive && stamp.size == size
+        && stamp.modified == modified)
+        .then_some(stored.values)
+}
+
+/// The recipes of `values` in the form of scmdb's recipe file (`versekit_core::recipe_file`, format 1), as the notes
+/// at the crafted items read it: per recipe its GUID, `tag`, the product's entity GUID (`productEntityClass`) and
+/// English name (`productName`, absent where the item has none), and the tiers with their craft time and slots, each
+/// option a resource (`resourceName`) or an item (`itemName`) with its quantity.
+pub fn recipe_file(values: &GameValues) -> versekit_core::jsonio::Value {
+    use versekit_core::jsonio::Value;
+    let text = |s: &str| Value::str(s);
+    let blueprints = values
+        .recipes
+        .iter()
+        .map(|recipe| {
+            let product = recipe.product.as_deref();
+            let name = product.and_then(|guid| values.items.get(guid)).and_then(|item| item.name.as_deref());
+            let tiers = recipe
+                .tiers
+                .iter()
+                .map(|tier| {
+                    let slots = tier
+                        .slots
+                        .iter()
+                        .map(|slot| {
+                            let options = slot
+                                .options
+                                .iter()
+                                .map(|option| {
+                                    let (kind, field) = match option.kind {
+                                        crate::values::MaterialKind::Resource => ("resource", "resourceName"),
+                                        _ => ("item", "itemName"),
+                                    };
+                                    let mut fields = vec![("type".to_string(), text(kind))];
+                                    if let Some(quantity) = option.quantity {
+                                        fields.push(("quantity".into(), Value::Float(quantity)));
+                                    }
+                                    if let Some(material) = &option.material {
+                                        fields.push((field.into(), text(material)));
+                                    }
+                                    Value::Object(fields)
+                                })
+                                .collect();
+                            Value::Object(vec![("name".into(), text(&slot.name)), ("options".into(), Value::Array(options))])
+                        })
+                        .collect();
+                    let time = tier.craft_time_seconds.map_or(Value::Null, Value::int);
+                    Value::Object(vec![("craftTimeSeconds".into(), time), ("slots".into(), Value::Array(slots))])
+                })
+                .collect();
+            let mut fields = vec![
+                ("guid".to_string(), text(&recipe.guid)),
+                ("tag".into(), text(&recipe.tag)),
+                ("productEntityClass".into(), product.map_or(Value::Null, text)),
+            ];
+            if let Some(name) = name {
+                fields.push(("productName".into(), text(name)));
+            }
+            fields.push(("tiers".into(), Value::Array(tiers)));
+            Value::Object(fields)
+        })
+        .collect();
+    Value::Object(vec![
+        ("format".into(), Value::int(versekit_core::recipe_file::FORMAT)),
+        ("build".into(), values.build.as_deref().map_or(Value::Null, text)),
+        ("blueprints".into(), Value::Array(blueprints)),
+    ])
+}
+
 fn write_cache(file: &str, stored: &Stored) -> std::io::Result<()> {
     let text = serde_json::to_string(stored).map_err(std::io::Error::other)?;
     jsonio::write_text_atomic(file, &text, Newline::Native)
+}
+
+/// The values of a reading whose cache file could not be written (a read-only folder, a full disk): cache file → what
+/// would have been kept. Held for the run of the program, so that the next page does not read the archive again for
+/// the same result. ⚠ Without it every page that asks for the values reads the whole archive again.
+static UNWRITTEN: std::sync::Mutex<Vec<(String, Stored)>> = std::sync::Mutex::new(Vec::new());
+
+/// The cache files whose failure was told already: told once per run.
+static TOLD_UNWRITTEN: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// Holds `stored` for `file`, which could not be written; whether this is the first failure of `file` in this run.
+fn remember_unwritten(file: &str, stored: &Stored) -> bool {
+    {
+        let mut kept = UNWRITTEN.lock().unwrap_or_else(|e| e.into_inner());
+        kept.retain(|(name, _)| name != file);
+        kept.push((file.to_string(), stored.clone()));
+    }
+    let mut told = TOLD_UNWRITTEN.lock().unwrap_or_else(|e| e.into_inner());
+    let first = !told.iter().any(|name| name == file);
+    if first {
+        told.push(file.to_string());
+    }
+    first
+}
+
+fn unwritten(file: &str) -> Option<Stored> {
+    UNWRITTEN.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(name, _)| name == file).map(|(_, s)| s.clone())
+}
+
+/// `file` was written after all: nothing is held for it.
+fn forget_unwritten(file: &str) {
+    UNWRITTEN.lock().unwrap_or_else(|e| e.into_inner()).retain(|(name, _)| name != file);
 }
 
 /// How many readings of the values run in this process right now (started with [`Rebuild::spawn`] or run by
@@ -291,7 +400,10 @@ pub struct Rebuild {
 /// is the full path of [`CACHE_FILE`]; `channel_folder` the folder of the
 /// game channel, `None` without a game.
 pub fn start(channel_folder: Option<&Path>, cache_file: &str, supply: Arc<dyn Supply>) -> Start {
-    let stored = read_cache(cache_file);
+    // No cache file that can be read: the values of this run whose file could not be written stand in for it.
+    let on_disk = read_cache(cache_file);
+    let held = on_disk.is_none();
+    let stored = on_disk.or_else(|| unwritten(cache_file));
     let (archive, size, modified) = archive_stamp(channel_folder);
     let due = match &stored {
         None => true,
@@ -329,6 +441,19 @@ pub fn start(channel_folder: Option<&Path>, cache_file: &str, supply: Arc<dyn Su
                     let file = folder.join(crate::ship_slots::SHIPS_FILE);
                     file.exists() && values_mark_of(&file) != Some(crate::ship_slots::VALUES_MARK)
                 });
+            // The files beside the cache cannot be written either where the cache cannot: held values are not due
+            // for what is missing beside them, or the archive would be read at every ask.
+            if held {
+                return Start {
+                    values: Some(Arc::new(stored.values.clone())),
+                    source: stored.stamp.source.clone(),
+                    rebuild: (archive_changed || scmdb_missing).then(|| Rebuild {
+                        channel_folder: channel_folder.map(Path::to_path_buf),
+                        cache_file: cache_file.to_string(),
+                        supply,
+                    }),
+                };
+            }
             archive_changed
                 || scmdb_missing
                 || slots_missing
@@ -458,10 +583,14 @@ impl Rebuild {
             },
             values,
         };
-        if let Err(error) = write_cache(&self.cache_file, &stored)
-            && !writeguard::refused(&error)
-        {
-            versekit_core::errors::record("values.cache_write", &error);
+        match write_cache(&self.cache_file, &stored) {
+            Ok(()) => forget_unwritten(&self.cache_file),
+            // Held for this run, and the failure is told once: see [`remember_unwritten`].
+            Err(error) => {
+                if remember_unwritten(&self.cache_file, &stored) && !writeguard::refused(&error) {
+                    versekit_core::errors::record("values.cache_write", &error);
+                }
+            }
         }
         Some(Built {
             values: Arc::new(stored.values),
@@ -765,6 +894,67 @@ mod tests {
         }
     }
 
+    /// The recipes of the archive as it is now go to the notes at the crafted items in the form of scmdb's recipe
+    /// file; values of another archive state (a patch since) or of scmdb do not.
+    #[test]
+    fn the_recipes_of_the_current_archive_read_like_the_recipe_file() {
+        use crate::values::{MaterialKind, Recipe, RecipeTier, Slot, SlotOption};
+        let dir = folder("recipes");
+        let file = dir.join(CACHE_FILE).to_string_lossy().into_owned();
+        fs::write(dir.join(ARCHIVE_NAME), b"archive").unwrap();
+        let (path, size, modified) = archive_stamp(Some(&dir));
+        let option = |kind, material: &str, quantity| SlotOption {
+            kind,
+            material: Some(material.into()),
+            quantity: Some(quantity),
+            ..SlotOption::default()
+        };
+        let mut values = GameValues::default();
+        values.items.insert(
+            "e1".into(),
+            crate::values::ItemValues { guid: "e1".into(), name: Some("Omnisky III Cannon".into()), ..Default::default() },
+        );
+        values.recipes = vec![
+            Recipe {
+                guid: "b1".into(),
+                tag: "BP_CRAFT_AMRS_LaserCannon_S1".into(),
+                product: Some("e1".into()),
+                tiers: vec![RecipeTier {
+                    craft_time_seconds: Some(540),
+                    slots: vec![
+                        Slot { name: "Frame".into(), options: vec![option(MaterialKind::Resource, "Agricium", 0.36)], ..Slot::default() },
+                        Slot { name: "Emitter".into(), options: vec![option(MaterialKind::Item, "Hadanite", 7.0)], ..Slot::default() },
+                    ],
+                }],
+                ..Recipe::default()
+            },
+            // A recipe whose product has no name: the name comes from the tag, as with scmdb's file.
+            Recipe { guid: "b2".into(), tag: "BP_CRAFT_RADR_GNRP_S03_Idris_TEMP".into(), ..Recipe::default() },
+        ];
+        let stamp = |source: &str| Stamp {
+            format: CACHE_FORMAT,
+            archive: path.clone(),
+            size,
+            modified,
+            filled: false,
+            attempt: 0,
+            source: source.into(),
+        };
+        write_cache(&file, &Stored { stamp: stamp("archive"), values: values.clone() }).unwrap();
+        let kept = kept_for_archive(&dir, &file).expect("the values of this archive");
+        let items = versekit_core::injection::item_info::items_from_412(&recipe_file(&kept), None, &Default::default());
+        let cannon = items.iter().find(|item| item.tag == "BP_CRAFT_AMRS_LaserCannon_S1").expect("the cannon");
+        assert_eq!((cannon.base.as_str(), cannon.entity.as_str()), ("Omnisky III Cannon", "e1"));
+        assert_eq!(cannon.first_tier, Some((2, versekit_core::jsonio::Value::int(540))));
+        assert!(items.iter().any(|item| item.base == "RADR GNRP S03 Idris"), "{items:?}");
+        // Values of scmdb, and values of the archive before a patch, do not count.
+        write_cache(&file, &Stored { stamp: stamp("scmdb"), values: values.clone() }).unwrap();
+        assert!(kept_for_archive(&dir, &file).is_none());
+        write_cache(&file, &Stored { stamp: stamp("archive"), values }).unwrap();
+        fs::write(dir.join(ARCHIVE_NAME), b"the archive after a patch").unwrap();
+        assert!(kept_for_archive(&dir, &file).is_none(), "the archive changed");
+    }
+
     #[test]
     fn the_slots_of_the_ships_wait_while_the_game_runs() {
         let dir = folder("playing");
@@ -777,6 +967,60 @@ mod tests {
         assert!(start(Some(&dir), &file, Arc::new(Playing)).rebuild.is_none(), "the game runs");
         // Counter-check: with the game closed the same cache is due.
         assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the game is closed");
+    }
+
+    /// A supply that brings values from scmdb, as a computer with network does.
+    struct Brings;
+
+    impl Supply for Brings {
+        fn scmdb_values(&self, _build: &str) -> Result<GameValues, String> {
+            Ok(GameValues::default())
+        }
+        fn current_build(&self) -> Result<String, String> {
+            Ok("4.10.3-live.1".into())
+        }
+        fn corrections(&self, _build: Option<&str>) -> (Vec<Correction>, Option<String>) {
+            (Vec::new(), None)
+        }
+    }
+
+    /// A cache file that cannot be written (a read-only folder, a full disk): the values are read once per run and
+    /// held in memory, not again at every page that asks for them.
+    #[test]
+    fn values_that_cannot_be_kept_are_read_once_per_run_and_not_at_every_ask() {
+        let dir = folder("unwritable");
+        // A file where the folder of the cache should be: nothing can be written below it.
+        let blocker = dir.join("gesperrt");
+        fs::write(&blocker, b"no folder").unwrap();
+        let file = blocker.join(CACHE_FILE).to_string_lossy().into_owned();
+        let supply: Arc<dyn Supply> = Arc::new(Brings);
+        let first = start(None, &file, Arc::clone(&supply));
+        assert!(first.values.is_none() && first.rebuild.is_some(), "nothing is kept yet");
+        assert!(first.rebuild.unwrap().run().is_some(), "the values of the supply");
+        assert!(fs::metadata(&file).is_err(), "and they could not be written");
+        for _ in 0..3 {
+            let again = start(None, &file, Arc::clone(&supply));
+            assert!(again.rebuild.is_none(), "the values of this run are held in memory");
+            assert!(again.values.is_some());
+        }
+        // Another cache file is no business of it.
+        assert!(start(None, &dir.join("woanders.json").to_string_lossy(), Arc::clone(&supply)).rebuild.is_some());
+        // The failure is told once per cache file.
+        let stored = Stored {
+            stamp: Stamp {
+                format: CACHE_FORMAT,
+                archive: String::new(),
+                size: 0,
+                modified: 0,
+                filled: true,
+                attempt: 0,
+                source: "scmdb".into(),
+            },
+            values: GameValues::default(),
+        };
+        let name = format!("nicht-schreibbar-{}", versekit_core::testdir::run_tag());
+        assert!(remember_unwritten(&name, &stored), "the first time it is told");
+        assert!(!remember_unwritten(&name, &stored), "never again");
     }
 
     #[test]

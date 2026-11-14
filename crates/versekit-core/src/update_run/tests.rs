@@ -30,6 +30,56 @@ fn mark(target: &str, previous: &str, start: f64) -> RunMark {
     RunMark { target: target.into(), previous: previous.into(), start, ..RunMark::default() }
 }
 
+/// Runs `work` in a thread of its own and waits at most `seconds` for it: a call that hangs (a virus scanner that
+/// holds the fresh program file while the system starts it) fails the test with this message instead of hanging the
+/// whole run for an hour. Only the tests bound the start of a program: the program itself waits as long as the system
+/// does, as an installer that is started late may already be installing.
+fn bounded<T: Send + 'static>(what: &str, seconds: u64, work: impl FnOnce() -> T + Send + 'static) -> T {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = sender.send(work());
+    });
+    receiver.recv_timeout(Duration::from_secs(seconds)).unwrap_or_else(|_| {
+        panic!("{what} did not return within {seconds} s: the start of a program is held (a virus scanner?)")
+    })
+}
+
+/// 14.11.2026: the test that starts a damaged installer opened a message box ("cannot be started because of an
+/// incompatibility with 64-bit versions of Windows") that waits for a click, and the start waited with it. The
+/// start of the installer runs with the flags that turn such boxes into an error, and puts the mode back. The flags
+/// are checked here without starting anything.
+#[cfg(windows)]
+#[test]
+fn the_start_of_a_program_runs_with_the_message_boxes_of_the_system_off() {
+    use windows_sys::Win32::System::Diagnostics::Debug::{GetThreadErrorMode, SEM_FAILCRITICALERRORS, SEM_NOOPENFILEERRORBOX};
+    // SAFETY: reads the error mode of this thread.
+    let read = || unsafe { GetThreadErrorMode() };
+    let before = read();
+    let inside = without_dialogs(read);
+    assert_eq!(
+        inside & (SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX),
+        SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX,
+        "no message box while the process is created"
+    );
+    assert_eq!(read(), before, "the mode is put back");
+    // The value comes through, also when it is an error.
+    assert_eq!(without_dialogs(|| 7), 7);
+}
+
+/// The helper that bounds a call in a test ends with a clear message when the call hangs, and gives the value of a
+/// call that returns.
+#[test]
+fn a_call_that_hangs_in_a_test_fails_with_a_clear_message_instead_of_hanging_the_run() {
+    assert_eq!(bounded("quick", 30, || 7), 7);
+    let started = Instant::now();
+    let hung = std::panic::catch_unwind(|| {
+        bounded("the start", 1, || std::thread::sleep(Duration::from_secs(5)));
+    });
+    let message = hung.expect_err("fails").downcast_ref::<String>().cloned().unwrap_or_default();
+    assert!(message.contains("the start did not return within 1 s"), "{message}");
+    assert!(started.elapsed() < Duration::from_secs(4), "did not wait for it: {:?}", started.elapsed());
+}
+
 /// A process number that is certainly not alive: a child that has ended.
 fn dead_pid() -> u32 {
     let mut child = if cfg!(windows) {
@@ -136,6 +186,36 @@ fn the_mark_the_helper_of_4_12_left_is_read_and_its_installer_removed() {
     .unwrap();
     let _ = evaluate(&paths, "5.0.0", updater::now());
     assert!(foreign.exists(), "never anything foreign");
+}
+
+/// Karasimsek, 5.2.10 → 5.3.0: the installer starts the new version before its loader (`VerseKit-Setup.exe`) has
+/// ended, and a program file that still runs cannot be deleted (os error 5). That is no fault: the update worked,
+/// the update log says the installer stays, and a later start removes it ([`remove_fetched`]).
+#[cfg(windows)]
+#[test]
+fn an_installer_whose_loader_still_runs_at_the_start_after_it_stays_without_an_error() {
+    let (dir, paths) = paths_in("lauf-lader-laeuft");
+    let installer = dir.path().join("VerseKit-Setup.exe");
+    fs::write(&installer, system_program("PING.EXE")).unwrap();
+    let mut loader = {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new(&installer).raw_arg(living(20)).creation_flags(DETACHED_FLAGS).spawn().unwrap()
+    };
+    let now = updater::now();
+    begin_run(
+        &paths,
+        &RunMark { installer: installer.to_string_lossy().into_owned(), ..mark("v5.3.0", "5.2.10", now - 10.0) },
+    )
+    .unwrap();
+    write_result(&paths, 0).unwrap();
+    let (outcome, caught) = crate::errors::captured(|| evaluate(&paths, "5.3.0", now));
+    let _ = loader.kill();
+    let _ = loader.wait();
+    assert_eq!(outcome.map(|o| o.kind), Some(Kind::Done));
+    assert!(caught.iter().all(|c| c.note), "no error for an installer still in use: {caught:?}");
+    assert!(read_run(&paths).is_none() && read_result(&paths).is_none(), "the rest is cleaned up");
+    let log = fs::read_to_string(paths.app_file(LOG_FILE)).unwrap_or_default();
+    assert!(log.contains("Installer VerseKit-Setup.exe is still in use - it goes at a later start"), "{log}");
 }
 
 #[test]
@@ -300,8 +380,21 @@ fn the_installer_waits_for_this_process_and_reports_to_the_files_of_the_data_fol
     assert_eq!(names, ["update-helfer.txt", "update-ergebnis.txt", "update-sperre.json"]);
 }
 
+/// Switches the message boxes of the system off for this whole test process (a damaged program file that is started
+/// opens one that waits for a click: 14.11.2026 one stood on the screen of the person who tests). The program itself
+/// does the same for the length of its start ([`without_dialogs`]); this is the belt for a test that goes wrong.
+fn no_message_boxes() {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Diagnostics::Debug::SetErrorMode;
+        // SAFETY: plain switches of the error mode of the process; what was there is kept.
+        unsafe { SetErrorMode(SetErrorMode(0) | START_ERROR_MODE) };
+    }
+}
+
 /// A throwaway data folder, an installer `content` under `lokal\VerseKit\Update`, a program folder and the job.
 fn setup_case(name: &str, content: &[u8]) -> (Dir, Paths, SetupJob) {
+    no_message_boxes();
     let (dir, paths) = paths_in(name);
     let folder = dir.path().join("lokal").join("VerseKit").join("Update");
     fs::create_dir_all(&folder).unwrap();
@@ -327,6 +420,7 @@ fn log_of(job: &SetupJob) -> String {
 }
 
 /// Every program file below `folder`.
+#[cfg(windows)]
 fn program_files(folder: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
     for entry in fs::read_dir(folder).unwrap().flatten() {
@@ -405,8 +499,11 @@ fn an_installer_that_ends_before_its_sign_hands_nothing_over_and_the_program_sta
     let (_dir, paths, job) = setup_case("lauf-sofort", &system_program("PING.EXE"));
     let now = updater::now();
     assert!(take_lock(&paths, std::process::id(), now));
-    let error = start_setup(&paths, &job, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(10))
-        .expect_err("ended at once");
+    let (own, job_now) = (Paths::new(paths.host.clone()), job.clone());
+    let error = bounded("start_setup", 180, move || {
+        start_setup(&own, &job_now, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(10))
+    })
+    .expect_err("ended at once");
     assert!(error.to_string().contains("ended at once with exit code 1"), "{error}");
     assert!(read_run(&paths).is_none(), "no run mark: the program runs on");
     let lock = fs::read_to_string(paths.app_file(LOCK_FILE)).unwrap();
@@ -488,8 +585,11 @@ fn the_wait_for_the_sign_watches_the_loader_and_the_log_for_its_whole_time() {
 fn an_installer_that_does_not_start_hands_nothing_over() {
     // Matches its checksum, but is no program file.
     let (_dir, paths, job) = setup_case("lauf-startet-nicht", b"kein Programm");
-    let error = start_setup(&paths, &job, &mark("v5.0.1", "5.0.0", updater::now()), Vec::new(), Duration::ZERO)
-        .expect_err("no start");
+    let (own, job_now) = (Paths::new(paths.host.clone()), job.clone());
+    let error = bounded("start_setup", 180, move || {
+        start_setup(&own, &job_now, &mark("v5.0.1", "5.0.0", updater::now()), Vec::new(), Duration::ZERO)
+    })
+    .expect_err("no start");
     assert!(read_run(&paths).is_none());
     assert!(log_of(&job).contains(&format!("Installer did not start: {error}")), "{}", log_of(&job));
     assert!(!job.setup.exists());

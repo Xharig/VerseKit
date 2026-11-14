@@ -167,6 +167,8 @@ pub mod keys {
     pub const SHOW_WORKBENCH: &str = "overlay_zeige_werkbank";
     /// The notice that an armistice zone was left or entered.
     pub const SHOW_ARMISTICE: &str = "overlay_zeige_schutzzone";
+    /// The balance lines of the Cartel Bank in the open overlay (off without the key).
+    pub const SHOW_BANK: &str = "overlay_zeige_kartellbank";
     /// How many contracts the game lets a player hold, for the count in the head of the bar
     /// ([`super::CONTRACTS_MAX_DEFAULT`] without the key).
     pub const CONTRACTS_MAX: &str = "overlay_auftraege_hoechstzahl";
@@ -721,10 +723,13 @@ pub enum Section {
     Update,
     /// The notice that the player left an armistice zone (and entered one); it also opens a folded overlay.
     Armistice,
+    /// The balance of each account of the Cartel Bank, under the jobs. The lines of the open requests and of the
+    /// queue, and the notice of new queue entries, do not belong to it.
+    Bank,
 }
 
 impl Section {
-    pub const ALL: [Section; 7] = [
+    pub const ALL: [Section; 8] = [
         Section::Shard,
         Section::Location,
         Section::Contracts,
@@ -732,7 +737,13 @@ impl Section {
         Section::Workbench,
         Section::Update,
         Section::Armistice,
+        Section::Bank,
     ];
+
+    /// Whether the part shows while the settings hold no switch for it.
+    pub fn default_on(self) -> bool {
+        self != Section::Bank
+    }
 
     /// The settings key of the switch.
     pub fn key(self) -> &'static str {
@@ -744,6 +755,7 @@ impl Section {
             Section::Workbench => keys::SHOW_WORKBENCH,
             Section::Update => keys::SHOW_UPDATE,
             Section::Armistice => keys::SHOW_ARMISTICE,
+            Section::Bank => keys::SHOW_BANK,
         }
     }
 
@@ -752,13 +764,13 @@ impl Section {
     }
 }
 
-/// The parts the open overlay shows: a set of [`Section`]s, all of them by default.
+/// The parts the open overlay shows: a set of [`Section`]s, the ones that are on by default.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Sections(u8);
 
 impl Default for Sections {
     fn default() -> Sections {
-        Section::ALL.iter().fold(Sections(0), |set, &s| set.with(s, true))
+        Section::ALL.iter().fold(Sections(0), |set, &s| set.with(s, s.default_on()))
     }
 }
 
@@ -771,9 +783,9 @@ impl Sections {
         Sections(if on { self.0 | section.bit() } else { self.0 & !section.bit() })
     }
 
-    /// From the settings: a switch that is missing stays on.
+    /// From the settings: a switch that is missing keeps the default of its part.
     pub fn read(paths: &Paths) -> Sections {
-        Section::ALL.iter().fold(Sections(0), |set, &s| set.with(s, paths.setting_bool(s.key(), true)))
+        Section::ALL.iter().fold(Sections(0), |set, &s| set.with(s, paths.setting_bool(s.key(), s.default_on())))
     }
 }
 
@@ -2157,13 +2169,19 @@ mod tests {
     }
 
     #[test]
-    fn every_part_shows_by_default_and_one_switch_takes_away_only_its_own() {
+    fn every_part_shows_by_default_but_the_bank_and_one_switch_takes_away_only_its_own() {
         let (paths, dir) = events_paths("anzeigen-lesen");
         assert_eq!(Settings::read(&paths).sections, Sections::default());
         assert_eq!(Settings::default().sections, Sections::default());
         for section in Section::ALL {
-            assert!(Sections::default().contains(section), "{section:?}");
+            assert_eq!(Sections::default().contains(section), section != Section::Bank, "{section:?}");
         }
+        // The bank balances come with their own switch only.
+        paths.set_setting(keys::SHOW_BANK, Value::Bool(true));
+        assert!(Settings::read(&paths).sections.contains(Section::Bank));
+        paths.set_setting(keys::SHOW_BANK, Value::Bool(false));
+        assert!(!Settings::read(&paths).sections.contains(Section::Bank));
+        paths.set_setting(keys::SHOW_BANK, Value::Bool(true));
         let mut keys: Vec<&str> = Section::ALL.iter().map(|s| s.key()).collect();
         keys.sort_unstable();
         keys.dedup();

@@ -61,3 +61,57 @@ fn the_cargo_grids_of_the_ships_port_by_port() {
         Err(_) => println!("{out}"),
     }
 }
+
+/// Where a record holds something that looks like cargo space: every field below the record whose name says cargo,
+/// capacity, SCU or inventory, with its path and value. For ships whose cargo lies outside the cargo grids (the
+/// mining pods, the 135c, the Nomad) to find out where their cargo value is kept.
+///
+/// Run with `VERSEKIT_P4K=<Data.p4k> VERSEKIT_CARGO_RECORDS=<ends of record paths, comma separated> cargo test -p
+/// versekit-gamedata --release --test ship_cargo_real -- --ignored --nocapture the_cargo_fields`.
+#[test]
+#[ignore = "reads the Data.p4k of the installed game"]
+fn the_cargo_fields_of_the_records_named() {
+    use p4kx_dataforge::{DataForge, TreeBuilder, Value};
+    fn walk(prefix: &str, value: &Value<'_>, all: bool, out: &mut Vec<String>) {
+        const WORDS: [&str; 5] = ["cargo", "capacity", "scu", "inventory", "container"];
+        match value {
+            Value::Struct(inner) => {
+                for field in inner.fields() {
+                    let path = format!("{prefix}/{}[{}]", field.name(), inner.type_name());
+                    let lower = field.name().to_ascii_lowercase();
+                    let named = all || WORDS.iter().any(|word| lower.contains(word));
+                    if named && !matches!(field.value(), Value::Struct(_) | Value::Array(_)) {
+                        out.push(format!("{path} = {:?}", field.value()));
+                    }
+                    walk(&path, field.value(), all, out);
+                }
+            }
+            Value::Array(items) => {
+                for (at, item) in items.iter().enumerate() {
+                    walk(&format!("{prefix}#{at}"), item, all, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let path = std::env::var("VERSEKIT_P4K").expect("VERSEKIT_P4K names no Data.p4k");
+    let wanted = std::env::var("VERSEKIT_CARGO_RECORDS").expect("VERSEKIT_CARGO_RECORDS names no record");
+    let game = versekit_gamedata::GameData::open_file(&path).expect("a readable Data.p4k");
+    let bytes = game.dataforge_bytes().expect("the DataForge");
+    let forge = DataForge::open(&bytes).expect("a readable DataForge");
+    let mut builder = TreeBuilder::new();
+    let mut out = Vec::new();
+    for record in forge.records() {
+        let Ok(record_path) = record.record_path() else { continue };
+        let lower = record_path.to_ascii_lowercase();
+        if !wanted.split(',').map(str::trim).filter(|w| !w.is_empty()).any(|w| lower.ends_with(&w.to_ascii_lowercase())) {
+            continue;
+        }
+        let Ok(tree) = builder.build(&record) else { continue };
+        out.push(format!("=== {record_path}"));
+        let root = Value::Struct(tree.root().clone());
+        // An inventory container is small and all of it is about space: every value of it.
+        walk("", &root, lower.contains("/inventorycontainers/"), &mut out);
+    }
+    println!("{}", out.join("\n"));
+}

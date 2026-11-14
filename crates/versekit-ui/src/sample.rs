@@ -94,7 +94,7 @@ use crate::widgets::{self, ButtonKind};
 use crate::{
     apply, axes_page, bank_page, basetool_page, blickwinkel_page, blueprint_list, blueprint_progress, color, contested_page,
     contract_log, crafting_page, data_folder, demand_page, diagnose_page, equipment_box, extension, farm_page,
-    game_texts_page, grafik_page, hangar_page, highlight, icons, import_page, joysticks_page, mining_page, notes_page,
+    game_texts_page, grafik_page, hangar_page, highlight, icons, import_page, joysticks_order, joysticks_page, mining_page, notes_page,
     org_stock_page, refineries_page, routes_page, salvage_page, selling_page, settings, shopping_page, shops_page,
     statistics_page, stock_page, stock_share, thanks_page, tiles, trade, update_page,
 };
@@ -357,6 +357,8 @@ pub struct SamplePage {
     grafik: grafik_page::GrafikState,
     fov: blickwinkel_page::FovState,
     joysticks: joysticks_page::JoystickState,
+    /// The one look at the start: is the order of the sticks as remembered? It only says so.
+    order_hint: joysticks_order::StartHint,
     axes: axes_page::AxesState,
     start_programs: startprograms_page::StartProgramsState,
     modules: modules_page::ModulesState,
@@ -465,6 +467,10 @@ pub struct SamplePage {
     game_found: Option<String>,
     /// Where the game was looked for, shown while it is not found (read with the settings, not every frame).
     game_searched: Vec<String>,
+    /// The folder the RSI Launcher starts the game from when it is not the game folder set: (channel, folder), and
+    /// when it was looked at last (seconds of the window). The page offers it with a button.
+    launcher_offer: Option<(String, String)>,
+    launcher_looked: Option<f64>,
     /// The data folder on the page "Installation & Pfade": questions, move, report.
     data_folder: data_folder::DataFolderState,
     /// The state of the user.cfg of every game channel, at the foot of the page Installation & Pfade.
@@ -649,6 +655,8 @@ pub struct SamplePage {
     /// An embedding program gave the unit storage its own connection: the page is there
     /// whatever the sync of this window says.
     storage_given: bool,
+    /// The page of the Cartel Bank stands on the made-up bank of the sample, whatever the sync of this window says.
+    bank_sample: bool,
     /// What reaches outside the window goes through these, so a test can ask what was asked for:
     /// open an address, ask for a folder, start the program again.
     open_url: fn(&str) -> bool,
@@ -1365,6 +1373,7 @@ impl SamplePage {
             grafik: grafik_page::GrafikState::default(),
             fov: blickwinkel_page::FovState::default(),
             joysticks: joysticks_page::JoystickState::default(),
+            order_hint: joysticks_order::StartHint::default(),
             axes: axes_page::AxesState::default(),
             start_programs: startprograms_page::StartProgramsState::default(),
             modules: modules_page::ModulesState::default(),
@@ -1420,6 +1429,8 @@ impl SamplePage {
             folders: FOLDERS.map(str::to_string),
             game_found: None,
             game_searched: Vec::new(),
+            launcher_offer: None,
+            launcher_looked: None,
             data_folder: data_folder::DataFolderState::new(),
             channel_states: channel_states::ChannelStates::default(),
             view_range: 60,
@@ -1539,6 +1550,7 @@ impl SamplePage {
             extension: None,
             extension_page: String::new(),
             storage_given: false,
+            bank_sample: false,
             open_url: versekit_core::browser::open_in_browser,
             choose_folder: crate::file_dialog::choose_folder,
             restart_with: controls::restart_process,
@@ -1575,6 +1587,15 @@ impl SamplePage {
         let mut page = Self::preview();
         page.update_version = String::new();
         page.loading_shown = true;
+        page
+    }
+
+    /// [`Self::preview_still`] with the page of the Cartel Bank in the menu, standing on the made-up bank of the
+    /// sample: for the picture of that page.
+    pub fn preview_still_bank() -> Self {
+        let mut page = Self::preview_still();
+        page.bank = bank_page::BankState::default();
+        page.bank_sample = true;
         page
     }
 
@@ -1668,6 +1689,9 @@ impl SamplePage {
         if self.storage_given && matches!(page, "hf_staffellager" | "hf_bedarf" | "hf_bank") {
             return false;
         }
+        if self.bank_sample && page == "hf_bank" {
+            return false;
+        }
         match (page, self.connection.wire()) {
             ("hf_staffellager", Some(wire)) => !wire.sync.area_visible(SETTING_ORGSTOCK),
             // Real data without a connection to the Basetool: no storage to show.
@@ -1679,6 +1703,15 @@ impl SamplePage {
             ("hf_bank", Some(wire)) => !wire.sync.area_visible(SETTING_BANK),
             ("hf_bank", None) => self.real(),
             _ => false,
+        }
+    }
+
+    /// Whether a part of the Basetool belonging to the area of `setting` shows: switch on, right granted and the
+    /// connection standing. Without a connection of the preview only the sample page shows it.
+    fn area_shown(&self, setting: &str) -> bool {
+        match self.connection.wire() {
+            Some(wire) => wire.sync.area_visible(setting),
+            None => !self.real(),
         }
     }
 
@@ -1833,6 +1866,13 @@ impl SamplePage {
             wire.remember(ui.ctx());
         }
         self.update_frame(ui.ctx(), scheme);
+        // Once at the start: the sticks have other numbers than remembered? Only said in the foot, never rewritten.
+        if let Some(text) = self.order_hint.poll(self.store.as_ref().map(|store| &store.paths)) {
+            self.pin_notice = Some((ui.input(|i| i.time), text));
+        }
+        if self.order_hint.waiting() {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+        }
         // The measuring of the screen is the whole window (it goes full screen): nothing else is drawn.
         if self.fov.measuring() {
             match &self.store {
@@ -3369,7 +3409,7 @@ impl SamplePage {
                         if self.page_hidden(page) {
                             continue;
                         }
-                        for shown in nav_hits_in(&filter, group, page, !real) {
+                        for shown in nav_hits_gated(&filter, group, page, !real, &|setting| self.area_shown(setting)) {
                             hits.push((page, icon, shown));
                         }
                     }
@@ -4315,7 +4355,16 @@ impl SamplePage {
                     }
                     "hf_overlay" => {
                         let rows = settings_of("hf_overlay");
-                        let groups = group_sizes(rows);
+                        let mut groups = group_sizes(rows);
+                        // The switch of the bank stands only while the bank is connected: the rows after it move up.
+                        let bank_at = versekit_core::overlay::Section::ALL
+                            .iter()
+                            .position(|section| *section == versekit_core::overlay::Section::Bank)
+                            .unwrap_or(usize::MAX);
+                        let bank_hidden = !self.area_shown(versekit_core::basetool::scopes::SETTING_BANK);
+                        if bank_hidden {
+                            groups[5].1 -= 1;
+                        }
                         let choices: Vec<String> = rows[1].1[0].2.iter().map(|c| label(c)).collect();
                         let texts = settings::OverlayTexts {
                             corners: [&choices[0], &choices[1], &choices[2], &choices[3]],
@@ -4381,6 +4430,7 @@ impl SamplePage {
                             // the game, over the whole width under them.
                             &[8],
                             &mut |ui, g, r| {
+                                let r = if bank_hidden && g == 5 && r >= bank_at { r + 1 } else { r };
                                 let (name, hint, choices) = rows[g].1[r];
                                 let name = label(name);
                                 // The opacity of an overlay drawn without transparency says why it has no effect.
@@ -4514,7 +4564,22 @@ impl SamplePage {
                                     let changed = (rows_now[r].0, rows_now[r].1) != before;
                                     let turned_on = rows_now[r].2 && !rows_before[r].2;
                                     let holder = any_holder(r, &active_hotkeys(rows_now));
-                                    if (changed || turned_on)
+                                    // A shortcut just switched on that still has its default key, which another one
+                                    // holds now: it gives way to a spare key, as the overlay does at its next start
+                                    // (`overlay::resolve`), and does not spring back off.
+                                    let spare = (turned_on && !changed && holder.is_some())
+                                        .then(|| spare_for(r, &active_hotkeys(rows_now), (rows_now[r].0, rows_now[r].1)))
+                                        .flatten();
+                                    if let Some((spare_modifiers, spare_key)) = spare {
+                                        let (held, chosen) = match r {
+                                            0 => (&mut *modifiers, &mut *key),
+                                            1 => (&mut *scan_modifiers, &mut *scan_key),
+                                            2 => (&mut *search_modifiers, &mut *search_key),
+                                            3 => (&mut *picture_modifiers, &mut *picture_key),
+                                            _ => (&mut *main_modifiers, &mut *main_key),
+                                        };
+                                        (*held, *chosen) = (spare_modifiers, spare_key);
+                                    } else if (changed || turned_on)
                                         && let Some(by) = holder
                                     {
                                         let (held, chosen, on) = match r {
@@ -4935,6 +5000,10 @@ impl SamplePage {
                                         }
                                     }
                                 }
+                            }
+                            // The launcher starts the game from another folder than the one set: offered, one click.
+                            if self.launcher_offer_box(page, scheme) {
+                                page.ctx().request_repaint();
                             }
                         } else {
                             let infos = page_infos("hf_ordner");
@@ -5993,6 +6062,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_zeige_werkbank", "s_ov_zeige_werkbank_h", &[]),
                     ("s_ov_zeige_update", "s_ov_zeige_update_h", &[]),
                     ("s_ov_zeige_schutzzone", "s_ov_zeige_schutzzone_h", &[]),
+                    ("s_ov_zeige_kartellbank", "s_ov_zeige_kartellbank_h", &[]),
                     // After the switches: the most contracts for the count in the head of the bar.
                     ("s_ov_auftraege_max", "s_ov_auftraege_max_h", &[]),
                 ],
@@ -6261,6 +6331,25 @@ fn active_hotkeys(rows: [([bool; 3], usize, bool); 5]) -> [Option<String>; 5] {
     rows.map(|(modifiers, key, on)| on.then(|| hotkey_text(modifiers, key)).flatten())
 }
 
+/// The key shortcut `r` (the order of `overlay::Shortcut::ALL`) takes where it was just switched on with its `current`
+/// key, which it still has as its default and another shortcut holds: the first of `overlay::SPARE_HOTKEYS` that none
+/// of the others holds. `None` for a key the player chose (it is not given away) and where no spare is free. The same
+/// choice `overlay::resolve` makes for a shortcut left at its default when the overlay starts.
+fn spare_for(r: usize, active: &[Option<String>; 5], current: ([bool; 3], usize)) -> Option<([bool; 3], usize)> {
+    use versekit_core::overlay::{
+        DEFAULT_HOTKEY, DEFAULT_MAIN_HOTKEY, DEFAULT_PICTURE_HOTKEY, DEFAULT_SCAN_HOTKEY, DEFAULT_SEARCH_HOTKEY,
+        SPARE_HOTKEYS,
+    };
+    let defaults = [DEFAULT_HOTKEY, DEFAULT_SCAN_HOTKEY, DEFAULT_SEARCH_HOTKEY, DEFAULT_PICTURE_HOTKEY, DEFAULT_MAIN_HOTKEY];
+    if parse_hotkey(defaults.get(r)?)? != current {
+        return None;
+    }
+    SPARE_HOTKEYS.iter().filter_map(|text| parse_hotkey(text)).find(|&(modifiers, key)| {
+        let text = hotkey_text(modifiers, key);
+        !active.iter().enumerate().any(|(i, held)| i != r && held.is_some() && *held == text)
+    })
+}
+
 /// The earlier shortcut that holds the combination of row `r`: the overlay does not register a later one on it.
 fn earlier_holder(r: usize, active: &[Option<String>; 5]) -> Option<usize> {
     let mine = active.get(r)?.as_ref()?;
@@ -6450,7 +6539,7 @@ fn page_infos(page: &str) -> Vec<String> {
 
 /// What the menu filter finds on a page besides its name: on the sample page
 /// everything it shows, on real data only its buttons and labels, never sample data.
-fn search_infos(page: &str, sample: bool) -> Vec<String> {
+fn search_infos(page: &str, sample: bool, shown: &dyn Fn(&str) -> bool) -> Vec<String> {
     let found: Vec<String> = match page {
         _ if sample => page_infos(page),
         "hf_meinlager" => Vec::new(),
@@ -6619,12 +6708,12 @@ fn search_infos(page: &str, sample: bool) -> Vec<String> {
             .collect(),
         _ => base_infos(page),
     };
-    found.into_iter().chain(language_infos(page)).collect()
+    found.into_iter().chain(language_infos(page, shown)).collect()
 }
 
 /// The buttons of a page whose texts come from the language file, in the language
 /// in force: the menu filter finds them like the fixed ones.
-fn language_infos(page: &str) -> Vec<String> {
+fn language_infos(page: &str, shown: &dyn Fn(&str) -> bool) -> Vec<String> {
     let keys: &[&str] = match page {
         "hf_st_uebersicht" => &[
             "s_sx_lead",
@@ -6665,7 +6754,7 @@ fn language_infos(page: &str) -> Vec<String> {
         _ => &[],
     };
     // "Jetzt abgleichen" stands in the heads of the three pages with a Basetool area (while it is switched on).
-    let sync = crate::head_sync::setting_of(page).map(|_| "s_bt_jetzt");
+    let sync = crate::head_sync::setting_of(page).filter(|setting| shown(setting)).map(|_| "s_bt_jetzt");
     keys.iter().copied().chain(sync).map(versekit_core::language::t).collect()
 }
 
@@ -6847,6 +6936,11 @@ const MODULE_SETTINGS: [(&str, &str, &str, &str); 20] = [
 /// while the check of the account stopped the sync.
 const SITUATIONAL_ROWS: [(&str, &str); 1] = [("k_basetool_verbindung", "s_btv_konto")];
 
+/// Rows of [`PAGE_SETTINGS`] that stand on their page only while the area of the Basetool shows (switch on, right
+/// granted, connected): (page, text key of the row, setting of the area).
+const AREA_ROWS: [(&str, &str, &str); 1] =
+    [("hf_overlay", "s_ov_zeige_kartellbank", versekit_core::basetool::scopes::SETTING_BANK)];
+
 /// What the menu filter shows for `page` of `group`: the page itself when
 /// its name or its group matches, and `Page › text` for every setting
 /// (by name, hint, group title or a choice) and every info that matches.
@@ -6856,8 +6950,14 @@ fn nav_hits(filter: &str, group: &str, page: &str) -> Vec<String> {
     nav_hits_in(filter, group, page, true)
 }
 
-/// The hits of the menu filter, with the sample data of a page only when `sample`.
+/// The hits of the menu filter, with the sample data of a page only when `sample`, every Basetool part counted in.
+#[cfg(test)]
 fn nav_hits_in(filter: &str, group: &str, page: &str, sample: bool) -> Vec<String> {
+    nav_hits_gated(filter, group, page, sample, &|_| true)
+}
+
+/// The hits of the menu filter, where a part of the Basetool is found only while `shown` says its area shows.
+fn nav_hits_gated(filter: &str, group: &str, page: &str, sample: bool, shown: &dyn Fn(&str) -> bool) -> Vec<String> {
     use versekit_core::language::t;
     let filter = search_form(filter.trim());
     let name = t(page);
@@ -6872,6 +6972,11 @@ fn nav_hits_in(filter: &str, group: &str, page: &str, sample: bool) -> Vec<Strin
     for (title, rows) in searched_settings(page, sample) {
         for (row, hint, choices) in rows.iter() {
             if !sample && SITUATIONAL_ROWS.contains(&(page, *row)) {
+                continue;
+            }
+            if let Some((.., setting)) = AREA_ROWS.iter().find(|(p, r, _)| *p == page && r == row)
+                && !shown(setting)
+            {
                 continue;
             }
             let row = label(row);
@@ -6892,7 +6997,7 @@ fn nav_hits_in(filter: &str, group: &str, page: &str, sample: bool) -> Vec<Strin
             hits.push(hit);
         }
     }
-    for info in search_infos(page, sample) {
+    for info in search_infos(page, sample, shown) {
         let hit = format!("{name} › {info}");
         if matches(&info) && !hits.contains(&hit) {
             hits.push(hit);
@@ -8357,7 +8462,7 @@ mod tests {
                     }
                 }
                 texts.extend(page_infos(page).iter().map(|info| info.to_string()));
-                texts.extend(language_infos(page));
+                texts.extend(language_infos(page, &|_| true));
                 for text in texts.iter().filter(|text| !text.is_empty()) {
                     assert!(!nav_hits(text, group, page).is_empty(), "{page}: “{text}” not found");
                     checked += 1;
@@ -8469,6 +8574,62 @@ mod tests {
         let mut shown = Vec::new();
         output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut shown));
         assert!(shown.contains(&"Laranite".to_string()), "the demand of the sync stands on the page: {shown:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A wire in a folder of its own with the demo login approved, the switch of `setting` on and the
+    /// connection standing after one pass; with the folder to remove afterwards.
+    pub(super) fn connected_wire(tag: &str, setting: &str) -> (basetool_page::Wire, std::path::PathBuf) {
+        use versekit_core::basetool::demo::DemoLogin;
+        let dir = std::env::temp_dir().join(format!("versekit-{tag}-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let wire = basetool_page::Wire::in_folder(&dir.to_string_lossy(), false);
+        wire.demo.as_ref().expect("demo").script_login(DemoLogin::Approve, 1);
+        assert!(wire.sync.set_setting(setting, Value::Bool(true)));
+        wire.sync.connect();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(90);
+        while !wire.sync.connection().connected() && std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(wire.sync.connection().connected(), "the login did not end");
+        wire.sync.pass_now().expect("pass");
+        (wire, dir)
+    }
+
+    /// The bank is there with its switch on, its right granted and the connection standing, and goes with each
+    /// of them; the menu filter and the sidebar follow the page.
+    #[test]
+    fn the_bank_comes_with_its_switch_its_right_and_the_connection() {
+        use versekit_core::basetool::demo::DemoLogin;
+        use versekit_core::basetool::scopes::SETTING_BANK;
+        let dir = std::env::temp_dir().join(format!("versekit-gate-bank-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let wire = basetool_page::Wire::in_folder(&dir.to_string_lossy(), false);
+        wire.demo.as_ref().expect("demo").script_login(DemoLogin::Approve, 1);
+        let mut page = SamplePage::new();
+        assert!(!page.page_hidden("hf_bank"), "without a connection of the preview the sample page shows it");
+        page.connect_wire(wire.clone());
+        assert!(page.page_hidden("hf_bank"), "not connected, nothing switched on");
+        assert!(wire.sync.set_setting(SETTING_BANK, Value::Bool(true)));
+        assert!(page.page_hidden("hf_bank"), "switched on, but not connected");
+        wire.sync.connect();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(90);
+        while !wire.sync.connection().connected() && std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(wire.sync.connection().connected(), "the login did not end");
+        wire.sync.pass_now().expect("pass");
+        assert!(!page.page_hidden("hf_bank"), "switch, right and connection: the page is there");
+        assert!(page.page_hidden("hf_bedarf"), "the unit demand has its own switch");
+        // The switch off again: the page goes, the saved value is the one written.
+        assert!(wire.sync.set_setting(SETTING_BANK, Value::Bool(false)));
+        assert!(page.page_hidden("hf_bank"), "switched off");
+        assert!(wire.sync.set_setting(SETTING_BANK, Value::Bool(true)));
+        assert!(!page.page_hidden("hf_bank"));
+        // The connection ends: the page goes again.
+        wire.sync.disconnect().wait(std::time::Duration::from_secs(10));
+        assert!(page.page_hidden("hf_bank"), "not connected any more");
+        assert!(wire.sync.paths().setting_bool(SETTING_BANK, false), "the switch keeps its value");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

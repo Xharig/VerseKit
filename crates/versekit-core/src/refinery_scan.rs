@@ -34,6 +34,7 @@
 //! ([`merge_passes`]). Unsure values stay empty and are named as unsure.
 
 pub mod digits;
+pub mod own_ocr;
 pub mod screen;
 
 use std::collections::{HashMap, HashSet};

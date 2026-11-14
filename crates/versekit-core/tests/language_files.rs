@@ -463,6 +463,25 @@ fn every_key_the_code_asks_for_exists() {
     assert!(count > 500, "only {count} keys found in the code");
 }
 
+/// Texts of things the program no longer has: they were removed once and must not come back by a merge or a copy
+/// of an old file. `s_ub_auto` (and its hint) was the switch for installing updates; since v5 the update is
+/// always on.
+const RETIRED_KEYS: [&str; 2] = ["s_ub_auto", "s_ub_auto_h"];
+
+#[test]
+fn texts_of_removed_switches_stay_out_of_the_files() {
+    let (de, en) = both();
+    let mut problems = Vec::new();
+    for file in [&de, &en] {
+        for key in RETIRED_KEYS {
+            if file.sections.values().any(|texts| texts.contains_key(key)) {
+                problems.push(format!("{}: `{key}` is a retired text", file.name));
+            }
+        }
+    }
+    assert_clean(&problems);
+}
+
 /// Each check gets an input with exactly the defect it is there to find.
 #[test]
 fn the_checks_find_their_defect() {

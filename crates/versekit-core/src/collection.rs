@@ -51,7 +51,7 @@ use regex::Regex;
 use crate::errors;
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::paths::{Paths, name_key, py_int};
-use crate::phrases::EnglishNames;
+use crate::phrases::{EnglishNames, unresolved_key};
 use crate::text::{py_isspace, py_strip};
 
 /// File format version. 3: `name_key` also normalizes the language of the
@@ -104,11 +104,35 @@ pub fn now_text() -> String {
 pub struct Known {
     entries: HashMap<String, Option<String>>,
     words: OnceLock<Vec<(String, HashSet<String>)>>,
+    loose: OnceLock<HashMap<String, String>>,
+}
+
+/// A comparison key without the quotes and with one blank between words: how a name reads when a tool took the
+/// quotes out (`Yubarev "Igniter" Pistol` and `yubarev igniter pistol` have the same one).
+pub fn loose_key(name: &str) -> String {
+    let key: String = name_key(name).chars().filter(|c| *c != '\'').collect();
+    key.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 impl Known {
     pub fn new(entries: impl IntoIterator<Item = (String, Option<String>)>) -> Known {
-        Known { entries: entries.into_iter().collect(), words: OnceLock::new() }
+        Known { entries: entries.into_iter().collect(), words: OnceLock::new(), loose: OnceLock::new() }
+    }
+
+    /// Like [`Known::get`], for a key as [`loose_key`] writes it: only where exactly one entry has it.
+    pub fn get_loose(&self, loose: &str) -> Option<Option<&str>> {
+        let index = self.loose.get_or_init(|| {
+            let mut index: HashMap<String, String> = HashMap::new();
+            let mut twice = HashSet::new();
+            for key in self.entries.keys() {
+                if index.insert(loose_key(key), key.clone()).is_some() {
+                    twice.insert(loose_key(key));
+                }
+            }
+            index.retain(|k, _| !twice.contains(k));
+            index
+        });
+        index.get(loose).and_then(|key| self.get(key))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -321,6 +345,14 @@ pub fn renew_keys(data: &mut Map) -> bool {
     changed
 }
 
+/// Is a name in the collection still the raw text key of the game (`@Nozzle_FuelGiver_GRIN_NozzleSecure_Name`)?
+fn has_raw_key(data: &Map) -> bool {
+    blueprints(data).iter().any(|(key, entry)| {
+        let name = field(entry, "name").and_then(Value::as_str).unwrap_or(key);
+        unresolved_key(py_strip(name)).is_some()
+    })
+}
+
 /// Remove a blueprint from the collection (untick it). True if it was in there.
 pub fn remove(data: &mut Map, name: &str) -> bool {
     pop(blueprints_mut(data), &name_key(name)).is_some_and(|v| !matches!(v, Value::Null))
@@ -454,7 +486,22 @@ impl Collection<'_> {
         if get(&data, "version").is_none() {
             data.push(("version".into(), Value::int(FILE_VERSION)));
         }
-        data
+        self.heal_stored(data)
+    }
+
+    /// Names stored as a raw text key heal when the collection is loaded, and the healed collection is saved
+    /// (again from what is on disk under the write lock). Without the original texts of the game nothing changes.
+    fn heal_stored(&self, data: Map) -> Map {
+        if !has_raw_key(&data) {
+            return data;
+        }
+        let _lock = jsonio::lock_saves();
+        let Some(mut fresh) = self.read_object() else { return data };
+        if self.heal_raw_keys(&mut fresh) == 0 {
+            return data;
+        }
+        self.save(&mut fresh);
+        fresh
     }
 
     /// The file as a map with a `bauplaene` object, or `None`.
@@ -643,6 +690,63 @@ impl Collection<'_> {
         hits.pop().map(|(_, v)| v)
     }
 
+    /// The original texts of the game by key, in lower case, from the names the `Data.p4k` gave
+    /// (`namen-original.json`); empty without them.
+    fn original_texts(&self) -> HashMap<String, String> {
+        match jsonio::read_json(&self.paths.app_file(crate::asop::NAMES_FILE)) {
+            Ok(Value::Object(names)) => names
+                .into_iter()
+                .filter_map(|(key, value)| match value {
+                    Value::Str(text) if !py_strip(&text).is_empty() => Some((key.to_lowercase(), text)),
+                    _ => None,
+                })
+                .collect(),
+            _ => HashMap::new(),
+        }
+    }
+
+    /// The name for an unresolved text key (`@Nozzle_FuelGiver_GRIN_NozzleSecure_Name`), `None` where `name` is no
+    /// such key or the game's texts do not have it.
+    fn resolve_raw(&self, name: &str, texts: &HashMap<String, String>) -> Option<String> {
+        let key = unresolved_key(py_strip(name))?;
+        texts.get(&key.to_lowercase()).map(|text| py_strip(text).to_string())
+    }
+
+    /// Heals names that were stored as the raw text key (`@Nozzle_…_Name`) instead of the name of the item:
+    /// the key is looked up in the game's own texts again. An entry whose key is not found stays as it is, for a
+    /// later try; if the blueprint already exists under the right name, the entry of that name stays. Number of
+    /// healed entries.
+    pub fn heal_raw_keys(&self, data: &mut Map) -> usize {
+        if !has_raw_key(data) {
+            return 0;
+        }
+        let texts = self.original_texts();
+        if texts.is_empty() {
+            return 0;
+        }
+        let bp = blueprints_mut(data);
+        let snapshot: Vec<String> = bp.iter().map(|(k, _)| k.clone()).collect();
+        let mut healed = 0;
+        for key in snapshot {
+            let Some(entry) = get(bp, &key) else { continue };
+            let old_name = field(entry, "name").and_then(Value::as_str).unwrap_or(&key).to_string();
+            let Some(new_name) = self.resolve_raw(&old_name, &texts) else { continue };
+            let new_key = name_key(&new_name);
+            if new_key.is_empty() {
+                continue;
+            }
+            let Some(mut entry) = pop(bp, &key) else { continue };
+            if !bp.iter().any(|(k, _)| *k == new_key) {
+                if let Value::Object(map) = &mut entry {
+                    map_set(map, "name", Value::Str(new_name));
+                }
+                bp.push((new_key, entry));
+            }
+            healed += 1;
+        }
+        healed
+    }
+
     /// Align stored names with the catalog. Number of corrected entries; 0
     /// means "nothing to do".
     ///
@@ -685,7 +789,11 @@ impl Collection<'_> {
     /// A known blueprint is not added twice; if the new source ranks higher,
     /// it is recorded. The name goes through `catalog_name` first.
     pub fn add(&self, data: &mut Map, name: &str, source: &str, when: Option<&str>) -> bool {
-        let name = self.catalog_name(name, None);
+        // A raw text key (`@Nozzle_…_Name`) is named by the game's texts first, where it has them.
+        let raw = unresolved_key(py_strip(name)).is_some();
+        let resolved = if raw { self.resolve_raw(name, &self.original_texts()) } else { None };
+        let name = resolved.unwrap_or_else(|| name.to_string());
+        let name = self.catalog_name(&name, None);
         let key = name_key(&name);
         if key.is_empty() {
             return false;
@@ -978,6 +1086,96 @@ mod tests {
         // `bauplaene` is not an object: empty.
         fs::write(c.path(), "{\"bauplaene\": []}").unwrap();
         assert_eq!(c.load(), c.empty());
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    fn entry_of<'a>(data: &'a Map, key: &str) -> Option<&'a Value> {
+        blueprints(data).iter().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+
+    /// The old state: a collection of 09/2026 (version 3) with three fuel nozzles under the raw text key of the game.
+    fn old_state_with_nozzles() -> Map {
+        let raw = |key: &str| entry(&format!("@{key}"), "log", "2026-09-20 18:00:00");
+        vec![
+            ("version".into(), Value::int(3)),
+            ("stand".into(), Value::str("2026-11-01 10:00:00")),
+            (
+                "bauplaene".into(),
+                Value::Object(vec![
+                    ("@nozzle_fuelgiver_grin_nozzlesecure_name".into(), raw("Nozzle_FuelGiver_GRIN_NozzleSecure_Name")),
+                    ("helm".into(), entry("Helm", "log", "2026-09-01 10:00:00")),
+                    (
+                        "@nozzle_fuelgiver_shin_nozzleexpensivefast_name".into(),
+                        raw("Nozzle_FuelGiver_SHIN_NozzleExpensiveFast_Name"),
+                    ),
+                    (
+                        "@nozzle_fuelgiver_shin_nozzleunknown_name".into(),
+                        raw("Nozzle_FuelGiver_SHIN_NozzleUnknown_Name"),
+                    ),
+                ]),
+            ),
+        ]
+    }
+
+    #[test]
+    fn names_stored_as_a_raw_text_key_heal_when_the_collection_is_loaded() {
+        let home = scratch("rohschluessel");
+        let paths = paths_in(&home);
+        let names = Names(Vec::new());
+        let exports = Counting::default();
+        let c = Collection { paths: &paths, catalog: &NoCatalog, names: &names, exports: &exports, clock: fixed };
+        let write_old = || {
+            fs::write(c.path(), jsonio::dumps(&Value::Object(old_state_with_nozzles()), Some(1), false)).unwrap()
+        };
+        write_old();
+        // Without the original texts of the game nothing is guessed and nothing is written.
+        let data = c.load();
+        assert_eq!(count(&data), 4);
+        assert!(has_raw_key(&data));
+        assert_eq!(*exports.0.borrow(), 0);
+        // The texts came from the Data.p4k (the key in any case, one key the game does not have).
+        let texts = r#"{"nozzle_fuelgiver_grin_nozzlesecure_name": "Marlin",
+                        "Nozzle_FuelGiver_SHIN_NozzleExpensiveFast_Name": "Lindstrom", "a_name": "A"}"#;
+        fs::write(paths.app_file(crate::asop::NAMES_FILE), texts).unwrap();
+        let data = c.load();
+        assert_eq!(super::names(&data), ["@Nozzle_FuelGiver_SHIN_NozzleUnknown_Name", "Helm", "Lindstrom", "Marlin"]);
+        let wanted = ["@nozzle_fuelgiver_shin_nozzleunknown_name", "helm", "lindstrom", "marlin"];
+        assert_eq!(keys(&data), wanted.iter().map(|k| k.to_string()).collect::<BTreeSet<_>>());
+        // The source and the time of the find stay with the healed entry.
+        let marlin = entry_of(&data, "marlin").expect("Marlin");
+        assert_eq!(field(marlin, "quelle"), Some(&Value::str("log")));
+        assert_eq!(field(marlin, "zeit"), Some(&Value::str("2026-09-20 18:00:00")));
+        // And it is saved: the next load needs no texts and changes nothing.
+        assert_eq!(*exports.0.borrow(), 1);
+        let written = fs::read_to_string(c.path()).unwrap();
+        assert!(written.contains("Marlin") && !written.contains("@Nozzle_FuelGiver_GRIN"), "{written}");
+        fs::remove_file(paths.app_file(crate::asop::NAMES_FILE)).unwrap();
+        c.load();
+        assert_eq!(*exports.0.borrow(), 1);
+        // A blueprint that is already there under its name stays as it is; the raw one goes.
+        let mut twice = old_state_with_nozzles();
+        if let Some(Value::Object(bp)) = get_mut(&mut twice, "bauplaene") {
+            bp.push(("marlin".into(), entry("Marlin", "hand", "2026-10-01 10:00:00")));
+        }
+        fs::write(c.path(), jsonio::dumps(&Value::Object(twice), Some(1), false)).unwrap();
+        fs::write(paths.app_file(crate::asop::NAMES_FILE), texts).unwrap();
+        let data = c.load();
+        assert_eq!(count(&data), 4);
+        assert_eq!(field(entry_of(&data, "marlin").unwrap(), "quelle"), Some(&Value::str("hand")));
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_new_blueprint_named_by_a_raw_text_key_is_added_under_its_name() {
+        let home = scratch("rohschluessel-neu");
+        let paths = paths_in(&home);
+        let names = Names(Vec::new());
+        let c = Collection { paths: &paths, catalog: &NoCatalog, names: &names, exports: &NoExports, clock: fixed };
+        fs::write(paths.app_file(crate::asop::NAMES_FILE), r#"{"Nozzle_FuelGiver_GRIN_NozzleSecure_Name": "Marlin"}"#)
+            .unwrap();
+        let mut data = c.empty();
+        assert!(c.add(&mut data, "@Nozzle_FuelGiver_GRIN_NozzleSecure_Name", "log", None));
+        assert_eq!(super::names(&data), ["Marlin"]);
         let _ = fs::remove_dir_all(&home);
     }
 

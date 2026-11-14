@@ -169,6 +169,9 @@ fn the_own_data_go_at_every_place_and_everything_else_stays() {
         "Intern/signatur-gemerkt/0001762000000000.bin",
         "Intern/handle-bilder/0123456789abcdef.bild",
         "Intern/raffinerie-bilder/raffinerie_20261101-120000-042_kopf.png",
+        "Kanaele/PTU/katalog-spieldaten.json",
+        "Kanaele/PTU/einstellungen.json",
+        "Kanaele/EPTU/auftragsruf.json",
     ] {
         put(&chosen.join(own), "x");
     }
@@ -503,7 +506,9 @@ fn a_known_name_goes_only_in_the_subfolder_the_program_puts_it_in() {
 #[test]
 fn every_file_name_of_the_program_is_known_or_named_as_no_data() {
     // Names that are no data of the program in its own subfolders, each with where it lies.
-    const NO_DATA: [&str; 6] = [
+    const NO_DATA: [&str; 8] = [
+        // The moved log of the RSI Launcher: a file of the launcher, read by the program, never written by it.
+        crate::launcher_log::OLD_LOG_FILE,
         // The attachment inside a backup file.
         "sicherung.txt",
         // Left in the temporary folder by the update of 4.12.
@@ -514,8 +519,9 @@ fn every_file_name_of_the_program_is_known_or_named_as_no_data() {
         "signatur-ziffern.json",
         // The note of the original texts beside a translated file in the game folder.
         ".urtext.json",
-        // A file of the parity checks in their scratch folders.
+        // Files of the parity checks in their scratch folders.
         "contracts.json",
+        "ergebnis.json",
     ];
     let pattern =
         regex::Regex::new(r#"const [A-Z_0-9]+: &(?:'static )?str = "([^"]+\.(?:json|txt|bin|log|zip))""#).unwrap();

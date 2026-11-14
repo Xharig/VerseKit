@@ -91,6 +91,12 @@ pub enum Failure {
     SetWrite,
     /// Everything the set says stands in the file already (`s_gs_f_nichts_zu_tun`).
     NothingToDo,
+    /// No order was remembered yet (`s_jr_f_nichts_gemerkt`).
+    OrderNothing,
+    /// The numbers can not be put right without mixing two sticks (`s_jr_f_widerspruch`).
+    OrderConflict,
+    /// The file of the remembered order could not be written (`s_jr_f_schreiben`).
+    OrderWrite,
     /// The game runs, or the copy or the writing failed.
     Write(WriteError),
 }
@@ -122,6 +128,9 @@ impl Failure {
             Failure::SetNothing => "s_gs_f_nichts",
             Failure::SetWrite => "s_gs_f_schreiben",
             Failure::NothingToDo => "s_gs_f_nichts_zu_tun",
+            Failure::OrderNothing => "s_jr_f_nichts_gemerkt",
+            Failure::OrderConflict => "s_jr_f_widerspruch",
+            Failure::OrderWrite => "s_jr_f_schreiben",
             Failure::Write(_) => return None,
         })
     }
@@ -141,7 +150,7 @@ impl Failure {
 }
 
 /// What was done.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Done {
     /// The path of the copy made first, if there was a file to copy.
     pub backup: Option<String>,

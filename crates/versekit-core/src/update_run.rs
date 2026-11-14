@@ -275,7 +275,24 @@ fn cleanup(paths: &Paths, run: &RunMark) {
     remove(&paths.app_file(RESULT_FILE));
     // Only a file that is recognisably ours, never anything else.
     if !run.installer.is_empty() && is_ours(&run.installer) {
-        remove(&run.installer);
+        remove_installer(paths, &run.installer);
+    }
+}
+
+/// Removes the installer of the run that ended. ⚠ The installer starts the new version before its loader (the file
+/// itself) has ended, and a program file that still runs cannot be deleted (os error 5, Karasimsek 5.2.10 →
+/// 5.3.0): that is no fault. The update log says it stays; a later start removes it ([`remove_fetched`]).
+fn remove_installer(paths: &Paths, installer: &str) {
+    match jsonio::remove_file(installer) {
+        Err(error) if jsonio::is_permission(&error) => {
+            let name = Path::new(installer).file_name().map_or_else(|| installer.into(), |n| n.to_string_lossy());
+            log_line(
+                Path::new(&paths.app_file(LOG_FILE)),
+                &format!("Installer {name} is still in use - it goes at a later start ({error})"),
+            );
+        }
+        Err(error) if !jsonio::is_not_found(&error) => errors::record("update_run.remove", &error),
+        _ => {}
     }
 }
 
@@ -672,7 +689,10 @@ fn launch(
     {
         command.args(arguments.split(' '));
     }
-    let mut child = match command.spawn() {
+    // ⚠ No time limit on the start itself: a virus scanner may hold a fresh installer for a long while, and one that is
+    // given up and ended after it has started may already be in the middle of installing (a half installed program).
+    // The wait for the start is the system's; the tests that start a program bound it themselves.
+    let mut child = match without_dialogs(|| command.spawn()) {
         Ok(child) => child,
         Err(error) => {
             drop(held);
@@ -700,6 +720,44 @@ fn launch(
     log_line(&job.log, &format!("Installer runs (PID {}), the program exits", child.id()));
     drop(held);
     Ok(child.id())
+}
+
+/// The error mode a start of the installer runs with: no message box for a program file that cannot be run, and none
+/// for a file that cannot be opened (`SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX`).
+#[cfg(windows)]
+const START_ERROR_MODE: u32 = windows_sys::Win32::System::Diagnostics::Debug::SEM_FAILCRITICALERRORS
+    | windows_sys::Win32::System::Diagnostics::Debug::SEM_NOOPENFILEERRORBOX;
+
+/// Runs `start` (the creation of a process) without the message boxes of the system. ⚠ Under Windows a program file
+/// that cannot be run (damaged, not a program, wrong kind) opens a message box ("… cannot be started because of an
+/// incompatibility with 64-bit versions of Windows") that waits for a click, and the start waits with it: on the
+/// computer of a player the update would hang with a broken installer, and on a test machine nobody clicks. With the
+/// error mode of the thread and of the process set for the length of the call, the start ends with an error instead.
+/// The modes are put back as they were.
+fn without_dialogs<T>(start: impl FnOnce() -> T) -> T {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Diagnostics::Debug::{GetThreadErrorMode, SetErrorMode, SetThreadErrorMode};
+        // SAFETY: plain reads and switches of the error mode of this thread and of the process; what is there is
+        // kept and the two flags come on top.
+        let (process_before, thread_before) = unsafe { (SetErrorMode(0), GetThreadErrorMode()) };
+        // SAFETY: as above.
+        unsafe {
+            SetErrorMode(process_before | START_ERROR_MODE);
+            SetThreadErrorMode(thread_before | START_ERROR_MODE, std::ptr::null_mut());
+        }
+        let result = start();
+        // SAFETY: gives back what the calls above returned.
+        unsafe {
+            SetErrorMode(process_before);
+            SetThreadErrorMode(thread_before, std::ptr::null_mut());
+        }
+        result
+    }
+    #[cfg(not(windows))]
+    {
+        start()
+    }
 }
 
 /// What became of the installer while the program waited for [`LIFE_SIGN`].

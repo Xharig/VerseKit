@@ -30,6 +30,10 @@ use crate::jsonio::{Map, Value, float_text};
 
 use super::form::{BOX_HAVE, BOX_MISSING};
 
+/// The field of a contract entry that names the results its blueprints come at where that is not the completion
+/// (`["InProgress"]`): the title gets `[BP]?` and the block says why.
+pub const UNCERTAIN: &str = "unsicher";
+
 /// The words of one language (`injection.TEXTS`).
 #[derive(Clone, Debug)]
 pub struct Words {
@@ -82,6 +86,15 @@ pub struct Words {
     pub it_variants_have: &'static str,
     /// `N variants missing`, for a description several items share.
     pub it_variants_missing: &'static str,
+    /// The line of a contract whose blueprints come only at another result than its completion:
+    /// `# {uncertain} {results}{uncertain_end}`, the results in the words below, joined by `or`.
+    pub uncertain: &'static str,
+    pub uncertain_end: &'static str,
+    pub or: &'static str,
+    pub at_in_progress: &'static str,
+    pub at_failed: &'static str,
+    pub at_abandoned: &'static str,
+    pub at_withdrawn: &'static str,
     /// The setting „Rufschwelle im Auftragstitel“, read once per run.
     pub rep_on: bool,
 }
@@ -130,6 +143,13 @@ pub const GERMAN: Words = Words {
     it_not_sold: "nicht erhältlich, nur Herstellen",
     it_variants_have: "Varianten vorhanden",
     it_variants_missing: "Varianten fehlen",
+    uncertain: "Unsicher: Bauplan laut Spieldaten nur",
+    uncertain_end: " vergeben, nicht beim Abschluss",
+    or: "oder",
+    at_in_progress: "während des Auftrags",
+    at_failed: "bei Fehlschlag",
+    at_abandoned: "bei Abbruch",
+    at_withdrawn: "bei Rückzug",
     rep_on: true,
 };
 
@@ -177,6 +197,13 @@ pub const ENGLISH: Words = Words {
     it_not_sold: "not sold, crafting only",
     it_variants_have: "variants owned",
     it_variants_missing: "variants missing",
+    uncertain: "Uncertain: per the game data the blueprint comes only",
+    uncertain_end: ", not on completion",
+    or: "or",
+    at_in_progress: "while the contract runs",
+    at_failed: "on failure",
+    at_abandoned: "on abandoning",
+    at_withdrawn: "on withdrawal",
     rep_on: true,
 };
 
@@ -287,11 +314,31 @@ fn rep_part(entry: &Map, words: &Words) -> String {
     format!(" {} {}", digits_of(get(entry, "rep"), words), words.rep_short)
 }
 
-/// `injection._title_suffix`: `[BP]`, `[BP!]`, `[BP 10.000 Rep]`.
+/// `injection._title_suffix`: `[BP]`, `[BP!]`, `[BP 10.000 Rep]`; `[BP]?` where the blueprints come only at
+/// another result than the completion ([`UNCERTAIN`]).
 pub fn title_suffix(entry: &Map, words: &Words) -> String {
     let note = get(entry, "bpnote").and_then(Value::as_str).unwrap_or("");
     let bang = if crate::text::py_strip(note).is_empty() { "" } else { "!" };
-    format!(" <EM4>[{}{bang}{}]</EM4>", words.short, rep_part(entry, words))
+    let unsure = if uncertain_results(entry, words).is_empty() { "" } else { "?" };
+    format!(" <EM4>[{}{bang}{}]{unsure}</EM4>", words.short, rep_part(entry, words))
+}
+
+/// The results of [`UNCERTAIN`] in the words of the language, in stored order; empty for a contract whose
+/// blueprints come on completion. A result without words of its own keeps its name.
+fn uncertain_results(entry: &Map, words: &Words) -> Vec<String> {
+    names(get(entry, UNCERTAIN))
+        .into_iter()
+        .map(|name| {
+            match name.as_str() {
+                "InProgress" => words.at_in_progress,
+                "Failed" => words.at_failed,
+                "Abandoned" => words.at_abandoned,
+                "Withdrawn" => words.at_withdrawn,
+                _ => return name,
+            }
+            .to_string()
+        })
+        .collect()
 }
 
 fn blue(text: &str) -> String {
@@ -333,6 +380,15 @@ pub fn contract_block(lines: &[String], words: &Words, source: &str) -> String {
 pub fn build_block(entry: &Map, ctx: &BlockContext<'_>) -> String {
     let words = ctx.words;
     let mut z: Vec<String> = vec![String::new(), rule(), String::new(), blue(words.heading), String::new()];
+    let unsure = uncertain_results(entry, words);
+    if !unsure.is_empty() {
+        z.push(blue(&format!(
+            "# {} {}{}",
+            words.uncertain,
+            unsure.join(&format!(" {} ", words.or)),
+            words.uncertain_end
+        )));
+    }
     if let Some(chance) = get(entry, "chance").filter(|v| truthy(Some(v))) {
         z.push(format!("# {}: {}%", words.chance, percent(chance)));
     }
@@ -437,6 +493,43 @@ mod tests {
         );
         let off = words_for("english", false);
         assert_eq!(title_suffix(&entry(r#"{"rep": 10000, "rep_eindeutig": true}"#), &off), " <EM4>[BP]</EM4>");
+    }
+
+    /// Blueprints that come only at another result than the completion: `[BP]?` and a line that says why, for any
+    /// such result, in the language of the file.
+    #[test]
+    fn a_contract_whose_blueprints_come_only_at_another_result_is_marked_unsure() {
+        let de = words_for("german_(germany)", true);
+        let en = words_for("english", true);
+        let unsure = entry(r#"{"bp": ["Wolf"], "unsicher": ["InProgress"], "rep": 10000, "rep_eindeutig": true}"#);
+        assert_eq!(title_suffix(&unsure, &de), " <EM4>[BP 10.000 Rep]?</EM4>");
+        assert_eq!(title_suffix(&entry(r#"{"bp": ["Wolf"], "unsicher": ["Failed"]}"#), &en), " <EM4>[BP]?</EM4>");
+        assert_eq!(title_suffix(&entry(r#"{"bp": ["Wolf"], "unsicher": []}"#), &en), " <EM4>[BP]</EM4>");
+        let owned = std::collections::BTreeSet::new();
+        let line = |entry: &Map, words: &Words| {
+            let ctx = BlockContext {
+                words,
+                owned: &owned,
+                reputation_line: String::new(),
+                region_line: String::new(),
+                terms_lines: Vec::new(),
+                source: words.terms_from_game,
+            };
+            build_block(entry, &ctx).split("\\n").nth(6).unwrap_or_default().to_string()
+        };
+        assert_eq!(
+            line(&unsure, &de),
+            "<EM4># Unsicher: Bauplan laut Spieldaten nur während des Auftrags vergeben, nicht beim Abschluss</EM4>"
+        );
+        let two = entry(r#"{"bp": ["Wolf"], "unsicher": ["Failed", "Abandoned"]}"#);
+        assert_eq!(
+            line(&two, &en),
+            "<EM4># Uncertain: per the game data the blueprint comes only on failure or on abandoning, not on completion</EM4>"
+        );
+        assert!(!line(&entry(r#"{"bp": ["Wolf"]}"#), &en).contains("Uncertain"));
+        // Our own mark comes out again by its form.
+        let marked = format!("Extra Special Wolf{}", title_suffix(&unsure, &de));
+        assert_eq!(super::super::form::strip_form(&marked, super::super::form::Fallback::Full), "Extra Special Wolf");
     }
 
     #[test]

@@ -66,6 +66,7 @@ pub mod icons;
 pub mod import_page;
 pub mod info_bar;
 pub mod joysticks_bind;
+pub mod joysticks_order;
 pub mod joysticks_list;
 pub mod joysticks_page;
 pub mod joysticks_tools;

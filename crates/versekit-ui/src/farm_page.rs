@@ -390,6 +390,11 @@ fn with_unit(value: f64, piece: bool) -> String {
     format!("{} {}", number(value), if piece { t("s_lg_stueck") } else { "SCU".to_string() })
 }
 
+/// The lowest quality a row stands for, after the name of the material; none for a row without one.
+fn quality_mark(need: &Need) -> Option<String> {
+    (need.min_quality > 0.0).then(|| tf("s_fl_ab_q", &[("guete", Arg::from(number(need.min_quality)))]))
+}
+
 fn need_row(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -409,6 +414,9 @@ fn need_row(
             let name = RichText::new(&need.material).color(color(if short { scheme.accent } else { scheme.sub }));
             if link(row, name, &t("s_fl_zum_bergbau")).clicked() {
                 *action = Some(Action::ToMining(need.material.clone()));
+            }
+            if let Some(mark) = quality_mark(need) {
+                row.label(RichText::new(mark).small().color(color(scheme.sub)));
             }
             if short {
                 let stand = tf(
@@ -683,6 +691,25 @@ mod tests {
         assert_eq!(number(0.64), "0.64");
         assert_eq!(number(12.34), "12.3");
         assert_eq!(amount_text(0.5), "0.5");
+        set_thread_language(Choice::De);
+    }
+
+    #[test]
+    fn each_row_of_a_material_names_its_lowest_quality() {
+        let _language = crate::language_lock();
+        let need = |q: f64| Need {
+            material: "Stileron".into(),
+            needed: 1.0,
+            have: 0.0,
+            missing: 1.0,
+            min_quality: q,
+            too_low: 0.0,
+        };
+        set_thread_language(Choice::De);
+        assert_eq!(quality_mark(&need(500.0)).as_deref(), Some("ab Q 500"));
+        assert_eq!(quality_mark(&need(0.0)), None, "a row without a lowest quality gets no mark");
+        set_thread_language(Choice::En);
+        assert_eq!(quality_mark(&need(500.0)).as_deref(), Some("Q 500+"));
         set_thread_language(Choice::De);
     }
 

@@ -245,7 +245,7 @@ fn sample() -> Bank {
     Bank {
         accounts: vec![
             account("a1", "KB-0001", "KRT", 8_400_000, &[7_900_000, 8_100_000, 8_000_000, 8_400_000], false),
-            account("a2", "KB-0042", "Staffel Mamba", 1_250_000, &[1_000_000, 1_100_000, 950_000, 1_250_000], true),
+            account("a2", "KB-0042", "Staffel Beispiel", 1_250_000, &[1_000_000, 1_100_000, 950_000, 1_250_000], true),
         ],
         requests: vec![Request {
             id: "r1".into(),
@@ -257,7 +257,7 @@ fn sample() -> Bank {
             account: Some(bank::AccountRef {
                 id: "a2".into(),
                 no: "KB-0042".into(),
-                name: "Staffel Mamba".into(),
+                name: "Staffel Beispiel".into(),
                 ..Default::default()
             }),
             client: Some(OWN_CLIENT.into()),

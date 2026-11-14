@@ -138,13 +138,25 @@ fn most_ships_get_size_scm_speed_and_cargo_from_the_game_data() {
             differ.push(format!("{key}: the stand-in box is shown as its size"));
         }
     }
-    // Ships whose cargo lies outside their cargo grids (mining pods, the cargo area of the 135c): no cargo value at
-    // all, not the too low sum of the grids. And ships with a hold the check must keep: Liberator 400, Galaxy 64
-    // (without module, as the fleet manager of the game shows), Hull C 4,608, C2 696.
-    for key in ["argomole", "miscprospector", "drakgolem", "orig135c"] {
+    // Ships whose cargo lies outside their cargo grids: the mining pods count with the capacity they hold (LIVE
+    // 4.10.3: Mole 8 × 12 SCU and its rear lift of 32, Prospector 4 × 8, Golem 2 × 16); the cargo area of the 135c
+    // holds no capacity in the data, so that ship has no cargo value, not the too low sum of the grids. And ships
+    // with a hold the check must keep: Liberator 400, Galaxy 64 (without module, as the fleet manager of the game
+    // shows), Hull C 4,608, C2 696.
+    for (key, scu) in [("argomole", 128.0), ("miscprospector", 32.0), ("drakgolem", 32.0)] {
+        let read = list
+            .iter()
+            .find(|(k, _)| k == key)
+            .and_then(|(_, v)| v.get("werte"))
+            .and_then(|v| number(v.get("fracht")));
+        if read != Some(scu) {
+            differ.push(format!("{key}: cargo {read:?}, wanted {scu} (grids and mining pods)"));
+        }
+    }
+    for key in ["orig135c", "cnounomad"] {
         let values = list.iter().find(|(k, _)| k == key).unwrap_or_else(|| panic!("{key}")).1.get("werte");
         if values.and_then(|v| v.get("fracht")).is_some() {
-            differ.push(format!("{key}: shows a cargo value though its cargo space lies outside the cargo grids"));
+            differ.push(format!("{key}: shows a cargo value though its cargo space holds no capacity in the data"));
         }
     }
     for (key, scu) in [("anvlliberator", 400.0), ("rsigalaxy", 64.0), ("mischullc", 4608.0), ("crusstarlifterc2", 696.0)] {

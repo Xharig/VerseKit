@@ -25,10 +25,12 @@ use versekit_core::language::SpawnWithLanguage as _;
 use versekit_core::jsonio::{self, Value};
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::paths::{Host, Paths};
+use versekit_core::theme::Scheme;
 
 use super::SamplePage;
 use crate::close_writes::WritesOnClose;
 use crate::file_dialog::Pending;
+use crate::widgets::{self, ButtonKind};
 
 /// Where the Discord button leads.
 pub(super) const DISCORD_URL: &str = "https://xharig.com/discord";
@@ -329,6 +331,50 @@ impl SamplePage {
         if !folder.is_empty() {
             self.game_found = self.is_channel_folder(&folder).then_some(folder);
         }
+    }
+
+    /// How often the log of the launcher is looked at while the page is open (seconds).
+    const LAUNCHER_LOOK_SECONDS: f64 = 3.0;
+
+    /// Looks, from time to time, at what the log of the RSI Launcher says about the folder of the game set
+    /// ([`versekit_core::launcher_log::offer`]); the answer waits in `launcher_offer`. Real data only.
+    fn look_at_launcher(&mut self, now: f64) {
+        if self.launcher_looked.is_some_and(|at| (0.0..Self::LAUNCHER_LOOK_SECONDS).contains(&(now - at))) {
+            return;
+        }
+        self.launcher_looked = Some(now);
+        self.launcher_offer = self
+            .store
+            .as_ref()
+            .and_then(|store| versekit_core::launcher_log::offer(&store.paths, &self.live_folder_saved));
+    }
+
+    /// The box that says the launcher starts the game from another folder, with the button that takes it: the
+    /// folder set is changed by this click and by nothing else. True when the button was clicked.
+    pub(super) fn launcher_offer_box(&mut self, ui: &mut egui::Ui, scheme: &Scheme) -> bool {
+        let now = ui.input(|i| i.time);
+        self.look_at_launcher(now);
+        ui.ctx().request_repaint_after(std::time::Duration::from_secs_f64(Self::LAUNCHER_LOOK_SECONDS));
+        let Some((channel, folder)) = self.launcher_offer.clone() else { return false };
+        ui.add_space(4.0);
+        let head = tf("s_pf_launcher_titel", &[("0", Arg::from(channel.as_str()))]);
+        widgets::status_box(ui, scheme, scheme.accent, "rocket", &head, &folder).on_hover_text(&folder);
+        ui.add_space(4.0);
+        let word = t("s_pf_launcher_nehmen");
+        let take = widgets::Button::new(&word, ButtonKind::Strong, scheme).icon("check");
+        if !ui.add(take).on_hover_text(t("s_pf_launcher_hilfe")).clicked() {
+            return false;
+        }
+        self.take_launcher_folder(&folder, now);
+        true
+    }
+
+    /// The folder of the launcher becomes the game folder: in the field, in the box above it, and in the settings.
+    fn take_launcher_folder(&mut self, folder: &str, now: f64) {
+        self.folders[0] = folder.to_string();
+        self.take_game_folder(folder.to_string());
+        self.launcher_offer = None;
+        self.pin_notice = Some((now, t("s_pf_launcher_ok")));
     }
 
     /// Is this the folder of a game channel: a `Game.log` in it, or the game installed there? Without the
@@ -1231,6 +1277,54 @@ pub(in crate::sample) mod tests {
         let texts = bench.settle();
         let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A shortcut that is switched off and still has its default key, which another shortcut holds meanwhile (the
+    /// overlay on Alt+Umschalt+B, the default of the picture): switched on, it takes the spare key it would take at
+    /// the next start (`overlay::resolve`), instead of springing back off (5.2.2, reported by a tester). A key the
+    /// player chose by hand is not given away: that row springs back and says who holds the key.
+    #[test]
+    fn a_shortcut_switched_on_where_another_holds_its_default_key_takes_a_spare_one() {
+        let _language = crate::language_lock();
+        if !versekit_core::screen_grab::supported() {
+            return;
+        }
+        let spare = versekit_core::overlay::SPARE_HOTKEYS[0];
+        let settings = r#"{"hotkey": "Alt+Umschalt+B", "hotkey_bild_an": false}"#;
+        let (page, dir) = real_page("taste-aus-weicht", settings, &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.overlay_runs = || true;
+        bench.page.go_to("hf_overlay");
+        bench.settle();
+        assert!(!bench.page.picture_hotkey_on, "switched off in the settings");
+        let current = |page: &SamplePage| hotkey_text(page.picture_modifiers, page.picture_key);
+        assert_eq!(current(&bench.page).as_deref(), Some("Alt+Umschalt+B"), "the default, which the overlay holds");
+        // The switch stands left of the name of the row.
+        let name = bench.place(&language::t("s_hk_bild"), 0);
+        bench.click_at(name - egui::vec2(30.0, -4.0));
+        bench.settle();
+        assert!(bench.page.picture_hotkey_on, "it stays on");
+        assert_eq!(current(&bench.page).as_deref(), Some(spare), "on the spare key, not on the key of the overlay");
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_bild_an\": true") && stored.contains(spare), "{stored}");
+        assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Alt+Umschalt+B"));
+        let _ = std::fs::remove_dir_all(dir);
+
+        // Counter-check: a key the player chose by hand is kept; the switch springs back and the row says who holds it.
+        let settings = r#"{"hotkey": "Strg+F9", "hotkey_bild_an": false, "hotkey_bild": "Strg+F9"}"#;
+        let (page, dir) = real_page("taste-aus-gewaehlt", settings, &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.overlay_runs = || true;
+        bench.page.go_to("hf_overlay");
+        bench.settle();
+        let name = bench.place(&language::t("s_hk_bild"), 0);
+        bench.click_at(name - egui::vec2(30.0, -4.0));
+        bench.settle();
+        assert_eq!(current(&bench.page).as_deref(), Some("Strg+F9"), "kept");
+        assert!(!bench.page.picture_hotkey_on, "the switch springs back: the overlay holds that key");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2241,6 +2335,70 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The RSI Launcher starts the game from another folder than the one set: the page says so and offers it; the
+    /// folder is changed by the click on the button and by nothing else.
+    #[test]
+    fn the_folder_of_the_launcher_is_offered_with_a_button_and_taken_only_by_a_click() {
+        let _language = crate::language_lock();
+        let dir = super::super::real_data::folder("launcher-knopf");
+        let text = dir.to_string_lossy().into_owned();
+        let (mine, theirs) =
+            (dir.join("Alt").join("StarCitizen").join("LIVE"), dir.join("Neu").join("StarCitizen").join("LIVE"));
+        for folder in [&mine, &theirs] {
+            std::fs::create_dir_all(folder).unwrap();
+        }
+        std::fs::write(mine.join("Game.log"), "x").unwrap();
+        std::fs::write(theirs.join("Data.p4k"), "x").unwrap();
+        let (mine, theirs) = (mine.to_string_lossy().into_owned(), theirs.to_string_lossy().into_owned());
+        let logs = dir.join("rsilauncher").join("logs");
+        std::fs::create_dir_all(&logs).unwrap();
+        let line = format!(
+            r#"{{ "t":"2026-11-13 10:00:00.000", "[main][info] ": "[Launcher::launch] Launching Star Citizen LIVE from ({})"  }},"#,
+            theirs.replace('\\', "\\\\")
+        );
+        std::fs::write(logs.join("log.log"), line).unwrap();
+        let stored = Value::Object(vec![("spiel_ordner".into(), Value::str(mine.as_str()))]);
+        std::fs::write(dir.join("einstellungen.json"), jsonio::dumps(&stored, None, false)).unwrap();
+        let host = super::super::real_data::host_in(&dir, &[("APPDATA", text.as_str())]);
+        let mut bench = Bench::new(SamplePage::with_settings(Paths::new(host)));
+        bench.settle();
+        bench.page.go_to("hf_ordner");
+        let texts = bench.settle();
+        let title = tf("s_pf_launcher_titel", &[("0", Arg::from("LIVE"))]);
+        let shown = |texts: &[(String, Pos2)], what: &str| texts.iter().any(|(text, _)| text == what);
+        assert!(shown(&texts, &title) && shown(&texts, &theirs), "the offer is on the page: {texts:?}");
+        assert!(shown(&texts, &t("s_pf_launcher_nehmen")), "with its button");
+        // Nothing is changed by looking: the folder set stays the one set.
+        assert_eq!(bench.page.live_folder_saved, mine);
+        assert_eq!(bench.page.folders[0], mine);
+        // The click takes it, and the page keeps no offer for it any more.
+        bench.click(&t("s_pf_launcher_nehmen"));
+        let texts = bench.settle();
+        assert_eq!(bench.page.live_folder_saved, theirs, "the folder set");
+        assert_eq!(bench.page.folders[0], theirs, "and the field");
+        assert!(!shown(&texts, &title), "no offer for the folder that is set: {texts:?}");
+        assert_eq!(bench.notice().as_deref(), Some(t("s_pf_launcher_ok").as_str()));
+        let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(file.contains(&theirs.replace('\\', "\\\\")), "written to the settings: {file}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The offer is not made where the launcher names the folder that is set, or where there is no log of the
+    /// launcher at all.
+    #[test]
+    fn nothing_is_offered_without_a_difference() {
+        let _language = crate::language_lock();
+        let (mut page, dir) = real_page("launcher-gleich", "", &[]);
+        let game = dir.join("StarCitizen").join("LIVE");
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(game.join("Game.log"), "x").unwrap();
+        page.folders[0] = game.to_string_lossy().into_owned();
+        page.commit_game_folder(0);
+        page.look_at_launcher(10.0);
+        assert_eq!(page.launcher_offer, None, "no log of the launcher on this machine");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn the_count_of_the_errors_follows_the_error_log_while_the_window_is_open() {
         let _language = crate::language_lock();
@@ -2332,6 +2490,54 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// What the page shows from the top to the foot: scrolled down step by step, everything that showed up.
+    fn scrolled_texts(bench: &mut Bench) -> Vec<(String, Pos2)> {
+        let wheel = |dy: f32| egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: egui::vec2(0.0, dy),
+            modifiers: egui::Modifiers::NONE,
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Wheel,
+        };
+        bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
+        for _ in 0..60 {
+            bench.frame(vec![wheel(120.0)]);
+        }
+        let mut texts = bench.settle();
+        for _ in 0..12 {
+            for _ in 0..5 {
+                bench.frame(vec![wheel(-120.0)]);
+            }
+            texts.extend(bench.settle());
+        }
+        texts
+    }
+
+    #[test]
+    fn the_bank_switch_of_the_overlay_page_stands_only_with_the_bank_connected_and_keeps_its_value() {
+        use versekit_core::basetool::scopes::SETTING_BANK;
+        use versekit_core::overlay::{Section, Sections};
+        let _language = crate::language_lock();
+        let (wire, wire_dir) = crate::sample::tests::connected_wire("bank-schalter", SETTING_BANK);
+        let (mut page, dir) = real_page("anzeigen-bank", "", &[]);
+        page.connect_wire(wire.clone());
+        let mut bench = Bench::new(page);
+        bench.page.go_to("hf_overlay");
+        bench.page.overlay_sections = Sections::default().with(Section::Bank, true);
+        let bank = language::t("s_ov_zeige_kartellbank").to_lowercase();
+        let texts = scrolled_texts(&mut bench);
+        assert!(texts.iter().any(|(t, _)| t.to_lowercase() == bank), "connected, switch on: the bank switch stands");
+        assert!(texts.iter().any(|(t, _)| t.to_lowercase() == language::t("s_ov_auftraege_max").to_lowercase()));
+        // The connection ends: the row is gone, the value stays as it was.
+        wire.sync.disconnect().wait(std::time::Duration::from_secs(10));
+        let texts = scrolled_texts(&mut bench);
+        assert!(!texts.iter().any(|(t, _)| t.to_lowercase() == bank), "not connected: no bank switch");
+        assert!(texts.iter().any(|(t, _)| t.to_lowercase() == language::t("s_ov_auftraege_max").to_lowercase()));
+        assert!(bench.page.overlay_sections.contains(Section::Bank), "the value stays");
+        let _ = std::fs::remove_dir_all(dir);
+        let _ = std::fs::remove_dir_all(wire_dir);
+    }
+
     #[test]
     fn the_parts_shown_in_the_overlay_stand_on_the_page_are_saved_and_reach_the_overlay() {
         use versekit_core::overlay::{Section, Sections};
@@ -2342,24 +2548,7 @@ pub(in crate::sample) mod tests {
         assert_eq!(bench.page.overlay_sections, Sections::default(), "nothing written: everything shows");
         for lang in [language::Choice::De, language::Choice::En] {
             language::set_thread_language(lang);
-            let wheel = |dy: f32| egui::Event::MouseWheel {
-                unit: egui::MouseWheelUnit::Point,
-                delta: egui::vec2(0.0, dy),
-                modifiers: egui::Modifiers::NONE,
-                phase: egui::TouchPhase::Move,
-                source: egui::MouseWheelSource::Wheel,
-            };
-            bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
-            for _ in 0..60 {
-                bench.frame(vec![wheel(120.0)]);
-            }
-            let mut texts = bench.settle();
-            for _ in 0..12 {
-                for _ in 0..5 {
-                    bench.frame(vec![wheel(-120.0)]);
-                }
-                texts.extend(bench.settle());
-            }
+            let texts = scrolled_texts(&mut bench);
             for key in [
                 "s_ov_anzeigen",
                 "s_ov_zeige_server",
@@ -2374,6 +2563,8 @@ pub(in crate::sample) mod tests {
                 let text = language::t(key).to_lowercase();
                 assert!(texts.iter().any(|(t, _)| t.to_lowercase() == text), "{key} ({text}) is not on the page");
             }
+            let bank = language::t("s_ov_zeige_kartellbank").to_lowercase();
+            assert!(!texts.iter().any(|(t, _)| t.to_lowercase() == bank), "no bank without the connection to it");
         }
         language::set_thread_language(language::Choice::De);
         // The contracts off: written to the file, read back by a new page and by the overlay.

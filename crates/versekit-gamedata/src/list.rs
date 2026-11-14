@@ -57,6 +57,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use versekit_core::catalog_cache::{self, Blueprint as ListBlueprint, CatalogCache, Mission, Place, Way};
+use versekit_core::injection::texts::UNCERTAIN;
 use versekit_core::injection::{item_stats, reputation};
 use versekit_core::jsonio::{self, Map, Value};
 use versekit_core::paths::{Host, Paths, name_key};
@@ -76,7 +77,11 @@ pub const CACHE_FILE: &str = "katalog-spieldaten.json";
 /// 6: building it also writes the reputation and terms of every contract read from the game data (`auftragsruf.json`).
 /// 7: the file carries the stock values of every weapon and component (`werte`).
 /// 8: the contracts carry their text keys from the game data, and the build is named after the launcher.
-pub const CACHE_FORMAT: i64 = 8;
+/// 9: a title the contractor gives is a contract of its own, a contract whose blueprints come only at another result
+///    than its completion counts as not sure (`unsicher`), the contracts carry their ranks, chance, payout and gain
+///    from the game data where scmdb names none, and building it writes the regions of the contracts from the star
+///    map of the game data (`auftragsruf.json`).
+pub const CACHE_FORMAT: i64 = 9;
 
 /// The lock file beside the cache file that keeps two builds of the same catalog apart, in one process and between
 /// the main window and the overlay.
@@ -339,11 +344,31 @@ pub fn catalog_behind(paths: &Paths) -> bool {
 /// [`catalog_behind`] with the archive and the cache file given.
 pub fn catalog_behind_file(archive: Option<&Path>, cache_file: &str) -> bool {
     let Some(archive) = archive.filter(|path| path.is_file()) else { return false };
+    // Built in this run, though the file could not be written: not behind, or every ask would build it again.
+    if unwritten(cache_file).is_some_and(|(kept, _)| same_archive(&kept, &stamp(Some(archive)))) {
+        return false;
+    }
     let stored = jsonio::read_json(cache_file).ok();
     !stored
         .as_ref()
         .and_then(|data| data.get("quelle"))
         .is_some_and(|source| same_archive(source, &stamp(Some(archive))))
+}
+
+/// The build of the installed game as the catalog names it (`4.10.3-live.13165946`, the name of the launcher), when the
+/// catalog file was built from the installed archive as it is now, in the layout of this version; `None` otherwise (no
+/// archive, no catalog, or one that lags behind). Reads only the cache file, never the archive or the network.
+pub fn installed_build(paths: &Paths) -> Option<String> {
+    let archive = paths.archive_file().map(PathBuf::from).filter(|path| path.is_file())?;
+    installed_build_file(&archive, &paths.app_file(CACHE_FILE))
+}
+
+/// [`installed_build`] with the archive and the cache file given.
+fn installed_build_file(archive: &Path, cache_file: &str) -> Option<String> {
+    let stored = jsonio::read_json(cache_file).ok()?;
+    let current = stored.get("quelle").is_some_and(|source| same_archive(source, &stamp(Some(archive))));
+    let version = stored.get("version").and_then(Value::as_str).filter(|version| !version.is_empty())?;
+    current.then(|| version.to_string())
 }
 
 /// The catalog brought up to date for the background after the start: built when [`catalog_behind`] says it lags,
@@ -365,7 +390,8 @@ pub fn refresh_catalog_archive(
     let refreshed = if catalog_behind_file(archive, cache_file) {
         rebuild_now_archive(paths, archive, cache_file, supply).build_now(paths)
     } else {
-        jsonio::read_json(cache_file).ok().as_ref().and_then(non_empty).map(|catalog| corrected(paths, catalog))
+        let stored = jsonio::read_json(cache_file).ok().as_ref().and_then(non_empty);
+        stored.or_else(|| unwritten(cache_file).map(|(_, catalog)| catalog)).map(|catalog| corrected(paths, catalog))
     };
     drop(lock);
     refreshed
@@ -450,6 +476,12 @@ fn start_in(
     let source = stored.as_ref().and_then(|data| data.get("quelle"));
     if is_current(source, &stamp, archive.is_some(), &*supply, now)
         && let Some(catalog) = stored.as_ref().and_then(non_empty)
+    {
+        return Start { catalog: Some(corrected(paths, catalog)), rebuild: None };
+    }
+    // The build of this run whose cache file could not be written is as good as a cache file: not read again.
+    if let Some((kept, catalog)) = unwritten(cache_file)
+        && is_current(Some(&kept), &stamp, archive.is_some(), &*supply, now)
     {
         return Start { catalog: Some(corrected(paths, catalog)), rebuild: None };
     }
@@ -589,11 +621,15 @@ impl Rebuild {
             map.push(("scmdb".into(), Value::str(marker)));
             map.push(("versuch".into(), Value::str(if asked { now() } else { 0 }.to_string())));
         }
-        if let Err(error) =
-            write_cache_with(&self.cache_file, &stamp, &built.catalog, &built.item_texts, &built.item_stats)
-            && !writeguard::refused(&error)
-        {
-            versekit_core::errors::record("list.cache_write", &error);
+        match write_cache_with(&self.cache_file, &stamp, &built.catalog, &built.item_texts, &built.item_stats) {
+            Ok(()) => forget_unwritten(&self.cache_file),
+            // A cache that cannot be written (a read-only folder, a full disk) would be built again at every ask:
+            // the catalog is held for this run, and the failure is told once.
+            Err(error) => {
+                if remember_unwritten(&self.cache_file, &stamp, &built.catalog) && !writeguard::refused(&error) {
+                    versekit_core::errors::record("list.cache_write", &error);
+                }
+            }
         }
         Some(corrected(paths, built.catalog))
     }
@@ -683,6 +719,43 @@ impl Pending {
             Err(TryRecvError::Disconnected) => Progress::Done(None),
         }
     }
+}
+
+/// A catalog that was built but could not be kept in its cache file (a read-only folder, a full disk, a refused
+/// write): cache file → the stamp it would have carried and the catalog. Held for the run of the program, so that the
+/// next page, the refresh of the background and the overlay do not read the whole archive again for the same result.
+/// ⚠ Without it every ask of a catalog that cannot be written is a full build (minutes of the archive, at every
+/// start and every page).
+static UNWRITTEN: Mutex<Vec<(String, Value, CatalogCache)>> = Mutex::new(Vec::new());
+
+/// The cache files whose failure was told already: told once per run, not at every build.
+static TOLD_UNWRITTEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// Holds `catalog` (with the `stamp` it would have been written with) for `file`, which could not be written.
+/// Whether this is the first time `file` failed in this run, so that the caller tells it once.
+fn remember_unwritten(file: &str, stamp: &Value, catalog: &CatalogCache) -> bool {
+    {
+        let mut kept = UNWRITTEN.lock().unwrap_or_else(|e| e.into_inner());
+        kept.retain(|(name, _, _)| name != file);
+        kept.push((file.to_string(), stamp.clone(), catalog.clone()));
+    }
+    let mut told = TOLD_UNWRITTEN.lock().unwrap_or_else(|e| e.into_inner());
+    let first = !told.iter().any(|name| name == file);
+    if first {
+        told.push(file.to_string());
+    }
+    first
+}
+
+/// The catalog held for `file` because it could not be written, with its stamp.
+fn unwritten(file: &str) -> Option<(Value, CatalogCache)> {
+    let kept = UNWRITTEN.lock().unwrap_or_else(|e| e.into_inner());
+    kept.iter().find(|(name, _, _)| name == file).map(|(_, stamp, catalog)| (stamp.clone(), catalog.clone()))
+}
+
+/// `file` was written after all (a build the player asked for, a folder that is writable again): nothing is held.
+fn forget_unwritten(file: &str) {
+    UNWRITTEN.lock().unwrap_or_else(|e| e.into_inner()).retain(|(name, _, _)| name != file);
 }
 
 /// Size and modification time of a file, `Null` when it is missing.
@@ -782,8 +855,9 @@ pub(crate) fn note_difference(label: &str, key: &str, detail: &str) {
 
 /// Keeps whom the contracts credit reputation and their terms, for the notes in the game text (`auftragsruf.json`):
 /// read from the archive (`own`) when that worked, checked against scmdb's table of the same build (`theirs`), whose
-/// differences go to the error log as notes; scmdb's table alone when the archive gave nothing. The regions come from scmdb's
-/// table, else from the stored one of the same build. Nothing is written when neither has a contract (4.12
+/// differences go to the error log as notes; scmdb's table alone when the archive gave nothing. The regions come from the
+/// star map of the archive, scmdb's table (else the stored one of the same build) adding titles the archive does not
+/// place ([`own_regions_first`]). Nothing is written when neither has a contract (4.12
 /// `refresh`).
 fn keep_reputation(
     paths: &Paths,
@@ -812,7 +886,7 @@ fn keep_reputation(
                 }
             }
             let stored = reputation::load(paths);
-            let (regions, fingerprint) = match theirs {
+            let (their_regions, fingerprint) = match theirs {
                 Some(theirs) => (theirs.regions, theirs.fingerprint),
                 None if stored.version == build => (stored.regions, stored.fingerprint),
                 None => (Map::new(), String::new()),
@@ -820,7 +894,7 @@ fn keep_reputation(
             reputation::Table {
                 version: build.to_string(),
                 contracts: read.parties,
-                regions,
+                regions: own_regions_first(read.regions, their_regions),
                 fingerprint,
                 terms: read.terms,
                 terms_source: reputation::TERMS_FROM_GAME.to_string(),
@@ -830,6 +904,28 @@ fn keep_reputation(
         (None, None) => return,
     };
     reputation::save(paths, &table);
+}
+
+/// The regions of the titles for the notes: those the game data give (`own`, where the contracts are offered), each
+/// with what scmdb's table or the stored one of the same build (`theirs`) adds for the same title (it also names where
+/// a contract leads, which the game data state only as a search over tags), then the titles of `theirs` the game data
+/// do not place ([`crate::contract_reputation::join_regions`]). Without `theirs` the game data stand alone.
+fn own_regions_first(own: Map, theirs: Map) -> Map {
+    let mut theirs: HashMap<String, Value> = theirs.into_iter().map(|(key, value)| (key.to_lowercase(), value)).collect();
+    let mut regions: Map = own
+        .into_iter()
+        .map(|(key, value)| match (value.as_str(), theirs.remove(&key.to_lowercase())) {
+            (Some(mine), Some(other)) => {
+                let joined = crate::contract_reputation::join_regions(mine, other.as_str().unwrap_or_default());
+                (key, Value::Str(joined))
+            }
+            _ => (key, value),
+        })
+        .collect();
+    let mut rest: Vec<(String, Value)> = theirs.into_iter().collect();
+    rest.sort_by(|a, b| a.0.cmp(&b.0));
+    regions.extend(rest);
+    regions
 }
 
 /// A value as text with the keys of its objects sorted and the elements of a top list too: two sources may list the
@@ -888,6 +984,9 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
     let topic = versekit_core::archive_lock::reading_for("catalog");
     let game = archive.map(GameData::open_file);
     drop(topic);
+    if let Some(Ok(game)) = &game {
+        game.learn_languages();
+    }
     // The archive as it was read: taken once the opening waited for the game and the launcher, compared at the end.
     let read_stand = archive.map_or(Value::Null, file_stamp);
     let archive_build = game.as_ref().and_then(|game| game.as_ref().ok()).and_then(GameData::scmdb_build);
@@ -910,7 +1009,8 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
         let catalog = game.localization(Language::English).and_then(|texts| {
             let contracts = game.contract_catalog()?;
             let (catalog, stats) = game.blueprints_and_stats(&texts, &fixes, &contracts)?;
-            own_reputation = Some(game.contract_reputation(&contracts, &catalog.shown_keys, &fixes));
+            own_reputation =
+                Some(game.contract_reputation(&contracts, &catalog.shown_keys, &catalog.offered, &fixes));
             own_stats = stats;
             Ok(catalog)
         });
@@ -1239,8 +1339,14 @@ fn way_faction(source: &Source) -> String {
 fn missions(game: &Catalog, theirs: Option<&CatalogCache>) -> Vec<Mission> {
     struct Variant<'a> {
         source: &'a Source,
+        /// The title key without `@` the mission goes by, as the data spell it.
+        key: &'a str,
+        /// The description key without `@` its notes go into.
+        description: Option<&'a str>,
         /// Key → name of the blueprints.
         blueprints: BTreeMap<String, String>,
+        /// The chance of each reward that gives one of them (`Source::chance`).
+        chances: Vec<Option<f64>>,
     }
     let mut rewards: HashMap<(&str, &str), i64> = HashMap::new();
     for way in theirs.iter().flat_map(|c| &c.blueprints).flat_map(|b| &b.ways) {
@@ -1261,6 +1367,9 @@ fn missions(game: &Catalog, theirs: Option<&CatalogCache>) -> Vec<Mission> {
         .filter(|m| !m.extra.is_empty())
         .map(|m| (m.key.trim_start_matches('@').to_lowercase(), &m.extra))
         .collect();
+    // By the title key in lower case: the title the contract names, and each title the game shows in its place
+    // (taken from the contractor, `Source::shown`), whose mission holds only the blueprints of the contracts that
+    // show it. Each with the key as the data spell it and the description the notes go into.
     let mut groups: BTreeMap<String, Vec<Variant<'_>>> = BTreeMap::new();
     for blueprint in &game.blueprints {
         let name = blueprint.name.shown().trim();
@@ -1268,18 +1377,34 @@ fn missions(game: &Catalog, theirs: Option<&CatalogCache>) -> Vec<Mission> {
             continue;
         }
         for source in blueprint.sources.iter().filter(|s| s.kind == SourceKind::Contract) {
-            let Some(key) = source.mission.key.as_deref().map(|key| key.trim_start_matches('@').to_lowercase()) else {
+            let Some(named) = source.mission.key.as_deref().map(|key| key.trim_start_matches('@')) else {
                 continue;
             };
-            let variants = groups.entry(key).or_default();
-            let same = |v: &Variant<'_>| {
-                v.source.id == source.id && v.source.record_path == source.record_path && v.source.title == source.title
-            };
-            let at = variants.iter().position(same).unwrap_or_else(|| {
-                variants.push(Variant { source, blueprints: BTreeMap::new() });
-                variants.len() - 1
-            });
-            variants[at].blueprints.insert(name_key(name), name.to_string());
+            // A shown title takes the description shown in place of the named one; the named description keeps the
+            // notes of the named title.
+            let shown_description = source.shown.description.first().map(|key| key.trim_start_matches('@'));
+            let titles = std::iter::once((named, source.description_key.as_deref())).chain(
+                source
+                    .shown
+                    .title
+                    .iter()
+                    .map(|key| (key.trim_start_matches('@'), shown_description))
+                    .filter(|(key, _)| !key.is_empty() && !key.eq_ignore_ascii_case(named)),
+            );
+            for (key, description) in titles {
+                let variants = groups.entry(key.to_lowercase()).or_default();
+                let same = |v: &Variant<'_>| {
+                    v.source.id == source.id
+                        && v.source.record_path == source.record_path
+                        && v.source.title == source.title
+                };
+                let at = variants.iter().position(same).unwrap_or_else(|| {
+                    variants.push(Variant { source, key, description, blueprints: BTreeMap::new(), chances: Vec::new() });
+                    variants.len() - 1
+                });
+                variants[at].blueprints.insert(name_key(name), name.to_string());
+                variants[at].chances.push(source.chance);
+            }
         }
     }
     let mut found: Vec<Mission> = groups
@@ -1292,7 +1417,75 @@ fn missions(game: &Catalog, theirs: Option<&CatalogCache>) -> Vec<Mission> {
             // In the order of their names, as 4.12 writes `sorted(all_names)`.
             let mut ordered: Vec<(&String, &String)> = all.into_iter().collect();
             ordered.sort_by(|a, b| a.1.cmp(b.1).then_with(|| a.0.cmp(b.0)));
-            let key = easiest.source.mission.key.as_deref().unwrap_or_default().trim_start_matches('@');
+            let key = easiest.key;
+            // Not sure only when no variant gives its blueprints on completion; then the results they come at.
+            let mut extra = with_text_keys(
+                extras.get(&key.to_lowercase()).map(|extra| (*extra).clone()).unwrap_or_default(),
+                key,
+                easiest.description,
+            );
+            // The ranks, where scmdb's details do not name them (without its catalog): as its file gives them
+            // (`contract_info::missions_of`), from the easiest variant (`rep`, `rang`), per blueprint the rank of the
+            // easiest variant that gives it where the variants need different reputation and that tells
+            // blueprints apart (`ab`), and that every variant needs the same (`rep_eindeutig`).
+            if !extras.contains_key(&key.to_lowercase()) {
+                let ease = |v: &Variant<'_>| {
+                    (v.source.min_reputation.unwrap_or(1_000_000_000), std::cmp::Reverse(reward_of(v.source).unwrap_or(0)))
+                };
+                let rank_of = |v: &Variant<'_>| {
+                    v.source.rank.as_ref().map(|rank| rank.shown().trim().to_string()).filter(|rank| !rank.is_empty())
+                };
+                // Sure where some reward of a variant has the chance 1, the chance the best one of them, 0 where none
+                // states one; the payout and the reputation gain of the easiest variant where the data state them.
+                let chances: Vec<f64> = variants.iter().flat_map(|v| &v.chances).map(|c| c.unwrap_or(0.0)).collect();
+                if !chances.is_empty() {
+                    extra.push(("sicher".into(), Value::Bool(chances.contains(&1.0))));
+                    let best = chances.iter().copied().fold(0.0_f64, f64::max);
+                    extra.push(("chance".into(), if best > 0.0 { Value::Float(best) } else { Value::int(0) }));
+                }
+                if let Some(rep) = easiest.source.min_reputation {
+                    extra.push(("rep".into(), Value::int(rep)));
+                }
+                if let Some(uec) = reward_of(easiest.source) {
+                    extra.push(("uec".into(), Value::int(uec)));
+                }
+                if let Some(gain) = easiest.source.reputation_gain {
+                    extra.push(("ruf".into(), Value::int(gain)));
+                }
+                if let Some(rank) = rank_of(easiest) {
+                    extra.push(("rang".into(), Value::str(rank)));
+                }
+                let reputations: BTreeSet<Option<i64>> = variants.iter().map(|v| v.source.min_reputation).collect();
+                if reputations.len() > 1 {
+                    let mut from: Vec<(String, Value)> = Vec::new();
+                    let mut pairs: BTreeSet<(String, i64)> = BTreeSet::new();
+                    for (key, name) in variants.iter().flat_map(|v| &v.blueprints).collect::<BTreeMap<_, _>>() {
+                        let Some(first) = variants.iter().filter(|v| v.blueprints.contains_key(key)).min_by_key(|v| ease(v))
+                        else {
+                            continue;
+                        };
+                        if let (Some(rank), Some(rep)) = (rank_of(first), first.source.min_reputation.filter(|r| *r != 0)) {
+                            pairs.insert((rank.clone(), rep));
+                            let cond = vec![("rang".to_string(), Value::str(rank)), ("rep".to_string(), Value::int(rep))];
+                            from.push((name.clone(), Value::Object(cond)));
+                        }
+                    }
+                    if pairs.len() > 1 {
+                        from.sort_by(|a, b| a.0.cmp(&b.0));
+                        extra.push(("ab".into(), Value::Object(from)));
+                    }
+                } else {
+                    extra.push(("rep_eindeutig".into(), Value::Bool(true)));
+                }
+            }
+            if variants.iter().all(|v| !v.source.uncertain.is_empty()) {
+                let at: BTreeSet<&str> =
+                    variants.iter().flat_map(|v| v.source.uncertain.iter().map(String::as_str)).collect();
+                jsonio::map_set(&mut extra, UNCERTAIN, Value::Array(at.into_iter().map(Value::str).collect()));
+            }
+            // In the order the catalog file keeps them, so that a catalog read back is the one built.
+            let order = |name: &str| catalog_cache::MISSION_KEYS.iter().position(|known| *known == name);
+            extra.sort_by_key(|(name, _)| order(name).unwrap_or(usize::MAX));
             Some(Mission {
                 key: key.to_string(),
                 blueprints: ordered.into_iter().map(|(key, _)| key.clone()).collect(),
@@ -1305,11 +1498,7 @@ fn missions(game: &Catalog, theirs: Option<&CatalogCache>) -> Vec<Mission> {
                     .filter(|r| !r.is_empty()),
                 shareable: easiest.source.shareable,
                 cooldown: easiest.source.cooldown,
-                extra: with_text_keys(
-                    extras.get(&key.to_lowercase()).map(|extra| (*extra).clone()).unwrap_or_default(),
-                    key,
-                    easiest.source.description_key.as_deref(),
-                ),
+                extra,
             })
         })
         .collect();
@@ -1704,6 +1893,7 @@ mod tests {
             contractor: None,
             faction: Some(text(faction)),
             description_key: None,
+            shown: crate::ShownKeys::default(),
             systems: Vec::new(),
             places: vec![text("Hurston")],
             rank: reputation.map(|_| text("Rank")),
@@ -1717,6 +1907,7 @@ mod tests {
             reward_uec: reward,
             chance: None,
             pool: "BP_MISSIONREWARD_x".to_string(),
+            uncertain: Vec::new(),
         }
     }
 
@@ -2246,6 +2437,25 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    /// The build of the installed game comes from the catalog without the network, only while the catalog is current
+    /// for the archive: after a patch it is not known until the catalog is built anew.
+    #[test]
+    fn the_installed_build_is_the_one_of_a_catalog_current_for_the_archive() {
+        let dir = versekit_core::testdir::fresh("katalog-installierter-stand");
+        let cache = dir.join(CACHE_FILE).to_string_lossy().into_owned();
+        let archive = dir.join(ARCHIVE_NAME);
+        fs::write(&archive, b"p4k").unwrap();
+        assert_eq!(installed_build_file(&archive, &cache), None, "no catalog");
+        let named = keyed(&["Alpha"], "4.10.3-live.13165946");
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT - 1), &named, &Map::new()).unwrap();
+        assert_eq!(installed_build_file(&archive, &cache), None, "a catalog of the layout before");
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT), &named, &Map::new()).unwrap();
+        assert_eq!(installed_build_file(&archive, &cache).as_deref(), Some("4.10.3-live.13165946"));
+        fs::write(&archive, b"patched p4k").unwrap();
+        assert_eq!(installed_build_file(&archive, &cache), None, "after a patch");
+        let _ = fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn a_build_that_waited_for_another_one_takes_the_catalog_that_one_wrote() {
         let dir = std::env::temp_dir().join(format!("versekit-katalog-sperre-{}", versekit_core::testdir::run_tag()));
@@ -2306,6 +2516,81 @@ mod tests {
         assert_eq!(catalog.blueprints.len(), 1);
         drop(other);
         let _ = fs::remove_dir_all(dir);
+    }
+
+    /// A supply that counts how often a catalog is asked of it: every build of the catalog asks once.
+    #[derive(Default)]
+    struct Counting {
+        asked: std::sync::atomic::AtomicUsize,
+    }
+
+    impl Counting {
+        fn builds(&self) -> usize {
+            self.asked.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    impl Supply for Counting {
+        fn current_build(&self) -> Result<String, String> {
+            Ok("4.10.3-live.1".into())
+        }
+        fn corrections(&self, _: Option<&str>) -> (Vec<Correction>, Option<String>) {
+            (Vec::new(), None)
+        }
+        fn catalog(&self, build: &str, _: &[Correction]) -> Result<CatalogCache, String> {
+            self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(keyed(&["Alpha"], build))
+        }
+    }
+
+    /// A cache file that cannot be written at all (a read-only folder, a full disk): the build that could not keep
+    /// its catalog is not run again at every page, every refresh and every ask of the overlay. The catalog stays in
+    /// memory for the run, and the failure is reported once; only a build the player asks for ("Jetzt neu holen")
+    /// runs anew.
+    #[test]
+    fn a_catalog_that_cannot_be_written_is_built_once_per_run_and_not_at_every_ask() {
+        let dir = versekit_core::testdir::fresh("katalog-nicht-schreibbar");
+        let root = dir.to_string_lossy().into_owned();
+        let host = Host::new(versekit_core::pypath::Flavor::native(), &[(versekit_core::legacy::ENV_HOME, root.as_str())], &root);
+        let paths = Paths::new(host);
+        // A file where the folder of the cache should be: nothing can be written below it.
+        let blocker = dir.join("gesperrt");
+        fs::write(&blocker, b"no folder").unwrap();
+        let cache = blocker.join(CACHE_FILE).to_string_lossy().into_owned();
+        let counting = Arc::new(Counting::default());
+        let supply: Arc<dyn Supply> = Arc::clone(&counting) as Arc<dyn Supply>;
+        let first = start_catalog_archive(&paths, None, &cache, Arc::clone(&supply));
+        assert!(first.catalog.is_none() && first.rebuild.is_some(), "nothing is kept yet");
+        let built = first.rebuild.unwrap().run().expect("the catalog of the supply");
+        assert_eq!(counting.builds(), 1);
+        assert!(fs::metadata(&cache).is_err(), "and it could not be written");
+        // Every other page, the refresh of the background and the overlay ask again: nothing is built anew.
+        for _ in 0..3 {
+            let again = start_catalog_archive(&paths, None, &cache, Arc::clone(&supply));
+            assert!(again.rebuild.is_none(), "the catalog of this run is held in memory");
+            assert_eq!(again.catalog.map(|catalog| catalog.version), Some(built.version.clone()));
+            let waited = list_catalog_archive(&paths, None, &cache, Arc::clone(&supply));
+            assert_eq!(waited.map(|catalog| catalog.version), Some(built.version.clone()));
+        }
+        assert_eq!(counting.builds(), 1, "the supply was asked once, not at every ask");
+        // Another cache file is no business of it.
+        let other = dir.join("woanders.json").to_string_lossy().into_owned();
+        assert!(start_catalog_archive(&paths, None, &other, Arc::clone(&supply)).rebuild.is_some());
+        // The button "Jetzt neu holen" builds whatever is held.
+        let forced = rebuild_now_archive(&paths, None, &cache, supply).run();
+        assert!(forced.is_some());
+        assert_eq!(counting.builds(), 2, "a build asked for runs");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// The failure of a cache that cannot be written is reported the first time only.
+    #[test]
+    fn the_failure_to_write_the_catalog_is_reported_once_per_cache_file() {
+        let (stamp, catalog) = (Value::Null, keyed(&["Alpha"], "4.10.3-live.1"));
+        let file = format!("nicht-schreibbar-{}", versekit_core::testdir::run_tag());
+        assert!(remember_unwritten(&file, &stamp, &catalog), "the first time it is told");
+        assert!(!remember_unwritten(&file, &stamp, &catalog), "never again");
+        assert!(remember_unwritten(&format!("{file}-2"), &stamp, &catalog), "another file has its own");
     }
 
     fn keyed(names: &[&str], version: &str) -> CatalogCache {
@@ -2408,21 +2693,210 @@ mod tests {
         };
         let found = missions(&game, Some(&theirs));
         let extra = |key: &str| found.iter().find(|m| m.key == key).map(|m| m.extra.clone());
-        assert_eq!(extra("Hunt_Title"), Some(details), "scmdb's text keys come first");
-        // No scmdb contract of that text: the game data name the title, and the description where they have one.
-        assert_eq!(extra("Lone_Title"), Some(vec![("titel_key".into(), Value::str("Lone_Title"))]));
-        // Without scmdb the game data name the text keys the notes go into, and nothing else.
+        assert_eq!(extra("Hunt_Title"), Some(details), "scmdb's details stay as they are");
+        // No scmdb contract of that text: the game data name the title, the description where they have one, and the
+        // rank of the easiest variant (`contract` needs `Rank` at 0).
+        // In the order of the catalog file: the ranks before the text keys.
+        let ranked = |keys: Map| {
+            let mut all: Map = vec![
+                ("sicher".into(), Value::Bool(false)),
+                ("chance".into(), Value::int(0)),
+                ("rep".into(), Value::int(0)),
+                ("rang".into(), Value::str("Rank")),
+                ("uec".into(), Value::int(10)),
+                ("rep_eindeutig".into(), Value::Bool(true)),
+            ];
+            all.extend(keys);
+            Some(all)
+        };
+        assert_eq!(extra("Lone_Title"), ranked(vec![("titel_key".into(), Value::str("Lone_Title"))]));
+        // Without scmdb the game data name the text keys the notes go into and the ranks.
         let alone = missions(&game, None);
         let keys = |key: &str| alone.iter().find(|m| m.key == key).map(|m| m.extra.clone());
         assert_eq!(
             keys("Hunt_Title"),
-            Some(vec![("titel_key".into(), Value::str("Hunt_Title")), ("text_key".into(), Value::str("Hunt_Desc"))])
+            ranked(vec![("titel_key".into(), Value::str("Hunt_Title")), ("text_key".into(), Value::str("Hunt_Desc"))])
         );
-        assert_eq!(keys("Lone_Title"), Some(vec![("titel_key".into(), Value::str("Lone_Title"))]));
+        assert_eq!(keys("Lone_Title"), ranked(vec![("titel_key".into(), Value::str("Lone_Title"))]));
         // A contract only scmdb knows is kept as scmdb has it, once.
         assert_eq!(found.iter().filter(|m| m.key == "other").count(), 1);
         assert_eq!(extra("other"), Some(vec![("sicher".into(), Value::Bool(false))]));
         assert_eq!(found.iter().filter(|m| m.key.eq_ignore_ascii_case("hunt_title")).count(), 1);
+    }
+
+    /// A contract whose title the game takes from its contractor gives the notes to the title it shows, each
+    /// contractor's title with its own blueprints, and the description it shows where that is taken from the
+    /// contractor too; the title it names keeps every blueprint. Without scmdb, as 13 titles lacked them before.
+    #[test]
+    fn a_title_the_contractor_gives_is_a_mission_of_its_own() {
+        let recover = |id: &str, title: &str, description: Option<&str>| {
+            let mut source = contract("Recover", "F", Some(0), None);
+            source.id = id.into();
+            source.mission = Text { key: Some("@recovery_title".into()), text: None };
+            source.description_key = Some("recovery_desc".into());
+            source.shown = crate::ShownKeys {
+                title: vec![title.into()],
+                description: description.into_iter().map(String::from).collect(),
+            };
+            source
+        };
+        let bitzeros = recover("BitZeros_Recover", "@BitZeros_RecoverItem_Generic_Title_001", None);
+        let saints = recover(
+            "DeadSaints_Recover",
+            "@DeadSaints_RecoverItem_Generic_Title_001",
+            Some("@deadsaints_recoveritem_Generic_Desc_001"),
+        );
+        let game = Catalog {
+            blueprints: vec![
+                blueprint("Alpha", vec![bitzeros.clone()], &["P"]),
+                blueprint("Beta", vec![saints.clone()], &["P"]),
+                blueprint("Gamma", vec![bitzeros, saints], &["P"]),
+            ],
+            ..Catalog::default()
+        };
+        let found = missions(&game, None);
+        let of = |key: &str| found.iter().find(|m| m.key == key).unwrap_or_else(|| panic!("{key}: {found:?}"));
+        assert_eq!(of("recovery_title").blueprints, ["alpha", "beta", "gamma"], "the named title keeps them all");
+        let bitzeros = of("BitZeros_RecoverItem_Generic_Title_001");
+        assert_eq!(bitzeros.blueprints, ["alpha", "gamma"]);
+        // The ranks of `contract` (`Rank` at 0) before the text keys, as the catalog file keeps them.
+        let ranks = || -> Map {
+            vec![
+                ("sicher".into(), Value::Bool(false)),
+                ("chance".into(), Value::int(0)),
+                ("rep".into(), Value::int(0)),
+                ("rang".into(), Value::str("Rank")),
+                ("rep_eindeutig".into(), Value::Bool(true)),
+            ]
+        };
+        let mut wanted = ranks();
+        wanted.push(("titel_key".into(), Value::str("BitZeros_RecoverItem_Generic_Title_001")));
+        assert_eq!(bitzeros.extra, wanted);
+        let saints = of("DeadSaints_RecoverItem_Generic_Title_001");
+        assert_eq!(saints.blueprints, ["beta", "gamma"]);
+        let mut wanted = ranks();
+        wanted.extend([
+            ("titel_key".into(), Value::str("DeadSaints_RecoverItem_Generic_Title_001")),
+            ("text_key".into(), Value::str("deadsaints_recoveritem_Generic_Desc_001")),
+        ]);
+        assert_eq!(
+            saints.extra,
+            wanted,
+            "the description it shows, not the one it names (that one has the notes of the named title)"
+        );
+        assert_eq!(found.len(), 3);
+        // The game data win over scmdb's entry of the shown title.
+        let theirs = CatalogCache {
+            missions: vec![Mission {
+                key: "BitZeros_RecoverItem_Generic_Title_001".into(),
+                blueprints: vec!["old".into()],
+                ..Mission::default()
+            }],
+            ..CatalogCache::default()
+        };
+        let with = missions(&game, Some(&theirs));
+        assert_eq!(with.len(), 3);
+        assert_eq!(with[0].blueprints, ["alpha", "gamma"], "scmdb's order, the game data's blueprints");
+    }
+
+    /// Without scmdb the ranks come from the game data as scmdb's file gives them: the easiest variant's rank, per
+    /// blueprint the rank it needs where the variants need different reputation; one reputation for all variants
+    /// can stand in the title.
+    #[test]
+    fn without_scmdb_the_ranks_come_from_the_variants() {
+        let tier = |id: &str, rank: &str, rep: i64| {
+            let mut source = contract(id, "F", Some(rep), Some(rep * 10));
+            source.mission = Text { key: Some("@Hunt_Title".into()), text: Some("Hunt".into()) };
+            source.rank = Some(text(rank));
+            source.chance = Some(if rep < 1000 { 0.25 } else { 1.0 });
+            source.reputation_gain = Some(rep / 100);
+            source
+        };
+        let game = Catalog {
+            blueprints: vec![
+                blueprint("Easy Gun", vec![tier("Easy", "Jr. Contractor", 800), tier("Hard", "Sr. Contractor", 5000)], &["P"]),
+                blueprint("Hard Gun", vec![tier("Hard", "Sr. Contractor", 5000)], &["P"]),
+            ],
+            ..Catalog::default()
+        };
+        let found = missions(&game, None);
+        let get = |name: &str| found[0].extra.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
+        assert_eq!((get("rep"), get("rang")), (Some(Value::int(800)), Some(Value::str("Jr. Contractor"))));
+        let at = |rank: &str, rep: i64| {
+            Value::Object(vec![("rang".into(), Value::str(rank)), ("rep".into(), Value::int(rep))])
+        };
+        assert_eq!(
+            get("ab"),
+            Some(Value::Object(vec![
+                ("Easy Gun".into(), at("Jr. Contractor", 800)),
+                ("Hard Gun".into(), at("Sr. Contractor", 5000)),
+            ]))
+        );
+        assert_eq!(get("rep_eindeutig"), None, "the variants need different reputation");
+        // Sure, as one reward has the chance 1; the best chance; payout and gain of the easiest variant.
+        assert_eq!((get("sicher"), get("chance")), (Some(Value::Bool(true)), Some(Value::Float(1.0))));
+        assert_eq!((get("uec"), get("ruf")), (Some(Value::int(8000)), Some(Value::int(8))));
+    }
+
+    /// A contract whose blueprints come only at another result than its completion is not sure (`unsicher` with
+    /// those results); one variant that gives them on completion makes the whole contract sure.
+    #[test]
+    fn a_contract_that_gives_blueprints_only_at_another_result_is_not_sure() {
+        let titled = |id: &str, key: &str, at: &[&str]| {
+            let mut source = contract(id, "F", Some(0), None);
+            source.mission = Text { key: Some(format!("@{key}")), text: Some(key.into()) };
+            source.uncertain = at.iter().map(|a| a.to_string()).collect();
+            source
+        };
+        let game = Catalog {
+            blueprints: vec![
+                blueprint("Wolf", vec![titled("Unsure", "Unsure_Title", &["InProgress"])], &["P"]),
+                blueprint(
+                    "Clipper",
+                    vec![titled("Mixed_A", "Mixed_Title", &["Failed"]), titled("Mixed_B", "Mixed_Title", &[])],
+                    &["P"],
+                ),
+                blueprint(
+                    "Probe",
+                    vec![titled("Two_A", "Two_Title", &["Failed"]), titled("Two_B", "Two_Title", &["Abandoned"])],
+                    &["P"],
+                ),
+            ],
+            ..Catalog::default()
+        };
+        let found = missions(&game, None);
+        let unsure = |key: &str| {
+            found.iter().find(|m| m.key == key).and_then(|m| m.extra.iter().find(|(k, _)| k == UNCERTAIN).cloned())
+        };
+        assert_eq!(unsure("Unsure_Title"), Some((UNCERTAIN.into(), Value::Array(vec![Value::str("InProgress")]))));
+        assert_eq!(unsure("Mixed_Title"), None, "one variant gives them on completion");
+        assert_eq!(
+            unsure("Two_Title"),
+            Some((UNCERTAIN.into(), Value::Array(vec![Value::str("Abandoned"), Value::str("Failed")])))
+        );
+    }
+
+    /// The regions of the game data come first; scmdb's add to them and fill in the titles the game data do not
+    /// place; without scmdb the game data stand alone.
+    #[test]
+    fn the_regions_of_the_game_data_come_first() {
+        let own: Map = vec![
+            ("a_title".into(), Value::str("Stanton (Hurston)")),
+            ("c_title".into(), Value::str("Pyro (Bloom)")),
+        ];
+        let theirs: Map = vec![
+            ("A_Title".into(), Value::str("Nyx, Stanton (microTech)")),
+            ("d_title".into(), Value::str("Pyro")),
+        ];
+        assert_eq!(
+            own_regions_first(own.clone(), theirs),
+            vec![
+                ("a_title".into(), Value::str("Nyx, Stanton (Hurston, microTech)")),
+                ("c_title".into(), Value::str("Pyro (Bloom)")),
+                ("d_title".into(), Value::str("Pyro")),
+            ]
+        );
+        assert_eq!(own_regions_first(own.clone(), Map::new()), own);
     }
 
     #[test]

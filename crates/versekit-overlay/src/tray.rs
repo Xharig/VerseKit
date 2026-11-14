@@ -54,8 +54,9 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, GetCursorPos, GetForegroundWindow, GetMessageW, IDI_APPLICATION, IMAGE_ICON, IsWindow,
     IsWindowVisible, LR_DEFAULTSIZE, LR_LOADFROMFILE, LoadIconW, LoadImageW, MENUINFO, MF_SEPARATOR, MF_STRING,
     MIM_BACKGROUND, MSG, PostMessageW, PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow,
-    SetMenuInfo, TPM_RIGHTBUTTON, TrackPopupMenu, TranslateMessage, WM_APP, WM_CLOSE, WM_COMMAND, WM_DESTROY,
-    WM_DRAWITEM, WM_LBUTTONUP, WM_MEASUREITEM, WM_NULL, WM_RBUTTONUP, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    SetMenuInfo, TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, TranslateMessage, WM_APP, WM_CLOSE,
+    WM_DESTROY, WM_DRAWITEM, WM_LBUTTONUP, WM_MEASUREITEM, WM_NULL, WM_RBUTTONUP, WNDCLASSW, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW,
 };
 
 use crate::tray_look;
@@ -323,7 +324,8 @@ impl Inner {
         false
     }
 
-    /// The menu of the right click; the choice comes back as `WM_COMMAND`. Its entries are drawn in the colors of
+    /// The menu of the right click; the choice comes back as the return value of `TrackPopupMenu`, never as a
+    /// `WM_COMMAND` another program could post to the window. Its entries are drawn in the colors of
     /// the house (`tray_look`); without the font of the menus they are the plain ones of Windows.
     fn show_menu(&self, hwnd: HWND) {
         let font = tray_look::MenuFont::of_system();
@@ -371,12 +373,24 @@ impl Inner {
             // afterwards lets it close cleanly. Only the invisible window of the icon
             // takes the foreground, never the overlay.
             SetForegroundWindow(hwnd);
-            TrackPopupMenu(handle, TPM_RIGHTBUTTON, at.x, at.y, 0, hwnd, std::ptr::null());
+            let chosen = TrackPopupMenu(
+                handle,
+                TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
+                at.x,
+                at.y,
+                0,
+                hwnd,
+                std::ptr::null(),
+            );
             PostMessageW(hwnd, WM_NULL, 0, 0);
             DestroyMenu(handle);
             DeleteObject(ground as HGDIOBJ);
             if !before.is_null() && before != hwnd && IsWindow(before) != 0 {
                 SetForegroundWindow(before);
+            }
+            // 0: closed without a choice.
+            if chosen > 0 {
+                self.command(chosen as u32);
             }
         }
         self.menu_font.store(0, Ordering::Relaxed);
@@ -414,12 +428,11 @@ impl Inner {
         true
     }
 
-    fn command(&self, command: u32) {
+    /// Passes on the entry with this number; false where there is none.
+    fn command(&self, command: u32) -> bool {
         // Every entry has its number whether the one for the launcher is in the menu or not.
         let entry = menu(&self.version, true).into_iter().find(|i| i.command == command).and_then(|i| i.entry);
-        if let Some(entry) = entry {
-            let _ = self.sender.send(Event::Pick(entry));
-        }
+        entry.is_some_and(|entry| self.sender.send(Event::Pick(entry)).is_ok())
     }
 }
 
@@ -437,10 +450,6 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
                     WM_RBUTTONUP => inner.show_menu(hwnd),
                     _ => {}
                 }
-                return 0;
-            }
-            WM_COMMAND => {
-                inner.command((wparam & 0xFFFF) as u32);
                 return 0;
             }
             // The entries of the menu, drawn in the colors of the house.
@@ -601,6 +610,12 @@ impl Tray {
     /// What the icon reported since the last call.
     pub fn events(&self) -> Vec<Event> {
         self.events.try_iter().collect()
+    }
+
+    /// Takes `entry` as chosen in the menu, as a click in the open menu does, without a message to the window:
+    /// the window takes no `WM_COMMAND`, so no other program can choose for the user. For the self-check.
+    pub fn choose(&self, entry: Entry) -> bool {
+        self.inner.command(entry.command())
     }
 
     /// The invisible window of the icon; 0 before it exists.
@@ -896,6 +911,35 @@ mod tests {
         for entry in [Entry::Discord, Entry::Donate, Entry::Quit] {
             assert_eq!(entry.signal(), None, "{entry:?} shows no page");
         }
+    }
+
+    /// The window of the icon takes no `WM_COMMAND`: another program that posts the number of an entry to it
+    /// chooses nothing for the user. Only the choice of the open menu (`TrackPopupMenu`) and the check count.
+    #[test]
+    fn a_wm_command_posted_to_the_window_of_the_icon_chooses_nothing() {
+        use windows_sys::Win32::UI::WindowsAndMessaging::WM_COMMAND;
+        // The recorder takes the calls to the shell: nothing is shown, only the invisible window exists.
+        let tray = Tray::start(Arc::new(Recorder::default()), "tip", "5.0.0", None);
+        let until = std::time::Instant::now() + Duration::from_secs(10);
+        while tray.window() == 0 && std::time::Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let window = tray.window();
+        assert_ne!(window, 0, "the window of the icon");
+        for item in menu("5.0.0", true).iter().filter(|i| i.entry.is_some()) {
+            assert!(post(window, WM_COMMAND, item.command as usize, 0));
+        }
+        // The queue is in order: once the click behind them is answered, the commands before it were seen.
+        assert!(post(window, WM_TRAY, 0, WM_LBUTTONUP as isize));
+        let mut seen = Vec::new();
+        while !seen.contains(&Event::Show) && std::time::Instant::now() < until {
+            seen.extend(tray.events());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(seen, [Event::Show], "no entry was picked by a message");
+        // The choice of the menu itself still reaches the program.
+        assert!(tray.choose(Entry::Quit));
+        assert_eq!(tray.events(), [Event::Pick(Entry::Quit)]);
     }
 
     #[test]

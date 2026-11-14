@@ -475,9 +475,40 @@ pub trait Source: Send {
 /// The real screen.
 pub struct Screen;
 
+thread_local! {
+    /// What the watch of this thread remembers of the game being in front ([`FrontKeeper`]). Per thread: the scan and
+    /// the frame-rate reading each run in a thread of their own with their own `Screen`.
+    static FRONT: std::cell::RefCell<crate::screen_grab::FrontKeeper> =
+        std::cell::RefCell::new(crate::screen_grab::FrontKeeper::default());
+}
+
 impl Source for Screen {
+    /// The window of the game while it is in front. A window that comes and goes (a notification of Windows, the
+    /// overlay or the tray of this program) takes the front for a moment without stopping the reading
+    /// ([`crate::screen_grab::FRONT_GRACE`]): the report of 12.11.2026 was a scan that paused for seconds with the game
+    /// in front. A pause that lasts says in the log what stood in front.
     fn game(&mut self) -> Option<Area> {
-        crate::screen_grab::game_rect()
+        use crate::screen_grab::{find_game_rect, foreground_window, game_rect, is_passing};
+        let now = Instant::now();
+        let front = game_rect();
+        let (passing, window) = if front.is_some() {
+            (false, None)
+        } else {
+            let window = foreground_window();
+            (is_passing(window.as_ref()), window)
+        };
+        FRONT.with(|keeper| {
+            let mut keeper = keeper.borrow_mut();
+            let area = keeper.area(now, front, passing, find_game_rect);
+            let what = || match &window {
+                Some(front) => format!("{} (class {})", front.program, front.class),
+                None => "no window".to_string(),
+            };
+            if let Some(line) = keeper.pause_note(now, area, what) {
+                crate::errors::note("signature_watch.pause", &line);
+            }
+            area
+        })
     }
     fn grab(&mut self, area: Area) -> Result<Vec<u8>, GrabError> {
         crate::screen_grab::grab_raw(area)

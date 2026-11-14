@@ -554,9 +554,10 @@ impl Split {
         out
     }
 
-    /// Whether the stock sync is switched on: the Basetool needs a place for every lot, so the forms ask for one.
+    /// Whether the stock sync is on (switch, right and connection): the Basetool needs a place for every lot, so
+    /// the forms ask for one.
     pub fn place_required(&self) -> bool {
-        self.link.as_ref().is_some_and(|link| link.sync.paths().setting_bool(SETTING_STOCK, false))
+        self.link.as_ref().is_some_and(|link| link.sync.area_visible(SETTING_STOCK))
     }
 
     /// A row was booked or changed: the pass follows at once, and until the Basetool has the lot of the row
@@ -1577,6 +1578,21 @@ mod tests {
         assert_eq!(b.raw().len(), 3, "without the sync a place stays optional");
         let seen = b.texts();
         assert!(has_text(&seen, "s_lg_ort") && !has_text(&seen, "s_ml_ort"), "{seen:?}");
+    }
+
+    #[test]
+    fn without_the_connection_a_booking_needs_no_place_whatever_the_switch_says() {
+        let _language = crate::language_lock();
+        language::set_thread_language(Choice::De);
+        let mut b = bench("ort-ohne-verbindung");
+        assert!(b.state.split.place_required(), "connected, switch on");
+        assert!(b.wire.sync.disconnect().wait(std::time::Duration::from_secs(10)).is_some());
+        assert!(b.wire.sync.paths().setting_bool(SETTING_STOCK, false), "the switch keeps its value");
+        assert!(!b.wire.sync.area_visible(SETTING_STOCK));
+        assert!(!b.state.split.place_required(), "not connected: the place stays optional");
+        let before = b.raw().len();
+        b.state.book_raw("Iron", "1", "300", "");
+        assert_eq!(b.raw().len(), before + 1, "booked without a place");
     }
 
     fn has_text(seen: &[String], key: &str) -> bool {

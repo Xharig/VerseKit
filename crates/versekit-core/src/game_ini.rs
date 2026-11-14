@@ -21,6 +21,7 @@
 //! Only reads; nothing here writes to the game.
 
 use std::fs;
+use std::sync::Mutex;
 
 use crate::jsonio::{self, Map, Value};
 use crate::paths::Paths;
@@ -58,29 +59,71 @@ pub const SOURCES: [(&str, &str); 15] = [
 
 /// Language folders of translations that are not among the game's own languages: the folder and `g_language`
 /// are named as the source names them.
-pub const COMMUNITY_LANGUAGES: [&str; 3] = ["bavarian_(germany)", "dutch_(netherlands)", "portuguese_(portugal)"];
+///
+/// Turkish is one of them since 4.10.3: the game ships no Turkish folder any more, a source (`dymerz_tr`) still
+/// writes one.
+pub const COMMUNITY_LANGUAGES: [&str; 4] =
+    ["bavarian_(germany)", "dutch_(netherlands)", "portuguese_(portugal)", "turkish_(turkey)"];
 
 /// Is `language` a language folder a translation may be written to and `g_language` may name: one of the game
-/// ([`GAME_LANGUAGES`]) or of a source ([`COMMUNITY_LANGUAGES`]), in any case.
+/// ([`game_languages`]) or of a source ([`COMMUNITY_LANGUAGES`]), in any case.
 pub fn is_language_folder(language: &str) -> bool {
-    let language = language.to_lowercase();
-    GAME_LANGUAGES.contains(&language.as_str()) || COMMUNITY_LANGUAGES.contains(&language.as_str())
+    is_game_language(language) || COMMUNITY_LANGUAGES.contains(&language.to_lowercase().as_str())
 }
 
-/// The language folders Star Citizen knows (`translation.GAME_LANGUAGES`).
-pub const GAME_LANGUAGES: [&str; 11] = [
+/// The language folders of Star Citizen 4.10.3, for as long as the `Data.p4k` has not been read in this run
+/// (`translation.GAME_LANGUAGES`). Only a fallback: [`game_languages`] says what the game has.
+pub const FALLBACK_GAME_LANGUAGES: [&str; 11] = [
     "english",
     "german_(germany)",
     "french_(france)",
     "italian_(italy)",
     "spanish_(spain)",
+    "spanish_(latin_america)",
     "portuguese_(brazil)",
-    "turkish_(turkey)",
     "chinese_(simplified)",
+    "chinese_(traditional)",
     "korean_(south_korea)",
     "japanese_(japan)",
-    "polish_(poland)",
 ];
+
+/// The language folders of the archive, as the last reading of the `Data.p4k` found them; `None` before that.
+static READ_GAME_LANGUAGES: Mutex<Option<Vec<String>>> = Mutex::new(None);
+
+/// Remembers the language folders (with a `global.ini`) a reading of the `Data.p4k` found. A list without
+/// `english` is no list of the game and changes nothing. True when it was taken.
+pub fn set_game_languages(folders: &[String]) -> bool {
+    let mut list: Vec<String> = Vec::new();
+    for folder in folders {
+        let folder = folder.to_lowercase();
+        if !folder.is_empty() && !list.contains(&folder) {
+            list.push(folder);
+        }
+    }
+    if !list.iter().any(|l| l == "english") {
+        return false;
+    }
+    *READ_GAME_LANGUAGES.lock().unwrap_or_else(|e| e.into_inner()) = Some(list);
+    true
+}
+
+/// Forgets what a reading found: [`game_languages`] gives the fallback again.
+pub fn forget_game_languages() {
+    *READ_GAME_LANGUAGES.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
+/// The language folders Star Citizen knows: those the `Data.p4k` holds (once it was read in this run), else
+/// [`FALLBACK_GAME_LANGUAGES`]. English first.
+pub fn game_languages() -> Vec<String> {
+    let read = READ_GAME_LANGUAGES.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    read.unwrap_or_else(|| FALLBACK_GAME_LANGUAGES.iter().map(|l| (*l).to_string()).collect())
+}
+
+/// Is `language` a language folder of the game ([`game_languages`]), in any case.
+pub fn is_game_language(language: &str) -> bool {
+    let language = language.to_lowercase();
+    game_languages().contains(&language)
+}
 
 fn is_dir(path: &str) -> bool {
     !path.is_empty() && fs::metadata(path).is_ok_and(|m| m.is_dir())
@@ -313,13 +356,52 @@ mod tests {
         assert_eq!(py_splitlines("a\r\r\nb"), vec!["a", "", "b"]);
     }
 
+    /// The list is one thing for the whole process: the tests that read or change it take turns.
+    static LIST: Mutex<()> = Mutex::new(());
+
     #[test]
     fn known_languages_ignore_case() {
+        let _turn = LIST.lock().unwrap_or_else(|e| e.into_inner());
         assert!(known_language("German_(Germany)"));
         assert!(!known_language("klingon"));
         for language in COMMUNITY_LANGUAGES {
             assert!(known_language(language) && known_language(&language.to_uppercase()), "{language}");
-            assert!(!GAME_LANGUAGES.contains(&language), "{language} is no language of the game");
+            assert!(!is_game_language(language), "{language} is no language of the game");
         }
+    }
+
+    #[test]
+    fn the_fallback_is_the_list_of_4_10_3() {
+        let _turn = LIST.lock().unwrap_or_else(|e| e.into_inner());
+        forget_game_languages();
+        let list = game_languages();
+        assert_eq!(list.len(), 11);
+        assert_eq!(list[0], "english");
+        for new in ["chinese_(traditional)", "spanish_(latin_america)"] {
+            assert!(is_game_language(new), "{new}");
+        }
+        for gone in ["polish_(poland)", "turkish_(turkey)"] {
+            assert!(!is_game_language(gone), "{gone} is no folder of the game any more");
+        }
+        // A source still writes the Turkish folder.
+        assert!(is_language_folder("turkish_(turkey)"));
+        assert!(!is_language_folder("polish_(poland)"));
+    }
+
+    #[test]
+    fn what_the_archive_holds_replaces_the_fallback_until_it_is_forgotten() {
+        let _turn = LIST.lock().unwrap_or_else(|e| e.into_inner());
+        forget_game_languages();
+        let mut found: Vec<String> = FALLBACK_GAME_LANGUAGES.iter().map(|l| (*l).to_string()).collect();
+        found.push("Klingon_(Qo)".into());
+        assert!(set_game_languages(&found));
+        assert!(is_game_language("klingon_(qo)") && is_language_folder("KLINGON_(QO)"));
+        assert_eq!(game_languages().len(), 12);
+        // A reading without English is no list of the game.
+        assert!(!set_game_languages(&["german_(germany)".to_string()]));
+        assert!(!set_game_languages(&[]));
+        assert!(is_game_language("klingon_(qo)"), "the list before stays");
+        forget_game_languages();
+        assert!(!is_game_language("klingon_(qo)"));
     }
 }

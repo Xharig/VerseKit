@@ -99,7 +99,7 @@ use versekit_core::{screen, writeguard};
 use versekit_ui::overlay::{Action, Drag, Extra};
 
 use windows_sys::Win32::UI::Shell::{NIF_INFO, NIM_ADD, NIM_DELETE, NIM_MODIFY};
-use windows_sys::Win32::UI::WindowsAndMessaging::{WM_COMMAND, WM_LBUTTONUP};
+use windows_sys::Win32::UI::WindowsAndMessaging::WM_LBUTTONUP;
 
 use crate::app::{OverlayApp, work_at};
 use crate::{tray, win};
@@ -1121,10 +1121,9 @@ fn data_run(app: &mut OverlayApp, probe: &mut Probe, ctx: &egui::Context, now: f
             probe.value("gestartet", format!("{:?}", calls()));
             probe.check("rakete_startet_den_befehl_ueber_den_aufzeichner", calls() == [want.clone()]);
             // The entry of the icon's menu does the same.
-            let window = app.tray.as_ref().map_or(0, tray::Tray::window);
             probe.check(
                 "menuepunkt_geschickt",
-                window != 0 && tray::post(window, WM_COMMAND, tray::Entry::Launcher.command() as usize, 0),
+                app.tray.as_ref().is_some_and(|tray| tray.choose(tray::Entry::Launcher)),
             );
             next(probe, 73);
         }
@@ -1534,13 +1533,9 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
             probe.check("zweiter_start_holt_hauptfenster", OVERVIEW_ASKED.load(Ordering::Relaxed) == 2);
             // The overlay is closed by the menu of the icon (where there is one), else by its button:
             // the main window must close with it, and the icon must go.
-            let quit =
-                tray::menu(env!("CARGO_PKG_VERSION"), true).into_iter().find(|i| i.entry == Some(tray::Entry::Quit));
-            match (probe.tray_window, quit) {
-                (window, Some(item)) if window != 0 => {
-                    tray::post(window, WM_COMMAND, item.command as usize, 0);
-                }
-                _ => app.act(ctx, Action::Quit),
+            let chosen = probe.tray_window != 0 && app.tray.as_ref().is_some_and(|tray| tray.choose(tray::Entry::Quit));
+            if !chosen {
+                app.act(ctx, Action::Quit);
             }
             next(&mut probe);
         }
@@ -1765,8 +1760,7 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
         }
         101 if waited >= 0.8 && (tray_asked(Signal::Overview) > probe.tray_base || waited >= 4.0) => {
             probe.check("klick_aufs_symbol_holt_hauptfenster", tray_asked(Signal::Overview) == probe.tray_base + 1);
-            // Each entry of the menu, chosen as Windows reports a choice: the number as a command.
-            let tray_window = app.tray.as_ref().map_or(0, tray::Tray::window);
+            // Each entry of the menu, chosen as the click in the open menu does (not by a message to the window).
             let items = app.tray.as_ref().map_or_else(Vec::new, tray::Tray::menu_now);
             let shown: Vec<String> =
                 items.iter().map(|i| if i.entry.is_none() { "-".into() } else { i.text.clone() }).collect();
@@ -1778,8 +1772,10 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
                 "menue_hat_alle_punkte",
                 !app.launcher && entries == [Open, Settings, Translation, Discord, Donate, Version, Quit],
             );
-            for item in items.iter().filter(|i| i.entry.is_some_and(|e| e != tray::Entry::Quit)) {
-                tray::post(tray_window, WM_COMMAND, item.command as usize, 0);
+            if let Some(tray) = app.tray.as_ref() {
+                for entry in entries.iter().filter(|e| **e != Quit) {
+                    tray.choose(*entry);
+                }
             }
             next(&mut probe);
         }

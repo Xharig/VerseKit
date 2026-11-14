@@ -30,7 +30,8 @@
 //! is touched), galerie (the pictures of the gallery of 5.0, 700 × 430),
 //! webseite (one picture of the whole window per page of the website, 1400 × 860; a fourth word names a
 //! single picture, e.g. `beziehungen`), overlay (the overlay window on made-up finds, for the website and
-//! the README), updatewartet (a check picture of an update that has waited three days, in the overlay and the
+//! the README, and the same window twice with the notice of an armistice zone), kartellbank (the page of the Cartel
+//! Bank on the made-up bank of the sample page), updatewartet (a check picture of an update that has waited three days, in the overlay and the
 //! bar of the main window, with the game closed and running), echt (the pages that read the game folder and the
 //! data folder, on a made-up installation in a throwaway folder, the hangar with the slots of the game data among
 //! them and `hangarwerte` with the hover of the base values of a ship; `--markt=<folder>` gives the price
@@ -368,7 +369,7 @@ fn gallery_pictures(dir: &str, english: bool) {
 fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
     // The pictures of the start page and of every stop of the tour (`assets/seite.js`). The hangar is drawn by
     // `echt`: its slots come from the game data of the made-up installation.
-    let pages: [(&str, Option<&str>); 46] = [
+    let pages: [(&str, Option<&str>); 47] = [
         ("uebersicht", None),
         ("notizen", Some("hf_notizen")),
         ("liste", Some("hf_liste")),
@@ -384,6 +385,7 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
         ("laeden", Some("hf_laeden")),
         ("verkauf", Some("hf_verkauf")),
         ("routen", Some("hf_routen")),
+        ("kartellbank", Some("hf_bank")),
         ("bedarf", Some("hf_bedarf")),
         ("einkaufsliste", Some("hf_einkaufsliste")),
         ("contested", Some("hf_contested")),
@@ -423,20 +425,37 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
         if only.is_some_and(|only| only != name) {
             continue;
         }
-        page_picture(dir, english, name, key, SamplePage::preview_still());
+        // The Cartel Bank page is only in the menu of a window with its switch on and a connection standing: the
+        // picture takes the page on its made-up bank.
+        let page = if name == "kartellbank" { SamplePage::preview_still_bank() } else { SamplePage::preview_still() };
+        page_picture(dir, english, name, key, page);
     }
 }
 
 /// What a page gets done before its picture, so that it shows what it is for: a search typed into its field.
 fn touch(name: &str, english: bool, s: &mut Shots) {
     if name == "hangarwerte" {
-        // The pointer rests on the name of the Cutlass Black: its base values in the hover.
+        // The page scrolled so that the card of the Cutlass Black stands in view (its name lies below the edge of
+        // the window at first), then the pointer rests on its name: its base values in the hover.
+        let Some(ship) = s.texts("Cutlass Black").first().copied() else {
+            println!("{name}: Schiff „Cutlass Black“ nicht gefunden");
+            return;
+        };
+        s.hover(pos2(800.0, 400.0));
+        s.harness.event(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: vec2(0.0, -(ship.min.y - 300.0).max(0.0)),
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Unknown,
+            modifiers: egui::Modifiers::NONE,
+        });
+        s.steps(12);
         match s.texts("Cutlass Black").first().copied() {
             Some(ship) => {
                 s.hover(ship.left_center() + vec2(6.0, 0.0));
                 s.steps(12);
             }
-            None => println!("{name}: Schiff „Cutlass Black“ nicht gefunden"),
+            None => println!("{name}: Schiff „Cutlass Black“ nach dem Scrollen nicht gefunden"),
         }
         return;
     }
@@ -601,10 +620,12 @@ fn touch(name: &str, english: bool, s: &mut Shots) {
                 s.click(fold.center());
                 s.steps(8);
                 // The page scrolled so that the card of the ship stands near the top: the slots fill the picture.
+                // The head of the fold stops low enough for the heading of the list and the line above the card
+                // ("5 von 5 Schiffen …") to stand whole under the search field.
                 s.hover(pos2(fold.center().x + 400.0, fold.center().y));
                 s.harness.event(egui::Event::MouseWheel {
                     unit: egui::MouseWheelUnit::Point,
-                    delta: vec2(0.0, -(fold.min.y - 235.0).max(0.0)),
+                    delta: vec2(0.0, -(fold.min.y - 346.0).max(0.0)),
                     phase: egui::TouchPhase::Move,
                     source: egui::MouseWheelSource::Unknown,
                     modifiers: egui::Modifiers::NONE,
@@ -712,14 +733,35 @@ fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>,
     }
 }
 
-/// The page "Kartellbank" on its own, with the made-up bank of the page (no connection), as
-/// `screenshot-kartellbank[-en].png`.
-fn bank_picture(dir: &str, english: bool) {
-    use versekit_ui::bank_page::{BankState, show_page};
+/// The notice of an armistice zone in the overlay: two windows side by side on a plain dark ground, the left one
+/// after leaving a zone, the right one after entering one, each with a find above the notice. Named
+/// `screenshot-overlay-schutzzone.png`, in English `screenshot-overlay-schutzzone-en.png`.
+fn zone_picture(dir: &str, english: bool) {
+    use versekit_core::armistice::Zone;
+    use versekit_core::blueprints::kind_readable;
+    use versekit_core::language::Phrase;
+    use versekit_core::overlay::{BarSide, DEFAULT_WIDTH, Message, Row, Rows, Shown};
+    use versekit_ui::overlay::{self, View};
+    const MARGIN: f32 = 12.0;
+    const HEIGHT: f32 = 128.0;
+    let scheme = versekit_core::theme::current();
+    let mut rows = Rows::default();
+    rows.push(
+        Row::Found {
+            name: "Pembroke Helmet".into(),
+            kind: kind_readable("Char_Armor_Helmet"),
+            code: "S1".into(),
+            time: "20:41:07".into(),
+            caught_up: false,
+        },
+        overlay::DEFAULT_ROWS,
+    );
+    let status = Message::Phrase(Phrase::new("ov_status").with("0", 442).with("1", "20:44:52"));
+    let width = DEFAULT_WIDTH as f32;
+    let size = vec2(width * 2.0 + MARGIN * 3.0, HEIGHT + 2.0 * MARGIN);
     let mut installed = false;
-    let mut state = BankState::default();
     let mut harness = Harness::builder()
-        .with_size(vec2(1000.0, 900.0))
+        .with_size(size)
         .with_pixels_per_point(SCALE)
         .with_max_steps(50)
         .with_accessibility_check(false)
@@ -731,13 +773,56 @@ fn bank_picture(dir: &str, english: bool) {
                 ui.ctx().request_repaint();
                 return;
             }
-            let scheme = versekit_core::theme::current();
-            ui.painter().rect_filled(ui.max_rect(), 0.0, versekit_ui::color(scheme.bg));
-            egui::ScrollArea::vertical().show(ui, |ui| show_page(ui, scheme, &mut state));
+            ui.painter().rect_filled(ui.max_rect(), 0.0, egui::Color32::from_rgb(0x0a, 0x10, 0x1c));
+            for (column, zone) in [(0.0, Zone::Left), (1.0, Zone::Entered)] {
+                let view = View {
+                    scheme,
+                    shown: Shown::Open,
+                    rows: &rows,
+                    contracts: &[],
+                    contracts_max: 10,
+                    hidden: None,
+                    refinery: &[],
+                    bank: &[],
+                    launcher: true,
+                    status: &status,
+                    location: None,
+                    shard: Some("euw1b"),
+                    shard_hint: None,
+                    signature: None,
+                    demand: None,
+                    update: None,
+                    update_days: None,
+                    zone: Some(zone),
+                    game: true,
+                    locked: false,
+                    bar: BarSide::Top,
+                    anchored: (false, false),
+                    opacity: 1.0,
+                    extras: &[],
+                    menu: true,
+                    drag_under_buttons: false,
+                    hangar: None,
+                    hints_outside: false,
+                };
+                let at = Rect::from_min_size(pos2(MARGIN + column * (width + MARGIN), MARGIN), vec2(width, HEIGHT));
+                let mut child = ui.new_child(egui::UiBuilder::new().max_rect(at));
+                child.set_clip_rect(at);
+                overlay::show(&mut child, &view);
+            }
         });
-    harness.run_steps(8);
-    let image = harness.render().expect("render");
-    let file = format!("{dir}/screenshot-kartellbank{}.png", if english { "-en" } else { "" });
+    harness.run_steps(12);
+    harness.remove_cursor();
+    harness.run_steps(3);
+    let image = (0..5)
+        .find_map(|_| {
+            harness.render().ok().or_else(|| {
+                std::thread::sleep(std::time::Duration::from_millis(800));
+                None
+            })
+        })
+        .expect("render");
+    let file = format!("{dir}/screenshot-overlay-schutzzone{}.png", if english { "-en" } else { "" });
     image.save(&file).expect("Bild speichern");
     println!("gespeichert: {file}");
 }
@@ -1207,12 +1292,13 @@ fn main() {
 
     if what == "overlay" {
         overlay_picture(&dir, english);
+        zone_picture(&dir, english);
         return;
     }
 
-    // The page "Kartellbank" alone, with its made-up bank.
+    // The page "Kartellbank" in the window model, with the made-up bank of the sample page.
     if what == "kartellbank" {
-        bank_picture(&dir, english);
+        website_pictures(&dir, english, Some("kartellbank"));
         return;
     }
 

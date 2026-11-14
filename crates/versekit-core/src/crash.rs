@@ -391,6 +391,13 @@ pub fn recorded_by_v5(version: &str) -> bool {
     major.parse::<u32>().is_ok_and(|major| major >= 5)
 }
 
+/// Whether these lines of a crash file come from a dump of v5 ([`panic_dump`], [`exception_dump`], [`end_dump`]):
+/// they name the thread in quotes (`Current thread 'main' …`), the `faulthandler` of the Python program of 4.x by its
+/// number (`Current thread 0x… …`).
+fn dumped_by_v5(lines: &[String]) -> bool {
+    lines.iter().any(|line| line.starts_with("Current thread '"))
+}
+
 /// Whether this process set the crash of the main window aside at its start: then it is the one of the run just
 /// before, however old.
 fn set_aside_now(paths: &Paths) -> bool {
@@ -415,7 +422,8 @@ pub fn untold_at(paths: &Paths, now: f64) -> Option<Untold> {
         return None;
     }
     let version = crash_version(paths);
-    if !recorded_by_v5(&version) {
+    // ⚠ Without a version (its file could not be written) the head of the dump tells v5 from the Python program.
+    if !recorded_by_v5(&version) && !(version.is_empty() && dumped_by_v5(&last_crash(paths))) {
         return None;
     }
     let at = crash_time(paths);
@@ -516,6 +524,30 @@ mod tests {
         assert!(install(&paths, "5.2.2"));
         assert_eq!(crash_version(&paths), "");
         assert_eq!(untold(&paths), None, "set aside now, but without a version");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A crash of v5 whose version file could not be written (a full disk, a refused write) is still a crash of v5:
+    /// its dump has the head only v5 writes (`Current thread '…'`), and it is told. One of the Python program with
+    /// that head missing stays untold (above).
+    #[test]
+    fn a_v5_crash_without_its_version_file_is_still_told() {
+        let (paths, dir) = paths_in("v5-ohne-fassung");
+        for dump in [
+            panic_dump("main", "boom", Some("crates/x.rs:9:5"), &[]),
+            exception_dump(0xc000_0005, 0x1234, "main"),
+            end_dump("grafikkarte-fenster: Invalid surface", &[]),
+        ] {
+            fs::write(dir.join(PREVIOUS), &dump).unwrap();
+            let _ = fs::remove_file(dir.join(VERSION_PREVIOUS));
+            let at = crash_time(&paths).unwrap();
+            let told = untold_at(&paths, at + 60.0);
+            assert!(told.as_ref().is_some_and(|u| u.version.is_empty()), "{dump:?}: {told:?}");
+            assert_eq!(untold_at(&paths, at + 8.0 * 86_400.0), None, "and like every one of v5 only for a week");
+        }
+        // With a version of 4.x next to it the head does not count: that file is not of v5.
+        fs::write(dir.join(VERSION_PREVIOUS), "4.12.0").unwrap();
+        assert_eq!(untold_at(&paths, crash_time(&paths).unwrap() + 60.0), None);
         let _ = fs::remove_dir_all(&dir);
     }
 
