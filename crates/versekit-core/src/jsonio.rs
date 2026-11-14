@@ -824,7 +824,7 @@ pub fn copy2(source: &str, target: &str) -> io::Result<()> {
 /// scanner) has the target file open. Only this case is retried; anything
 /// else (disk full, folder gone) fails immediately.
 pub fn replace_file(source: &str, target: &str) -> io::Result<()> {
-    replace_file_with(source, target, 10, Duration::from_millis(50))
+    replace_file_for(source, target, Duration::from_secs(4))
 }
 
 pub fn replace_file_with(source: &str, target: &str, attempts: u32, pause: Duration) -> io::Result<()> {
@@ -836,6 +836,23 @@ pub fn replace_file_with(source: &str, target: &str, attempts: u32, pause: Durat
         }
     }
     Ok(())
+}
+
+/// Like [`replace_file`], but waits up to `total` with a pause that doubles from 25 ms up to 500 ms. The first
+/// attempt is immediate, so a free target costs nothing; the temporary file is left as it is on failure.
+pub fn replace_file_for(source: &str, target: &str, total: Duration) -> io::Result<()> {
+    let started = std::time::Instant::now();
+    let mut pause = Duration::from_millis(25);
+    loop {
+        match os_replace(source, target) {
+            Ok(()) => return Ok(()),
+            Err(e) if is_permission(&e) && started.elapsed() < total => {
+                thread::sleep(pause.min(total.saturating_sub(started.elapsed())));
+                pause = (pause * 2).min(Duration::from_millis(500));
+            }
+            Err(e) => return Err(e),
+        }
+    }
 }
 
 /// Remove the attributes that make overwriting fail (read-only, hidden,
@@ -1496,5 +1513,55 @@ mod tests {
         drop(outer);
         assert!(rx.recv_timeout(Duration::from_secs(5)).is_ok(), "nach dem äußeren Loslassen kommt der andere dran");
         other.join().unwrap();
+    }
+
+    /// A target another process holds open for about a second (virus scanner, backup) is replaced as soon as it
+    /// lets go: the replacing waits longer than half a second, and the target never goes missing meanwhile.
+    #[cfg(windows)]
+    #[test]
+    fn a_target_locked_for_a_second_is_replaced_once_it_is_free() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let dir = std::env::temp_dir().join(format!("versekit-jsonio-sperre-{}", crate::testdir::run_tag()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("ziel.json").to_string_lossy().into_owned();
+        let temp = temp_name(&target);
+        fs::write(&target, b"old").unwrap();
+        write_new(&temp, b"new").unwrap();
+        let lock = fs::OpenOptions::new().read(true).share_mode(0).open(&target).unwrap();
+        let holder = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(1000));
+            drop(lock);
+        });
+        let started = std::time::Instant::now();
+        let result = replace_file(&temp, &target);
+        holder.join().unwrap();
+        assert!(result.is_ok(), "{result:?} after {:?}", started.elapsed());
+        assert_eq!(fs::read(&target).unwrap(), b"new");
+        assert!(!Path::new(&temp).exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A target that stays locked fails after the waiting; target and temporary file are both still there.
+    #[cfg(windows)]
+    #[test]
+    fn a_target_that_stays_locked_keeps_its_content_and_the_temp_file() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let dir = std::env::temp_dir().join(format!("versekit-jsonio-dauersperre-{}", crate::testdir::run_tag()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("ziel.json").to_string_lossy().into_owned();
+        let temp = temp_name(&target);
+        fs::write(&target, b"old").unwrap();
+        write_new(&temp, b"new").unwrap();
+        let lock = fs::OpenOptions::new().read(true).share_mode(0).open(&target).unwrap();
+        let started = std::time::Instant::now();
+        let result = replace_file_for(&temp, &target, Duration::from_millis(300));
+        assert!(result.is_err());
+        assert!(started.elapsed() >= Duration::from_millis(300));
+        drop(lock);
+        assert_eq!(fs::read(&target).unwrap(), b"old");
+        assert_eq!(fs::read(&temp).unwrap(), b"new");
+        let _ = fs::remove_dir_all(&dir);
     }
 }

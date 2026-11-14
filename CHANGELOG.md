@@ -6,6 +6,30 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.4 - 2026-11-14
+
+> Kleine Nachbesserung zu 5.3.3: Mehrere Schiffe desselben Typs im Hangar
+> werden einzeln gezählt, und VerseKit kommt mit kurz gesperrten Dateien und
+> einem anfangs nicht lesbaren Game.log besser zurecht.
+
+### Behoben
+
+- **Mehrere gleiche Schiffe im Hangar:** Zwei Skylark (eine einzeln, eine im
+  Paket der Centaurus) standen als eine Karte da. Die Karte zeigt jetzt „2×“
+  und jedes Schiff mit Herkunft und Versicherung; ein neuer Import zählt die
+  Schiffe neu, auch im Wechsel von JSON und CSV. Ausrüstung und Basetool
+  bleiben je Typ. Die Hangardatei hat dafür ein neues Format, die alte Datei
+  liegt vorher als `hangar.bak.json` daneben (Gemeldet von Aeternitas26).
+- **Fehlende scmdb-Datei ist kein Fehler mehr:** Hat scmdb für einen neuen Stand
+  noch keine Datei, steht das nur als Hinweis im Protokoll, solange der eigene
+  Katalog aus der Data.p4k steht.
+- **Overlay liest das laufende Game.log später erneut:** Scheitert das erste
+  Einlesen beim Start, versucht der Watcher es alle 10 Sekunden wieder, statt
+  ohne Shard und Aufträge weiterzulaufen.
+- **Abgleich mit einer kurz gesperrten Datei:** Hält ein anderes Programm die
+  Zieldatei kurz offen, wartet VerseKit bis zu 4 Sekunden mit wachsendem
+  Abstand, bevor es einen Fehler meldet; die Datei geht nie verloren.
+
 ## v5.3.3 - 2026-11-14
 
 > Sammelt eure Meldungen der letzten Tage und macht VerseKit fit für den

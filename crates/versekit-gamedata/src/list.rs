@@ -977,6 +977,16 @@ pub fn reputation_differences(own: &Map, theirs: &Map) -> Vec<String> {
     found
 }
 
+/// Reports that scmdb gave no data for the build: a note while the own catalog from the archive stands, an error
+/// without it.
+fn report_scmdb_trouble(error: &dyn std::fmt::Display, own_catalog_stands: bool) {
+    if own_catalog_stands {
+        versekit_core::errors::note("list.scmdb", error);
+    } else {
+        versekit_core::errors::record("list.scmdb", error);
+    }
+}
+
 /// Reads the archive and builds the catalog, completed and checked with
 /// scmdb's; scmdb's alone when the archive cannot be read. `None` when
 /// neither gives blueprints.
@@ -1030,10 +1040,10 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
     };
     keep_reputation(paths, own_reputation, their_reputation, version.as_deref().unwrap_or_default());
     let trouble = fixes_error.filter(|_| their_catalog.is_none()).or(their_error);
-    if let Some(error) = trouble.filter(|_| !supply.is_off() && wanted.is_some()) {
-        versekit_core::errors::record("list.scmdb", &error);
-    }
     let own = read.as_ref().and_then(|read| read.as_ref().ok()).filter(|catalog| !catalog.blueprints.is_empty());
+    if let Some(error) = trouble.filter(|_| !supply.is_off() && wanted.is_some()) {
+        report_scmdb_trouble(&error, own.is_some());
+    }
     let texts = own.map(item_texts).unwrap_or_default();
     // Counts as brought only with the list of known errors as well: without
     // it names, pools and factions stay uncorrected and scmdb is asked again.
@@ -2356,6 +2366,19 @@ mod tests {
         assert!(rebuild.run().is_some());
         assert!(!catalog_behind_file(Some(&archive), &cache), "the file names the stand that was read");
         let _ = fs::remove_dir_all(dir);
+    }
+
+    /// No file at scmdb for a new build is only a note while the own catalog from the archive stands; without
+    /// the own catalog it is an error.
+    #[test]
+    fn missing_scmdb_data_is_only_a_note_while_the_own_catalog_stands() {
+        let ((), caught) = versekit_core::errors::captured(|| report_scmdb_trouble(&"the file is not there", true));
+        assert_eq!(caught.len(), 1);
+        assert_eq!(caught[0].label, "list.scmdb");
+        assert!(caught[0].note, "a note, not an error: {caught:?}");
+        let ((), caught) = versekit_core::errors::captured(|| report_scmdb_trouble(&"the file is not there", false));
+        assert_eq!(caught.len(), 1);
+        assert!(!caught[0].note, "an error without the own catalog: {caught:?}");
     }
 
     /// A cache stamp of `archive` in the layout `format`, with scmdb's part brought.

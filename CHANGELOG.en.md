@@ -6,6 +6,30 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.4 - 2026-11-14
+
+> A small follow-up to 5.3.3: several ships of the same type in the hangar
+> are counted one by one, and VerseKit copes better with briefly locked files
+> and a Game.log that cannot be read at first.
+
+### Fixed
+
+- **Several ships of one type in the hangar:** Two Skylarks (one on its own,
+  one in the Centaurus pack) showed as one card. The card now says "2×" and
+  lists each ship with where it came from and its insurance; every import
+  counts the ships anew, also switching between JSON and CSV. Loadout and
+  Basetool stay per type. The hangar file has a new format for this; the old
+  file is kept beside it as `hangar.bak.json` first (Reported by Aeternitas26).
+- **A missing scmdb file is no longer an error:** When scmdb has no file for a
+  new build yet, it is only a note in the log while the own catalog from the
+  Data.p4k stands.
+- **The overlay reads the running Game.log again later:** If the first read at
+  the start fails, the watcher tries again every 10 seconds instead of going on
+  without a shard and contracts.
+- **Sync with a briefly locked file:** When another program holds the target
+  file open for a moment, VerseKit waits up to 4 seconds with growing pauses
+  before reporting an error; the file is never lost.
+
 ## v5.3.3 - 2026-11-14
 
 > Collects your reports of the last days and gets VerseKit ready for the next

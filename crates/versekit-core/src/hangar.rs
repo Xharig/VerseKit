@@ -41,7 +41,10 @@ use crate::pypath::Flavor;
 use crate::text::{py_isspace, py_strip};
 
 pub const FILE: &str = "hangar.json";
-pub const FORMAT: i64 = 1;
+/// The format written: an entry may list its ships one by one ([`PIECES`]).
+pub const FORMAT: i64 = 2;
+/// The format before, read as well: every entry is one ship.
+const OLDER_FORMAT: i64 = 1;
 
 pub const PLEDGE: &str = "pledge";
 pub const INGAME: &str = "ingame";
@@ -226,14 +229,45 @@ pub fn lock() -> MutexGuard<'static, ()> {
     HANGAR_LOCK.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// The file as it lies, if it has the expected structure.
+/// The `format` of a file as a whole number (`1.0` counts as `1`).
+fn format_of(map: &Map) -> Option<i64> {
+    match get(map, "format") {
+        Some(Value::Int(n)) => n.parse().ok(),
+        Some(Value::Float(x)) if x.fract() == 0.0 => Some(*x as i64),
+        _ => None,
+    }
+}
+
+/// The file as it lies, if it has the expected structure. A file of the older format comes back as the current
+/// one; it is written in the current format the next time something is saved.
 pub fn read(path: &str) -> Option<Map> {
     let valid = |v: &Value| matches!(v, Value::Object(_));
     let data = jsonio::load_json(path, Some(&valid), "fleet.load")?;
-    let Value::Object(map) = data else { return None };
-    let format_ok = matches!(get(&map, "format"), Some(Value::Int(n)) if n == "1")
-        || matches!(get(&map, "format"), Some(Value::Float(x)) if *x == 1.0);
-    if format_ok && matches!(get(&map, "schiffe"), Some(Value::Array(_))) { Some(map) } else { None }
+    let Value::Object(mut map) = data else { return None };
+    let format = format_of(&map);
+    if !matches!(format, Some(FORMAT | OLDER_FORMAT)) || !matches!(get(&map, "schiffe"), Some(Value::Array(_))) {
+        return None;
+    }
+    if format != Some(FORMAT) {
+        map_set(&mut map, "format", Value::int(FORMAT));
+    }
+    Some(map)
+}
+
+/// Is the file missing or a hangar this version reads? Reads only; a broken file stays where it is.
+pub fn file_ok(path: &str) -> bool {
+    if !Path::new(path).exists() {
+        return true;
+    }
+    matches!(jsonio::read_json(path), Ok(Value::Object(map))
+        if matches!(format_of(&map), Some(FORMAT | OLDER_FORMAT)) && matches!(get(&map, "schiffe"), Some(Value::Array(_))))
+}
+
+/// Before the first write over a file of the older format, a copy of it goes beside it ([`backup`]); false when
+/// that copy failed.
+fn keep_older_format(path: &str) -> bool {
+    let older = matches!(jsonio::read_json(path), Ok(Value::Object(map)) if format_of(&map) == Some(OLDER_FORMAT));
+    !older || backup(path)
 }
 
 /// The own hangar, or an empty one. Duplicates are merged and saved.
@@ -305,8 +339,8 @@ fn set_aside_unusable(path: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-/// A copy as `hangar.bak.json` before something is removed; true when the
-/// file is missing or the copy was made.
+/// A copy as `hangar.bak.json` before something is removed or the format
+/// changes; true when the file is missing or the copy was made.
 pub fn backup(path: &str) -> bool {
     if !Path::new(path).exists() {
         return true;
@@ -321,10 +355,13 @@ pub fn backup(path: &str) -> bool {
 }
 
 /// Write as it is, atomically (`.tmp` and replace); reported on failure.
-/// A file there that is no hangar is set aside first.
+/// A file there that is no hangar is set aside first; one of the older format is copied beside it first.
 pub fn write(path: &str, data: &Map) -> bool {
     if let Err(e) = set_aside_unusable(path) {
         errors::record("fleet.save", &e);
+        return false;
+    }
+    if !keep_older_format(path) {
         return false;
     }
     let result = (|| {
@@ -927,8 +964,20 @@ fn promote(entry: &mut Map, name: &str, manufacturer: &str, origin: &str, rest: 
 
 /// Enter a ship; true when it is new (`fleet.add`).
 fn add(ships: &mut Vec<Map>, name: &str, manufacturer: &str, origin: &str, rest: &Map, catalog: &[Map]) -> bool {
+    add_at(ships, name, manufacturer, origin, rest, catalog).is_some_and(|(_, new)| new)
+}
+
+/// [`add`], with the index of the entry the ship went to; `None` for a ship without a name.
+fn add_at(
+    ships: &mut Vec<Map>,
+    name: &str,
+    manufacturer: &str,
+    origin: &str,
+    rest: &Map,
+    catalog: &[Map],
+) -> Option<(usize, bool)> {
     if py_strip(name).is_empty() {
-        return false;
+        return None;
     }
     let mut found = find(ships, name, manufacturer, text(rest, "kurz"), text(rest, "hkurz"));
     if found.is_none() && origin == BASETOOL && py_strip(manufacturer).is_empty() {
@@ -950,7 +999,7 @@ fn add(ships: &mut Vec<Map>, name: &str, manufacturer: &str, origin: &str, rest:
             take_over(&mut ships[i], origin, get(rest, "quelle"));
         }
         fill(&mut ships[i], rest);
-        return promoted;
+        return Some((i, promoted));
     }
     let mut entry = object(vec![
         ("name", Value::str(strip_owned(name))),
@@ -967,7 +1016,7 @@ fn add(ships: &mut Vec<Map>, name: &str, manufacturer: &str, origin: &str, rest:
         map_set(&mut entry, "quelle", source.clone());
     }
     ships.push(entry);
-    true
+    Some((ships.len() - 1, true))
 }
 
 /// Works on the ship entries of a hangar as a list and puts them back.
@@ -1022,7 +1071,7 @@ pub fn merge_duplicates(data: &mut Map) -> bool {
         if !truthy(get(target, "belegung")) && truthy(get(&s, "belegung")) {
             map_set(target, "belegung", get(&s, "belegung").cloned().unwrap_or(Value::Null));
         }
-        for key in ["einsatzbereit", "einheit", "schmelzbar", "schmelz_wahl"] {
+        for key in ["einsatzbereit", "einheit", "schmelzbar", "schmelz_wahl", PIECES] {
             if is_none(get(target, key)) && !is_none(get(&s, key)) {
                 map_set(target, key, get(&s, key).cloned().unwrap_or(Value::Null));
             }
@@ -1030,6 +1079,60 @@ pub fn merge_duplicates(data: &mut Map) -> bool {
     }
     put_ships(data, kept);
     changed
+}
+
+// ------------------------------------------------------------ pieces
+
+/// On an entry: one object per ship of the type, as the last export named them; missing means one ship.
+pub const PIECES: &str = "stuecke";
+
+/// What a piece keeps of an export entry: where it came from, its insurance and the purchase.
+const PIECE_KEYS: [&str; 6] = ["paket", "lti", "versicherung", "warbond", "gekauft", "preis"];
+
+/// The pieces the entry lists; empty when it stands for one ship.
+pub fn pieces(entry: &Map) -> Vec<&Map> {
+    match get(entry, PIECES) {
+        Some(Value::Array(items)) => items.iter().filter_map(Value::as_object).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// How many ships of the type the entry stands for.
+pub fn piece_count(entry: &Map) -> usize {
+    pieces(entry).len().max(1)
+}
+
+/// One ship of an export as a piece: the fields of [`PIECE_KEYS`] that say something.
+fn piece_of(entry: &Map) -> Map {
+    PIECE_KEYS.iter().filter_map(|k| get(entry, k).filter(|v| truthy(Some(v))).map(|v| (k.to_string(), v.clone()))).collect()
+}
+
+/// Sets the pieces of an entry; a single one needs no list, so the list goes.
+fn set_pieces(entry: &mut Map, pieces: Vec<Map>) {
+    if pieces.len() > 1 {
+        map_set(entry, PIECES, Value::Array(pieces.into_iter().map(Value::Object).collect()));
+    } else {
+        pop(entry, PIECES);
+    }
+}
+
+/// The pieces an import found, as `(index in the ships, piece)`, onto the entries. An export of the pledges names
+/// every ship there is: its pieces replace the ones stored. A list only adds: an entry of a list takes its pieces
+/// when they are more; other entries it leaves alone.
+fn count_pieces(ships: &mut [Map], landed: &[(usize, Map)], pledge_export: bool) {
+    let mut hit: Vec<usize> = Vec::new();
+    for (index, _) in landed {
+        if !hit.contains(index) {
+            hit.push(*index);
+        }
+    }
+    for index in hit {
+        let found: Vec<Map> = landed.iter().filter(|(i, _)| *i == index).map(|(_, p)| p.clone()).collect();
+        let entry = &mut ships[index];
+        if pledge_export || (text(entry, "herkunft") == LIST && found.len() > piece_count(entry)) {
+            set_pieces(entry, found);
+        }
+    }
 }
 
 // ------------------------------------------------------------ wishlist
@@ -1467,8 +1570,18 @@ fn prune(ships: &mut Vec<Map>, catalog: &[Map]) -> Vec<String> {
     names
 }
 
-const PLEDGE_KEYS: [&str; 9] =
-    ["lti", "versicherung", "warbond", "gekauft", "preis", "schmelzbar", "quelle", "kurz", "versicherung_basetool"];
+const PLEDGE_KEYS: [&str; 10] = [
+    "lti",
+    "versicherung",
+    "warbond",
+    "gekauft",
+    "preis",
+    "schmelzbar",
+    "quelle",
+    "kurz",
+    "versicherung_basetool",
+    PIECES,
+];
 
 /// Removed ships that belong to a remaining carrier stay as catalog vehicles;
 /// returns their indices in `gone`.
@@ -1877,6 +1990,7 @@ pub fn import_entries(data: &mut Map, entries: &[Map]) -> Imported {
     let pledge_export = entries.iter().all(|e| origin_of(e) == PLEDGE);
     let wishes: Vec<&Map> = entries.iter().filter(|e| truthy(get(e, "wunsch"))).collect();
     let mut by_name: Vec<usize> = Vec::new();
+    let mut landed: Vec<(usize, Map)> = Vec::new();
     for e in entries {
         let origin = origin_of(e);
         if truthy(get(e, "wunsch")) {
@@ -1902,6 +2016,7 @@ pub fn import_entries(data: &mut Map, entries: &[Map]) -> Imported {
                     fill(&mut ships[i], &rest);
                 }
                 by_name.push(i);
+                landed.push((i, piece_of(e)));
                 continue;
             }
         }
@@ -1909,10 +2024,15 @@ pub fn import_entries(data: &mut Map, entries: &[Map]) -> Imported {
         for key in IMPORT_KEYS.iter().chain(&["quelle"]) {
             map_set(&mut rest, key, get(e, key).cloned().unwrap_or(Value::Null));
         }
-        if add(&mut ships, text(e, "name"), text(e, "hersteller"), &origin, &rest, catalog) {
-            new += 1;
+        if let Some((index, is_new)) = add_at(&mut ships, text(e, "name"), text(e, "hersteller"), &origin, &rest, catalog)
+        {
+            landed.push((index, piece_of(e)));
+            if is_new {
+                new += 1;
+            }
         }
     }
+    count_pieces(&mut ships, &landed, pledge_export);
     apply_meltable(&mut ships, entries);
     put_ships(data, ships);
     for e in &wishes {
@@ -1976,8 +2096,17 @@ fn apply_meltable(ships: &mut [Map], entries: &[Map]) {
 /// (`fleet.bundled_with`): only when `paket`, up to the first ` - `, names
 /// another ship of the own hangar.
 pub fn bundled_with(ships: &[&Map], index: usize) -> String {
+    carrier_named(ships, index, text(ships[index], "paket"))
+}
+
+/// [`bundled_with`] for one of the pieces of `ships[index]`: by the `paket` of the piece.
+pub fn piece_bundled_with(ships: &[&Map], index: usize, piece: &Map) -> String {
+    carrier_named(ships, index, text(piece, "paket"))
+}
+
+/// The name of the hangar ship other than `ships[index]` that `package`, up to the first ` - `, names, or `""`.
+fn carrier_named(ships: &[&Map], index: usize, package: &str) -> String {
     let entry = ships[index];
-    let package = text(entry, "paket");
     let wanted = slim(package.split(" - ").next().unwrap_or(""));
     if wanted.is_empty() || wanted == slim_of(entry, "name") {
         return String::new();
@@ -2046,7 +2175,7 @@ mod tests {
         let missing = format!("{path}.fehlt");
         assert_eq!(ships(&load_checked(&missing).expect("empty")).len(), 0);
         // Damaged, another format, no list: nothing, where `load` would give an empty hangar.
-        for broken in ["{kaputt", r#"{"format": 2, "schiffe": []}"#, r#"{"format": 1}"#, "[]"] {
+        for broken in ["{kaputt", r#"{"format": 3, "schiffe": []}"#, r#"{"format": 1}"#, "[]"] {
             std::fs::write(&path, broken).expect("write");
             assert!(load_checked(&path).is_none(), "{broken}");
             assert_eq!(ships(&load(&path)).len(), 0, "{broken}");
@@ -2106,7 +2235,7 @@ mod tests {
 
     #[test]
     fn a_file_that_is_no_hangar_is_set_aside_not_overwritten() {
-        let other = r#"{"format": 2, "schiffe": [{"name": "Polaris"}]}"#;
+        let other = r#"{"format": 3, "schiffe": [{"name": "Polaris"}]}"#;
         let path = scratch("fremd", other);
         let mut a = load_held(&path);
         assert!(ships(&a.data).is_empty());
@@ -2527,5 +2656,198 @@ mod tests {
         assert!(!ready_when_fitted(&mut open, false), "a part is open");
         let mut without_plan = ship_of(r#"{"name": "Bare"}"#);
         assert!(!ready_when_fitted(&mut without_plan, false), "nothing planned is not complete");
+    }
+
+    // ------------------------------------------------------------ pieces
+
+    const SKYLARK: &str = r#"{"manufacturer":{"code":"RSI","name":"Roberts Space Industries","shortName":"RSI"},"code":"RSI_Skylark","matrix":"Skylark","focus":"Snub Fighter","status":"Flight-Ready","insurance":"LTI","name":"Skylark"}"#;
+    const CENTAURUS: &str = r#"{"manufacturer":{"code":"RSI","name":"Roberts Space Industries","shortName":"RSI"},"code":"RSI_Constellation_Mk_V_Centaurus","matrix":"Constellation Mk V Centaurus","focus":"Multi-Role","status":"Flight-Ready","insurance":"LTI","name":"Constellation Mk V Centaurus"}"#;
+
+    /// An export of the Hangar Extension (JSON) with the Centaurus, the Skylark bought on its own and the one of the
+    /// Centaurus, each when asked for.
+    fn skylark_json(standalone: bool, included: bool) -> String {
+        let mut items = vec![CENTAURUS.to_string()];
+        if standalone {
+            items.push(SKYLARK.to_string());
+        }
+        if included {
+            let open = SKYLARK.strip_suffix('}').expect("object");
+            items.push(format!(r#"{open},"includedWith":"Constellation Mk V Centaurus"}}"#));
+        }
+        format!("[{}]", items.join(","))
+    }
+
+    /// The same hangar as the CSV of the Hangar Extension: the Skylark of the Centaurus as an included ship, or with
+    /// `pack` as the second ship of a pack.
+    fn skylark_csv(pack: bool) -> String {
+        let (name, kind) = if pack { ("Centaurus Pack", "Ship") } else { ("Constellation Mk V Centaurus", "Included Ship") };
+        format!(
+            "Pledge ID,Pledge Name,Pledge Date,Pledge Cost,Meltable,Content Type,Pledge Content\n\
+             11,Standalone Ship - Skylark,2025-01-02,$45.00 USD,Yes,Ship,RSI Skylark\n\
+             11,Standalone Ship - Skylark,2025-01-02,$45.00 USD,Yes,Insurance,Lifetime Insurance\n\
+             12,{name},2025-02-03,$400.00 USD,Yes,Ship,RSI Constellation Mk V Centaurus\n\
+             12,{name},2025-02-03,$400.00 USD,Yes,{kind},RSI Skylark\n\
+             12,{name},2025-02-03,$400.00 USD,Yes,Insurance,Lifetime Insurance\n"
+        )
+    }
+
+    fn import_text(data: &mut Map, raw: &str) -> Imported {
+        let entries = crate::hangar_formats::read_text(raw, &ShipNames::default()).expect("export");
+        import_entries(data, &entries)
+    }
+
+    /// The one entry of the Skylark.
+    fn the_skylark(data: &Map) -> &Map {
+        let found: Vec<&Map> = ships(data).into_iter().filter(|s| text(s, "name") == "Skylark").collect();
+        assert_eq!(found.len(), 1, "one entry for the type: {}", file_text(data));
+        found[0]
+    }
+
+    fn packages(entry: &Map) -> Vec<String> {
+        pieces(entry).iter().map(|p| text(p, "paket").to_string()).collect()
+    }
+
+    #[test]
+    fn two_skylarks_of_the_extension_json_are_one_entry_with_two_pieces() {
+        let mut data = empty();
+        import_text(&mut data, &skylark_json(true, true));
+        let skylark = the_skylark(&data);
+        assert_eq!(piece_count(skylark), 2, "two Skylarks in the export: {}", file_text(&data));
+        assert_eq!(packages(skylark), ["", "Constellation Mk V Centaurus"]);
+        assert!(pieces(skylark).iter().all(|p| get(p, "lti") == Some(&Value::Bool(true))), "both with LTI");
+        let before = file_text(&data);
+        import_text(&mut data, &skylark_json(true, true));
+        assert_eq!(file_text(&data), before, "the same export again changes nothing");
+    }
+
+    #[test]
+    fn two_skylarks_of_the_extension_csv_are_two_pieces_too() {
+        for (pack, second) in [(false, "Constellation Mk V Centaurus"), (true, "Centaurus Pack")] {
+            let mut data = empty();
+            import_text(&mut data, &skylark_csv(pack));
+            let skylark = the_skylark(&data);
+            assert_eq!(piece_count(skylark), 2, "pack {pack}: {}", file_text(&data));
+            assert_eq!(packages(skylark), ["Standalone Ship - Skylark", second]);
+            let first = pieces(skylark)[0];
+            assert_eq!((text(first, "gekauft"), text(first, "preis")), ("2025-01-02", "$45.00 USD"));
+        }
+    }
+
+    #[test]
+    fn json_csv_json_stays_at_two_skylarks() {
+        let mut data = empty();
+        for (step, raw) in [skylark_json(true, true), skylark_csv(false), skylark_json(true, true), skylark_csv(true)]
+            .iter()
+            .enumerate()
+        {
+            let done = import_text(&mut data, raw);
+            assert!(done.removed.is_empty(), "step {step}: {:?}", done.removed);
+            assert_eq!(piece_count(the_skylark(&data)), 2, "step {step}: {}", file_text(&data));
+        }
+        let centaurus = ships(&data).iter().filter(|s| text(s, "name") == "Constellation Mk V Centaurus").count();
+        assert_eq!(centaurus, 1);
+    }
+
+    #[test]
+    fn a_skylark_gone_from_the_export_takes_one_piece_and_the_last_one_the_entry() {
+        let mut data = empty();
+        import_text(&mut data, &skylark_json(true, true));
+        let done = import_text(&mut data, &skylark_json(false, true));
+        assert!(done.removed.is_empty(), "{:?}", done.removed);
+        let skylark = the_skylark(&data);
+        assert_eq!(piece_count(skylark), 1, "{}", file_text(&data));
+        assert!(get(skylark, PIECES).is_none(), "one ship needs no list");
+        import_text(&mut data, &skylark_json(true, true));
+        assert_eq!(piece_count(the_skylark(&data)), 2, "and back to two");
+        let done = import_text(&mut data, SHIV_JSON);
+        assert!(done.removed.contains(&"Skylark".to_string()), "{:?}", done.removed);
+        assert!(ships(&data).iter().all(|s| text(s, "name") != "Skylark"));
+    }
+
+    #[test]
+    fn the_ship_list_of_the_direct_way_counts_two_skylarks_too() {
+        let ship = |extra: &str| {
+            format!(
+                r#"{{"matrix": "Skylark", "matrixZuordnung": "sicher", "name": "Skylark", "code": "RSI_Skylark",
+                    "manufacturer": {{"code": "RSI", "name": "Roberts Space Industries"}}, "insurance": "LTI"{extra}}}"#
+            )
+        };
+        let list = ship_list(&format!("{}, {}", ship(""), ship(r#", "includedWith": "Constellation Mk V Centaurus""#)));
+        let mut data = empty();
+        import_entries(&mut data, &from_hangar_ships(&list).unwrap());
+        assert_eq!(packages(the_skylark(&data)), ["", "Constellation Mk V Centaurus"]);
+    }
+
+    #[test]
+    fn a_list_counts_its_ships_but_never_takes_a_piece_away() {
+        let one = r#"{"name": "Skylark", "manufacturerName": "Roberts Space Industries", "manufacturerCode": "RSI"}"#;
+        let mut data = empty();
+        import_text(&mut data, &format!("[{one}, {one}]"));
+        assert_eq!(piece_count(the_skylark(&data)), 2, "{}", file_text(&data));
+        import_text(&mut data, &format!("[{one}]"));
+        assert_eq!(piece_count(the_skylark(&data)), 2, "a list only adds");
+        // A list does not count the ships of a pledge entry; the export of the pledges does.
+        let mut data = empty();
+        import_text(&mut data, &skylark_json(true, true));
+        import_text(&mut data, &format!("[{one}, {one}, {one}]"));
+        assert_eq!(packages(the_skylark(&data)), ["", "Constellation Mk V Centaurus"]);
+    }
+
+    #[test]
+    fn merging_duplicates_keeps_the_pieces() {
+        let mut data = parse(
+            r#"{"format": 2, "schiffe": [
+              {"name": "Skylark", "hersteller": "Roberts Space Industries", "hkurz": "RSI", "herkunft": "pledge", "belegung": {}},
+              {"name": "Skylark", "hersteller": "Roberts Space Industries", "hkurz": "RSI", "herkunft": "pledge", "belegung": {},
+               "stuecke": [{"lti": true}, {"paket": "Constellation Mk V Centaurus", "lti": true}]}]}"#,
+        );
+        assert!(merge_duplicates(&mut data));
+        assert_eq!(ships(&data).len(), 1);
+        assert_eq!(piece_count(ships(&data)[0]), 2);
+    }
+
+    #[test]
+    fn a_file_of_format_one_reads_as_one_piece_each_and_moves_to_format_two_with_a_backup() {
+        assert_eq!(FORMAT, 2, "the format with pieces");
+        let path = scratch("umzug", TWO);
+        let mut held = load_held(&path);
+        assert_eq!(get(&held.data, "format"), Some(&Value::int(FORMAT)), "read as the new format");
+        assert!(ships(&held.data).iter().all(|s| piece_count(s) == 1));
+        assert_eq!(std::fs::read_to_string(&path).expect("file"), TWO, "reading alone writes nothing");
+        slot(&mut held, 0, "p1");
+        assert_eq!(save_held(&path, &mut held), Saved::Written);
+        assert_eq!(std::fs::read_to_string(jsonio::backup_name(&path)).expect("bak"), TWO, "format 1 kept beside");
+        let disk = jsonio::read_json(&path).expect("json");
+        assert_eq!(disk.get("format"), Some(&Value::int(2)));
+        assert_eq!(ships(&on_disk(&path)).len(), 2);
+        assert!(file_text(&on_disk(&path)).contains("\"p1\""));
+        // Format 2 on disk now: a later save leaves the copy of format 1 alone.
+        slot(&mut held, 1, "p2");
+        assert_eq!(save_held(&path, &mut held), Saved::Written);
+        assert_eq!(std::fs::read_to_string(jsonio::backup_name(&path)).expect("bak"), TWO);
+        // The check of the Basetool sync takes both formats, and no other.
+        assert!(file_ok(&path) && file_ok(&format!("{path}.fehlt")));
+        std::fs::write(&path, TWO).expect("older");
+        assert!(file_ok(&path));
+        // A format after this one is not read.
+        std::fs::write(&path, r#"{"format": 3, "schiffe": []}"#).expect("newer");
+        assert!(!file_ok(&path));
+        assert!(load_checked(&path).is_none());
+    }
+
+    #[test]
+    fn the_pieces_stay_here_the_sync_sees_one_ship_of_the_type() {
+        use std::collections::BTreeMap;
+        let mut data = empty();
+        import_text(&mut data, &skylark_json(true, true));
+        let skylark = the_skylark(&data).clone();
+        assert_eq!(piece_count(&skylark), 2);
+        let mut bare = skylark.clone();
+        pop(&mut bare, PIECES);
+        let own = BTreeMap::new();
+        let sync = |entry: &Map| crate::basetool::ship_sync::local_ships(&[entry], &own);
+        assert_eq!(sync(&skylark), sync(&bare), "the list of pieces does not reach the Basetool");
+        assert_eq!(sync(&skylark).len(), 1);
+        assert_eq!(crate::basetool::ship_sync::external_id(&skylark), crate::basetool::ship_sync::external_id(&bare));
     }
 }

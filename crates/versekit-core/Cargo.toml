@@ -8,6 +8,10 @@ license.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[features]
+# Test aids for the crates that check what was reported (`errors::captured`); never on in the product.
+test-hilfen = []
+
 [dependencies]
 base64.workspace = true
 getrandom.workspace = true

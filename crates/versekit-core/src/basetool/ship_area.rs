@@ -31,7 +31,7 @@ use std::sync::Arc;
 
 use crate::asop;
 use crate::basetool::area_support::{
-    Posted, pull_generic, put_object, send_unless_held, store_busy, store_ok, take_object, texts,
+    Posted, pull_generic, put_object, send_unless_held, store_busy, take_object, texts,
 };
 use crate::basetool::error::ApiError;
 use crate::basetool::feed;
@@ -117,7 +117,7 @@ impl ShipArea {
         let mut names: Vec<(String, String)> = Vec::new();
         pass.apply_local(|| {
             let _lock = hangar::lock();
-            // One read; a file that cannot be read now is no empty hangar (see `store_ok`).
+            // One read; a file that cannot be read now is no empty hangar (see `hangar::file_ok`).
             let Some(mut data) = hangar::load_checked(&path) else {
                 return Err(store_busy("hangar unreadable"));
             };
@@ -428,7 +428,7 @@ impl Area for ShipArea {
     }
 
     fn run(&mut self, pass: &mut Pass<'_>) -> Result<Map, ApiError> {
-        if !store_ok(&pass.paths.app_file(hangar::FILE), "schiffe") {
+        if !hangar::file_ok(&pass.paths.app_file(hangar::FILE)) {
             crate::errors::record("basetool_sync.hangar", &"Hangardatei unlesbar, Hangar wird nicht abgeglichen");
             return Ok(vec![("unreadable".into(), Value::int(1))]);
         }

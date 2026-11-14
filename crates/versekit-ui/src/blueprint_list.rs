@@ -2222,7 +2222,8 @@ mod tests {
         let nl = if cfg!(windows) { "\r\n" } else { "\n" };
         let expected = [
             "{",
-            " \"format\": 1,",
+            // Written in the current format; the file of format 1 lies beside it as `hangar.bak.json`.
+            " \"format\": 2,",
             " \"schiffe\": [",
             "  {",
             "   \"name\": \"Cutlass\"",
@@ -2240,6 +2241,7 @@ mod tests {
         ]
         .join(nl);
         assert_eq!(std::fs::read_to_string(&hangar).unwrap(), expected);
+        assert!(dir.join("hangar.bak.json").exists(), "the hangar of format 1 is kept beside it");
         assert!(data.noted.contains("glacier"));
         data.toggle_noted(glacier);
         assert!(!std::fs::read_to_string(&hangar).unwrap().contains("Glacier"));

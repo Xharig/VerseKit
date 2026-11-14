@@ -19,4 +19,5 @@ serde_json.workspace = true
 versekit-core.workspace = true
 
 [dev-dependencies]
+versekit-core = { workspace = true, features = ["test-hilfen"] }
 p4kx-testkit.workspace = true

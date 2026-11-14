@@ -298,7 +298,14 @@ struct Contracts {
     blueprints: ContractBlueprints,
     patterns: Patterns,
     section: std::sync::Arc<std::sync::Mutex<Section>>,
+    /// The running log could not be read at the start (or at the last try): it is tried again.
+    start_failed: bool,
+    /// Earliest time of the next try after a failed start; `None` until the first round after the failure.
+    start_next: Option<Instant>,
 }
+
+/// How long to wait before the running log is read again after its first reading failed.
+const START_RETRY_EVERY: Duration = Duration::from_secs(10);
 
 impl Contracts {
     fn new(paths: &Paths, tail: &mut LogTail) -> Contracts {
@@ -306,7 +313,33 @@ impl Contracts {
         let patterns = Patterns::build(&ini);
         let (scan, section) = SectionScan::new(patterns.clone());
         tail.contracts = Some(Box::new(scan) as Box<dyn ContractScan + '_>);
-        Contracts { live: Live::new(), blueprints: ContractBlueprints::with_ini(paths, &ini), patterns, section }
+        Contracts {
+            live: Live::new(),
+            blueprints: ContractBlueprints::with_ini(paths, &ini),
+            patterns,
+            section,
+            start_failed: false,
+            start_next: None,
+        }
+    }
+
+    /// The running log could not be read at the start: from the second round on it is read again every
+    /// [`START_RETRY_EVERY`] until it works, and the shard and the handle follow from it.
+    fn retry_start(&mut self, run: &Run, shards: &mut Shards, now: Instant) {
+        if !self.start_failed {
+            return;
+        }
+        if self.start_next.is_none_or(|at| now < at) {
+            self.start_next.get_or_insert(now + START_RETRY_EVERY);
+            return;
+        }
+        self.start_next = Some(now + START_RETRY_EVERY);
+        if let Some(log) = self.reset(run) {
+            shards.whole(run, log.lines());
+            if let Some(handle) = log.handle() {
+                run.tell(News::OwnHandle(handle));
+            }
+        }
     }
 
     /// The catalog changed (a patch, or it was missing at the start): the lines are built anew from it.
@@ -324,10 +357,15 @@ impl Contracts {
         let log = match StartLog::read(&file) {
             Ok(log) => log,
             Err(e) => {
-                versekit_core::errors::record("watcher.auftraege_start", &e);
+                if !self.start_failed {
+                    versekit_core::errors::record("watcher.auftraege_start", &e);
+                }
+                self.start_failed = true;
                 return None;
             }
         };
+        self.start_failed = false;
+        self.start_next = None;
         let has = |n: &str| collection::contains(&run.data, n);
         let check = Check { blueprints: &self.blueprints, has: &has };
         let mut out = Vec::new();
@@ -1139,6 +1177,7 @@ fn run(
             next = Instant::now();
         }
         // After the blueprints: a blueprint just received stands in the collection when the contract is checked.
+        contracts.retry_start(&run, &mut shards, Instant::now());
         contracts.report(&run, &tail.last_text);
         shards.section(&run, &tail.last_text, tail.restarted || tail.offset < offset || tail.path != path);
         shards.recover(&run, !tail.last_text.is_empty(), Instant::now());
@@ -2202,6 +2241,41 @@ mod tests {
         let mut shards = Shards::default();
         rescan(&mut run, &source, &mut contracts, &mut shards);
         assert_eq!(shards_told(&told), [vec![id.to_string()]]);
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    /// The first reading of the running log fails (the file is locked): the watcher goes on, tries again after a
+    /// pause and brings the shard once it works; the failure is reported once.
+    #[cfg(windows)]
+    #[test]
+    fn a_running_log_that_could_not_be_read_at_the_start_is_read_again_later() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let (home, game, paths) = home_with_game("start-wiederholen");
+        let id = "pub_euw1b_13165946_220";
+        let log = format!("{game}/Game.log");
+        std::fs::write(&log, format!("{}nothing\n", join_line("16:00:00", id))).expect("log");
+        shard_run!(paths, run, told, source);
+        let mut tail = LogTail::new(&source, ReadState::open(&paths), run.pattern.clone());
+        let mut contracts = Contracts::new(&paths, &mut tail);
+        let mut shards = Shards::default();
+        let lock = std::fs::OpenOptions::new().read(true).share_mode(0).open(&log).expect("lock");
+        let (first, caught) = versekit_core::errors::captured(|| contracts.at_start(&run).map(|_| ()));
+        assert!(first.is_none(), "the locked log gives nothing");
+        assert_eq!(caught.iter().filter(|c| c.label == "watcher.auftraege_start").count(), 1);
+        let t0 = Instant::now();
+        let (_, caught) = versekit_core::errors::captured(|| {
+            contracts.retry_start(&run, &mut shards, t0);
+            contracts.retry_start(&run, &mut shards, t0 + START_RETRY_EVERY);
+        });
+        assert!(shards_told(&told).is_empty(), "still locked: no shard");
+        assert!(caught.is_empty(), "the same failure is not reported again: {caught:?}");
+        drop(lock);
+        contracts.retry_start(&run, &mut shards, t0 + START_RETRY_EVERY + Duration::from_secs(1));
+        assert!(shards_told(&told).is_empty(), "not before the pause is over");
+        contracts.retry_start(&run, &mut shards, t0 + START_RETRY_EVERY * 2);
+        assert_eq!(shards_told(&told), [vec![id.to_string()]]);
+        contracts.retry_start(&run, &mut shards, t0 + START_RETRY_EVERY * 4);
+        assert!(shards_told(&told).is_empty(), "once it worked, it is not read again");
         let _ = std::fs::remove_dir_all(home);
     }
 

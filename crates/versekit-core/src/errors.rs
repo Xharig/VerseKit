@@ -39,7 +39,7 @@ pub fn set_note_sink(sink: impl Fn(&str, &str) + Send + Sync + 'static) {
 ///
 /// ⚠ The sink must not call `note` again (infinite loop).
 pub fn note(label: &str, text: &dyn Display) {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-hilfen"))]
     keep_captured(label, &text.to_string(), true);
     if let Ok(slot) = NOTE_SINK.read()
         && let Some(sink) = slot.as_ref()
@@ -59,7 +59,7 @@ pub fn set_sink(sink: impl Fn(&str, &str) + Send + Sync + 'static) {
 ///
 /// ⚠ The sink must not call `record` again (infinite loop).
 pub fn record(label: &str, error: &dyn Display) {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-hilfen"))]
     keep_captured(label, &error.to_string(), false);
     if let Ok(slot) = SINK.read()
         && let Some(sink) = slot.as_ref()
@@ -69,7 +69,7 @@ pub fn record(label: &str, error: &dyn Display) {
 }
 
 /// One report caught by [`captured`].
-#[cfg(test)]
+#[cfg(any(test, feature = "test-hilfen"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Captured {
     pub label: String,
@@ -78,12 +78,12 @@ pub struct Captured {
     pub note: bool,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-hilfen"))]
 thread_local! {
     static CAPTURED: std::cell::RefCell<Option<Vec<Captured>>> = const { std::cell::RefCell::new(None) };
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-hilfen"))]
 fn keep_captured(label: &str, text: &str, note: bool) {
     CAPTURED.with(|slot| {
         if let Some(list) = slot.borrow_mut().as_mut() {
@@ -95,7 +95,7 @@ fn keep_captured(label: &str, text: &str, note: bool) {
 /// Runs `work` and returns its result with every error and note it reported in this thread (the sinks get them
 /// as well). ⚠ For checks: the sink is one for the whole test run and other checks set their own at any moment,
 /// this list belongs to the thread alone.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-hilfen"))]
 pub fn captured<T>(work: impl FnOnce() -> T) -> (T, Vec<Captured>) {
     let before = CAPTURED.with(|slot| slot.borrow_mut().replace(Vec::new()));
     let result = work();

@@ -125,7 +125,7 @@ fn every_answer_over_the_wire() {
     // A ship bought in the game and a wish list must survive the delivery.
     std::fs::write(
         &file,
-        r#"{"format": 1, "schiffe": [{"name": "Avenger Titan", "hersteller": "", "herkunft": "ingame", "belegung": {}}], "wunsch": [{"name": "Polaris"}]}"#,
+        r#"{"format": 2, "schiffe": [{"name": "Avenger Titan", "hersteller": "", "herkunft": "ingame", "belegung": {}}], "wunsch": [{"name": "Polaris"}]}"#,
     )
     .unwrap();
     let token = inbox::new_token().unwrap();

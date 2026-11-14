@@ -17,6 +17,9 @@ versekit-core.workspace = true
 versekit-gamedata.workspace = true
 versekit-ui = { path = "../versekit-ui" }
 
+[dev-dependencies]
+versekit-core = { workspace = true, features = ["test-hilfen"] }
+
 [target.'cfg(windows)'.dependencies]
 # Process list (is the game running), the find signal, the window photo of
 # the self-check, the mutex of the one overlay and the rounded corners.

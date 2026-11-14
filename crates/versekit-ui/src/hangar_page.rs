@@ -797,21 +797,53 @@ fn details(ships: &[&Map], index: usize) -> String {
         _ => t("s_hg_ingame"),
     };
     let mut parts = vec![origin];
-    if hangar::field_true(entry, "lti") {
-        parts.push(t("s_hg_lti"));
-    } else {
-        let months = hangar::field_int(entry, "versicherung");
-        if months >= 12 && months % 12 == 0 {
-            parts.push(tf("s_hg_vers_jahre", &[("n", Arg::from((months / 12) as usize))]));
-        } else if months > 0 {
-            parts.push(tf("s_hg_vers_monate", &[("n", Arg::from(months as usize))]));
-        }
-    }
+    parts.extend(insurance(entry));
+    // With several ships of the type each line of a ship names its package.
     let carrier = hangar::bundled_with(ships, index);
-    if !carrier.is_empty() && hangar::field_text(entry, "herkunft") != CATALOG {
+    if !carrier.is_empty() && hangar::field_text(entry, "herkunft") != CATALOG && hangar::piece_count(entry) < 2 {
         parts.push(tf("s_hg_beilage", &[("schiff", Arg::from(carrier))]));
     }
     parts.join("  ·  ")
+}
+
+/// The insurance of an entry or of one of its ships: LTI, years or months; `None` without one.
+fn insurance(entry: &Map) -> Option<String> {
+    if hangar::field_true(entry, "lti") {
+        return Some(t("s_hg_lti"));
+    }
+    let months = hangar::field_int(entry, "versicherung");
+    if months >= 12 && months % 12 == 0 {
+        Some(tf("s_hg_vers_jahre", &[("n", Arg::from((months / 12) as usize))]))
+    } else if months > 0 {
+        Some(tf("s_hg_vers_monate", &[("n", Arg::from(months as usize))]))
+    } else {
+        None
+    }
+}
+
+/// One line per ship of a type with several: where it came from and its insurance. Empty for a single ship.
+fn piece_lines(ships: &[&Map], index: usize) -> Vec<String> {
+    let entry = ships[index];
+    if hangar::piece_count(entry) < 2 {
+        return Vec::new();
+    }
+    hangar::pieces(entry)
+        .into_iter()
+        .enumerate()
+        .map(|(n, piece)| {
+            let carrier = hangar::piece_bundled_with(ships, index, piece);
+            let package = hangar::field_text(piece, "paket");
+            let origin = if !carrier.is_empty() {
+                tf("s_hg_beilage", &[("schiff", Arg::from(carrier))])
+            } else if !package.trim().is_empty() {
+                tf("s_hg_stueck_paket", &[("paket", Arg::from(package.trim()))])
+            } else {
+                t("s_hg_einzeln")
+            };
+            let text = std::iter::once(origin).chain(insurance(piece)).collect::<Vec<_>>().join("  ·  ");
+            tf("s_hg_stueck_zeile", &[("n", Arg::from(n + 1)), ("text", Arg::from(text))])
+        })
+        .collect()
 }
 
 /// The slots part of the details line (three states, `_hangar_row`):
@@ -1110,6 +1142,15 @@ fn ship_row(
             // The hover over the name: the full name and the base values; without values only the full name of a
             // cut name, as every label does. Looked up only while the pointer is on the name.
             line.with_layout(egui::Layout::left_to_right(egui::Align::Center), |line| {
+                let count = hangar::piece_count(entry);
+                if count > 1 {
+                    let n = [("n", Arg::from(count))];
+                    let mark = RichText::new(tf("s_hg_stueck_anzahl", &n)).strong().color(color(scheme.accent));
+                    let response = line.label(mark);
+                    let spoken = tf("s_hg_stueck_anzahl_name", &n);
+                    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, &spoken));
+                    response.on_hover_text(tf("s_hg_stueck_anzahl_hilfe", &n));
+                }
                 let name = hangar::field_text(entry, "name");
                 let label = egui::Label::new(RichText::new(name).strong()).truncate().show_tooltip_when_elided(false);
                 let response = line.add(label);
@@ -1129,6 +1170,9 @@ fn ship_row(
     let line = format!("{}  ·  {slots}", details(ships, i));
     let tone = if concept { scheme.gold } else { scheme.sub };
     ui.add(egui::Label::new(RichText::new(line).small().color(color(tone))).wrap());
+    for piece in piece_lines(ships, i) {
+        ui.add(egui::Label::new(RichText::new(piece).small().color(color(scheme.sub))).wrap());
+    }
     // Fixed places: the melt choice at the left, the ready switch at the
     // right under the remove button, the mark right-aligned before it. What does
     // not fit goes to its own line below, right-aligned; nothing moves the
@@ -2458,6 +2502,107 @@ mod tests {
         assert!(adding.y > note.y + 8.0, "the buttons stand under the note: {note:?} {adding:?}");
         assert!(fleet.y > adding.y - 2.0, "the fleet button is not above the first: {adding:?} {fleet:?}");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Two Skylarks: one on its own, one with the Centaurus.
+    const TWO_SKYLARKS: &str = r#"{"format": 2, "schiffe": [
+        {"name": "Constellation Mk V Centaurus", "hersteller": "Roberts Space Industries", "hkurz": "RSI",
+         "herkunft": "pledge", "lti": true, "belegung": {}},
+        {"name": "Skylark", "hersteller": "Roberts Space Industries", "hkurz": "RSI", "herkunft": "pledge", "lti": true,
+         "paket": "Constellation Mk V Centaurus", "belegung": {},
+         "stuecke": [{"lti": true}, {"paket": "Constellation Mk V Centaurus", "lti": true, "versicherung": 120}]}]}"#;
+
+    /// Two ships of one type: one card, the count before the name, a line for each ship; the details line of the
+    /// type leaves the package to those lines.
+    #[test]
+    fn two_ships_of_one_type_are_one_card_with_the_count_and_a_line_each() {
+        let _language = crate::language_lock();
+        steady();
+        let (mut state, dir) = page_on("stuecke", TWO_SKYLARKS);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let count = tf("s_hg_stueck_anzahl", &[("n", Arg::from(2usize))]);
+        let line = |n: usize, text: String| tf("s_hg_stueck_zeile", &[("n", Arg::from(n)), ("text", Arg::from(text))]);
+        let first = line(1, format!("{}  ·  {}", t("s_hg_einzeln"), t("s_hg_lti")));
+        let carrier = tf("s_hg_beilage", &[("schiff", Arg::from("Constellation Mk V Centaurus"))]);
+        let second = line(2, format!("{carrier}  ·  {}", t("s_hg_lti")));
+        for width in [1100.0, 380.0] {
+            let mut texts = Vec::new();
+            for _ in 0..3 {
+                texts = head_drawn(&ctx, &mut state, width, Vec::new());
+            }
+            let shown: Vec<&str> = texts.iter().map(|(text, _)| text.as_str()).collect();
+            assert_eq!(shown.iter().filter(|s| **s == count).count(), 1, "width {width}: {shown:?}");
+            assert!(shown.contains(&first.as_str()) && shown.contains(&second.as_str()), "width {width}: {shown:?}");
+            let type_line = shown.iter().filter(|s| s.starts_with(&t("s_hg_pledge"))).any(|s| s.contains(&carrier));
+            assert!(!type_line, "the package stands in the lines of the ships: {shown:?}");
+        }
+        // A screen reader hears the count as words.
+        let spoken = tf("s_hg_stueck_anzahl_name", &[("n", Arg::from(2usize))]);
+        ctx.enable_accesskit();
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1100.0, 900.0))),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| show_page(ui, versekit_core::theme::current(), &mut state));
+        output.textures_delta.clear();
+        let update = output.platform_output.accesskit_update.expect("accesskit is on");
+        // egui gives a text label its words as the value of the node.
+        let said: Vec<String> =
+            update.nodes.iter().filter(|(_, n)| n.role() == Role::Label).filter_map(|(_, n)| n.value().map(str::to_owned)).collect();
+        assert!(said.contains(&spoken), "{spoken} not among {said:?}");
+        assert!(!said.contains(&tf("s_hg_stueck_anzahl", &[("n", Arg::from(2usize))])), "not the bare mark");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The count and the lines of the ships stay whole in both languages, in a narrow and a wide window.
+    #[test]
+    fn the_count_and_the_lines_of_the_ships_are_not_cut() {
+        let _language = crate::language_lock();
+        steady_scheme();
+        let mut findings = Vec::new();
+        for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
+            versekit_core::language::set_thread_language(choice);
+            let (mut state, dir) = page_on("stuecke-ganz", TWO_SKYLARKS);
+            let ctx = egui::Context::default();
+            crate::install(&ctx);
+            let line = |n: usize, text: String| tf("s_hg_stueck_zeile", &[("n", Arg::from(n)), ("text", Arg::from(text))]);
+            let carrier = tf("s_hg_beilage", &[("schiff", Arg::from("Constellation Mk V Centaurus"))]);
+            let wanted = [
+                tf("s_hg_stueck_anzahl", &[("n", Arg::from(2usize))]),
+                line(1, format!("{}  ·  {}", t("s_hg_einzeln"), t("s_hg_lti"))),
+                line(2, format!("{carrier}  ·  {}", t("s_hg_lti"))),
+                "Skylark".to_string(),
+            ];
+            for width in [320.0_f32, 380.0, 900.0] {
+                let scheme = versekit_core::theme::current();
+                let mut texts = Vec::new();
+                for _ in 0..3 {
+                    let input = egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 3000.0))),
+                        ..Default::default()
+                    };
+                    let mut output = ctx.run_ui(input, |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| show_page(ui, scheme, &mut state));
+                    });
+                    output.textures_delta.clear();
+                    texts = texts_with_clip(&output);
+                }
+                for text in &wanted {
+                    if !texts.iter().any(|(drawn, _, _)| drawn == text) {
+                        findings.push(format!("{choice:?} {width}: {text:?} not drawn whole"));
+                    }
+                }
+                for (text, rect, clip) in texts.iter().filter(|(text, _, _)| wanted.contains(text)) {
+                    let inside = rect.min.x >= clip.min.x - 0.5 && rect.max.x <= clip.max.x + 0.5 && rect.max.x <= width;
+                    if !inside {
+                        findings.push(format!("{choice:?} {width}: {text:?} at {rect:?} outside {clip:?}"));
+                    }
+                }
+            }
+            let _ = std::fs::remove_dir_all(dir);
+        }
+        assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
     /// A page on `hangar.json` in a new folder, with a UEX list of two ships.
