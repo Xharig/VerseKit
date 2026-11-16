@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.6 - 2026-11-16
+
+> A follow-up to 5.3.5: you can now type into the search field of the info
+> bar on Linux with KDE as well.
+
+### Fixed
+
+- **Info bar search field (Linux, KDE):** The search field took no input
+  under KDE because KDE gave the keyboard straight back to the game.
+  VerseKit now asks KDE to activate the bar for typing and hands the
+  activation back to the game afterwards (Reported by rurudotorg).
+
 ## v5.3.5 - 2026-11-16
 
 > A small follow-up to 5.3.4: the info bar over the game stays where you drag

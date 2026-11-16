@@ -81,14 +81,45 @@ pub fn passing_input(passing: bool, locked: bool, lock: Option<Rect>) -> Option<
     lock.filter(|lock| passing && locked && lock.w > 0 && lock.h > 0)
 }
 
+/// True under KDE: `desktop` (the value of `XDG_CURRENT_DESKTOP`, a list split by `:`) names it.
+fn is_kde(desktop: Option<&str>) -> bool {
+    desktop.is_some_and(|d| d.split(':').any(|part| part.trim().eq_ignore_ascii_case("kde")))
+}
+
 /// The window type asked for: the value of [`WINDOW_TYPE_VAR`] (`var`) where it is set, else under KDE (`desktop`,
 /// the value of `XDG_CURRENT_DESKTOP`, a list split by `:`) the on-screen display, which KWin keeps above a game in
 /// full screen. `normal` keeps the type winit gives.
 pub fn window_type_choice(var: Option<&str>, desktop: Option<&str>) -> Option<String> {
     match var.map(str::trim).filter(|v| !v.is_empty()) {
         Some(asked) => Some(asked.to_string()),
-        None => desktop.filter(|d| d.split(':').any(|part| part.trim().eq_ignore_ascii_case("kde"))).map(|_| "osd".into()),
+        None => is_kde(desktop).then(|| "osd".into()),
     }
+}
+
+/// True where the window takes the keyboard by asking the window manager to activate it (`_NET_ACTIVE_WINDOW`)
+/// instead of by `SetInputFocus`: under KDE (`desktop` as for [`window_type_choice`]), whose window manager takes
+/// a focus change by another client back, but obeys the request of a tool.
+pub fn typing_activation_wanted(desktop: Option<&str>) -> bool {
+    is_kde(desktop)
+}
+
+/// The data of the `_NET_ACTIVE_WINDOW` message: the source 2 (a tool, which the window manager obeys without the
+/// check against focus stealing), no time, `current` (the window that is active now, 0 for none), two unused.
+pub fn active_request_data(current: u32) -> [u32; 5] {
+    [2, 0, current, 0, 0]
+}
+
+/// The window to give the keyboard back to once the typing is over: `active` (the active window as the window
+/// manager lists it) while it is a window other than `win` (the info bar), else what was remembered before
+/// (`stored`). 0 and 1 are "none" and "pointer root", no window.
+pub fn remember_before(stored: u32, active: u32, win: u32) -> u32 {
+    if active > 1 && active != win { active } else { stored }
+}
+
+/// The window to activate when the typing is over: `before` (see [`remember_before`]), only while the info bar
+/// (`win`) is still the active window (`active`), so that a window the user went to meanwhile keeps the keyboard.
+pub fn give_back_to(before: u32, active: u32, win: u32) -> Option<u32> {
+    (before > 1 && before != win && active == win).then_some(before)
 }
 
 /// The X11 window types (`_NET_WM_WINDOW_TYPE`) for the value of [`WINDOW_TYPE_VAR`], the one asked for
@@ -122,7 +153,10 @@ mod system {
     use x11rb::rust_connection::RustConnection;
     use x11rb::wrapper::ConnectionExt as _;
 
-    use super::{Rect, WINDOW_TYPE_VAR, rounded, window_type_choice, window_types};
+    use super::{
+        Rect, WINDOW_TYPE_VAR, active_request_data, give_back_to, remember_before, rounded, typing_activation_wanted,
+        window_type_choice, window_types,
+    };
 
     struct Link {
         conn: RustConnection,
@@ -176,28 +210,76 @@ mod system {
     /// The window that had the keyboard before the info bar took it for typing.
     static BEFORE_TYPING: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
-    /// Lets the window take the keyboard while `on` (`WM_HINTS.input`) and gives it the focus; off, it never takes
-    /// it again and the window that had the keyboard before gets it back.
-    pub fn allow_typing(xid: isize, on: bool) -> bool {
+    /// The window the window manager lists as active (`_NET_ACTIVE_WINDOW` of the root); 0 where there is none.
+    /// `None` where the window manager does not have the property.
+    fn active_window(link: &Link) -> Option<u32> {
+        let property = atom(link, "_NET_ACTIVE_WINDOW")?;
+        let reply = link.conn.get_property(false, link.root, property, AtomEnum::WINDOW, 0, 1).ok()?.reply().ok()?;
+        Some(reply.value32().and_then(|mut windows| windows.next()).unwrap_or(0))
+    }
+
+    /// Asks the window manager to activate `win` (`_NET_ACTIVE_WINDOW`, [`active_request_data`]), `current` being
+    /// the window active now. Sent on the connection that set `WM_HINTS`, so that the hint is read first.
+    fn request_active(link: &Link, win: u32, current: u32) -> Option<()> {
+        let property = atom(link, "_NET_ACTIVE_WINDOW")?;
+        let event = ClientMessageEvent::new(32, win, property, active_request_data(current));
+        let mask = EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY;
+        link.conn.send_event(false, link.root, mask, event).ok()?;
+        Some(())
+    }
+
+    /// The keyboard by the window manager: the window active now is remembered and `win` activated; off, the
+    /// remembered window is activated while `win` is still the active one.
+    fn typing_by_activation(link: &Link, win: u32, on: bool) -> Option<()> {
+        use std::sync::atomic::Ordering;
+        let active = active_window(link)?;
+        if on {
+            let stored = BEFORE_TYPING.load(Ordering::Relaxed);
+            BEFORE_TYPING.store(remember_before(stored, active, win), Ordering::Relaxed);
+            request_active(link, win, active)
+        } else {
+            let before = BEFORE_TYPING.swap(0, Ordering::Relaxed);
+            match give_back_to(before, active, win) {
+                Some(target) => request_active(link, target, win),
+                None => Some(()),
+            }
+        }
+    }
+
+    /// The keyboard by `SetInputFocus`: the window that has it now is remembered and `win` takes it; off, the
+    /// remembered window gets it back while `win` still has it.
+    fn typing_by_focus(link: &Link, win: u32, on: bool) -> Option<()> {
         use std::sync::atomic::Ordering;
         use x11rb::protocol::xproto::InputFocus;
+        let focus = link.conn.get_input_focus().ok()?.reply().ok()?.focus;
+        if on {
+            if focus != win {
+                BEFORE_TYPING.store(focus, Ordering::Relaxed);
+            }
+            link.conn.set_input_focus(InputFocus::PARENT, win, x11rb::CURRENT_TIME).ok()?;
+        } else {
+            let before = BEFORE_TYPING.swap(0, Ordering::Relaxed);
+            // 0 and 1 are "none" and "pointer root", no window to give the keyboard back to.
+            if focus == win && before > 1 {
+                link.conn.set_input_focus(InputFocus::PARENT, before, x11rb::CURRENT_TIME).ok()?;
+            }
+        }
+        Some(())
+    }
+
+    /// Lets the window take the keyboard while `on` (`WM_HINTS.input`) and gives it the focus; off, it never takes
+    /// it again and the window that had the keyboard before gets it back. Where [`typing_activation_wanted`] the
+    /// window manager is asked to activate the window (and the one before), elsewhere, and where it does not know
+    /// `_NET_ACTIVE_WINDOW`, the focus is set.
+    pub fn allow_typing(xid: isize, on: bool) -> bool {
         let Some(win) = window(xid) else { return false };
+        let by_activation = typing_activation_wanted(std::env::var("XDG_CURRENT_DESKTOP").ok().as_deref());
         with_link(|link| {
             let mut hints = WmHints::get(&link.conn, win).ok()?.reply().ok()?.unwrap_or_default();
             hints.input = Some(on);
             hints.set(&link.conn, win).ok()?;
-            let focus = link.conn.get_input_focus().ok()?.reply().ok()?.focus;
-            if on {
-                if focus != win {
-                    BEFORE_TYPING.store(focus, Ordering::Relaxed);
-                }
-                link.conn.set_input_focus(InputFocus::PARENT, win, x11rb::CURRENT_TIME).ok()?;
-            } else {
-                let before = BEFORE_TYPING.swap(0, Ordering::Relaxed);
-                // 0 and 1 are "none" and "pointer root", no window to give the keyboard back to.
-                if focus == win && before > 1 {
-                    link.conn.set_input_focus(InputFocus::PARENT, before, x11rb::CURRENT_TIME).ok()?;
-                }
+            if !(by_activation && typing_by_activation(link, win, on).is_some()) {
+                typing_by_focus(link, win, on)?;
             }
             link.conn.flush().ok()
         })
@@ -414,5 +496,51 @@ mod tests {
         assert_eq!(window_types(window_type_choice(Some("normal"), Some("KDE")).as_deref()), None, "normal takes it back");
         assert_eq!(window_type_choice(None, Some("GNOME")), None, "other desktops as before");
         assert_eq!(window_type_choice(None, None), None);
+    }
+
+    /// Only under KDE the keyboard comes by the activation request; other desktops keep `SetInputFocus`.
+    #[test]
+    fn only_kde_takes_the_keyboard_by_activation() {
+        assert!(typing_activation_wanted(Some("KDE")));
+        assert!(typing_activation_wanted(Some("ubuntu:KDE")), "a list of desktops");
+        assert!(typing_activation_wanted(Some(" kde ")), "case and spaces do not matter");
+        assert!(!typing_activation_wanted(Some("GNOME")));
+        assert!(!typing_activation_wanted(Some("X-Cinnamon")));
+        assert!(!typing_activation_wanted(Some("")));
+        assert!(!typing_activation_wanted(None));
+    }
+
+    /// ⚠ The source is 2 (a tool): KWin obeys that without the check against focus stealing, which a 1 (a program)
+    /// with no time would fail.
+    #[test]
+    fn the_activation_request_comes_from_a_tool() {
+        assert_eq!(active_request_data(0x40_0007), [2, 0, 0x40_0007, 0, 0]);
+        assert_eq!(active_request_data(0), [2, 0, 0, 0, 0], "no window active");
+    }
+
+    /// The window the window manager lists as active is the one to go back to, not the one that had the focus.
+    #[test]
+    fn the_window_before_the_typing_is_the_active_one() {
+        let (bar, game, other) = (10, 20, 30);
+        assert_eq!(remember_before(0, game, bar), game);
+        assert_eq!(remember_before(other, game, bar), game, "the newer one wins");
+        assert_eq!(remember_before(game, bar, bar), game, "the bar itself is never the one before");
+        assert_eq!(remember_before(game, 0, bar), game, "none active: what was remembered stays");
+        assert_eq!(remember_before(game, 1, bar), game, "pointer root is no window");
+        assert_eq!(remember_before(0, 0, bar), 0);
+    }
+
+    /// The game gets the activation back only while the bar is the active window; where the user went elsewhere
+    /// meanwhile, or where there is nothing to go back to, nothing is sent.
+    #[test]
+    fn the_activation_goes_back_only_while_the_bar_is_active() {
+        let (bar, game, other) = (10, 20, 30);
+        assert_eq!(give_back_to(game, bar, bar), Some(game));
+        assert_eq!(give_back_to(game, other, bar), None, "the user went to another window");
+        assert_eq!(give_back_to(game, game, bar), None, "the game is active already");
+        assert_eq!(give_back_to(game, 0, bar), None, "a window of another kind is active");
+        assert_eq!(give_back_to(0, bar, bar), None, "nothing remembered");
+        assert_eq!(give_back_to(1, bar, bar), None, "pointer root is no window");
+        assert_eq!(give_back_to(bar, bar, bar), None, "not to itself");
     }
 }

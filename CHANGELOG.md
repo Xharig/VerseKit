@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.6 - 2026-11-16
+
+> Nachbesserung zu 5.3.5: Ins Suchfeld der Info-Leiste könnt ihr jetzt auch
+> unter Linux mit KDE tippen.
+
+### Behoben
+
+- **Suchfeld der Info-Leiste (Linux, KDE):** Das Suchfeld nahm unter KDE
+  keine Eingabe an, weil KDE die Tastatur sofort wieder an das Spiel
+  zurückgab. VerseKit bittet KDE jetzt, die Leiste zum Tippen zu aktivieren,
+  und gibt die Aktivierung danach an das Spiel zurück (Gemeldet von
+  rurudotorg).
+
 ## v5.3.5 - 2026-11-16
 
 > Kleine Nachbesserung zu 5.3.4: Die Info-Leiste über dem Spiel bleibt dort,
