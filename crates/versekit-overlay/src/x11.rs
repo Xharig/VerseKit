@@ -160,8 +160,8 @@ mod system {
     use x11rb::wrapper::ConnectionExt as _;
 
     use super::{
-        Rect, WINDOW_TYPE_VAR, active_request_data, give_back_to, remember_before, rounded, typing_activation_wanted,
-        window_type_choice, window_types,
+        Rect, WINDOW_TYPE_VAR, active_request_data, give_back_to, manager_places, remember_before, rounded,
+        typing_activation_wanted, window_type_choice, window_types,
     };
 
     struct Link {
