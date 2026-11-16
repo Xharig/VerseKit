@@ -78,11 +78,12 @@ mod os {
 
     #[cfg(windows)]
     pub use crate::win::{
-        allow_typing, beep, game_process, nudge_pointer, pointer, reassert_topmost, set_rect, set_region, window_rect,
+        allow_typing, beep, game_process, move_to, nudge_pointer, pointer, reassert_topmost, set_rect, set_region,
+        window_rect,
     };
 
     #[cfg(all(unix, not(target_os = "macos")))]
-    pub use super::x11::{allow_typing, reassert_topmost, set_region, window_rect};
+    pub use super::x11::{allow_typing, move_to, reassert_topmost, set_region, window_rect};
 
     /// The short sound of a find; `loud` for one that must not be missed.
     #[cfg(not(windows))]
@@ -107,6 +108,10 @@ mod os {
     }
     #[cfg(target_os = "macos")]
     pub fn reassert_topmost(_hwnd: isize) {}
+    #[cfg(target_os = "macos")]
+    pub fn move_to(_hwnd: isize, _x: i32, _y: i32) -> bool {
+        false
+    }
     #[cfg(target_os = "macos")]
     pub fn allow_typing(_hwnd: isize, _on: bool) -> bool {
         false

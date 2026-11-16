@@ -291,6 +291,16 @@ mod system {
         .unwrap_or(0)
     }
 
+    /// Moves the window to `x`, `y` (screen pixels), its size kept. Sent without waiting for the answer.
+    pub fn move_to(xid: isize, x: i32, y: i32) -> bool {
+        let Some(win) = window(xid) else { return false };
+        with_link(|link| {
+            link.conn.configure_window(win, &ConfigureWindowAux::new().x(x).y(y)).ok()?;
+            link.conn.flush().ok()
+        })
+        .is_some()
+    }
+
     /// Place and size of the window in screen pixels; empty when it cannot be asked.
     pub fn window_rect(xid: isize) -> Rect {
         let Some(win) = window(xid) else { return Rect::default() };

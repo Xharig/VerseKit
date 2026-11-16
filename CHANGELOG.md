@@ -6,6 +6,22 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.5 - 2026-11-16
+
+> Kleine Nachbesserung zu 5.3.4: Die Info-Leiste über dem Spiel bleibt dort,
+> wo ihr sie hinzieht, auch unter Linux mit KDE.
+
+### Behoben
+
+- **Info-Leiste springt zurück (Linux, KDE):** KDE setzte die Leiste bei
+  jeder Änderung ihrer Breite wieder in die Mitte, auf zwei Drittel der
+  Bildschirmhöhe, mitten ins Blickfeld. VerseKit stellt sie jetzt sofort
+  wieder dorthin, wo ihr sie hingezogen habt (Gemeldet von rurudotorg).
+- **Info-Leiste auf Bildschirmen mit unterschiedlicher Skalierung
+  (Windows):** Die Leiste kam beim Ziehen nur einen Teil des Weges weit. Ihre
+  Position rechnet VerseKit jetzt mit der Skalierung des Bildschirms um, auf
+  dem sie steht.
+
 ## v5.3.4 - 2026-11-14
 
 > Kleine Nachbesserung zu 5.3.3: Mehrere Schiffe desselben Typs im Hangar

@@ -468,6 +468,12 @@ pub fn window_rect(hwnd: isize) -> Rect {
     Rect::new(r.left, r.top, r.right - r.left, r.bottom - r.top)
 }
 
+/// Moves the window to `x`, `y` (screen pixels), its size and place in the stack kept, without activating it.
+pub fn move_to(hwnd: isize, x: i32, y: i32) -> bool {
+    // SAFETY: plain numbers for our own window.
+    unsafe { SetWindowPos(hwnd as HWND, std::ptr::null_mut(), x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE) != 0 }
+}
+
 /// Moves and sizes the window at once, without activating it.
 pub fn set_rect(hwnd: isize, r: Rect) {
     // SAFETY: plain numbers for our own window.

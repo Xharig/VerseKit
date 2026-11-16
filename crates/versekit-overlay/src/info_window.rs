@@ -273,6 +273,7 @@ impl InfoWindow {
         // bar is kept stays as it was.
         let (x, y) = if self.grab.is_none() { (keep_inside(x, width_px, super::work_at(x, y)), y) } else { (x, y) };
         self.placed = Some((x, y));
+        let place = place_scale(ctx, self.id, self.zoom, ppp);
         let size = view::size(self.width, self.height) * self.zoom;
         let builder = egui::ViewportBuilder::default()
             .with_title(versekit_core::language::window_title(&versekit_core::language::t("ib_fenstertitel")))
@@ -283,7 +284,7 @@ impl InfoWindow {
             .with_always_on_top()
             .with_active(false)
             .with_taskbar(false)
-            .with_position([x as f32 / ppp, y as f32 / ppp])
+            .with_position([x as f32 / place, y as f32 / place])
             .with_inner_size(size)
             .with_mouse_passthrough(!content.movable)
             .with_visible(self.may_show());
@@ -361,6 +362,12 @@ impl InfoWindow {
             ));
         }
         self.find_native();
+        if self.native != 0
+            && let Some((to_x, to_y)) = put_back((x, y), os::window_rect(self.native))
+        {
+            trail(&format!("put back from elsewhere to {to_x},{to_y}"));
+            os::move_to(self.native, to_x, to_y);
+        }
         // A drag starts from where the window stands.
         if drawn.drag && self.grab.is_none() {
             self.at = Some((x, y));
@@ -463,6 +470,25 @@ impl InfoWindow {
     }
 }
 
+/// Where the bar's window goes back to: `wanted` (screen pixels) when the window system put it more than a pixel
+/// elsewhere (KWin places an on-screen display anew at every change of its size), `None` while it stands there or
+/// its place cannot be asked (`real` empty).
+fn put_back(wanted: (i32, i32), real: versekit_core::overlay::Rect) -> Option<(i32, i32)> {
+    let off = (real.x - wanted.0).abs() > 1 || (real.y - wanted.1).abs() > 1;
+    (real.w > 0 && real.h > 0 && off).then_some(wanted)
+}
+
+/// Screen pixels per point of a place given to the bar's window. The window system takes the place in points of the
+/// bar's own window, whose screen can scale otherwise than the overlay's: its points per pixel as its last frame saw
+/// them, without the bar's own `zoom`. `ppp` (the overlay's) stands in before the bar's first frame.
+fn place_scale(ctx: &egui::Context, bar: egui::ViewportId, zoom: f32, ppp: f32) -> f32 {
+    let native = ctx.input_for(bar, |input| input.viewport().native_pixels_per_point);
+    match native {
+        Some(native) if native.is_finite() && native > 0.0 => ctx.zoom_factor() * native / zoom.max(0.01),
+        _ => ppp,
+    }
+}
+
 /// The left end of a window `width` pixels wide at `x`, moved left so that it ends inside `work`, but never past
 /// its left edge.
 fn keep_inside(x: i32, width: i32, work: versekit_core::overlay::Rect) -> i32 {
@@ -484,6 +510,46 @@ mod tests {
     }
     use versekit_core::screen::{self, Monitor, Setup};
     use versekit_core::theme;
+
+    /// KWin put the bar in the middle at two thirds of the screen (1080 high: 720) after its width changed: it goes
+    /// back to where it was dragged. Where it stands, or a pixel off, or not to be asked, it stays.
+    #[test]
+    fn a_bar_the_window_system_moved_goes_back_to_its_place() {
+        use versekit_core::overlay::Rect;
+        assert_eq!(put_back((40, 12), Rect::new(820, 704, 280, 32)), Some((40, 12)), "placed by KWin");
+        assert_eq!(put_back((40, 12), Rect::new(40, 12, 280, 32)), None, "where it was put");
+        assert_eq!(put_back((40, 12), Rect::new(41, 11, 280, 32)), None, "a pixel off");
+        assert_eq!(put_back((40, 12), Rect::default()), None, "not to be asked");
+        assert_eq!(put_back((2000, 12), Rect::new(1960, 12, 280, 32)), Some((2000, 12)), "on the second screen");
+    }
+
+    /// One pass of the bar's own window on a screen that has `native` pixels per point.
+    fn bar_pass(ctx: &egui::Context, bar: egui::ViewportId, native: f32) {
+        let info = egui::ViewportInfo { native_pixels_per_point: Some(native), ..Default::default() };
+        let input = egui::RawInput {
+            viewport_id: bar,
+            viewports: std::iter::once((bar, info)).collect(),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |_| {});
+        output.textures_delta.clear();
+    }
+
+    /// The overlay on a screen at 150 %, the bar on one at 100 %: the place goes to the window system in points of
+    /// the bar's screen, so 2000 pixels stay 2000 and do not shrink to two thirds; the bar's own zoom does not count.
+    #[test]
+    fn the_place_of_the_bar_is_in_points_of_its_own_screen() {
+        let ctx = egui::Context::default();
+        let bar = egui::ViewportId::from_hash_of("bar");
+        assert_eq!(place_scale(&ctx, bar, 1.0, 1.5), 1.5, "before its first frame: the overlay's scale");
+        bar_pass(&ctx, bar, 1.0);
+        assert_eq!(place_scale(&ctx, bar, 1.0, 1.5), 1.0, "its own screen");
+        versekit_ui::viewport_zoom::set(&ctx, bar, 1.25);
+        bar_pass(&ctx, bar, 1.0);
+        assert!((place_scale(&ctx, bar, 1.25, 1.5) - 1.0).abs() < 1e-5, "its own zoom left out");
+        bar_pass(&ctx, bar, 2.0);
+        assert!((place_scale(&ctx, bar, 1.25, 1.5) - 2.0).abs() < 1e-5, "a screen at 200 %");
+    }
 
     /// A main screen of 2560 x 1440 pixels with a panel of 48 at the bottom.
     fn one_screen() -> Setup {

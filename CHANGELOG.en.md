@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.5 - 2026-11-16
+
+> A small follow-up to 5.3.4: the info bar over the game stays where you drag
+> it, also on Linux with KDE.
+
+### Fixed
+
+- **Info bar jumps back (Linux, KDE):** KDE put the bar back in the middle,
+  at two thirds of the screen height and right in your view, every time its
+  width changed. VerseKit now puts it straight back where you dragged it
+  (Reported by rurudotorg).
+- **Info bar on screens with different scaling (Windows):** The bar only got
+  part of the way while dragged. VerseKit now works out its position with the
+  scaling of the screen it stands on.
+
 ## v5.3.4 - 2026-11-14
 
 > A small follow-up to 5.3.3: several ships of the same type in the hangar
