@@ -76,6 +76,7 @@
     <nav aria-label="Seiten" data-en-aria-label="Pages">
       <a class="weg" href="#merkmale" data-de="Funktionen" data-en="Features">Funktionen</a>
       <a class="weg" href="rundgang/" data-de="Rundgang" data-en="Tour">Rundgang</a>
+      <a class="weg weg-breit" href="#orgas" data-de="Für Orgas" data-en="For orgs">Für Orgas</a>
       <a class="kopf-laden" href="herunterladen/" data-de="Herunterladen" data-en="Download">Herunterladen</a>
       <a class="weg" href="herunterladen/#sicher" data-de="Sicher?" data-en="Safe?">Sicher?</a>
       <a class="weg weg-breit" href="deine-daten/" data-de="Deine Daten" data-en="Your data">Deine Daten</a>
@@ -87,6 +88,7 @@
           <a href="#merkmale" data-de="Funktionen" data-en="Features">Funktionen</a>
           <a href="rundgang/" data-de="Rundgang" data-en="Tour">Rundgang</a>
           <a href="herunterladen/" data-de="Herunterladen" data-en="Download">Herunterladen</a>
+          <a href="#orgas" data-de="Für Orgas" data-en="For orgs">Für Orgas</a>
           <a href="herunterladen/#sicher" data-de="Ist das sicher?" data-en="Is it safe?">Ist das sicher?</a>
           <a href="deine-daten/" data-de="Deine Daten" data-en="Your data">Deine Daten</a>
           <a href="fragen/" data-de="Häufige Fragen" data-en="FAQ">Häufige Fragen</a>
@@ -137,6 +139,7 @@
       <p class="klein"
          data-de="Kostenlos und quelloffen unter GPL-3.0. Herunterladen, starten, fertig."
          data-en="Free and open source under GPL-3.0. Download, run, done.">Kostenlos und quelloffen unter GPL-3.0. Herunterladen, starten, fertig.</p>
+      <p class="anderes"><a href="#orgas" data-de="Neu: Für Orgas, euer Panel mit VerseKit verbinden" data-en="New: for orgs, connect your panel to VerseKit">Neu: Für Orgas, euer Panel mit VerseKit verbinden</a></p>
     </div>
 
     <!-- Version, Größe und Downloads trägt das Skript nach, sobald GitHub
@@ -182,6 +185,31 @@
     </figure>
   </div>
 </div>
+
+<section id="orgas">
+  <div class="mitte">
+    <h2 data-de="Neu für Orgas: euer Panel, verbunden mit VerseKit"
+        data-en="New for orgs: your panel, connected to VerseKit">Neu für Orgas: euer Panel, verbunden mit VerseKit</h2>
+    <article class="gross">
+      <figure class="winkel">
+        <img src="assets/screenshot-orga-verbinden.png" width="1400" height="860" loading="lazy"
+             alt="Orga verbinden in VerseKit: eine verbundene Orga mit Adresse, Mitglied, Rechten und je einem Schalter für Bestand, Baupläne und Aufträge"
+             data-en-alt="Connect org in VerseKit: a connected org with address, member, rights and one switch each for stock, blueprints and orders">
+      </figure>
+      <div>
+        <h3 data-de="Ein offener Standard für eure Orga" data-en="An open standard for your org">Ein offener Standard für eure Orga</h3>
+        <p data-de="Über den offenen VerseKit-Orga-Standard holen sich eure Mitglieder Lager, Baupläne und Aufträge der Orga direkt in VerseKit, teilen ihren Bestand und ihre Baupläne auf Klick zurück und buchen Lieferungen zu euren Aufträgen. Angemeldet wird mit einem Code im Browser, ein Passwort sieht VerseKit nie, und welche Rechte es bekommt, legt jedes Mitglied in eurem Panel fest."
+           data-en="Through the open VerseKit org standard your members pull the org's stock, blueprints and orders right into VerseKit, share their stock and blueprints back with a click and book deliveries to your orders. Signing in works with a code in the browser, VerseKit never sees a password, and every member sets in your panel which rights it gets.">Über den offenen VerseKit-Orga-Standard holen sich eure Mitglieder Lager, Baupläne und Aufträge der Orga direkt in VerseKit, teilen ihren Bestand und ihre Baupläne auf Klick zurück und buchen Lieferungen zu euren Aufträgen. Angemeldet wird mit einem Code im Browser, ein Passwort sieht VerseKit nie, und welche Rechte es bekommt, legt jedes Mitglied in eurem Panel fest.</p>
+        <p data-de="Habt ihr ein eigenes Panel, baut ihr den Standard dort ein: Beschreibung mit OpenAPI und ein Prüfwerkzeug, das euren Server so abfragt wie VerseKit, liegen offen auf GitHub. Ohne eigenes Panel nehmt ihr den fertigen Orga-Server als Docker-Image, auch für NAS und Raspberry Pi, mit Verwaltung für die Leitung und einem Mitglieder-Portal mit Anmeldung über Discord."
+           data-en="If you run your own panel, you build the standard into it: the description with OpenAPI and a check tool that asks your server the way VerseKit does are open on GitHub. Without a panel of your own you take the ready-made org server as a Docker image, NAS and Raspberry Pi too, with an administration for the leaders and a members' portal with Discord sign-in.">Habt ihr ein eigenes Panel, baut ihr den Standard dort ein: Beschreibung mit OpenAPI und ein Prüfwerkzeug, das euren Server so abfragt wie VerseKit, liegen offen auf GitHub. Ohne eigenes Panel nehmt ihr den fertigen Orga-Server als Docker-Image, auch für NAS und Raspberry Pi, mit Verwaltung für die Leitung und einem Mitglieder-Portal mit Anmeldung über Discord.</p>
+        <div class="knopfreihe">
+          <a class="knopf voll" href="https://github.com/Xharig/VerseKit/blob/main/tools/orga-standard/README.md" data-en-href="https://github.com/Xharig/VerseKit/blob/main/tools/orga-standard/README.en.md"><span data-de="Standard einbauen" data-en="Build in the standard">Standard einbauen</span></a>
+          <a class="knopf" href="https://github.com/Xharig/VerseKit/blob/main/tools/orga-standard/selbst-hosten.md" data-en-href="https://github.com/Xharig/VerseKit/blob/main/tools/orga-standard/selbst-hosten.en.md"><span data-de="Orga-Server selbst hosten" data-en="Host the org server yourself">Orga-Server selbst hosten</span></a>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
 
 <section id="merkmale">
   <div class="mitte">
