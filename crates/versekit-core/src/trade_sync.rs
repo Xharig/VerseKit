@@ -65,7 +65,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).unwrap();
         let home = folder.to_string_lossy().into_owned();
-        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::legacy::ENV_HOME, &home)], &home);
+        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::envvars::ENV_HOME, &home)], &home);
         let paths = Paths::new(host);
         let asked = std::sync::atomic::AtomicUsize::new(0);
         let fetch = |_: &str| -> Result<Vec<u8>, FetchError> {
@@ -78,7 +78,7 @@ mod tests {
         assert!(asked.load(std::sync::atomic::Ordering::Relaxed) >= 5, "every list was asked once");
         // With the network switched off in the environment given nobody is asked, whatever the shell has.
         let mut off = paths.host.clone();
-        off.set_var(crate::legacy::ENV_NO_NET, "1");
+        off.set_var(crate::envvars::ENV_NO_NET, "1");
         let before = asked.load(std::sync::atomic::Ordering::Relaxed);
         let result = pass(&Paths::new(off), 1_790_000_000.0, &fetch);
         assert_eq!(result.selling, Update::Off);

@@ -61,7 +61,7 @@ fn paths_in(name: &str) -> (Paths, std::path::PathBuf) {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let home = dir.to_string_lossy().into_owned();
-    (Paths::new(Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, home.as_str())], &home)), dir)
+    (Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, home.as_str())], &home)), dir)
 }
 
 #[test]

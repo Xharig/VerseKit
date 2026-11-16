@@ -19,7 +19,7 @@
 //! keeps the token in a folder inside the copy, never in the one of the player's own installation.
 
 use versekit_core::basetool::secrets::{self, REFRESH_SECRET};
-use versekit_core::legacy::{ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
+use versekit_core::envvars::{ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
 use versekit_core::paths::{COPY_DATA_FOLDER, Host, Paths};
 
 use super::SamplePage;

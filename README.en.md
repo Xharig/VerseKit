@@ -8,8 +8,6 @@
 
 <sub>Windows · Linux · free · no account, no cloud</sub>
 
-<sub>formerly **SC BP Watcher** · your collection and settings are kept</sub>
-
 [![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=9ce430&labelColor=161c28)](https://github.com/Xharig/VerseKit/releases)
 [![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FXharig%2FVerseKit%2Fzaehler%2Fdownloads.json&label=Downloads&color=9ce430&labelColor=161c28)](https://github.com/Xharig/VerseKit/releases)
 [![Website](https://img.shields.io/badge/Website-take%20the%20tour-9ce430?labelColor=161c28)](https://versekit.xharig.com/)
@@ -223,6 +221,12 @@ Buying and selling: **where is a part or ship on the shelf, where do I offload m
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-kartellbank-en.png" alt="Cartel Bank: two accounts with balance and curve of the last 30 days, sample data" width="100%"><br>
 <sub><b>Cartel Bank</b>: your accounts from the Basetool with balance and history, plus requests for deposits, withdrawals and transfers. The picture shows sample data</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-orga-verbinden-en.png" alt="Connect org: a made-up org with address, member, rights and one switch each for stock, blueprints and orders" width="100%"><br>
+<sub><b>Connect org</b>: connect VerseKit to your org's panel if its server speaks the open VerseKit org standard. The org's stock, blueprints and orders then show up in VerseKit. The picture shows a made-up org</sub>
 </td>
 </tr>
 </table>
@@ -452,6 +456,7 @@ What makes the difference day to day:
 | <img src="assets/symbole/22/statistik-gruen.png" width="22" alt=""> **Statistics** | A section with five tabs: **overview** (play time, sessions, contracts, quantum jumps, heat map of **when you play**), **ships & equipment**, **contracts**, **quantum travel** and **stability** (crashes, disconnects). Plus what you spent in shops and **earned**, by commodity and place, terminal sales included, and injuries counted as minor, moderate or severe. Only what is reliably in the log in every game language is counted. Each session is kept, even when the logs are deleted. Can be saved as a file |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **Translation per channel** | Which text file Star Citizen reads is set **separately for each channel**: LIVE, HOTFIX, PTU, EPTU and Tech Preview, one card per channel with its language list and sources. Every channel gets text file, language and blueprint details, or nothing. HOTFIX and the test channels can follow with “Same as LIVE”. VerseKit fetches new releases by itself, it looks every five minutes, after a patch too, and only asks GitHub whether anything changed. If another program puts its own text file in, VerseKit puts the chosen one back and keeps the other one beside it. Available are **German** (Dymerz), **StarStrings** (MrKraken, PTU too), **French, Italian, Spanish, Portuguese and Turkish** (Dymerz), eight languages from the **SC Launch Configurator** (Luftwerft: German, English, French, Italian, Spanish, Bavarian, Dutch and Portuguese, for LIVE and PTU), the game's own **English** or **none at all**. You enter another source as an **URL**: a zip or a `global.ini`, `https://` only. Anything that is not a game text file is rejected |
 | <img src="assets/symbole/22/basetool-gruen.png" width="22" alt=""> **Sync with the KRT Profit Basetool** | Blueprints, My Inventory and your hangar sync with your Basetool, both ways. Plus the demand and your **unit's storage** (group **Fleet & Logistics**), where you put your own goods and items with a button on their row and take them back. You stay the owner. Refinery orders sync too, and the **Cartel Bank** page (group **Trade**) shows your accounts and booking requests, kept in memory only. Only what changed is sent. When the Basetool asks for a pause, the connection page shows until when and why. Ship parts and gadgets go by their class name. If sharing into unit storage does not get through, VerseKit catches up by itself, and where the button is missing, a greyed button gives the reason. You connect with a code in your browser, VerseKit never sees a password. Every area is off by default, nothing is deleted silently, and your ships' purchase data never leaves. What is transferred is in the [privacy statement](PRIVACY.en.md). The connection sits under **Settings → Connection & sync**, the demand under **Procurement** |
+| <img src="assets/symbole/22/teilen-gruen.png" width="22" alt=""> **Connect org** | Connects VerseKit to your org's panel, as long as its server speaks the **open VerseKit org standard**. You enter the address and confirm a code in the panel, VerseKit never sees a password. You set the rights VerseKit gets in the panel, plus one switch per org and area. VerseKit then shows the **org's stock, blueprints and orders**, kept in memory only, your own inventory stays untouched. Only what you share yourself or book as a delivery goes out. If your org has no server of its own, a ready-made org server to host yourself is described in the [org standard](tools/orga-standard/README.en.md). What is transferred is in the [privacy statement](PRIVACY.en.md#connect-org) |
 | <img src="assets/symbole/22/quellen-gruen.png" width="22" alt=""> **Connect to scmdb.net** | New blueprints and running missions land straight in your scmdb account. Turn it on under *Settings → General*, then enable “Watcher” on scmdb.net. Only LIVE and HOTFIX are taken over, off by default |
 | <img src="assets/symbole/22/bestaetigt-gruen.png" width="22" alt=""> **All blueprints, or only the obtainable ones** | Only some blueprints are handed out by contracts, the rest comes from kiosks, events or is tied to no mission. Out of the box only the obtainable ones count, so your progress is a number you can measure. Under *Detection* you add the rest |
 | <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Report a problem in one click** | A field for one sentence, the finished report below it, a red button beside it. Up to four **screenshots** can go along. The report holds **neither your user name nor your paths**, and you see all of it beforehand. If VerseKit crashed last time, it says so once on the next start: “View report” opens “Report a problem”, it is sent only if you want, and “Don't send” discards the crash |
@@ -608,7 +613,7 @@ What a version brought you can read in [`CHANGELOG.en.md`](https://github.com/Xh
 | Sync with the KRT Profit Basetool or your scmdb.net account | only if you switch it on |
 | Problem report | only when you press the button yourself, and you see its contents first |
 
-What exactly each message contains is in the [privacy policy](https://github.com/Xharig/VerseKit/blob/main/PRIVACY.en.md). **All fetching and sending** can be switched off with `SC_BP_NO_NET=1`. The info bar reads its values from the game picture on your own machine, every few seconds the top right corner, and only while Star Citizen is in front.
+What exactly each message contains is in the [privacy policy](https://github.com/Xharig/VerseKit/blob/main/PRIVACY.en.md). **All fetching and sending** can be switched off with `VERSEKIT_NO_NET=1`. The info bar reads its values from the game picture on your own machine, every few seconds the top right corner, and only while Star Citizen is in front.
 
 **Passing it on:** Just pass on the file from the [releases page](https://github.com/Xharig/VerseKit/releases). The recipient only needs Star Citizen.
 

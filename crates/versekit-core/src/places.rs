@@ -191,7 +191,6 @@ mod tests {
     }
 
     fn scratch(name: &str) -> (String, Paths) {
-        use crate::legacy;
         use crate::paths::Host;
         use crate::pypath::Flavor;
         let home = std::env::temp_dir()
@@ -200,7 +199,7 @@ mod tests {
             .replace('\\', "/");
         let _ = std::fs::remove_dir_all(&home);
         std::fs::create_dir_all(&home).expect("folder");
-        let host = Host::new(Flavor::native(), &[(legacy::ENV_HOME, &home)], &home);
+        let host = Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, &home)], &home);
         (home, Paths::new(host))
     }
 

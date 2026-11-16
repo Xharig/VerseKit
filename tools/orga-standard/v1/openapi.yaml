@@ -1,0 +1,552 @@
+# VerseKit org standard (versekit-org), version 1.
+# SPDX-License-Identifier: GPL-3.0-only
+openapi: 3.1.0
+info:
+  title: VerseKit org standard (versekit-org)
+  version: "1.0.0"
+  summary: How an org server lets VerseKit members connect and share stock, blueprints and order deliveries.
+  description: |
+    An org runs a server that follows this description. A member types the server's address into
+    VerseKit (Settings › Connect org). VerseKit reads the discovery document, logs in with a code
+    the member confirms on the org's own page (OAuth 2.0 Device Authorization Grant, RFC 8628),
+    and then uses the API below with a bearer token.
+
+    Rules every server keeps:
+    - HTTPS only. Every address in the discovery document lies on the host the member typed or
+      below it (`https://orga.example.org`, `https://api.orga.example.org`). VerseKit refuses others.
+    - Tokens are kept as hashes. Access tokens live at most one hour, refresh tokens are rotated on
+      every refresh and the old one is invalid afterwards.
+    - The member decides on the confirmation page which of the requested rights are granted.
+    - Unknown fields are ignored on both sides. Version 1 only grows by new optional fields, new
+      endpoints and new rights. A change that breaks clients becomes version 2 with its own
+      `api_base`; the discovery document lists both versions during the change.
+    - Errors of the API are `application/problem+json` (RFC 9457) with a `code`.
+    - `429` and `503` carry `Retry-After` in seconds.
+
+    The template server `crates/versekit-orgserver` in the VerseKit repository follows this description.
+  license:
+    name: GPL-3.0-only
+    identifier: GPL-3.0-only
+servers:
+  - url: https://orga.example.org
+    description: The address the member types. The API lies at `api_base` from the discovery document.
+tags:
+  - name: discovery
+  - name: login
+  - name: api
+paths:
+  /.well-known/versekit-org.json:
+    get:
+      tags: [discovery]
+      operationId: discovery
+      summary: What the server is and where its endpoints are.
+      security: []
+      responses:
+        "200":
+          description: The discovery document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Discovery" }
+              example:
+                standard: versekit-org
+                org: { name: Beispiel-Orga, tag: BSP, homepage: "https://orga.example.org" }
+                versions:
+                  "1":
+                    api_base: https://orga.example.org/versekit/v1
+                    device_authorization_endpoint: https://orga.example.org/versekit/v1/device/code
+                    token_endpoint: https://orga.example.org/versekit/v1/token
+                    revocation_endpoint: https://orga.example.org/versekit/v1/revoke
+                    verification_uri: https://orga.example.org/device
+                    scopes_supported: [stock:read, stock:write, blueprints:read, blueprints:write, orders:read, orders:write]
+  /versekit/v1/device/code:
+    post:
+      tags: [login]
+      operationId: deviceCode
+      summary: Start a login (RFC 8628, section 3.1). The path is the one named in the discovery document.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [client_id, scope]
+              properties:
+                client_id: { type: string, example: versekit }
+                scope:
+                  type: string
+                  description: The requested rights, separated by spaces. Unknown rights are dropped.
+                  example: stock:read stock:write blueprints:read
+      responses:
+        "200":
+          description: A code for the member.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceCode" }
+        "400":
+          description: "`invalid_scope` when none of the rights is known."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthError" }
+  /versekit/v1/token:
+    post:
+      tags: [login]
+      operationId: token
+      summary: Fetch tokens after the confirmation, or refresh them (RFC 8628 section 3.4, RFC 6749 section 6).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+                - type: object
+                  required: [grant_type, device_code, client_id]
+                  properties:
+                    grant_type: { const: "urn:ietf:params:oauth:grant-type:device_code" }
+                    device_code: { type: string }
+                    client_id: { type: string }
+                - type: object
+                  required: [grant_type, refresh_token, client_id]
+                  properties:
+                    grant_type: { const: refresh_token }
+                    refresh_token: { type: string }
+                    client_id: { type: string }
+      responses:
+        "200":
+          description: New tokens. A refresh returns a new refresh token; the old one is invalid.
+          headers:
+            Cache-Control: { schema: { const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tokens" }
+        "400":
+          description: |
+            `authorization_pending` (not confirmed yet), `slow_down` (poll five seconds slower),
+            `access_denied` (the member refused), `expired_token` (the code ran out),
+            `invalid_grant` (unknown device code or refresh token: log in again).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthError" }
+  /versekit/v1/revoke:
+    post:
+      tags: [login]
+      operationId: revoke
+      summary: End the connection (RFC 7009). Revoking a refresh token also ends its access tokens.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+                token_type_hint: { type: string, example: refresh_token }
+                client_id: { type: string }
+      responses:
+        "200":
+          description: Always, also for an unknown token.
+  /device:
+    get:
+      tags: [login]
+      operationId: confirmationPage
+      summary: The page of the org where the member types the code and confirms the rights (`verification_uri`).
+      description: |
+        Not called by VerseKit; VerseKit shows the bare address and opens it in the browser. How the
+        member signs in here (Discord, the org's own login, a personal key) is up to the org. The page
+        shows the org, the member and the requested rights, and lets the member untick rights.
+        VerseKit never opens an address with the code built in (`verification_uri_complete`).
+      security: []
+      responses:
+        "200":
+          description: An HTML page.
+  /versekit/v1/me:
+    get:
+      tags: [api]
+      operationId: me
+      summary: Who is connected and with which rights. Needs no right.
+      responses:
+        "200":
+          description: The member.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /versekit/v1/stock:
+    get:
+      tags: [api]
+      operationId: orgStock
+      summary: The stock the members share. Right `stock:read`.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/StockItem"
+                        - type: object
+                          properties:
+                            member: { type: string, description: The member who shares it. }
+                  next_cursor: { $ref: "#/components/schemas/NextCursor" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ScopeMissing" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /versekit/v1/stock/mine:
+    put:
+      tags: [api]
+      operationId: shareStock
+      summary: Replace the stock this member shares (the whole list; idempotent). Right `stock:write`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 5000
+                  items: { $ref: "#/components/schemas/StockItem" }
+      responses:
+        "200":
+          description: Stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items_stored: { type: integer }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ScopeMissing" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /versekit/v1/blueprints:
+    get:
+      tags: [api]
+      operationId: orgBlueprints
+      summary: The blueprints of the org and who holds them. Right `blueprints:read`.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [blueprints]
+                properties:
+                  blueprints:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, holders]
+                      properties:
+                        name: { type: string, example: P4-AR Rifle }
+                        holders: { type: array, items: { type: string } }
+                  next_cursor: { $ref: "#/components/schemas/NextCursor" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ScopeMissing" }
+  /versekit/v1/blueprints/mine:
+    put:
+      tags: [api]
+      operationId: shareBlueprints
+      summary: Replace the blueprints this member shares (the whole list; idempotent). Right `blueprints:write`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [blueprints]
+              properties:
+                blueprints:
+                  type: array
+                  maxItems: 10000
+                  items: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "200":
+          description: Stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blueprints_stored: { type: integer }
+        "400": { $ref: "#/components/responses/InvalidBody" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ScopeMissing" }
+  /versekit/v1/orders:
+    get:
+      tags: [api]
+      operationId: orders
+      summary: The orders of the org. Right `orders:read`.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders]
+                properties:
+                  orders: { type: array, items: { $ref: "#/components/schemas/Order" } }
+                  next_cursor: { $ref: "#/components/schemas/NextCursor" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ScopeMissing" }
+  /versekit/v1/orders/{orderId}/deliveries:
+    post:
+      tags: [api]
+      operationId: deliver
+      summary: Book a delivery to an open order. Right `orders:write`.
+      description: |
+        The same `Idempotency-Key` from the same member gets the first answer again and books
+        nothing more, so a repeat after a network error never books twice.
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [item, quantity]
+                    properties:
+                      item: { type: string }
+                      quantity: { type: number, exclusiveMinimum: 0 }
+      responses:
+        "201":
+          description: Booked; the order as it stands now.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  delivery_id: { type: string }
+                  order: { $ref: "#/components/schemas/Order" }
+        "400":
+          description: "`IDEMPOTENCY_KEY_MISSING` or `INVALID_BODY`."
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ScopeMissing" }
+        "404":
+          description: "`NOT_FOUND`: no such order."
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409":
+          description: "`ORDER_CLOSED`: the order is no longer open."
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422":
+          description: "`ITEM_NOT_IN_ORDER`: an item the order does not ask for."
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+security:
+  - bearer: []
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: The access token from the token endpoint.
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: The `next_cursor` of the page before. Unknown cursors give `400 INVALID_CURSOR`.
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Entries per page; the server may give fewer.
+      schema: { type: integer, minimum: 1, maximum: 1000, default: 500 }
+  responses:
+    Unauthorized:
+      description: "`UNAUTHORIZED`: token missing, unknown or expired. VerseKit refreshes once and tries again."
+      headers:
+        WWW-Authenticate: { schema: { type: string, example: 'Bearer error="invalid_token"' } }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    ScopeMissing:
+      description: "`SCOPE_MISSING`: the member did not grant this right."
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    InvalidBody:
+      description: "`INVALID_BODY`: the body is no JSON or breaks the schema."
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    RateLimited:
+      description: "`RATE_LIMITED`: too many requests; again after `Retry-After`."
+      headers:
+        Retry-After: { schema: { type: integer, minimum: 1 } }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Scope:
+      type: string
+      enum: [stock:read, stock:write, blueprints:read, blueprints:write, orders:read, orders:write]
+    Discovery:
+      type: object
+      required: [standard, org, versions]
+      properties:
+        standard: { const: versekit-org }
+        org:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string, maxLength: 80 }
+            tag: { type: string, maxLength: 12 }
+            homepage: { type: string, format: uri }
+        server:
+          type: object
+          description: Optional, informational. The software and its version; clients never depend on it.
+          properties:
+            name: { type: string, example: versekit-orgserver }
+            version: { type: string, example: 1.0.0 }
+        versions:
+          type: object
+          description: One entry per major version the server speaks, keyed by its number.
+          properties:
+            "1": { $ref: "#/components/schemas/VersionEntry" }
+          additionalProperties: true
+    VersionEntry:
+      type: object
+      required: [api_base, device_authorization_endpoint, token_endpoint, scopes_supported]
+      properties:
+        api_base: { type: string, format: uri, description: The paths of the API below are relative to it. }
+        device_authorization_endpoint: { type: string, format: uri }
+        token_endpoint: { type: string, format: uri }
+        revocation_endpoint: { type: string, format: uri }
+        verification_uri: { type: string, format: uri, description: Informational; the device code answer is binding. }
+        scopes_supported: { type: array, items: { $ref: "#/components/schemas/Scope" } }
+    DeviceCode:
+      type: object
+      required: [device_code, user_code, verification_uri, expires_in]
+      properties:
+        device_code: { type: string, description: Secret; only VerseKit knows it. }
+        user_code:
+          type: string
+          pattern: "^[A-Za-z0-9-]{1,20}$"
+          description: Shown in VerseKit, typed by the member. Recommended eight letters as `BCDF-GHJK` (RFC 8628, section 6.1).
+          example: BCDF-GHJK
+        verification_uri: { type: string, format: uri, description: The bare page to confirm on, on the org's host. }
+        expires_in: { type: integer, example: 600 }
+        interval: { type: integer, default: 5, description: Seconds between two polls. }
+    Tokens:
+      type: object
+      required: [access_token, token_type, refresh_token]
+      properties:
+        access_token: { type: string }
+        token_type: { const: Bearer }
+        expires_in: { type: integer, maximum: 3600, default: 3600 }
+        refresh_token: { type: string }
+        scope: { type: string, description: The granted rights, separated by spaces. }
+    OAuthError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum: [authorization_pending, slow_down, access_denied, expired_token, invalid_grant, invalid_scope, unsupported_grant_type]
+    Me:
+      type: object
+      required: [member, scopes]
+      properties:
+        member:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: string }
+        org:
+          type: object
+          properties:
+            name: { type: string }
+            tag: { type: string }
+        scopes: { type: array, items: { $ref: "#/components/schemas/Scope" } }
+    StockItem:
+      type: object
+      required: [item, quantity]
+      properties:
+        item: { type: string, maxLength: 200, description: The English name of the item or commodity as in the game. }
+        quantity: { type: number, minimum: 0 }
+        unit: { type: string, maxLength: 20, example: scu, description: "`scu`, `cscu` or `piece`; without it pieces." }
+        quality: { type: integer, minimum: 0, maximum: 1000 }
+        location: { type: string, maxLength: 200 }
+    Order:
+      type: object
+      required: [id, title, status, items]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        status: { type: string, enum: [open, done, cancelled] }
+        location: { type: string, maxLength: 200, description: Where the goods go. Optional. }
+        due: { type: string, format: date, description: "The due date, `YYYY-MM-DD`. Optional." }
+        note: { type: string, maxLength: 1000, description: A note of the org's leadership. Optional. }
+        items:
+          type: array
+          items:
+            type: object
+            required: [item, quantity, delivered]
+            properties:
+              item: { type: string }
+              quantity: { type: number }
+              unit: { type: string }
+              delivered: { type: number }
+    NextCursor:
+      type: [string, "null"]
+      description: Present while more pages follow; pass it as `cursor`.
+    Problem:
+      type: object
+      required: [status, code]
+      properties:
+        type: { type: string, example: about:blank }
+        title: { type: string }
+        status: { type: integer }
+        code:
+          type: string
+          enum: [UNAUTHORIZED, SCOPE_MISSING, NOT_FOUND, METHOD_NOT_ALLOWED, INVALID_BODY, INVALID_CURSOR, IDEMPOTENCY_KEY_MISSING, ORDER_CLOSED, ITEM_NOT_IN_ORDER, RATE_LIMITED, MAINTENANCE, INVALID_REQUEST]
+        detail: { type: string }

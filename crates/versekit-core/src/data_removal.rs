@@ -20,12 +20,13 @@
 //!
 //! The places:
 //!
-//! 1. the data folders the program named itself: the default folders under Documents (the one of older
-//!    installations and the new one) and, on a copy of the data, its data folder;
+//! 1. the data folders the program named itself: the default folders under Documents (under the current name
+//!    and under each earlier one, [`EARLIER_FOLDER_NAMES`]) and, on a copy of the data, its data folder;
 //! 2. the data folder a pointer file names, only when it holds a mark of the program ([`marked`]) and does not lie
 //!    on the network (that one is only named, [`Kind::Network`]);
-//! 3. the configuration folder next to the second pointer, the folder of the stored secrets (not when it is named
-//!    by the environment variable) and the folder the installers of updates are fetched to.
+//! 3. the configuration folders next to the second pointer (the one of the current name and the one of the
+//!    previous version, [`config_folders`]), the folder of the stored secrets (not when it is named by the
+//!    environment variable) and the folder the installers of updates are fetched to.
 //!
 //! ⚠⚠ Only what is known to be the program's goes, also in a data folder the user chose (Documents, the desktop,
 //! the root of a disk). A folder a pointer names without a mark is left as it is. In a data folder only files
@@ -46,8 +47,10 @@ use std::sync::LazyLock;
 
 use crate::basetool::secrets;
 use crate::jsonio::Value;
-use crate::paths::{COPY_DATA_FOLDER, NEW_FOLDER_NAME, Paths, SETTINGS_FILE};
-use crate::{jsonio, legacy, updater, writeguard};
+use crate::paths::{
+    CONFIG_FOLDER_NAME, COPY_DATA_FOLDER, EARLIER_FOLDER_NAMES, NEW_FOLDER_NAME, Paths, SETTINGS_FILE,
+};
+use crate::{envvars, jsonio, legacy, orgstd, updater, writeguard};
 
 /// The switch of the program that removes the own data and ends; the uninstaller passes it.
 pub const SWITCH: &str = "--eigene-daten-loeschen";
@@ -71,8 +74,12 @@ const INNER_PARENT: &str = "Intern";
 /// signature scanner (`signature_scan::save_sample`), the pictures kept for later (`signature_watch::keep_pending`),
 /// the pictures of handles (`handle_query::pictures::file_name`) and the kept pictures of the refinery
 /// (`refinery_scan::screen::keep`).
-pub const INNER_FOLDERS: [(&str, &str); 5] = [
+pub const INNER_FOLDERS: [(&str, &str); 6] = [
     (crate::backup::BEFORE_UPDATE_FOLDER, r"^vor-update-\d{4}-\d{2}-\d{2}-\d{6}-[^\\/]+\.zip(\.teil)?$"),
+    (
+        crate::backup::BEFORE_VERSION_CHANGE_FOLDER,
+        r"^vor-versionswechsel-\d{4}-\d{2}-\d{2}-\d{6}-[^\\/]+\.zip(\.teil)?$",
+    ),
     (crate::signature_scan::SAMPLE_FOLDER, r"^\d+_\d{8}-\d{6}-\d{3}\.png$"),
     (crate::signature_watch::PENDING_FOLDER, r"^\d{16}\.bin$"),
     (crate::handle_query::pictures::FOLDER, r"^[0-9a-f]{16}\.bild$"),
@@ -90,6 +97,7 @@ pub const KNOWN_FILES: &[&str] = &[
     "absturz-fassung.txt",
     "absturz-letzter-fassung.txt",
     "absturz-letzter.txt",
+    "ablage.json",
     "absturz-overlay-fassung.txt",
     "absturz-overlay-letzter-fassung.txt",
     "absturz-overlay-letzter.txt",
@@ -122,7 +130,9 @@ pub const KNOWN_FILES: &[&str] = &[
     "erkul-teile.json",
     "erststart-sicherung.json",
     "fehler.json",
+    "flugbuch.json",
     "fremde-funde.json",
+    "fundorte-spieldaten.json",
     "gesehen.json",
     "grafik.json",
     "handelslager.json",
@@ -293,8 +303,8 @@ fn temporary_of(lower: &str) -> Option<String> {
 /// - `export`: the four export files by their names, their temporary files ([`temporary_of`]), and in `Ältere` the
 ///   dated files of older versions (`<stem>-<YYYY-MM-DD>.json`); a file with content must carry the program's
 ///   mark (its tool name, or the exact keys of the Basetool and the contract export);
-/// - the backups of the first start: `Verse-Kit-Sicherung-vor-VerseKit-5-<YYYY-MM-DD-HHMMSS>[-<n>].zip` and
-///   their part file (`first_backup::file_name`).
+/// - the backups of the first start: `VerseKit-Sicherung-vor-VerseKit-5-<YYYY-MM-DD-HHMMSS>[-<n>].zip` and
+///   their part file (`first_backup::file_name`), also under the name of 5.0 to 5.3.6 (`legacy::BACKUP_FILE_START`).
 pub fn owned_in_common(folder: &str, inner: bool, name: &str, path: &Path) -> bool {
     let lower = name.to_lowercase();
     let temporary = temporary_of(&lower);
@@ -325,8 +335,12 @@ pub fn owned_in_common(folder: &str, inner: bool, name: &str, path: &Path) -> bo
         }
         return stems.iter().any(|stem| lower == format!("{stem}.json")) && export_mark(path);
     }
-    static FIRST: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex(r"^verse-kit-sicherung-vor-versekit-5-\d{4}-\d{2}-\d{2}-\d{6}(-\d+)?\.zip(\.teil)?$"));
+    static FIRST: LazyLock<regex::Regex> = LazyLock::new(|| {
+        let starts = [crate::backup::FILE_START, legacy::BACKUP_FILE_START]
+            .map(|start| regex::escape(&start.to_lowercase()))
+            .join("|");
+        regex(&format!(r"^({starts})-vor-versekit-5-\d{{4}}-\d{{2}}-\d{{2}}-\d{{6}}(-\d+)?\.zip(\.teil)?$"))
+    });
     folder == crate::first_backup::FOLDER && !inner && FIRST.is_match(&lower)
 }
 
@@ -422,7 +436,7 @@ impl Removal {
 ///
 /// [`Refused::NamedFromOutside`] when the data folder is named by the environment variable.
 pub fn places(paths: &Paths) -> Result<Vec<Place>, Refused> {
-    if paths.host.var_set(legacy::ENV_HOME).is_some() {
+    if paths.host.var_set(envvars::ENV_HOME).is_some() {
         return Err(Refused::NamedFromOutside);
     }
     let f = paths.host.flavor;
@@ -438,17 +452,23 @@ pub fn places(paths: &Paths) -> Result<Vec<Place>, Refused> {
     let documents = paths.documents();
     if on_network(&documents) {
         // Documents moved to a server: the default folders there are only named, as a chosen folder on the network.
-        for name in [legacy::DOCUMENTS_FOLDER, NEW_FOLDER_NAME] {
+        for name in document_names() {
             network.push(Place { path: f.join(&documents, name), kind: Kind::Network });
         }
     } else {
-        add(f.join(&documents, legacy::DOCUMENTS_FOLDER), Kind::NamedData);
-        add(f.join(&documents, NEW_FOLDER_NAME), Kind::NamedData);
+        for name in document_names() {
+            add(f.join(&documents, name), Kind::NamedData);
+        }
     }
     if let Some(root) = paths.host.copy.as_deref() {
         add(f.join(root, COPY_DATA_FOLDER), Kind::NamedData);
     }
-    for pointer in [paths.pointer_file(), paths.second_pointer()] {
+    // The pointers at their known places: the visible one of the default folder and of each folder under an
+    // earlier name, the second one in the configuration folder of the current name and of the previous version.
+    let (second, second_old) = paths.second_pointer_places();
+    let mut pointers = vec![paths.pointer_file(), second, second_old];
+    pointers.extend(document_names().map(|name| f.join_all(&documents, &[name, "Einstellungen", SETTINGS_FILE])));
+    for pointer in pointers {
         let Some(value) = paths.read_pointer(&pointer) else { continue };
         let folder = paths.host.expanduser(&value);
         // A relative path or one with a variable would be read against wherever the uninstaller runs.
@@ -468,14 +488,18 @@ pub fn places(paths: &Paths) -> Result<Vec<Place>, Refused> {
             add(folder, Kind::ChosenData);
         }
     }
-    let config = f.dirname(&paths.second_pointer());
-    if last_part_is(&config, legacy::CONFIG_FOLDER) {
+    for config in config_folders(paths) {
         add(config, Kind::Program);
     }
     // A folder of secrets named by the variable is somebody's choice, not the program's folder.
     let secrets_folder = secrets::folder(&paths.host);
-    if paths.host.var_set(legacy::ENV_SECRETS).is_none() && last_part_is(&secrets_folder, SECRETS_LEAF) {
+    if paths.host.var_set(envvars::ENV_SECRETS).is_none() && last_part_is(&secrets_folder, SECRETS_LEAF) {
         add(secrets_folder, Kind::Program);
+    }
+    // The folder of the org connections, the same way.
+    let org_folder = orgstd::store::folder(&paths.host);
+    if paths.host.var_set(orgstd::store::ENV_FOLDER).is_none() && last_part_is(&org_folder, orgstd::store::FOLDER_LEAF) {
+        add(org_folder, Kind::Program);
     }
     if let Some(local) = paths.host.var_set("LOCALAPPDATA") {
         add(f.join_all(local, &updater::INSTALLER_FOLDER), Kind::Program);
@@ -552,7 +576,7 @@ pub fn remove(paths: &Paths) -> Result<Removal, Refused> {
                 remove_if_empty(paths, &place.path, &mut out);
                 // The folder of the program that holds the secrets and the installers, once both are gone.
                 let parent = paths.host.flavor.dirname(&place.path);
-                if !last_part_is(&place.path, legacy::CONFIG_FOLDER) && last_part_is(&parent, "VerseKit") {
+                if !is_config_folder(&place.path) && last_part_is(&parent, "VerseKit") {
                     remove_if_empty(paths, &parent, &mut out);
                 }
             }
@@ -733,6 +757,27 @@ fn is_real_file(path: &str) -> bool {
 fn last_part_is(path: &str, name: &str) -> bool {
     let leaf = path.trim_end_matches(['/', '\\']).rsplit(['/', '\\']).next().unwrap_or("");
     if cfg!(windows) { leaf.eq_ignore_ascii_case(name) } else { leaf == name }
+}
+
+/// The names of the default folder under Documents, the earlier ones first ([`EARLIER_FOLDER_NAMES`]), then the
+/// current one.
+fn document_names() -> impl Iterator<Item = &'static str> {
+    EARLIER_FOLDER_NAMES.into_iter().chain([NEW_FOLDER_NAME])
+}
+
+/// Is the last part of `path` a configuration folder of the program, the one of the current name or the one of the
+/// previous version?
+fn is_config_folder(path: &str) -> bool {
+    last_part_is(path, CONFIG_FOLDER_NAME) || last_part_is(path, legacy::CONFIG_FOLDER)
+}
+
+/// The configuration folders next to the second pointer, the one of the current name and the one of the previous
+/// version, whichever of them is named so: after an upgrade the old one can hold the pointer, the new one its
+/// copy, and the uninstaller must take both.
+fn config_folders(paths: &Paths) -> Vec<String> {
+    let f = paths.host.flavor;
+    let (current, old) = paths.second_pointer_places();
+    [current, old].iter().map(|file| f.dirname(file)).filter(|folder| is_config_folder(folder)).collect()
 }
 
 /// The full, case-folded form of a path, without a separator at the end.

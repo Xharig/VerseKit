@@ -275,7 +275,7 @@ mod tests {
         use versekit_core::pypath::Flavor;
         let dir = versekit_core::testdir::Dir::new("bergbau-spieldaten");
         let text = dir.path().to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text));
         // Costs first, then speed: the table names Electrostarolysis.
         let mut state = MiningState { first: 2, second: 3, ..MiningState::with_files(&paths) };
         assert_eq!(state.methods.origin, refining::Origin::Table, "no file: the table");
@@ -363,7 +363,7 @@ mod tests {
         // this computer and finds the real installation, and the reading would open its archive.
         let no_game = format!("{text}/kein-spiel");
         let mut vars = vec![
-            (versekit_core::legacy::ENV_HOME, text.as_str()),
+            (versekit_core::envvars::ENV_HOME, text.as_str()),
             (versekit_core::game_start::ENV_NO_PROCESS, "1"),
             (versekit_core::paths::ENV_INSTALL_DIR, no_game.as_str()),
         ];
@@ -478,7 +478,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("folder");
         let text = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text));
         let mut state = MiningState::with_files(&paths);
         let ctx = context();
         let (shown, _) = mining(&ctx, &mut state, 900.0);

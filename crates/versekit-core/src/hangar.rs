@@ -316,7 +316,7 @@ pub fn settle(data: &mut Map) {
 /// not overwrite it. `Ok(true)` when something was set aside (also when
 /// `jsonio::load_json` did it while reading a broken file).
 ///
-/// ⚠ Python writes over such a file; Verse-Kit keeps it.
+/// ⚠ Python writes over such a file; VerseKit keeps it.
 fn set_aside_unusable(path: &str) -> Result<bool, String> {
     if !Path::new(path).exists() || read(path).is_some() {
         return Ok(false);

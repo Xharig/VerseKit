@@ -24,8 +24,8 @@
 
 use std::fs;
 
-use crate::errors;
 use crate::jsonio::{self, Map, Value};
+use crate::{envvars, errors};
 use crate::paths::Paths;
 use crate::pypath::Flavor;
 
@@ -54,6 +54,14 @@ pub const EXPORT_TOOL_NAME: &str = "SC BP Watcher";
 /// The mark in the attachment of a backup of 4.12 (`sicherung.txt`): such a backup is still read in.
 pub const BACKUP_MARKER: &str = "SC-BP-Watcher-Sicherung";
 
+/// The mark in the attachment of a backup of 5.0 to 5.3.6, written with the hyphen: such a backup is still read in.
+pub const BACKUP_MARKER_HYPHEN: &str = "Verse-Kit-Sicherung";
+
+/// The start of the file name of a backup of 5.0 to 5.3.6 (`<start>-<date>.zip`, and `<start>-vor-VerseKit-5-…` for
+/// the backup of the first start): such files are still found, read in and counted as the program's own, and never
+/// renamed.
+pub const BACKUP_FILE_START: &str = "Verse-Kit-Sicherung";
+
 /// The name of the previous version's program (without `.exe`), as the
 /// process list shows it.
 pub const PROGRAM_PROCESS: &str = "SC-BP-Watcher";
@@ -74,33 +82,56 @@ pub const OLD_REPO: &str = "Xharig/SC-BP-Watcher";
 /// log.
 pub const UPDATE_HELPER_SCRIPT: &str = "scbp-update-helfer.cmd";
 pub const UPDATE_SETUP_LOG: &str = "scbp-update-setup.txt";
+/// The beginning of the name of every setup log of 4.12 (`scbp-update-setup*.txt`, `report_facts`).
+pub const UPDATE_SETUP_LOG_START: &str = "scbp-update-setup";
 
-/// Environment variable for a custom data folder (test runs, special cases).
-pub const ENV_HOME: &str = "SC_BP_HOME";
+/// What 4.12 put between a game file and the time of its copy (`<file>.scbpw-YYYYMMDD-HHMMSS`): such copies
+/// are still found and counted.
+pub const GAME_BACKUP_MARK: &str = ".scbpw-";
 
-/// Environment variables of the Basetool connection. The test environment
-/// (sandbox) is chosen only through these, never in the user interface:
-/// another issuer, and only together with it another API address, client
-/// id and certificate file.
-pub const ENV_BASETOOL_ISSUER: &str = "SC_BP_BASETOOL_ISSUER";
-pub const ENV_BASETOOL_API: &str = "SC_BP_BASETOOL_API";
-pub const ENV_BASETOOL_CLIENT: &str = "SC_BP_BASETOOL_CLIENT";
-pub const ENV_BASETOOL_CA: &str = "SC_BP_BASETOOL_CA";
-/// Name of the Windows key, so test runs never touch the player's key.
-pub const ENV_BASETOOL_KEYNAME: &str = "SC_BP_BASETOOL_KEYNAME";
-/// No network: only the own computer (127.0.0.1) stays reachable.
-pub const ENV_NO_NET: &str = "SC_BP_NO_NET";
-/// Other address for error reports (test runs); anything that is not an
-/// `https://` address, or `aus`, turns sending off.
-pub const ENV_REPORT_TARGET: &str = "SC_BP_BERICHT_ZIEL";
-/// Folder of the stored secrets, for test runs.
-pub const ENV_SECRETS: &str = "SC_BP_SECRETS";
-/// Secrets in a file even where the Secret Service is there, for test runs.
-pub const ENV_SECRETS_FILE: &str = "SC_BP_SECRETS_FILE";
 /// The file of the own blueprint corrections at another place; the new name comes first (`overrides::ENV_FILE`).
 pub const ENV_OVERRIDES: &str = "SC_BP_OVERRIDES";
 /// Another port of the bridge to scmdb.net; the new name comes first (`scmdb_bridge::ENV_PORT`).
 pub const ENV_SCMDB_PORT: &str = "SC_BP_SCMDB_PORT";
+
+/// The environment variables under the names of the previous version, each after its new name. Where the new one
+/// is not set, the old one counts: [`crate::paths::Host::current`] takes it over under the new name, and
+/// [`crate::envvars::process_var`] reads it.
+pub const OLD_ENV_NAMES: [(&str, &str); 16] = [
+    (envvars::ENV_HOME, "SC_BP_HOME"),
+    (envvars::ENV_BASETOOL_ISSUER, "SC_BP_BASETOOL_ISSUER"),
+    (envvars::ENV_BASETOOL_API, "SC_BP_BASETOOL_API"),
+    (envvars::ENV_BASETOOL_CLIENT, "SC_BP_BASETOOL_CLIENT"),
+    (envvars::ENV_BASETOOL_CA, "SC_BP_BASETOOL_CA"),
+    (envvars::ENV_BASETOOL_KEYNAME, "SC_BP_BASETOOL_KEYNAME"),
+    (envvars::ENV_NO_NET, "SC_BP_NO_NET"),
+    (envvars::ENV_REPORT_TARGET, "SC_BP_BERICHT_ZIEL"),
+    (envvars::ENV_SECRETS, "SC_BP_SECRETS"),
+    (envvars::ENV_SECRETS_FILE, "SC_BP_SECRETS_FILE"),
+    (envvars::ENV_LANGUAGE, "SC_BP_SPRACHE"),
+    (envvars::ENV_TEST_BUILD, "SC_BP_TESTFASSUNG"),
+    (crate::overrides::ENV_FILE, ENV_OVERRIDES),
+    (crate::scmdb_bridge::ENV_PORT, ENV_SCMDB_PORT),
+    (crate::game_start::ENV_NO_PROCESS, "SC_BP_NO_PROCESS"),
+    (crate::usage::ENV_TARGET, "SC_BP_NUTZUNG_ZIEL"),
+];
+
+/// The name the previous version gave the variable `name`, if it had one (without regard to case).
+pub fn old_env_name(name: &str) -> Option<&'static str> {
+    OLD_ENV_NAMES.iter().find(|(new, _)| new.eq_ignore_ascii_case(name)).map(|(_, old)| *old)
+}
+
+/// Takes the variables under their old names over under the new ones where the new one is not there, and drops
+/// the old names, so that only the new names are read and removing a new one removes it altogether.
+pub fn take_over_old_env(host: &mut crate::paths::Host) {
+    for (new, old) in OLD_ENV_NAMES {
+        let Some(value) = host.var(old).map(String::from) else { continue };
+        if host.var(new).is_none() {
+            host.set_var(new, &value);
+        }
+        host.remove_var(old);
+    }
+}
 
 /// Output files in the export folder: the full backup and the contract log.
 /// Older versions put `-<date>` before `.json`.
@@ -145,7 +176,7 @@ impl Paths {
     /// ⚠ Asking for the collection creates the data folder and its subfolder, as every `app_file` does.
     pub fn migration_needed(&self) -> bool {
         let old = self.legacy_app_folder();
-        if !fs::metadata(&old).is_ok_and(|m| m.is_dir()) || self.host.var_set(ENV_HOME).is_some() {
+        if !fs::metadata(&old).is_ok_and(|m| m.is_dir()) || self.host.var_set(envvars::ENV_HOME).is_some() {
             return false;
         }
         let Ok(entries) = fs::read_dir(&old) else { return false };
@@ -283,7 +314,7 @@ mod tests {
         put(&p.app_file("bestand.json"), "{\"neu\": 1}");
         assert!(!p.migration_needed(), "a collection lies in the data folder");
         let mut named = p.host.clone();
-        named.set_var(ENV_HOME, &f.join(&root, "eigen"));
+        named.set_var(envvars::ENV_HOME, &f.join(&root, "eigen"));
         let _ = fs::remove_file(p.app_file("bestand.json"));
         assert!(p.migration_needed());
         assert!(!Paths::new(named).migration_needed(), "a data folder named from outside");
@@ -363,6 +394,32 @@ mod tests {
         age(&file);
         assert_eq!(p.drop_explanation_lines(), 0);
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_variable_under_its_old_name_counts_under_the_new_one_and_the_new_one_wins() {
+        let vars = [("SC_BP_HOME", "/alt"), ("SC_BP_NO_NET", "1"), (envvars::ENV_NO_NET, "0"), ("SC_BP_SPRACHE", "")];
+        let mut host = Host::new(Flavor::Posix, &vars, "/");
+        take_over_old_env(&mut host);
+        assert_eq!(host.var(envvars::ENV_HOME), Some("/alt"));
+        assert_eq!(host.var(envvars::ENV_NO_NET), Some("0"), "the new name wins");
+        assert_eq!(host.var(envvars::ENV_LANGUAGE), Some(""), "an empty one is taken over as it is");
+        for old in ["SC_BP_HOME", "SC_BP_NO_NET", "SC_BP_SPRACHE"] {
+            assert_eq!(host.var(old), None, "{old} is gone");
+        }
+        assert_eq!(Paths::new(host.clone()).given().data.map(|d| d.folder).as_deref(), Some("/alt"));
+        host.remove_var(envvars::ENV_HOME);
+        assert_eq!(host.var(envvars::ENV_HOME), None, "removing the new name removes it altogether");
+
+        let mut windows = Host::new(Flavor::Windows, &[("sc_bp_home", "C:\\alt")], "C:\\");
+        take_over_old_env(&mut windows);
+        assert_eq!(windows.var("VERSEKIT_HOME"), Some("C:\\alt"), "under Windows without regard to case");
+
+        assert_eq!(old_env_name("versekit_home"), Some("SC_BP_HOME"));
+        assert_eq!(old_env_name("PATH"), None);
+        for (new, old) in OLD_ENV_NAMES {
+            assert!(new.starts_with("VERSEKIT_") && old.starts_with("SC_BP_"), "{new} {old}");
+        }
     }
 
     /// The name is what older files carry: a change would stop them from being read in.

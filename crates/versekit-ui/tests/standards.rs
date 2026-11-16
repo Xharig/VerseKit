@@ -330,7 +330,9 @@ fn workspace_sources() -> Vec<(String, String)> {
 const CHANNEL_NAMES: [&str; 5] = ["\"LIVE\"", "\"HOTFIX\"", "\"PTU\"", "\"EPTU\"", "\"TECH-PREVIEW\""];
 
 /// The places that may write the channels out, each with its reason.
-const OWN_CHANNEL_LISTS: [(&str, &str); 3] = [
+const OWN_CHANNEL_LISTS: [(&str, &str); 4] = [
+    // The two channels the player build does not know, whose leftovers it takes back once.
+    ("versekit-core/src/game_texts/retired.rs", "RETIRED, die Kanäle, die dieser Bau nicht kennt"),
     // The one list.
     ("versekit-core/src/paths.rs", "CHANNELS, TEST_CHANNELS und FOLLOWS_LIVE"),
     // Folder names to ids, the longer names first so that EPTU is not read as PTU.
@@ -654,7 +656,10 @@ fn ui_program_sources() -> Vec<(String, String)> {
                     "sample/control_column.rs",
                     "sample/streamer_mode.rs",
                     "sample/silent_buttons.rs",
+                    "sample/card_width.rs",
                     "bank_page/tests.rs",
+                    "contract_finder_page/tests.rs",
+                    "flugbuch_page/tests.rs",
                 ];
                 if test_only.contains(&name.as_str()) {
                     continue;
@@ -1117,5 +1122,69 @@ fn the_text_size_scan_finds_a_number() {
         "// FontId::proportional(11.0) in a comment",
     ] {
         assert!(literal_text_sizes("x.rs", fine).is_empty(), "Fehlalarm: {fine}");
+    }
+}
+
+/// What a file that sends something somewhere names: a network client, a socket, an address, the connection to the
+/// Basetool or to an org, the usage counters, the error report.
+const SENDING_WORDS: [&str; 13] = [
+    "reqwest",
+    "ureq",
+    "TcpStream",
+    "UdpSocket",
+    "std::net",
+    "http://",
+    "https://",
+    "basetool",
+    "org_connect",
+    "usage::",
+    "crate::report",
+    "core::report",
+    "orgserver",
+];
+
+/// The lines of program code (comments cut off, the test module cut off) that name something that sends.
+fn sending_lines(file: &str, text: &str) -> Vec<String> {
+    let program = text.split("#[cfg(test)]\nmod tests").next().unwrap_or_default();
+    let mut found = Vec::new();
+    for (n, line) in program.lines().enumerate() {
+        let code = comment_start(line).map_or(line, |at| &line[..at]);
+        if SENDING_WORDS.iter().any(|word| code.contains(word)) {
+            found.push(format!("{file}:{}: {}", n + 1, line.trim()));
+        }
+    }
+    found
+}
+
+/// The flight log stays on the computer: the files that read it, write it, show it and export it name nothing that
+/// sends (the export is a file or the clipboard, handed on by the player).
+#[test]
+fn the_flight_log_sends_nothing() {
+    let base = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let files = [
+        "../versekit-core/src/flugbuch.rs",
+        "../versekit-core/src/flugbuch_export.rs",
+        "src/flugbuch_page.rs",
+    ];
+    let mut findings = Vec::new();
+    for file in files {
+        let text = fs::read_to_string(base.join(file)).unwrap_or_else(|e| panic!("{file}: {e}"));
+        findings.extend(sending_lines(file, &text));
+    }
+    assert!(findings.is_empty(), "Das Flugbuch nennt etwas, das sendet:\n{}", findings.join("\n"));
+}
+
+#[test]
+fn the_sending_scan_finds_a_network_call() {
+    for sending in [
+        "let client = reqwest::blocking::Client::new();",
+        "let stream = std::net::TcpStream::connect(address);",
+        "let url = \"https://example.org/upload\";",
+        "use versekit_core::usage::count_page;",
+    ] {
+        assert_eq!(sending_lines("x.rs", sending).len(), 1, "nicht gefunden: {sending}");
+    }
+    for fine in ["// reqwest only in a comment", "let path = paths.app_file(FILE);", "ui.ctx().copy_text(text);"] {
+        assert!(sending_lines("x.rs", fine).is_empty(), "Fehlalarm: {fine}");
     }
 }

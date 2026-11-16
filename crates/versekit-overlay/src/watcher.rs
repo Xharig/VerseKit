@@ -353,7 +353,11 @@ impl Contracts {
     fn at_start(&mut self, run: &Run) -> Option<StartLog> {
         // ⚠ Only the running file: after a restart of the game a fresh one begins, and
         // what the kept ones say may long be over.
-        let file = run.paths.game_log(None)?;
+        // No log folder yet (the game is not started, or its folder was found late): tried again later, quietly.
+        let Some(file) = run.paths.game_log(None) else {
+            self.start_failed = true;
+            return None;
+        };
         let log = match StartLog::read(&file) {
             Ok(log) => log,
             Err(e) => {
@@ -561,6 +565,16 @@ fn channel_hint(told: &mut Option<String>, folder: Option<&str>) -> Option<Row> 
     row
 }
 
+/// The hint row of the test build, said once per start: the overlay says on its own that it is not the build players
+/// get. The player build says nothing.
+fn edition_hint(told: &mut bool) -> Option<Row> {
+    if !versekit_core::edition::IS_TEST_BUILD || *told {
+        return None;
+    }
+    *told = true;
+    Some(Row::Hint { text: Phrase::new("s_testfassung").into(), contract: None })
+}
+
 /// The quiet checks that come around now and then: a refinery job that is
 /// over, a corrupt settings file, something newly craftable, a way to start the game.
 struct Periodic {
@@ -576,6 +590,8 @@ struct Periodic {
     starter_known: Option<bool>,
     /// The test channel the hint was said for.
     channel_told: Option<String>,
+    /// The hint of the test build was said.
+    edition_told: bool,
     graphics_next: Instant,
     journal_next: Instant,
 }
@@ -593,6 +609,7 @@ impl Periodic {
             starter_every,
             starter_known: None,
             channel_told: None,
+            edition_told: false,
             graphics_next: now,
             journal_next: now,
         }
@@ -643,6 +660,9 @@ impl Periodic {
         // Data of a test build (PTU, EPTU, TECH-PREVIEW) are confidential by the terms of service: said once
         // for each channel the overlay reads (a hint row, asked for by the community).
         if let Some(row) = channel_hint(&mut self.channel_told, run.paths.game_folder().as_deref()) {
+            run.tell(News::Row(row));
+        }
+        if let Some(row) = edition_hint(&mut self.edition_told) {
             run.tell(News::Row(row));
         }
     }
@@ -796,8 +816,8 @@ pub(crate) fn keep_signatures_with(
     Some(outcome)
 }
 
-/// Starts the keeping of the scan signatures, of the goods with a quality, of the names of the places and of the names
-/// of the goods in a thread of its own, so that the scanner knows the asteroid types and the signatures of the game
+/// Starts the keeping of the scan signatures, of the goods with a quality, of the names of the places, of the names
+/// of the goods and of the places where the raw materials lie in a thread of its own, so that the scanner knows the asteroid types and the signatures of the game
 /// data, the stock the goods of the patch, the location row the names of the patch and the stock journal the goods a
 /// commodity terminal sold, without the main window having been open. Each is read
 /// from the game data only when the archive changed. `paths` are those of the thread ([`thread_paths`]).
@@ -808,6 +828,7 @@ pub fn keep_signatures(paths: Paths, guard: writeguard::State) {
         versekit_gamedata::quality_goods::keep(&paths);
         versekit_gamedata::place_names::keep(&paths);
         versekit_gamedata::commodity_names::keep(&paths);
+        versekit_gamedata::places::keep(&paths);
     });
     if let Err(error) = started {
         errors::record("signatures.thread", &error);
@@ -1348,7 +1369,7 @@ mod tests {
         std::fs::write(&ini, "Bounty_title_001=Kopfgeld\nBounty_desc_001=Fang ihn.\n").expect("ini");
         let host = versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::Posix,
-            &[("HOME", root.as_str()), ("SC_BP_HOME", data.as_str()), ("SC_INSTALL_DIR", live.as_str())],
+            &[("HOME", root.as_str()), ("VERSEKIT_HOME", data.as_str()), ("SC_INSTALL_DIR", live.as_str())],
             &root,
         );
         let paths = Arc::new(Paths::new(host));
@@ -1411,7 +1432,7 @@ mod tests {
         let home = dir.to_string_lossy().replace('\\', "/");
         let paths = Paths::new(Host::new(
             versekit_core::pypath::Flavor::Posix,
-            &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())],
+            &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str())],
             &home,
         ));
         (home, paths)
@@ -1460,7 +1481,7 @@ mod tests {
         assert!(asked.lock().unwrap().iter().any(|url| url != GAME_VERSIONS_URL), "the goods list was due");
         // Without the network of the program nobody is asked.
         let mut off = paths.host.clone();
-        off.set_var(versekit_core::legacy::ENV_NO_NET, "1");
+        off.set_var(versekit_core::envvars::ENV_NO_NET, "1");
         let before = asked.lock().unwrap().len();
         assert!(!keep_stock_once(&Paths::new(off), now, &fetch));
         assert_eq!(asked.lock().unwrap().len(), before);
@@ -1624,7 +1645,7 @@ mod tests {
         let paths = Paths::new(Host::new(
             versekit_core::pypath::Flavor::Posix,
             &[
-                ("SC_BP_HOME", home.as_str()),
+                ("VERSEKIT_HOME", home.as_str()),
                 ("HOME", home.as_str()),
                 (versekit_core::paths::ENV_INSTALL_DIR, game.as_str()),
                 (game_start::ENV_NO_PROCESS, "1"),
@@ -1802,7 +1823,7 @@ mod tests {
         let paths = Paths::new(Host::new(
             versekit_core::pypath::Flavor::Posix,
             &[
-                ("SC_BP_HOME", home.as_str()),
+                ("VERSEKIT_HOME", home.as_str()),
                 ("HOME", home.as_str()),
                 (versekit_core::paths::ENV_INSTALL_DIR, game.as_str()),
                 (game_start::ENV_NO_PROCESS, "1"),
@@ -2022,7 +2043,7 @@ mod tests {
         let paths = Paths::new(Host::new(
             versekit_core::pypath::Flavor::Posix,
             &[
-                ("SC_BP_HOME", home.as_str()),
+                ("VERSEKIT_HOME", home.as_str()),
                 ("HOME", home.as_str()),
                 (versekit_core::paths::ENV_INSTALL_DIR, game.as_str()),
             ],
@@ -2279,6 +2300,30 @@ mod tests {
         let _ = std::fs::remove_dir_all(home);
     }
 
+    /// There is no folder with a Game.log yet when the watcher starts (the game folder was found late, or the game is
+    /// not started): the running log is looked for again after the pause, quietly, and read once it is there.
+    #[test]
+    fn a_running_log_that_is_not_there_yet_is_looked_for_again() {
+        let (home, game, paths) = home_with_game("start-spaeter");
+        let id = "pub_euw1b_13165946_220";
+        let log = format!("{game}/Game.log");
+        std::fs::remove_file(&log).expect("no log yet");
+        shard_run!(paths, run, told, source);
+        let mut tail = LogTail::new(&source, ReadState::open(&paths), run.pattern.clone());
+        let mut contracts = Contracts::new(&paths, &mut tail);
+        let mut shards = Shards::default();
+        let (first, caught) = versekit_core::errors::captured(|| contracts.at_start(&run).map(|_| ()));
+        assert!(first.is_none(), "no log, nothing read");
+        assert!(caught.is_empty(), "a log that is not there yet is no fault to report: {caught:?}");
+        std::fs::write(&log, format!("{}nothing\n", join_line("16:00:00", id))).expect("log");
+        let t0 = Instant::now();
+        contracts.retry_start(&run, &mut shards, t0);
+        assert!(shards_told(&told).is_empty(), "not before the pause is over");
+        contracts.retry_start(&run, &mut shards, t0 + START_RETRY_EVERY * 2);
+        assert_eq!(shards_told(&told), [vec![id.to_string()]]);
+        let _ = std::fs::remove_dir_all(home);
+    }
+
     /// A short "game off" in the same session does not cost the shard: the log goes on with the same joins, and
     /// they are read again. A real end, with the log standing still, leaves none.
     #[test]
@@ -2407,7 +2452,7 @@ mod tests {
         let paths = Paths::new(Host::new(
             versekit_core::pypath::Flavor::Posix,
             &[
-                ("SC_BP_HOME", home.as_str()),
+                ("VERSEKIT_HOME", home.as_str()),
                 ("HOME", home.as_str()),
                 (versekit_core::paths::ENV_INSTALL_DIR, gone.as_str()),
             ],
@@ -2468,10 +2513,26 @@ mod tests {
         assert!(text.render().contains("PTU") && text.render().contains("vertraulich"), "{}", text.render());
         assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\PTU")).is_none(), "said once");
         assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\LIVE")).is_none());
-        assert!(
+        // The channel under the terms of confidentiality is known to the test build only: the player build says
+        // nothing for it.
+        assert_eq!(
             channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\EPTU")).is_some(),
+            versekit_core::edition::IS_TEST_BUILD,
             "another test channel: said again"
         );
+    }
+
+    /// The test build says so once in the overlay; the player build never.
+    #[test]
+    fn the_test_build_says_so_once_in_the_overlay_and_the_player_build_never() {
+        language::set_thread_language(language::Choice::De);
+        let mut told = false;
+        let first = edition_hint(&mut told);
+        assert_eq!(first.is_some(), versekit_core::edition::IS_TEST_BUILD);
+        if let Some(Row::Hint { text, .. }) = first {
+            assert!(text.render().contains("TESTFASSUNG"), "{}", text.render());
+        }
+        assert!(edition_hint(&mut told).is_none(), "said once");
     }
 
     #[test]

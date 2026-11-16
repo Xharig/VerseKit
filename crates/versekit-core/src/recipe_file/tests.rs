@@ -93,9 +93,9 @@ fn paths_in(dir: &Dir, offline: bool) -> Paths {
     let root = dir.path().to_string_lossy().into_owned();
     let data = format!("{root}/data");
     std::fs::create_dir_all(&data).unwrap();
-    let mut vars = vec![("HOME", root.clone()), ("SC_BP_HOME", data)];
+    let mut vars = vec![("HOME", root.clone()), ("VERSEKIT_HOME", data)];
     if offline {
-        vars.push(("SC_BP_NO_NET", "1".to_string()));
+        vars.push(("VERSEKIT_NO_NET", "1".to_string()));
     }
     let vars: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
     Paths::new(Host::new(Flavor::Posix, &vars, &root))

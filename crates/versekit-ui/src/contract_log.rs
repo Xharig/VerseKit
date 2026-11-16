@@ -300,6 +300,8 @@ pub struct LogState {
     not_opened: Option<String>,
     /// How far the widest drawn row stuck out of its place (the list clips it unseen).
     pub row_overflow: f32,
+    /// The heights of the rows at the width they have.
+    heights: RowHeights,
     /// What the last frame showed: toggle words with their counts, and the rows.
     pub(crate) drawn: (Vec<(String, usize)>, Vec<usize>),
     /// The frame the page was drawn in last: a gap means the page was left and entered again.
@@ -508,19 +510,6 @@ pub fn show(
             + 14.0
             + ui.spacing().item_spacing.x
             + 2.0;
-    let text_height = ui.text_style_height(&egui::TextStyle::Body);
-    let small_height = ui.text_style_height(&egui::TextStyle::Small);
-    let row_height = text_height + small_height + 10.0;
-    let height_of = |i: usize| if state.open == Some(i) { row_height + state.detail_height } else { row_height };
-    let tops: Vec<f32> = shown
-        .iter()
-        .scan(0.0, |y, &i| {
-            let top = *y;
-            *y += height_of(i);
-            Some(top)
-        })
-        .collect();
-    let total_height = tops.last().copied().unwrap_or(0.0) + shown.last().map_or(0.0, |&i| height_of(i));
     let room = crate::layout::list_room(ui, ui.text_style_height(&egui::TextStyle::Body) + 10.0);
     let ready = data.lookups().is_some();
     let mut clicked: Option<(usize, RowClick)> = None;
@@ -537,10 +526,32 @@ pub fn show(
             area = area.vertical_scroll_offset(0.0);
         }
         area.show_viewport(list, |rows, viewport| {
+            // The height of a row follows its text: the name and the line of objectives and blueprints wrap at the
+            // width they have, so nothing is cut with "…".
+            let width = rows.available_width();
+            let name_width = name_width_of(rows, width, date_width, state_width);
+            state.heights.measure(rows, scheme, &data.missions, &shown, name_width);
+            let height_of = |i: usize| {
+                let own = state.heights.get(i);
+                if state.open == Some(i) { own + state.detail_height } else { own }
+            };
+            let tops: Vec<f32> = shown
+                .iter()
+                .scan(0.0, |y, &i| {
+                    let top = *y;
+                    *y += height_of(i);
+                    Some(top)
+                })
+                .collect();
+            let total_height = tops.last().copied().unwrap_or(0.0) + shown.last().map_or(0.0, |&i| height_of(i));
             rows.set_min_height(total_height);
             let origin = rows.min_rect().min;
-            let width = rows.available_width();
-            let first = tops.partition_point(|&top| top + row_height < viewport.min.y).saturating_sub(1);
+            let first = shown
+                .iter()
+                .enumerate()
+                .position(|(n, &i)| tops[n] + height_of(i) >= viewport.min.y)
+                .unwrap_or(shown.len())
+                .saturating_sub(1);
             for (n, &i) in shown.iter().enumerate().skip(first) {
                 if tops[n] > viewport.max.y {
                     break;
@@ -556,7 +567,7 @@ pub fn show(
                 let mission = &data.missions[i];
                 // The bug only while the mouse is over the row.
                 let bug = rows.rect_contains_pointer(rect).then_some(ready);
-                let looks = RowLooks { open, running, bug, columns: (date_width, state_width) };
+                let looks = RowLooks { open, running, bug, columns: (date_width, state_width), name_width };
                 if let Some(click) = row(&mut child, scheme, mission, &looks) {
                     clicked = Some((i, click));
                 }
@@ -617,6 +628,72 @@ struct RowLooks {
     running: bool,
     bug: Option<bool>,
     columns: (f32, f32),
+    /// The width the name and the line under it wrap at.
+    name_width: f32,
+}
+
+/// The width left for the name of a row of `width`: what the date, the state, the bug and the arrow take is taken
+/// off, and a little more, so the name never reaches under the bug.
+fn name_width_of(ui: &Ui, width: f32, date_width: f32, state_width: f32) -> f32 {
+    let gap = ui.spacing().item_spacing.x;
+    let left = 4.0 + date_width + gap + state_width + gap;
+    let right = 6.0 + BUG_SLOT + gap + 12.0 + gap;
+    (width - left - right - 6.0).max(80.0)
+}
+
+/// The heights of the rows at one width, measured from the text; kept while nothing they depend on changes.
+#[derive(Default)]
+struct RowHeights {
+    key: Option<RowKey>,
+    of: Vec<Option<f32>>,
+}
+
+/// What the heights of the rows depend on.
+#[derive(PartialEq)]
+struct RowKey {
+    /// The width of the names and the pixels of a point, in hundredths.
+    width: i64,
+    pixels: i64,
+    /// Heights of the two lines of text in hundredths, the number of missions and the words around the objectives
+    /// (they change with the language).
+    heights: (i64, i64),
+    missions: usize,
+    words: String,
+}
+
+impl RowHeights {
+    /// The height of the row of mission `i`; call [`RowHeights::measure`] for it first.
+    fn get(&self, i: usize) -> f32 {
+        self.of.get(i).copied().flatten().unwrap_or(0.0)
+    }
+
+    /// Measures the rows of the missions in `shown` (the others are not looked at).
+    fn measure(&mut self, ui: &Ui, scheme: &Scheme, missions: &[Mission], shown: &[usize], name_width: f32) {
+        let hundredths = |x: f32| (x * 100.0).round() as i64;
+        let (text_height, small_height) =
+            (ui.text_style_height(&egui::TextStyle::Body), ui.text_style_height(&egui::TextStyle::Small));
+        let key = RowKey {
+            width: hundredths(name_width),
+            pixels: hundredths(ui.ctx().pixels_per_point()),
+            heights: (hundredths(text_height), hundredths(small_height)),
+            missions: missions.len(),
+            words: [t("s_al_ziele"), t("s_al_bp"), t("s_al_bp_mehr")].join("|"),
+        };
+        if self.key.as_ref() != Some(&key) {
+            self.key = Some(key);
+            self.of = vec![None; missions.len()];
+        }
+        for &i in shown {
+            let mission = &missions[i];
+            self.of[i].get_or_insert_with(|| {
+                let name = widgets::wrapped_height(ui, RichText::new(&mission.name), name_width, egui::TextStyle::Body);
+                let under = sub_line(ui, scheme, mission).map_or(small_height, |job| {
+                    widgets::wrapped_height(ui, job, name_width, egui::TextStyle::Small)
+                });
+                10.0 + name.max(text_height) + under
+            });
+        }
+    }
 }
 
 /// One row: date and state in fixed columns, name with objectives and
@@ -661,8 +738,10 @@ fn row(ui: &mut Ui, scheme: &Scheme, mission: &Mission, looks: &RowLooks) -> Opt
                     middle.add(image);
                 }
                 middle.vertical(|names| {
+                    // The name and the line under it wrap at the width the height of the row was measured at.
+                    names.set_max_width(looks.name_width);
                     let name = egui::Label::new(RichText::new(&mission.name).color(color(scheme.fg)))
-                        .truncate()
+                        .wrap()
                         .sense(Sense::click());
                     let response = names
                         .add(name)
@@ -672,7 +751,7 @@ fn row(ui: &mut Ui, scheme: &Scheme, mission: &Mission, looks: &RowLooks) -> Opt
                         click = Some(RowClick::Open);
                     }
                     if let Some(job) = sub_line(names, scheme, mission) {
-                        names.add(egui::Label::new(job).truncate());
+                        names.add(egui::Label::new(job).wrap());
                     }
                 });
             });
@@ -884,7 +963,6 @@ mod tests {
     /// sample never reads.
     #[test]
     fn the_logs_are_read_in_the_background_and_taken_over() {
-        use versekit_core::legacy;
         use versekit_core::paths::{ENV_INSTALL_DIR, Host};
         use versekit_core::pypath::Flavor;
 
@@ -902,7 +980,7 @@ mod tests {
                    <2026-10-01T10:00:05.000Z> <SHUDEvent_OnNotification> Added notification \"Auftrag angenommen: Hunt: \" [1] MissionId: [m1], ObjectiveId: []\n\
                    <2026-10-01T10:00:09.000Z> <SHUDEvent_OnNotification> Added notification \"Auftrag abgeschlossen: Hunt: \" [1] MissionId: [m1], ObjectiveId: []\n";
         std::fs::write(f.join_all(&game, &["logbackups", "a.log"]), log).expect("file");
-        let host = Host::new(f, &[(legacy::ENV_HOME, home.as_str()), (ENV_INSTALL_DIR, game.as_str())], &root);
+        let host = Host::new(f, &[(versekit_core::envvars::ENV_HOME, home.as_str()), (ENV_INSTALL_DIR, game.as_str())], &root);
         let paths = Paths::new(host);
         let mut data = LogData::load(&paths);
         assert!(data.entries.is_empty());

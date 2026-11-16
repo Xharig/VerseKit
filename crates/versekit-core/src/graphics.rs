@@ -650,7 +650,7 @@ mod tests {
         std::fs::create_dir_all(&folder).expect("folder");
         let file = format!("{folder}/attributes.xml");
         std::fs::write(&file, FILE).expect("file");
-        let mut vars = vec![("SC_BP_HOME", home.as_str()), ("HOME", home.as_str()), (game_start::ENV_NO_PROCESS, "1")];
+        let mut vars = vec![("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str()), (game_start::ENV_NO_PROCESS, "1")];
         if let Some(age) = age {
             std::fs::write(format!("{game}/Game.log"), "x").expect("log");
             let at = std::time::SystemTime::now() - std::time::Duration::from_secs(age);
@@ -743,7 +743,7 @@ mod tests {
         // No file at all.
         let empty = scratch("leer");
         let paths3 =
-            Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", empty.as_str()), ("HOME", empty.as_str())], &empty));
+            Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", empty.as_str()), ("HOME", empty.as_str())], &empty));
         assert!(matches!(write(&paths3, None, &[]), Err(Failure::NoFile)));
         for dir in [home, home2, empty] {
             let _ = std::fs::remove_dir_all(dir);

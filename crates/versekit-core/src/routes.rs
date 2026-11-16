@@ -581,7 +581,7 @@ pub fn best_chains_anywhere(
 mod tests {
     use super::*;
 
-    /// `SC_BP_NO_NET` of the environment given stops the fetching before anything is asked;
+    /// `VERSEKIT_NO_NET` of the environment given stops the fetching before anything is asked;
     /// without it the trips are asked for, whatever the shell of the check has.
     #[test]
     fn no_net_of_the_given_environment_asks_nothing() {
@@ -591,7 +591,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let data = dir.to_string_lossy().into_owned();
         let paths = |no_net: &str| {
-            let vars = [("SC_BP_HOME", data.as_str()), (crate::legacy::ENV_NO_NET, no_net)];
+            let vars = [("VERSEKIT_HOME", data.as_str()), (crate::envvars::ENV_NO_NET, no_net)];
             Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, "/"))
         };
         let asked = AtomicUsize::new(0);

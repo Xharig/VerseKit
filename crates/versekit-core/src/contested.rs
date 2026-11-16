@@ -329,7 +329,7 @@ pub fn set_hand(paths: &Paths, hand: Option<i64>) -> std::io::Result<Kept> {
 pub enum Outcome {
     /// Fetched and kept.
     Fresh(Kept),
-    /// Fetching is switched off (`SC_BP_NO_NET`); nothing was changed.
+    /// Fetching is switched off (`VERSEKIT_NO_NET`); nothing was changed.
     Offline,
     /// The page could not be fetched or its answer is no start; what was kept is untouched.
     Failed(String),

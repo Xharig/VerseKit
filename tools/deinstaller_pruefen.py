@@ -59,10 +59,19 @@ PROGRAM_KEY = r'Software\Xharig\VerseKit-Deinstallpruefung'
 UNINSTALL_KEY = r'Software\Microsoft\Windows\CurrentVersion\Uninstall\{%s}_is1' % GUID
 NO_WINDOW = 0x08000000 | 0x00000200
 
+# The folders of the program under its earlier names: the configuration folder of 5.2 and earlier, and the default
+# folders under Documents of 4.12 and of 5.0 to 5.2. The removal takes the data of all of them.
+# old-names: begin
+OLD_CONFIG = 'sc-bp-watcher'
+OLD_DOCUMENTS = ['SC BP Watcher', 'Verse-Kit']
+# old-names: end
+CONFIGS = ['versekit', OLD_CONFIG]
+DOCUMENTS = ['VerseKit'] + OLD_DOCUMENTS
+
 # The copy of the data: own files of the program, and foreign ones beside them that must stay.
 OWN = ['VerseKit-Daten/Bauplaene/bestand.json', 'VerseKit-Daten/Einstellungen/einstellungen.json',
        'VerseKit-Daten/Intern/katalog-cache.json', 'VerseKit-Daten/Diagnose/fehler.json',
-       'VerseKit-Daten/export/scmdb-import.json', 'AppData/sc-bp-watcher/hochwasser.json']
+       'VerseKit-Daten/export/scmdb-import.json'] + ['AppData/%s/hochwasser.json' % name for name in CONFIGS]
 FOREIGN = ['VerseKit-Daten/Urlaub.jpg', 'VerseKit-Daten/export/meine-liste.xlsx', 'VerseKit-Daten/Intern/eigene-notiz.txt',
            'Brief.docx']
 
@@ -125,7 +134,9 @@ def make_copy(copy):
             else:
                 f.write('{}' if rel.endswith('.json') else 'fremd')
     pointer = json.dumps({'ablage_ordner': data})
-    for rel in ('AppData/sc-bp-watcher/ablage.json', 'Verse-Kit/Einstellungen/einstellungen.json'):
+    pointers = ['AppData/%s/ablage.json' % name for name in CONFIGS]
+    pointers += ['%s/Einstellungen/einstellungen.json' % name for name in DOCUMENTS]
+    for rel in pointers:
         path = os.path.join(copy, *rel.split('/'))
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
@@ -221,9 +232,9 @@ def inside(setup):
     before = listing(copy)
     # The running program on a data folder of its own (no start with Windows, no report); the uninstaller and the
     # removal it starts on a machine of their own below the throwaway folder, without the registry.
-    base = dict(os.environ, SC_BP_NO_NET='1', TEMP=temp, TMP=temp)
-    base.pop('SC_BP_HOME', None)
-    program_env = dict(base, SC_BP_HOME=running)
+    base = dict(os.environ, VERSEKIT_NO_NET='1', TEMP=temp, TMP=temp)
+    base.pop('VERSEKIT_HOME', None)
+    program_env = dict(base, VERSEKIT_HOME=running)
     uninstall_env = dict(base, VERSEKIT_TESTUMGEBUNG=machine)
     try:
         if not check(not key_exists(UNINSTALL_KEY), 'no check installation left from before'):
@@ -244,8 +255,8 @@ def inside(setup):
         print('     left in the copy: %s' % left, flush=True)
         check(all(rel not in left for rel in OWN), 'the own files of the copy are gone')
         check(all(rel in left for rel in FOREIGN), 'the foreign files of the copy stay')
-        check('Verse-Kit' not in left and 'AppData/sc-bp-watcher' not in left,
-              'the pointer and the configuration folder of the copy are gone')
+        check(all(name not in left for name in DOCUMENTS) and all('AppData/%s' % name not in left for name in CONFIGS),
+              'the pointers and the configuration folders of the copy are gone, under every name')
         check(listing(machine) == [], 'nothing written outside the copy: %s' % listing(machine))
     except Exception as error:
         check(False, 'the check broke off: %s: %s' % (type(error).__name__, error))

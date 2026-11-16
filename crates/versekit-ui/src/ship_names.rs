@@ -607,7 +607,7 @@ mod tests {
         let data = format!("{root}/data");
         let host = Host::new(
             versekit_core::pypath::Flavor::Posix,
-            &[("HOME", root.as_str()), ("SC_BP_HOME", data.as_str()), ("SC_INSTALL_DIR", live.as_str())],
+            &[("HOME", root.as_str()), ("VERSEKIT_HOME", data.as_str()), ("SC_INSTALL_DIR", live.as_str())],
             &root,
         );
         let paths = Paths::new(host.clone());
@@ -634,7 +634,7 @@ mod tests {
         let data = format!("{root}/data");
         let host = Host::new(
             versekit_core::pypath::Flavor::Posix,
-            &[("HOME", root.as_str()), ("SC_BP_HOME", data.as_str()), ("SC_INSTALL_DIR", live.as_str())],
+            &[("HOME", root.as_str()), ("VERSEKIT_HOME", data.as_str()), ("SC_INSTALL_DIR", live.as_str())],
             &root,
         );
         let paths = Paths::new(host);

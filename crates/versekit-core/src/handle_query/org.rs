@@ -405,7 +405,7 @@ mod tests {
     fn without_net_or_with_a_bad_text_nothing_is_asked() {
         let dir = TestDir::new("org-suche-offline");
         let gate = quick();
-        let offline = cache::tests::paths(&dir, &[(crate::legacy::ENV_NO_NET, "1")]);
+        let offline = cache::tests::paths(&dir, &[(crate::envvars::ENV_NO_NET, "1")]);
         let net = site();
         assert_eq!(lookup_with(&gate, &offline, &net, "Das Kartell", false, 0.0), Err(Failure::Offline));
         assert_eq!(lookup_with(&gate, &offline, &net, "TEST", false, 0.0), Err(Failure::Offline));

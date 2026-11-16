@@ -174,12 +174,11 @@ fn count_log(path: &str, gegenprobe: bool) -> Result<(Value, BTreeSet<u64>, Vec<
 /// Tells how many items and places the stored names resolve, from the data folder named by `VERSEKIT_INTERN`
 /// (the `Intern` folder of a test copy); reads only. Nothing is compared, there is no Python side for it.
 fn coverage(folder: &str, events: &[Event], landings: &BTreeSet<u64>, learned: &location::Pairs) {
-    use versekit_core::legacy;
     use versekit_core::paths::{Host, Paths};
     use versekit_core::pypath::Flavor;
     use versekit_core::stock_journal::names::{Items, PlaceName, Places};
 
-    let paths = Paths::new(Host::new(Flavor::native(), &[(legacy::ENV_HOME, folder)], folder));
+    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, folder)], folder));
     let items = Items::load(&paths);
     let places = Places::load(&paths).with_learned(learned.iter().cloned().collect());
     let (mut bought, mut bought_named, mut moved, mut moved_named) = (0, 0, 0, 0);

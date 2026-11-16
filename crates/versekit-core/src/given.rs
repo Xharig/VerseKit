@@ -26,7 +26,7 @@
 //! * [`Paths::for_copy`] (the start option `--daten`): the data folder, by
 //!   [`GivenBy::CommandLine`]; the overlay's start option `--archiv` the
 //!   archive, the same way;
-//! * the environment variables [`crate::legacy::ENV_HOME`] (data folder) and
+//! * the environment variables [`crate::envvars::ENV_HOME`] (data folder) and
 //!   [`crate::paths::ENV_INSTALL_DIR`] (game folder), found by [`Paths::given`] itself;
 //! * another part of the program, through [`Paths::set_given_data`] and
 //!   [`Paths::set_given_game`] and [`Paths::set_given_archive`] with a name for

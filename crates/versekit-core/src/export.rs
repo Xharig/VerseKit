@@ -961,7 +961,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
-        let host = Host::new(Flavor::native(), &[(legacy::ENV_HOME, &text)], &text);
+        let host = Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, &text)], &text);
         (dir, Paths::new(host))
     }
 

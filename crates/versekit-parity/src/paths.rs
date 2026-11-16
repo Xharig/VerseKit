@@ -26,7 +26,6 @@ use std::sync::Mutex;
 use std::time::{Duration, UNIX_EPOCH};
 
 use versekit_core::jsonio::{self, Map, Value};
-use versekit_core::legacy;
 use versekit_core::paths::{Channel, Host, Paths, Recovered, SETTINGS_FILE, SUBFOLDERS};
 use versekit_core::pypath::Flavor;
 use versekit_core::{errors, writeguard};
@@ -244,7 +243,7 @@ fn phase_c(scratch: &str) -> Result<Value, String> {
     let home = f.join(scratch, "home_rs");
     fs::create_dir_all(&home).map_err(|e| e.to_string())?;
     let mut host = Host::current();
-    host.set_var(legacy::ENV_HOME, &home);
+    host.set_var(versekit_core::envvars::ENV_HOME, &home);
     let p = Paths::new(host);
     let mut r: Map = vec![
         ("app_folder".into(), s(&p.app_folder())),
@@ -410,7 +409,7 @@ fn phase_e(scratch: &str, spec: &Value) -> Result<Value, String> {
         let mut vars = vec![("APPDATA", config.clone()), ("USERPROFILE", home.clone()), ("HOME", home.clone())];
         vars.push(("XDG_CONFIG_HOME", config.clone()));
         if matches!(scenario.get("home"), Some(Value::Bool(true))) {
-            vars.push((legacy::ENV_HOME, f.join(&base, "eigen")));
+            vars.push((versekit_core::envvars::ENV_HOME, f.join(&base, "eigen")));
         }
         let vars: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
         let p = Paths::new(Host::new(f, &vars, &base));
@@ -460,7 +459,7 @@ fn phase_e(scratch: &str, spec: &Value) -> Result<Value, String> {
     }
     let named = f.join_all(scratch, &["e_rs", "t_genannt"]);
     write(&named, &[("bestand.json".into(), "{}".into())])?;
-    let p = Paths::new(Host::new(f, &[(legacy::ENV_HOME, &named)], scratch));
+    let p = Paths::new(Host::new(f, &[(versekit_core::envvars::ENV_HOME, &named)], scratch));
     let named_result =
         Value::Object(vec![("moved".into(), count(p.tidy_storage(None))), ("after".into(), tree(&named))]);
     Ok(Value::Object(vec![

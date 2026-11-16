@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The Verse-Kit overlay above the game.
+//! The VerseKit overlay above the game.
 //!
 //! `cargo run -p versekit-overlay --release` shows it with sample contents:
 //! it reads none of the user's data and writes nothing.
@@ -254,7 +254,7 @@ pub fn instance_key(args: &Args) -> String {
     if args.data.is_none() && !args.real {
         return window_signal::SAMPLE.to_string();
     }
-    let home = std::env::var(versekit_core::legacy::ENV_HOME).ok();
+    let home = versekit_core::envvars::process_var(versekit_core::envvars::ENV_HOME);
     window_signal::key_for(args.data.as_deref(), home.as_deref())
 }
 
@@ -333,12 +333,17 @@ fn settle(
 /// Tells the player that VerseKit runs already but its window does not answer, in a message box of the system
 /// (Windows) or a message of the desktop.
 fn tell_no_answer() {
-    let title = language::window_title(&language::t("zweitstart_haengt_titel"));
-    let text = language::t("zweitstart_haengt_text");
+    tell_with_title(&language::t("zweitstart_haengt_titel"), &language::t("zweitstart_haengt_text"));
+}
+
+/// Tells the player something before any window of the program stands: a message box of the system (Windows) or a
+/// message of the desktop. The title carries the mark of the test build like every window.
+pub fn tell_with_title(title: &str, text: &str) {
+    let title = language::window_title(title);
     #[cfg(windows)]
-    win::message_box(&title, &text);
+    win::message_box(&title, text);
     #[cfg(not(windows))]
-    versekit_core::notify::show(&title, &text);
+    versekit_core::notify::show(&title, text);
 }
 
 /// The line of the start trail for a start that found the single instance taken and no window of it after waiting.

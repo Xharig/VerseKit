@@ -264,16 +264,47 @@ pub struct Request<'a> {
     pub temp: &'a Path,
     /// The environment of the running program.
     pub env: Vec<(String, String)>,
+    /// The player was told that the backup could not be made and said to update all the same.
+    pub without_backup: bool,
 }
 
-/// Install a fetched update. First a small backup of one's own data (it does not stop the update when it
-/// fails), then the way of the packaging. ⚠ Only a file that still carries its checksum, and only over a
-/// program file that is ours.
+/// Why [`install`] set nothing going.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InstallError {
+    /// The backup of one's own data before the update could not be made (the reason). Nothing was installed: the
+    /// player is asked whether to update without it, and without an answer nothing is.
+    NoBackup(String),
+    /// Anything else: the sentence for the player.
+    Other(String),
+}
+
+impl InstallError {
+    /// The sentence for the player.
+    pub fn message(&self) -> String {
+        match self {
+            InstallError::NoBackup(reason) => {
+                language::tf("up_sicherung_fehlt", &[("0", language::Arg::from(reason.as_str()))])
+            }
+            InstallError::Other(text) => text.clone(),
+        }
+    }
+}
+
+impl std::fmt::Display for InstallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message())
+    }
+}
+
+/// Install a fetched update. First a small backup of one's own data, then the way of the packaging. ⚠ Only a
+/// file that still carries its checksum, and only over a program file that is ours. ⚠ A backup that cannot be
+/// made stops the update ([`InstallError::NoBackup`]) unless the player said to go on without it
+/// ([`Request::without_backup`]): without a backup there is no way back if the new version damages the data.
 ///
 /// # Errors
 ///
 /// The sentence for the player when nothing was set going.
-pub fn install(request: Request<'_>) -> Result<Installed, String> {
+pub fn install(request: Request<'_>) -> Result<Installed, InstallError> {
     let Request {
         paths,
         downloaded,
@@ -286,29 +317,44 @@ pub fn install(request: Request<'_>) -> Result<Installed, String> {
         at_exit,
         temp,
         env,
+        without_backup,
     } = request;
+    let other = InstallError::Other;
     if packaging == Packaging::Source {
-        return Err(language::tf("up_fremde_datei", &[("0", language::Arg::from(program.display().to_string()))]));
+        return Err(other(language::tf(
+            "up_fremde_datei",
+            &[("0", language::Arg::from(program.display().to_string()))],
+        )));
     }
     if !is_ours(&program.to_string_lossy()) {
-        return Err(language::tf(
+        return Err(other(language::tf(
             "up_fremde_datei",
             &[(
                 "0",
                 language::Arg::from(program.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
             )],
-        ));
+        )));
     }
     if !still_matches(&downloaded.path, &downloaded.checksum) {
         updater::discard(&downloaded.path);
-        return Err(language::t("up_ohne_pruefung"));
+        return Err(other(language::t("up_ohne_pruefung")));
     }
-    if let Err(error) = backup::write_before_update(paths, own_version) {
-        errors::record("auto_update.backup", &format!("{error:?}"));
+    // A data folder that is not there ([`crate::lost_storage`]) has nothing to keep.
+    if Path::new(&paths.app_folder()).is_dir() {
+        match backup::write_before_update(paths, own_version) {
+            // Nothing of one's own to keep yet: nothing to lose either.
+            Ok(_) | Err(backup::WriteError::Empty) => {}
+            Err(backup::WriteError::Failed(reason)) => {
+                errors::record("auto_update.backup", &reason);
+                if !without_backup {
+                    return Err(InstallError::NoBackup(reason));
+                }
+            }
+        }
     }
     match packaging {
         Packaging::AppImage => {
-            update_swap::swap(&downloaded.path, &downloaded.checksum, program).map_err(|e| e.message())?;
+            update_swap::swap(&downloaded.path, &downloaded.checksum, program).map_err(|e| other(e.message()))?;
             Ok(Installed::Swapped)
         }
         _ => {
@@ -324,7 +370,7 @@ pub fn install(request: Request<'_>) -> Result<Installed, String> {
             };
             update_run::start_setup(paths, &job, &mark, env, update_run::LIFE_SIGN_WAIT)
                 .map(Installed::HandedOver)
-                .map_err(|e| e.to_string())
+                .map_err(|e| other(e.to_string()))
         }
     }
 }

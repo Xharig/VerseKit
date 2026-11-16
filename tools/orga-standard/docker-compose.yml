@@ -1,0 +1,41 @@
+# Template server of the open VerseKit org standard (versekit-org v1), ready to copy.
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# For a reverse proxy you already run (Caddy, Traefik, nginx) on this host. Without one, take
+# docker-compose.caddy.yml: it brings Caddy along and fetches the HTTPS certificate by itself.
+#
+# Next to this file lies config.json with the members and their keys (copy of config.example.json).
+# Start: docker compose up -d   ·   Log: docker compose logs -f   ·   Update: docker compose pull && docker compose up -d
+# Admin password: created on the first start in the volume; show it with
+#   docker compose exec orgserver versekit-orgserver --admin-password
+# Backup: docker compose cp orgserver:/data ./sicherung-$(date +%F)
+
+services:
+  orgserver:
+    image: ghcr.io/xharig/versekit-orgserver:1           # the finished image (amd64 and arm64); :1 takes every update of version 1, never a breaking 2
+    restart: unless-stopped                               # starts again after a crash and after a restart of the host
+    read_only: true                                       # the container can write nowhere but /data
+    cap_drop: [ALL]                                       # no special rights of the kernel; the server needs none
+    security_opt: [no-new-privileges:true]                # nothing inside can gain rights later
+    pids_limit: 200                                       # at most 200 threads: a flood of connections cannot use up the host
+    mem_limit: 256m                                       # at most 256 MB of memory
+    ports:
+      - "127.0.0.1:8080:8080"                             # reachable only on this host, for the reverse proxy; never open this port to the internet
+    volumes:
+      - orga-daten:/data                                  # state.json and the admin password; stays across restarts and updates
+      - ./config.json:/etc/versekit-org/config.json:ro    # members with their keys and the orders; the server only reads it
+    environment:
+      VERSEKIT_ORG_CONFIG: /etc/versekit-org/config.json  # where the configuration lies inside the container
+      VERSEKIT_ORG_PUBLIC_URL: "https://orga.example.org" # the address members type into VerseKit: https, no path; replaces public_url of config.json
+      VERSEKIT_ORG_NAME: "Beispiel-Orga"                  # the name VerseKit shows; replaces name of config.json
+      VERSEKIT_ORG_TAG: "BSP"                             # the short tag of the org; replaces tag of config.json
+      VERSEKIT_ORG_RATE_LIMIT: "120"                      # requests per minute and login of a member before the server answers 429
+      VERSEKIT_ORG_POLL_INTERVAL: "5"                     # seconds VerseKit waits between two asks while the member confirms the code
+      VERSEKIT_ORG_ADMIN_PASSWORD: "${VERSEKIT_ORG_ADMIN_PASSWORD:-}" # optional, from a file .env next to this one; empty: the server creates one in /data
+      VERSEKIT_ORG_UPDATE_CHECK: "1"                      # once a day ask GitHub for a newer server version; nothing about the org, GitHub sees address and version; "0" turns it off
+      VERSEKIT_ORG_DISCORD_CLIENT_ID: "${VERSEKIT_ORG_DISCORD_CLIENT_ID:-}"         # members' portal /portal: the Discord application of the org, from .env; all three empty: the portal stays off
+      VERSEKIT_ORG_DISCORD_CLIENT_SECRET: "${VERSEKIT_ORG_DISCORD_CLIENT_SECRET:-}" # its client secret, from .env only
+      VERSEKIT_ORG_DISCORD_GUILD_ID: "${VERSEKIT_ORG_DISCORD_GUILD_ID:-}"           # the id of the org's Discord server; only its members get in
+
+volumes:
+  orga-daten:                                             # kept by docker until "docker volume rm"; holds the state

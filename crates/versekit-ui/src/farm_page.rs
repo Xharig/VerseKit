@@ -17,14 +17,13 @@
 
 //! The page "What to farm" (`pages._farm_list` of 4.12): which raw materials
 //! are still missing to craft everything that is planned, the stock weighed
-//! against all of it at once, where the materials lie, and below it the farm
-//! notes with their counts.
+//! against all of it at once, and where the materials lie. The list of what is planned stands on the crafting
+//! page; a line here says how many parts it holds and leads there.
 //!
 //! The planned items are the parts on "build" of the ships in the hangar and
 //! on the wish list (their slots from the stored erkul files) and the farm
 //! notes. Everything is added up across all items.
 
-use std::collections::HashSet;
 use std::time::SystemTime;
 
 use egui::{RichText, Ui};
@@ -33,24 +32,20 @@ use versekit_core::hangar;
 use versekit_core::jsonio::{Map, Value};
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::mining_data::{self, MiningData};
-use versekit_core::notepad::{self, Note};
+use versekit_core::notepad;
 use versekit_core::paths::Paths;
 use versekit_core::stock;
-use versekit_core::stock_data::{StockData, lower};
+use versekit_core::stock_data::StockData;
 use versekit_core::theme::Scheme;
 use versekit_gamedata::craft_book::CraftBook;
 use versekit_gamedata::farm::{self, FarmList, Need, Post};
 use versekit_gamedata::values::GameValues;
 
 use crate::color;
-use crate::crafting_page::{CraftingState, fixed, g};
-use crate::widgets;
+use crate::crafting_page::{CraftingState, fixed};
+use crate::widgets::{self, ButtonKind};
 
 const LOOK_SECONDS: f64 = 1.0;
-/// The width of the count between minus and plus, so that the plus stays where it is.
-const COUNT_WIDTH: f32 = 70.0;
-/// So long a struck note can be taken back.
-const UNDO_SECONDS: f64 = 10.0;
 const NOTES_FILE: &str = "hangar.json";
 
 /// What a click asks of the window.
@@ -60,7 +55,17 @@ pub enum Action {
     ToCrafting(String),
     /// Show this material or place in mining.
     ToMining(String),
+    /// Open the crafting page, where the plan is listed.
+    ToCraftingPage,
 }
+
+/// The mining data of the sample: two made-up places where Iron and Gold lie, so the sample shows the places and a
+/// material (Agricium) that the data know no place for.
+const SAMPLE_MINING: &str = r#"{"format": 1, "locations": [
+  {"locationName": "Daymar", "system": "Stanton", "groups": [{"groupName": "SpaceShip_Mineables", "deposits": [{"compositionGuid": "c", "relativeProbability": 1}]}]},
+  {"locationName": "Cellin", "system": "Stanton", "groups": [{"groupName": "SpaceShip_Mineables", "deposits": [{"compositionGuid": "d", "relativeProbability": 1}]}]}],
+ "compositions": {"c": {"parts": [{"elementName": "Iron", "probability": 1, "minPercent": 50, "maxPercent": 50}, {"elementName": "Gold", "probability": 1, "minPercent": 50, "maxPercent": 50}]},
+                  "d": {"parts": [{"elementName": "Iron", "probability": 1, "minPercent": 100, "maxPercent": 100}]}}}"#;
 
 /// What the page holds besides the game values it borrows from the crafting page.
 pub struct FarmState {
@@ -75,11 +80,9 @@ pub struct FarmState {
     notes_seen: Option<SystemTime>,
     stock: Vec<Value>,
     stock_seen: Option<SystemTime>,
+    /// What the orgs share of each material, shown under a missing one; never taken from what is missing.
+    org_stock: std::sync::Arc<crate::org_data::StockIndex>,
     looked_at: f64,
-    /// A write of the farm notes failed.
-    save_failed: bool,
-    /// The note struck last and when (`ui.input(|i| i.time)`), to take it back.
-    struck: Option<(Note, f64)>,
 }
 
 impl Default for FarmState {
@@ -97,7 +100,7 @@ impl Default for FarmState {
         };
         FarmState {
             paths: None,
-            mining: MiningData::default(),
+            mining: versekit_core::jsonio::loads(SAMPLE_MINING).map(|data| MiningData::of(&data)).unwrap_or_default(),
             mining_seen: None,
             erkul: ErkulData::default(),
             erkul_seen: [None; 4],
@@ -105,9 +108,8 @@ impl Default for FarmState {
             notes_seen: None,
             stock,
             stock_seen: None,
+            org_stock: std::sync::Arc::default(),
             looked_at: f64::NEG_INFINITY,
-            save_failed: false,
-            struck: None,
         }
     }
 }
@@ -117,6 +119,11 @@ fn file_time(file: &str) -> Option<SystemTime> {
 }
 
 impl FarmState {
+    /// What the orgs share, from now on shown under each missing material.
+    pub fn set_org_stock(&mut self, index: std::sync::Arc<crate::org_data::StockIndex>) {
+        self.org_stock = index;
+    }
+
     /// With own data: the fleet file with the farm notes, the stock, the mining data and the slots of the
     /// ships of the data folder.
     pub fn with_files(paths: &Paths) -> FarmState {
@@ -144,7 +151,7 @@ impl FarmState {
     fn reload_mining(&mut self) {
         let Some(paths) = &self.paths else { return };
         let file = paths.app_file(mining_data::FILE);
-        self.mining_seen = file_time(&file);
+        self.mining_seen = mining_data::changed_at(&file);
         self.mining = MiningData::load(&file);
     }
 
@@ -165,7 +172,7 @@ impl FarmState {
         let Some(paths) = &self.paths else { return };
         let changed = file_time(&paths.app_file(NOTES_FILE)) != self.notes_seen
             || file_time(&paths.app_file(stock::RAW_FILE)) != self.stock_seen;
-        let mining_changed = file_time(&paths.app_file(mining_data::FILE)) != self.mining_seen;
+        let mining_changed = mining_data::changed_at(&paths.app_file(mining_data::FILE)) != self.mining_seen;
         let erkul_changed = ErkulData::files(paths).map(|file| file_time(&file)) != self.erkul_seen;
         if changed {
             self.reload();
@@ -178,21 +185,6 @@ impl FarmState {
         }
     }
 
-    /// Changes the farm notes and writes them: reads them again first, so
-    /// that another place's change stays.
-    fn edit(&mut self, change: impl FnOnce(&mut Map)) {
-        let Some(paths) = &self.paths else {
-            change(&mut self.notes);
-            return;
-        };
-        let file = paths.app_file(NOTES_FILE);
-        let _lock = hangar::lock();
-        let mut held = hangar::load_held(&file);
-        change(&mut held.data);
-        self.save_failed = !hangar::save_held(&file, &mut held).ok();
-        self.notes = held.data;
-        self.notes_seen = file_time(&file);
-    }
 }
 
 /// A quantity readable: whole numbers without a comma, small ones more exactly
@@ -207,11 +199,6 @@ pub(crate) fn number(value: f64) -> String {
         return if text.contains(mark) { text.trim_end_matches('0').trim_end_matches(mark).to_string() } else { text };
     }
     fixed(value, 1)
-}
-
-/// A quantity for the notes: four places at most, the decimal mark of the language.
-fn amount_text(value: f64) -> String {
-    g(stock::py_round(value, 4))
 }
 
 fn sub(scheme: &Scheme, text: impl Into<String>) -> RichText {
@@ -255,7 +242,6 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
     // The values come with the window, not with a visit to the crafting page.
     crafting.values_or_wait(ui, scheme)?;
     let (values, book, data) = crafting.parts()?;
-    let notes = notepad::notes(&state.notes);
     let planned = posts(state, crafting);
     let list = farm::farm_list(values, book, &planned, &state.stock, data);
     let mut action = None;
@@ -272,27 +258,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
     // The first card: what is missing for the plan, with the notices of the page above it.
     let empty = widgets::card(ui, scheme, |ui| {
         widgets::card_title(ui, scheme, &head);
-        if state.save_failed {
-            ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red_text())));
-        }
-        // The note struck last can be taken back for a few seconds.
-        let now = ui.input(|i| i.time);
-        if state.struck.as_ref().is_some_and(|(_, at)| now - at > UNDO_SECONDS) {
-            state.struck = None;
-        }
-        if let Some((note, _)) = state.struck.clone() {
-            ui.ctx().request_repaint_after(std::time::Duration::from_millis(500));
-            ui.horizontal_wrapped(|row| {
-                row.label(sub(scheme, tf("s_p9_gestrichen", &[("0", Arg::from(note.name.as_str()))])));
-                if row.add(egui::Link::new(RichText::new(t("s_p9_rueckgaengig")).small())).clicked() {
-                    state.edit(|data| {
-                        notepad::restore(data, &note);
-                    });
-                    state.struck = None;
-                }
-            });
-        }
-        if notes.is_empty() && planned.is_empty() {
+        // The list of what is planned stands on the crafting page: one line says how much and leads there.
+        plan_line(ui, scheme, list.posts, &mut action);
+        if planned.is_empty() && notepad::notes(&state.notes).is_empty() {
             // One empty page with one way: the button of the crafting page.
             widgets::empty_state(ui, scheme, "diamond", &t("s_fl_nichts_geplant"));
             return true;
@@ -305,7 +273,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
         } else {
             ui.add_space(4.0);
             match &found {
-                Some(found) => missing(ui, scheme, &list, found, data, &mut action),
+                Some(found) => {
+                    missing(ui, scheme, &list, found, !state.mining.is_empty(), data, &state.org_stock, &mut action)
+                }
                 None => {
                     ui.label(RichText::new(t("s_fl_alles_da")).color(color(scheme.accent)));
                 }
@@ -328,6 +298,12 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
         widgets::card(ui, scheme, |ui| gathering(ui, scheme, found, &mut action));
         ui.add_space(crate::layout::GAP);
     }
+    // Where the places come from stays visible, small, as long as they are shown.
+    if found.is_some() && !state.mining.is_empty() {
+        let key = if state.mining.places_from_game_data() { "s_fl_quelle_spiel" } else { "s_fl_quelle_scmdb" };
+        ui.label(sub(scheme, t(key)));
+        ui.add_space(crate::layout::GAP);
+    }
     if list.posts > 0 && !list.complete.is_empty() {
         widgets::card(ui, scheme, |ui| {
             widgets::card_title(ui, scheme, &tf("s_fl_reicht_kopf", &[("n", Arg::from(list.complete.len()))]));
@@ -337,10 +313,28 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
         });
         ui.add_space(crate::layout::GAP);
     }
-    if let Some(a) = widgets::card(ui, scheme, |ui| notes_block(ui, scheme, state, crafting, &notes, &list)).inner {
-        action = Some(a);
-    }
     action
+}
+
+/// The line under the head of the first card: how many parts are planned and the way to the list of them. Without a
+/// part to craft (nothing planned, or all bought) only the way stands there; the card says the rest.
+fn plan_line(ui: &mut Ui, scheme: &Scheme, posts: i64, action: &mut Option<Action>) {
+    ui.horizontal_wrapped(|row| {
+        match posts {
+            0 => {}
+            1 => {
+                row.label(sub(scheme, t("s_fg_pl_farm_zeile_eins")));
+            }
+            n => {
+                row.label(sub(scheme, tf("s_fg_pl_farm_zeile", &[("n", Arg::from(n))])));
+            }
+        }
+        let word = t("s_fg_pl_zur_herstellung");
+        let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("zap");
+        if row.add(button).on_hover_text(t("s_fg_pl_zur_herstellung_tip")).clicked() {
+            *action = Some(Action::ToCraftingPage);
+        }
+    });
 }
 
 /// A name that leads somewhere: an accent link with the hand and a focus ring, like the other pages.
@@ -348,24 +342,43 @@ fn link(ui: &mut Ui, text: RichText, hover: &str) -> egui::Response {
     ui.add(egui::Link::new(text)).on_hover_text(hover)
 }
 
+/// A line under a row that keeps its left edge when it wraps.
+fn indented(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
+    egui::Frame::new().inner_margin(egui::Margin { left: 12, ..egui::Margin::ZERO }).show(ui, add);
+}
+
 /// The rows of the missing materials, each with the places where it is found.
+#[allow(clippy::too_many_arguments)]
 fn missing(
     ui: &mut Ui,
     scheme: &Scheme,
     list: &FarmList,
     found: &farm::Locations,
+    places_known: bool,
     data: &StockData,
+    org: &crate::org_data::StockIndex,
     action: &mut Option<Action>,
 ) {
     for (k, need) in list.missing.iter().enumerate() {
         need_row(ui, scheme, need, k, true, data, action);
+        // Next to where it is found, never taken from what is missing: the stock of an org is not the member's.
+        if let Some(has) = org.of(&need.material) {
+            let text = tf("s_od_orga_hat", &[("menge", Arg::from(crate::org_data::amount_text(has.quantity, has.unit)))]);
+            indented(ui, |ui| {
+                ui.label(sub(scheme, text));
+            });
+        }
         if let Some(spots) = found.per_ore.get(&need.material).filter(|s| !s.is_empty()) {
             let line = tf("s_fl_fundorte", &[("0", Arg::from(spots_text(spots)))]);
-            ui.horizontal_wrapped(|row| {
-                row.add_space(12.0);
-                if link(row, RichText::new(line).small(), &t("s_fl_zum_bergbau")).clicked() {
+            indented(ui, |ui| {
+                if link(ui, RichText::new(line).small(), &t("s_fl_zum_bergbau")).clicked() {
                     *action = Some(Action::ToMining(need.material.clone()));
                 }
+            });
+        } else if places_known {
+            // The data are there but name no place for this material: say so, not nothing.
+            indented(ui, |ui| {
+                ui.label(sub(scheme, t("s_fl_ohne_fundort")));
             });
         }
     }
@@ -461,11 +474,16 @@ pub(crate) fn row_button(ui: &mut Ui, scheme: &Scheme, icon: &str, meaning: &str
     enabled && response.clicked()
 }
 
-/// The kind of a note as the blueprint list names it and the size of its product, from the craft book; `None`
-/// for a note the book does not know.
-fn kind_and_size(values: &GameValues, book: &CraftBook, note: &Note) -> Option<(String, Option<i64>)> {
-    let blueprint = farm::blueprint_of(book, &note.reference, &note.name);
-    let item = book.items.iter().find(|item| item.basis == blueprint || item.name == note.name)?;
+/// The kind of a part as the blueprint list names it and the size of its product, from the craft book; `None`
+/// for a part the book does not know.
+pub(crate) fn kind_and_size(
+    values: &GameValues,
+    book: &CraftBook,
+    name: &str,
+    reference: &str,
+) -> Option<(String, Option<i64>)> {
+    let blueprint = farm::blueprint_of(book, reference, name);
+    let item = book.items.iter().find(|item| item.basis == blueprint || item.name == name)?;
     let size = values.recipes.get(item.recipe).and_then(|recipe| values.product(recipe)).and_then(|p| p.size);
     let title = if item.catalog_kind.is_empty() {
         String::new()
@@ -475,147 +493,6 @@ fn kind_and_size(values: &GameValues, book: &CraftBook, note: &Note) -> Option<(
     Some((title, size))
 }
 
-/// The notes of one kind, each with its size.
-type SizedNotes<'a> = Vec<(Option<i64>, &'a Note)>;
-
-/// The notes in groups by kind, the kinds alphabetical, within a kind by size, then by name (`size_order`). Notes
-/// without a known kind stand last, in a group without a title.
-fn note_groups<'a>(
-    notes: &'a [Note],
-    kind_size: impl Fn(&Note) -> Option<(String, Option<i64>)>,
-) -> Vec<(String, Vec<&'a Note>)> {
-    let mut groups: Vec<(String, SizedNotes<'a>)> = Vec::new();
-    for note in notes {
-        let (title, size) = kind_size(note).unwrap_or_default();
-        match groups.iter_mut().find(|(known, _)| *known == title) {
-            Some((_, rows)) => rows.push((size, note)),
-            None => groups.push((title, vec![(size, note)])),
-        }
-    }
-    groups.sort_by_cached_key(|(title, _)| (title.is_empty(), title.to_lowercase()));
-    groups
-        .into_iter()
-        .map(|(title, mut rows)| {
-            rows.sort_by_cached_key(|(size, note)| versekit_core::size_order::key(*size, &note.name));
-            (title, rows.into_iter().map(|(_, note)| note).collect())
-        })
-        .collect()
-}
-
-fn notes_block(
-    ui: &mut Ui,
-    scheme: &Scheme,
-    state: &mut FarmState,
-    crafting: &CraftingState,
-    notes: &[Note],
-    list: &FarmList,
-) -> Option<Action> {
-    let mut action = None;
-    widgets::card_title(ui, scheme, &t("s_mz_titel"));
-    if notes.is_empty() {
-        // Only parts of the ships are planned: the sentence says where the button for the notes is.
-        ui.add(egui::Label::new(sub(scheme, t("s_mz_leer"))).wrap());
-        return None;
-    }
-    // The material of an item stands "needs"; whether it is missing is told by
-    // the colour, and that comes from the same calculation as the sums above.
-    let short: HashSet<String> = list.missing.iter().map(|n| lower(n.material.trim())).collect();
-    let mut set_count: Option<(String, i64)> = None;
-    let mut strike: Option<Note> = None;
-    let groups = match crafting.parts() {
-        Some((values, book, _)) => note_groups(notes, |note| kind_and_size(values, book, note)),
-        None => note_groups(notes, |_| None),
-    };
-    for (title, group) in &groups {
-        // A small heading per kind, as in the blueprint list.
-        if !title.is_empty() {
-            ui.add_space(6.0);
-            ui.label(RichText::new(title).small().strong().color(color(scheme.sub)));
-        }
-        notes_rows(ui, scheme, crafting, group, &short, &mut set_count, &mut strike, &mut action);
-    }
-    if let Some((name, count)) = set_count {
-        state.edit(|data| {
-            notepad::set_count(data, &name, count);
-        });
-    }
-    if let Some(note) = strike {
-        state.edit(|data| {
-            notepad::remove(data, &note.name);
-        });
-        state.struck = Some((note, ui.input(|i| i.time)));
-    }
-    action
-}
-
-/// The rows of one group of notes, striped from its first row.
-#[allow(clippy::too_many_arguments)]
-fn notes_rows(
-    ui: &mut Ui,
-    scheme: &Scheme,
-    crafting: &CraftingState,
-    notes: &[&Note],
-    short: &HashSet<String>,
-    set_count: &mut Option<(String, i64)>,
-    strike: &mut Option<Note>,
-    action: &mut Option<Action>,
-) {
-    for (k, note) in notes.iter().copied().enumerate() {
-        let frame = egui::Frame::new()
-            .fill(if k % 2 == 1 { color(scheme.bar) } else { egui::Color32::TRANSPARENT })
-            .inner_margin(egui::Margin::symmetric(6, 3));
-        frame.show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.horizontal_wrapped(|row| {
-                let less = t(if note.count > 1 { "s_mz_weniger" } else { "s_mz_weniger_aus" });
-                if row_button(row, scheme, "minus", &less, &note.name, note.count > 1) {
-                    *set_count = Some((note.name.clone(), note.count - 1));
-                }
-                // A fixed width, so the plus does not wander with the digits.
-                row.add_sized(
-                    [COUNT_WIDTH, row.spacing().interact_size.y],
-                    egui::Label::new(format!("{} {}", note.count, t("s_mz_stueck"))),
-                );
-                if row_button(row, scheme, "plus", &t("s_mz_mehr"), &note.name, true) {
-                    *set_count = Some((note.name.clone(), note.count + 1));
-                }
-                let name = RichText::new(&note.name).color(color(scheme.accent));
-                if link(row, name, &t("s_mz_zur_herstellung")).clicked() {
-                    *action = Some(Action::ToCrafting(note.name.clone()));
-                }
-                // The action on the row stands at the right edge, in the colour of what it does.
-                row.with_layout(egui::Layout::right_to_left(egui::Align::Center), |right| {
-                    if row_button(right, scheme, "trash-2", &t("s_mz_weg"), &note.name, true) {
-                        *strike = Some(note.clone());
-                    }
-                });
-            });
-            note_material(ui, scheme, crafting, note, short);
-        });
-    }
-}
-
-/// What one item on the notes needs, by its recipe.
-fn note_material(ui: &mut Ui, scheme: &Scheme, crafting: &CraftingState, note: &Note, short: &HashSet<String>) {
-    let Some((values, book, _)) = crafting.parts() else { return };
-    let post = Post { name: note.name.clone(), reference: note.reference.clone(), pieces: note.count };
-    let Some(recipe) = farm::recipe_of(values, book, &post) else {
-        ui.label(sub(scheme, t("s_mz_kein_rezept")));
-        return;
-    };
-    ui.horizontal_wrapped(|row| {
-        row.add_space(12.0);
-        for tier in versekit_gamedata::craft_book::ingredients(recipe) {
-            for ingredient in tier {
-                let needed = ingredient.amount * note.count as f64;
-                let lacks = short.contains(&lower(ingredient.material.trim()));
-                let tone = if lacks { scheme.gold } else { scheme.accent };
-                let text = format!("{} {}", ingredient.material, amount_text(needed));
-                row.label(RichText::new(tf("s_mz_braucht", &[("0", Arg::from(text))])).small().color(color(tone)));
-            }
-        }
-    });
-}
 
 #[cfg(test)]
 mod tests {
@@ -624,11 +501,7 @@ mod tests {
     use versekit_core::language::{Choice, set_thread_language};
 
     /// A mining file with two ores that lie at two places together.
-    const MINING: &str = r#"{"format": 1, "locations": [
-      {"locationName": "Daymar", "system": "Stanton", "groups": [{"groupName": "SpaceShip_Mineables", "deposits": [{"compositionGuid": "c", "relativeProbability": 1}]}]},
-      {"locationName": "Cellin", "system": "Stanton", "groups": [{"groupName": "SpaceShip_Mineables", "deposits": [{"compositionGuid": "d", "relativeProbability": 1}]}]}],
-     "compositions": {"c": {"parts": [{"elementName": "Iron", "probability": 1, "minPercent": 50, "maxPercent": 50}, {"elementName": "Gold", "probability": 1, "minPercent": 50, "maxPercent": 50}]},
-                      "d": {"parts": [{"elementName": "Iron", "probability": 1, "minPercent": 100, "maxPercent": 100}]}}}"#;
+    const MINING: &str = SAMPLE_MINING;
 
     fn texts(shapes: &[egui::epaint::ClippedShape]) -> Vec<String> {
         fn collect(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
@@ -690,8 +563,32 @@ mod tests {
         set_thread_language(Choice::En);
         assert_eq!(number(0.64), "0.64");
         assert_eq!(number(12.34), "12.3");
-        assert_eq!(amount_text(0.5), "0.5");
         set_thread_language(Choice::De);
+    }
+
+    #[test]
+    fn the_page_shows_what_the_org_has_under_a_missing_material_and_changes_no_number_of_its_own() {
+        use crate::org_data::made_up::lot as made_up_lot;
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut crafting = CraftingState::default();
+        let mut plain = FarmState::default();
+        let (before, _) = draw(&context(), &mut plain, &mut crafting, 900.0);
+        let lot = |item: &str| made_up_lot(item, 12.0, 500);
+        let mut state = FarmState::default();
+        state.set_org_stock(std::sync::Arc::new(crate::org_data::StockIndex::from_lots([lot("Iron")].iter())));
+        let (after, _) = draw(&context(), &mut state, &mut crafting, 900.0);
+        let line = tf("s_od_orga_hat", &[("menge", Arg::from("12 SCU"))]);
+        assert!(after.contains(&line), "{after:?}");
+        assert!(!before.contains(&line), "without the org's stock nothing is said");
+        for text in &before {
+            assert!(after.contains(text), "the org's stock changed what the page says: {text:?}");
+        }
+        // A material the orgs do not share gets no line, not "none".
+        let mut other = FarmState::default();
+        other.set_org_stock(std::sync::Arc::new(crate::org_data::StockIndex::from_lots([lot("Zzyzx")].iter())));
+        let (none, _) = draw(&context(), &mut other, &mut crafting, 900.0);
+        assert_eq!(none, before);
     }
 
     #[test]
@@ -714,7 +611,7 @@ mod tests {
     }
 
     #[test]
-    fn the_notes_show_their_material_and_a_count_change_is_written() {
+    fn the_page_names_the_missing_material_and_leaves_the_list_of_the_plan_to_the_crafting_page() {
         let _language = crate::language_lock();
         set_thread_language(Choice::De);
         let mut crafting = CraftingState::default();
@@ -723,11 +620,10 @@ mod tests {
         assert_eq!(over, 0.0);
         assert!(shown.contains(&tf("s_fl_kopf", &[("n", Arg::Int(3))])), "{shown:?}");
         assert!(shown.iter().any(|s| s.starts_with("Iron") && s.contains("fehlt") || s == "Iron"), "{shown:?}");
-        assert!(shown.contains(&t("s_mz_titel")));
-        state.edit(|data| {
-            notepad::set_count(data, "Frostline", 5);
-        });
-        assert_eq!(notepad::count_of_item(&state.notes, "Frostline"), 5);
+        // No card of the plan any more, one line with the same number as the head and the way to the list.
+        assert!(!shown.contains(&t("s_mz_titel")) && !shown.contains(&t("s_mz_leer")), "{shown:?}");
+        assert!(shown.contains(&tf("s_fg_pl_farm_zeile", &[("n", Arg::Int(3))])), "{shown:?}");
+        assert!(shown.contains(&t("s_fg_pl_zur_herstellung")), "{shown:?}");
     }
 
     #[test]
@@ -749,113 +645,23 @@ mod tests {
     }
 
     #[test]
-    fn the_empty_page_has_one_way_and_a_struck_note_can_be_taken_back() {
+    fn the_empty_page_has_one_way_to_the_crafting_page() {
         let _language = crate::language_lock();
         set_thread_language(Choice::De);
         let mut crafting = CraftingState::default();
-        let mut state = FarmState::default();
-        let names: Vec<String> = notepad::notes(&state.notes).iter().map(|n| n.name.clone()).collect();
-        for name in &names {
-            state.edit(|data| {
-                notepad::remove(data, name);
-            });
-        }
+        let mut state = FarmState { notes: hangar::empty(), ..FarmState::default() };
         let (shown, _) = draw(&context(), &mut state, &mut crafting, 900.0);
         assert!(shown.contains(&t("s_fl_nichts_geplant")), "{shown:?}");
-        assert!(!shown.contains(&t("s_mz_leer")), "two instructions that differ are one too many");
-        // Striking keeps the note for the undo.
-        state.edit(|data| {
-            notepad::add(data, "Frostline", "", 2);
-        });
-        let note = notepad::notes(&state.notes).remove(0);
-        state.edit(|data| {
-            notepad::remove(data, &note.name);
-        });
-        state.struck = Some((note, 0.0));
-        let (shown, _) = draw(&context(), &mut state, &mut crafting, 900.0);
-        assert!(shown.contains(&t("s_p9_rueckgaengig")), "{shown:?}");
-        // After a few seconds the offer is gone.
-        let ctx = context();
-        let scheme = versekit_core::theme::current();
-        let mut output = ctx.run_ui(
-            egui::RawInput {
-                time: Some(UNDO_SECONDS + 5.0),
-                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(900.0, 900.0))),
-                ..Default::default()
-            },
-            |ui| {
-                show_page(ui, scheme, &mut state, &mut crafting);
-            },
+        assert!(shown.contains(&t("s_fg_pl_zur_herstellung")), "the way to the list: {shown:?}");
+        assert!(!shown.contains(&t("s_mz_leer")), "the old instruction of the notes is gone");
+        assert!(
+            !shown.iter().any(|s| s.contains("geplant.")),
+            "one message on an empty page, not two: {shown:?}"
         );
-        output.textures_delta.clear();
-        assert!(!texts(&output.shapes).contains(&t("s_p9_rueckgaengig")));
-        assert!(state.struck.is_none());
-    }
-
-    /// The undo puts the whole note back, bought or ticked off as it was.
-    #[test]
-    fn the_undo_restores_way_and_tick() {
-        let mut state = FarmState::default();
-        state.edit(|data| {
-            notepad::add(data, "Helm", "", 2);
-        });
-        let mut note = notepad::notes(&state.notes).into_iter().find(|n| n.name == "Helm").expect("note");
-        note.way = "kaufen".into();
-        note.done = true;
-        state.edit(|data| {
-            notepad::remove(data, "Helm");
-            notepad::restore(data, &note);
-        });
-        let back = notepad::notes(&state.notes).into_iter().find(|n| n.name == "Helm").expect("back");
-        assert_eq!((back.way.as_str(), back.done, back.count), ("kaufen", true, 2));
-    }
-
-    fn note(name: &str) -> Note {
-        Note { name: name.into(), reference: String::new(), count: 1, way: "bauen".into(), done: false }
     }
 
     #[test]
-    fn the_notes_go_by_kind_then_size_and_one_without_a_kind_last() {
-        // As the notes come: by name.
-        let notes: Vec<Note> = [
-            "Arctic Cooler",
-            "Omnisky III Cannon",
-            "Omnisky IX Cannon",
-            "Omnisky VI Cannon",
-            "Pembroke Helmet",
-            "Unbekanntes Teil",
-            "Wave Cooler",
-        ]
-        .into_iter()
-        .map(note)
-        .collect();
-        let kind_size = |note: &Note| -> Option<(String, Option<i64>)> {
-            let (kind, size) = match note.name.as_str() {
-                "Arctic Cooler" => ("Kühler", Some(2)),
-                "Wave Cooler" => ("Kühler", Some(1)),
-                "Omnisky III Cannon" => ("Schiffswaffe", Some(1)),
-                "Omnisky VI Cannon" => ("Schiffswaffe", Some(2)),
-                "Omnisky IX Cannon" => ("Schiffswaffe", Some(3)),
-                "Pembroke Helmet" => ("Helm", None),
-                _ => return None,
-            };
-            Some((kind.to_string(), size))
-        };
-        let shown: Vec<(String, Vec<&str>)> = note_groups(&notes, kind_size)
-            .into_iter()
-            .map(|(title, rows)| (title, rows.iter().map(|n| n.name.as_str()).collect()))
-            .collect();
-        let expected: Vec<(String, Vec<&str>)> = vec![
-            ("Helm".into(), vec!["Pembroke Helmet"]),
-            ("Kühler".into(), vec!["Wave Cooler", "Arctic Cooler"]),
-            ("Schiffswaffe".into(), vec!["Omnisky III Cannon", "Omnisky VI Cannon", "Omnisky IX Cannon"]),
-            (String::new(), vec!["Unbekanntes Teil"]),
-        ];
-        assert_eq!(shown, expected, "kinds alphabetical, by size within, no kind last");
-    }
-
-    #[test]
-    fn the_kind_and_the_size_of_a_note_come_from_the_craft_book() {
+    fn the_kind_and_the_size_of_a_part_come_from_the_craft_book() {
         use versekit_gamedata::craft_book::CraftItem;
         use versekit_gamedata::values::{ItemValues, Recipe};
         let item = CraftItem {
@@ -879,12 +685,11 @@ mod tests {
             ..GameValues::default()
         };
         values.items.insert("e-vi".into(), ItemValues { size: Some(2), ..ItemValues::default() });
-        let found = kind_and_size(&values, &book, &note("Omnisky VI Cannon"));
+        let found = kind_and_size(&values, &book, "Omnisky VI Cannon", "");
         assert_eq!(found, Some((versekit_core::blueprints::kind_readable("WeaponGun"), Some(2))));
-        // By the identifier as well, whatever the name on the note.
-        let by_reference = Note { reference: "E-VI".into(), ..note("anders geschrieben") };
-        assert_eq!(kind_and_size(&values, &book, &by_reference).map(|(_, size)| size), Some(Some(2)));
-        assert_eq!(kind_and_size(&values, &book, &note("Unbekanntes Teil")), None);
+        // By the identifier as well, whatever the name on the part.
+        assert_eq!(kind_and_size(&values, &book, "anders geschrieben", "E-VI").map(|(_, size)| size), Some(Some(2)));
+        assert_eq!(kind_and_size(&values, &book, "Unbekanntes Teil", ""), None);
     }
 
     /// A data folder of its own with one ship in the stored erkul file.
@@ -895,7 +700,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("folder");
         let text = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text));
         std::fs::write(
             paths.app_file(versekit_core::ships::ERKUL_FILE),
             r#"{"format": 4, "spielversion": "4.0", "hersteller": {}, "schiffe": {"testship": {"id": "test_ship", "name": "Test Ship",
@@ -929,8 +734,9 @@ mod tests {
         assert!(shown.contains(&t("s_p9_kopf_eins")), "one part of the ship is planned: {shown:?}");
         assert!(shown.iter().any(|s| s == "Taranite"), "the material of the part: {shown:?}");
         assert!(!shown.iter().any(|s| s == "Iron" || s == "Agricium"), "bought and ticked off stay out: {shown:?}");
-        // No note: the notes say where their button is, the page is not the empty one.
-        assert!(shown.contains(&t("s_mz_leer")) && !shown.contains(&t("s_fl_nichts_geplant")), "{shown:?}");
+        // Only a part of a ship: the page is not the empty one, and the line names the one part.
+        assert!(!shown.contains(&t("s_fl_nichts_geplant")), "{shown:?}");
+        assert!(shown.contains(&t("s_fg_pl_farm_zeile_eins")), "one part says so in the singular: {shown:?}");
         let _ = std::fs::remove_dir_all(paths.app_folder());
     }
 
@@ -959,6 +765,59 @@ mod tests {
     }
 
     #[test]
+    fn a_material_without_a_place_says_so_and_the_source_of_the_places_is_named() {
+        let _language = crate::language_lock();
+        let mut crafting = CraftingState::default();
+        for lang in [Choice::De, Choice::En] {
+            set_thread_language(lang);
+            // Data without a place for Agricium: the row says so, and the line names scmdb.
+            let mut state = FarmState { mining: mining(), ..FarmState::default() };
+            let (shown, _) = draw(&context(), &mut state, &mut crafting, 900.0);
+            assert!(shown.contains(&t("s_fl_ohne_fundort")), "{lang:?}: {shown:?}");
+            assert!(shown.contains(&t("s_fl_quelle_scmdb")), "{lang:?}: {shown:?}");
+            assert!(!shown.contains(&t("s_fl_quelle_spiel")), "{lang:?}: {shown:?}");
+            // No data at all: nothing to say about places, as before.
+            let mut empty = FarmState { mining: MiningData::default(), ..FarmState::default() };
+            let (shown, _) = draw(&context(), &mut empty, &mut crafting, 900.0);
+            assert!(!shown.contains(&t("s_fl_ohne_fundort")) && !shown.contains(&t("s_fl_quelle_scmdb")), "{shown:?}");
+        }
+        set_thread_language(Choice::De);
+    }
+
+    /// The places of the game data of Daymar with Iron and Gold.
+    const GAME_PLACES: &str = r#"{"format": 1, "stand": "x", "orte": [{"name": "Daymar", "system": "Stanton", "art": "Moon",
+        "gruppen": [{"name": "SpaceShip_Mineables", "wahrscheinlichkeit": 1.0, "lagerstaetten": [{"mischung": "c", "anteil": 1.0}]}]}],
+        "mischungen": {"c": {"name": "x", "teile": [
+          {"element": "e1", "erz": "Iron", "min": 50.0, "max": 50.0, "wahrscheinlichkeit": 1.0},
+          {"element": "e2", "erz": "Gold", "min": 50.0, "max": 50.0, "wahrscheinlichkeit": 1.0}]}}, "erze": []}"#;
+
+    #[test]
+    fn the_places_of_the_game_data_are_shown_when_their_file_appears_and_name_their_source() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let paths = folder("fundorte");
+        std::fs::write(
+            paths.app_file(NOTES_FILE),
+            r#"{"format": 1, "schiffe": [], "merkzettel": [{"name": "Frostline", "anzahl": 2, "weg": "bauen"}]}"#,
+        )
+        .expect("fleet file");
+        let mut state = FarmState::with_files(&paths);
+        let mut crafting = CraftingState::default();
+        let ctx = context();
+        let (shown, _) = draw(&ctx, &mut state, &mut crafting, 900.0);
+        assert!(!shown.contains(&t("s_fl_sammel_kopf")) && !shown.contains(&t("s_fl_quelle_spiel")), "{shown:?}");
+        // Only the file of the places appears, no mining file: the page loads again by its time.
+        std::fs::write(paths.app_file(mining_data::PLACES_FILE), GAME_PLACES).expect("places file");
+        state.looked_at = f64::NEG_INFINITY;
+        let (shown, _) = draw(&ctx, &mut state, &mut crafting, 900.0);
+        assert!(shown.contains(&t("s_fl_sammel_kopf")), "{shown:?}");
+        assert!(shown.iter().any(|s| s.contains("Daymar (Stanton)")), "{shown:?}");
+        assert!(shown.contains(&t("s_fl_quelle_spiel")), "the source is named: {shown:?}");
+        assert!(!shown.contains(&t("s_fl_quelle_scmdb")), "{shown:?}");
+        let _ = std::fs::remove_dir_all(paths.app_folder());
+    }
+
+    #[test]
     fn the_page_fits_at_every_size_and_width_in_both_languages() {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
@@ -969,14 +828,7 @@ mod tests {
                     let ctx = context();
                     crate::apply_size(&ctx, points);
                     let mut crafting = CraftingState::default();
-                    let struck = Note {
-                        name: "A very long name of a part that was struck".repeat(2),
-                        reference: String::new(),
-                        count: 12,
-                        way: "bauen".into(),
-                        done: false,
-                    };
-                    let mut state = FarmState { mining: mining(), struck: Some((struck, 0.0)), ..FarmState::default() };
+                    let mut state = FarmState { mining: mining(), ..FarmState::default() };
                     let (_, over) =
                         (0..3).map(|_| draw(&ctx, &mut state, &mut crafting, width)).last().expect("frames");
                     if over > 0.5 {

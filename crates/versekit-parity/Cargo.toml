@@ -1,6 +1,6 @@
 [package]
 name = "versekit-parity"
-description = "Verse-Kit: Rust-Seite der Gleichheitsprüfungen gegen die Python-Fassung"
+description = "VerseKit: Rust-Seite der Gleichheitsprüfungen gegen die Python-Fassung"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

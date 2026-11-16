@@ -227,7 +227,7 @@ mod tests {
         let live = game.to_string_lossy().replace('\\', "/");
         let host = Host::new(
             Flavor::Posix,
-            &[("HOME", root.as_str()), ("SC_BP_HOME", &data), ("SC_INSTALL_DIR", &live)],
+            &[("HOME", root.as_str()), ("VERSEKIT_HOME", &data), ("SC_INSTALL_DIR", &live)],
             &root,
         );
         (Paths::new(host), dir)

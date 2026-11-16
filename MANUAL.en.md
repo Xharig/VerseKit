@@ -22,7 +22,7 @@ Files watched:
 …\StarCitizen\LIVE\logbackups\              (earlier sessions, read on start)
 ```
 
-Its own files (collection, settings, cache) live in a folder of their own under *Documents*. Where exactly is shown under **Settings → Installation & paths**, which can also move it. For a single run the `SC_BP_HOME` environment variable does the same.
+Its own files (collection, settings, cache) live in a folder of their own under *Documents*. Where exactly is shown under **Settings → Installation & paths**, which can also move it. For a single run the `VERSEKIT_HOME` environment variable does the same.
 
 ### Game language
 
@@ -126,13 +126,13 @@ In `einstellungen.json` in its own folder, a text file, not code. Restart VerseK
 
 > VerseKit remembers the position and size of the overlay when you move it and when it closes (`watcher.json` in the same folder). Just drag it where you want it. The program deliberately sets **no** fixed starting position: where an overlay sits well depends on the monitor setup. Delete the file to reset it.
 
-> **Your own corrections:** If the class, size or grade of a blueprint is wrong, you can override it in `bp-overrides.json` in its own folder. It takes precedence over every other source. If the file lives elsewhere, give its path in the `SC_BP_OVERRIDES` environment variable.
+> **Your own corrections:** If the class, size or grade of a blueprint is wrong, you can override it in `bp-overrides.json` in its own folder. It takes precedence over every other source. If the file lives elsewhere, give its path in the `VERSEKIT_OVERRIDES` environment variable.
 
 **Environment variables**, for a one-off case, without changing anything permanently:
 
 | Variable | Effect |
 |---|---|
-| `SC_BP_HOME` | different folder for collection and settings |
+| `VERSEKIT_HOME` | different folder for collection and settings |
 | `SC_INSTALL_DIR` | different game folder |
-| `SC_BP_NO_NET=1` | **no** network access, neither game data nor update check nor messages |
-| `SC_BP_SPRACHE` | language for this run (`de` / `en`) |
+| `VERSEKIT_NO_NET=1` | **no** network access, neither game data nor update check nor messages |
+| `VERSEKIT_SPRACHE` | language for this run (`de` / `en`) |

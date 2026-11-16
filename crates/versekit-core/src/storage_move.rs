@@ -34,13 +34,13 @@ use ring::digest;
 
 use crate::jsonio::{self, Value};
 use crate::paths::{Paths, STORAGE_KEY, SUBFOLDERS, file_identity, subfolder};
-use crate::{errors, legacy, writeguard};
+use crate::{errors, writeguard};
 
 /// Files at the top of a data folder that come along: only these endings, so
 /// whoever points the data folder at a folder with other things in it keeps them.
 pub const MOVE_EXTENSIONS: [&str; 2] = [".json", ".txt"];
 
-/// The subfolders Verse-Kit makes itself. All of their content is ours,
+/// The subfolders VerseKit makes itself. All of their content is ours,
 /// whatever the type of the file.
 pub const OWN_FOLDERS: [&str; 6] = ["Bauplaene", "Einstellungen", "Intern", "Diagnose", "Patches", "export"];
 
@@ -464,7 +464,7 @@ impl Paths {
     /// ⚠ A loose file counts only if its folder is written exactly like `folder` (`os.path.dirname(...) ==
     /// folder`): given with a separator at the end, nothing loose is moved.
     pub fn tidy_storage(&self, folder: Option<&str>) -> usize {
-        if folder.is_none() && self.host.var_set(legacy::ENV_HOME).is_some() {
+        if folder.is_none() && self.host.var_set(crate::envvars::ENV_HOME).is_some() {
             return 0;
         }
         let folder = match folder {
@@ -608,6 +608,22 @@ mod tests {
             .collect::<Vec<_>>(),
             "loose files go to their place, .tmp and foreign types are left out"
         );
+    }
+
+    /// The flight log is a loose file of the program: it stands under `Intern` and goes along with the data.
+    #[test]
+    fn the_flight_log_stands_under_intern_and_goes_along_with_the_data() {
+        let root = scratch("flugbuch");
+        let p = machine(&root);
+        let folder = p.app_folder();
+        put(&join(&folder, crate::flugbuch::FILE), "{\"sitzungen\": {}}");
+        assert_eq!(rels(&p.storage_items(&folder)), ["Intern/flugbuch.json"]);
+        let target = join(&root, "Neu");
+        let outcome = p.apply_storage_move(&target, Choice::TakeAlong);
+        let Outcome::Moved { copied, kept, .. } = outcome else { panic!("{outcome:?}") };
+        assert_eq!((copied, kept.len()), (1, 0));
+        assert_eq!(fs::read_to_string(join(&target, "Intern/flugbuch.json")).unwrap(), "{\"sitzungen\": {}}");
+        assert!(!Path::new(&join(&folder, "flugbuch.json")).exists() && !Path::new(&join(&folder, "Intern/flugbuch.json")).exists());
     }
 
     #[test]
@@ -809,11 +825,11 @@ mod tests {
     fn the_environment_and_a_copy_fix_the_data_folder_too() {
         let root = scratch("fixed");
         let mut host = machine(&root).host.clone();
-        host.set_var(crate::legacy::ENV_HOME, &join(&root, "Umgebung"));
+        host.set_var(crate::envvars::ENV_HOME, &join(&root, "Umgebung"));
         let given = Paths::new(host).given();
         assert_eq!(
             given.data.as_ref().map(|d| d.by.clone()),
-            Some(GivenBy::Environment(crate::legacy::ENV_HOME.to_string())),
+            Some(GivenBy::Environment(crate::envvars::ENV_HOME.to_string())),
             "{given:?}"
         );
         assert_eq!(Paths::new(machine(&root).host.clone()).given(), Given::default(), "nothing fixed on its own");
@@ -917,7 +933,7 @@ mod tests {
         let root = scratch("tidy-named");
         let mut host = machine(&root).host;
         let named = join(&root, "eigen");
-        host.set_var(crate::legacy::ENV_HOME, &named);
+        host.set_var(crate::envvars::ENV_HOME, &named);
         let p = Paths::new(host);
         put(&join(&named, "bestand.json"), "{}");
         assert_eq!(p.tidy_storage(None), 0);

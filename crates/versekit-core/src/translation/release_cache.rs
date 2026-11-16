@@ -160,7 +160,7 @@ mod tests {
         let root = dir.path().to_string_lossy().into_owned();
         let data = format!("{root}/data");
         std::fs::create_dir_all(&data).unwrap();
-        let host = Host::new(Flavor::Posix, &[("HOME", root.as_str()), ("SC_BP_HOME", &data)], &root);
+        let host = Host::new(Flavor::Posix, &[("HOME", root.as_str()), ("VERSEKIT_HOME", &data)], &root);
         (dir, Paths::new(host))
     }
 

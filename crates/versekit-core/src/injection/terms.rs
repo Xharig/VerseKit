@@ -51,7 +51,12 @@ pub struct Terms {
     pub highest: Option<(String, i64)>,
     /// The payout in aUEC where the game data state it as a fixed amount; `None` for a payout the game computes.
     pub reward: Option<i64>,
+    /// The English name of the faction that gives the contract, where the game data name one.
+    pub giver: Option<String>,
 }
+
+/// The field of an entry with the faction that gives every contract of the title.
+pub const GIVER: &str = "auftraggeber";
 
 /// The entries of `contracts` (title key as the game data name it, terms) by title key without `@` in lower case, in
 /// the order the titles first occur; every title has one, an empty one when nothing is known of it.
@@ -122,6 +127,12 @@ fn entry_of(list: &[&Terms]) -> Map {
         {
             entry.push((name.to_string(), Value::Bool(*first)));
         }
+    }
+    // The giver only where every contract of the title names the same one.
+    if let Some(Some(first)) = list.first().map(|t| t.giver.as_deref())
+        && list.iter().all(|t| t.giver.as_deref() == Some(first))
+    {
+        entry.push((GIVER.to_string(), Value::str(first)));
     }
     let mut texts: Vec<Value> = Vec::new();
     for text in list.iter().filter_map(|t| t.description.as_deref()).map(key).filter(|t| !t.is_empty()) {
@@ -257,7 +268,30 @@ mod tests {
             lowest: None,
             highest: None,
             reward: None,
+            giver: None,
         }
+    }
+
+    /// The giver stands only where every contract of the title names the same one.
+    #[test]
+    fn the_giver_stands_only_where_every_contract_names_the_same() {
+        let given = |giver: Option<&str>| Terms { giver: giver.map(str::to_string), ..Terms::default() };
+        let table = summarize(&[
+            ("one".into(), given(Some("Headhunters"))),
+            ("same".into(), given(Some("Bit Zeros"))),
+            ("same".into(), given(Some("Bit Zeros"))),
+            ("two".into(), given(Some("Bit Zeros"))),
+            ("two".into(), given(Some("Dead Saints"))),
+            ("part".into(), given(Some("Bit Zeros"))),
+            ("part".into(), given(None)),
+            ("none".into(), given(None)),
+        ]);
+        let giver = |title: &str| entry_for(&table, title).and_then(|e| get(e, GIVER)).and_then(Value::as_str).map(str::to_string);
+        assert_eq!(giver("one").as_deref(), Some("Headhunters"));
+        assert_eq!(giver("same").as_deref(), Some("Bit Zeros"));
+        assert_eq!(giver("two"), None, "two givers name none");
+        assert_eq!(giver("part"), None, "a contract without a giver leaves the title without one");
+        assert_eq!(giver("none"), None);
     }
 
     /// A variant without a cooldown adds no 0 to the span of those that have one.

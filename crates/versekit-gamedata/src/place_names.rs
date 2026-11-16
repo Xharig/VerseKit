@@ -200,7 +200,7 @@ mod tests {
         let home = dir.path().to_string_lossy().into_owned();
         let paths = versekit_core::paths::Paths::new(versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[("SC_BP_HOME", home.as_str())],
+            &[("VERSEKIT_HOME", home.as_str())],
             &home,
         ));
         let file = paths.app_file(FILE);

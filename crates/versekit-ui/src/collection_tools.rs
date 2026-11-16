@@ -370,7 +370,7 @@ mod tests {
     fn world(name: &str) -> (String, Paths) {
         let home = scratch(name);
         let paths =
-            Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())], &home));
+            Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str())], &home));
         let exports = exports(&paths);
         let collection = collection_of(&paths, &exports);
         let mut stock = collection.load();

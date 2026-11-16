@@ -1305,7 +1305,7 @@ mod tests {
             fs::write(format!("{data}/katalog-cache.json"), catalog).unwrap();
             let host = Host::new(
                 Flavor::Posix,
-                &[("HOME", root.as_str()), ("SC_BP_HOME", &data), ("SC_INSTALL_DIR", &live)],
+                &[("HOME", root.as_str()), ("VERSEKIT_HOME", &data), ("SC_INSTALL_DIR", &live)],
                 &root,
             );
             Game { root, paths: Paths::new(host), live, _language: language }
@@ -1482,14 +1482,20 @@ mod tests {
         for (folder, title) in [
             ("Spieldaten LIVE", "LIVE"),
             ("spieldaten-ptu", "PTU"),
-            ("Kopie_TECH-PREVIEW", "TECH-PREVIEW"),
-            ("Spieldaten EPTU", "EPTU"),
-            ("EPTU", "EPTU"),
-            ("Spieldaten-EPTU", "EPTU"),
             ("Spieldaten", "Spieldaten"),
             ("MEINLIVE", "MEINLIVE"),
         ] {
             assert_eq!(channel_title(folder), title, "{folder}");
+        }
+        // The channels under the terms of confidentiality are known to the test build only.
+        for (folder, title) in [
+            ("Kopie_TECH-PREVIEW", "TECH-PREVIEW"),
+            ("Spieldaten EPTU", "EPTU"),
+            ("EPTU", "EPTU"),
+            ("Spieldaten-EPTU", "EPTU"),
+        ] {
+            let known = if versekit_core::edition::IS_TEST_BUILD { title } else { folder };
+            assert_eq!(channel_title(folder), known, "{folder}");
         }
     }
 
@@ -1514,7 +1520,7 @@ mod tests {
         fs::create_dir_all(&data).unwrap();
         let host = Host::new(
             Flavor::Posix,
-            &[("HOME", root.as_str()), ("SC_BP_HOME", &data), ("SC_INSTALL_DIR", &copy)],
+            &[("HOME", root.as_str()), ("VERSEKIT_HOME", &data), ("SC_INSTALL_DIR", &copy)],
             &root,
         );
         let paths = Paths::new(host);
@@ -1568,7 +1574,7 @@ mod tests {
 
     /// All five channels installed: five cards, one per channel, each named by it.
     #[test]
-    fn five_channels_give_five_cards() {
+    fn every_channel_gives_one_card() {
         let game = Game::new("fuenf");
         let base = game.live.trim_end_matches("/LIVE").to_string();
         for channel in versekit_core::paths::CHANNELS.iter().filter(|c| **c != "LIVE") {
@@ -1600,13 +1606,14 @@ mod tests {
                 })
                 .collect();
         }
-        assert_eq!(versekit_core::paths::CHANNELS.len(), 5);
+        let known = if versekit_core::edition::IS_TEST_BUILD { 5 } else { 3 };
+        assert_eq!(versekit_core::paths::CHANNELS.len(), known);
         for channel in versekit_core::paths::CHANNELS {
             assert_eq!(labels.iter().filter(|l| *l == channel).count(), 1, "one card {channel}: {labels:?}");
         }
-        // Every channel beside LIVE can follow it, HOTFIX too: four switches.
+        // Every channel beside LIVE can follow it, HOTFIX too.
         let follow = tf("s_tq_wie", &[("0", Arg::from("LIVE"))]);
-        assert_eq!(labels.iter().filter(|l| **l == follow).count(), 4, "{labels:?}");
+        assert_eq!(labels.iter().filter(|l| **l == follow).count(), known - 1, "{labels:?}");
     }
 
     #[test]
@@ -1869,7 +1876,7 @@ mod tests {
             .with(DOWNLOAD, german)
             .with_head(side, &[("ETag", "\"ptu-1\"")])
             .with(side, direct_file());
-        let mut state = GameTextsState::with_parts(&game.paths, Arc::new(net), Arc::new(game_texts::NoArchive));
+        let mut state = GameTextsState::with_parts(&game.paths, Arc::new(net), Arc::new(OwnChannelData));
         state.check_all();
         settle(&mut state);
         let (said, bad) = state.said().cloned().expect("an answer");
@@ -1900,6 +1907,38 @@ mod tests {
         assert_eq!(game.text(), GAME, "the file stays as it is");
     }
 
+    /// An archive whose side channels have a catalog of their own (the contract `Bounty_title_001` gives a blueprint),
+    /// the way the archive of a test channel does; for the main installation it gives nothing.
+    struct OwnChannelData;
+
+    impl Archive for OwnChannelData {
+        fn stamp(&self, paths: &Paths) -> Option<String> {
+            game_texts::NoArchive.stamp(paths)
+        }
+        fn refresh_original(&self, paths: &Paths) -> bool {
+            game_texts::NoArchive.refresh_original(paths)
+        }
+        fn fill_gaps(&self, paths: &Paths, target: &str) -> usize {
+            game_texts::NoArchive.fill_gaps(paths, target)
+        }
+        fn fetch_original(
+            &self,
+            paths: &Paths,
+            root: &str,
+            set_language: bool,
+        ) -> Result<game_texts::Placed, String> {
+            game_texts::NoArchive.fetch_original(paths, root, set_language)
+        }
+        fn refresh_names(&self, paths: &Paths) {
+            game_texts::NoArchive.refresh_names(paths);
+        }
+        fn prepare_channel(&self, channel: &Paths) -> game_texts::ChannelData {
+            let catalog = r#"{"quelle": {"format": 7, "archiv_stand": "ptu-1"}, "version": "ptu-1", "geholt": "", "bauplaene": {}, "missionen": {"Bounty_title_001": {"bp": ["Atzkav Sniper Rifle"], "rep": 0, "titel_key": "Bounty_title_001", "text_key": "Bounty_desc_001"}}}"#;
+            fs::write(channel.app_file(injection::sources::CATALOG_V5), catalog).unwrap();
+            game_texts::ChannelData::Ready("ptu-1".into())
+        }
+    }
+
     /// A text file as a direct address serves it: many lines and vehicles.
     fn direct_file() -> String {
         let mut file = "Bounty_title_001=Kopfgeld PTU\nvehicle_NameAEGS_Gladius=Gladius\n".to_string();
@@ -1919,7 +1958,7 @@ mod tests {
         fs::write(format!("{ptu}/Data.p4k"), "").unwrap();
         let url = "https://www.luftwerft.com/download/resources/localizations/PTU/german_(germany)/global.ini";
         let net = Arc::new(Fake::default().with_head(url, &[("ETag", "\"ptu-1\"")]).with(url, direct_file()));
-        let mut state = GameTextsState::with_parts(&game.paths, net.clone(), Arc::new(game_texts::NoArchive));
+        let mut state = GameTextsState::with_parts(&game.paths, net.clone(), Arc::new(OwnChannelData));
         // Both cards show the German sources: the PTU, which has none yet, too.
         state.default_language = Some(german_folder());
         let page = Page::new();
@@ -2328,7 +2367,7 @@ mod tests {
         let data = format!("{}/data", game.root);
         let vars = [
             ("HOME", game.root.as_str()),
-            ("SC_BP_HOME", data.as_str()),
+            ("VERSEKIT_HOME", data.as_str()),
             ("SC_INSTALL_DIR", game.live.as_str()),
             (versekit_core::game_start::ENV_NO_PROCESS, "1"),
         ];
@@ -2356,7 +2395,7 @@ mod tests {
         let data = format!("{}/data", game.root);
         let vars = [
             ("HOME", game.root.as_str()),
-            ("SC_BP_HOME", data.as_str()),
+            ("VERSEKIT_HOME", data.as_str()),
             ("SC_INSTALL_DIR", game.live.as_str()),
             (versekit_core::game_start::ENV_NO_PROCESS, "1"),
         ];

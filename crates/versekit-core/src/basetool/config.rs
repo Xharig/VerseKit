@@ -15,16 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Where the Basetool is and who Verse-Kit is there
+//! Where the Basetool is and who VerseKit is there
 //! (`basetool.connection_config`, `trusted_address`, `user_agent`,
 //! `default_label`, `label_valid`).
 //!
 //! ⚠ The issuer is fixed. The test environment is chosen only through
-//! environment variables (`legacy::ENV_BASETOOL_*`), never in the user
+//! environment variables (`envvars::ENV_BASETOOL_*`), never in the user
 //! interface: a switch there would be a lever for fraud.
 
 use crate::basetool::jose::UrlParts;
-use crate::legacy;
 use crate::paths::Host;
 use crate::text::py_strip;
 
@@ -35,7 +34,7 @@ pub const HOMEPAGE: &str = "https://versekit.xharig.com";
 
 /// The variables that change the connection; any of them set shows a note.
 pub const OVERRIDE_VARS: [&str; 4] =
-    [legacy::ENV_BASETOOL_ISSUER, legacy::ENV_BASETOOL_API, legacy::ENV_BASETOOL_CLIENT, legacy::ENV_BASETOOL_CA];
+    [crate::envvars::ENV_BASETOOL_ISSUER, crate::envvars::ENV_BASETOOL_API, crate::envvars::ENV_BASETOOL_CLIENT, crate::envvars::ENV_BASETOOL_CA];
 
 /// Issuer, API address and client id; the real ones unless a test
 /// environment is set.
@@ -61,7 +60,7 @@ impl Config {
     /// another issuer; without it they stay with the real Basetool.
     pub fn from_host(host: &Host) -> Config {
         let overridden = OVERRIDE_VARS.iter().any(|name| env(host, name).is_some());
-        let Some(issuer) = env(host, legacy::ENV_BASETOOL_ISSUER) else {
+        let Some(issuer) = env(host, crate::envvars::ENV_BASETOOL_ISSUER) else {
             return Config {
                 issuer: ISSUER.into(),
                 api: API.into(),
@@ -73,9 +72,9 @@ impl Config {
         };
         Config {
             issuer: issuer.trim_end_matches('/').into(),
-            api: env(host, legacy::ENV_BASETOOL_API).unwrap_or(API).trim_end_matches('/').into(),
-            client_id: env(host, legacy::ENV_BASETOOL_CLIENT).unwrap_or(CLIENT_ID).into(),
-            ca: env(host, legacy::ENV_BASETOOL_CA).unwrap_or_default().into(),
+            api: env(host, crate::envvars::ENV_BASETOOL_API).unwrap_or(API).trim_end_matches('/').into(),
+            client_id: env(host, crate::envvars::ENV_BASETOOL_CLIENT).unwrap_or(CLIENT_ID).into(),
+            ca: env(host, crate::envvars::ENV_BASETOOL_CA).unwrap_or_default().into(),
             sandbox: true,
             overridden: true,
         }
@@ -162,11 +161,11 @@ mod tests {
             (ISSUER, API, false, false)
         );
         // Without another issuer the API address stays, but the note shows.
-        let api_only = Config::from_host(&host(&[(legacy::ENV_BASETOOL_API, "https://fremd.example/x")]));
+        let api_only = Config::from_host(&host(&[(crate::envvars::ENV_BASETOOL_API, "https://fremd.example/x")]));
         assert_eq!((api_only.api.as_str(), api_only.overridden), (API, true));
         let sandbox = Config::from_host(&host(&[
-            (legacy::ENV_BASETOOL_ISSUER, " https://sandbox.example/realms/x/ "),
-            (legacy::ENV_BASETOOL_CLIENT, "sandbox-client"),
+            (crate::envvars::ENV_BASETOOL_ISSUER, " https://sandbox.example/realms/x/ "),
+            (crate::envvars::ENV_BASETOOL_CLIENT, "sandbox-client"),
         ]));
         assert_eq!(sandbox.issuer, "https://sandbox.example/realms/x");
         assert_eq!((sandbox.api.as_str(), sandbox.client_id.as_str(), sandbox.sandbox), (API, "sandbox-client", true));

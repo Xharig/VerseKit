@@ -94,7 +94,7 @@ pub trait Supply: Send + Sync {
     }
 }
 
-/// The supply at run time: scmdb's mirror, then scmdb.net (`SC_BP_NO_NET`
+/// The supply at run time: scmdb's mirror, then scmdb.net (`VERSEKIT_NO_NET`
 /// switches it off: then it asks nothing and gives only the own corrections).
 #[derive(Clone, Debug)]
 pub struct Runtime {
@@ -107,12 +107,12 @@ pub struct Runtime {
 
 impl Runtime {
     /// A supply that names VerseKit in its requests, switched off by
-    /// `SC_BP_NO_NET` of the running process.
+    /// `VERSEKIT_NO_NET` of the running process.
     pub fn new(user_agent: impl Into<String>) -> Self {
         Self { user_agent: user_agent.into(), off: versekit_core::net::offline(), host: None }
     }
 
-    /// The supply for `host`: switched off by `SC_BP_NO_NET` of the environment
+    /// The supply for `host`: switched off by `VERSEKIT_NO_NET` of the environment
     /// given, not of the shell a check runs in. Switched on, the requests
     /// themselves still pass the door of the process (`scmdb`), which refuses
     /// them when the process has the switch.
@@ -1044,11 +1044,11 @@ mod tests {
         assert!(start(None, &file, Arc::new(off)).rebuild.is_none(), "switched off in the environment given");
     }
 
-    /// A made-up computer with `SC_BP_NO_NET` set to `no_net`.
+    /// A made-up computer with `VERSEKIT_NO_NET` set to `no_net`.
     fn host(no_net: &str) -> versekit_core::paths::Host {
         versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_NO_NET, no_net)],
+            &[(versekit_core::envvars::ENV_NO_NET, no_net)],
             "/",
         )
     }

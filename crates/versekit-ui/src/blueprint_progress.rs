@@ -446,7 +446,7 @@ mod tests {
         std::fs::create_dir_all(&home).unwrap();
         let paths = Paths::new(Host::new(
             Flavor::Posix,
-            &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str()), ("XDG_CONFIG_HOME", home.as_str())],
+            &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str()), ("XDG_CONFIG_HOME", home.as_str())],
             &home,
         ));
         let exports = FileExports { paths: &paths, version: "test", clock: export::now_unix };

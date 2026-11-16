@@ -32,7 +32,7 @@ use super::docking::tests::draw;
 /// The host of a throwaway folder: the Basetool cannot go out, the home folder is the throwaway
 /// folder too (nothing of the home folder of this computer is found).
 pub(super) fn host_in(dir: &std::path::Path, vars: &[(&str, &str)]) -> Host {
-    use versekit_core::legacy::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET};
+    use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET};
     let home = dir.to_string_lossy().into_owned();
     let mut all = vec![
         (ENV_HOME, home.as_str()),
@@ -595,7 +595,7 @@ fn the_pages_of_the_game_settings_hold_long_texts_at_every_size_scheme_and_langu
             let (width, height) = font_size::min_window(points);
             for english in [false, true] {
                 language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
-                for key in ["hf_startprogramme", "hf_module", "hf_erkennung", "hf_grafik"] {
+                for key in ["hf_startprogramme", "hf_module", "hf_allgemein", "hf_grafik"] {
                     page.go_to(key);
                     let (overflow, texts) = draw(&mut page, width, height);
                     if overflow > 0.5 {
@@ -607,7 +607,7 @@ fn the_pages_of_the_game_settings_hold_long_texts_at_every_size_scheme_and_langu
                     // The page is drawn (not the placeholder of a page that is not built): its own first line.
                     let lead = match key {
                         "hf_startprogramme" => "s_pg_lead",
-                        "hf_erkennung" => "s_er_lead",
+                        "hf_allgemein" => "s_er_acc",
                         "hf_grafik" => "s_gr_lead",
                         _ => "s_mo_lead",
                     };
@@ -1176,7 +1176,9 @@ fn real_data_show_the_game_folder_that_is_there_and_say_when_it_is_not() {
     let texts = look(&mut sample, "hf_ordner");
     assert!(shows(&texts, "Spielordner gefunden") && shows(&texts, "Program Files"));
     // Every channel has its row; that one is not installed stands on hover over it.
-    assert!(shows(&texts, "HOTFIX") && shows(&texts, "EPTU") && !shows(&texts, "Nicht installiert"));
+    assert!(shows(&texts, "HOTFIX") && !shows(&texts, "Nicht installiert"));
+    // The channel under the terms of confidentiality has a row in the test build only.
+    assert_eq!(shows(&texts, "EPTU"), versekit_core::edition::IS_TEST_BUILD);
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -1325,7 +1327,7 @@ fn on_real_data_no_page_shows_the_placeholder_of_the_sample() {
     let (mut page, dir) = real_page("kein-platzhalter", "", &[]);
     assert_eq!(placeholder_pages(&mut page), Vec::<&str>::new(), "pages on real data with the placeholder");
     let _ = std::fs::remove_dir_all(dir);
-    // Counter-check: the sample page shows it for the pages only real data draw, Erkennung among them.
+    // Counter-check: the sample page shows it for the pages only real data draw, Achsen among them.
     let mut sample = SamplePage::preview();
-    assert!(placeholder_pages(&mut sample).contains(&"hf_erkennung"), "the check sees the placeholder");
+    assert!(placeholder_pages(&mut sample).contains(&"hf_achsen"), "the check sees the placeholder");
 }

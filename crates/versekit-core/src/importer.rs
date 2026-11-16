@@ -21,7 +21,7 @@
 //!
 //! | Format | Mark |
 //! |---|---|
-//! | own backup | `werkzeug` of Verse-Kit (or the old name), list `bauplaene` |
+//! | own backup | `werkzeug` of VerseKit (or the old name), list `bauplaene` |
 //! | scmdb.net (older) | `exportSchemaVersion` or `ts`, `blueprints[].productName` |
 //! | scmdb.net (newer) | `blueprints[].tag` + `name`, only `completed: true` |
 //! | KRT Profit Basetool | `blueprints[].productName` (+ `receivedAt`) |
@@ -662,7 +662,7 @@ mod tests {
         let data_dir = dir.to_string_lossy().replace('\\', "/");
         let host = crate::paths::Host::new(
             crate::pypath::Flavor::native(),
-            &[(crate::legacy::ENV_HOME, &data_dir)],
+            &[(crate::envvars::ENV_HOME, &data_dir)],
             &data_dir,
         );
         let paths = crate::paths::Paths::new(host);
@@ -705,7 +705,9 @@ mod tests {
         }
     }
 
-    const LEXICORE_BACKUP: &str = r#"{"lexicoreBackup": 1, "app": "Lexicore", "version": "0.7.11",
+    /// A backup file of Lexicore as the test input (a JSON text, not a list of channels of the program).
+    fn lexicore_backup() -> &'static str {
+        r#"{"lexicoreBackup": 1, "app": "Lexicore", "version": "0.7.11",
         "exportedAt": "2026-11-13T10:00:00.000Z", "config": {"telemetry": "left out"},
         "owned": {"LIVE": [
             {"key": null, "name": "zenith laser sniper rifle battery (22 cap)"},
@@ -719,11 +721,12 @@ mod tests {
         "history": {"LIVE": [
             {"name": "Yubarev \"Igniter\" Pistol", "ts": "2026-11-01T10:00:00.000Z"},
             {"name": "Zenith Laser Sniper Rifle Battery (22 Cap)", "ts": null}],
-          "PTU": [{"name": "Only On The PTU", "ts": "2026-11-02T10:00:00Z"}]}}"#;
+          "PTU": [{"name": "Only On The PTU", "ts": "2026-11-02T10:00:00Z"}]}}"#
+    }
 
     #[test]
     fn a_backup_of_lexicore_is_read_by_key_then_by_name_with_the_times_of_its_history() {
-        let data = value(LEXICORE_BACKUP);
+        let data = value(lexicore_backup());
         let (kind, entries) = read_value(&data, &translated);
         assert_eq!(kind, Some(Kind::Lexicore));
         // The key first; a key nowhere translated gives way to the name, and stands for itself without one.
@@ -803,7 +806,7 @@ mod tests {
         let data_dir = dir.to_string_lossy().replace('\\', "/");
         let host = crate::paths::Host::new(
             crate::pypath::Flavor::native(),
-            &[(crate::legacy::ENV_HOME, &data_dir)],
+            &[(crate::envvars::ENV_HOME, &data_dir)],
             &data_dir,
         );
         let paths = crate::paths::Paths::new(host);

@@ -53,7 +53,7 @@ fn github(content: &[u8]) -> Fake {
 fn host_in(dir: &Path) -> Host {
     let text = dir.join("daten").to_string_lossy().into_owned();
     fs::create_dir_all(&text).unwrap();
-    Host::new(crate::pypath::Flavor::native(), &[(crate::legacy::ENV_HOME, &text)], &text)
+    Host::new(crate::pypath::Flavor::native(), &[(crate::envvars::ENV_HOME, &text)], &text)
 }
 
 struct Ends(u32);
@@ -144,6 +144,7 @@ fn job<'a>(
         game_running: game,
         start,
         alive_wait: Duration::from_millis(300),
+        without_backup: false,
     }
 }
 
@@ -203,7 +204,7 @@ fn under_windows_a_failed_download_at_the_end_keeps_no_pause() {
         .with(updater::API, api("2026-11-20T09:00:00Z", &assets).into_bytes())
         .with(&format!("{BASE}/SHA256SUMS.txt"), format!("{}  {installer}\n", sha(b"neu")).into_bytes());
     let release = release_of(&net, &c.paths);
-    let program = c.dir.path().join("SC-BP-Watcher.exe");
+    let program = c.dir.path().join("VerseKit.exe");
     let mut ended = Job { automatic: true, at_exit: true, ..job(&c, &net, &never, &no_game) };
     ended.appimage = None;
     ended.program = &program;
@@ -228,7 +229,7 @@ fn under_windows_no_update_starts_while_a_backup_is_at_work() {
         .with(&format!("{BASE}/SHA256SUMS.txt"), format!("{}  {installer}\n", sha(b"neu")).into_bytes())
         .with(&format!("{BASE}/{installer}"), b"neu".to_vec());
     let release = release_of(&net, &c.paths);
-    let program = c.dir.path().join("SC-BP-Watcher.exe");
+    let program = c.dir.path().join("VerseKit.exe");
     let mut windows_job = job(&c, &net, &never, &no_game);
     windows_job.appimage = None;
     windows_job.program = &program;
@@ -538,7 +539,26 @@ fn the_newest_version_is_not_fetched_again_when_it_runs() {
     let mut env = env_for(&c, net.clone(), Arc::new(never));
     env.own_version = "5.0.1".into();
     let paths = Paths::new(c.paths.host.clone());
-    let done = fetch_newest(&env, &paths, true, &mut |_| {}, &|_| panic!("no version is chosen"));
+    let done = fetch_newest(&env, &paths, Fetch { with_prerelease: true, without_backup: false }, &mut |_| {}, &|_| {
+        panic!("no version is chosen")
+    });
+    assert_eq!(done, Done::Stopped(Some(t("s_up_sofort_aktuell"))));
+    assert!(net.asked().iter().all(|url| url == updater::API), "only the list is asked: {:?}", net.asked());
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"alt");
+}
+
+/// A program newer than every release (a test build, a release taken back) gets no older version by „get latest
+/// version“: the way back are the buttons of the channels.
+#[test]
+fn an_older_version_is_not_fetched_as_the_newest() {
+    let c = case("flow-neuer-als-alle");
+    let net = Arc::new(github(b"neu"));
+    let mut env = env_for(&c, net.clone(), Arc::new(never));
+    env.own_version = "9.0.0".into();
+    let paths = Paths::new(c.paths.host.clone());
+    let done = fetch_newest(&env, &paths, Fetch { with_prerelease: true, without_backup: false }, &mut |_| {}, &|_| {
+        panic!("no version is chosen")
+    });
     assert_eq!(done, Done::Stopped(Some(t("s_up_sofort_aktuell"))));
     assert!(net.asked().iter().all(|url| url == updater::API), "only the list is asked: {:?}", net.asked());
     assert_eq!(fs::read(&c.appimage).unwrap(), b"alt");
@@ -550,6 +570,54 @@ fn the_same_version_is_found_whatever_case_space_and_v_it_is_written_with() {
     assert!(same_version(" V5.1.0-rc2 ", "v5.1.0-Rc2"));
     assert!(!same_version("v5.1.0-rc2", "5.1.0-rc3"));
     assert!(!same_version("v5.1.0-rc2", "5.1.0"));
+}
+
+/// ⚠ The backup before the update could not be made: nothing is installed, the lock is free, the file stays as
+/// it is, and the answer is the player's. An automatic update is not tried again at once.
+#[test]
+fn without_a_backup_nothing_is_installed_and_the_answer_is_the_players() {
+    let c = case("flow-ohne-sicherung");
+    let net = github(b"neu");
+    let release = release_of(&net, &c.paths);
+    // A file where the folder of the backups belongs.
+    fs::write(c.paths.app_file(crate::backup::BEFORE_UPDATE_FOLDER), b"im Weg").unwrap();
+
+    let j = job(&c, &net, &lives, &no_game);
+    let (done, _) = run_quiet(&j, &release);
+    assert!(matches!(done, Done::NoBackup(ref reason) if !reason.is_empty()), "{done:?}");
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"alt", "nothing was exchanged");
+    assert!(lock_free(&c));
+    assert!(!update_run::failed_recently(&c.paths, &release.version, j.now + 60.0), "a click asks again at once");
+
+    let automatic = Job { automatic: true, ..job(&c, &net, &lives, &no_game) };
+    assert!(matches!(run_quiet(&automatic, &release).0, Done::NoBackup(_)));
+    assert!(update_run::failed_recently(&c.paths, &release.version, j.now + 60.0), "no new try by itself");
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"alt");
+
+    let agreed = Job { without_backup: true, ..job(&c, &net, &lives, &no_game) };
+    assert_eq!(run_quiet(&agreed, &release).0, Done::Quit);
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"neu", "the answer of the player lets it go on");
+}
+
+/// The same through the thread of a click: the window gets the question, and the answer starts it again.
+#[test]
+fn the_runner_hands_the_question_to_the_window_and_the_answer_goes_on() {
+    let c = case("flow-runner-ohne-sicherung");
+    let env = env_for(&c, Arc::new(github(b"neu")), Arc::new(lives));
+    fs::write(c.paths.app_file(crate::backup::BEFORE_UPDATE_FOLDER), b"im Weg").unwrap();
+    let runner = Runner::default();
+    assert!(runner.take_no_backup().is_none());
+    assert!(runner.start(&env, c.paths.host.clone(), false));
+    assert_eq!(wait_until_idle(&runner), State::Idle);
+    let asked = runner.take_no_backup().expect("the question for the player");
+    assert_eq!((asked.version.as_str(), asked.with_prerelease), ("v5.0.1", false));
+    assert!(!asked.reason.is_empty());
+    assert!(runner.take_no_backup().is_none(), "asked once");
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"alt");
+
+    assert!(runner.start_without_backup(&env, c.paths.host.clone(), false));
+    assert_eq!(wait_until_idle(&runner), State::Quit);
+    assert_eq!(fs::read(&c.appimage).unwrap(), b"neu");
 }
 
 #[test]

@@ -199,6 +199,8 @@ pub struct EquipmentState {
     lists: HashMap<String, (usize, Listed)>,
     /// The text of each field.
     texts: HashMap<String, String>,
+    /// The number being typed beside a quality slider, by field, until the field is left.
+    numbers: HashMap<String, String>,
     /// The field whose list is open: its text is the player's, not the part's.
     editing: Option<String>,
     renaming: Option<Renaming>,
@@ -1241,22 +1243,59 @@ fn slot_details(
     for recipe_slot in &recipe.slots {
         let current = slot.map_or(equipment::BASE_QUALITY, |s| s.quality_at(recipe_slot));
         let name = tf("s_wk_qualitaet", &[("slot", Arg::from(recipe_slot.clone()))]);
+        let number_id = format!("{id}-qualitaet-{recipe_slot}");
         line(ui, scheme, part.stacked, &name, |row| {
             let gap = row.spacing().item_spacing.x;
-            let number = text_width(row, "1000", egui::TextStyle::Body, false) + gap;
-            let width = (row.available_width() - number - button_room(row, 1)).max(40.0);
+            let margin = egui::Margin::symmetric(4, 2);
+            let box_width = text_width(row, "1000", egui::TextStyle::Body, false) + margin.sum().x + 2.0;
+            let width = (row.available_width() - box_width - gap - button_room(row, 1)).max(40.0);
             let mut value = i64::from(current);
             let response = row.add(widgets::Slider::new(&mut value, 0, 1000, scheme).width(width).on_release());
             let shown = widgets::Slider::shown(row, &response).unwrap_or(value);
             let enabled = response.enabled();
             response.widget_info(|| egui::WidgetInfo::slider(enabled, shown as f64, &name));
-            row.label(shown.to_string());
+            // The number beside the slider: what is typed stays in a buffer until the field is left.
+            let mut text = state.numbers.get(&number_id).cloned().unwrap_or_else(|| shown.to_string());
+            let field = widgets::text_field(&mut text, "", scheme)
+                .id_salt(&number_id)
+                .margin(margin)
+                .align(egui::Align2::RIGHT_CENTER)
+                .desired_width(box_width);
+            let typed = row.add(field);
+            let (typed_enabled, typed_text) = (typed.enabled(), text.clone());
+            typed.widget_info(|| {
+                let mut info = egui::WidgetInfo::labeled(egui::Role::TextInput, typed_enabled, &name);
+                info.current_text_value = Some(typed_text.clone());
+                info
+            });
+            if typed.has_focus() || typed.changed() {
+                state.numbers.insert(number_id.clone(), text.clone());
+            }
+            if typed.lost_focus() {
+                state.numbers.remove(&number_id);
+                let escape = row.input(|i| i.key_pressed(egui::Key::Escape));
+                if !escape
+                    && let Some(number) = quality_number(&text)
+                    && number != current
+                {
+                    actions.push(Action::Quality { paths: group.paths.clone(), slot: recipe_slot.clone(), value: number });
+                }
+            }
             if response.changed() {
                 let value = u16::try_from(value.clamp(0, 1000)).unwrap_or(equipment::BASE_QUALITY);
                 actions.push(Action::Quality { paths: group.paths.clone(), slot: recipe_slot.clone(), value });
             }
         });
     }
+}
+
+/// The quality a typed text stands for: digits only, 0 to 1000.
+fn quality_number(text: &str) -> Option<u16> {
+    let text = text.trim();
+    if text.is_empty() || !text.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    text.parse::<u16>().ok().filter(|n| *n <= 1000)
 }
 
 /// The first name of the form "Loadout 2" no equipment has.
@@ -2018,7 +2057,7 @@ mod tests {
         let text = dir.to_string_lossy().into_owned();
         let paths = Paths::new(Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, &text)],
+            &[(versekit_core::envvars::ENV_HOME, &text)],
             &text,
         ));
         let _ = Flavor::native();
@@ -2404,6 +2443,205 @@ mod tests {
             std::env::temp_dir().join(format!("versekit-ausstattung-{}-rand", versekit_core::testdir::run_tag())),
         );
         assert!(findings.is_empty(), "{}", findings.join("\n"));
+    }
+
+    /// The box with a built shield, drawn frame by frame in one context.
+    struct QualityBench {
+        ctx: egui::Context,
+        stores: Stores,
+        extra: Extra,
+        ship: Map,
+        state: EquipmentState,
+        dir: &'static str,
+    }
+
+    impl QualityBench {
+        fn new(dir: &'static str) -> Self {
+            let stores = Stores::load(&folder_with(dir, TURRET_SLOTS));
+            let ctx = egui::Context::default();
+            crate::install(&ctx);
+            ctx.enable_accesskit();
+            ctx.all_styles_mut(|style| style.animation_time = 0.0);
+            let recipes = vec![RecipeInfo {
+                entity: "new-shield".into(),
+                basis: "New Shield".into(),
+                blueprint: "bp-shield".into(),
+                slots: vec!["Frame".into(), "Emitter Housing".into()],
+            }];
+            let ship = entry(
+                r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {
+                    "s1": {"ref": "new-shield", "name": "New Shield", "weg": "bauen"}},
+                    "ausstattungen": [{"name": "Standard", "active": true, "slots": [
+                        {"portPath": "s1", "itemGuid": "new-shield", "acquisition": "crafted", "quality": {"Frame": 820}}]}]}"#,
+            );
+            let state = EquipmentState { open_all: true, ..EquipmentState::default() };
+            Self { ctx, stores, extra: Extra { recipes, ..Extra::default() }, ship, state, dir }
+        }
+
+        /// One frame with `events`: the action it asked for and the text fields (name, centre, text).
+        fn frame(&mut self, events: Vec<egui::Event>) -> (Option<Action>, Vec<(String, egui::Pos2, String)>) {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 2400.0))),
+                events,
+                ..Default::default()
+            };
+            let mut action = None;
+            let output = self.ctx.run_ui(input, |ui| {
+                let scheme = versekit_core::theme::current();
+                let box_ctx = Ctx { stores: &self.stores, extra: &self.extra, sources: &Fake, paths: None, others: None };
+                action = show(ui, scheme, &box_ctx, &mut self.state, &self.ship, "key", false);
+            });
+            let fields = output
+                .platform_output
+                .accesskit_update
+                .map(|update| {
+                    update
+                        .nodes
+                        .iter()
+                        .filter(|(_, n)| n.role() == egui::accesskit::Role::TextInput)
+                        .filter_map(|(_, n)| {
+                            let b = n.bounds()?;
+                            let centre = egui::pos2(((b.x0 + b.x1) / 2.0) as f32, ((b.y0 + b.y1) / 2.0) as f32);
+                            Some((n.label()?.to_string(), centre, n.value().unwrap_or_default().to_string()))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            (action, fields)
+        }
+
+        /// Frames until the box stands still: the field called `name` (centre, text).
+        fn settle(&mut self, name: &str) -> Option<(egui::Pos2, String)> {
+            let mut found = None;
+            for _ in 0..3 {
+                let (_, fields) = self.frame(Vec::new());
+                found = fields.into_iter().find(|(n, _, _)| n == name).map(|(_, at, text)| (at, text));
+            }
+            found
+        }
+
+        /// A click into the field at `at`, all selected, `text` typed, then `leave` pressed (or the pointer
+        /// moved to the empty page and clicked there); the actions the frames asked for.
+        fn type_into(&mut self, at: egui::Pos2, text: &str, leave: Option<egui::Key>) -> Vec<Action> {
+            let click = |at, pressed| egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            let press = |key, modifiers| egui::Event::Key {
+                key,
+                physical_key: Some(key),
+                pressed: true,
+                repeat: false,
+                modifiers,
+            };
+            let away = egui::pos2(880.0, 2300.0);
+            let mut steps = vec![
+                vec![egui::Event::PointerMoved(at), click(at, true)],
+                vec![click(at, false)],
+                vec![press(egui::Key::A, egui::Modifiers::COMMAND)],
+                vec![egui::Event::Text(text.to_string())],
+            ];
+            steps.push(match leave {
+                Some(key) => vec![press(key, egui::Modifiers::NONE)],
+                None => vec![egui::Event::PointerMoved(away), click(away, true), click(away, false)],
+            });
+            let mut asked = Vec::new();
+            for events in steps {
+                asked.extend(self.frame(events).0);
+            }
+            asked.extend(self.frame(Vec::new()).0);
+            asked
+        }
+    }
+
+    impl Drop for QualityBench {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(
+                std::env::temp_dir().join(format!("versekit-ausstattung-{}-{}", versekit_core::testdir::run_tag(), self.dir)),
+            );
+        }
+    }
+
+    #[test]
+    fn the_quality_of_a_recipe_slot_is_typed_as_a_number_and_enter_or_leaving_the_field_takes_it() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let name = tf("s_wk_qualitaet", &[("slot", Arg::from("Frame"))]);
+        let mut bench = QualityBench::new("zahl-eintippen");
+        let (at, shown) = bench.settle(&name).unwrap_or_else(|| panic!("a field named {name:?} holds the quality"));
+        assert_eq!(shown, "820");
+        let quality = |value| Action::Quality { paths: vec!["s1".into()], slot: "Frame".into(), value };
+        // Enter takes the number as the release of the slider does; so does leaving the field.
+        assert_eq!(bench.type_into(at, "750", Some(egui::Key::Enter)), [quality(750)]);
+        assert_eq!(bench.type_into(at, "750", None), [quality(750)]);
+        assert_eq!(bench.type_into(at, "1000", Some(egui::Key::Enter)), [quality(1000)]);
+        assert_eq!(bench.type_into(at, "0", Some(egui::Key::Enter)), [quality(0)]);
+    }
+
+    #[test]
+    fn a_wrong_quality_is_not_taken_and_the_field_goes_back_to_the_old_number() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let name = tf("s_wk_qualitaet", &[("slot", Arg::from("Frame"))]);
+        let mut bench = QualityBench::new("zahl-falsch");
+        let (at, _) = bench.settle(&name).unwrap_or_else(|| panic!("a field named {name:?} holds the quality"));
+        for wrong in ["", "abc", "1001", "-5", "7,5", "75o"] {
+            let asked = bench.type_into(at, wrong, Some(egui::Key::Enter));
+            assert!(asked.is_empty(), "{wrong:?} is not a quality: {asked:?}");
+            let shown = bench.settle(&name).map(|field| field.1);
+            assert_eq!(shown.as_deref(), Some("820"), "{wrong:?}: back to the old number");
+        }
+    }
+
+    #[test]
+    fn escape_throws_the_typed_quality_away() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let name = tf("s_wk_qualitaet", &[("slot", Arg::from("Frame"))]);
+        let mut bench = QualityBench::new("zahl-escape");
+        let (at, _) = bench.settle(&name).unwrap_or_else(|| panic!("a field named {name:?} holds the quality"));
+        let asked = bench.type_into(at, "750", Some(egui::Key::Escape));
+        assert!(asked.is_empty(), "Escape takes nothing: {asked:?}");
+        assert_eq!(bench.settle(&name).map(|field| field.1).as_deref(), Some("820"));
+    }
+
+    #[test]
+    fn tab_reaches_the_quality_field_which_a_screen_reader_names() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let name = tf("s_wk_qualitaet", &[("slot", Arg::from("Frame"))]);
+        let mut bench = QualityBench::new("zahl-tab");
+        bench.settle(&name);
+        let tab = egui::Event::Key {
+            key: egui::Key::Tab,
+            physical_key: Some(egui::Key::Tab),
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        };
+        let mut reached = false;
+        for _ in 0..40 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 2400.0))),
+                events: vec![tab.clone()],
+                ..Default::default()
+            };
+            let output = bench.ctx.run_ui(input, |ui| {
+                let scheme = versekit_core::theme::current();
+                let box_ctx =
+                    Ctx { stores: &bench.stores, extra: &bench.extra, sources: &Fake, paths: None, others: None };
+                show(ui, scheme, &box_ctx, &mut bench.state, &bench.ship, "key", false);
+            });
+            if let Some(update) = output.platform_output.accesskit_update {
+                reached |= update
+                    .nodes
+                    .iter()
+                    .any(|(id, n)| *id == update.focus && n.role() == egui::accesskit::Role::TextInput && n.label() == Some(name.as_str()));
+            }
+        }
+        assert!(reached, "Tab never put the focus into the field {name:?}");
     }
 
     /// Puts `parts` into the list of the two coolers alike (`c2`, `c3` of the test ship), the stock cooler at the

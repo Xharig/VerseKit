@@ -795,7 +795,41 @@ pub fn remove_file(path: &str) -> io::Result<()> {
 /// also attempts a `mkdir` there.
 pub fn make_dirs(folder: &str) -> io::Result<()> {
     writeguard::check("makedirs", folder)?;
+    if creating_refused(folder) {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "the data folder is not there and is not made anew"));
+    }
     fs::create_dir_all(folder)
+}
+
+/// Folders that are not there and that `make_dirs` must not make, nor anything below them: the data folder a
+/// pointer names when it is gone ([`crate::lost_storage`]). Shared by every thread of the process.
+static NOT_MADE: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn place_key(folder: &str) -> String {
+    let flavor = Flavor::native();
+    let cwd = std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+    flavor.normcase(&flavor.abspath(folder, &cwd))
+}
+
+/// Forbids (`refuse`) or allows again that `folder` and what lies below it is made by [`make_dirs`]. The ban
+/// holds only while the folder is not there: once it is (the disk is connected), everything works as before.
+pub fn refuse_creating(folder: &str, refuse: bool) {
+    let key = place_key(folder);
+    let mut list = NOT_MADE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    list.retain(|known| *known != key);
+    if refuse {
+        list.push(key);
+    }
+}
+
+/// Is `folder` the place of a ban of [`refuse_creating`], or below it, and that place still not there?
+fn creating_refused(folder: &str) -> bool {
+    let list = NOT_MADE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if list.is_empty() {
+        return false;
+    }
+    let (key, sep) = (place_key(folder), Flavor::native().sep());
+    list.iter().any(|banned| (key == *banned || key.starts_with(&format!("{banned}{sep}"))) && !Path::new(banned).exists())
 }
 
 /// Create a file anew or truncate it, and write the text.

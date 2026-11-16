@@ -362,7 +362,7 @@ mod tests {
         std::fs::create_dir_all(&version).expect("folder");
         std::fs::write(format!("{version}/GraphicsSettings.json"), RENDERER_JSON).expect("renderer");
         let vars = [
-            ("SC_BP_HOME", home.as_str()),
+            ("VERSEKIT_HOME", home.as_str()),
             ("HOME", home.as_str()),
             ("LOCALAPPDATA", local.as_str()),
             (ENV_INSTALL_DIR, game.as_str()),

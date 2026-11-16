@@ -479,7 +479,7 @@ mod tests {
         let home = root.to_string_lossy().into_owned();
         let paths = Paths::new(versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, home.as_str())],
+            &[(versekit_core::envvars::ENV_HOME, home.as_str())],
             &home,
         ));
         assert!(use_card(&paths));
@@ -553,8 +553,7 @@ mod tests {
         use versekit_core::paths::Host;
         let dir = versekit_core::testdir::Dir::new(&format!("grafik-{name}"));
         let text = dir.path().to_string_lossy().into_owned();
-        let vars =
-            [(versekit_core::legacy::ENV_HOME, text.as_str()), ("HOME", text.as_str()), ("USERPROFILE", text.as_str())];
+        let vars = [(versekit_core::envvars::ENV_HOME, text.as_str()), ("HOME", text.as_str()), ("USERPROFILE", text.as_str())];
         (Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &vars, &text)), dir)
     }
 

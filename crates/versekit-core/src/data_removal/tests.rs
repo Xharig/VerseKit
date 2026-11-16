@@ -103,7 +103,7 @@ fn listing(root: &Path) -> Vec<String> {
 }
 
 /// Files and folders with the names of the program, or nearly its names, that are not the program's.
-const LOOK_ALIKES: [&str; 27] = [
+const LOOK_ALIKES: [&str; 28] = [
     "bericht.txt",
     "watchlist.json",
     "gesehen.json",
@@ -128,6 +128,7 @@ const LOOK_ALIKES: [&str; 27] = [
     "export/Ältere/scmdb-import-2026-09-13.json",
     "Patches/patch-1.json",
     "Sicherungen/Verse-Kit-Sicherung-vor-VerseKit-5-Kopie.zip",
+    "Sicherungen/VerseKit-Sicherung-vor-VerseKit-5-Kopie.zip",
     "vor-update/vor-update-2026-11-01-120000-5.2.0.zip",
     "Leer/",
     "Intern/Leer/",
@@ -160,6 +161,8 @@ fn the_own_data_go_at_every_place_and_everything_else_stays() {
         "Diagnose/fehler.json",
         "Sicherungen/Verse-Kit-Sicherung-vor-VerseKit-5-2026-11-01-120000.zip",
         "Sicherungen/Verse-Kit-Sicherung-vor-VerseKit-5-2026-11-01-120000-2.zip",
+        "Sicherungen/VerseKit-Sicherung-vor-VerseKit-5-2026-11-20-090000.zip",
+        "Sicherungen/VerseKit-Sicherung-vor-VerseKit-5-2026-11-20-090000-2.zip.teil",
         "Einstellungen/einstellungen.bak.json",
         "Einstellungen/einstellungen.kaputt-20261101-120000.json",
         "Einstellungen/einstellungen.kaputt-20261101-120000-2.json",
@@ -424,6 +427,18 @@ fn the_known_files_are_the_names_of_the_program_and_the_copies_it_makes_beside_t
     }
 }
 
+/// The flight log is a movement profile: it goes with the data, with its copies, and only from `Intern`.
+#[test]
+fn the_flight_log_goes_with_the_data_and_its_copies() {
+    let nowhere = Path::new("gibt-es-nicht");
+    for name in ["flugbuch.json", "flugbuch.bak.json", "flugbuch.json.4711-12.tmp"] {
+        assert!(known_file(name), "{name}");
+    }
+    assert!(owned_named("Intern", "flugbuch.json", nowhere));
+    assert!(!owned_named("Bauplaene", "flugbuch.json", nowhere));
+    assert!(!known_file("flugbuch.privat.json"));
+}
+
 /// What the question of the uninstaller says: in the program's own subfolders a file with the program's exact
 /// name goes whatever is in it (the program made those folders and writes those names); everything else stays.
 #[test]
@@ -506,7 +521,16 @@ fn a_known_name_goes_only_in_the_subfolder_the_program_puts_it_in() {
 #[test]
 fn every_file_name_of_the_program_is_known_or_named_as_no_data() {
     // Names that are no data of the program in its own subfolders, each with where it lies.
-    const NO_DATA: [&str; 8] = [
+    const NO_DATA: [&str; 13] = [
+        // The admin password of the org server: in the data folder of that server, which an org hosts on its own
+        // machine. Neither the program on a player's computer nor its uninstaller ever sees that folder.
+        versekit_orgserver::setup::PASSWORD_FILE,
+        // The org connections in their own folder beside the configuration, cleared as a folder of the program.
+        crate::orgstd::store::PLAIN_FILE,
+        // Time and number of the last sharing with an org, in the same folder.
+        crate::orgstd::hub::SHARED_FILE,
+        // The address of the discovery document of an org server, no file.
+        crate::orgstd::WELL_KNOWN,
         // The moved log of the RSI Launcher: a file of the launcher, read by the program, never written by it.
         crate::launcher_log::OLD_LOG_FILE,
         // The attachment inside a backup file.
@@ -521,6 +545,7 @@ fn every_file_name_of_the_program_is_known_or_named_as_no_data() {
         ".urtext.json",
         // Files of the parity checks in their scratch folders.
         "contracts.json",
+        "locations.json",
         "ergebnis.json",
     ];
     let pattern =
@@ -635,6 +660,62 @@ fn the_places_are_the_ones_cleared_and_the_mark_of_a_collection_counts_too() {
     assert_eq!(remove(&paths).unwrap().places.len(), 4);
 }
 
+/// Every name the program had for its folders: the default folder under Documents of 4.12, of 5.0 to 5.2 and
+/// of the current version, the configuration folder of the previous version and of the current one.
+#[test]
+fn the_folders_under_every_name_the_program_had_go_with_the_data() {
+    let dir = Dir::new("daten-loeschen-namen");
+    let root = dir.path();
+    let paths = machine(root);
+    let documents = root.join("home").join("Dokumente");
+    let names = EARLIER_FOLDER_NAMES.into_iter().chain([NEW_FOLDER_NAME]);
+    let named: Vec<PathBuf> = names.map(|name| documents.join(name)).collect();
+    assert_eq!(named.len(), 3, "the name of 4.12, the one of 5.0 to 5.2 and the current one");
+    for folder in &named {
+        put(&folder.join("Bauplaene").join("bestand.json"), "x");
+    }
+    let configs: Vec<PathBuf> =
+        [CONFIG_FOLDER_NAME, legacy::CONFIG_FOLDER].into_iter().map(|n| root.join("appdata").join(n)).collect();
+    for config in &configs {
+        put(&config.join("ablage.json"), "{}");
+        put(&config.join("hochwasser.json"), "{}");
+    }
+    put(&documents.join("Brief.docx"), "fremd");
+    put(&root.join("appdata").join("Anderes").join("x.json"), "fremd");
+
+    let found: Vec<String> = places(&paths).unwrap().into_iter().map(|place| place.path).collect();
+    for folder in named.iter().chain(&configs) {
+        assert!(found.contains(&folder.to_string_lossy().into_owned()), "{folder:?} is a place: {found:?}");
+    }
+    let removal = remove(&paths).unwrap();
+    assert!(removal.failed.is_empty(), "{:?}", removal.failed);
+    assert_eq!(
+        listing(root),
+        ["appdata/", "appdata/Anderes/", "appdata/Anderes/x.json", "home/", "home/Dokumente/", "home/Dokumente/Brief.docx"],
+        "the own data of every name are gone, everything else as it was"
+    );
+}
+
+#[test]
+fn the_folder_of_the_org_connections_goes_unless_a_variable_names_it() {
+    let dir = Dir::new("daten-loeschen-orga");
+    let root = dir.path();
+    let mut paths = machine(root);
+    let folder = PathBuf::from(crate::orgstd::store::folder(&paths.host));
+    let file = folder.join(crate::orgstd::store::PLAIN_FILE);
+    put(&file, "{}");
+    let found = places(&paths).unwrap();
+    let place = Place { path: folder.to_string_lossy().into_owned(), kind: Kind::Program };
+    assert!(found.contains(&place), "{found:?}");
+    remove(&paths).unwrap();
+    assert!(!file.exists() && !folder.exists());
+    let own_choice = root.join("Tresor").join("orga");
+    put(&own_choice.join(crate::orgstd::store::PLAIN_FILE), "{}");
+    paths.host.set_var(crate::orgstd::store::ENV_FOLDER, &own_choice.to_string_lossy());
+    remove(&paths).unwrap();
+    assert!(own_choice.join(crate::orgstd::store::PLAIN_FILE).is_file());
+}
+
 #[test]
 fn a_folder_of_secrets_named_by_the_variable_is_not_touched() {
     let dir = Dir::new("daten-loeschen-geheim");
@@ -642,7 +723,7 @@ fn a_folder_of_secrets_named_by_the_variable_is_not_touched() {
     let mut paths = machine(root);
     let own_choice = root.join("Tresor").join("basetool");
     put(&own_choice.join("schluessel.bin"), "x");
-    paths.host.set_var(legacy::ENV_SECRETS, &own_choice.to_string_lossy());
+    paths.host.set_var(envvars::ENV_SECRETS, &own_choice.to_string_lossy());
     let removal = remove(&paths).unwrap();
     assert!(own_choice.join("schluessel.bin").is_file());
     assert!(removal.places.is_empty(), "{:?}", removal.places);
@@ -677,7 +758,7 @@ fn a_data_folder_named_from_outside_is_refused_and_nothing_is_touched() {
     put(&named.join("bestand.json"), "x");
     put(&root.join("home").join("Dokumente").join(NEW_FOLDER_NAME).join("Bauplaene").join("bestand.json"), "x");
     let before = listing(root);
-    paths.host.set_var(legacy::ENV_HOME, &named.to_string_lossy());
+    paths.host.set_var(envvars::ENV_HOME, &named.to_string_lossy());
     assert_eq!(remove(&paths), Err(Refused::NamedFromOutside));
     assert_eq!(places(&paths), Err(Refused::NamedFromOutside));
     assert_eq!(listing(root), before);

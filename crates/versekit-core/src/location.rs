@@ -521,7 +521,6 @@ mod tests {
 
     #[test]
     fn learning_all_logs_reads_each_one_once_and_keeps_the_marks() {
-        use crate::legacy;
         use crate::paths::Host;
         use crate::pypath::Flavor;
 
@@ -535,7 +534,7 @@ mod tests {
         std::fs::write(&first, LOG).unwrap();
         std::fs::write(&second, "<RequestLocationInventory> Player[Xy] requested inventory for Location[Stanton1_Lorville]\n<RequestOrCreatePersonalInventoryData> Player[Xy] create/queried inventory request[Success] inventoryID[1:Location:900]\n").unwrap();
         let files: Vec<String> = [&first, &second].iter().map(|p| p.to_string_lossy().into_owned()).collect();
-        let host = Host::new(Flavor::native(), &[(legacy::ENV_HOME, home.to_str().unwrap())], root.to_str().unwrap());
+        let host = Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, home.to_str().unwrap())], root.to_str().unwrap());
         let paths = Paths::new(host);
         // The Python version marked these logs as read by its own, narrower rule: that does not count.
         let marked = files

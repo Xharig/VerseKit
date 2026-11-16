@@ -1,13 +1,13 @@
 # Nutzungszähler und Statistik (Cloudflare Worker)
 
-Verse-Kit meldet sich höchstens einmal am Tag hier — ohne Kennung. Der Worker
+VerseKit meldet sich höchstens einmal am Tag hier — ohne Kennung. Der Worker
 zählt je Tag, wie viele Installationen sich gemeldet haben, und zeigt das in
 einer privaten Übersicht. Was genau gemeldet wird, steht in `PRIVACY.md`
 (Abschnitt *Nutzung zählen*) und in `crates/versekit-core/src/usage.rs`.
 
 | Adresse | Wofür | Wer kommt ran |
 |---|---|---|
-| `nutzung-versekit.xharig.com/ping` | nimmt die tägliche Meldung an | jeder Verse-Kit (nur `POST`, nur geprüfte Felder) |
+| `nutzung-versekit.xharig.com/ping` | nimmt die tägliche Meldung an | jeder VerseKit (nur `POST`, nur geprüfte Felder) |
 | `statistik-versekit.xharig.com` | die Übersicht mit den Charts | nur du — Cloudflare Access davor, der Worker prüft zusätzlich selbst |
 | `xharig.com/windows`, `xharig.com/linux` | Download-Knöpfe der Webseite: zählen Tag, System, Land, dann Weiterleitung zu GitHub | jeder; Vorschau-Roboter, `curl` und schnelle Wiederholungen zählen nicht |
 

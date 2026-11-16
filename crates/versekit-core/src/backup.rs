@@ -32,7 +32,8 @@
 //! ⚠ Names that stay as 4.12 wrote them, because they stand in the backups of the players: the folder
 //! `Steuerung/` and the attachment `sicherung.txt` in the archive, and the setting keys of
 //! [`PATH_FIELDS`]. The mark in the attachment of [`write`] is new ([`MARKER`]); the backups before an update and at
-//! the first start carry the old one (`legacy::BACKUP_MARKER`), the only one 4.12 restores. Both are read.
+//! the first start carry the one of 4.12 (`legacy::BACKUP_MARKER`), the only one 4.12 restores. A backup of 5.0 to
+//! 5.3.6 carries the one with the hyphen (`legacy::BACKUP_MARKER_HYPHEN`). All three are read.
 
 use std::fs;
 use std::path::Path;
@@ -45,7 +46,11 @@ use crate::text::py_strip;
 use crate::{errors, hangar_inbox, joysticks, legacy, start_programs, zip};
 
 /// The mark in the head of the attachment: a backup of this program is recognised by it, even renamed.
-pub const MARKER: &str = "Verse-Kit-Sicherung";
+pub const MARKER: &str = "VerseKit-Sicherung";
+/// The start of the file name of a backup this program suggests and of the copy of before a restore.
+pub const FILE_START: &str = "VerseKit-Sicherung";
+/// The start of the file name of the copy of before a restore.
+pub const BEFORE_FILE_START: &str = "VerseKit-vorher";
 /// The attachment in the archive: plain text for the person who finds the file in a year.
 pub const INFO_FILE: &str = "sicherung.txt";
 /// The prefix in the archive of the controls: they lie in the game folder, not in the data folder.
@@ -269,7 +274,7 @@ pub fn last_written(paths: &Paths) -> String {
 /// A file name with the date: a backup keeps one state.
 pub fn suggestion() -> String {
     let (year, month, day, ..) = jsonio::local_time();
-    format!("Verse-Kit-Sicherung-{year:04}-{month:02}-{day:02}.zip")
+    format!("{FILE_START}-{year:04}-{month:02}-{day:02}.zip")
 }
 
 /// The attachment: plain text, not identifiers. It lands with the player, so it is in the language of the
@@ -364,11 +369,50 @@ pub const BEFORE_UPDATE_KEEP: usize = 2;
 ///
 /// As [`write`]; the caller does not stop the update for it.
 pub fn write_before_update(paths: &Paths, version: &str) -> Result<String, WriteError> {
-    let folder = paths.app_file(BEFORE_UPDATE_FOLDER);
+    write_rotating(paths, BEFORE_UPDATE_FOLDER, "vor-update", version, BEFORE_UPDATE_KEEP)
+}
+
+/// The folder in `Intern` with the backups written when the version that runs is not the one that ran last
+/// ([`crate::version_change`]).
+pub const BEFORE_VERSION_CHANGE_FOLDER: &str = "vor-versionswechsel";
+/// How many backups of a change of version are kept: more than before an update, because a player who tries
+/// versions back and forth makes one at every change, and the one from before the first change must not be
+/// pushed out by backups of what a change may have damaged.
+pub const BEFORE_VERSION_CHANGE_KEEP: usize = 6;
+
+/// A backup of one's own data at the start of a version that is not the one that ran last, before it renames,
+/// moves or rewrites anything: the same as [`write_before_update`], into `Intern/vor-versionswechsel/`; the last
+/// [`BEFORE_VERSION_CHANGE_KEEP`] stay. Returns the file written.
+///
+/// # Errors
+///
+/// As [`write`]; [`WriteError::Empty`] where there is no data of one's own yet.
+pub fn write_before_version_change(paths: &Paths, version: &str) -> Result<String, WriteError> {
+    write_rotating(paths, BEFORE_VERSION_CHANGE_FOLDER, "vor-versionswechsel", version, BEFORE_VERSION_CHANGE_KEEP)
+}
+
+/// The folder in `Intern` with the backups the test build writes at every start.
+pub const BEFORE_TEST_START_FOLDER: &str = "vor-testfassung";
+
+/// A backup of one's own data at the start of the test build, before it writes anything: the same as
+/// [`write_before_update`], into `Intern/vor-testfassung/`; the last [`BEFORE_UPDATE_KEEP`] stay. Returns the file
+/// written.
+///
+/// # Errors
+///
+/// As [`write`]; [`WriteError::Empty`] where there is no data of one's own yet.
+pub fn write_before_test_start(paths: &Paths, version: &str) -> Result<String, WriteError> {
+    write_rotating(paths, BEFORE_TEST_START_FOLDER, "vor-testfassung", version, BEFORE_UPDATE_KEEP)
+}
+
+/// A backup without the controls into `Intern/<folder>/<prefix>-<time>-<version>.zip`, with the mark of 4.12; only
+/// the last `keep` of that kind stay.
+fn write_rotating(paths: &Paths, folder: &str, prefix: &str, version: &str, keep: usize) -> Result<String, WriteError> {
+    let folder = paths.app_file(folder);
     jsonio::make_dirs(&folder).map_err(|e| WriteError::Failed(e.to_string()))?;
     let (year, month, day, hour, minute, second) = jsonio::local_time();
     let version = if version.is_empty() { "unbekannt" } else { version };
-    let name = format!("vor-update-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}{second:02}-{version}.zip");
+    let name = format!("{prefix}-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}{second:02}-{version}.zip");
     let target = Path::new(&folder).join(name).to_string_lossy().into_owned();
     write_marked(paths, &target, version, &[], legacy::BACKUP_MARKER)?;
     let mut written: Vec<_> = fs::read_dir(&folder)
@@ -376,12 +420,12 @@ pub fn write_before_update(paths: &Paths, version: &str) -> Result<String, Write
             entries
                 .flatten()
                 .map(|e| e.file_name().to_string_lossy().into_owned())
-                .filter(|n| n.starts_with("vor-update-") && n.ends_with(".zip"))
+                .filter(|n| n.starts_with(&format!("{prefix}-")) && n.ends_with(".zip"))
                 .collect()
         })
         .unwrap_or_default();
     written.sort();
-    let surplus = written.len().saturating_sub(BEFORE_UPDATE_KEEP);
+    let surplus = written.len().saturating_sub(keep);
     for old in &written[..surplus] {
         let _ = jsonio::remove_file(&Path::new(&folder).join(old).to_string_lossy());
     }
@@ -463,6 +507,12 @@ fn read_archive(source: &str) -> Result<Vec<u8>, String> {
     fs::read(source).map_err(|e| e.to_string())
 }
 
+/// Does the head of the attachment carry the mark of a backup of this program: the current one, the one with the
+/// hyphen of 5.0 to 5.3.6, or the one of 4.12?
+fn has_marker(head: &str) -> bool {
+    [MARKER, legacy::BACKUP_MARKER_HYPHEN, legacy::BACKUP_MARKER].iter().any(|marker| head.contains(marker))
+}
+
 /// What lies in this file? `None` if it is no backup of this program.
 ///
 /// ⚠ **Ask before restoring, not after.** Whoever picks a foreign or broken zip file should learn that
@@ -481,7 +531,7 @@ pub fn check(source: &str) -> Option<Found> {
     // Where a name stands twice, the last one counts (as a zip reader gives it by name).
     let info = names.iter().rev().find(|e| e.name == INFO_FILE)?;
     let head = String::from_utf8_lossy(&zip::read(&data, info).ok()?).into_owned();
-    if !head.contains(MARKER) && !head.contains(legacy::BACKUP_MARKER) {
+    if !has_marker(&head) {
         return None;
     }
     Some(Found { count: names.len() - 1, when: made_at(&head) })
@@ -962,7 +1012,7 @@ pub fn restore(paths: &Paths, source: &str, bindings: &[Binding]) -> Result<Rest
     let folder = flavor.dirname(root.trim_end_matches(flavor.sep()));
     let fallback = flavor.join(
         if folder.is_empty() { &root } else { &folder },
-        &format!("Verse-Kit-vorher-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}{second:02}.zip"),
+        &format!("{BEFORE_FILE_START}-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}{second:02}.zip"),
     );
     restore_with_copy(paths, source, bindings, &fallback)
 }
@@ -1120,7 +1170,7 @@ mod tests {
             "Intern/logstand.json",
             // The state of anti-AFK that the overlay writes for the main window: of a run, never a setting.
             "Intern/anti-afk.json",
-            "export/SC-BP-Watcher-Bestand.json",
+            &format!("export/{}.json", crate::legacy::EXPORT_FULL),
             "Diagnose/fehler.txt",
             "DIAGNOSE\\x",
             "alt/Sicherung.zip",
@@ -1259,6 +1309,80 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    /// The attachment of a backup file as text.
+    fn attachment_of(file: &str) -> String {
+        let data = fs::read(file).unwrap();
+        let entries = zip::entries(&data).unwrap();
+        let info = entries.iter().find(|e| e.name == INFO_FILE).expect("the attachment");
+        String::from_utf8(zip::read(&data, info).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn a_new_backup_carries_the_one_word_name_and_mark_and_not_the_one_with_the_hyphen() {
+        let (paths, dir) = paths_in("neuer-name");
+        put(&paths, "Bestand/x.json", "1");
+        let name = suggestion();
+        assert!(name.starts_with("VerseKit-Sicherung-") && name.ends_with(".zip"), "{name}");
+        assert!(!name.contains("Verse-Kit"), "{name}");
+        let target = dir.join(&name).to_string_lossy().into_owned();
+        write(&paths, &target, "5.4.0", &[]).unwrap();
+        let head = attachment_of(&target);
+        assert!(head.starts_with("VerseKit-Sicherung\r\n"), "{head:?}");
+        assert!(!head.contains(legacy::BACKUP_MARKER_HYPHEN), "{head:?}");
+        assert!(check(&target).is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_backup_of_5_0_to_5_3_6_with_the_hyphen_is_found_and_restored_and_stays_as_it_is() {
+        let (paths, dir) = paths_in("alter-name");
+        put(&paths, "Bestand/bauplaene.json", "jetzt");
+        let info = format!(
+            "{}\r\n\r\nErstellt am 05.05.2026 10:00 mit Verse-Kit 5.2.0.\r\n",
+            legacy::BACKUP_MARKER_HYPHEN
+        );
+        assert_ne!(legacy::BACKUP_MARKER_HYPHEN, MARKER);
+        let source = dir.join(format!("{}-2026-05-05.zip", legacy::BACKUP_FILE_START));
+        let bytes = zip::tests::build(&[("Bestand/bauplaene.json", b"damals", true), (INFO_FILE, info.as_bytes(), true)]);
+        fs::write(&source, &bytes).unwrap();
+        let path = source.to_string_lossy().into_owned();
+        let found = check(&path).expect("the mark with the hyphen is a backup of this program");
+        assert_eq!((found.count, found.when.as_str()), (1, "05.05.2026 10:00"));
+        let restored = restore(&paths, &path, &[]).unwrap();
+        assert_eq!(restored.count, 1);
+        assert_eq!(fs::read_to_string(Path::new(&paths.app_folder()).join("Bestand/bauplaene.json")).unwrap(), "damals");
+        // The old file is neither renamed nor changed; the copy of before carries the new name.
+        assert_eq!(fs::read(&source).unwrap(), bytes);
+        let aside = restored.fallback.expect("the state of before is put aside");
+        assert!(attachment_of(&aside).starts_with(MARKER), "the copy of before carries the new mark");
+        assert!(Path::new(&aside).file_name().unwrap().to_string_lossy().starts_with(BEFORE_FILE_START));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_rotation_keeps_the_newest_of_its_kind_and_never_removes_a_file_of_another_name() {
+        let (paths, dir) = paths_in("umlauf");
+        put(&paths, "Bestand/x.json", "1");
+        let written_for_place = write_before_update(&paths, "5.3.0").unwrap();
+        let folder = Path::new(&written_for_place).parent().unwrap().to_path_buf();
+        fs::remove_file(&written_for_place).unwrap();
+        // Two older backups of the same kind count with the new one; a file under the old backup name is none of them.
+        for old in ["vor-update-2026-01-01-100000-5.0.0.zip", "vor-update-2026-02-01-100000-5.1.0.zip"] {
+            fs::write(folder.join(old), "alt").unwrap();
+        }
+        let hyphen = format!("{}-2026-03-03.zip", legacy::BACKUP_FILE_START);
+        fs::write(folder.join(&hyphen), "fremd").unwrap();
+        let written = write_before_update(&paths, "5.4.0").unwrap();
+        let mut left: Vec<String> =
+            fs::read_dir(&folder).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        left.sort();
+        assert_eq!(left.len(), BEFORE_UPDATE_KEEP + 1, "{left:?}");
+        assert!(left.contains(&hyphen), "a file of another name is never removed: {left:?}");
+        assert!(left.iter().any(|n| n.contains("5.1.0")) && !left.iter().any(|n| n.contains("5.0.0")), "{left:?}");
+        assert!(Path::new(&written).is_file());
+        let _ = fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn restoring_puts_the_state_of_before_aside_and_writes_only_inside_the_data_folder() {
         let (paths, dir) = paths_in("einspielen");
@@ -1292,7 +1416,8 @@ mod tests {
         let held = zip::entries(&before).unwrap();
         let old = held.iter().find(|e| e.name == "Bestand/bauplaene.json").unwrap();
         assert_eq!(zip::read(&before, old).unwrap(), b"alt", "the copy holds what was there");
-        assert!(aside.contains("Verse-Kit-vorher-"), "{aside}");
+        assert!(aside.contains(&format!("{BEFORE_FILE_START}-")), "{aside}");
+        assert!(Path::new(&aside).file_name().unwrap().to_string_lossy().starts_with("VerseKit-vorher-"), "{aside}");
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -1590,6 +1715,40 @@ mod tests {
         put(&paths, "Bestand/x.json.123-1.tmp", "halb");
         put(&paths, "Bestand/y.json.teil", "halb");
         assert_eq!(tree(&paths), ["Bestand/x.json"]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// The test build keeps a backup of the data before its first write, in a folder of its own, and the last two
+    /// of them; the backup does not count as the one the player made.
+    #[test]
+    fn the_test_build_writes_a_backup_before_it_starts_and_keeps_the_last_two() {
+        let (paths, dir) = paths_in("testfassung");
+        put(&paths, "Bauplaene/bestand.json", "{\"a\": 1}");
+        let folder = paths.app_file(BEFORE_TEST_START_FOLDER);
+        fs::create_dir_all(&folder).unwrap();
+        for day in 1..=3 {
+            fs::write(format!("{folder}/vor-testfassung-2020-01-0{day}-000000-5.0.0.zip"), "alt").unwrap();
+        }
+        fs::write(format!("{folder}/vor-update-2020-01-01-000000-5.0.0.zip"), "other kind").unwrap();
+        let target = write_before_test_start(&paths, "5.4.0").expect("written");
+        assert!(target.replace('\\', "/").contains("/vor-testfassung/vor-testfassung-"), "{target}");
+        assert!(target.ends_with("-5.4.0.zip"), "{target}");
+        assert_eq!(names_in(&target), ["Bauplaene/bestand.json"], "the data of the player are in it");
+        let mut kept: Vec<String> =
+            fs::read_dir(&folder).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        kept.sort();
+        assert_eq!(kept.len(), 3, "{kept:?}");
+        assert!(kept[0].starts_with("vor-testfassung-2020-01-03") && kept[1].starts_with("vor-testfassung-2"), "{kept:?}");
+        assert!(kept[2].starts_with("vor-update-"), "the backups of another kind are not cut: {kept:?}");
+        assert_eq!(paths.setting(LAST_SETTING), None, "it is not the backup of the player");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// Without data of one's own there is nothing to keep, and the start can go on.
+    #[test]
+    fn the_backup_of_the_test_build_says_empty_where_there_is_no_data() {
+        let (paths, dir) = paths_in("testfassung-leer");
+        assert!(matches!(write_before_test_start(&paths, "5.4.0"), Err(WriteError::Empty)));
         let _ = fs::remove_dir_all(dir);
     }
 

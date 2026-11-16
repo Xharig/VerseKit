@@ -68,7 +68,7 @@ static END_MISSION: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<EndMission>.*?MissionId\[([^\]]+)\].*?Player\[([^\]]*)\].*?CompletionType\[([A-Za-z]+)\]")
         .expect("fester Ausdruck")
 });
-static CONTROL: LazyLock<Regex> = LazyLock::new(|| {
+pub(crate) static CONTROL: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<Vehicle Control Flow>.*?Local client node.*?control token for '([^']+)'").expect("fester Ausdruck")
 });
 static DEAD: LazyLock<Regex> = LazyLock::new(|| {
@@ -82,16 +82,22 @@ static ATTACHMENT: LazyLock<Regex> = LazyLock::new(|| {
 static CORPSE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"CSCActorCorpseUtils.*?Item '[^' ]*?_(\d+) - .*?Port Name 'Body_ItemPort'").expect("fester Ausdruck")
 });
-static TARGET: LazyLock<Regex> = LazyLock::new(|| {
+pub(crate) static TARGET: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(r"<Player Selected Quantum Target - Local>.*?selected point ({PY_NONSPACE}+)"))
         .expect("fester Ausdruck")
 });
-static START: LazyLock<Regex> =
+pub(crate) static START: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"Projected Start Location is (.+?) for route").expect("fester Ausdruck"));
 static DISCONNECT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"<Channel Disconnected>.*?reason="([^"]*)""#).expect("fester Ausdruck"));
 /// The number at the end of an identifier: `AEGS_Sabre_465232524500` → `AEGS_Sabre`.
 static SERIAL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"_\d{6,}$").expect("fester Ausdruck"));
+
+/// The class of a ship from its name in the log: the serial number at the end goes (`ANVL_Asgard_465232524500` →
+/// `ANVL_Asgard`).
+pub(crate) fn ship_class(name: &str) -> String {
+    SERIAL.replace_all(name, "").into_owned()
+}
 
 /// The lines worth a look; every other line cannot change anything.
 static MARKERS: LazyLock<Regex> = LazyLock::new(|| {
@@ -125,6 +131,42 @@ pub fn place_key(raw: &str) -> String {
         return MISSION_BEACON.to_string();
     }
     SERIAL.replace_all(raw, "").into_owned()
+}
+
+/// The deaths of a session by the one rule the statistics and the flight log share: a corpse in the log counts when
+/// its number came to the own body port before, and only once per [`DEATH_GAP`].
+///
+/// ⚠ A guess: `<Actor Death>` stands in no log seen, so a death is only told by the body that stays behind.
+#[derive(Default)]
+pub(crate) struct Deaths {
+    bodies: HashSet<String>,
+    /// The moments of the deaths found so far, in seconds.
+    pub(crate) moments: Vec<i64>,
+}
+
+impl Deaths {
+    /// The number of a body that came to the own body port.
+    pub(crate) fn body(&mut self, number: &str) {
+        self.bodies.insert(number.to_string());
+    }
+
+    /// The line of a corpse (`stamp` is the stamp of the line): the moment of a new death, or `None`.
+    pub(crate) fn corpse(&mut self, line: &str, stamp: Option<&str>) -> Option<i64> {
+        let moment = seconds(stamp.unwrap_or("")).filter(|m| *m != 0);
+        let c = CORPSE.captures(line)?;
+        let moment = moment?;
+        if self.bodies.contains(&c[1]) && self.moments.last().is_none_or(|last| moment - last > DEATH_GAP) {
+            self.moments.push(moment);
+            return Some(moment);
+        }
+        None
+    }
+}
+
+/// The number of the body an `<AttachmentReceived>` line brings to the own body port, `None` for every other line.
+pub(crate) fn own_body_in(line: &str, own: &dyn Fn(&str) -> bool) -> Option<String> {
+    let c = ATTACHMENT.captures(line)?;
+    (own(&c[1]) && &c[4] == BODY_PORT).then(|| c[3].to_string())
 }
 
 /// `wep_sidearm` → `seite` and so on; nothing for what carries no weapon.
@@ -189,8 +231,7 @@ fn session_of(lines: &str, log: &Log<'_>, phrases: &Phrases) -> Option<Map> {
     let mut starts: OrderedMap<i64> = OrderedMap::new();
     let mut start_pending = false;
     let mut disconnects: OrderedMap<i64> = OrderedMap::new();
-    let mut bodies: HashSet<String> = HashSet::new();
-    let mut deaths: Vec<i64> = Vec::new();
+    let mut deaths = Deaths::default();
     let mut shards: Vec<crate::shard::Join> = Vec::new();
     let mut hurt = injuries::Count::default();
 
@@ -211,7 +252,7 @@ fn session_of(lines: &str, log: &Log<'_>, phrases: &Phrases) -> Option<Map> {
         } else if line.contains("<AttachmentReceived>") {
             if let Some(c) = ATTACHMENT.captures(line) {
                 if own(&c[1]) && &c[4] == BODY_PORT {
-                    bodies.insert(c[3].to_string());
+                    deaths.body(&c[3]);
                 // ⚠ `Default` is an empty placeholder of the game, no weapon.
                 } else if own(&c[1])
                     && &c[2] != "Default"
@@ -221,14 +262,7 @@ fn session_of(lines: &str, log: &Log<'_>, phrases: &Phrases) -> Option<Map> {
                 }
             }
         } else if line.contains("CSCActorCorpseUtils") {
-            let moment = seconds(stamp.unwrap_or("")).filter(|m| *m != 0);
-            if let Some(c) = CORPSE.captures(line)
-                && bodies.contains(&c[1])
-                && let Some(moment) = moment
-                && deaths.last().is_none_or(|last| moment - last > DEATH_GAP)
-            {
-                deaths.push(moment);
-            }
+            deaths.corpse(line, stamp);
         } else if line.contains("<Vehicle Control Flow>") {
             if let Some(c) = CONTROL.captures(line) {
                 ships.insert(SERIAL.replace_all(&c[1], "").into_owned());
@@ -298,7 +332,7 @@ fn session_of(lines: &str, log: &Log<'_>, phrases: &Phrases) -> Option<Map> {
         ("spruenge".into(), Value::int(jumps.len() as i64)),
         ("schiffe".into(), texts(ship_list)),
         ("verloren".into(), texts(lost)),
-        ("tode".into(), Value::Array(deaths.into_iter().map(Value::int).collect())),
+        ("tode".into(), Value::Array(deaths.moments.into_iter().map(Value::int).collect())),
         ("waffen".into(), weapons),
         ("zielwahlen".into(), Value::int(selections)),
         ("ziele".into(), ints(targets)),
@@ -619,6 +653,28 @@ mod tests {
         assert_eq!(get(&e, "verloren"), Some(&Value::Array(vec![Value::str("AEGS_Sabre")])));
     }
 
+    /// A foreign body long after the own death is no death: the rule is the body, not only the ten seconds.
+    #[test]
+    fn a_foreign_body_a_minute_after_the_own_death_is_no_second_death() {
+        let at = |time: &str, text: &str| format!("<2026-10-01T{time}.000Z> {text}\n");
+        let corpse = |n: &str| {
+            format!(
+                "CSCActorCorpseUtils::PopulateItemPortForItemRecoveryEntitlement Item 'body_01_a_{n} - x' Port Name 'Body_ItemPort'"
+            )
+        };
+        let mut text = at("10:00:00", "Start OnClientSpawned");
+        text.push_str(&at(
+            "10:00:05",
+            "<AttachmentReceived> Player[Xharig] Attachment[x, body_01_a, 4711] Status[y] Port[Body_ItemPort]",
+        ));
+        text.push_str(&at("10:00:06", &corpse("4711")));
+        text.push_str(&at("10:01:30", &corpse("9999")));
+        text.push_str(&at("10:30:00", "Ende"));
+        let e = read_log_text(&text, Some("Xharig")).expect("Sitzung");
+        let Some(Value::Array(deaths)) = get(&e, "tode") else { panic!("tode") };
+        assert_eq!(deaths.len(), 1);
+    }
+
     #[test]
     fn a_new_death_needs_more_than_ten_seconds() {
         let body = "<AttachmentReceived> Player[Xharig] Attachment[x, body_01_a, 1] Status[y] Port[Body_ItemPort]";
@@ -711,7 +767,6 @@ mod tests {
     /// file at the same time: no session may be lost and the file stays whole.
     #[test]
     fn two_writers_at_once_lose_no_session() {
-        use crate::legacy;
         use crate::paths::Host;
 
         let root = std::env::temp_dir().join(format!("versekit-statistik-zwei-{}", crate::testdir::run_tag()));
@@ -732,7 +787,7 @@ mod tests {
             .collect();
         let host = Host::new(
             Flavor::native(),
-            &[(legacy::ENV_HOME, home.to_str().expect("Pfad"))],
+            &[(crate::envvars::ENV_HOME, home.to_str().expect("Pfad"))],
             root.to_str().expect("Pfad"),
         );
         let paths = Paths::new(host);
@@ -767,7 +822,6 @@ mod tests {
     /// is read again brings its session back, one that is gone keeps its own.
     #[test]
     fn a_rescan_reads_every_log_again_and_keeps_the_sessions() {
-        use crate::legacy;
         use crate::paths::Host;
 
         let root = std::env::temp_dir().join(format!("versekit-statistik-neu-{}", crate::testdir::run_tag()));
@@ -781,7 +835,7 @@ mod tests {
         let files = vec![log.to_str().expect("Pfad").to_string()];
         let host = Host::new(
             Flavor::native(),
-            &[(legacy::ENV_HOME, home.to_str().expect("Pfad"))],
+            &[(crate::envvars::ENV_HOME, home.to_str().expect("Pfad"))],
             root.to_str().expect("Pfad"),
         );
         let paths = Paths::new(host);

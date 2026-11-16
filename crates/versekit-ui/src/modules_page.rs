@@ -130,7 +130,7 @@ mod tests {
             crate::install(&ctx);
             ctx.enable_accesskit();
             let home = scratch(name);
-            let paths = Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", &home), ("HOME", &home)], &home));
+            let paths = Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", &home), ("HOME", &home)], &home));
             Bench { ctx, state: ModulesState::default(), paths, home }
         }
 

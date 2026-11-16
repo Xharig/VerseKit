@@ -2630,7 +2630,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("folder");
         let home = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &home)], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &home)], &home));
         // UEX gives the Sabre Raven EX under two ids with one name.
         let list = r#"{"format": 5, "schiffe": {"290": {"name": "Aegis Sabre Raven EX"},
                        "291": {"name": "Aegis Sabre Raven EX"}, "3": {"name": "Aegis Sabre"}}}"#;
@@ -2739,7 +2739,7 @@ mod tests {
         let home = dir.to_string_lossy().into_owned();
         let host = versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, home.as_str())],
+            &[(versekit_core::envvars::ENV_HOME, home.as_str())],
             &home,
         );
         state.paths = Some(Paths::new(host));
@@ -2794,7 +2794,7 @@ mod tests {
         );
         let said = |state: &HangarState| state.wish_message.clone().map(|m| m.0);
         let home = dir.to_string_lossy().into_owned();
-        let vars = [(versekit_core::legacy::ENV_HOME, home.as_str()), (versekit_core::legacy::ENV_NO_NET, "1")];
+        let vars = [(versekit_core::envvars::ENV_HOME, home.as_str()), (versekit_core::envvars::ENV_NO_NET, "1")];
         state.paths =
             Some(Paths::new(versekit_core::paths::Host::new(versekit_core::pypath::Flavor::native(), &vars, &home)));
         let counter = crate::slot_sync::tests::Counter::new("4.3");
@@ -3103,7 +3103,7 @@ mod tests {
         let data_dir = dir.to_string_lossy().into_owned();
         state.paths = Some(Paths::new(versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, &data_dir)],
+            &[(versekit_core::envvars::ENV_HOME, &data_dir)],
             &data_dir,
         )));
         let ctx = egui::Context::default();

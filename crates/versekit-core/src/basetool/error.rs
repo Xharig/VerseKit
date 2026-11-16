@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! A refusal of the Basetool and what Verse-Kit does about it
+//! A refusal of the Basetool and what VerseKit does about it
 //! (`basetool.ApiError`, `basetool.backoff`, `basetool_page.error_text`).
 //!
 //! ⚠ An error carries the server's code, never a header line or a token.
@@ -24,7 +24,7 @@ use std::fmt;
 
 use crate::jsonio::{Map, Value};
 
-/// What Verse-Kit does after an error.
+/// What VerseKit does after an error.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
     /// Again later, with a growing pause and never before `Retry-After`.
@@ -35,7 +35,7 @@ pub enum Action {
     ForgetKey,
     /// Stop and tell the player why.
     Stop,
-    /// Verse-Kit is too old.
+    /// VerseKit is too old.
     Update,
 }
 
@@ -111,12 +111,12 @@ impl ApiError {
         ApiError::new("NETWORK", 0).with_problem(vec![("detail".into(), Value::str(detail))])
     }
 
-    /// A failure inside Verse-Kit (key, store), not one of the Basetool.
+    /// A failure inside VerseKit (key, store), not one of the Basetool.
     pub fn internal(code: &str, detail: &str) -> ApiError {
         ApiError::new(code, 0).with_problem(vec![("detail".into(), Value::str(detail))])
     }
 
-    /// What Verse-Kit does after this error.
+    /// What VerseKit does after this error.
     pub fn action(&self) -> Action {
         let code = self.code.as_str();
         if FORGET_KEY.contains(&code) {

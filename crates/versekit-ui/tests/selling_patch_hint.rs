@@ -65,7 +65,7 @@ fn prices_of_an_earlier_build_are_marked_once_the_background_renewed_the_build()
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("folder");
     let home = dir.to_string_lossy().into_owned();
-    let paths = Paths::new(Host::new(Flavor::native(), &[("SC_BP_HOME", home.as_str())], &home));
+    let paths = Paths::new(Host::new(Flavor::native(), &[("VERSEKIT_HOME", home.as_str())], &home));
     let now = std::time::SystemTime::now();
     stock_fetch::keep_with(&paths, now, &uex("4.10.2"));
     assert_eq!(stock_fetch::live_build(&paths), "4.10.2");

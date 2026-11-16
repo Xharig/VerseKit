@@ -47,6 +47,7 @@ use crate::logtime::{Facts, FactsScan, candidate_lines, seconds, time_of};
 use crate::mission_log::{self as log, ABORTED, COMPLETED, EXPIRED, FAILED, RUNNING, clean, get, key_of, text_of};
 use crate::ordered::{OrderedMap, parallel_map};
 use crate::paths::{Paths, now_seconds};
+use crate::flugbuch;
 use crate::play_stats;
 use crate::playtime;
 use crate::pypath::Flavor;
@@ -738,6 +739,8 @@ impl<'s, 'p> MissionScan<'s, 'p> {
         playtime::catch_up(paths, &all);
         // Always: 5.0 has no switch for the statistics.
         play_stats::catch_up(self.src, &all, &*self.stats_clock);
+        // Its own file and its own reading: a failure there never blocks the contract log.
+        flugbuch::catch_up(self.src, &all);
         location::learn_all(paths, &all);
         stock_journal::catch_up(self.src, &all);
 
@@ -885,7 +888,6 @@ mod tests {
     use std::path::Path;
 
     use super::*;
-    use crate::legacy;
     use crate::paths::{ENV_INSTALL_DIR, Host};
 
     struct Lab {
@@ -912,7 +914,7 @@ mod tests {
         fn paths(&self) -> Paths {
             Paths::new(Host::new(
                 Flavor::native(),
-                &[(legacy::ENV_HOME, self.home.as_str()), (ENV_INSTALL_DIR, self.game.as_str())],
+                &[(crate::envvars::ENV_HOME, self.home.as_str()), (ENV_INSTALL_DIR, self.game.as_str())],
                 &self.root,
             ))
         }
@@ -1259,7 +1261,7 @@ mod tests {
         crate::writeguard::allow_under(Some(&lab.root));
         let paths = Paths::new(Host::new(
             Flavor::native(),
-            &[(legacy::ENV_HOME, lab.home.as_str()), (ENV_INSTALL_DIR, game.as_str())],
+            &[(crate::envvars::ENV_HOME, lab.home.as_str()), (ENV_INSTALL_DIR, game.as_str())],
             &lab.root,
         ));
         let src = LogSource::new(&paths, LogSource::sources_of(&paths));

@@ -100,7 +100,7 @@ fn tree_of(work: &str) -> Json {
             let path = entry.path();
             let rel = path.strip_prefix(work).map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default();
             if path.is_dir() {
-                if !matches!(rel.as_str(), "zips" | "AppData" | "Dokumente" | "Documents" | "Verse-Kit") {
+                if !matches!(rel.as_str(), "zips" | "AppData" | "Dokumente" | "Documents" | "Verse-Kit" | "VerseKit") {
                     walk(&path, work, out);
                 }
                 continue;
@@ -175,11 +175,12 @@ fn lay_game(work: &str, game: &Json) -> Result<(String, std::path::PathBuf), Str
     Ok((root.to_string_lossy().into_owned(), zero))
 }
 
-/// The base of a copy that the game files make (`<file>.scbpw-YYYYMMDD-HHMMSS` of 4.12, `<file>.versekit-…` here,
-/// two in a second with `-02`), or `None` where the name is no copy.
+/// The base of a copy that the game files make (the mark of 4.12, `legacy::GAME_BACKUP_MARK`, or
+/// `<file>.versekit-…` here, then `YYYYMMDD-HHMMSS`, two in a second with `-02`), or `None` where the name is no
+/// copy.
 fn copy_base(rel: &str) -> Option<&str> {
     let digits = |text: &str, n: usize| text.len() == n && text.bytes().all(|b| b.is_ascii_digit());
-    let at = rel.rfind(".scbpw-").or_else(|| rel.rfind(".versekit-"))?;
+    let at = rel.rfind(versekit_core::legacy::GAME_BACKUP_MARK).or_else(|| rel.rfind(".versekit-"))?;
     let stamp = rel[at..].split_once('-')?.1;
     let mut parts = stamp.split('-');
     let (day, time, more) = (parts.next()?, parts.next()?, parts.next());

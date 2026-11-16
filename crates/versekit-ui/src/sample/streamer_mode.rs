@@ -43,8 +43,21 @@ const DEVICE: &str = "7A3C91E0";
 /// The pairing code of the hangar delivery.
 const TOKEN: &str = "c0ffee0123456789abcdef0123456789c0ffee0123456789abcdef0123456789";
 /// Units and members of the made-up Basetool (`basetool/demo.rs`), which the page reads and must hide.
-const DEMO_PRIVATE: [&str; 9] =
-    ["Staffel Alpha", "Frachtkommando", "Bereich Industrie", "Kestrel", "Orbit", "PlayerOne", "PlayerTwo", "Vega", "Nova"];
+/// Then the members and the address of the made-up org, which the pages of the org's data draw.
+const DEMO_PRIVATE: [&str; 12] = [
+    "Staffel Alpha",
+    "Frachtkommando",
+    "Bereich Industrie",
+    "Kestrel",
+    "Orbit",
+    "PlayerOne",
+    "PlayerTwo",
+    "Vega",
+    "Nova",
+    "Mira",
+    "Rook",
+    "https://orga.example.org",
+];
 
 /// Pages the made-up Basetool does not fill with a person.
 struct World {
@@ -81,6 +94,8 @@ fn world(name: &str) -> World {
     streamer::learn_paths(&Paths::new(host_in(&dir, &vars)));
     let mut page = SamplePage::with_settings(Paths::new(host_in(&dir, &vars)));
     page.use_storage_link(crate::org_stock_page::Link::demo());
+    // A made-up org that shows all its areas, so that the pages of the org's data are drawn.
+    page.orgs = crate::org_connect_page::OrgConnectState::sample();
     let mut private: Vec<String> = [HANDLE, REPORTER, CONNECTION, STARTER, DEVICE, TOKEN]
         .into_iter()
         .map(str::to_string)
@@ -147,7 +162,8 @@ fn no_page_shows_a_private_value_while_the_streamer_mode_is_on() {
         // The reads of the pages run in threads of their own: drawn again until what they read is on the pages
         // (on a busy machine that takes long), at most a minute.
         let folder = world.dir.file_name().unwrap().to_string_lossy().into_owned();
-        let musts = [HANDLE, DEMO_PRIVATE[0], folder.as_str()];
+        // "Rook" stands only on the pages of the org's data, "https://orga.example.org" on the page "Connect org".
+        let musts = [HANDLE, DEMO_PRIVATE[0], folder.as_str(), "Rook", "https://orga.example.org"];
         let end = std::time::Instant::now() + std::time::Duration::from_secs(60);
         let shown: Vec<String> = loop {
             let open = drawn(&mut world.page);

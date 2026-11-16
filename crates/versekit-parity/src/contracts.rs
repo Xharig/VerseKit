@@ -30,7 +30,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use versekit_core::jsonio::{self, Map, Value};
-use versekit_core::legacy;
 use versekit_core::logsource::LogSource;
 use versekit_core::mission_scan::MissionScan;
 use versekit_core::paths::{ENV_INSTALL_DIR, Host, Paths};
@@ -60,7 +59,7 @@ fn start(
     stats: &FakeClock,
 ) -> (&'static LogSource<'static>, &'static MissionScan<'static, 'static>) {
     let mut host = Host::current();
-    host.set_var(legacy::ENV_HOME, home);
+    host.set_var(versekit_core::envvars::ENV_HOME, home);
     host.set_var(ENV_INSTALL_DIR, game);
     let paths: &'static Paths = Box::leak(Box::new(Paths::new(host)));
     let sources = LogSource::sources_of(paths);

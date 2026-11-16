@@ -1238,7 +1238,7 @@ Von                     Tester
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("einstellungen.json"), r#"{"eigener_account": "Testpilot"}"#).unwrap();
         let data = dir.to_string_lossy().into_owned();
-        let vars = [("HOME", "/home/spieler"), ("SC_BP_HOME", data.as_str()), ("COMPUTERNAME", "RECHNER-XY9")];
+        let vars = [("HOME", "/home/spieler"), ("VERSEKIT_HOME", data.as_str()), ("COMPUTERNAME", "RECHNER-XY9")];
         let redactor = Redactor::new(&Paths::new(Host::new(Flavor::native(), &vars, "/")));
         let log = "Handle[Testpilot] for 'Testpilot' [2001234567] in 'Harvestable_Oza_123' [123] geid 2001234567 \
                    von 203.0.113.7 auf RECHNER-XY9";
@@ -1273,7 +1273,7 @@ Von                     Tester
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("einstellungen.json"), r#"{"eigener_account": "Testpilot"}"#).unwrap();
         let data = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[("HOME", "/home/spieler"), ("SC_BP_HOME", &data)], "/"));
+        let paths = Paths::new(Host::new(Flavor::native(), &[("HOME", "/home/spieler"), ("VERSEKIT_HOME", &data)], "/"));
         let line = "<2026-10-18T10:00:05.000Z> [Notice] <CEntityComponentCommodityUIProvider::SendCommoditySellRequest> \
                     Sending SShopCommoditySellRequest - playerId[2001234567] shopId[917340731320] \
                     shopName[SCShop_AdminOffice_GrimHex] kioskId[917340731318] amount[798660.000000] \
@@ -1349,7 +1349,7 @@ Von                     Tester
         let mut all = facts("5.0.0", Vec::new());
         all.crash = lines(&[
             "Windows fatal exception: access violation",
-            "Thread 0x1 [sc-bp-hotkey] (most recent call first):",
+            "Thread 0x1 [hotkey] (most recent call first):",
             "  File \"a.py\", line 1 in wait",
             "Current thread 0x2 [MainThread] (most recent call first):",
             "  File \"b.py\", line 2 in main",
@@ -1370,7 +1370,7 @@ Von                     Tester
         );
         assert!(
             block.contains(
-                "    Thread 0x1 [sc-bp-hotkey] (most recent call first):\n      File \"a.py\", line 1 in wait"
+                "    Thread 0x1 [hotkey] (most recent call first):\n      File \"a.py\", line 1 in wait"
             ),
             "{text}"
         );

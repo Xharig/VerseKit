@@ -42,7 +42,6 @@ use versekit_core::basetool::secrets::{REFRESH_SECRET, SecretStore, SystemSecret
 use versekit_core::basetool::state;
 use versekit_core::basetool::sync::{Phase, Setup, SyncHandle};
 use versekit_core::jsonio;
-use versekit_core::legacy;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::pypath::Flavor;
 use versekit_core::version;
@@ -403,7 +402,7 @@ fn mode(path: &str) -> Value {
 }
 
 fn file_secrets(folder: &str) -> Arc<SystemSecrets> {
-    Arc::new(SystemSecrets::from_host(&host(&[(legacy::ENV_SECRETS, folder), (legacy::ENV_SECRETS_FILE, "1")])))
+    Arc::new(SystemSecrets::from_host(&host(&[(versekit_core::envvars::ENV_SECRETS, folder), (versekit_core::envvars::ENV_SECRETS_FILE, "1")])))
 }
 
 /// Deletes the key of the Python side when it goes out of scope, also when
@@ -537,9 +536,9 @@ fn part_c(input: &Value) -> Result<Value, String> {
     let issuer = format!("{base}/realms/iri");
     let api = format!("{base}/exchange/v1");
     let net = host(&[
-        (legacy::ENV_BASETOOL_ISSUER, &issuer),
-        (legacy::ENV_BASETOOL_API, &api),
-        (legacy::ENV_BASETOOL_CLIENT, "sandbox-client"),
+        (versekit_core::envvars::ENV_BASETOOL_ISSUER, &issuer),
+        (versekit_core::envvars::ENV_BASETOOL_API, &api),
+        (versekit_core::envvars::ENV_BASETOOL_CLIENT, "sandbox-client"),
     ]);
     let secrets_folder = format!("{}-protokoll", text(input, "rust_secrets")?);
     let secrets = file_secrets(&secrets_folder);
@@ -549,7 +548,7 @@ fn part_c(input: &Value) -> Result<Value, String> {
     // end, also when the run breaks off.
     #[cfg(windows)]
     let _gone = Foreign(key_name.clone());
-    let vault: Arc<dyn KeyVault> = key::system_keys(store.clone(), &host(&[(legacy::ENV_BASETOOL_KEYNAME, &key_name)]));
+    let vault: Arc<dyn KeyVault> = key::system_keys(store.clone(), &host(&[(versekit_core::envvars::ENV_BASETOOL_KEYNAME, &key_name)]));
     let transport = HttpTransport::new("", &net).map_err(|e| e.to_string())?;
     let conn = Arc::new(Connection::new(
         Config::from_host(&net),
@@ -608,7 +607,7 @@ fn part_c(input: &Value) -> Result<Value, String> {
     record(&mut steps, "disconnect", Ok(Value::Null));
 
     let mut home = Host::current();
-    home.set_var(legacy::ENV_HOME, text(input, "rust_home")?);
+    home.set_var(versekit_core::envvars::ENV_HOME, text(input, "rust_home")?);
     let paths = Arc::new(Paths::new(home));
     paths.set_setting(scopes::SETTING_ORGSTOCK, jsonio::Value::Bool(true));
     paths.set_setting(scopes::SETTING_LABEL, jsonio::Value::str("Parität-PC"));

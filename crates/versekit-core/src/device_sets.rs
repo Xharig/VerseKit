@@ -24,7 +24,7 @@
 //! | exponent and invert of every game axis | |
 //!
 //! ⚠⚠ **The binding is not part of a set on purpose.** The game saves complete profiles in `controls/mappings`
-//! (`pp_rebindkeys load <name>`) and Verse-Kit puts them there as well. To keep both would be to keep two truths
+//! (`pp_rebindkeys load <name>`) and VerseKit puts them there as well. To keep both would be to keep two truths
 //! about one thing. A set answers the other question: **how** the axes answer, not **what** lies on them.
 //!
 //! ⚠ **When a set is applied only what is there is written.** The point is changing set-ups. A device that is not
@@ -448,7 +448,7 @@ pub fn apply(paths: &Paths, name: &str, file: Option<&str>, folder: Option<&str>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::legacy::ENV_HOME;
+    use crate::envvars::ENV_HOME;
     use crate::paths::Host;
     use crate::pypath::Flavor;
 

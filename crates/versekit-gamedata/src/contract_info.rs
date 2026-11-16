@@ -420,6 +420,7 @@ pub fn terms(merged: &Json) -> Vec<(String, Terms)> {
                 highest: rank(contract, "maxStanding"),
                 // scmdb's file does not tell a fixed payout from a computed one.
                 reward: None,
+                giver: None,
             };
             Some((title, terms))
         })

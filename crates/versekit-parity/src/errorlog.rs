@@ -41,7 +41,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
     let input = jsonio::read_json(python_json).map_err(|e| e.to_string())?;
     let folder = text(&input, "rust_folder")?.to_string();
     let mut host = Host::current();
-    host.set_var("SC_BP_HOME", &folder);
+    host.set_var("VERSEKIT_HOME", &folder);
     let paths = Paths::new(host);
 
     let redactor = Redactor::new(&paths);

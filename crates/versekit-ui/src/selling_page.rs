@@ -52,6 +52,8 @@ use crate::widgets::{self, ButtonKind};
 
 const SETTING_MODE: &str = "verkauf_modus";
 const SETTING_TOP: &str = "verkauf_spitze";
+/// The unit of Mein Lager (`cscu` or `scu`), kept by its page.
+const SETTING_UNIT: &str = "lager_einheit";
 /// The largest amount in SCU the page counts with (a typed 1e30 is no amount).
 const MAX_AMOUNT: f64 = 1.0e9;
 /// Places shown at most.
@@ -67,6 +69,15 @@ const LIST_ID: &str = "handel-verkauf-liste";
 enum Mode {
     Sell,
     Buy,
+}
+
+/// The unit an amount is typed in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Unit {
+    Scu,
+    /// A hundredth of an SCU.
+    Cscu,
+    Piece,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -99,6 +110,8 @@ pub struct SellingState {
     search: String,
     picks: Vec<String>,
     amounts: HashMap<String, String>,
+    /// Is the amount of a good that counts in SCU typed in cSCU (the setting of Mein Lager)?
+    cscu: bool,
     nqa: bool,
     buy_good: Option<String>,
     message: Option<Message>,
@@ -129,6 +142,7 @@ impl Default for SellingState {
             search: String::new(),
             picks: Vec::new(),
             amounts: HashMap::new(),
+            cscu: false,
             nqa: false,
             buy_good: None,
             message: None,
@@ -151,7 +165,44 @@ impl SellingState {
         let mut state = SellingState { paths: Some(trade::job_paths(paths)), ..SellingState::default() };
         state.mode = if paths.setting(SETTING_MODE).as_deref() == Some("kaufen") { Mode::Buy } else { Mode::Sell };
         state.top = if paths.setting(SETTING_TOP).as_deref() == Some("bergbau") { Top::Mining } else { Top::All };
+        state.cscu = paths.setting(SETTING_UNIT).as_deref() == Some("cscu");
         state.reload();
+        state
+    }
+
+    /// Prices and typed amounts for the previews and the layout check: an amount in a part of an SCU, a piece good
+    /// with a known size, one without and one with a part of a piece typed.
+    pub fn sample() -> SellingState {
+        let now = trade::now() as i64;
+        let offers = |price: f64| format!(r#"[{{"t":"7","n":"TDD","p":{price},"d":{now},"k":"","z":3}}]"#);
+        let text = format!(
+            r#"{{"terminals":{{"7":{{"o":"Area18","s":"Stanton","n":"TDD","q":false}}}},"geholt":{now},"waren":{{
+                "Iron":{},"Kopion Horn":{},"Saldynium (Ore)":{},"Valakkar Pearl (Apex)":{}}}}}"#,
+            offers(2_000.0),
+            offers(45_000.0),
+            offers(34_000_000.0),
+            offers(9_000_000.0),
+        );
+        let mut state = SellingState { cscu: true, ..SellingState::default() };
+        if let Ok(data) = versekit_core::jsonio::loads(&text) {
+            state.data = Selling::from_value(&data);
+        }
+        let goods = [
+            ("Iron", "10", false),
+            ("Kopion Horn", "12", true),
+            ("Saldynium (Ore)", "3", true),
+            ("Valakkar Pearl (Apex)", "0,5", true),
+        ];
+        for (name, typed, piece) in goods {
+            state.picks.push(name.to_string());
+            state.amounts.insert(name.to_string(), typed.to_string());
+            if piece {
+                state.stock.add_recipe_materials([(name.to_string(), true, 0.0, 0.0)]);
+            }
+        }
+        for name in ["Kopion Horn", "Valakkar Pearl (Apex)"] {
+            state.sizes.insert(norm_material(name), 0.001);
+        }
         state
     }
 
@@ -206,6 +257,10 @@ impl SellingState {
             return;
         }
         self.looked_at = now;
+        let cscu = self.paths.as_ref().map(|paths| paths.setting(SETTING_UNIT).as_deref() == Some("cscu"));
+        if let Some(cscu) = cscu {
+            self.change_unit(cscu);
+        }
         if let Some(files) = self.files()
             && self.seen != [modified(&files[0]), modified(&files[1])]
         {
@@ -290,18 +345,124 @@ impl SellingState {
         }
     }
 
-    /// The amounts the places are counted with: Mein Lager, overwritten by what is typed.
-    fn own_amounts(&self) -> HashMap<String, f64> {
-        let mut own = HashMap::new();
-        for (name, text) in &self.amounts {
+    /// Switches between SCU and cSCU; what is typed in SCU goods is rewritten so it stays the same amount.
+    fn change_unit(&mut self, cscu: bool) {
+        if cscu == self.cscu {
+            return;
+        }
+        let factor = if cscu { 1.0 / stock::CSCU } else { stock::CSCU };
+        for (name, text) in &mut self.amounts {
+            if self.stock.is_piece(name) || stock::is_calculation(text) {
+                continue;
+            }
             if let Some(value) = py_float(&text.replace(',', ".")) {
-                let whole = value.trunc();
-                if whole > 0.0 && whole <= MAX_AMOUNT {
-                    own.insert(name.clone(), whole);
-                }
+                *text = format!("{}", (value * factor * 1.0e6).round() / 1.0e6);
             }
         }
-        own
+        self.cscu = cscu;
+    }
+
+    /// Enter in the field of a good: a calculation in it (`+8`, `30+2`) becomes its result, as in Mein Lager. A plain
+    /// number stays as typed, and so does a calculation that gives no amount.
+    fn settle(&mut self, good: &str) {
+        let Some(text) = self.amounts.get(good) else { return };
+        if !stock::is_calculation(text) {
+            return;
+        }
+        let Some(value) = self.calculated(good, text).filter(|value| *value > 0.0) else { return };
+        let decimal = if language::current() == Lang::De { ',' } else { '.' };
+        let mut shown = stock::amount_text(value, self.unit_of(good) == Unit::Piece, decimal);
+        if shown.contains(decimal) {
+            shown.truncate(shown.trim_end_matches('0').trim_end_matches(decimal).len());
+        }
+        self.amounts.insert(good.to_string(), shown);
+    }
+
+    /// How the amount of a good is typed: pieces for a piece good, else SCU or cSCU as Mein Lager is set.
+    fn unit_of(&self, good: &str) -> Unit {
+        if self.stock.is_piece(good) {
+            Unit::Piece
+        } else if self.cscu {
+            Unit::Cscu
+        } else {
+            Unit::Scu
+        }
+    }
+
+    /// The word behind the field of a good.
+    fn unit_word(&self, good: &str) -> String {
+        match self.unit_of(good) {
+            Unit::Piece => t("s_lg_stueck"),
+            Unit::Cscu => t("s_lg_cscu"),
+            Unit::Scu => t("s_vk_scu_kurz"),
+        }
+    }
+
+    /// What Mein Lager holds of a good, in the unit of its field (pieces need the size of a piece).
+    fn held(&self, good: &str, unit: Unit) -> f64 {
+        let scu = selling::cargo_amounts(&self.cargo, None).get(good).copied().unwrap_or(0.0);
+        match unit {
+            Unit::Scu => scu,
+            Unit::Cscu => scu / stock::CSCU,
+            Unit::Piece => self.piece_size(good).map_or(0.0, |size| scu / size),
+        }
+    }
+
+    /// What the field says as a number, calculated as in Mein Lager (`stock::calculate`): `4,5` is the amount,
+    /// `30+2` is worked out, `+8` and `-2` book onto what Mein Lager holds.
+    fn calculated(&self, good: &str, text: &str) -> Option<f64> {
+        let value = stock::calculate(text, self.held(good, self.unit_of(good)))?;
+        value.is_finite().then(|| stock::py_round(value, 6))
+    }
+
+    /// What is typed for a good: the amount in the unit of the field and, where it can be told, in SCU.
+    fn typed(&self, good: &str, text: &str) -> Option<(f64, Option<f64>)> {
+        let value = self.calculated(good, text)?;
+        let unit = self.unit_of(good);
+        let value = if unit == Unit::Piece { value.trunc() } else { value };
+        let scu = match unit {
+            Unit::Scu => Some(value),
+            Unit::Cscu => Some(value * stock::CSCU),
+            Unit::Piece => self.piece_size(good).map(|size| value * size),
+        };
+        let fits = value > 0.0 && value <= MAX_AMOUNT && scu.is_none_or(|scu| scu <= MAX_AMOUNT);
+        fits.then_some((value, scu))
+    }
+
+    /// The amounts in SCU the places are counted with: Mein Lager, overwritten by what is typed.
+    fn own_amounts(&self) -> HashMap<String, f64> {
+        let typed = |(name, text): (&String, &String)| Some((name.clone(), self.typed(name, text)?.1?));
+        self.amounts.iter().filter_map(typed).collect()
+    }
+
+    /// The pieces typed for the goods that count in pieces.
+    fn own_pieces(&self) -> HashMap<String, f64> {
+        let typed = |(name, text): (&String, &String)| {
+            (self.unit_of(name) == Unit::Piece).then_some(())?;
+            Some((name.clone(), self.typed(name, text)?.0))
+        };
+        self.amounts.iter().filter_map(typed).collect()
+    }
+
+    /// The chosen piece goods with a typed amount but no known size of a piece: the SCU cannot be told.
+    fn pieces_without_size(&self) -> Vec<String> {
+        let own = self.own_amounts();
+        let mut names: Vec<String> = self.own_pieces().into_keys().filter(|name| !own.contains_key(name)).collect();
+        names.sort();
+        names
+    }
+
+    /// The chosen piece goods with a part of a piece typed (a decimal): pieces count whole.
+    fn parts_of_a_piece(&self) -> Vec<String> {
+        self.picks
+            .iter()
+            .filter(|name| self.unit_of(name) == Unit::Piece)
+            .filter(|name| {
+                let text = self.amounts.get(*name).map_or("", String::as_str);
+                self.calculated(name, text).is_some_and(|value| value > 0.0 && value.fract() != 0.0)
+            })
+            .cloned()
+            .collect()
     }
 }
 
@@ -427,8 +588,9 @@ fn picker(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
 /// amount, the unit and a cross. Boxes wrap to the next line when the row is full.
 fn chips(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
     let mut remove = None;
+    let mut entered: Option<String> = None;
     let amount_hint = t("s_hd_menge_ph");
-    let unit = t("s_vk_scu_kurz");
+    let units: Vec<String> = state.picks.iter().map(|name| state.unit_word(name)).collect();
     // A frame inside a wrapping row squeezes instead of wrapping: the lines are split here by measured width.
     const FIELD: f32 = 80.0;
     let gap = ui.spacing().item_spacing.x;
@@ -438,12 +600,12 @@ fn chips(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
             .size()
             .x
     };
-    let unit_w = width_of(ui, &unit);
     let cross_w = ui.spacing().interact_size.y + 4.0;
     let chip_w: Vec<f32> = state
         .picks
         .iter()
-        .map(|name| width_of(ui, name) + FIELD + unit_w + cross_w + 3.0 * gap + 2.0 * 8.0 + 2.0)
+        .zip(&units)
+        .map(|(name, unit)| width_of(ui, name) + FIELD + width_of(ui, unit) + cross_w + 3.0 * gap + 2.0 * 8.0 + 2.0)
         .collect();
     let room = ui.available_width();
     let mut lines: Vec<Vec<usize>> = vec![Vec::new()];
@@ -473,12 +635,15 @@ fn chips(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
                             chip.horizontal(|chip| {
                                 chip.label(RichText::new(name).strong().color(color(scheme.accent)));
                                 let text = state.amounts.entry(name.clone()).or_default();
-                                chip.add(
+                                let field = chip.add(
                                     widgets::text_field(text, &amount_hint, scheme)
                                         .desired_width(FIELD)
                                         .align(egui::Align2::RIGHT_CENTER),
                                 );
-                                chip.label(RichText::new(&unit).color(color(scheme.sub)));
+                                if field.lost_focus() && chip.input(|input| input.key_pressed(egui::Key::Enter)) {
+                                    entered = Some(name.clone());
+                                }
+                                chip.label(RichText::new(&units[i]).color(color(scheme.sub)));
                                 if widgets::icon_button(chip, scheme, "x", &t("s_hd_ware_weg")).clicked() {
                                     remove = Some(i);
                                 }
@@ -492,6 +657,13 @@ fn chips(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
     if let Some(i) = remove {
         let name = state.picks.remove(i);
         state.amounts.remove(&name);
+    }
+    if let Some(good) = entered {
+        state.settle(&good);
+    }
+    let parts = state.parts_of_a_piece();
+    if !parts.is_empty() {
+        trade::colored(ui, scheme.yellow, &tf("s_vk_nur_ganze_stuecke", &[("waren", Arg::from(parts.join(", ")))]));
     }
 }
 
@@ -612,6 +784,9 @@ fn sell_places(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
         amounts.insert(name.to_string(), *value);
     }
     amounts.extend(own.iter().map(|(k, v)| (k.clone(), *v)));
+    // Pieces typed without a known size of a piece stay without SCU: the cargo does not stand in for them.
+    let counts = state.own_pieces();
+    amounts.retain(|name, _| !counts.contains_key(name) || own.contains_key(name));
     // A profit only for goods of Mein Lager with a price paid: a typed amount has none.
     let paid = selling::cargo_costs(&state.cargo, None);
     let costed = selling::cargo_costed_amounts(&state.cargo, None);
@@ -619,9 +794,19 @@ fn sell_places(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
     for (name, cost) in paid.iter() {
         if let Some(quantity) = costed.get(name)
             && !own.contains_key(name)
+            && !counts.contains_key(name)
         {
             bought.insert(name.to_string(), (*cost, *quantity));
         }
+    }
+    let unsized_pieces = state.pieces_without_size();
+    if !unsized_pieces.is_empty() {
+        trade::colored(
+            ui,
+            scheme.yellow,
+            &tf("s_vk_stueck_ohne_groesse", &[("waren", Arg::from(unsized_pieces.join(", ")))]),
+        );
+        ui.add_space(4.0);
     }
     if state.picks.len() == 1 {
         let name = &state.picks[0];
@@ -642,9 +827,15 @@ fn sell_places(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
     }
     let wanted = state.picks.len();
     for (n, place) in places.iter().take(MAX_PLACES).enumerate() {
-        place_card(ui, scheme, lang, n, place, wanted, &amounts, &bought);
+        place_card(ui, scheme, lang, n, place, wanted, &Amounts { scu: &amounts, pieces: &counts }, &bought);
         ui.add_space(GAP);
     }
+}
+
+/// The amounts a place card counts with: in SCU for the sum, in pieces for the goods that count in pieces.
+struct Amounts<'a> {
+    scu: &'a HashMap<String, f64>,
+    pieces: &'a HashMap<String, f64>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -655,7 +846,7 @@ fn place_card(
     number: usize,
     place: &Place,
     wanted: usize,
-    amounts: &HashMap<String, f64>,
+    amounts: &Amounts,
     bought: &HashMap<String, (f64, f64)>,
 ) {
     widgets::list_frame(ui, scheme, |ui| {
@@ -679,7 +870,10 @@ fn place_card(
         });
         let mut proceeds = 0.0;
         let mut profit: Option<f64> = None;
-        let has_amounts = place.hits.iter().any(|hit| amounts.get(&hit.good).is_some_and(|m| *m != 0.0));
+        let has_amounts = place
+            .hits
+            .iter()
+            .any(|hit| amounts.scu.get(&hit.good).is_some_and(|m| *m != 0.0) || amounts.pieces.contains_key(&hit.good));
         egui::Grid::new(("handel-ort", number)).num_columns(4).spacing([14.0, 2.0]).show(ui, |grid| {
             if number == 0 {
                 grid.label("");
@@ -699,7 +893,8 @@ fn place_card(
                 grid.end_row();
             }
             for hit in &place.hits {
-                let amount = amounts.get(&hit.good).copied().filter(|m| *m != 0.0);
+                let amount = amounts.scu.get(&hit.good).copied().filter(|m| *m != 0.0);
+                let pieces = amounts.pieces.get(&hit.good).copied();
                 let total = amount.unwrap_or(0.0) * hit.price;
                 proceeds += total;
                 if let Some((cost, quantity)) = bought.get(&hit.good) {
@@ -713,8 +908,10 @@ fn place_card(
                 };
                 grid.label(RichText::new(text).color(color(tone)));
                 right(grid, |g| {
-                    if let Some(amount) = amount {
-                        g.label(formats::amount(lang, amount, ""));
+                    if let Some(pieces) = pieces {
+                        g.label(formats::amount(lang, pieces, &t("s_lg_stueck")));
+                    } else if let Some(amount) = amount {
+                        g.label(formats::amount(lang, amount, &t("s_vk_scu_kurz")));
                     }
                 });
                 right(grid, |g| {
@@ -908,6 +1105,241 @@ mod tests {
         let mut found = None;
         output.shapes.iter().for_each(|clipped| walk(&clipped.shape, &wanted, &mut found));
         found
+    }
+
+    /// A page state with one chosen good and the amount typed for it.
+    fn typed(good: &str, text: &str, piece_size: Option<f64>, cscu: bool) -> SellingState {
+        let mut state = SellingState::default();
+        state.picks.push(good.to_string());
+        state.amounts.insert(good.to_string(), text.to_string());
+        state.cscu = cscu;
+        if let Some(size) = piece_size {
+            state.stock.add_recipe_materials([(good.to_string(), true, 0.0, 0.0)]);
+            state.sizes.insert(norm_material(good), size);
+        }
+        state
+    }
+
+    fn scu_of(state: &SellingState, good: &str) -> Option<f64> {
+        state.own_amounts().get(good).copied()
+    }
+
+    #[test]
+    fn a_part_of_an_scu_is_kept_and_a_comma_reads_as_a_point() {
+        assert_eq!(scu_of(&typed("Iron", "0,1", None, false), "Iron"), Some(0.1));
+        assert_eq!(scu_of(&typed("Iron", "2.5", None, false), "Iron"), Some(2.5));
+        assert_eq!(scu_of(&typed("Iron", "120", None, false), "Iron"), Some(120.0));
+        for nothing in ["0", "-3", "", "abc", "1e30", "nan", "inf"] {
+            assert_eq!(scu_of(&typed("Iron", nothing, None, false), "Iron"), None, "{nothing:?}");
+        }
+    }
+
+    #[test]
+    fn with_the_unit_cscu_the_typed_amount_counts_a_hundredth_of_an_scu() {
+        let got = scu_of(&typed("Iron", "250", None, true), "Iron").expect("an amount");
+        assert!((got - 2.5).abs() < 1e-9, "{got}");
+        let got = scu_of(&typed("Iron", "5", None, true), "Iron").expect("an amount");
+        assert!((got - 0.05).abs() < 1e-9, "{got}");
+    }
+
+    #[test]
+    fn a_piece_good_counts_whole_pieces_and_its_size_gives_the_scu() {
+        let state = typed("Saldynium (Ore)", "3", Some(0.001), false);
+        let got = scu_of(&state, "Saldynium (Ore)").expect("an amount");
+        assert!((got - 0.003).abs() < 1e-12, "{got}");
+        let cscu = typed("Saldynium (Ore)", "3", Some(0.001), true);
+        assert_eq!(scu_of(&cscu, "Saldynium (Ore)"), scu_of(&state, "Saldynium (Ore)"), "cSCU leaves pieces alone");
+        let part = scu_of(&typed("Saldynium (Ore)", "3,7", Some(0.001), false), "Saldynium (Ore)").expect("an amount");
+        assert!((part - 0.003).abs() < 1e-12, "a part of a piece is cut: {part}");
+        assert_eq!(scu_of(&typed("Saldynium (Ore)", "0,1", Some(0.001), false), "Saldynium (Ore)"), None);
+    }
+
+    /// The texts a function draws, in one list.
+    fn drawn(draw: impl FnMut(&mut Ui)) -> Vec<String> {
+        fn walk(shape: &egui::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::Shape::Text(text) => out.push(text.galley.text().to_string()),
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| walk(s, out)),
+                _ => {}
+            }
+        }
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut draw = draw;
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| draw(ui));
+        output.textures_delta.clear();
+        let mut out = Vec::new();
+        output.shapes.iter().for_each(|clipped| walk(&clipped.shape, &mut out));
+        out
+    }
+
+    /// A price list with one terminal that pays `price` per SCU for the good.
+    fn priced(good: &str, price: f64) -> Selling {
+        let now = trade::now() as i64;
+        let text = format!(
+            r#"{{"terminals":{{"7":{{"o":"Area18","s":"Stanton","n":"TDD","q":false}}}},
+               "waren":{{"{good}":[{{"t":"7","n":"TDD","p":{price},"d":{now},"k":"","z":3}}]}},"geholt":{now}}}"#
+        );
+        Selling::from_value(&versekit_core::jsonio::loads(&text).expect("json"))
+    }
+
+    #[test]
+    fn the_proceeds_of_pieces_are_the_price_per_scu_times_the_scu_of_the_pieces() {
+        let lang = language::current();
+        let mut state = typed("Saldynium (Ore)", "3", Some(0.001), false);
+        state.data = priced("Saldynium (Ore)", 34_000_000.0);
+        let scheme = versekit_core::theme::current();
+        let shown = drawn(|ui| sell_places(ui, scheme, &mut state));
+        let wanted = trade::plain(lang, 34_000_000.0 * 0.003);
+        let wrong = trade::plain(lang, 34_000_000.0 * 3.0);
+        assert!(shown.iter().any(|s| s.contains(&wanted)), "{wanted} in {shown:?}");
+        assert!(!shown.iter().any(|s| s.contains(&wrong)), "{wrong} in {shown:?}");
+        let pieces = formats::amount(lang, 3.0, &t("s_lg_stueck"));
+        assert!(shown.contains(&pieces), "the amount stands in pieces: {pieces:?} in {shown:?}");
+    }
+
+    #[test]
+    fn pieces_without_a_known_size_show_the_pieces_no_sum_and_say_why() {
+        let lang = language::current();
+        let mut state = SellingState::default();
+        state.picks.push("Saldynium (Ore)".to_string());
+        state.amounts.insert("Saldynium (Ore)".to_string(), "3".to_string());
+        state.stock.add_recipe_materials([("Saldynium (Ore)".to_string(), true, 0.0, 0.0)]);
+        state.data = priced("Saldynium (Ore)", 34_000_000.0);
+        assert!(state.own_amounts().is_empty(), "no SCU is guessed");
+        assert_eq!(state.own_pieces().get("Saldynium (Ore)"), Some(&3.0));
+        assert_eq!(state.pieces_without_size(), ["Saldynium (Ore)"]);
+        let scheme = versekit_core::theme::current();
+        let shown = drawn(|ui| sell_places(ui, scheme, &mut state));
+        let hint = tf("s_vk_stueck_ohne_groesse", &[("waren", Arg::from("Saldynium (Ore)"))]);
+        assert!(shown.iter().any(|s| s.contains(&hint)), "{hint:?} in {shown:?}");
+        assert!(shown.contains(&formats::amount(lang, 3.0, &t("s_lg_stueck"))), "{shown:?}");
+        for sum in [3.0, 0.003] {
+            let text = trade::plain(lang, 34_000_000.0 * sum);
+            assert!(!shown.iter().any(|s| s.contains(&text)), "no sum {text} in {shown:?}");
+        }
+    }
+
+    #[test]
+    fn a_part_of_a_piece_is_named_and_the_field_keeps_the_unit_of_the_good() {
+        let state = typed("Saldynium (Ore)", "0,1", Some(0.001), false);
+        assert_eq!(state.parts_of_a_piece(), ["Saldynium (Ore)"]);
+        assert_eq!(state.unit_word("Saldynium (Ore)"), t("s_lg_stueck"));
+        let more = typed("Saldynium (Ore)", "3,7", Some(0.001), false);
+        assert_eq!(more.parts_of_a_piece(), ["Saldynium (Ore)"], "a part after whole pieces is named too");
+        assert!(typed("Saldynium (Ore)", "2", Some(0.001), false).parts_of_a_piece().is_empty());
+        assert!(typed("Iron", "0,1", None, false).parts_of_a_piece().is_empty(), "an SCU may be a part");
+        assert_eq!(typed("Iron", "5", None, false).unit_word("Iron"), "SCU");
+        assert_eq!(typed("Iron", "5", None, true).unit_word("Iron"), "cSCU");
+    }
+
+    #[test]
+    fn the_sample_draws_every_line_of_the_amounts() {
+        let lang = language::current();
+        let mut state = SellingState::sample();
+        let scheme = versekit_core::theme::current();
+        let shown = drawn(|ui| {
+            chips(ui, scheme, &mut state);
+            sell_places(ui, scheme, &mut state);
+        });
+        let any = |text: &str| shown.iter().any(|s| s.contains(text));
+        for key in ["s_lg_stueck", "s_vk_scu_kurz", "s_lg_cscu"] {
+            assert!(any(&t(key)), "{key} in {shown:?}");
+        }
+        assert!(any(&tf("s_vk_stueck_ohne_groesse", &[("waren", Arg::from("Saldynium (Ore)"))])), "{shown:?}");
+        assert!(any(&tf("s_vk_nur_ganze_stuecke", &[("waren", Arg::from("Valakkar Pearl (Apex)"))])), "{shown:?}");
+        assert!(any(&formats::amount(lang, 12.0, &t("s_lg_stueck"))), "{shown:?}");
+        assert!(any(&trade::plain(lang, 45_000.0 * 0.012 + 2_000.0 * 0.1)), "the sum of the sized goods: {shown:?}");
+    }
+
+    /// A page state with `amount` SCU of `good` in Mein Lager and `text` typed for it.
+    fn in_stock(good: &str, amount: f64, text: &str, piece_size: Option<f64>, cscu: bool) -> SellingState {
+        let mut state = typed(good, text, piece_size, cscu);
+        let row = format!(r#"{{"ware": "{good}", "menge": {amount}, "ort": "Area18"}}"#);
+        state.cargo = vec![versekit_core::jsonio::loads(&row).expect("row")];
+        state
+    }
+
+    #[test]
+    fn the_amount_field_calculates_like_mein_lager() {
+        // A number is the new amount, a sum is worked out, a sign books onto what Mein Lager holds.
+        for (text, expected) in [("30+2", 32.0), ("30+2,5", 32.5), ("+8", 40.0), ("-2", 30.0), ("−2", 30.0), ("4,5", 4.5)] {
+            let state = in_stock("Iron", 32.0, text, None, false);
+            let got = scu_of(&state, "Iron");
+            assert!(got.is_some_and(|got| (got - expected).abs() < 1e-9), "{text}: {got:?} instead of {expected}");
+        }
+        for nothing in ["-40", "+", "3+", "abc", "5-5"] {
+            assert_eq!(scu_of(&in_stock("Iron", 32.0, nothing, None, false), "Iron"), None, "{nothing:?}");
+        }
+        // Without anything in Mein Lager a sign books onto nothing.
+        assert_eq!(scu_of(&typed("Iron", "+8", None, false), "Iron"), Some(8.0));
+    }
+
+    #[test]
+    fn calculating_holds_for_cscu_and_pieces_too() {
+        // cSCU: Mein Lager holds 0,32 SCU = 32 cSCU; "+8" makes 40 cSCU = 0,4 SCU.
+        let cscu = in_stock("Iron", 0.32, "+8", None, true);
+        assert!(scu_of(&cscu, "Iron").is_some_and(|got| (got - 0.40).abs() < 1e-9), "{:?}", scu_of(&cscu, "Iron"));
+        // Pieces of 0,001 SCU: 32 pieces lie there; "+8" makes 40 pieces and stays whole.
+        let pieces = in_stock("Kopion Horn", 0.032, "+8", Some(0.001), false);
+        assert_eq!(pieces.own_pieces().get("Kopion Horn"), Some(&40.0));
+        assert!(scu_of(&pieces, "Kopion Horn").is_some_and(|got| (got - 0.040).abs() < 1e-9));
+        let sum = in_stock("Kopion Horn", 0.0, "30+2", Some(0.001), false);
+        assert_eq!(sum.own_pieces().get("Kopion Horn"), Some(&32.0));
+        let part = in_stock("Kopion Horn", 0.0, "30+2,5", Some(0.001), false);
+        assert_eq!(part.own_pieces().get("Kopion Horn"), Some(&32.0), "pieces come out whole");
+        assert_eq!(part.parts_of_a_piece(), ["Kopion Horn"], "and the page says so");
+    }
+
+    #[test]
+    fn enter_in_the_amount_field_turns_a_calculation_into_its_result() {
+        let mut state = in_stock("Iron", 32.0, "+8", None, false);
+        state.settle("Iron");
+        assert_eq!(state.amounts.get("Iron").map(String::as_str), Some("40"));
+        state.amounts.insert("Iron".to_string(), "30+2,5".to_string());
+        state.settle("Iron");
+        assert!(["32,5", "32.5"].contains(&state.amounts["Iron"].as_str()), "{:?}", state.amounts["Iron"]);
+        state.amounts.insert("Iron".to_string(), "7".to_string());
+        state.settle("Iron");
+        assert_eq!(state.amounts.get("Iron").map(String::as_str), Some("7"), "a plain number stays as it is");
+        state.amounts.insert("Iron".to_string(), "-99".to_string());
+        state.settle("Iron");
+        assert_eq!(state.amounts.get("Iron").map(String::as_str), Some("-99"), "a result below nothing stays to be seen");
+    }
+
+    #[test]
+    fn switching_the_unit_of_mein_lager_keeps_the_typed_amount_the_same_amount() {
+        let mut state = typed("Iron", "0,5", None, false);
+        state.stock.add_recipe_materials([("Kopion Horn".to_string(), true, 0.0, 0.0)]);
+        state.amounts.insert("Kopion Horn".to_string(), "4".to_string());
+        state.change_unit(true);
+        assert_eq!(state.amounts.get("Iron").map(String::as_str), Some("50"));
+        assert_eq!(scu_of(&state, "Iron"), Some(0.5), "still half an SCU");
+        assert_eq!(state.amounts.get("Kopion Horn").map(String::as_str), Some("4"), "pieces stay");
+        state.change_unit(false);
+        assert_eq!(state.amounts.get("Iron").map(String::as_str), Some("0.5"));
+        assert_eq!(scu_of(&state, "Iron"), Some(0.5));
+        state.change_unit(false);
+        assert_eq!(state.amounts.get("Iron").map(String::as_str), Some("0.5"), "no change, no rewrite");
+    }
+
+    #[test]
+    fn taking_the_goods_of_mein_lager_leaves_what_is_typed() {
+        let mut state = typed("Saldynium (Ore)", "3", Some(0.001), false);
+        state.take_from_stock();
+        assert_eq!(state.amounts.get("Saldynium (Ore)").map(String::as_str), Some("3"));
+        assert_eq!(state.picks, ["Saldynium (Ore)"]);
+    }
+
+    #[test]
+    fn a_part_of_an_scu_is_counted_in_the_proceeds() {
+        let lang = language::current();
+        let mut state = typed("Iron", "0,1", None, false);
+        state.data = priced("Iron", 2_000.0);
+        let scheme = versekit_core::theme::current();
+        let shown = drawn(|ui| sell_places(ui, scheme, &mut state));
+        let wanted = trade::plain(lang, 200.0);
+        assert!(shown.iter().any(|s| s.contains(&wanted)), "{wanted} in {shown:?}");
     }
 
     #[test]

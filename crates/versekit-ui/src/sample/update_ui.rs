@@ -517,7 +517,7 @@ fn the_card_names_the_version_what_is_known_and_the_folder() {
 #[test]
 fn the_page_looks_at_github_once_and_a_failed_look_is_never_up_to_date() {
     let _language = crate::language_lock();
-    use versekit_core::legacy::ENV_NO_NET;
+    use versekit_core::envvars::ENV_NO_NET;
     // The net answers nothing: the look fails and the page says so, and never that all is up to date.
     let (mut page, dir) = real_page("update-blick-fehler", "", &[(ENV_NO_NET, "0")]);
     page.use_updates(env_in(&dir, Arc::new(versekit_core::net::Fake::default()), false).0);
@@ -527,7 +527,7 @@ fn the_page_looks_at_github_once_and_a_failed_look_is_never_up_to_date() {
     let texts = pump(&mut bench, |_, texts| shows(texts, &t("s_ub_sucht_fehler")));
     assert!(shows(&texts, &t("s_ub_sucht_fehler")), "the failed look is told");
     assert!(!shows(&texts, &t("aktuelle_fassung")) && !shows(&texts, &t("s_ub_aktuell")));
-    // With `SC_BP_NO_NET` the look is not made at all: no failure is told either.
+    // With `VERSEKIT_NO_NET` the look is not made at all: no failure is told either.
     let (mut offline, dir2) = offline_window("update-blick-offline", Vec::new());
     offline.page.go_to("hf_ueber");
     offline.time = Some(1.0);
@@ -540,7 +540,7 @@ fn the_page_looks_at_github_once_and_a_failed_look_is_never_up_to_date() {
 #[test]
 fn the_open_page_fills_its_boxes_from_the_look_and_repeats_it_every_five_minutes() {
     let _language = crate::language_lock();
-    use versekit_core::legacy::ENV_NO_NET;
+    use versekit_core::envvars::ENV_NO_NET;
     let list = r#"[{"tag_name":"v5.0.1","published_at":"2026-11-20T09:00:00Z","prerelease":false,"assets":[]}]"#;
     let fake = Arc::new(versekit_core::net::Fake::default().with(updater::API, list.as_bytes().to_vec()));
     let (mut page, dir) = real_page("update-blick-kaesten", "", &[(ENV_NO_NET, "0")]);
@@ -632,6 +632,52 @@ fn the_update_pages_fit_every_size_scheme_and_language() {
     versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
+}
+
+/// ⚠ The backup before the update cannot be made: the player is asked whether to update without it. Escape and a
+/// click beside the question do nothing, "do not update" installs nothing, and only "update anyway" goes on.
+#[test]
+fn a_backup_that_could_not_be_made_asks_the_player_and_without_an_answer_nothing_is_installed() {
+    let _language = crate::language_lock();
+    let mut image = PathBuf::new();
+    let (mut bench, dir) = window("update-ohne-sicherung", vec![release("v5.0.1", false)], "", |dir| {
+        let (env, path) = env_in(dir, Arc::new(github("v5.0.1", b"neu")), false);
+        image = path;
+        env
+    });
+    // A file where the folder of the backups belongs (the data folder is this folder, flat).
+    std::fs::write(dir.join(versekit_core::backup::BEFORE_UPDATE_FOLDER), b"im Weg").unwrap();
+    let title = t("up_sicherung_titel");
+    bench.click(&t("s_ul_jetzt"));
+    bench.click(&t("hf_update_jetzt"));
+    let texts = pump(&mut bench, |_, texts| shows(texts, &title));
+    assert!(shows(&texts, &title), "the player is asked");
+    assert!(shows(&texts, &t("up_sicherung_trotzdem")) && shows(&texts, &t("up_sicherung_abbruch")));
+    assert_eq!(std::fs::read(&image).unwrap(), b"alt", "nothing was installed");
+    assert!(!bench.page.updates.is_busy());
+
+    bench.frame(vec![escape()]);
+    assert!(shows(&bench.settle(), &title), "Escape does not close it");
+    bench.click_at(Pos2::new(5.0, 5.0));
+    assert!(shows(&bench.settle(), &title), "a click beside it does not close it");
+    assert!(!bench.page.update_quit && !bench.page.take_update_quit(), "no answer, no update");
+    assert_eq!(std::fs::read(&image).unwrap(), b"alt");
+
+    // „Do not update“ closes it and installs nothing.
+    bench.click(&t("up_sicherung_abbruch"));
+    assert!(!shows(&bench.settle(), &title), "the question is gone");
+    assert_eq!(std::fs::read(&image).unwrap(), b"alt");
+    assert!(!bench.page.updates.is_busy());
+
+    // Asked again, „update anyway“ goes on.
+    bench.click(&t("s_ul_jetzt"));
+    bench.click(&t("hf_update_jetzt"));
+    pump(&mut bench, |_, texts| shows(texts, &title));
+    bench.click(&t("up_sicherung_trotzdem"));
+    pump(&mut bench, |bench, _| bench.page.update_quit);
+    assert!(bench.page.take_update_quit(), "the program is to end");
+    assert_eq!(std::fs::read(&image).unwrap(), b"neu");
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -842,5 +888,41 @@ fn on_real_data_the_page_reads_the_built_in_log_in_the_language_of_the_window() 
     let start = |texts: &[(String, Pos2)], line: &str| shows(texts, &line[..line.len().min(25)]);
     assert!(start(&english, &en) && !start(&english, &de), "the English log is shown in English");
     versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_overview_says_how_the_update_stands_and_leads_to_the_update_page() {
+    let _language = crate::language_lock();
+    let line = |key: &str, args: &[(&str, Arg)]| tf(key, args);
+    let unknown = line("s_fg_update_unbekannt", &[("0", Arg::from("5.0.0"))]);
+    let current = line("s_fg_update_aktuell", &[("0", Arg::from("5.0.0"))]);
+    let offered = line("s_fg_update_neu", &[("0", Arg::from("5.0.1")), ("1", Arg::from("5.0.0"))]);
+
+    // No list of versions read yet: nothing is claimed.
+    let (mut bench, dir) = offline_window("uebersicht-update", Vec::new());
+    bench.page.open_overview();
+    bench.time = Some(1.0);
+    let texts = bench.settle();
+    assert!(shows(&texts, &unknown), "{texts:?}");
+    assert!(!shows(&texts, &current) && !shows(&texts, &offered), "no claim without a list");
+
+    // The newest version is the running one.
+    write_cache(&dir, vec![release("v5.0.0", false)]);
+    bench.time = Some(62.0);
+    let texts = bench.settle();
+    assert!(shows(&texts, &current), "{texts:?}");
+    assert!(!shows(&texts, &unknown) && !shows(&texts, &offered));
+
+    // A newer one is on offer: it is named with the running one.
+    write_cache(&dir, vec![release("v5.0.1", false), release("v5.0.0", false)]);
+    bench.time = Some(124.0);
+    let texts = bench.settle();
+    assert!(shows(&texts, &offered), "{texts:?}");
+    assert!(!shows(&texts, &current) && !shows(&texts, &unknown));
+
+    // The button leads to the page that fetches it.
+    bench.click(&t("s_fg_update_knopf"));
+    assert_eq!(bench.page.page_key(), "hf_ueber");
     let _ = std::fs::remove_dir_all(dir);
 }

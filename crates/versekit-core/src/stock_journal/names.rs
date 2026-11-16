@@ -702,7 +702,6 @@ mod tests {
 
     #[test]
     fn the_stored_files_are_read_in_their_formats() {
-        use crate::legacy;
         use crate::paths::Host;
         use crate::pypath::Flavor;
 
@@ -711,7 +710,7 @@ mod tests {
         std::fs::create_dir_all(root.join("home")).unwrap();
         let host = Host::new(
             Flavor::native(),
-            &[(legacy::ENV_HOME, root.join("home").to_str().unwrap())],
+            &[(crate::envvars::ENV_HOME, root.join("home").to_str().unwrap())],
             root.to_str().unwrap(),
         );
         let paths = Paths::new(host);

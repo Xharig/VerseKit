@@ -175,6 +175,7 @@ fn install(world: &World<'_>, release: &updater::Release, automatic: bool) -> Ro
         game_running: world.game_now,
         start: world.start,
         alive_wait: world.alive_wait,
+        without_backup: false,
     };
     match update_flow::run(&job, release, &mut |_| {}) {
         Done::Quit => {
@@ -186,6 +187,13 @@ fn install(world: &World<'_>, release: &updater::Release, automatic: bool) -> Ro
             Round::Sleep(auto_update::GAME_POLL)
         }
         Done::Postponed => Round::Sleep(auto_update::GAME_POLL),
+        // ⚠ No window to ask in: the player is told, and the question waits on the page "Update & Über" (the click
+        // there asks it). Without an answer nothing is installed.
+        Done::NoBackup(reason) => {
+            let version = Arg::from(updater::shown_version(&release.version));
+            (world.tell)(Tell::Said(tf("up_sicherung_auto", &[("0", version), ("1", Arg::from(reason))])));
+            Round::Sleep(auto_update::CHECK_INTERVAL)
+        }
         Done::Stopped(said) => {
             if let Some(said) = said.filter(|_| !automatic) {
                 (world.tell)(Tell::Said(said));
@@ -299,6 +307,7 @@ pub(crate) fn at_exit(ending: &Ending<'_>) -> AtExit {
                 game_running: &stop,
                 start: ending.start,
                 alive_wait: update_swap::ALIVE_WAIT,
+                without_backup: false,
             };
             match update_flow::run(&job, &release, &mut |_| {}) {
                 Done::Quit => {
@@ -310,6 +319,11 @@ pub(crate) fn at_exit(ending: &Ending<'_>) -> AtExit {
                 }
                 Done::Postponed => {
                     note(format!("{version} not installed at the end: a backup is at work"));
+                    return AtExit::Nothing;
+                }
+                // Nobody to ask at the end: the question waits for the next start (the automatic round tells it).
+                Done::NoBackup(_) => {
+                    note(format!("{version} not installed at the end: the backup of the data could not be made"));
                     return AtExit::Nothing;
                 }
                 // The sentence for the player may name the program file: the log keeps to its own lines above.
@@ -522,7 +536,7 @@ mod tests {
 
     /// The path of the running program file.
     fn program_in(dir: &Path) -> PathBuf {
-        dir.join("SC-BP-Watcher.exe")
+        dir.join("VerseKit.exe")
     }
 
     struct Ends(u32);
@@ -542,7 +556,7 @@ mod tests {
         fs::create_dir_all(&text).unwrap();
         Paths::new(Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, &text)],
+            &[(versekit_core::envvars::ENV_HOME, &text)],
             &text,
         ))
     }

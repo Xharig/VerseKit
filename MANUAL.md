@@ -22,7 +22,7 @@ Hier steht das Technische: wie VerseKit Baupläne erkennt, welche Dateien es anl
 …\StarCitizen\LIVE\logbackups\             (frühere Sitzungen, beim Start nachgelesen)
 ```
 
-Eigene Dateien (Bestand, Einstellungen, Zwischenspeicher) liegen in einem eigenen Ordner unter *Dokumente*. Wo genau, zeigt **Einstellungen → Installation & Pfade**; dort lässt er sich auch verlegen. Für einen einzelnen Start geht das ebenso mit der Umgebungsvariablen `SC_BP_HOME`.
+Eigene Dateien (Bestand, Einstellungen, Zwischenspeicher) liegen in einem eigenen Ordner unter *Dokumente*. Wo genau, zeigt **Einstellungen → Installation & Pfade**; dort lässt er sich auch verlegen. Für einen einzelnen Start geht das ebenso mit der Umgebungsvariablen `VERSEKIT_HOME`.
 
 ### Spielsprache
 
@@ -126,13 +126,13 @@ In `einstellungen.json` im eigenen Ordner, eine Textdatei, kein Code. Nach dem �
 
 > Position und Größe des Overlays merkt sich VerseKit beim Verschieben und Beenden (`watcher.json` im selben Ordner). Zieh es einfach dorthin, wo du es haben willst. Eine feste Startlage gibt das Programm bewusst **nicht** vor: Wo ein Overlay gut sitzt, hängt am Monitoraufbau. Zum Zurücksetzen die Datei löschen.
 
-> **Eigene Korrekturen:** Stimmt bei einem Bauplan die Angabe zu Klasse, Größe oder Gütegrad nicht, kannst du sie in `bp-overrides.json` im eigenen Ordner überschreiben. Sie hat Vorrang vor allen anderen Quellen. Liegt die Datei woanders, gib den Pfad über die Umgebungsvariable `SC_BP_OVERRIDES` an.
+> **Eigene Korrekturen:** Stimmt bei einem Bauplan die Angabe zu Klasse, Größe oder Gütegrad nicht, kannst du sie in `bp-overrides.json` im eigenen Ordner überschreiben. Sie hat Vorrang vor allen anderen Quellen. Liegt die Datei woanders, gib den Pfad über die Umgebungsvariable `VERSEKIT_OVERRIDES` an.
 
 **Umgebungsvariablen**, für einen einmaligen Sonderfall, ohne etwas dauerhaft zu ändern:
 
 | Variable | Wirkung |
 |---|---|
-| `SC_BP_HOME` | anderer Ordner für Bestand und Einstellungen |
+| `VERSEKIT_HOME` | anderer Ordner für Bestand und Einstellungen |
 | `SC_INSTALL_DIR` | anderer Spielordner |
-| `SC_BP_NO_NET=1` | **keine** Netzabfragen, weder Spieldaten noch Versionsprüfung noch Meldungen |
-| `SC_BP_SPRACHE` | Sprache für diesen Start (`de` / `en`) |
+| `VERSEKIT_NO_NET=1` | **keine** Netzabfragen, weder Spieldaten noch Versionsprüfung noch Meldungen |
+| `VERSEKIT_SPRACHE` | Sprache für diesen Start (`de` / `en`) |

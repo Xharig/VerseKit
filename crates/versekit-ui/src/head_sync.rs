@@ -270,7 +270,7 @@ mod tests {
         click(&ctx, &mut head, &wire, at);
         let _ = wire.sync.pass_now();
         let texts = frame(&ctx, &mut head, &wire, Vec::new());
-        // Maintenance is not told as a refusal and shows no code, it says that Verse-Kit tries again.
+        // Maintenance is not told as a refusal and shows no code, it says that VerseKit tries again.
         let failed = t("s_btv_f_netz");
         assert!(texts.iter().any(|(text, _)| *text == failed), "{texts:?} / {failed}");
         assert!(!texts.iter().any(|(text, _)| text.contains("SERVICE_UNAVAILABLE")), "{texts:?}");
@@ -352,7 +352,7 @@ mod tests {
 
     #[test]
     fn on_a_copy_of_the_data_the_button_does_nothing_and_says_why() {
-        use versekit_core::legacy::{ENV_BASETOOL_KEYNAME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
+        use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
         let _language = crate::language_lock();
         language::set_thread_language(Choice::De);
         let root = folder("testbetrieb");

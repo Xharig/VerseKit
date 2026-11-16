@@ -220,7 +220,7 @@ mod tests {
         let home = root.to_string_lossy().into_owned();
         let paths = Paths::new(crate::paths::Host::new(
             crate::pypath::Flavor::native(),
-            &[(crate::legacy::ENV_HOME, home.as_str())],
+            &[(crate::envvars::ENV_HOME, home.as_str())],
             &home,
         ));
         assert_eq!((volume(&paths), refinery_on(&paths)), (VOLUME_DEFAULT, true));

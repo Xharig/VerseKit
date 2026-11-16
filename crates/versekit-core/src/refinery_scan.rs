@@ -438,7 +438,12 @@ pub fn table_columns(table: &[Vec<Word>], found: &[MaterialRow]) -> Vec<f64> {
 /// of a running one, which the numbers alone do not tell.
 fn table_columns_with(table: &[Vec<Word>], found: &[MaterialRow], shared: Option<&[f64]>) -> Vec<f64> {
     let own = match heads_of(table) {
-        Some((heads, true)) => Some(heads),
+        Some((mut heads, true)) => {
+            if let Some(shared) = shared {
+                add_missed_heads(&mut heads, shared);
+            }
+            Some(heads)
+        }
         Some((heads, false)) => Some(shared.map_or(heads, <[f64]>::to_vec)),
         None => shared.map(<[f64]>::to_vec),
     };
@@ -450,13 +455,36 @@ fn table_columns_with(table: &[Vec<Word>], found: &[MaterialRow], shared: Option
         return numbers;
     };
     let (quality, yield_) = (heads[0], heads[1]);
-    let tolerance = 0.35 * (yield_ - quality);
+    let tolerance = HEAD_REACH * (yield_ - quality);
     for x in columns(found) {
         if x > yield_ + tolerance && heads.iter().all(|head| (head - x).abs() > tolerance) {
             heads.push(x);
         }
     }
     heads
+}
+
+/// The share of the distance between the heads of the quality and of the yield within which a head or a column of
+/// numbers is taken for the one already there.
+const HEAD_REACH: f64 = 0.35;
+
+/// The heads another reading of the same part read and `heads` missed, taken over: a reading that lost the head of
+/// the quantity (`QTY`) would else give the numbers of that column to the yield, the nearer one of its heads.
+/// Only when both agree on the quality and on the yield (within [`HEAD_REACH`] of their distance); the others stay
+/// as they are.
+fn add_missed_heads(heads: &mut Vec<f64>, other: &[f64]) {
+    if heads.len() < 2 || other.len() < 2 {
+        return;
+    }
+    let reach = HEAD_REACH * (heads[1] - heads[0]);
+    if (heads[0] - other[0]).abs() > reach || (heads[1] - other[1]).abs() > reach {
+        return;
+    }
+    for x in &other[2..] {
+        if heads.iter().all(|head| (head - x).abs() > reach) {
+            heads.push(*x);
+        }
+    }
 }
 
 /// One row of a reading: the material with quality and amount (cSCU), each `None` when not readable.
@@ -644,14 +672,19 @@ pub fn merge_passes(
     merge_passes_with(passes, index, minimum, checks, guess_unsure, None)
 }
 
-/// The heads that hold for every reading of a part: those of the first reading that read the head of the yield by
-/// name, else `fallback` (the heads the search over the whole picture read over the part), else those of the first
-/// reading that took the yield right of the quantity.
+/// The heads that hold for every reading of a part: those of the reading that read the head of the yield by name
+/// and the most heads (the first of them on a tie), else `fallback` (the heads the search over the whole picture
+/// read over the part), else those of the first reading that took the yield right of the quantity.
 fn shared_heads(passes: &[Vec<Word>], fallback: Option<&[f64]>) -> Option<Vec<f64>> {
     let read: Vec<(Vec<f64>, bool)> = passes.iter().filter_map(|words| heads_of(&rows(words))).collect();
-    read.iter()
-        .find(|(_, named)| *named)
-        .map(|(heads, _)| heads.clone())
+    let mut richest: Option<&Vec<f64>> = None;
+    for (heads, _) in read.iter().filter(|(_, named)| *named) {
+        if richest.is_none_or(|best| heads.len() > best.len()) {
+            richest = Some(heads);
+        }
+    }
+    richest
+        .cloned()
         .or_else(|| fallback.map(<[f64]>::to_vec))
         .or_else(|| read.first().map(|(heads, _)| heads.clone()))
 }
@@ -1448,7 +1481,38 @@ fn confirmer<'a>(
     })
 }
 
-/// `_rereader`: reads a cell of an unsure row from the learned patterns alone.
+/// How much of the distance to the next column the part of a cell takes, and how many heights of a word it is
+/// high: a cell no reading gave a word in is looked at in the place its number would stand ([`cell_crop_by_place`]).
+const PLACE_WIDTH: f64 = 0.8;
+const PLACE_HEIGHT: f64 = 1.1;
+
+/// The grey picture of the place of a cell in the row `y`, column `column`, for a cell no reading gave a number
+/// in: as wide as [`PLACE_WIDTH`] of the distance to the nearest other column, as high as [`PLACE_HEIGHT`] heights
+/// of a word. `None` without a second column to measure by.
+fn cell_crop_by_place(
+    picture: &dyn Picture,
+    passes: &[Vec<Word>],
+    y: f64,
+    column: usize,
+    centers: &[f64],
+) -> Option<digits::Gray> {
+    let x = *centers.get(column)?;
+    let gap = centers
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != column)
+        .map(|(_, other)| (other - x).abs())
+        .fold(f64::INFINITY, f64::min);
+    if !gap.is_finite() || gap <= 0.0 {
+        return None;
+    }
+    let (width, height) = (PLACE_WIDTH * gap, PLACE_HEIGHT * tolerance(passes));
+    cell_crop(picture, ((x - width / 2.0) as i64, (y - height / 2.0) as i64, width as i64, height as i64))
+}
+
+/// `_rereader`: reads a cell of an unsure row from the learned patterns alone. Where no reading gave a number in
+/// the cell, the place of the cell is read: the digits of the terminal are known now, and a cell the recognition
+/// left out is still there to be seen. What is no digit of the learned ones stays empty.
 fn rereader<'a>(
     picture: &'a dyn Picture,
     passes: &'a [Vec<Word>],
@@ -1457,9 +1521,9 @@ fn rereader<'a>(
     fallback: Option<&[f64]>,
 ) -> Box<dyn Fn(f64, usize) -> Option<Int> + 'a> {
     let centers = centers(passes, index, fallback);
-    Box::new(move |y, column| {
-        let (word, crop) = cell_crop_at(picture, passes, y, column, &centers)?;
-        digits::read_cell(&crop, learned, &word.t)
+    Box::new(move |y, column| match cell_crop_at(picture, passes, y, column, &centers) {
+        Some((word, crop)) => digits::read_cell(&crop, learned, &word.t),
+        None => digits::read_cell(&cell_crop_by_place(picture, passes, y, column, &centers)?, learned, ""),
     })
 }
 

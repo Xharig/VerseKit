@@ -29,7 +29,7 @@
 //! places it is offered at and whether it can be shared are the facts p4kx
 //! states per entry ([`ContractFacts`]); the rest is read here.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use p4kx_dataforge::{Guid, RecordTree, StructValue, Value};
 use p4kx_localization::is_placeholder_key;
@@ -41,6 +41,7 @@ use crate::fields::{
     Trees, as_struct, boolean, class_name, elements, integer, link, locale_key, number, reference, structs,
     structure, text,
 };
+use crate::location_targets::{Bodies, Place};
 use crate::{Localization, Source, SourceKind, Text};
 
 /// The records sources are read from.
@@ -51,6 +52,8 @@ pub(crate) struct Inputs {
     pub(crate) scenarios: Vec<Guid>,
     /// The star map objects whose record name ends in `Star` (`StantonStar`, `NyxStar`), the stars among them.
     pub(crate) stars: Vec<Guid>,
+    /// Every star map object with its record name without the type, to find the bodies by their codes.
+    pub(crate) star_map: Vec<(Guid, String)>,
 }
 
 /// The sources of every blueprint, with counts of what awarded them.
@@ -710,11 +713,14 @@ fn places(facts: &Facts, trees: &mut Trees<'_, '_>, texts: &Localization) -> (Ve
 }
 
 /// Where every contract entry p4kx lists is offered ([`crate::Offered`]), by [`entry_key`]: the system and the planet
-/// of each object of its localities and of each of its locations, read up the star map ([`whereabouts`]). `stars`
-/// are the candidates for the stars ([`Inputs::stars`]). An entry with no place in a known system is left out.
+/// of each object of its localities and of each of its locations, read up the star map ([`whereabouts`]), and of
+/// each place its location queries lead to ([`crate::LocationTargets`]). `stars` are the candidates for the stars
+/// ([`Inputs::stars`]), `star_map` the objects the bodies are found among ([`Inputs::star_map`]). An entry with no
+/// place in a known system is left out.
 pub(crate) fn offered(
     trees: &mut Trees<'_, '_>,
     stars: &[Guid],
+    star_map: &[(Guid, String)],
     facts: &ContractFacts,
     texts: &Localization,
 ) -> HashMap<String, crate::Offered> {
@@ -730,21 +736,56 @@ pub(crate) fn offered(
         }
     }
     let mut known: HashMap<Guid, Option<(String, Option<String>)>> = HashMap::new();
-    let mut found = HashMap::new();
-    for ((contract, sub), facts) in facts.iter() {
+    // The systems are those of the stars (their folder names the code), the bodies those objects named by a code.
+    let codes = systems.iter().filter_map(|(folder, name)| {
+        Some((folder.trim_end_matches('/').rsplit('/').next()?.to_string(), name.clone()))
+    });
+    let mut bodies = Bodies::new(codes);
+    let coded: Vec<(Guid, String)> =
+        star_map.iter().filter_map(|(guid, name)| Some((*guid, bodies.body_code(name)?))).collect();
+    for (object, code) in coded {
+        let planet = known.entry(object).or_insert_with(|| whereabouts(object, &systems, trees, texts)).clone();
+        bodies.add_body(code, planet.and_then(|(_, planet)| planet));
+    }
+    offered_by(facts, &bodies, |facts| {
         let mut objects: Vec<Guid> = Vec::new();
         for &locality in &facts.localities {
             let Some(locality) = trees.get(locality) else { continue };
             objects.extend(elements(Some(locality.root()), "availableLocations").iter().filter_map(link));
         }
         objects.extend(facts.locations.iter().copied());
+        objects
+            .into_iter()
+            .filter_map(|object| {
+                known.entry(object).or_insert_with(|| whereabouts(object, &systems, trees, texts)).clone()
+            })
+            .collect()
+    })
+}
+
+/// [`offered`] with the places of an entry's own localities and locations given by `places_of`: each entry with a
+/// place in a known system, by [`entry_key`]. The places its location queries lead to count as places of the entry
+/// (placed by `bodies`), also where the entry names no place of its own.
+fn offered_by(
+    all: &ContractFacts,
+    bodies: &Bodies,
+    mut places_of: impl FnMut(&Facts) -> Vec<Place>,
+) -> HashMap<String, crate::Offered> {
+    let mut led_to: HashMap<&str, BTreeSet<Place>> = HashMap::new();
+    let mut found = HashMap::new();
+    for ((contract, sub), facts) in all.iter() {
+        let mut places = places_of(facts);
+        for query in &facts.queries {
+            let at = led_to.entry(query).or_insert_with(|| {
+                all.query(query).map(|query| all.targets().places(query, bodies)).unwrap_or_default()
+            });
+            places.extend(at.iter().cloned());
+        }
         let mut offered = crate::Offered::default();
-        for object in objects {
-            let place = known.entry(object).or_insert_with(|| whereabouts(object, &systems, trees, texts));
-            let Some((system, planet)) = place else { continue };
+        for (system, planet) in places {
             offered.systems.insert(system.clone());
             if let Some(planet) = planet {
-                offered.planets.entry(system.clone()).or_default().insert(planet.clone());
+                offered.planets.entry(system).or_default().insert(planet);
             }
         }
         if !offered.systems.is_empty() {
@@ -880,8 +921,10 @@ fn scenario_sources(
 mod tests {
     use p4kx_dataforge::Guid;
 
-    use super::{fill_placeholders, filled_contractor, fix_duplicates, system_folder};
+    use super::{entry_key, fill_placeholders, filled_contractor, fix_duplicates, offered_by, system_folder};
     use crate::catalog::Text;
+    use crate::contract_facts::ContractFacts;
+    use crate::location_targets::Bodies;
 
     #[test]
     fn a_star_map_record_lies_in_the_folder_of_its_system() {
@@ -910,6 +953,99 @@ mod tests {
             build: None,
             source: "scmdb",
         }
+    }
+
+    const OWN_GUID: &str = "10000000-0000-4000-8000-000000000002";
+    const ONLY_TARGETS: &str = "10000000-0000-4000-8000-0000000000a1";
+    const BROAD_GUID: &str = "10000000-0000-4000-8000-0000000000b1";
+    const QUERY_COLONIAL: &str = "20000000-0000-4000-8000-000000000001";
+    const QUERY_BROAD: &str = "20000000-0000-4000-8000-000000000002";
+    const QUERY_NOWHERE: &str = "20000000-0000-4000-8000-000000000003";
+
+    /// Entries that only search places (`ONLY_TARGETS`, `BROAD_GUID`) and one that is offered somewhere and searches
+    /// another place besides (`OWN_GUID`), with the templates the queries find.
+    fn facts_with_queries() -> ContractFacts {
+        let entry = |guid: &str, queries: &[&str]| {
+            let queries: Vec<String> = queries.iter().map(|query| format!("{{\"queryGuid\": \"{query}\"}}")).collect();
+            format!(
+                "{{\"guid\": \"{guid}\", \"subContractGuid\": null, \"locationQueries\": [{}]}}",
+                queries.join(", ")
+            )
+        };
+        let search = |guid: &str, tag: &str| {
+            format!(
+                "{{\"guid\": \"{guid}\", \"conditions\": [{{\"condition\": \"tagSearch\", \"tagType\": \"General\", \
+                  \"terms\": [{{\"positiveTags\": [\"{tag}\"], \"negativeTags\": []}}]}}]}}"
+            )
+        };
+        let template = |name: &str, tag: &str| {
+            format!("{{\"className\": \"{name}\", \"disabled\": false, \"tags\": [\"{tag}\"]}}")
+        };
+        let mut templates = vec![
+            template("Outpost_Stanton2c_Layout", "Missions.LocationType.Outpost.Colonial"),
+            template("Outpost_Pyro5a", "Missions.LocationType.Outpost.Colonial"),
+            template("Station_Nyx2", "Missions.LocationType.Station"),
+        ];
+        templates.extend(
+            (0..=crate::location_targets::BROAD_QUERY)
+                .map(|n| template(&format!("Anywhere{n}_Nyx"), "Missions.LocationType.Any")),
+        );
+        let catalog = format!(
+            "{{\"contracts\": [{}, {}, {}], \"contractLocationQueries\": [{}, {}, {}]}}",
+            entry(ONLY_TARGETS, &[QUERY_COLONIAL, QUERY_NOWHERE]),
+            entry(OWN_GUID, &[QUERY_COLONIAL]),
+            entry(BROAD_GUID, &[QUERY_BROAD]),
+            search(QUERY_COLONIAL, "Missions.LocationType.Outpost"),
+            search(QUERY_BROAD, "Missions.LocationType.Any"),
+            search(QUERY_NOWHERE, "Missions.LocationType.Nothing"),
+        );
+        let templates = format!("{{\"missionLocationTemplates\": [{}]}}", templates.join(", "));
+        ContractFacts::from_catalog(catalog.as_bytes()).unwrap().with_locations(templates.as_bytes()).unwrap()
+    }
+
+    fn bodies() -> Bodies {
+        let mut bodies = Bodies::new([
+            ("stanton".to_string(), "Stanton".to_string()),
+            ("pyro".to_string(), "Pyro".to_string()),
+            ("nyx".to_string(), "Nyx".to_string()),
+        ]);
+        for (record, planet) in [("Stanton2c", "Crusader"), ("Pyro5a", "Pyro V"), ("Nyx2", "Nyx II")] {
+            let code = bodies.body_code(record).unwrap();
+            bodies.add_body(code, Some(planet.to_string()));
+        }
+        bodies
+    }
+
+    fn systems_of(offered: &crate::Offered) -> Vec<&str> {
+        offered.systems.iter().map(String::as_str).collect()
+    }
+
+    #[test]
+    fn an_entry_that_only_searches_places_is_offered_where_its_queries_lead() {
+        let found = offered_by(&facts_with_queries(), &bodies(), |_| Vec::new());
+        let entry = &found[&entry_key(ONLY_TARGETS, None)];
+        assert_eq!(systems_of(entry), ["Pyro", "Stanton"], "a template below the searched tag counts");
+        assert_eq!(entry.planets["Stanton"].iter().collect::<Vec<_>>(), ["Crusader"], "Yela lies at Crusader");
+        assert_eq!(entry.planets["Pyro"].iter().collect::<Vec<_>>(), ["Pyro V"]);
+        assert!(!found.contains_key(&entry_key("10000000-0000-4000-8000-0000000000ff", None)), "unknown entry");
+    }
+
+    #[test]
+    fn the_places_of_an_entry_and_those_its_queries_lead_to_are_joined() {
+        let found = offered_by(&facts_with_queries(), &bodies(), |facts| {
+            if facts.queries.is_empty() { Vec::new() } else { vec![("Nyx".to_string(), Some("Nyx II".to_string()))] }
+        });
+        let entry = &found[&entry_key(OWN_GUID, None)];
+        assert_eq!(systems_of(entry), ["Nyx", "Pyro", "Stanton"]);
+        assert_eq!(entry.planets["Nyx"].iter().collect::<Vec<_>>(), ["Nyx II"]);
+    }
+
+    #[test]
+    fn a_query_that_finds_too_many_places_or_none_adds_nothing() {
+        let found = offered_by(&facts_with_queries(), &bodies(), |_| Vec::new());
+        assert!(!found.contains_key(&entry_key(BROAD_GUID, None)), "a search over every place names no place");
+        let entry = &found[&entry_key(ONLY_TARGETS, None)];
+        assert!(!entry.systems.contains("Nyx"), "the query that finds nothing leaves the entry as it is");
     }
 
     #[test]

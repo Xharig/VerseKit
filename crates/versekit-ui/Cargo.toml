@@ -1,12 +1,16 @@
 [package]
 name = "versekit-ui"
-description = "Verse-Kit: Oberfläche (egui) — Farbschemata"
+description = "VerseKit: Oberfläche (egui) — Farbschemata"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 publish.workspace = true
+
+[features]
+# The test build of the developer (see `versekit-core`).
+test-build = ["versekit-core/test-build", "versekit-gamedata/test-build"]
 
 [dependencies]
 # The renderer of the windows (`renderer`).
@@ -27,6 +31,7 @@ windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_
 
 [dev-dependencies]
 egui_kittest.workspace = true
+versekit-orgserver.workspace = true
 
 # A hidden window of a test that stands in for another run of the program, and the desktop it is on.
 [target.'cfg(windows)'.dev-dependencies]

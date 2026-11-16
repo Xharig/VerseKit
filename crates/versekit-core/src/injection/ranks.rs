@@ -154,7 +154,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let data = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[("SC_BP_HOME", data.as_str())], "/"));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, data.as_str())], "/"));
         let reads = Cell::new(0);
         let table = |value: i64| {
             reads.set(reads.get() + 1);
@@ -185,7 +185,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let data = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[("SC_BP_HOME", data.as_str())], "/"));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, data.as_str())], "/"));
         let old = r#"{"format": 1, "version": "4.10.2", "stufen": {"RepStanding_Barter_Rank1_Name": 340}}"#;
         std::fs::write(paths.app_file(CACHE_FILE), old).unwrap();
         assert_eq!(load(&paths).thresholds.len(), 1, "the old table is not empty");

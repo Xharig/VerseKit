@@ -22,7 +22,7 @@
 //! actions only, and the age of the installation is a number of days.
 //!
 //! On by default; the setting `nutzung_melden` (as in 4.12, so old choices count) switches it off: nothing is sent
-//! and nothing is counted. `SC_BP_NO_NET` switches it off too, and with it the counting; a target that is
+//! and nothing is counted. `VERSEKIT_NO_NET` switches it off too, and with it the counting; a target that is
 //! not `https://` (as `aus`) as well. Unlike 4.12, `http://` to the own
 //! computer counts as a target, for the made-up receiver of the checks. A
 //! version the receiver would not take (`5.0.0-dev`) sends nothing and
@@ -39,7 +39,7 @@ use crate::text::py_strip;
 /// Where the report goes (`usage_ping.TARGET`).
 pub const TARGET: &str = "https://nutzung-versekit.xharig.com/ping";
 /// Another target for checks; anything without `https://` switches off.
-pub const ENV_TARGET: &str = "SC_BP_NUTZUNG_ZIEL";
+pub const ENV_TARGET: &str = "VERSEKIT_NUTZUNG_ZIEL";
 /// The switch of the player (`usage_ping.SETTING`): on unless it says off.
 pub const SETTING: &str = "nutzung_melden";
 /// The UTC day of the last report that arrived (`usage_ping.LAST`).
@@ -96,7 +96,7 @@ fn known_action(key: &str) -> bool {
 /// by the view it shows: `bergung` for a wreck, `zerlegen` for the calculation of a part.
 /// `statistik_auswertung` stays in the list: the receiver knows it, and the counts under it are added to
 /// `statistik` by [`ALIASES`].
-pub const PAGES: [&str; 62] = [
+pub const PAGES: [&str; 66] = [
     "uebersicht",
     "liste",
     "fortschritt",
@@ -148,6 +148,10 @@ pub const PAGES: [&str; 62] = [
     "danke",
     "erkennung",
     "startprogramme",
+    "auftragsfinder",
+    "orgalager",
+    "orgaauftraege",
+    "orgaverbinden",
     "bereich_bauplaene",
     "bereich_logistik",
     "bereich_werkstatt",
@@ -204,7 +208,7 @@ const AUTOSTART_NAMES: [&str; 3] =
 
 // ------------------------------------------------------------ target and switches
 
-/// The target, if any: `SC_BP_NUTZUNG_ZIEL` (stripped) beats the built-in one.
+/// The target, if any: `VERSEKIT_NUTZUNG_ZIEL` (stripped) beats the built-in one.
 pub fn target(host: &Host) -> Option<String> {
     let address = match host.var(ENV_TARGET) {
         Some(value) => py_strip(value).to_string(),
@@ -213,9 +217,9 @@ pub fn target(host: &Host) -> Option<String> {
     (address.starts_with("https://") || crate::report_send::loopback_http(&address)).then_some(address)
 }
 
-/// `SC_BP_NO_NET` set to anything but empty or `0`.
+/// `VERSEKIT_NO_NET` set to anything but empty or `0`.
 pub fn no_net(host: &Host) -> bool {
-    host.var(crate::legacy::ENV_NO_NET).is_some_and(|value| !value.is_empty() && value != "0")
+    host.var(crate::envvars::ENV_NO_NET).is_some_and(|value| !value.is_empty() && value != "0")
 }
 
 /// A version the receiver takes: `5.0.0`, `5.0.0-rc1` (`usage_ping.VERSION_RE`).

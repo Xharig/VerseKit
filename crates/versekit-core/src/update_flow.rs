@@ -28,7 +28,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use crate::auto_update::{self, Installed, Request};
+use crate::auto_update::{self, InstallError, Installed, Request};
 use crate::language::{Arg, SpawnWithLanguage as _, t, tf};
 use crate::net::Net;
 use crate::paths::Paths;
@@ -69,6 +69,8 @@ pub struct Job<'a> {
     pub start: &'a dyn Fn(&Path) -> io::Result<Box<dyn Started>>,
     /// How long the new AppImage has to live.
     pub alive_wait: Duration,
+    /// The player was told that the backup before the update could not be made and said to update all the same.
+    pub without_backup: bool,
 }
 
 /// What happens on the way.
@@ -92,6 +94,9 @@ pub enum Done {
     GameStarted,
     /// A backup is at work (Windows); the automatic update looks again in a moment.
     Postponed,
+    /// The backup of one's own data before the update could not be made (the reason): nothing was installed. The
+    /// player is asked whether to update without it ([`Job::without_backup`]); without an answer nothing is.
+    NoBackup(String),
 }
 
 /// The way out while a backup is at work under Windows: the installer would end the program in the middle of
@@ -208,6 +213,7 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
         at_exit: job.at_exit,
         temp: job.temp,
         env: std::env::vars().collect(),
+        without_backup: job.without_backup,
     });
     match installed {
         Ok(Installed::HandedOver(_)) => {
@@ -230,7 +236,17 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
                 }
             }
         }
-        Err(why) => {
+        Err(InstallError::NoBackup(reason)) => {
+            errors::record("updates.install", &format!("no backup: {reason}"));
+            update_run::release_lock(job.paths);
+            // ⚠ The same pause as after any other failed automatic update: the question belongs to the player, and
+            // the next round must not fetch the file again and ask nothing.
+            if job.automatic {
+                update_run::remember_failed_version(job.paths, &release.version, job.now);
+            }
+            Done::NoBackup(reason)
+        }
+        Err(InstallError::Other(why)) => {
             errors::record("updates.install", &why);
             update_run::release_lock(job.paths);
             // ⚠ Without this an installer a virus scanner stops would be fetched and stopped again every round.
@@ -295,6 +311,19 @@ pub enum State {
 struct Shared {
     state: Option<State>,
     said: Vec<String>,
+    /// The fetch that stopped for want of a backup, until the window has asked the player.
+    no_backup: Option<NoBackup>,
+}
+
+/// A fetch that stopped because the backup before the update could not be made.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NoBackup {
+    /// The version that was to be installed.
+    pub version: String,
+    /// Why the backup failed.
+    pub reason: String,
+    /// Whether test versions counted for the fetch (the answer "yes" fetches the same again).
+    pub with_prerelease: bool,
 }
 
 /// The click on a button that fetches: one thread at a time, its state to look at from the window.
@@ -321,9 +350,24 @@ impl Runner {
         std::mem::take(&mut self.lock().said)
     }
 
+    /// The fetch that stopped for want of a backup since the last call: the window asks the player whether to update
+    /// without it ([`Runner::start_without_backup`]).
+    pub fn take_no_backup(&self) -> Option<NoBackup> {
+        self.lock().no_backup.take()
+    }
+
     /// Fetches the newest release of the channel in a thread of its own: first a look at the list (what is
     /// remembered counts while GitHub was asked recently), then the sequence. `false` if a fetch is under way.
     pub fn start(&self, env: &Env, host: crate::paths::Host, with_prerelease: bool) -> bool {
+        self.start_with(env, host, with_prerelease, false)
+    }
+
+    /// [`Runner::start`] after the player said to update although the backup could not be made.
+    pub fn start_without_backup(&self, env: &Env, host: crate::paths::Host, with_prerelease: bool) -> bool {
+        self.start_with(env, host, with_prerelease, true)
+    }
+
+    fn start_with(&self, env: &Env, host: crate::paths::Host, with_prerelease: bool, without_backup: bool) -> bool {
         {
             let mut shared = self.lock();
             if matches!(shared.state, Some(State::Busy { .. })) {
@@ -334,13 +378,20 @@ impl Runner {
         let (runner, env) = (self.clone(), env.clone());
         let spawned = std::thread::Builder::new().name("update-fetch".into()).spawn_with_language(move || {
             let paths = Paths::new(host);
-            let done = fetch_newest(&env, &paths, with_prerelease, &mut |event| runner.event(event), &|version| {
+            let chosen = |version: &str| {
                 runner.lock().state = Some(State::Busy { version: version.to_string(), percent: None });
-            });
-            runner.finish(done);
+            };
+            let done = fetch_newest(
+                &env,
+                &paths,
+                Fetch { with_prerelease, without_backup },
+                &mut |event| runner.event(event),
+                &chosen,
+            );
+            runner.finish(done, with_prerelease);
         });
         if spawned.is_err() {
-            self.finish(Done::Stopped(Some(said("update_fehler", "thread"))));
+            self.finish(Done::Stopped(Some(said("update_fehler", "thread"))), with_prerelease);
         }
         true
     }
@@ -357,9 +408,17 @@ impl Runner {
         }
     }
 
-    fn finish(&self, done: Done) {
+    fn finish(&self, done: Done, with_prerelease: bool) {
         let mut shared = self.lock();
         shared.state = Some(match done {
+            Done::NoBackup(reason) => {
+                let version = match &shared.state {
+                    Some(State::Busy { version, .. }) => version.clone(),
+                    _ => String::new(),
+                };
+                shared.no_backup = Some(NoBackup { version, reason, with_prerelease });
+                State::Idle
+            }
             Done::Quit => State::Quit,
             Done::Stopped(text) => {
                 shared.said.extend(text);
@@ -368,6 +427,15 @@ impl Runner {
             Done::GameStarted | Done::Postponed => State::Idle,
         });
     }
+}
+
+/// What a fetch of the newest version of the channel is asked for.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Fetch {
+    /// Test versions count too.
+    pub with_prerelease: bool,
+    /// The player said to update although the backup could not be made.
+    pub without_backup: bool,
 }
 
 /// Is `release` the running version `own`? ⚠ Only the same version: an older one is the way back from a test
@@ -387,10 +455,11 @@ pub fn same_version(a: &str, b: &str) -> bool {
 pub fn fetch_newest(
     env: &Env,
     paths: &Paths,
-    with_prerelease: bool,
+    fetch: Fetch,
     report: &mut dyn FnMut(Event),
     chosen: &dyn Fn(&str),
 ) -> Done {
+    let Fetch { with_prerelease, without_backup } = fetch;
     let now = updater::now();
     // ⚠ Look first, then take: the remembered list can be a day old.
     updater::check(&*env.net, paths, &env.own_version, false, now);
@@ -398,8 +467,9 @@ pub fn fetch_newest(
     let Some(release) = updater::latest(&cache.releases, with_prerelease) else {
         return Done::Stopped(Some(t("s_ub_keine_bekannt")));
     };
-    // ⚠ The running version would be installed again for nothing.
-    if is_running(release, &env.own_version) {
+    // ⚠ The running version would be installed again for nothing, and an older one would take the place of a newer
+    // one: the newest the program knows is not newer than the one that runs.
+    if is_running(release, &env.own_version) || !crate::version::is_newer(&release.version, &env.own_version) {
         return Done::Stopped(Some(t("s_up_sofort_aktuell")));
     }
     chosen(&release.version);
@@ -418,6 +488,7 @@ pub fn fetch_newest(
         game_running: &*env.game_running,
         start: &*env.start,
         alive_wait: env.alive_wait,
+        without_backup,
     };
     run(&job, release, report)
 }

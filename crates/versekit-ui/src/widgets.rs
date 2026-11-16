@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Verse-Kit's own controls, drawn in the colors of a scheme (what egui's
+//! VerseKit's own controls, drawn in the colors of a scheme (what egui's
 //! styling does not cover): toggle switch, scroll bars, boxes with the KRT
 //! corner brackets, buttons (filled accent buttons in KRT) and headings.
 //!
@@ -135,7 +135,7 @@ pub fn slider_value(width: f32, minimum: i64, maximum: i64, x: f32) -> i64 {
     (minimum as f64 + fraction * span).round_ties_even() as i64
 }
 
-/// A slider in Verse-Kit's style: thin track, filled part and knob in the
+/// A slider in VerseKit's style: thin track, filled part and knob in the
 /// accent. Click or drag sets the value.
 pub struct Slider<'a> {
     value: &'a mut i64,
@@ -317,7 +317,7 @@ pub fn button_label(scheme: &Scheme, kind: ButtonKind, text: &str) -> String {
     if filled(scheme, kind) { text.to_uppercase() } else { text.to_string() }
 }
 
-/// A button in Verse-Kit's style: border, color on hover.
+/// A button in VerseKit's style: border, color on hover.
 pub struct Button<'a> {
     text: &'a str,
     kind: ButtonKind,
@@ -649,7 +649,8 @@ fn clear_button_at(ui: &mut Ui, field: &Response, text: &mut String, scheme: &Sc
     }
     let center = pos2(field.rect.right() - 4.0 - inset - CLEAR_SIZE / 2.0, field.rect.center().y);
     let rect = Rect::from_center_size(center, Vec2::splat(CLEAR_SIZE));
-    let response = ui.interact(rect, field.id.with("clear"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand);
+    // Not a stop of the Tab key: the mouse empties the field with the X, the keyboard with Ctrl+A and Delete.
+    let response = ui.interact(rect, field.id.with("clear"), Sense::CLICK).on_hover_cursor(CursorIcon::PointingHand);
     let tint = if response.hovered() { IconTint::Hover } else { IconTint::Normal };
     if let Some(image) = crate::icons::themed("x", scheme, tint, CLEAR_SIZE) {
         image.paint_at(ui, rect);
@@ -820,6 +821,7 @@ pub struct SuggestField<'a> {
     width: f32,
     attention: bool,
     searching: bool,
+    focus: bool,
     more_label: &'a dyn Fn(usize) -> String,
 }
 
@@ -827,7 +829,22 @@ impl<'a> SuggestField<'a> {
     /// `more_label` writes the line below the suggestions for the number of
     /// further matches.
     pub fn new(id_salt: &'a str, hint: &'a str, scheme: &'a Scheme, more_label: &'a dyn Fn(usize) -> String) -> Self {
-        SuggestField { id_salt, hint, scheme, width: f32::INFINITY, attention: false, searching: false, more_label }
+        SuggestField {
+            id_salt,
+            hint,
+            scheme,
+            width: f32::INFINITY,
+            attention: false,
+            searching: false,
+            focus: false,
+            more_label,
+        }
+    }
+
+    /// Puts the cursor into the field in this frame while `on`.
+    pub fn focus(mut self, on: bool) -> Self {
+        self.focus = on;
+        self
     }
 
     /// Draws a ring in the accent around the field while `on`: the field is what the page waits for.
@@ -852,6 +869,9 @@ impl<'a> SuggestField<'a> {
     pub fn show<S: AsRef<str>>(self, ui: &mut Ui, text: &mut String, entries: &[S]) -> SuggestOutput {
         let scheme = self.scheme;
         let id = ui.make_persistent_id(self.id_salt);
+        if self.focus {
+            ui.memory_mut(|m| m.request_focus(id));
+        }
         let mut state: SuggestState = ui.data(|d| d.get_temp(id)).unwrap_or_default();
 
         // Keys for the list are taken before the text field sees them.
@@ -1405,6 +1425,11 @@ pub fn switch_line(
     switch_line_with(ui, scheme, label, "", on, knob)
 }
 
+/// How tall a line of a switch row is: as tall as a settings row.
+pub fn switch_row_height(ui: &Ui, scheme: &Scheme) -> f32 {
+    button_size(ui, scheme, ButtonKind::Normal, "Ag").y.max(TOGGLE_SIZE.y)
+}
+
 /// [`switch_line`] with its help text on hover behind the symbol `info` after the name (`""`: none).
 pub fn switch_line_with(
     ui: &mut Ui,
@@ -1417,7 +1442,7 @@ pub fn switch_line_with(
     // The name in the column of names, the switch right after it: at the same place as in a settings row.
     let names = name_column(ui.available_width(), TOGGLE_SIZE.x);
     // As tall as a settings row, so that both kinds of rows stand alike in a card.
-    let height = button_size(ui, scheme, ButtonKind::Normal, "Ag").y.max(TOGGLE_SIZE.y);
+    let height = switch_row_height(ui, scheme);
     let line = ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         ui.set_min_height(height);
@@ -1799,6 +1824,18 @@ pub fn sort_head(ui: &mut Ui, scheme: &Scheme, text: &str, sorted: Option<bool>,
     if numbers { ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add).inner } else { add(ui) }
 }
 
+/// The height `text` takes when it wraps at `width` in the text style `style`: the title of a row that is cut
+/// nowhere ("…" is cut off, rule 8.13) but wraps, so the row is as tall as its text needs.
+pub fn wrapped_height(ui: &Ui, text: impl Into<egui::WidgetText>, width: f32, style: TextStyle) -> f32 {
+    let one_line = ui.text_style_height(&style);
+    text.into().into_galley(ui, Some(egui::TextWrapMode::Wrap), width.max(1.0), style).size().y.max(one_line)
+}
+
+/// The width `text` takes in one line in the text style `style`.
+pub fn one_line_width(ui: &Ui, text: impl Into<egui::WidgetText>, style: TextStyle) -> f32 {
+    text.into().into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, style).size().x
+}
+
 /// A table cell; numbers stand right-aligned.
 pub fn cell(ui: &mut Ui, text: &str, numbers: bool) {
     if numbers {
@@ -2066,13 +2103,18 @@ pub fn nav_section_open(ctx: &egui::Context, title: &str) -> bool {
     ctx.data(|d| d.get_temp::<bool>(nav_section_id(title))).unwrap_or(true)
 }
 
-/// A group of the navigation that folds (like 4.x): a click on the name
-/// opens or closes it in [`REVEAL_SECONDS`]; a Lucide arrow at the right
-/// shows which. Open at first. `filtering`: the menu filter is in use, the
-/// group shows its matches even when folded. `holds_page`: the open page is
-/// in this group, so a folded group still shows that one entry. `add` gets whether the group is fully open and then draws
-/// all entries, otherwise only the open page. Returns its result while
-/// anything shows.
+/// Width of the arrow area at the right of a group head: a click there folds the group.
+const NAV_FOLD_WIDTH: f32 = 28.0;
+
+/// A group of the navigation that folds (like 4.x): a click on the arrow at
+/// the right opens or closes it in [`REVEAL_SECONDS`] (a Lucide arrow shows
+/// which); a click on the name is reported in [`NavSection::named`], the
+/// window opens a page of the group then. Open at first. `filtering`: the menu
+/// filter is in use, the group shows its matches even when folded. `holds_page`:
+/// the open page is in this group, so a folded group still shows that one
+/// entry. `add` gets whether the group is fully open and then draws all
+/// entries, otherwise only the open page. Returns its result while anything
+/// shows.
 pub fn nav_section<R>(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -2084,38 +2126,63 @@ pub fn nav_section<R>(
     let id = nav_section_id(title);
     let mut open = ui.data(|d| d.get_temp::<bool>(id)).unwrap_or(true);
     ui.add_space(2.0);
-    // Click folds; dragging the head moves the whole group (click and drag,
-    // so a click never starts a drag).
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(ui.available_width(), NAV_GROUP_HEIGHT), Sense::click_and_drag());
-    if response.clicked() {
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), NAV_GROUP_HEIGHT), Sense::hover());
+    let (name_rect, fold_rect) = {
+        let split = (rect.right() - NAV_FOLD_WIDTH).max(rect.left());
+        (
+            Rect::from_min_max(rect.min, pos2(split, rect.max.y)),
+            Rect::from_min_max(pos2(split, rect.min.y), rect.max),
+        )
+    };
+    // The name: a click opens a page of the group, dragging moves the whole group (click and drag, so a click
+    // never starts a drag). The arrow beside it only folds.
+    let response = ui.interact(name_rect, id.with("name"), Sense::click_and_drag());
+    let fold = ui.interact(fold_rect, id.with("fold"), Sense::click());
+    let name_label = title.to_string();
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name_label));
+    let fold_label = format!("{title} · {}", versekit_core::language::t("s_fg_bereich_klappen"));
+    fold.widget_info(|| WidgetInfo::labeled(Role::Button, true, &fold_label));
+    if fold.clicked() {
         open = !open;
         ui.data_mut(|d| d.insert_temp(id, open));
     }
     if ui.is_rect_visible(rect) {
+        // The surface under the pointer is filled, so it shows which of the two a click would reach.
+        for (spot, shown) in [(name_rect, response.hovered()), (fold_rect, fold.hovered())] {
+            if shown {
+                ui.painter().rect_filled(spot, control_radius(scheme), color(scheme.hover));
+            }
+        }
         let text_color = if response.hovered() { scheme.fg } else { scheme.sub };
         let galley =
             ui.painter().layout_no_wrap(title.to_uppercase(), TextStyle::Small.resolve(ui.style()), color(text_color));
         ui.painter().galley(pos2(rect.min.x + 4.0, rect.center().y - galley.size().y / 2.0), galley, color(text_color));
         let arrow = if open || filtering { "chevron-down" } else { "chevron-right" };
-        let tint = if response.hovered() { IconTint::Hover } else { IconTint::Normal };
+        let tint = if fold.hovered() { IconTint::Hover } else { IconTint::Normal };
         let icon_rect = Rect::from_center_size(pos2(rect.right() - 12.0, rect.center().y), Vec2::splat(12.0));
         if let Some(image) = crate::icons::themed(arrow, scheme, tint, 12.0) {
             image.paint_at(ui, icon_rect);
         }
     }
     focus_ring(ui, &response, scheme, control_radius(scheme));
+    focus_ring(ui, &fold, scheme, control_radius(scheme));
     let cursor = if response.dragged() { CursorIcon::Grabbing } else { CursorIcon::PointingHand };
     let head = response.on_hover_cursor(cursor);
+    let fold = fold.on_hover_cursor(CursorIcon::PointingHand);
+    let named = head.clicked();
+    let folded = fold.clicked();
     let full = open || filtering;
     let inner = reveal(ui, &format!("nav-section-{title}"), full || holds_page, |ui| add(ui, full));
-    NavSection { head, inner }
+    NavSection { head, fold, named, folded, inner }
 }
 
-/// What [`nav_section`] returns: the head (for dragging the group) and the
-/// result of `add` while the group shows.
+/// What [`nav_section`] returns: the name of the head (for dragging the group and its hover text), the arrow,
+/// whether the name was clicked, whether the arrow was, and the result of `add` while the group shows.
 pub struct NavSection<R> {
     pub head: Response,
+    pub fold: Response,
+    pub named: bool,
+    pub folded: bool,
     pub inner: Option<R>,
 }
 
@@ -3220,6 +3287,17 @@ pub fn data_age(ui: &mut Ui, scheme: &Scheme, seconds: f64, exact: &str) -> Resp
 /// A lasting state on a page, e.g. game folder found: a box with
 /// a bar in `tone` at the left, an icon, a bold sentence and a muted line.
 pub fn status_box(ui: &mut Ui, scheme: &Scheme, tone: Color, icon: &str, head: &str, line: &str) -> Response {
+    status_box_in(ui, scheme, tone, icon, head, line, false)
+}
+
+/// [`status_box`] whose sentence and line wrap instead of being cut: for names that are not ours to shorten, such
+/// as the name of an org.
+pub fn status_box_wrapping(ui: &mut Ui, scheme: &Scheme, tone: Color, icon: &str, head: &str, line: &str) -> Response {
+    status_box_in(ui, scheme, tone, icon, head, line, true)
+}
+
+fn status_box_in(ui: &mut Ui, scheme: &Scheme, tone: Color, icon: &str, head: &str, line: &str, wrap: bool) -> Response {
+    let fit = |label: egui::Label| if wrap { label.wrap() } else { label.truncate() };
     let inner = Frame::new()
         .fill(color(scheme.surface))
         .stroke(Stroke::new(1.0, color(scheme.line)))
@@ -3232,9 +3310,9 @@ pub fn status_box(ui: &mut Ui, scheme: &Scheme, tone: Color, icon: &str, head: &
                     ui.add(image);
                 }
                 ui.vertical(|ui| {
-                    ui.add(egui::Label::new(RichText::new(head).strong()).truncate());
+                    ui.add(fit(egui::Label::new(RichText::new(head).strong())));
                     if !line.is_empty() {
-                        ui.add(egui::Label::new(RichText::new(line).small().color(color(scheme.sub))).truncate());
+                        ui.add(fit(egui::Label::new(RichText::new(line).small().color(color(scheme.sub)))));
                     }
                 });
             });
@@ -3359,7 +3437,7 @@ pub fn filter_bar(ui: &mut Ui, id_salt: &str, filters: &[&[&str]], chosen: &mut 
     before != chosen
 }
 
-/// A link that opens outside Verse-Kit: the text in the accent and the
+/// A link that opens outside VerseKit: the text in the accent and the
 /// `external-link` symbol after it, both clickable; underlined on hover.
 pub fn external_link(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
     let inner = ui.horizontal(|ui| {
@@ -4330,7 +4408,7 @@ mod tests {
     }
 
     #[test]
-    fn a_click_on_a_group_name_folds_the_group() {
+    fn a_click_on_the_arrow_of_a_group_folds_the_group() {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         let s = scheme("original");
@@ -4338,13 +4416,13 @@ mod tests {
         let run_filtered = |input: egui::RawInput, head: &mut Rect, filtering: bool| -> f32 {
             let mut height = 0.0;
             frame(&ctx, input, &mut |ui| {
-                let top = ui.cursor().min.y;
+                let (top, width) = (ui.cursor().min.y, ui.available_width());
                 nav_section(ui, s, "Lager", filtering, false, |ui, _| {
                     nav_entry(ui, s, "warehouse", "Mein Lager", false, None);
                     nav_entry(ui, s, "factory", "Herstellung", false, None);
                 });
                 height = ui.cursor().min.y - top;
-                *head = Rect::from_min_size(pos2(0.0, top + 2.0), vec2(200.0, NAV_GROUP_HEIGHT));
+                *head = Rect::from_min_size(pos2(0.0, top + 2.0), vec2(width, NAV_GROUP_HEIGHT));
             });
             height
         };
@@ -4356,7 +4434,8 @@ mod tests {
             open = run(at(t, vec![]), &mut head);
         }
         assert!(open > 2.0 * NAV_ROW_HEIGHT, "open with both entries: {open}");
-        let pos = head.center();
+        // The arrow stands at the right end of the head.
+        let pos = pos2(head.right() - 10.0, head.center().y);
         let button = |pressed| egui::Event::PointerButton {
             pos,
             button: egui::PointerButton::Primary,
@@ -4377,6 +4456,68 @@ mod tests {
             filtered = run_filtered(at(t, vec![]), &mut head, true);
         }
         assert!(filtered > 2.0 * NAV_ROW_HEIGHT, "open while filtering: {filtered}");
+    }
+
+    #[test]
+    fn a_click_on_the_name_of_a_group_is_reported_and_leaves_it_open_and_the_arrow_only_folds() {
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let s = scheme("original");
+        let (named, folded) = (std::cell::Cell::new(false), std::cell::Cell::new(false));
+        let mut head = Rect::NOTHING;
+        let run = |input: egui::RawInput, head: &mut Rect| -> f32 {
+            let mut height = 0.0;
+            frame(&ctx, input, &mut |ui| {
+                let (top, width) = (ui.cursor().min.y, ui.available_width());
+                let section = nav_section(ui, s, "Lager", false, false, |ui, _| {
+                    nav_entry(ui, s, "warehouse", "Mein Lager", false, None);
+                    nav_entry(ui, s, "factory", "Herstellung", false, None);
+                });
+                named.set(named.get() || section.named);
+                folded.set(folded.get() || section.folded);
+                height = ui.cursor().min.y - top;
+                *head = Rect::from_min_size(pos2(0.0, top + 2.0), vec2(width, NAV_GROUP_HEIGHT));
+            });
+            height
+        };
+        let at = |t: f64, events: Vec<egui::Event>| egui::RawInput { time: Some(t), events, ..Default::default() };
+        let mut open = 0.0;
+        for t in [0.0, 0.1, 0.2, 0.3, 0.4] {
+            open = run(at(t, vec![]), &mut head);
+        }
+        let click = |pos: egui::Pos2, from: f64| {
+            let button = |pressed| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            [
+                at(from, vec![egui::Event::PointerMoved(pos)]),
+                at(from + 0.05, vec![button(true)]),
+                at(from + 0.1, vec![button(false)]),
+            ]
+        };
+        // The name: reported, nothing folds.
+        let mut height = open;
+        for input in click(pos2(20.0, head.center().y), 0.5) {
+            run(input, &mut head);
+        }
+        for t in [0.7, 0.8, 0.9, 1.0, 1.2] {
+            height = run(at(t, vec![]), &mut head);
+        }
+        assert!(named.get() && !folded.get(), "the name was clicked: named {}, folded {}", named.get(), folded.get());
+        assert!((height - open).abs() < 1.0, "still open: {height} (open {open})");
+        // The arrow: reported as a fold, not as the name.
+        named.set(false);
+        for input in click(pos2(head.right() - 10.0, head.center().y), 1.4) {
+            run(input, &mut head);
+        }
+        for t in [1.6, 1.7, 1.8, 1.9, 2.1] {
+            height = run(at(t, vec![]), &mut head);
+        }
+        assert!(folded.get() && !named.get(), "the arrow was clicked: named {}, folded {}", named.get(), folded.get());
+        assert!(height < NAV_GROUP_HEIGHT + 10.0, "folded: {height}");
     }
 
     #[test]

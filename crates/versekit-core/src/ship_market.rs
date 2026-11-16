@@ -360,7 +360,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).unwrap();
         let home = folder.to_string_lossy().into_owned();
-        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::legacy::ENV_HOME, &home)], &home);
+        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::envvars::ENV_HOME, &home)], &home);
         let paths = Paths::new(host);
         let build = |live: &str| {
             std::fs::write(

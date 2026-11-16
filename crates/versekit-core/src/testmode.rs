@@ -100,7 +100,7 @@ pub fn basetool_default_label(paths: &Paths) -> &'static str {
 }
 
 /// Whether "Disconnect" must leave the key of the installation alone: a copy of the data whose key carries the
-/// name of the player's real installation (no `SC_BP_BASETOOL_KEYNAME` of its own). Deleting it would cut the
+/// name of the player's real installation (no `VERSEKIT_BASETOOL_KEYNAME` of its own). Deleting it would cut the
 /// player's own program off the Basetool.
 pub fn basetool_keeps_key(paths: &Paths) -> bool {
     on_copy(paths) && !crate::basetool::key::own_key_name(&paths.host)
@@ -140,7 +140,7 @@ mod tests {
         let dir = crate::testdir::Dir::new("testbetrieb-eigen");
         let text = dir.path().to_string_lossy().into_owned();
         let own = Paths::new(Host::new(Flavor::native(), &[], &text));
-        let named = Paths::new(Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, &text)], &text));
+        let named = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, &text)], &text));
         let fixed = Paths::new(Host::new(Flavor::native(), &[], &text));
         fixed.set_given_data(&text, GivenBy::Named("Test".into()));
         for (what, paths) in [("own", &own), ("variable", &named), ("named", &fixed)] {
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn on_a_copy_with_the_real_key_name_the_key_is_kept() {
-        use crate::legacy::ENV_BASETOOL_KEYNAME;
+        use crate::envvars::ENV_BASETOOL_KEYNAME;
         let (shared, root) = copy("schluessel-geteilt", &[(ENV_BASETOOL_IN_TEST, "1")]);
         assert!(basetool_keeps_key(&shared), "the key of the real installation stays");
         let _ = std::fs::remove_dir_all(root);

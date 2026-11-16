@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Verse-Kit without a user interface: everything that can be checked without
+//! VerseKit without a user interface: everything that can be checked without
 //! a window.
 //!
 //! ⚠ Every function here has a counterpart in the Python version and must
@@ -61,12 +61,17 @@ pub mod equipment_share;
 pub mod erkul_fetch;
 pub mod erkul_slots;
 pub mod error_log;
+pub mod edition;
+pub mod envvars;
 pub mod errors;
+pub mod folder_rename;
 pub mod export;
 pub mod exporter;
 pub mod fabricator;
 pub mod first_backup;
 pub mod fleet_analysis;
+pub mod flugbuch;
+pub mod flugbuch_export;
 pub mod font_size;
 pub mod formats;
 pub mod fov;
@@ -103,6 +108,7 @@ pub mod logread;
 pub mod logscan;
 pub mod logsource;
 pub mod logtime;
+pub mod lost_storage;
 pub mod machine_info;
 pub mod memo;
 pub mod mining_data;
@@ -113,9 +119,11 @@ pub mod net;
 pub mod notepad;
 pub mod notify;
 pub mod ordered;
+pub mod orgstd;
 pub mod overlay;
 pub mod overlay_control;
 pub mod overrides;
+pub mod navigation;
 pub mod overview;
 pub mod part_choices;
 pub mod patch_changes;
@@ -183,6 +191,7 @@ pub mod update_flow;
 pub mod update_run;
 pub mod update_swap;
 pub mod updater;
+pub mod version_change;
 pub mod usage;
 pub mod usercfg;
 pub mod version;

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The Verse-Kit overlay above the game; the switches are described in the library.
+//! The VerseKit overlay above the game; the switches are described in the library.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

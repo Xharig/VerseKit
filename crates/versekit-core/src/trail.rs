@@ -304,7 +304,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         let _ = fs::create_dir_all(&dir);
         let value = dir.to_string_lossy().to_string();
-        let home = [("SC_BP_HOME", value.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
+        let home = [("VERSEKIT_HOME", value.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
         (Paths::new(Host::new(Flavor::native(), &home, "/")), dir)
     }
 

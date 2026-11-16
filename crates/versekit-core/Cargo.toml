@@ -1,6 +1,6 @@
 [package]
 name = "versekit-core"
-description = "Verse-Kit: Logik ohne Oberfläche (Game.log, Baupläne, Daten)"
+description = "VerseKit: Logik ohne Oberfläche (Game.log, Baupläne, Daten)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,6 +11,9 @@ publish.workspace = true
 [features]
 # Test aids for the crates that check what was reported (`errors::captured`); never on in the product.
 test-hilfen = []
+# The test build of the developer: it also works on the test channels under the terms of confidentiality and says so in
+# every window. Decided when the program is built, never by a setting; the build players get has it off.
+test-build = []
 
 [dependencies]
 base64.workspace = true
@@ -53,6 +56,7 @@ objc2-foundation.workspace = true
 
 [dev-dependencies]
 image.workspace = true
+versekit-orgserver.workspace = true
 
 [[test]]
 name = "diagnostics_process"

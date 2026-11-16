@@ -19,7 +19,7 @@
 //! menu its pages stand in; a group without a visible page vanishes.
 //!
 //! ⚠⚠ The rules that matter:
-//! 1. **Everything is on at the start.** Whoever has Verse-Kit new sees all it can do.
+//! 1. **Everything is on at the start.** Whoever has VerseKit new sees all it can do.
 //! 2. **Blueprints, settings and info can never be switched off**: the core of the tool and the way to the
 //!    error report. Their pages are not in [`SWITCHABLE`]; only the connection to the Basetool in the
 //!    settings follows the module Basetool ([`ALSO_HIDES`] for the unit storage). The statistics can be
@@ -29,7 +29,7 @@
 //! 4. **A jump to a hidden page** (from the blueprint list to Crafting, say) lands on "Module" and says
 //!    what is off, instead of doing nothing.
 //!
-//! The pages are named by the keys of the menu of Verse-Kit (`hf_…`), not by the ids of 4.12.
+//! The pages are named by the keys of the menu of VerseKit (`hf_…`), not by the ids of 4.12.
 
 use crate::jsonio::Value;
 use crate::paths::Paths;
@@ -46,7 +46,10 @@ pub const SWITCHABLE: [(&str, &[&str]); 8] = [
     ("bergung", &["hf_bergung"]),
     ("handel", &["hf_laeden", "hf_verkauf", "hf_routen"]),
     ("beschaffung", &["hf_einkaufsliste", "hf_contested"]),
-    ("statistiken", &["hf_st_uebersicht", "hf_st_schiffe", "hf_st_auftraege", "hf_st_quantum", "hf_st_stabil"]),
+    (
+        "statistiken",
+        &["hf_st_uebersicht", "hf_st_schiffe", "hf_st_auftraege", "hf_st_quantum", "hf_st_stabil", "hf_st_flugbuch"],
+    ),
 ];
 
 /// Pages outside the group that a switch hides all the same, so that the page Modules names them too.
@@ -127,7 +130,7 @@ mod tests {
     }
 
     fn paths_in(home: &str) -> Paths {
-        Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home), ("HOME", home)], home))
+        Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", home), ("HOME", home)], home))
     }
 
     #[test]

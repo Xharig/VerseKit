@@ -110,7 +110,7 @@ fn folder(name: &str) -> (Paths, std::path::PathBuf) {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let home = dir.to_string_lossy().into_owned();
-    let host = Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home);
+    let host = Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home);
     (Paths::new(host), dir)
 }
 

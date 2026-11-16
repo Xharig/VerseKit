@@ -107,7 +107,7 @@ fn megabytes(bytes: u64) -> String {
 /// The mark in the data folder `root`, as `Paths::app_file` places it, without creating a folder.
 fn mark_in(paths: &Paths, root: &str) -> String {
     let flavor = paths.host.flavor;
-    if paths.host.var_set(legacy::ENV_HOME).is_some() {
+    if paths.host.var_set(crate::envvars::ENV_HOME).is_some() {
         flavor.join(root, MARK_FILE)
     } else {
         flavor.join_all(root, &[crate::paths::subfolder(MARK_FILE), MARK_FILE])
@@ -122,7 +122,7 @@ fn default_folder(paths: &Paths, root: &str) -> String {
 /// The name of the file: the date, the time and what it is for.
 pub fn file_name() -> String {
     let (year, month, day, hour, minute, second) = jsonio::local_time();
-    format!("Verse-Kit-Sicherung-vor-VerseKit-5-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}{second:02}.zip")
+    format!("{}-vor-VerseKit-5-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}{second:02}.zip", backup::FILE_START)
 }
 
 /// Is the backup of the first start still to be made (the mark is missing)? Reads only.
@@ -398,7 +398,7 @@ mod tests {
         // The file lies in the folder of the backups, with the date and what it is for in its name.
         let name = Path::new(&file).file_name().unwrap().to_string_lossy().into_owned();
         assert!(Path::new(&file).starts_with(Path::new(&root).join(FOLDER)), "{file}");
-        assert!(name.starts_with("Verse-Kit-Sicherung-vor-VerseKit-5-20") && name.ends_with(".zip"), "{name}");
+        assert!(name.starts_with("VerseKit-Sicherung-vor-VerseKit-5-20") && name.ends_with(".zip"), "{name}");
         let names = names_in(&file);
         for wanted in ["Einstellungen/einstellungen.json", "Bauplaene/bestand.json", "Steuerung/actionmaps.xml"] {
             assert!(names.iter().any(|n| n == wanted), "{wanted} in {names:?}");

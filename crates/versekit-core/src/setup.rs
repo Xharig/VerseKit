@@ -219,7 +219,7 @@ mod tests {
     use crate::paths::Host;
     use crate::pypath::Flavor;
 
-    /// A throwaway data folder (`SC_BP_HOME`) and a throwaway home, and a game folder given from outside that
+    /// A throwaway data folder (`VERSEKIT_HOME`) and a throwaway home, and a game folder given from outside that
     /// holds no log: whatever Star Citizen this computer has, it is not found. `with_game` puts a log in.
     fn paths_in(name: &str) -> (Paths, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("versekit-einrichtung-{}-{name}", crate::testdir::run_tag()));
@@ -228,7 +228,7 @@ mod tests {
         let text = dir.to_string_lossy().into_owned();
         let host = Host::new(
             Flavor::native(),
-            &[(crate::legacy::ENV_HOME, &text), ("HOME", &text), ("USERPROFILE", &text)],
+            &[(crate::envvars::ENV_HOME, &text), ("HOME", &text), ("USERPROFILE", &text)],
             &text,
         );
         let paths = Paths::new(host);
@@ -388,7 +388,7 @@ mod tests {
         let text = blocked.to_string_lossy().into_owned();
         let host = Host::new(
             Flavor::native(),
-            &[(crate::legacy::ENV_HOME, &text), ("HOME", &text), ("USERPROFILE", &text)],
+            &[(crate::envvars::ENV_HOME, &text), ("HOME", &text), ("USERPROFILE", &text)],
             &text,
         );
         let paths = Paths::new(host);
@@ -591,9 +591,12 @@ mod tests {
         let text = dir.to_string_lossy().into_owned();
         let host = Host::new(
             Flavor::native(),
-            &[(crate::legacy::ENV_HOME, &text), ("HOME", &text), ("USERPROFILE", &text)],
+            &[(crate::envvars::ENV_HOME, &text), ("HOME", &text), ("USERPROFILE", &text)],
             &text,
-        );
+        )
+        // No drive is looked at: the usual places of the machine the test runs on (a real installation of the game)
+        // must not take part, only the folders laid out here.
+        .with_drives(&[]);
         let paths = Paths::new(host);
         let live = lay(&dir.join("Spiele").join("StarCitizen").join("LIVE"), &["Data.p4k"]);
         assert!(confirm_game_folder(&paths, &live));

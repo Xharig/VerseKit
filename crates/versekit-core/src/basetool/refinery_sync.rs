@@ -49,7 +49,7 @@ pub const OPEN_STATES: [&str; 2] = ["OPEN", "IN_PROGRESS"];
 #[derive(Clone, Debug, PartialEq)]
 pub struct Order {
     pub id: String,
-    /// The own key, only on orders a Verse-Kit installation created.
+    /// The own key, only on orders a VerseKit installation created.
     pub client_key: Option<String>,
     pub status: String,
     pub ends_at: Option<f64>,

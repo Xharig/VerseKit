@@ -217,7 +217,7 @@ impl MiningState {
     fn reload(&mut self) {
         let Some(paths) = &self.paths else { return };
         let file = paths.app_file(mining_data::FILE);
-        self.seen = file_time(&file);
+        self.seen = mining_data::changed_at(&file);
         self.mining = MiningData::load(&file);
         self.reload_methods();
     }
@@ -239,7 +239,7 @@ impl MiningState {
         }
         self.looked_at = now;
         let Some(paths) = &self.paths else { return };
-        if file_time(&paths.app_file(mining_data::FILE)) != self.seen {
+        if mining_data::changed_at(&paths.app_file(mining_data::FILE)) != self.seen {
             self.reload();
         } else if file_time(&paths.app_file(refining::GAME_FILE)) != self.methods_seen {
             self.reload_methods();

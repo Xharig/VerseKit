@@ -271,7 +271,7 @@ mod tests {
         let local = format!("{home}/AppData/Local");
         std::fs::create_dir_all(&local).expect("local");
         let vars = [
-            ("SC_BP_HOME", home.as_str()),
+            ("VERSEKIT_HOME", home.as_str()),
             ("HOME", home.as_str()),
             ("LOCALAPPDATA", local.as_str()),
             (ENV_INSTALL_DIR, game.as_str()),

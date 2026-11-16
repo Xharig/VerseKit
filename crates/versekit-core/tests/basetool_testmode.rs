@@ -43,7 +43,7 @@ use versekit_core::basetool::stock_area::StockArea;
 use versekit_core::basetool::sync::{Phase, Setup, SyncHandle};
 use versekit_core::collection::NoCatalog;
 use versekit_core::jsonio::Value;
-use versekit_core::legacy::ENV_BASETOOL_KEYNAME;
+use versekit_core::envvars::ENV_BASETOOL_KEYNAME;
 use versekit_core::paths::{COPY_DATA_FOLDER, ENV_INSTALL_DIR, Host, Paths};
 use versekit_core::pypath::Flavor;
 use versekit_core::testmode::{
@@ -204,7 +204,7 @@ fn in_the_test_mode_no_request_reaches_the_basetool_and_the_key_stays() {
     assert_eq!(bench.double.seen(), Vec::<String>::new(), "not one request reached the transport");
 }
 
-/// A key name of its own for the copy (`SC_BP_BASETOOL_KEYNAME`), as the test against the real Basetool sets it.
+/// A key name of its own for the copy (`VERSEKIT_BASETOOL_KEYNAME`), as the test against the real Basetool sets it.
 const OWN_KEY: (&str, &str) = (ENV_BASETOOL_KEYNAME, "VerseKit Echttest");
 
 #[test]

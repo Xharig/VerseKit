@@ -1422,7 +1422,7 @@ mod tests {
     fn paths_in(name: &str) -> (crate::testdir::Dir, Paths) {
         let folder = crate::testdir::Dir::new(name);
         let text = folder.path().to_string_lossy().into_owned();
-        let host = crate::paths::Host::new(crate::pypath::Flavor::Posix, &[("SC_BP_HOME", &text)], &text);
+        let host = crate::paths::Host::new(crate::pypath::Flavor::Posix, &[("VERSEKIT_HOME", &text)], &text);
         (folder, Paths::new(host))
     }
 

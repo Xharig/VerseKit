@@ -606,6 +606,32 @@ fn block_body(ui: &mut Ui, scheme: &Scheme, state: &StockState, list: &[Proposal
     ask
 }
 
+/// The switch for reading the stock from the log, on the page of the stock where its suggestions come up: the stored
+/// value is read at every frame, a change is written at once and said in the message of the page.
+pub(super) fn show_switch(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
+    let Some(paths) = state.sugg.paths.as_ref() else { return };
+    let mut on = stock_journal::enabled(paths);
+    let name = t("s_lj_schalter");
+    let changed = crate::settings::setting_row(ui, scheme, &name, &t("s_lj_schalter_h"), false, |row| {
+        let switch = row.add(widgets::Toggle::new(&mut on, scheme));
+        let (enabled, now) = (switch.enabled(), on);
+        switch.widget_info(|| WidgetInfo::selected(Role::CheckBox, enabled, now, &name));
+        switch.changed()
+    })
+    .inner;
+    let said = changed.then(|| {
+        if stock_journal::set_enabled(paths, on) {
+            t(if on { "s_lj_schalter_an" } else { "s_lj_schalter_aus" })
+        } else {
+            t("s_hl_fehler")
+        }
+    });
+    if let Some(text) = said {
+        state.say(text);
+    }
+    ui.add_space(4.0);
+}
+
 /// The block on top of the list of either tab (items there, goods sold at a terminal on the other), folded open or
 /// shut by its head.
 pub(super) fn show_block(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
@@ -638,7 +664,6 @@ mod tests {
     use egui::{Event, Pos2, Rect};
     use versekit_core::jsonio::Map;
     use versekit_core::language::Choice;
-    use versekit_core::legacy;
     use versekit_core::paths::Host;
     use versekit_core::pypath::Flavor;
     use versekit_core::stock_journal::Purchase;
@@ -714,7 +739,7 @@ mod tests {
             .replace('\\', "/");
         let _ = std::fs::remove_dir_all(&home);
         std::fs::create_dir_all(&home).expect("folder");
-        let paths = Paths::new(Host::new(Flavor::native(), &[(legacy::ENV_HOME, home.as_str())], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home));
         let write = |name: &str, text: &str| std::fs::write(paths.app_file(name), text).expect("file");
         write("orte.json", r#"{"format": 1, "orte": ["Levski", "Area 18"]}"#);
         write("orte-gelernt.json", r#"{"orte": {"1": "levski", "2": "outpost"}, "gelesen": {}}"#);

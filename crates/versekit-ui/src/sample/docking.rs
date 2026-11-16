@@ -424,11 +424,18 @@ pub(crate) mod tests {
     /// area takes the room of its bar after the first frame in which the page turned out to be taller than the
     /// window, and whatever takes its width from the page below (the head of a page) follows a frame later; a page
     /// that reads in a thread of its own changes its layout when the answer comes, which can take more frames on a
-    /// slow build. So at least six frames, then on until two frames in a row put every card in the same place
-    /// (at most [`SETTLE_FRAMES`]).
+    /// slow build. So at least six frames, then until the page has what it reads (waited for, not counted in frames),
+    /// then on until two frames in a row put every card in the same place (at most [`SETTLE_FRAMES`]).
     pub(crate) fn draw_cards(page: &mut SamplePage, width: f32, height: f32) -> Vec<egui::Rect> {
         CTX.with(|ctx| {
             for _ in 0..6 {
+                frame(ctx, page, (width, height), Vec::new());
+            }
+            // What the page reads in a thread of its own comes when it comes (a loaded processor takes long): not
+            // a number of frames, the answer is waited for.
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+            while page.reading() && std::time::Instant::now() < deadline {
+                std::thread::sleep(std::time::Duration::from_millis(5));
                 frame(ctx, page, (width, height), Vec::new());
             }
             crate::widgets::drawn_cards::take();
@@ -613,7 +620,7 @@ pub(crate) mod tests {
     /// page they show the sample figures.
     #[test]
     fn the_statistics_pages_in_the_window_show_real_or_sample_figures() {
-        use versekit_core::legacy::ENV_HOME;
+        use versekit_core::envvars::ENV_HOME;
         use versekit_core::paths::{ENV_INSTALL_DIR, Host};
         use versekit_core::pypath::Flavor;
 
@@ -689,7 +696,7 @@ pub(crate) mod tests {
         let log = game.join("Game.log");
         std::fs::write(&log, "<2026-10-23T20:30:00.000Z> Log started\n").unwrap();
         let (home, install) = (dir.to_string_lossy().into_owned(), game.to_string_lossy().into_owned());
-        let host = Host::new(Flavor::native(), &[("SC_BP_HOME", &home), ("SC_INSTALL_DIR", &install)], &home);
+        let host = Host::new(Flavor::native(), &[("VERSEKIT_HOME", &home), ("SC_INSTALL_DIR", &install)], &home);
         let paths = Paths::new(host.clone());
         let mut page = SamplePage::with_settings(Paths::new(host));
         page.game_process = |_| Some(IN_LIST.load(Ordering::SeqCst));
@@ -737,7 +744,7 @@ pub(crate) mod tests {
         let log = game.join("Game.log");
         std::fs::write(&log, "<2026-10-21T19:00:00.000Z> Log started\n").unwrap();
         let (home, install) = (dir.to_string_lossy().into_owned(), game.to_string_lossy().into_owned());
-        let host = Host::new(Flavor::native(), &[("SC_BP_HOME", &home), ("SC_INSTALL_DIR", &install)], &home);
+        let host = Host::new(Flavor::native(), &[("VERSEKIT_HOME", &home), ("SC_INSTALL_DIR", &install)], &home);
         let mut page = SamplePage::with_settings(Paths::new(host));
         // A machine where the game is not in the process list: the log alone tells it then.
         page.game_process = |_| Some(false);

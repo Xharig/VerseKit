@@ -13,6 +13,9 @@ s_he_mix_einheit
 s_sc_ort_sc
 s_sc_ort_sc_n
 
+# The value "Region" of the contract finder: the same word in both languages.
+s_af_sp_region
+
 # Categories of the crafting terminal and a button that the game writes the same in both languages.
 s_fb_kat_utility
 s_fb_un_undersuits
@@ -150,7 +153,6 @@ s_hqs_name
 s_hqs_org
 s_hl_scu
 s_vk_scu_kurz
-s_hl_sp_menge
 s_lg_cscu
 s_rf_material
 s_he_menge_n

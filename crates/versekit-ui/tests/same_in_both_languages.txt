@@ -4,6 +4,10 @@
 # An entry the code no longer has must go (tests/standards.rs finds it).
 # A line with `{}` or `{name}` stands for a text with something filled in there.
 
+# Names from the game: items of the made-up org of the preview, as blueprints and goods.
+P4-AR Rifle
+Venture Arms
+
 # Names from the game: manufacturers, ships, places. The game does not translate them.
 Aegis Dynamics
 Anvil Aerospace
@@ -183,3 +187,23 @@ Mar 3, 2019
 Night Owl
 Nova Wing
 NOVA
+
+# The made-up contracts of the contract finder preview, written as the game writes them (titles, givers, ranks,
+# places, blueprints): data of the game, the same in both languages.
+Bounty: [TARGET]
+Deepwell Salvage
+Elite Contractor
+Escort the Convoy to [LOCATION]
+Halcyon Rifle
+Halcyon Rifle Magazine
+Northwind Freight
+Pyro
+Quarry Helmet
+Recover the Lost Cargo
+Sr. Contractor
+Stanton (Crusader, Hurston)
+
+# Goods of the sample of the selling page, as the game names them.
+Kopion Horn
+Saldynium (Ore)
+Valakkar Pearl (Apex)

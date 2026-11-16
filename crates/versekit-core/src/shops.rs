@@ -1191,7 +1191,7 @@ mod tests {
         set_thread_language(Choice::Auto);
     }
 
-    /// `SC_BP_NO_NET` of the environment given stops the catalog and a part before anything is
+    /// `VERSEKIT_NO_NET` of the environment given stops the catalog and a part before anything is
     /// asked; a name in the field of the code is refused before the switch. Without it the
     /// catalog is asked for, whatever the shell of the check has.
     #[test]
@@ -1202,7 +1202,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let data = dir.to_string_lossy().into_owned();
         let paths = |no_net: &str| {
-            let vars = [("SC_BP_HOME", data.as_str()), (crate::legacy::ENV_NO_NET, no_net)];
+            let vars = [("VERSEKIT_HOME", data.as_str()), (crate::envvars::ENV_NO_NET, no_net)];
             Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, "/"))
         };
         let asked = AtomicUsize::new(0);
@@ -1227,7 +1227,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).unwrap();
         let home = folder.to_string_lossy().into_owned();
-        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::legacy::ENV_HOME, &home)], &home);
+        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::envvars::ENV_HOME, &home)], &home);
         let paths = Paths::new(host);
         let write = |name: &str, text: &str| std::fs::write(folder.join(name), text).unwrap();
         assert!(catalog_due(&paths, 1000.0, None), "no file: due");
@@ -1261,7 +1261,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).unwrap();
         let home = folder.to_string_lossy().into_owned();
-        let vars = [(crate::legacy::ENV_HOME, home.as_str()), (crate::legacy::ENV_NO_NET, "0")];
+        let vars = [(crate::envvars::ENV_HOME, home.as_str()), (crate::envvars::ENV_NO_NET, "0")];
         let paths = Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home));
         let answer = |url: &str| -> Result<Vec<u8>, crate::scmdb::FetchError> {
             let data = if url == SOURCE_CATEGORIES {
@@ -1336,7 +1336,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).unwrap();
         let home = folder.to_string_lossy().into_owned();
-        let vars = [(crate::legacy::ENV_HOME, home.as_str()), (crate::legacy::ENV_NO_NET, "0")];
+        let vars = [(crate::envvars::ENV_HOME, home.as_str()), (crate::envvars::ENV_NO_NET, "0")];
         let paths = Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home));
         let asked = Mutex::new(Vec::<String>::new());
         let answer = |url: &str| -> Result<Vec<u8>, crate::scmdb::FetchError> {

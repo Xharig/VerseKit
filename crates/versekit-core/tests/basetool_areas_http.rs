@@ -36,7 +36,6 @@ use versekit_core::basetool::stock_area::StockArea;
 use versekit_core::basetool::sync::{Setup, SyncHandle};
 use versekit_core::collection::{self, Collection, NoCatalog, NoExports};
 use versekit_core::jsonio::Value;
-use versekit_core::legacy;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::phrases::{BackRoute, NoArchive};
 use versekit_core::pypath::Flavor;
@@ -115,11 +114,11 @@ fn a_pass_through_the_real_transport_carries_token_and_proof_and_ends_as_in_memo
     let host = Host::new(
         Flavor::native(),
         &[
-            (legacy::ENV_HOME, &data),
+            (versekit_core::envvars::ENV_HOME, &data),
             (versekit_core::paths::ENV_INSTALL_DIR, &game),
-            (legacy::ENV_BASETOOL_ISSUER, &issuer),
-            (legacy::ENV_BASETOOL_API, &api),
-            (legacy::ENV_BASETOOL_CLIENT, "sandbox-client"),
+            (versekit_core::envvars::ENV_BASETOOL_ISSUER, &issuer),
+            (versekit_core::envvars::ENV_BASETOOL_API, &api),
+            (versekit_core::envvars::ENV_BASETOOL_CLIENT, "sandbox-client"),
         ],
         &data,
     );

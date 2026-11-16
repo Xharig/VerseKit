@@ -1,4 +1,4 @@
-# Cloudflare Worker: zählt täglich aktive Verse-Kit-Installationen und zeigt
+# Cloudflare Worker: zählt täglich aktive VerseKit-Installationen und zeigt
 # die private Übersicht. Einrichten: siehe README.md daneben.
 name = "versekit-nutzung"
 main = "worker.js"
@@ -44,7 +44,7 @@ database_name = "versekit-nutzung"
 database_id = "60e2e327-a9f0-4499-a37a-db6b9ee87816"
 
 # Höchstens 5 Meldungen je Absender-Adresse und Minute. Ein Programm meldet
-# sich einmal am Tag — alles darüber ist kein Verse-Kit.
+# sich einmal am Tag — alles darüber ist kein VerseKit.
 [[ratelimits]]
 name = "LIMIT"
 namespace_id = "1002"

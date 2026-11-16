@@ -44,7 +44,7 @@ fn paths(dir: &Dir) -> Paths {
     let home = dir.path().to_string_lossy().into_owned();
     Paths::new(Host::new(
         Flavor::native(),
-        &[(versekit_core::legacy::ENV_HOME, home.as_str()), (versekit_core::legacy::ENV_NO_NET, "1")],
+        &[(versekit_core::envvars::ENV_HOME, home.as_str()), (versekit_core::envvars::ENV_NO_NET, "1")],
         &home,
     ))
 }
@@ -287,7 +287,7 @@ fn a_click_on_an_organization_of_the_list_opens_its_card_without_asking_for_a_ha
     set_thread_language(Choice::De);
     let dir = Dir::new("handle-seite-org-klick");
     let home = dir.path().to_string_lossy().into_owned();
-    let online = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
+    let online = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home));
     let mut relations = Relations::default();
     relations.set(Kind::Org, "SEITENORG", Some(Stance::Friendly));
     assert!(relations.save(&online));
@@ -323,7 +323,7 @@ fn a_handle_opened_from_the_list_shows_its_card_with_the_logos() {
     set_thread_language(Choice::De);
     let dir = Dir::new("handle-seite-logos");
     let home = dir.path().to_string_lossy().into_owned();
-    let online = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
+    let online = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home));
     let mut relations = Relations::default();
     relations.set(Kind::Handle, "Seitenpilot", Some(Stance::Friendly));
     assert!(relations.save(&online));

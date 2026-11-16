@@ -41,6 +41,8 @@ pub enum Tier {
     Inside,
     /// The start of a word is a small typo away from the input.
     Typo,
+    /// The input is the first letters of the words of the name (`RMC` for `Recycled Material Composite`).
+    Initials,
 }
 
 /// One suggested entry.
@@ -124,6 +126,13 @@ fn rank(query: &[char], entry: &str) -> Option<(Tier, Range<usize>, usize)> {
     }
     if let Some((tier, start)) = best {
         return Some((tier, byte_at(start)..byte_at(start + n), 0));
+    }
+    // Three letters or more that are the first letters of all words of the name, no more and no fewer.
+    if n >= 3 {
+        let initials = (0..chars.len()).filter(|&k| word_starts_at(k) && chars[k].1.is_alphanumeric());
+        if initials.map(|k| chars[k].1).eq(query.iter().copied()) {
+            return Some((Tier::Initials, 0..0, 0));
+        }
     }
 
     let allowed = allowed_typos(n);
@@ -246,6 +255,21 @@ mod tests {
         // A typo never outranks a real match.
         let found = suggest("cutl", &["Cutl", "Cuttl"]);
         assert_eq!(found.hits[0].tier, Tier::Start);
+    }
+
+    #[test]
+    fn the_first_letters_of_the_words_find_the_name() {
+        let goods = ["Recycled Material Composite", "Scrap", "Reinforced Metal Composite Plate", "Rmc Test"];
+        let found = suggest("RMC", &goods);
+        let names: Vec<&str> = found.hits.iter().map(|h| goods[h.index]).collect();
+        assert_eq!(names, ["Rmc Test", "Recycled Material Composite"], "a real start of a name stays first");
+        assert_eq!(found.hits[1].tier, Tier::Initials);
+        assert!(found.hits[1].matched.is_empty(), "nothing to highlight");
+        // All words, no more and no fewer; two letters are no abbreviation.
+        assert!(suggest("rm", &goods).hits.iter().all(|h| h.tier != Tier::Initials));
+        let four = suggest("rmcp", &goods);
+        let plate = four.hits.iter().find(|h| goods[h.index] == "Reinforced Metal Composite Plate").expect("found");
+        assert_eq!(plate.tier, Tier::Initials);
     }
 
     #[test]

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Verse-Kit: ONE program file for the overlay and the main window, as 4.12 is one program.
+//! VerseKit: ONE program file for the overlay and the main window, as 4.12 is one program.
 //!
 //! A start without a switch runs the overlay above the game on the user's own data. The overlay starts this
 //! same file again as the main window (`--hauptfenster`) when the player asks for it (the gear, the tray icon,
@@ -52,7 +52,79 @@ pub(crate) const BY_MAIN_WINDOW: &str = "--vom-hauptfenster";
 /// Does the assistant have to run before anything else (`versekit_core::setup::needed`)? On a copy of the data
 /// writing is locked to the copy first: asking whether the data folder can be written writes a trial file.
 fn first_start(data: Option<&str>) -> bool {
-    run_paths(data).is_some_and(|p| versekit_core::setup::needed(&p))
+    // ⚠ Not for a data folder that is gone: the assistant would set the program up in a new, empty one, and the
+    // notice that the data were not found would never be seen.
+    run_paths(data).is_some_and(|p| p.storage_lost().is_none() && versekit_core::setup::needed(&p))
+}
+
+/// Whether this start works on the player's own data and so takes part in the rule that the player build and the
+/// test build never run together: not a run on a copy of the data, not a self-check, not a data folder named from
+/// outside.
+fn on_own_data(args: &[String]) -> bool {
+    data_folder(args).is_none() && !custom_home() && !args.iter().any(|a| a == "--probe")
+}
+
+/// The hold of this build ([`versekit_core::edition::claim`]) for a start on the player's own data; `Err` with the
+/// build that runs after `tell` told the player. `live_program_runs` asks for a build players get that holds no lock
+/// file (an installed version from before the lock files): it counts as that build running, for the test build.
+/// A start on a copy of the data holds nothing.
+fn hold_edition(
+    args: &[String],
+    claim: impl FnOnce() -> Result<versekit_core::edition::Claim, versekit_core::edition::Edition>,
+    live_program_runs: impl FnOnce() -> bool,
+    tell: impl FnOnce(versekit_core::edition::Edition),
+) -> Result<Option<versekit_core::edition::Claim>, versekit_core::edition::Edition> {
+    if !on_own_data(args) {
+        return Ok(None);
+    }
+    match claim() {
+        Ok(hold) if live_program_runs() => {
+            // The hold goes with this refused start.
+            drop(hold);
+            tell(versekit_core::edition::Edition::Live);
+            Err(versekit_core::edition::Edition::Live)
+        }
+        Ok(hold) => Ok(Some(hold)),
+        Err(running) => {
+            tell(running);
+            Err(running)
+        }
+    }
+}
+
+/// Tells the player that the other build runs ([`versekit_core::edition::Edition::running_keys`]).
+fn tell_edition_runs(running: versekit_core::edition::Edition) {
+    let (title, text) = running.running_keys();
+    versekit_overlay::tell_with_title(&versekit_core::language::t(title), &versekit_core::language::t(text));
+}
+
+/// The test build writes a backup of the player's own data before anything else is written; `true` when the start
+/// goes on: no data to keep, or the backup is made. When it cannot be made `tell` gets the reason and the start ends.
+/// The player build and a run on a copy of the data make none.
+fn back_up_before_test_start(
+    args: &[String],
+    test_build: bool,
+    make: impl FnOnce() -> Result<String, versekit_core::backup::WriteError>,
+    tell: impl FnOnce(String),
+) -> bool {
+    use versekit_core::backup::WriteError;
+    if !test_build || !on_own_data(args) {
+        return true;
+    }
+    match make() {
+        Ok(_) | Err(WriteError::Empty) => true,
+        Err(WriteError::Failed(reason)) => {
+            tell(reason);
+            false
+        }
+    }
+}
+
+/// Tells the player that the test build did not start for want of its backup.
+fn tell_test_backup_missing(reason: String) {
+    use versekit_core::language::{Arg, t, tf};
+    let text = tf("s_fassung_sicherung_fehlt", &[("0", Arg::from(reason))]);
+    versekit_overlay::tell_with_title(&t("s_fassung_sicherung_titel"), &text);
 }
 
 /// The paths of the run: the copy of the data after `--daten` (writing locked to it first), else the user's own.
@@ -68,20 +140,60 @@ fn run_paths(data: Option<&str>) -> Option<versekit_core::paths::Paths> {
     }
 }
 
-/// Copies the files an older version kept in the hidden folder into a data folder without a collection, and
+/// Gives the data folder under an earlier name the current one where that is safe
+/// (`Paths::rename_to_current_name`), copies the files an older version kept in the hidden folder into a data
+/// folder without a collection, and
 /// brings own files dragged into the data folder by hand to their places (`Paths::migrate`,
 /// `Paths::tidy_storage`), removes the explanatory lines of the settings file
 /// (`Paths::drop_explanation_lines`) and moves the choice of a translation that is no longer offered to the one
-/// that takes its place (`translation::retire_sources`). Returns the message about the copied files, if any were
-/// copied.
+/// that takes its place (`translation::retire_sources`). Returns the message about the rename and the copied
+/// files, if there is one.
 fn take_in_older_files(data: Option<&str>) -> Option<String> {
     use versekit_core::language::{Arg, tf};
     let paths = run_paths(data)?;
+    // First of all: the data folder under an earlier name gets the current one where that is safe (on the
+    // player's own data only, `Paths::rename_to_current_name`).
+    let renamed = paths.rename_to_current_name();
     let copied = if paths.migration_needed() { paths.migrate() } else { 0 };
     paths.tidy_storage(None);
     paths.drop_explanation_lines();
     versekit_core::translation::retire_sources(&paths);
-    (copied > 0).then(|| tf("umzug_fertig", &[("0", Arg::from(copied)), ("1", Arg::Text(paths.app_folder()))]))
+    let mut notes: Vec<String> = paths.rename_notice(&renamed).into_iter().collect();
+    // A data folder the pointers name and that is not there: said, not made anew (`Paths::storage_lost`).
+    notes.extend(paths.lost_message());
+    if copied > 0 {
+        notes.push(tf("umzug_fertig", &[("0", Arg::from(copied)), ("1", Arg::Text(paths.app_folder()))]));
+    }
+    // The player build takes back what earlier versions wrote for the channels it does not know (once).
+    #[cfg(not(feature = "test-build"))]
+    versekit_core::game_texts::retired::run(&paths);
+    (!notes.is_empty()).then(|| notes.join(" "))
+}
+
+/// A backup of the player's own data when the version that runs is not the one that ran last
+/// (`version_change::back_up_on_change`): in both directions, before anything is renamed, moved or rewritten. `None`
+/// when it is made, not needed, or not for this start (the self-check, a copy of the data, a data folder named from
+/// outside); the sentence for the player when it could not be made.
+fn back_up_on_version_change(check: bool, data: Option<&str>) -> Option<String> {
+    use versekit_core::language::{Arg, tf};
+    use versekit_core::version_change::{Change, back_up_on_change};
+    if check || data.is_some() || custom_home() {
+        return None;
+    }
+    let paths = run_paths(None)?;
+    match back_up_on_change(&paths, env!("CARGO_PKG_VERSION")) {
+        Change::Failed(reason) => Some(tf("vw_sicherung_fehlt", &[("0", Arg::from(reason))])),
+        Change::Same | Change::NoData | Change::BackedUp { .. } => None,
+    }
+}
+
+/// The older files are taken in (`take_in`) only when the backup of a change of version did not fail: `failed` is
+/// its sentence. A failed backup leaves everything where it is, and the sentence is what the player is told.
+fn take_in_after_backup(failed: Option<String>, take_in: impl FnOnce() -> Option<String>) -> Option<String> {
+    match failed {
+        Some(sentence) => Some(sentence),
+        None => take_in(),
+    }
 }
 
 fn main() -> eframe::Result {
@@ -101,9 +213,19 @@ fn main() -> eframe::Result {
     if args.iter().any(|a| a == versekit_core::data_removal::SWITCH) {
         std::process::exit(remove_own_data(data_folder(&args)));
     }
+    // The player build and the test build never run at the same time on the player's own data: a start while the
+    // other runs says so and ends. The hold lasts as long as this process.
+    let Ok(_edition_hold) = hold_edition(
+        &args,
+        versekit_core::edition::claim,
+        versekit_core::edition::live_program_runs,
+        tell_edition_runs,
+    ) else {
+        return Ok(());
+    };
     // One program per data folder: a start on another copy of the data is a program of its own, and neither
     // finds the windows of the other.
-    let home = std::env::var(versekit_core::legacy::ENV_HOME).ok();
+    let home = versekit_core::envvars::process_var(versekit_core::envvars::ENV_HOME);
     versekit_core::window_signal::bind(&run_key(&args, home.as_deref()));
     // The windows the overlay starts come after its backup of the first start; one started by hand gets it too.
     let windows = [MAIN_WINDOW, LEARN_WINDOW];
@@ -128,6 +250,7 @@ fn main() -> eframe::Result {
     let by_main_window = args.iter().any(|a| a == BY_MAIN_WINDOW);
     let kind = StartKind::from_args(&args);
     let role = role_of(&args);
+    let args_for_edition = args.clone();
     let mut overlay = versekit_overlay::Args::parse(args);
     // One run on this desktop only: a start while the program runs hands over (the overlay brings up the main
     // window) and ends, also while the setup assistant or the window of the backup of a first start is open and the
@@ -139,6 +262,19 @@ fn main() -> eframe::Result {
     // folder can be written, the settings, the start with the system, the overlay): a backup of what the older
     // version left. The self-check has its own data and is left out. Only the start that goes on sets up its
     // diagnostics: a start that hands over must not set aside the files of the running overlay.
+    // The test build keeps a backup of the data first, at every start that goes on.
+    let backed_up_first = back_up_before_test_start(
+        &args_for_edition,
+        versekit_core::edition::IS_TEST_BUILD,
+        || {
+            let paths = versekit_core::paths::Paths::new(versekit_core::paths::Host::current());
+            versekit_core::backup::write_before_test_start(&paths, env!("CARGO_PKG_VERSION"))
+        },
+        tell_test_backup_missing,
+    );
+    if !backed_up_first {
+        return Ok(());
+    }
     let check = overlay.probe.is_some();
     let data = overlay.data.clone();
     let mut taken_in = None;
@@ -148,7 +284,10 @@ fn main() -> eframe::Result {
         || {
             // After the backup and before the look whether the program is set up: the data of an older version
             // that lie elsewhere, and files dragged in by hand, are where the program reads them.
-            taken_in = take_in_older_files(data.as_deref());
+            // ⚠ The backup of a change of version comes before anything is renamed or moved.
+            taken_in = take_in_after_backup(back_up_on_version_change(check, data.as_deref()), || {
+                take_in_older_files(data.as_deref())
+            });
             first_start(data.as_deref())
         },
         || {
@@ -363,7 +502,7 @@ fn named_data_folder(args: &[String]) -> bool {
 /// Is the data folder named from outside (the variable for test runs and special cases)? Then the run is not
 /// the player's own, whatever the switches say.
 pub(crate) fn custom_home() -> bool {
-    std::env::var_os(versekit_core::legacy::ENV_HOME).is_some()
+    versekit_core::envvars::process_var(versekit_core::envvars::ENV_HOME).is_some()
 }
 
 /// Without a copy of the data and without the self-check the program works on the user's own data: the
@@ -385,6 +524,7 @@ fn take_over_own_data(
         return false;
     }
     versekit_core::autostart::migrate(store, command);
+    versekit_core::autostart::repoint(store, command);
     // An entry from before the switch gets it now, so that the next start with the system is told from one by hand.
     versekit_core::autostart::add_system_start(store);
     true
@@ -392,7 +532,7 @@ fn take_over_own_data(
 
 /// What the start does for the player's own data, and only for it: the real files, the start with the system
 /// of 4.12 taken over ([`take_over_own_data`]), and once a day "the program runs", on unless the player
-/// switches it off (`usage::SETTING`) or `SC_BP_NO_NET` is set. Not for a copy of the data, a check, or a data
+/// switches it off (`usage::SETTING`) or `VERSEKIT_NO_NET` is set. Not for a copy of the data, a check, or a data
 /// folder named from outside.
 fn begin_own_run(
     overlay: &mut versekit_overlay::Args,
@@ -522,12 +662,150 @@ fn main_window_args(data: Option<&str>) -> Vec<String> {
 }
 
 #[cfg(test)]
+mod edition_tests {
+    use versekit_core::backup::WriteError;
+    use versekit_core::edition::{Edition, claim_in};
+
+    use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|a| (*a).to_string()).collect()
+    }
+
+    fn folder(name: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
+        let folder = std::env::temp_dir().join(format!("versekit-app-edition-{name}-{}-{nanos}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        folder
+    }
+
+    /// A start on the player's own data while the other build runs tells which one and does not go on; a start
+    /// after it ended does.
+    #[test]
+    fn a_start_on_the_own_data_while_the_other_build_runs_is_told_and_ends() {
+        let dir = folder("lock");
+        let other = claim_in(&dir, Edition::this().other()).expect("the other build runs");
+        let mut told = None;
+        let result =
+            hold_edition(&args(&[]), || claim_in(&dir, Edition::this()), || false, |running| told = Some(running));
+        assert_eq!(result.err(), Some(Edition::this().other()));
+        assert_eq!(told, Some(Edition::this().other()), "the player is told which build runs");
+        drop(other);
+        let again = hold_edition(&args(&[]), || claim_in(&dir, Edition::this()), || false, |_| panic!("nothing runs"));
+        assert!(matches!(again, Ok(Some(_))));
+    }
+
+    /// An installed version holds no lock file: the test build still does not start beside it, with the message of
+    /// the build that runs, and holds nothing then. The player build does not ask (it is the one with the lock file).
+    #[test]
+    fn a_build_without_a_lock_file_that_runs_keeps_the_test_build_from_starting() {
+        let dir = folder("process");
+        let mut told = None;
+        let result = hold_edition(&args(&[]), || claim_in(&dir, Edition::Test), || true, |running| told = Some(running));
+        assert_eq!(result.err(), Some(Edition::Live));
+        assert_eq!(told, Some(Edition::Live), "the message of the live build");
+        // The refused start holds nothing: the live build can start later.
+        assert!(claim_in(&dir, Edition::Live).is_ok());
+        // Nothing runs: the start goes on.
+        let free = hold_edition(&args(&[]), || claim_in(&dir, Edition::Test), || false, |_| panic!("nothing runs"));
+        assert!(matches!(free, Ok(Some(_))));
+    }
+
+    /// A run on a copy of the data, the self-check and a data folder named from outside are no run on the
+    /// player's data: they hold nothing and are not refused.
+    #[test]
+    fn a_run_on_a_copy_of_the_data_or_a_check_is_not_part_of_the_rule() {
+        let dir = folder("copy");
+        let _other = claim_in(&dir, Edition::this().other()).expect("the other build runs");
+        for list in [&["--daten", "C:/kopie"][..], &["--probe", "p.json"][..]] {
+            let result = hold_edition(
+                &args(list),
+                || claim_in(&dir, Edition::this()),
+                || panic!("not asked"),
+                |_| panic!("not asked"),
+            );
+            assert!(matches!(result, Ok(None)), "{list:?}");
+        }
+    }
+
+    /// The test build writes its backup before the start goes on, and the start ends when it cannot.
+    #[test]
+    fn the_test_build_backs_up_first_and_does_not_start_without_the_backup() {
+        let ok = back_up_before_test_start(&args(&[]), true, || Ok("backup.zip".into()), |_| panic!("no failure"));
+        assert!(ok);
+        let mut made = false;
+        let skipped = back_up_before_test_start(
+            &args(&[]),
+            false,
+            || {
+                made = true;
+                Ok(String::new())
+            },
+            |_| panic!("no failure"),
+        );
+        assert!(skipped && !made, "the player build writes none");
+        let copy = back_up_before_test_start(&args(&["--daten", "C:/kopie"]), true, || panic!("no backup"), |_| {});
+        assert!(copy, "a copy of the data has none");
+        let empty = back_up_before_test_start(&args(&[]), true, || Err(WriteError::Empty), |_| panic!("no data is fine"));
+        assert!(empty, "no data of one's own: nothing to keep");
+        let mut reason = String::new();
+        let failed = back_up_before_test_start(
+            &args(&[]),
+            true,
+            || Err(WriteError::Failed("disk full".into())),
+            |why| reason = why,
+        );
+        assert!(!failed && reason == "disk full", "the start ends and says why");
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
+    /// ⚠ A backup that failed holds the start back from renaming and moving: the older files are not taken in, and
+    /// the player gets the sentence. Without a failure they are taken in and nothing else is said.
+    #[test]
+    fn a_failed_backup_of_a_change_of_version_holds_back_what_renames_and_moves() {
+        let taken = std::cell::Cell::new(0);
+        let take_in = || {
+            taken.set(taken.get() + 1);
+            Some("umbenannt".to_string())
+        };
+        assert_eq!(take_in_after_backup(Some("scheitert".into()), take_in), Some("scheitert".to_string()));
+        assert_eq!(taken.get(), 0, "nothing was renamed or moved");
+        assert_eq!(take_in_after_backup(None, take_in), Some("umbenannt".to_string()));
+        assert_eq!(taken.get(), 1);
+    }
+
+    /// The self-check, a run on a copy of the data and a data folder named from outside make no backup of a change
+    /// of version and never touch the player's data.
+    #[test]
+    fn a_run_that_is_not_on_the_players_own_data_makes_no_backup_of_a_change_of_version() {
+        assert_eq!(back_up_on_version_change(true, None), None);
+        assert_eq!(back_up_on_version_change(false, Some("D:/kopie")), None);
+    }
+
     /// The start with the system of a computer that 4.12 set up.
     fn old_system() -> versekit_core::autostart::Memory {
-        versekit_core::autostart::Memory::with(versekit_core::legacy::AUTOSTART_NAME, "\"C:/alt/SC-BP-Watcher.exe\"")
+        let command = format!("\"C:/alt/{}\"", versekit_core::legacy::PROGRAM_FILE);
+        versekit_core::autostart::Memory::with(versekit_core::legacy::AUTOSTART_NAME, &command)
+    }
+
+    #[test]
+    fn the_start_with_the_system_that_runs_the_old_program_file_runs_the_new_one_on_the_players_own_data() {
+        use versekit_core::autostart::{Memory, NAME, Store};
+        let old = format!("\"C:/p/{}\"", versekit_core::legacy::PROGRAM_FILE);
+        let own = &mut versekit_overlay::Args::parse(Vec::<String>::new());
+        let store = Memory::with(NAME, &old);
+        assert!(take_over_own_data(own, &store, "\"C:/p/VerseKit.exe\"", false));
+        let entry = store.get(NAME).unwrap_or_default();
+        assert!(entry.starts_with("\"C:/p/VerseKit.exe\""), "the entry runs the new program file: {entry}");
+        assert!(versekit_core::autostart::has_system_start(&entry), "and carries the switch of the system: {entry}");
+        let mut copy = versekit_overlay::Args::parse(["--daten".to_string(), "C:/kopie".to_string()]);
+        let store = Memory::with(NAME, &old);
+        assert!(!take_over_own_data(&mut copy, &store, "\"C:/p/VerseKit.exe\"", false));
+        assert_eq!(store.get(NAME), Some(old), "a copy of the data never touches it");
     }
 
     #[test]
@@ -721,7 +999,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
         let mut vars = vec![
-            (versekit_core::legacy::ENV_HOME, text.as_str()),
+            (versekit_core::envvars::ENV_HOME, text.as_str()),
             ("HOME", text.as_str()),
             ("USERPROFILE", text.as_str()),
             (versekit_core::usage::ENV_TARGET, address),
@@ -773,7 +1051,7 @@ mod tests {
         use std::time::Duration;
         // The switch off the net, and a version the receiver does not take (a build of the source).
         for (name, extra, version) in
-            [("ohne-netz", vec![(versekit_core::legacy::ENV_NO_NET, "1")], "5.0.0"), ("dev", Vec::new(), "5.0.0-dev")]
+            [("ohne-netz", vec![(versekit_core::envvars::ENV_NO_NET, "1")], "5.0.0"), ("dev", Vec::new(), "5.0.0-dev")]
         {
             let (address, rx) = receiver();
             let (host, dir) = host_for(name, &extra, &address);
@@ -840,7 +1118,7 @@ mod tests {
         let text = dir.path().to_string_lossy().into_owned();
         let paths = Paths::new(Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, &text)],
+            &[(versekit_core::envvars::ENV_HOME, &text)],
             &text,
         ));
         let temp = dir.path().join("temp");

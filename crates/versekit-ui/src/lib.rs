@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Verse-Kit's user interface on egui.
+//! VerseKit's user interface on egui.
 //!
 //! At startup call [`install`] (fonts and image loaders). [`apply`] puts a
 //! color scheme into an egui context; call it again after switching and the
@@ -37,6 +37,7 @@ pub mod channel_question;
 pub mod close_writes;
 pub mod collection_tools;
 pub mod contested_page;
+pub mod contract_finder_page;
 pub mod contract_log;
 pub mod crafting_page;
 pub mod crafting_shop;
@@ -52,6 +53,7 @@ pub mod farm_page;
 pub mod file_dialog;
 pub mod first_backup;
 pub mod fleet_analysis_view;
+pub mod flugbuch_page;
 pub mod fonts;
 pub mod gallery_page;
 pub mod game_texts_page;
@@ -75,6 +77,11 @@ pub mod mining_page;
 pub mod modules_page;
 pub mod news_page;
 pub mod notes_page;
+pub mod org_connect_page;
+pub mod org_data;
+pub mod org_data_orders_page;
+pub mod org_data_stock_page;
+pub mod org_share;
 pub mod org_stock_page;
 pub mod overlay;
 pub mod refineries_page;

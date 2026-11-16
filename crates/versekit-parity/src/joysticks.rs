@@ -38,7 +38,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
     let _ = fs::remove_dir_all(&folder);
     fs::create_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     let home = folder.to_string_lossy().into_owned();
-    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &home)], &home));
+    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &home)], &home));
     let mut done = Vec::with_capacity(cases.len());
     let result = (|| -> Result<(), String> {
         for (number, case) in cases.iter().enumerate() {

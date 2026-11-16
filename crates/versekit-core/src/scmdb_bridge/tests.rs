@@ -185,7 +185,7 @@ fn scratch(name: &str) -> (std::path::PathBuf, String, Host) {
     let host = Host::new(
         Flavor::native(),
         &[
-            (crate::legacy::ENV_HOME, home.as_str()),
+            (crate::envvars::ENV_HOME, home.as_str()),
             ("APPDATA", app.as_str()),
             ("LOCALAPPDATA", local.as_str()),
             (crate::paths::ENV_INSTALL_DIR, folder.as_str()),

@@ -1329,7 +1329,6 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::*;
-    use crate::legacy;
     use crate::paths::{ENV_INSTALL_DIR, Host};
     use crate::phrases::pattern;
 
@@ -1357,7 +1356,7 @@ mod tests {
         fn paths(&self) -> Paths {
             Paths::new(Host::new(
                 Flavor::native(),
-                &[(legacy::ENV_HOME, self.home.as_str()), (ENV_INSTALL_DIR, self.game.as_str())],
+                &[(crate::envvars::ENV_HOME, self.home.as_str()), (ENV_INSTALL_DIR, self.game.as_str())],
                 &self.root,
             ))
         }
@@ -1417,7 +1416,7 @@ mod tests {
         let lab = Lab::new("phrasen");
         let f = Flavor::native();
         let appdata = f.join(&lab.root, "appdata");
-        let folder = f.join_all(&lab.home, &["Documents", "Verse-Kit"]);
+        let folder = f.join_all(&lab.home, &["Documents", "VerseKit"]);
         fs::create_dir_all(f.join(&folder, "Einstellungen")).unwrap();
         let nested = f.join_all(&folder, &["Einstellungen", "phrasen.json"]);
         fs::write(&nested, r#"{"phrasen": ["Eigene Formulierung"]}"#).unwrap();
@@ -1705,7 +1704,7 @@ mod tests {
         let gone = Flavor::native().join(&lab.root, "fehlt");
         let paths = Paths::new(Host::new(
             Flavor::native(),
-            &[(legacy::ENV_HOME, lab.home.as_str()), (ENV_INSTALL_DIR, gone.as_str())],
+            &[(crate::envvars::ENV_HOME, lab.home.as_str()), (ENV_INSTALL_DIR, gone.as_str())],
             &lab.root,
         ));
         let src = LogSource::with_clock(&paths, Sources::default(), clock().1);

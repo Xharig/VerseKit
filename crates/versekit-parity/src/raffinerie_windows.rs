@@ -158,7 +158,7 @@ pub fn run(folder: &str, gegenprobe: bool) -> Result<(), String> {
     // The whole reading, learning from the cells of each picture in the first round as the Python side does.
     let work = testdir::fresh("parity-raffinerie-win");
     let home = work.to_string_lossy().into_owned();
-    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
+    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home));
     let mut readings = Vec::new();
     for learned in [false, true] {
         for picture in input["bilder"].as_array().into_iter().flatten() {

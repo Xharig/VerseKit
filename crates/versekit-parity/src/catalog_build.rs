@@ -77,7 +77,7 @@ fn paths_for(data: &str) -> Result<Paths, String> {
     if Path::new(data).join(COPY_DATA_FOLDER).is_dir() {
         return Paths::for_copy(Host::current(), data).ok_or_else(|| format!("keine Datenkopie: {data}"));
     }
-    Ok(Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, data)], data)))
+    Ok(Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, data)], data)))
 }
 
 fn check(ok: bool, what: &str, failures: &mut Vec<String>) {
@@ -97,7 +97,7 @@ pub fn run(data: &str, channel: &str, scmdb: &str, all: bool, upgrader: bool) ->
     // reputation table there, for the parity check of the notes.
     let keep = std::env::var("VERSEKIT_KATALOG_BEHALTEN").ok();
     let text = scratch.to_string_lossy().into_owned();
-    let fresh = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text));
+    let fresh = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text));
     writeguard::deny(true);
     writeguard::allow_under(Some(&text));
     let cache = scratch.join(list::CACHE_FILE).to_string_lossy().into_owned();

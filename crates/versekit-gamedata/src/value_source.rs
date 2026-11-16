@@ -268,7 +268,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&home);
         std::fs::create_dir_all(&home).unwrap();
         let dir = home.to_string_lossy().to_string();
-        let vars = [("SC_BP_HOME", dir.as_str()), ("HOME", dir.as_str()), ("USERPROFILE", dir.as_str())];
+        let vars = [("VERSEKIT_HOME", dir.as_str()), ("HOME", dir.as_str()), ("USERPROFILE", dir.as_str())];
         let paths = Paths::new(Host::new(Flavor::native(), &vars, "/"));
         let log = ErrorLog::new(&paths, "5.0.0-test");
         let same = choose(Ok(values(&["A"])), || Ok(values(&["A"]))).unwrap();

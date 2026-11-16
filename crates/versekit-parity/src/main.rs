@@ -106,6 +106,11 @@
 //! DataForge with the Basetool catalog of p4kx, and tells what the signatures
 //! of the game data change in the mining data (see `felsen.rs`).
 //!
+//! `versekit-parity fundorte <dataforge.dcb> <global.ini> <catalog.json> <mining-data.json> [--gegenprobe]`
+//! compares the places where the raw materials lie, read from the whole catalog of p4kx and the game database, with
+//! the mining data of scmdb: presets, groups, deposits, compositions, the points of the clusters against the hand
+//! table of the names and the refined good of each ore (see `fundorte.rs`).
+//!
 //! `versekit-parity signatur-zeit [runs]` times one beat of the signature
 //! scanner, reading the green grey image alone against reading both.
 //!
@@ -306,6 +311,7 @@ mod extract;
 mod importer;
 mod farm;
 mod felsen;
+mod fundorte;
 mod grafik;
 mod hangar;
 mod hangar_save;
@@ -519,6 +525,10 @@ fn main() -> ExitCode {
         [cmd, dcb, ini, catalog, mining] if cmd == "felsen" => felsen::run(dcb, ini, catalog, mining, false),
         [cmd, dcb, ini, catalog, mining, flag] if cmd == "felsen" && flag == "--gegenprobe" => {
             felsen::run(dcb, ini, catalog, mining, true)
+        }
+        [cmd, dcb, ini, catalog, mining] if cmd == "fundorte" => fundorte::run(dcb, ini, catalog, mining, false),
+        [cmd, dcb, ini, catalog, mining, flag] if cmd == "fundorte" && flag == "--gegenprobe" => {
+            fundorte::run(dcb, ini, catalog, mining, true)
         }
         [cmd] if cmd == "signatur-zeit" => signatur_zeit::run(15),
         [cmd, runs] if cmd == "signatur-zeit" => {

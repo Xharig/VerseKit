@@ -19,7 +19,7 @@
 //! (`basetool.SCOPES_*`, `basetool_sync.AREAS`, `wanted_scopes`).
 //!
 //! Every area is off by default, and only rights of switched-on areas are
-//! asked for. ⚠⚠ Only ask for what the Basetool has released for Verse-Kit:
+//! asked for. ⚠⚠ Only ask for what the Basetool has released for VerseKit:
 //! a right it does not know can make the whole login fail.
 
 /// Always: the connection itself, and staying connected after the player
@@ -35,7 +35,7 @@ pub const SCOPES_DEMAND: &[&str] = &["exchange.demand.read"];
 /// hangar sync would stop for everyone who has not granted it. Without it
 /// there is only no unit choice.
 pub const SCOPES_ORGUNITS: &[&str] = &["exchange.orgunits.read"];
-/// Released by the Basetool for Verse-Kit.
+/// Released by the Basetool for VerseKit.
 pub const REQUEST_ORGUNITS: bool = true;
 /// Orders one by one in the demand, voluntary.
 pub const SCOPES_DEMAND_DETAILS: &[&str] = &["exchange.demand.details"];

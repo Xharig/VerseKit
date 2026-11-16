@@ -1,12 +1,16 @@
 [package]
 name = "versekit-overlay"
-description = "Verse-Kit: das Overlay über dem Spiel mit den Funden aus der Game.log"
+description = "VerseKit: das Overlay über dem Spiel mit den Funden aus der Game.log"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 publish.workspace = true
+
+[features]
+# The test build of the developer (see `versekit-core`).
+test-build = ["versekit-core/test-build", "versekit-gamedata/test-build", "versekit-ui/test-build"]
 
 [dependencies]
 eframe.workspace = true

@@ -47,7 +47,7 @@ impl Game {
         fs::write(format!("{ptu}/Data.p4k"), "").unwrap();
         let host = Host::new(
             Flavor::Posix,
-            &[("HOME", root.as_str()), ("SC_BP_HOME", &data), ("SC_INSTALL_DIR", &live)],
+            &[("HOME", root.as_str()), ("VERSEKIT_HOME", &data), ("SC_INSTALL_DIR", &live)],
             &root,
         );
         Game { root, paths: Paths::new(host), live, ptu }
@@ -95,9 +95,14 @@ fn every_source_knows_its_folder_and_the_test_versions_are_right() {
     assert_eq!(spec(&game.paths, "starstrings", Some("PTU")).unwrap().tag.as_deref(), Some("latest-ptu"));
     assert!(spec(&game.paths, "luftwerft_fr", Some("PTU")).unwrap().url.unwrap().contains("/PTU/french_(france)/"));
     assert_eq!(language_folder(&game.paths, ORIGINAL, None), "english");
-    // TECH-PREVIEW takes a translation like PTU, with the test version of the source.
-    assert!(CHANNELS.contains(&"TECH-PREVIEW") && TEST_CHANNELS.contains(&"TECH-PREVIEW"));
-    assert!(spec(&game.paths, "luftwerft_de", Some("TECH-PREVIEW")).unwrap().url.unwrap().contains("/PTU/german_"));
+    // The channel of the player build are known; the test build also takes a translation for the two others like
+    // PTU, with the test version of the source.
+    assert!(CHANNELS.contains(&"PTU") && TEST_CHANNELS.contains(&"PTU"));
+    #[cfg(feature = "test-build")]
+    {
+        assert!(CHANNELS.contains(&"TECH-PREVIEW") && TEST_CHANNELS.contains(&"TECH-PREVIEW"));
+        assert!(spec(&game.paths, "luftwerft_de", Some("TECH-PREVIEW")).unwrap().url.unwrap().contains("/PTU/german_"));
+    }
 }
 
 /// The channels that can follow LIVE are the test channels and HOTFIX; HOTFIX stays no test channel (it is a build
@@ -157,6 +162,7 @@ fn the_new_luftwerft_languages_come_for_both_channels_into_their_own_folders() {
         assert_eq!(live.audio.as_deref(), Some("english"), "{id}: the voices stay English");
         let ptu = spec(&game.paths, id, Some("PTU")).expect(id);
         assert_eq!(ptu.url.as_deref(), Some(format!("{base}/PTU/{folder}/global.ini").as_str()));
+        #[cfg(feature = "test-build")]
         assert_eq!(spec(&game.paths, id, Some("EPTU")).unwrap().url, ptu.url, "{id}: EPTU takes the test version");
         assert_eq!(spec(&game.paths, id, Some("HOTFIX")).unwrap().url, live.url, "{id}: HOTFIX runs like LIVE");
         assert_eq!(language_folder(&game.paths, id, None), folder);

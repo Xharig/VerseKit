@@ -29,7 +29,7 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use versekit_core::commodity_prices::{self, Prices};
 use versekit_core::jsonio::{self, Value};
-use versekit_core::legacy::ENV_HOME;
+use versekit_core::envvars::ENV_HOME;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::places;
 use versekit_core::routes::{self, ChainOptions, Leg, Routes};
@@ -666,8 +666,8 @@ fn sorted_code_prices(catalog: &Catalog) -> Value {
 }
 
 pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String> {
-    if std::env::var(versekit_core::legacy::ENV_NO_NET).is_ok_and(|v| !v.is_empty() && v != "0") {
-        return Err("SC_BP_NO_NET ist gesetzt: der Lauf braucht die Abrufe der Fassung".into());
+    if versekit_core::envvars::process_var(versekit_core::envvars::ENV_NO_NET).is_some_and(|v| !v.is_empty() && v != "0") {
+        return Err("VERSEKIT_NO_NET ist gesetzt: der Lauf braucht die Abrufe der Fassung".into());
     }
     let input = jsonio::read_json(python_json).map_err(|e| e.to_string())?;
     let base = text(&input, "rust_folder")?;

@@ -332,7 +332,7 @@ mod tests {
         language_de();
         let folder = versekit_core::testdir::fresh(name);
         let home = folder.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home));
         let mut state = StockState::sample_on(&paths);
         state.scan = Scan::new(&paths);
         (state, paths, folder)

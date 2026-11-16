@@ -141,7 +141,7 @@ pub enum Outcome {
     Fresh,
     /// Nothing to do: the file is up to date.
     Current,
-    /// Fetching is switched off (`SC_BP_NO_NET`) or the network is not
+    /// Fetching is switched off (`VERSEKIT_NO_NET`) or the network is not
     /// reachable by switch; nothing was changed.
     Offline,
     /// The write lock refused the write; fetched, but nothing was kept.
@@ -156,7 +156,7 @@ fn fail(reason: Reason) -> Outcome {
 
 // ------------------------------------------------------------ fetching
 
-/// Whether fetching the lists is switched off on `host` (`SC_BP_NO_NET` of the environment the
+/// Whether fetching the lists is switched off on `host` (`VERSEKIT_NO_NET` of the environment the
 /// program was given, not of the shell a check runs in). The `update_*_with` functions of this
 /// module leave the switch to the function object they are given (`live_fetcher`).
 pub(crate) fn switched_off(host: &crate::paths::Host) -> bool {
@@ -164,7 +164,7 @@ pub(crate) fn switched_off(host: &crate::paths::Host) -> bool {
 }
 
 /// The function object for real requests: one connection pool, the time limit
-/// of `scmdb`, `user_agent` as the name of the program. With `SC_BP_NO_NET`
+/// of `scmdb`, `user_agent` as the name of the program. With `VERSEKIT_NO_NET`
 /// set for the process, nothing is requested.
 pub fn live_fetcher(user_agent: &str) -> impl Fn(&str) -> Result<Vec<u8>, FetchError> + Sync + use<> {
     fetcher(user_agent, crate::net::offline())
@@ -935,7 +935,7 @@ mod tests {
             let dir = dir.to_string_lossy().into_owned();
             let _ = fs::remove_dir_all(&dir);
             fs::create_dir_all(&dir).unwrap();
-            let paths = Paths::new(Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, dir.as_str())], &dir));
+            let paths = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, dir.as_str())], &dir));
             Folder { dir, paths }
         }
 

@@ -16,8 +16,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! `versekit-parity auszug <kanalordner> <ausgabeordner>`: keeps the
-//! DataForge (`Game2.dcb`), the English `global.ini` and the p4kx catalog of
-//! the contracts (`contracts.json`) of the `Data.p4k` in `<kanalordner>` as
+//! DataForge (`Game2.dcb`), the English `global.ini` and the p4kx catalogs of
+//! the contracts (`contracts.json`) and of the location templates
+//! (`locations.json`) of the `Data.p4k` in `<kanalordner>` as
 //! files in `<ausgabeordner>`, together with the scmdb build name, so that
 //! the slow archive (a network share) is read once and the tests and tools
 //! that take `VERSEKIT_DATAFORGE`, `VERSEKIT_GLOBAL_INI` and
@@ -35,6 +36,10 @@ use versekit_gamedata::{
 /// The file of an extract that holds the p4kx catalog of the contracts.
 pub const CONTRACTS_FILE: &str = "contracts.json";
 
+/// The file of an extract that holds the p4kx catalog of the location templates the location queries of the contracts
+/// search.
+pub const LOCATIONS_FILE: &str = "locations.json";
+
 /// The files of an extract with the p4kx catalogs of the faction reputation records and of the reputation records.
 pub const REPUTATION_FILES: [(&str, &str); 2] = [
     ("factions.json", "libs/foundry/records/factions/factionreputation/"),
@@ -51,11 +56,20 @@ pub fn shown_keys(folder: &Path) -> Result<HashMap<String, ShownKeys>, String> {
     Ok(catalog.shown_keys)
 }
 
-/// The contract facts of the extract in `folder`.
+/// The contract facts of the extract in `folder`, with the location templates when the extract holds them.
 pub fn contract_facts(folder: &Path) -> Result<ContractFacts, String> {
     let bytes = std::fs::read(folder.join(CONTRACTS_FILE))
         .map_err(|e| format!("{CONTRACTS_FILE}: {e} (Auszug mit `versekit-parity auszug` neu ziehen)"))?;
-    ContractFacts::from_catalog(&bytes).map_err(|e| format!("{CONTRACTS_FILE}: {e}"))
+    let facts = ContractFacts::from_catalog(&bytes).map_err(|e| format!("{CONTRACTS_FILE}: {e}"))?;
+    match std::fs::read(folder.join(LOCATIONS_FILE)) {
+        Ok(locations) => facts.with_locations(&locations).map_err(|e| format!("{LOCATIONS_FILE}: {e}")),
+        Err(_) => {
+            eprintln!(
+                "{LOCATIONS_FILE} fehlt im Auszug: ohne Ortsvorlagen (Auszug mit `versekit-parity auszug` neu ziehen)"
+            );
+            Ok(facts)
+        }
+    }
 }
 
 /// Opens `source`: a channel folder of the game, read only while the game is closed, or a copy of a `Data.p4k`
@@ -95,6 +109,8 @@ pub fn run(channel: &str, out: &str) -> Result<(), String> {
     std::fs::write(out.join("Game2.dcb"), &dcb).map_err(|e| e.to_string())?;
     std::fs::write(out.join("global.ini"), &ini).map_err(|e| e.to_string())?;
     std::fs::write(out.join(CONTRACTS_FILE), &contracts).map_err(|e| e.to_string())?;
+    let locations = game.location_catalog().map_err(|e| e.to_string())?;
+    std::fs::write(out.join(LOCATIONS_FILE), &locations).map_err(|e| e.to_string())?;
     for (file, filter) in REPUTATION_FILES {
         let bytes = game.catalog_of(filter).map_err(|e| e.to_string())?;
         std::fs::write(out.join(file), &bytes).map_err(|e| e.to_string())?;
@@ -103,10 +119,11 @@ pub fn run(channel: &str, out: &str) -> Result<(), String> {
     std::fs::write(out.join("build.txt"), format!("{build}\n{}\n", game.version().unwrap_or_default()))
         .map_err(|e| e.to_string())?;
     println!(
-        "Game2.dcb {} Bytes, global.ini {} Bytes, {CONTRACTS_FILE} {} Bytes, Stand {build}",
+        "Game2.dcb {} Bytes, global.ini {} Bytes, {CONTRACTS_FILE} {} Bytes, {LOCATIONS_FILE} {} Bytes, Stand {build}",
         dcb.len(),
         ini.len(),
-        contracts.len()
+        contracts.len(),
+        locations.len()
     );
     Ok(())
 }

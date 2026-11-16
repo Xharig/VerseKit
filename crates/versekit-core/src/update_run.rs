@@ -929,7 +929,7 @@ pub fn processes_of(program: &Path) -> Option<Vec<u32>> {
 /// The program file of a process (Windows); `None` when it cannot be asked (then a process of the same name
 /// counts as ours: the installer waiting once too long is better than one that finds the file in use).
 #[cfg(windows)]
-fn image_of(pid: u32) -> Option<PathBuf> {
+pub(crate) fn image_of(pid: u32) -> Option<PathBuf> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::Threading::{
         OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,

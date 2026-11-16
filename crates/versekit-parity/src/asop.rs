@@ -220,7 +220,7 @@ fn sides(input: &Value, folder: &str, gegenprobe: bool) -> Result<Map, String> {
         }
         let mut host = Host::current();
         host.registry = false;
-        host.set_var("SC_BP_HOME", &home);
+        host.set_var("VERSEKIT_HOME", &home);
         match text(scen, "game")? {
             "" => host.remove_var("SC_INSTALL_DIR"),
             game => host.set_var("SC_INSTALL_DIR", game),

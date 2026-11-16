@@ -450,7 +450,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         let _ = fs::create_dir_all(&dir);
         let value = dir.to_string_lossy().to_string();
-        let home = [("SC_BP_HOME", value.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
+        let home = [("VERSEKIT_HOME", value.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
         (Paths::new(Host::new(Flavor::native(), &home, "/")), dir)
     }
 
@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn an_old_python_crash_without_a_version_is_not_told() {
         let (paths, dir) = paths_in("python-alt");
-        let python = "Windows fatal exception: code 0xc0000374\n\nCurrent thread 0x1 (most recent call first):\n  File \"scbp\\eingabe.py\", line 9 in lesen\n";
+        let python = "Windows fatal exception: code 0xc0000374\n\nCurrent thread 0x1 (most recent call first):\n  File \"programm\\eingabe.py\", line 9 in lesen\n";
         fs::write(dir.join(PREVIOUS), python).unwrap();
         let at = crash_time(&paths).unwrap();
         assert_eq!(untold_at(&paths, at + 60.0), None, "no version: from the old program");

@@ -436,7 +436,6 @@ mod tests {
     use super::*;
     use egui::{Pos2, Rect};
     use versekit_core::language::Choice;
-    use versekit_core::legacy;
     use versekit_core::paths::Host;
     use versekit_core::pypath::Flavor;
     use versekit_core::stock_relocation::Consumable;
@@ -472,7 +471,7 @@ mod tests {
             .replace('\\', "/");
         let _ = std::fs::remove_dir_all(&home);
         std::fs::create_dir_all(&home).expect("folder");
-        let paths = Paths::new(Host::new(Flavor::native(), &[(legacy::ENV_HOME, home.as_str())], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home));
         let write = |name: &str, text: &str| std::fs::write(paths.app_file(name), text).expect("file");
         write("namen-original.json", NAMES);
         write(stock::RAW_FILE, RAW);

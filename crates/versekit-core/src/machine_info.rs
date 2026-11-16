@@ -522,7 +522,7 @@ mod tests {
         use crate::paths::{ENV_INSTALL_DIR, Host};
         Paths::new(Host::new(
             crate::pypath::Flavor::Posix,
-            &[("SC_BP_HOME", home), ("HOME", home), (ENV_INSTALL_DIR, game)],
+            &[("VERSEKIT_HOME", home), ("HOME", home), (ENV_INSTALL_DIR, game)],
             home,
         ))
     }

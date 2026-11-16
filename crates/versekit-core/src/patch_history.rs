@@ -194,7 +194,7 @@ fn patches_value(patches: &History) -> Value {
                 "Welcher Patch welche Baupläne gebracht hat. Nur die Zugänge je Spielversion, nie der ganze Katalog.",
             ),
         ),
-        ("quelle".into(), Value::str("eigene Beobachtung von Verse-Kit")),
+        ("quelle".into(), Value::str("eigene Beobachtung von VerseKit")),
         ("weitergabe".into(), Value::Bool(true)),
         ("patches".into(), Value::Object(entries)),
     ])
@@ -386,7 +386,7 @@ mod tests {
         let text = home.to_string_lossy().into_owned();
         let paths = Paths::new(crate::paths::Host::new(
             crate::pypath::Flavor::native(),
-            &[(crate::legacy::ENV_HOME, text.as_str())],
+            &[(crate::envvars::ENV_HOME, text.as_str())],
             &text,
         ));
         record(&paths, "4.10.0-live.13165946", &["Skarnov".to_string()], Some("2026-11-13")).unwrap();

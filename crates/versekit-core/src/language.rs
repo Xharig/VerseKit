@@ -144,7 +144,7 @@ fn de_or_en(value: &str) -> Lang {
 
 /// What the operating system says. Anything but German counts as English.
 pub fn system_language(host: &Host) -> Lang {
-    for name in ["SC_BP_SPRACHE", "LANG", "LC_ALL"] {
+    for name in [crate::envvars::ENV_LANGUAGE, "LANG", "LC_ALL"] {
         if let Some(value) = host.var_set(name) {
             return de_or_en(value);
         }
@@ -735,9 +735,9 @@ pub fn property_name(name: &str, key: Option<&str>, laser: bool) -> String {
     property_name_in(current(), name, key, laser)
 }
 
-/// Is this a test build (`SC_BP_TESTFASSUNG` set to anything but empty or `0`)?
-pub fn test_build(host: &Host) -> bool {
-    host.var("SC_BP_TESTFASSUNG").is_some_and(|value| !value.is_empty() && value != "0")
+/// Is this the test build? The build decides ([`crate::edition::IS_TEST_BUILD`]); `host` and its variables do not.
+pub fn test_build(_host: &Host) -> bool {
+    crate::edition::IS_TEST_BUILD
 }
 
 /// Does the run say it is one for testing, in the head bar of the main window: a test build ([`test_build`]),
@@ -747,11 +747,14 @@ pub fn test_run(host: &Host) -> bool {
     test_build(host) || host.copy.is_some()
 }
 
-/// The window title, with a warning for test builds (`SC_BP_TESTFASSUNG`).
-pub fn window_title_in(lang: Lang, text: &str, host: &Host) -> String {
-    if test_build(host) { format!("{text}   {}", t_in(lang, "s_testfassung")) } else { text.to_string() }
+/// The title of a window: the text as it is, also in the test build. Its mark, the yellow shield "Testfassung",
+/// stands next to the version inside the window ([`test_run`]); other programs, a recording among them, read the
+/// title of a window.
+pub fn window_title_in(_lang: Lang, text: &str, _host: &Host) -> String {
+    text.to_string()
 }
 
+/// The title of a window of this program ([`window_title_in`]).
 pub fn window_title(text: &str) -> String {
     window_title_in(current(), text, &paths::global().host)
 }
@@ -852,8 +855,8 @@ mod tests {
     fn system_language_from_environment() {
         let host = |vars: &[(&str, &str)]| Host::new(Flavor::Posix, vars, "/");
         assert_eq!(system_language(&host(&[("LANG", "de_DE.UTF-8")])), Lang::De);
-        assert_eq!(system_language(&host(&[("SC_BP_SPRACHE", "en"), ("LANG", "de_DE")])), Lang::En);
-        assert_eq!(system_language(&host(&[("SC_BP_SPRACHE", ""), ("LC_ALL", "DE")])), Lang::De);
+        assert_eq!(system_language(&host(&[("VERSEKIT_SPRACHE", "en"), ("LANG", "de_DE")])), Lang::En);
+        assert_eq!(system_language(&host(&[("VERSEKIT_SPRACHE", ""), ("LC_ALL", "DE")])), Lang::De);
         #[cfg(not(windows))]
         {
             assert_eq!(system_language(&host(&[("LC_CTYPE", "de_AT.UTF-8")])), Lang::De);
@@ -881,22 +884,37 @@ mod tests {
         assert_eq!(property_name_in(Lang::En, "Damage", Some("weapon_damage"), false), "Damage (Impact Force)");
         assert_eq!(property_name_in(Lang::En, "Fire Rate", Some("weapon_firerate"), false), "Fire Rate");
         assert_eq!(property_name_in(Lang::De, "Fire Rate", Some("weapon_firerate"), true), "Feuerrate");
-        let host = Host::new(Flavor::Posix, &[("SC_BP_TESTFASSUNG", "0")], "/");
-        assert_eq!(window_title_in(Lang::De, "Verse-Kit", &host), "Verse-Kit");
+        let host = Host::new(Flavor::Posix, &[], "/");
+        // The mark of the test build stands next to the version in the window, never in the title (it is what
+        // other programs, a recording among them, read of a window).
+        assert_eq!(window_title_in(Lang::De, "VerseKit", &host), "VerseKit");
+        assert_eq!(window_title_in(Lang::En, "VerseKit", &host), "VerseKit");
     }
 
-    /// The head bar says "test build" for a test build and for a run on a copy of the data, never for the
+    /// The head bar says "test build" for the test build and for a run on a copy of the data, never for the
     /// player's own data, also not for a data folder named by the environment.
     #[test]
     fn a_test_build_and_a_copy_of_the_data_are_test_runs() {
         let host = |vars: &[(&str, &str)]| Host::new(Flavor::Posix, vars, "/");
-        assert!(!test_run(&host(&[])));
-        assert!(test_run(&host(&[("SC_BP_TESTFASSUNG", "1")])) && test_build(&host(&[("SC_BP_TESTFASSUNG", "1")])));
-        assert!(!test_run(&host(&[("SC_BP_TESTFASSUNG", "0")])) && !test_run(&host(&[("SC_BP_TESTFASSUNG", "")])));
-        assert!(!test_run(&host(&[(crate::legacy::ENV_HOME, "/eigen")])), "an own data folder is no test");
+        let build = crate::edition::IS_TEST_BUILD;
+        assert_eq!(test_run(&host(&[])), build);
+        assert!(test_run(&host(&[(crate::envvars::ENV_HOME, "/eigen")])) == build, "an own data folder is no test");
         let mut copy = host(&[]);
         copy.copy = Some("/kopie".into());
-        assert!(test_run(&copy) && !test_build(&copy), "a copy is a test run, the title keeps its own word");
+        assert!(test_run(&copy), "a copy is a test run");
+        assert_eq!(test_build(&copy), build, "the title keeps its own word");
+    }
+
+    /// The build decides, nothing a player could set: a variable of the environment makes no test build.
+    #[test]
+    fn no_variable_makes_a_test_build() {
+        let old = crate::legacy::old_env_name(crate::envvars::ENV_TEST_BUILD).expect("the variable had an earlier name");
+        for name in [old, crate::envvars::ENV_TEST_BUILD, "VERSEKIT_TEST_BUILD"] {
+            let host = Host::new(Flavor::Posix, &[(name, "1")], "/");
+            assert_eq!(test_build(&host), crate::edition::IS_TEST_BUILD, "{name}");
+            assert_eq!(test_run(&host), crate::edition::IS_TEST_BUILD, "{name}");
+            assert_eq!(window_title_in(Lang::En, "VerseKit", &host), "VerseKit", "{name}: no mark in the title");
+        }
     }
 
     #[test]

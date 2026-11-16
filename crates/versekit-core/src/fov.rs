@@ -524,7 +524,7 @@ mod tests {
         std::fs::create_dir_all(&home).unwrap();
         let home = home.to_string_lossy().replace('\\', "/");
         let paths =
-            Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())], &home));
+            Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str())], &home));
         assert!(remember(&paths, Some(0.25), Some(2560.0), None));
         // The settings file is a folder now: nothing can be written, nothing may be half done.
         let file = paths.settings_file();
@@ -584,7 +584,7 @@ mod tests {
         std::fs::create_dir_all(&home).unwrap();
         let home = home.to_string_lossy().replace('\\', "/");
         let paths =
-            Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())], &home));
+            Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str())], &home));
         assert_eq!(stored(&paths), Calibration::default());
         assert!(remember(&paths, Some(0.2330), Some(2560.0), None));
         let calibration = stored(&paths);

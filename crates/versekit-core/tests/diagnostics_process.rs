@@ -87,7 +87,7 @@ fn run_with(scenario: &str, folder: &Path, copy: &Path) -> std::process::ExitSta
     Command::new(std::env::current_exe().expect("eigenes Programm"))
         .env(SCENARIO, scenario)
         .env(OTHER, copy)
-        .env("SC_BP_HOME", folder)
+        .env("VERSEKIT_HOME", folder)
         .env("RUST_BACKTRACE", "0")
         .stderr(std::process::Stdio::null())
         .status()
@@ -104,7 +104,7 @@ fn fresh(name: &str) -> std::path::PathBuf {
 /// The data folder `folder` on a made-up computer: nothing of the shell the check runs in counts.
 fn paths_in(folder: &Path) -> Paths {
     let folder = folder.to_string_lossy();
-    Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &[("SC_BP_HOME", &folder)], &folder))
+    Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &[("VERSEKIT_HOME", &folder)], &folder))
 }
 
 fn errors_of(folder: &Path) -> Vec<Value> {

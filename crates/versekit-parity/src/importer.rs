@@ -62,11 +62,11 @@ pub fn run(input: &str, out: &str, counter: bool) -> Result<(), String> {
     let game = flavor.join(&scratch, "spiel");
     std::fs::create_dir_all(&home).map_err(|e| format!("{home}: {e}"))?;
     let vars = [
-        (versekit_core::legacy::ENV_HOME, home.as_str()),
+        (versekit_core::envvars::ENV_HOME, home.as_str()),
         (versekit_core::paths::ENV_INSTALL_DIR, game.as_str()),
         ("APPDATA", scratch.as_str()),
         ("LOCALAPPDATA", scratch.as_str()),
-        (versekit_core::legacy::ENV_NO_NET, "1"),
+        (versekit_core::envvars::ENV_NO_NET, "1"),
     ];
     let paths = Paths::new(Host::new(flavor, &vars, &home));
     let catalog_names: Vec<String> = match get(&python, "catalog") {

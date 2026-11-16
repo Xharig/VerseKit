@@ -336,8 +336,10 @@ impl Findings {
             }
         }
         // A page that the window swaps for another is not looked at: say so, unless it is meant (the
-        // storage of the unit needs a connection to the Basetool).
-        let meant = case.starts_with("real data") && matches!(key, "hf_staffellager" | "hf_bedarf" | "hf_bank");
+        // storage of the unit needs a connection to the Basetool, the pages of an org's data a connection to an
+        // org with the switch on).
+        let meant = case.starts_with("real data")
+            && matches!(key, "hf_staffellager" | "hf_bedarf" | "hf_bank" | super::ORG_STOCK_PAGE | super::ORG_ORDERS_PAGE);
         if page.page_key() != key && !meant {
             let entry =
                 self.0.entry((case.to_string(), name.to_string())).or_insert(("this page was not drawn", Vec::new()));

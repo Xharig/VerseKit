@@ -33,6 +33,19 @@ use crate::stock_data::{lower, norm_material, py_float_value, text_of};
 
 /// The file of the mining data in the data folder.
 pub const FILE: &str = "mining-data.json";
+/// The file with the places where the raw materials lie, read from the game data, next to [`FILE`]: where it is
+/// there and in the current layout, its places replace those of the mining data.
+pub const PLACES_FILE: &str = "fundorte-spieldaten.json";
+/// The layout of [`PLACES_FILE`] this version reads.
+pub const PLACES_FORMAT: i64 = 1;
+
+/// The time of the latest change of the mining data `file` or of the places beside it ([`PLACES_FILE`]); `None`
+/// where neither exists. A page that shows the data loads them again when it differs from the one it saw.
+pub fn changed_at(file: &str) -> Option<std::time::SystemTime> {
+    let time = |path: &std::path::Path| std::fs::metadata(path).and_then(|meta| meta.modified()).ok();
+    let beside = std::path::Path::new(file).parent().map(|folder| folder.join(PLACES_FILE));
+    [time(std::path::Path::new(file)), beside.as_deref().and_then(time)].into_iter().flatten().max()
+}
 
 /// Which group of the data is which way of mining; any other is no ore.
 const KINDS: [(&str, &str); 4] = [
@@ -44,7 +57,7 @@ const KINDS: [(&str, &str); 4] = [
 
 /// Some places in the data are templates, not places: the points of the game
 /// that use them.
-const IN_GAME_NAMES: [(&str, &str); 10] = [
+pub const IN_GAME_NAMES: [(&str, &str); 10] = [
     ("hpp_lagrange_a", "HUR L1 · HUR L4"),
     ("hpp_lagrange_b", "ARC L5 · CRU L4 · MIC L3"),
     ("hpp_lagrange_c", "CRU L3 · HUR L5 · MIC L1 · MIC L2 · MIC L5"),
@@ -168,6 +181,8 @@ pub struct MiningData {
     build: String,
     /// The asteroid types the game scans (`Asteroid (C-Type)` …) with the signature of one, from the game data.
     asteroids: Vec<(String, f64)>,
+    /// Whether the places come from the game data ([`PLACES_FILE`]) and not from the mining data of the file.
+    game_places: bool,
 }
 
 /// The file the signatures of the rocks read from the game data are kept in, next to [`FILE`].
@@ -285,21 +300,34 @@ fn at_location(location: &Value, compositions: Option<&Value>) -> AtPlace {
 }
 
 impl MiningData {
-    /// Reads the file; no data without a usable one. The signatures the game data gave
+    /// Reads the file; no data without a usable one. The places the game data gave ([`PLACES_FILE`] beside the file)
+    /// replace those of the file where they are there and in the current layout; refineries and bonuses stay those of
+    /// the file, and without the file the places stand alone. The signatures the game data gave
     /// ([`ROCK_SIGNATURES_FILE`] beside the file) win over the file where they are there.
     pub fn load(file: &str) -> MiningData {
-        match jsonio::read_json(file) {
-            Ok(data) if crate::stock_data::format_is(&data, 1) => {
-                let mut mining = MiningData::of(&data);
-                if let Some(folder) = std::path::Path::new(file).parent()
-                    && let Ok(rocks) = jsonio::read_json(&folder.join(ROCK_SIGNATURES_FILE).to_string_lossy())
-                {
-                    mining.apply_rocks(&rocks);
-                }
-                mining
+        let folder = std::path::Path::new(file).parent();
+        let read_beside = |name: &str| {
+            folder.and_then(|folder| jsonio::read_json(&folder.join(name).to_string_lossy()).ok())
+        };
+        let scmdb = jsonio::read_json(file).ok().filter(|data| crate::stock_data::format_is(data, 1));
+        let places = read_beside(PLACES_FILE).and_then(|places| game_places(&places));
+        let mut mining = match (scmdb, places) {
+            (Some(data), None) => MiningData::of(&data),
+            (data, Some(places)) => {
+                let base = data.unwrap_or_else(|| Value::Object(vec![("format".to_string(), Value::int(1))]));
+                MiningData { game_places: true, ..MiningData::of(&places.over(base)) }
             }
-            _ => MiningData::default(),
+            (None, None) => return MiningData::default(),
+        };
+        if let Some(rocks) = read_beside(ROCK_SIGNATURES_FILE) {
+            mining.apply_rocks(&rocks);
         }
+        mining
+    }
+
+    /// Whether the places are those of the game data and not of the mining data of the file.
+    pub fn places_from_game_data(&self) -> bool {
+        self.game_places
     }
 
     /// Takes the signatures of the rocks from the game data (`{"format": 1, "steine": [{"name", "signatur"}]}`):
@@ -460,6 +488,7 @@ impl MiningData {
             profiles,
             build,
             asteroids: Vec::new(),
+            game_places: false,
         }
     }
 
@@ -635,6 +664,100 @@ impl MiningData {
     }
 }
 
+/// The places of [`PLACES_FILE`] in the form the mining data of the file has them, so the one way of working out
+/// the shares serves both.
+struct GamePlaces {
+    locations: Vec<Value>,
+    compositions: Vec<(String, Value)>,
+    ores: Vec<Value>,
+}
+
+fn object(entries: Vec<(&str, Value)>) -> Value {
+    Value::Object(entries.into_iter().map(|(key, value)| (key.to_string(), value)).collect())
+}
+
+fn copy(value: Option<&Value>) -> Value {
+    value.cloned().unwrap_or(Value::Null)
+}
+
+/// The places of the file read from the game data (`{"format": 1, "orte": […], "mischungen": {…}, "erze": […]}`);
+/// `None` for another layout and for a file without a place.
+fn game_places(file: &Value) -> Option<GamePlaces> {
+    if !crate::stock_data::format_is(file, PLACES_FORMAT) {
+        return None;
+    }
+    let locations: Vec<Value> = items(file.get("orte"))
+        .iter()
+        .map(|place| {
+            let groups = items(place.get("gruppen"))
+                .iter()
+                .map(|group| {
+                    let deposits = items(group.get("lagerstaetten"))
+                        .iter()
+                        .map(|deposit| {
+                            object(vec![
+                                ("compositionGuid", copy(deposit.get("mischung"))),
+                                ("relativeProbability", copy(deposit.get("anteil"))),
+                            ])
+                        })
+                        .collect();
+                    object(vec![
+                        ("groupName", copy(group.get("name"))),
+                        ("groupProbability", copy(group.get("wahrscheinlichkeit"))),
+                        ("deposits", Value::Array(deposits)),
+                    ])
+                })
+                .collect();
+            object(vec![
+                ("locationName", copy(place.get("name"))),
+                ("system", copy(place.get("system"))),
+                ("locationType", copy(place.get("art"))),
+                ("groups", Value::Array(groups)),
+            ])
+        })
+        .collect();
+    if locations.is_empty() {
+        return None;
+    }
+    let compositions = match file.get("mischungen") {
+        Some(Value::Object(map)) => map
+            .iter()
+            .map(|(guid, composition)| {
+                let parts = items(composition.get("teile"))
+                    .iter()
+                    .map(|part| {
+                        object(vec![
+                            ("elementGuid", copy(part.get("element"))),
+                            ("elementName", copy(part.get("erz"))),
+                            ("minPercent", copy(part.get("min"))),
+                            ("maxPercent", copy(part.get("max"))),
+                            ("probability", copy(part.get("wahrscheinlichkeit"))),
+                        ])
+                    })
+                    .collect();
+                (guid.clone(), object(vec![("name", copy(composition.get("name"))), ("parts", Value::Array(parts))]))
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+    Some(GamePlaces { locations, compositions, ores: items(file.get("erze")).to_vec() })
+}
+
+impl GamePlaces {
+    /// `base` (the mining data of the file, or an empty one) with these places, compositions and ores in place of
+    /// its own; refineries, bonuses and the signatures of the raw materials stay.
+    fn over(self, base: Value) -> Value {
+        let mut map = match base {
+            Value::Object(map) => map,
+            _ => Vec::new(),
+        };
+        jsonio::map_set(&mut map, "locations", Value::Array(self.locations));
+        jsonio::map_set(&mut map, "compositions", Value::Object(self.compositions));
+        jsonio::map_set(&mut map, "erze", Value::Array(self.ores));
+        Value::Object(map)
+    }
+}
+
 fn aliases_of(data: &Value) -> HashMap<String, String> {
     let mut result: HashMap<String, String> = HashMap::new();
     let mut by_guid: HashMap<String, String> = HashMap::new();
@@ -663,6 +786,14 @@ fn aliases_of(data: &Value) -> HashMap<String, String> {
             if &key != material && !by_guid.values().any(|v| *v == key) {
                 result.entry(key).or_insert_with(|| material.clone());
             }
+        }
+    }
+    // The ores of the game data (`{"name": "Iron (Ore)", "veredelt": "Iron"}`): the refined good a raw material
+    // becomes, by the link of the game data and not by its name.
+    for ore in items(data.get("erze")) {
+        let (name, refined) = (text_of(ore.get("name")), text_of(ore.get("veredelt")));
+        if !name.is_empty() && !refined.is_empty() && norm_material(name) != norm_material(refined) {
+            result.entry(norm_material(name)).or_insert_with(|| norm_material(refined));
         }
     }
     result
@@ -912,5 +1043,110 @@ mod tests {
         assert_eq!(level(0.5), 6);
         assert_eq!(level(0.0149), 1);
         assert_eq!(level(0.02), 2);
+    }
+
+    /// Daymar as the game data of the places state it: the same deposits as the hand-worked example of `data()`.
+    const GAME_PLACES: &str = r#"{"format": 1, "stand": "x", "orte": [
+          {"name": "Daymar", "system": "Stanton", "vorlage": "HPP_Stanton2b", "art": "Moon", "gruppen": [
+            {"name": "SpaceShip_Mineables", "wahrscheinlichkeit": 1.0, "lagerstaetten": [
+              {"mischung": "c1", "anteil": 3.0}, {"mischung": "c2", "anteil": 1.0}]},
+            {"name": "FPS_Mineables", "wahrscheinlichkeit": 1.0, "lagerstaetten": [{"mischung": "c3", "anteil": 1.0}]}]},
+          {"name": "HUR L1 · HUR L4", "system": "Stanton", "vorlage": "HPP_Lagrange_A", "art": "Cluster", "gruppen": [
+            {"name": "SpaceShip_Mineables", "wahrscheinlichkeit": 0.5, "lagerstaetten": [{"mischung": "c2", "anteil": 1.0}]}]}],
+         "mischungen": {
+           "c1": {"name": "Iron rock", "teile": [{"element": "e1", "erz": "Iron (Ore)", "min": 40.0, "max": 60.0, "wahrscheinlichkeit": 1.0}]},
+           "c2": {"name": "Mixed", "teile": [{"element": "e1", "erz": "Iron (Ore)", "min": 10.0, "max": 10.0, "wahrscheinlichkeit": 0.5},
+                                              {"element": "e2", "erz": "Gold (Ore)", "min": 10.0, "max": 10.0, "wahrscheinlichkeit": 1.0}]},
+           "c3": {"name": "Hand", "teile": [{"element": "e3", "erz": "Hadanite", "min": 50.0, "max": 50.0, "wahrscheinlichkeit": 1.0}]}},
+         "erze": [{"name": "Iron (Ore)", "veredelt": "Iron"}, {"name": "Gold (Ore)", "veredelt": "Gold"},
+                  {"name": "Raw Ice", "veredelt": "Pressurized Ice"}, {"name": "Hadanite", "veredelt": null}]}"#;
+
+    fn folder_with(name: &str, scmdb: Option<&str>, places: Option<&str>) -> String {
+        let folder = crate::testdir::fresh(name);
+        let file = folder.join(FILE).to_string_lossy().into_owned();
+        if let Some(text) = scmdb {
+            std::fs::write(&file, text).unwrap();
+        }
+        if let Some(text) = places {
+            std::fs::write(folder.join(PLACES_FILE), text).unwrap();
+        }
+        file
+    }
+
+    const SCMDB: &str = r#"{"format": 1, "build": "4.10.3", "locations": [
+          {"locationName": "Scmdb Place", "system": "Stanton", "groups": [
+            {"groupName": "SpaceShip_Mineables", "deposits": [{"compositionGuid": "s1"}]}]}],
+         "compositions": {"s1": {"parts": [{"elementName": "Quartz", "minPercent": 10, "maxPercent": 20}]}},
+         "elemente": {"q": {"name": "Quantanium", "scanSignature": 3170, "rarity": "legendary"}},
+         "refineries": [{"name": "ARC-L1", "system": "Stanton", "profileId": "p1"}],
+         "refineryProfiles": {"p1": {"Iron": 0.1}}}"#;
+
+    #[test]
+    fn the_places_of_the_game_data_give_the_shares_the_file_of_the_mining_data_gives() {
+        let file = folder_with("bergbau-orte-gleich", None, Some(GAME_PLACES));
+        let mining = MiningData::load(&file);
+        assert!(mining.places_from_game_data());
+        // The worked example of `data()`: at Daymar by ship Iron weighs 3/4 * 50 + 1/4 * 0.5 * 10 against Gold 2.5.
+        let iron = mining.ores().iter().find(|o| o.name == "Iron (Ore)").unwrap();
+        assert_eq!(iron.places[0].name, "Daymar");
+        assert!((iron.places[0].share - 38.75 / 41.25).abs() < 1e-9, "{:?}", iron.places);
+        assert!((iron.places[1].share - 1.0 / 3.0).abs() < 1e-9, "the cluster of two points: 2.5 against 5");
+        assert_eq!(iron.places[1].name, "HUR L1 · HUR L4", "the name of the place is its own, no table of names");
+        assert_eq!(iron.places[0].system, "Stanton");
+        let hadanite = mining.ores().iter().find(|o| o.name == "Hadanite").unwrap();
+        assert!(hadanite.places[0].kinds.contains("fps"), "the hand-mined group counts");
+        // Without a file of the mining data there are no refineries and no signatures: the places stand alone.
+        assert!(mining.refineries().is_empty() && mining.elements().is_empty());
+    }
+
+    #[test]
+    fn the_ore_names_of_the_game_data_lead_to_the_refined_good_by_the_link_not_by_the_name() {
+        let mining = MiningData::load(&folder_with("bergbau-erze", None, Some(GAME_PLACES)));
+        assert_eq!(mining.material_key("Raw Ice"), mining.material_key("Pressurized Ice"));
+        assert_eq!(mining.material_key("Iron (Ore)"), "iron");
+        assert_eq!(mining.material_key("Hadanite"), "hadanite", "an ore without a refined version stays what it is");
+        assert_ne!(mining.material_key("Raw Ice"), "raw ice");
+    }
+
+    #[test]
+    fn the_game_places_replace_the_places_of_the_file_and_leave_its_refineries_and_signatures() {
+        let both = MiningData::load(&folder_with("bergbau-beide", Some(SCMDB), Some(GAME_PLACES)));
+        assert!(both.places_from_game_data());
+        let names: Vec<&str> = both.places().iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, ["Daymar", "HUR L1 · HUR L4"], "the places of the file are gone");
+        assert_eq!(both.refineries().len(), 1, "refineries stay those of the file");
+        assert_eq!(both.profiles().len(), 1);
+        assert_eq!(both.build(), "4.10.3");
+        assert!(both.elements().iter().any(|e| e.name == "Quantanium" && e.signature == 3170.0));
+        // Without the file of the game data the places are those of the file.
+        let only_file = MiningData::load(&folder_with("bergbau-nur-datei", Some(SCMDB), None));
+        assert!(!only_file.places_from_game_data());
+        assert_eq!(only_file.places()[0].name, "Scmdb Place");
+    }
+
+    #[test]
+    fn the_time_of_change_follows_the_file_of_the_places_too() {
+        let file = folder_with("bergbau-zeit", Some(SCMDB), None);
+        let before = changed_at(&file).expect("the mining file is there");
+        let places = std::path::Path::new(&file).parent().unwrap().join(PLACES_FILE);
+        std::fs::write(&places, GAME_PLACES).unwrap();
+        let file_time = |path: &std::path::Path| std::fs::metadata(path).and_then(|m| m.modified()).unwrap();
+        assert_eq!(changed_at(&file), Some(file_time(&places).max(before)), "the later of the two");
+        let alone = folder_with("bergbau-zeit-allein", None, Some(GAME_PLACES));
+        assert!(changed_at(&alone).is_some(), "the places alone count");
+        assert_eq!(changed_at(&folder_with("bergbau-zeit-nichts", None, None)), None);
+    }
+
+    #[test]
+    fn a_file_of_the_game_places_that_does_not_fit_leaves_the_places_of_the_file() {
+        let foreign = GAME_PLACES.replace("\"format\": 1", "\"format\": 2");
+        let empty = r#"{"format": 1, "orte": [], "mischungen": {}, "erze": []}"#;
+        for (name, text) in [("fremd", foreign.as_str()), ("leer", empty), ("kaputt", "{kaputt")] {
+            let mining = MiningData::load(&folder_with(&format!("bergbau-{name}"), Some(SCMDB), Some(text)));
+            assert!(!mining.places_from_game_data(), "{name}");
+            assert_eq!(mining.places()[0].name, "Scmdb Place", "{name}");
+        }
+        let nothing = MiningData::load(&folder_with("bergbau-nichts", None, Some("{kaputt")));
+        assert!(nothing.is_empty() && !nothing.places_from_game_data(), "no file and no usable places: no data");
     }
 }

@@ -17,7 +17,7 @@
 
 //! The `user.cfg` of a game channel and the lines of the player in it (`usercfg.py` of 4.12).
 //!
-//! ⚠⚠ **The language lines belong to Verse-Kit.** `g_language` and `g_languageAudio` are set by the program
+//! ⚠⚠ **The language lines belong to VerseKit.** `g_language` and `g_languageAudio` are set by the program
 //! itself, depending on the source of the texts chosen, and checked at every start. Whoever changed them among
 //! the lines of the player would have them overwritten silently at the next start: so they are not among them,
 //! and [`write_own`] never touches them.
@@ -42,7 +42,7 @@ use crate::text::{py_rstrip, py_splitlines, py_strip};
 pub const FILE: &str = "user.cfg";
 /// The copy of the state before the first change.
 pub const BACKUP: &str = "user.cfg.versekit-vorher";
-/// The lines Verse-Kit manages itself.
+/// The lines VerseKit manages itself.
 pub const MANAGED: [&str; 2] = ["g_language", "g_languageAudio"];
 
 /// `key = value`; dots and underscores in the key are usual (`pl_pit.forceSoftwareCursor`).
@@ -371,7 +371,7 @@ mod tests {
         if let Some(content) = content {
             std::fs::write(format!("{game}/user.cfg"), content).expect("file");
         }
-        let mut vars = vec![("SC_BP_HOME", home.as_str()), ("HOME", home.as_str()), (game_start::ENV_NO_PROCESS, "1")];
+        let mut vars = vec![("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str()), (game_start::ENV_NO_PROCESS, "1")];
         if let Some(age) = age {
             std::fs::write(format!("{game}/Game.log"), "x").expect("log");
             let at = std::time::SystemTime::now() - std::time::Duration::from_secs(age);

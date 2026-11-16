@@ -188,7 +188,7 @@ pub const TASKBAR_FRAME_HEIGHT: f32 = 76.0;
 const BAR_GROUND: Color32 = Color32::from_rgb(0x14, 0x18, 0x22);
 const BAR_ITEM: Color32 = Color32::from_rgb(0x3a, 0x44, 0x58);
 
-/// The corner of a taskbar with the clock, and the icon of Verse-Kit next to it when the player wants it there:
+/// The corner of a taskbar with the clock, and the icon of VerseKit next to it when the player wants it there:
 /// what the switch "Symbol neben der Uhr" does. `tray_on` draws the icon.
 pub fn taskbar_picture(ui: &mut Ui, scheme: &Scheme, tray_on: bool) {
     let width = ui.available_width().min(FRAME_MAX_WIDTH);
@@ -415,7 +415,7 @@ pub fn note_spans(text: &str) -> Vec<(String, bool)> {
     spans
 }
 
-/// The title of a made-up contract as the game shows it without and with the notes of Verse-Kit, as the
+/// The title of a made-up contract as the game shows it without and with the notes of VerseKit, as the
 /// settings write them (`injection::title_suffix`): `with_notes` is the master switch of the notes, `rep_on` the
 /// reputation in the title.
 pub fn contract_title_picture(ui: &mut Ui, scheme: &Scheme, with_notes: bool, rep_on: bool) {

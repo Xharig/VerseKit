@@ -32,6 +32,7 @@ use versekit_core::language::{Arg, t, tf};
 use versekit_core::stock_data::lower;
 use versekit_core::theme::Scheme;
 use versekit_gamedata::craft_book::{CraftItem, Have};
+use versekit_gamedata::farm::PlanCount;
 
 use super::{CraftingState, MaterialHit, Picks, ShipFit, sub, tn};
 use crate::widgets::{self, ButtonKind};
@@ -124,6 +125,9 @@ pub(super) fn passes(state: &mut CraftingState, index: usize, mark: Have) -> boo
         if (picks.material == "reicht") != covered {
             return false;
         }
+    }
+    if picks.planned && state.plan_count(index).total() == 0 {
+        return false;
     }
     match &state.ship_fit.0 {
         ShipFit::Off => true,
@@ -506,6 +510,11 @@ fn filters(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState) {
         if switch(row, scheme, &t("s_fb_besitz"), &t("s_fb_besitz_tip"), owned) {
             state.picks.state = if owned { String::new() } else { "habe".into() };
         }
+        // Only what the plan holds: the farm notes and the parts of the ships.
+        let planned = state.picks.planned;
+        if switch(row, scheme, &t("s_fg_pl_filter"), &t("s_fg_pl_filter_tip"), planned) {
+            state.picks.planned = !planned;
+        }
     });
 }
 
@@ -520,8 +529,9 @@ fn mark_icon(scheme: &Scheme, mark: Have) -> (&'static str, versekit_core::theme
     }
 }
 
-/// What a screen reader says of an item and what its hover says.
-fn spoken(item: &CraftItem, mark: Have) -> (String, String) {
+/// What a screen reader says of an item and what its hover says: the name, the maker, whether one has the blueprint
+/// and how often the plan holds it.
+pub(super) fn spoken(item: &CraftItem, mark: Have, planned: PlanCount) -> (String, String) {
     let (_, _, hint) = mark_icon(versekit_core::theme::current(), mark);
     let state_name = t(hint);
     let full = if item.manufacturer.is_empty() {
@@ -529,7 +539,46 @@ fn spoken(item: &CraftItem, mark: Have) -> (String, String) {
     } else {
         format!("{}  ·  {}", item.name, item.manufacturer)
     };
-    (format!("{full}, {state_name}"), format!("{full}\n{state_name}"))
+    let plan = planned_words(planned);
+    if plan.is_empty() {
+        (format!("{full}, {state_name}"), format!("{full}\n{state_name}"))
+    } else {
+        (format!("{full}, {state_name}, {plan}"), format!("{full}\n{state_name}\n{plan}"))
+    }
+}
+
+/// "Already planned 3×, of which 1× on ships"; empty when the plan does not hold the item.
+fn planned_words(planned: PlanCount) -> String {
+    let total = planned.total();
+    if total == 0 {
+        return String::new();
+    }
+    if planned.ships > 0 {
+        tf("s_fg_pl_zahl_schiffe", &[("n", Arg::from(total)), ("k", Arg::from(planned.ships))])
+    } else {
+        tf("s_fg_pl_zahl", &[("n", Arg::from(total))])
+    }
+}
+
+/// The mark "◆ 3×" at the right of a tile or a row: its width and what draws it at `right` (the right edge of the
+/// mark) on the line that stands at `middle`.
+fn plan_mark(ui: &Ui, scheme: &Scheme, planned: PlanCount) -> Option<(f32, std::sync::Arc<egui::Galley>)> {
+    let total = planned.total();
+    if total == 0 {
+        return None;
+    }
+    let small = egui::TextStyle::Small.resolve(ui.style());
+    let galley = ui.painter().layout_no_wrap(format!("{total}×"), small, color(scheme.accent));
+    Some((galley.size().x + 14.0, galley))
+}
+
+/// Draws the mark of [`plan_mark`] with its right edge at `right`, centred on `middle`.
+fn draw_plan_mark(ui: &Ui, scheme: &Scheme, galley: std::sync::Arc<egui::Galley>, right: f32, middle: f32) {
+    let width = galley.size().x;
+    ui.painter().galley(egui::pos2(right - width, middle - galley.size().y / 2.0), galley, color(scheme.accent));
+    if let Some(image) = icons::image("diamond", scheme.accent, 10.0) {
+        image.paint_at(ui, Rect::from_center_size(egui::pos2(right - width - 7.0, middle), Vec2::splat(10.0)));
+    }
 }
 
 /// The id of the tile or row of an item: its name, which no other item has, so it stays while the list scrolls.
@@ -545,6 +594,7 @@ fn tier_mark(item: &CraftItem) -> String {
 
 /// A tile: tier mark with class, size and grade and the status at the top,
 /// the name on up to two lines, the maker under it.
+#[allow(clippy::too_many_arguments)]
 fn tile(
     ui: &mut Ui,
     scheme: &Scheme,
@@ -552,10 +602,11 @@ fn tile(
     item: &CraftItem,
     spec: &str,
     mark: Have,
+    planned: PlanCount,
     chosen: bool,
 ) -> egui::Response {
     let response = ui.interact(rect, item_id(ui, item), Sense::click());
-    let (access, hover) = spoken(item, mark);
+    let (access, hover) = spoken(item, mark, planned);
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &access));
     let painter = ui.painter();
     let (fill, border) = if chosen {
@@ -570,14 +621,21 @@ fn tile(
     let body = egui::TextStyle::Body.resolve(ui.style());
     let inner = rect.shrink2(vec2(6.0, 5.0));
     let head = if spec.is_empty() { tier_mark(item) } else { format!("{} · {spec}", tier_mark(item)) };
+    // The number of the plan stands beside the status; the tier line is cut before it, the number never.
+    let plan = plan_mark(ui, scheme, planned);
+    let plan_width = plan.as_ref().map_or(0.0, |(width, _)| *width + 4.0);
     let mut job = LayoutJob::simple_singleline(head, small.clone(), color(scheme.sub));
-    job.wrap = TextWrapping::truncate_at_width(inner.width() - 18.0);
+    job.wrap = TextWrapping::truncate_at_width((inner.width() - 18.0 - plan_width).max(10.0));
+    let painter = ui.painter();
     let tier = painter.layout_job(job);
     let tier_height = tier.size().y;
     painter.galley(inner.left_top(), tier, color(scheme.sub));
     let (icon, tone, _) = mark_icon(scheme, mark);
     if let Some(image) = icons::image(icon, tone, 14.0) {
         image.paint_at(ui, Rect::from_min_size(egui::pos2(inner.right() - 14.0, inner.top()), Vec2::splat(14.0)));
+    }
+    if let Some((_, galley)) = plan {
+        draw_plan_mark(ui, scheme, galley, inner.right() - 18.0, inner.top() + 7.0);
     }
     let name_color = if chosen { scheme.accent } else { scheme.fg };
     let mut job = LayoutJob::simple(item.name.clone(), body, color(name_color), inner.width());
@@ -605,11 +663,12 @@ fn row(
     item: &CraftItem,
     spec: &str,
     mark: Have,
+    planned: PlanCount,
     k: usize,
     chosen: bool,
 ) -> egui::Response {
     let response = ui.interact(rect, item_id(ui, item), Sense::click());
-    let (access, hover) = spoken(item, mark);
+    let (access, hover) = spoken(item, mark, planned);
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &access));
     let painter = ui.painter();
     if chosen {
@@ -628,12 +687,18 @@ fn row(
     }
     let name_color = if chosen { scheme.accent } else { scheme.fg };
     let mut right = rect.right() - 8.0;
+    // The number of the plan stands at the right edge and is never cut; the texts before it give way.
+    if let Some((width, galley)) = plan_mark(ui, scheme, planned) {
+        draw_plan_mark(ui, scheme, galley, right, rect.center().y);
+        right -= width + 8.0;
+    }
     // The maker is cut first when the row is narrow; the name keeps at least half.
     let right_text =
         [spec, item.manufacturer.as_str()].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · ");
     if !right_text.is_empty() {
         let small = egui::TextStyle::Small.resolve(ui.style());
-        let room = ((rect.width() - 40.0) / 2.0).max(40.0);
+        // What is left of the row after the number of the plan: the name keeps at least half of it.
+        let room = (((right - rect.left()) - 40.0) / 2.0).max(40.0);
         let mut job = LayoutJob::simple_singleline(right_text, small, color(scheme.sub));
         job.wrap = TextWrapping::truncate_at_width(room);
         let galley = ui.painter().layout_job(job);
@@ -764,6 +829,7 @@ fn list_area(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, marks: &[H
                 match line {
                     Line::Head(place) => heading(inner, scheme, rect, state.names.path(*place)),
                     Line::Items(items) => {
+                        let planned: Vec<PlanCount> = items.iter().map(|&index| state.plan_count(index)).collect();
                         for (k, &index) in items.iter().enumerate() {
                             let item = &state.book.items[index];
                             let chosen = state.open == Some(index);
@@ -772,9 +838,11 @@ fn list_area(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, marks: &[H
                                 View::Grid => {
                                     let at = rect.min + vec2(k as f32 * (tile_w + TILE_GAP), 0.0);
                                     let place = Rect::from_min_size(at, vec2(tile_w, tile_h));
-                                    tile(inner, scheme, place, item, spec, marks[index], chosen)
+                                    tile(inner, scheme, place, item, spec, marks[index], planned[k], chosen)
                                 }
-                                View::List => row(inner, scheme, rect, item, spec, marks[index], striped, chosen),
+                                View::List => {
+                                    row(inner, scheme, rect, item, spec, marks[index], planned[k], striped, chosen)
+                                }
                             };
                             if response.clicked() {
                                 clicked = Some(index);

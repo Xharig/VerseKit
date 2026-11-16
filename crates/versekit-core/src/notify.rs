@@ -27,7 +27,7 @@ pub const SENDER: &str = "notify-send";
 
 /// The arguments for it: the name of the program, the title, the text.
 pub fn arguments(title: &str, text: &str) -> Vec<String> {
-    vec!["-a".into(), "Verse-Kit".into(), title.into(), text.into()]
+    vec!["-a".into(), "VerseKit".into(), title.into(), text.into()]
 }
 
 /// Can this system show a message this way? Not on Windows (the balloon at the icon does it there), elsewhere
@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn the_message_goes_out_under_the_name_of_the_program() {
-        assert_eq!(arguments("Titel", "Text"), ["-a", "Verse-Kit", "Titel", "Text"]);
+        assert_eq!(arguments("Titel", "Text"), ["-a", "VerseKit", "Titel", "Text"]);
     }
 
     #[test]

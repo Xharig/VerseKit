@@ -50,7 +50,7 @@ use crate::widgets::{self, ButtonKind};
 /// The kinds a new request may have here. ⚠ No deposit: the contract does not say how a deposit names its account.
 pub const OFFERED: [Kind; 2] = [Kind::Withdrawal, Kind::Transfer];
 
-/// The application id requests raised through Verse-Kit carry in `client`.
+/// The application id requests raised through VerseKit carry in `client`.
 const OWN_CLIENT: &str = "versekit";
 
 /// What the page needs from the sync.
@@ -87,7 +87,7 @@ pub struct Form {
     pub justification: String,
     /// A correction: the request and the version last read.
     pub editing: Option<(String, i64)>,
-    /// A correction of a request Verse-Kit did not raise: amount and target stay as they are, only note and
+    /// A correction of a request VerseKit did not raise: amount and target stay as they are, only note and
     /// justification change (another module's request refuses anything else).
     pub fixed: bool,
 }

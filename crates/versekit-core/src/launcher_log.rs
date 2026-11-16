@@ -117,6 +117,13 @@ fn folders_of(archive: &Path) -> Option<(String, String)> {
 /// Whether `events` end with a delta update into the folder of `archive` that has not ended: started for the install
 /// folder above it and the channel its folder is named after, with no end of that channel and no failure after it.
 pub fn open_update(events: &[Event], archive: &Path) -> bool {
+    // The launcher names the folder it patches, not the link a channel folder may be to it (HOTFIX to LIVE): the
+    // archive is looked for under the first channel folder that leads to the same real folder.
+    let leading = archive.parent().map(|folder| {
+        let first = crate::paths::leading_channel_folder(&folder.to_string_lossy());
+        Path::new(&first).join(archive.file_name().unwrap_or_default())
+    });
+    let archive = leading.as_deref().unwrap_or(archive);
     let Some((channel_folder, install)) = folders_of(archive) else { return false };
     let channel_name = channel_folder.rsplit('\\').next().unwrap_or_default().to_string();
     let mut open = false;
@@ -494,6 +501,33 @@ mod tests {
         assert!(open_update(&events, Path::new("c:/program files/roberts space industries/starcitizen/live/Data.p4k")));
     }
 
+    /// The launcher names the folder it patches (LIVE); a channel folder that is a link to it (HOTFIX as a junction)
+    /// leads to the same archive: it is patched at the same time.
+    #[test]
+    fn a_channel_folder_that_links_to_the_patched_one_is_patched_too() {
+        let dir = crate::testdir::Dir::new("launcher-verknuepft");
+        let install = dir.path().join("StarCitizen");
+        let (live, hotfix) = (install.join("LIVE"), install.join("HOTFIX"));
+        std::fs::create_dir_all(&live).unwrap();
+        std::fs::write(live.join("Data.p4k"), b"p4k").unwrap();
+        crate::testdir::link_folder(&hotfix, &live);
+        let update = |folder: &Path| Update {
+            channel: "LIVE".into(),
+            build: "4.10.3-live.13165946".into(),
+            folder: folder.to_string_lossy().into_owned(),
+        };
+        let open = [Event::Started(update(&install))];
+        assert!(open_update(&open, &live.join("Data.p4k")), "the folder the launcher names");
+        assert!(open_update(&open, &hotfix.join("Data.p4k")), "the link to it");
+        let ended = [Event::Started(update(&install)), Event::Completed(update(&live))];
+        assert!(!open_update(&ended, &live.join("Data.p4k")));
+        assert!(!open_update(&ended, &hotfix.join("Data.p4k")), "ended for the link as well");
+        // Another channel next to it is not touched.
+        let ptu = install.join("PTU");
+        std::fs::create_dir_all(&ptu).unwrap();
+        assert!(!open_update(&open, &ptu.join("Data.p4k")));
+    }
+
     #[test]
     fn the_build_is_named_as_the_launcher_names_it_for_the_same_change_number() {
         let events = events(&format!("{PATCH_START}\n{PATCH_END}"));
@@ -510,7 +544,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&home);
         std::fs::create_dir_all(&home).unwrap();
         let text = home.to_string_lossy().into_owned();
-        let mut vars = vec![("HOME", text.as_str()), ("SC_BP_HOME", text.as_str())];
+        let mut vars = vec![("HOME", text.as_str()), ("VERSEKIT_HOME", text.as_str())];
         if appdata {
             vars.push(("APPDATA", text.as_str()));
         }
@@ -590,7 +624,7 @@ mod tests {
         let text = home.to_string_lossy().into_owned();
         let paths = Paths::new(crate::paths::Host::new(
             crate::pypath::Flavor::native(),
-            &[("HOME", text.as_str()), ("SC_BP_HOME", text.as_str()), ("APPDATA", text.as_str())],
+            &[("HOME", text.as_str()), ("VERSEKIT_HOME", text.as_str()), ("APPDATA", text.as_str())],
             &text,
         ));
         let archive = Path::new(LIVE);
@@ -666,7 +700,7 @@ mod tests {
         let text = home.to_string_lossy().replace('\\', "/");
         let paths = Paths::new(crate::paths::Host::new(
             crate::pypath::Flavor::Posix,
-            &[("HOME", text.as_str()), ("SC_BP_HOME", text.as_str())],
+            &[("HOME", text.as_str()), ("VERSEKIT_HOME", text.as_str())],
             &text,
         ));
         let drive_c = home.join("Games").join("star-citizen").join("drive_c");

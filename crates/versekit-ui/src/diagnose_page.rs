@@ -941,7 +941,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("Ordner");
         let value = dir.to_string_lossy().to_string();
-        let vars = [("SC_BP_HOME", value.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
+        let vars = [("VERSEKIT_HOME", value.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
         let paths = Arc::new(Paths::new(Host::new(Flavor::native(), &vars, "/")));
         let transport = Arc::new(Recording { seen: std::sync::Mutex::new(Vec::new()), status });
         let env = Environment { version: "5.0.0-test".into(), ..Default::default() };

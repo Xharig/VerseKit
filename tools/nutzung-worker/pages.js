@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //
-// Die Seiten des Verse-Kit-Hauptfensters: Kennung → Gruppe und Name, in der
+// Die Seiten des VerseKit-Hauptfensters: Kennung → Gruppe und Name, in der
 // Reihenfolge der Seitenleiste. Der Worker nimmt in den Seitenzählern nur
 // diese Kennungen an; die Übersicht zeigt sie mit diesen Namen, auch mit 0.
 //
@@ -12,11 +12,15 @@ export const PAGES = {
   liste: ['Baupläne', 'Bauplan-Liste'],
   fortschritt: ['Baupläne', 'Bauplan-Fortschritt'],
   auftragslog: ['Baupläne', 'Aufträge & Protokoll'],
+  // Die Kennung `erkennung` zählt alle Fassungen zusammen.
+  erkennung: ['Baupläne', 'Bauplan-Erkennung'],
+  auftragsfinder: ['Baupläne', 'Auftragsfinder'],
   hangar: ['Flotte & Logistik', 'Mein Hangar'],
   wunschliste: ['Flotte & Logistik', 'Wunschliste'],
   asop: ['Flotte & Logistik', 'Schiffe benennen'],
   meinlager: ['Flotte & Logistik', 'Mein Lager'],
   staffellager: ['Flotte & Logistik', 'Lager der Einheit'],
+  orgalager: ['Flotte & Logistik', 'Orga-Lager'],
   // Alte Seitennamen, die ältere Fassungen melden (siehe MERGED).
   lager: ['Flotte & Logistik', 'Rohstofflager'],
   handelslager: ['Flotte & Logistik', 'Handelslager'],
@@ -30,6 +34,7 @@ export const PAGES = {
   verkauf: ['Handel', 'Kaufen & Verkaufen'],
   routen: ['Handel', 'Routen'],
   bedarf: ['Beschaffung', 'Bedarf der Einheit'],
+  orgaauftraege: ['Beschaffung', 'Orga-Aufträge'],
   einkaufsliste: ['Beschaffung', 'Einkaufsliste'],
   notizen: ['Beschaffung', 'Notizen'],
   contested: ['Beschaffung', 'Contested Zones'],
@@ -44,9 +49,9 @@ export const PAGES = {
   darstellung: ['Einstellungen', 'Darstellung'],
   ordner: ['Einstellungen', 'Installation & Pfade'],
   module: ['Einstellungen', 'Module'],
-  erkennung: ['Einstellungen', 'Erkennung'],
   startprogramme: ['Einstellungen', 'Startprogramme'],
   basetool: ['Einstellungen', 'Verbindung & Abgleich'],
+  orgaverbinden: ['Einstellungen', 'Orga verbinden'],
   bestand: ['Einstellungen', 'Sichern & Zurücksetzen'],
   spiel: ['Spiel-Einstellungen', 'Spiel'],
   uebersetzung: ['Spiel-Einstellungen', 'Übersetzung'],

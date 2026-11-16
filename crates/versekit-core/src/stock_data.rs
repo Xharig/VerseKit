@@ -762,6 +762,22 @@ impl StockData {
         self.goods.contains_key(name)
     }
 
+    /// The goods the stock can hold: every commodity with a sell offer and every commodity of the catalog (some
+    /// have no buyer, such as Recycled Material Composite or Scrap), sorted, each name once.
+    pub fn trade_goods(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.goods.keys().cloned().collect();
+        names.extend(self.choices.values().filter(|c| c.material.is_some()).map(|c| c.name.clone()));
+        names.sort();
+        names.dedup();
+        names
+    }
+
+    /// Exact match against [`StockData::trade_goods`].
+    pub fn knows_trade_goods(&self, name: &str) -> bool {
+        self.goods.contains_key(name)
+            || self.choices.get(&lower(name)).is_some_and(|c| c.material.is_some() && c.name == name)
+    }
+
     /// The highest bid per SCU without one absurd outlier, or `0.0`
     /// (`selling.best_price`).
     pub fn best_price(&self, name: &str) -> f64 {
@@ -972,5 +988,24 @@ mod tests {
         assert_eq!(data.best_price("Gold"), 110.0);
         assert_eq!(data.best_price("Iron"), 250.0);
         assert_eq!(data.best_price("Nichts"), 0.0);
+    }
+
+    #[test]
+    fn the_stock_knows_the_goods_of_the_catalog_that_nobody_buys() {
+        let data = StockData::sample();
+        for name in ["Recycled Material Composite", "Scrap"] {
+            assert!(!data.knows_goods(name), "{name}: no sell offer, so not a good of the sell list");
+            assert!(data.knows_trade_goods(name), "{name}: but one the stock can hold");
+            assert!(data.trade_goods().iter().any(|n| n == name), "{name} is offered while typing");
+        }
+        assert!(data.knows_trade_goods("Laranite"), "a good with a sell offer stays known");
+        assert!(!data.knows_trade_goods("recycled material composite"), "the spelling stays exact");
+        assert!(!data.knows_trade_goods("Nichtsda Ware"));
+        let names = data.trade_goods();
+        let mut sorted = names.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(names, sorted, "sorted, each name once");
+        assert!(!data.goods().iter().any(|n| n == "Scrap"), "the list of the sell offers does not change");
     }
 }

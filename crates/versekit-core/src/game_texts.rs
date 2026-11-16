@@ -364,6 +364,11 @@ fn game_roots(paths: &Paths) -> Vec<String> {
 /// The text files below a game folder that still hold notes of ours, with their language folders. Nothing on a copy
 /// of the data.
 fn files_with_notes(paths: &Paths, root: &str) -> Vec<(String, String)> {
+    language_files(paths, root).into_iter().filter(|(target, _)| injection::is_applied(target)).collect()
+}
+
+/// The text files below a game folder, with their language folders. Nothing on a copy of the data.
+fn language_files(paths: &Paths, root: &str) -> Vec<(String, String)> {
     if translation::only_looks(paths, root) {
         return Vec::new();
     }
@@ -386,7 +391,7 @@ fn files_with_notes(paths: &Paths, root: &str) -> Vec<(String, String)> {
         .into_iter()
         .filter_map(|language| {
             let target = game_ini::target_ini_in(paths, root, &language)?;
-            (game_ini::is_file(&target) && injection::is_applied(&target)).then_some((target, language))
+            game_ini::is_file(&target).then_some((target, language))
         })
         .collect()
 }
@@ -469,8 +474,8 @@ fn main_source(paths: &Paths) -> Option<String> {
 /// main installation: every installed channel with an archive whose chosen source is set up there. A channel left
 /// alone is not among them.
 pub fn side_channels(paths: &Paths, main: Option<&str>) -> Vec<Kept> {
-    let flavor = paths.host.flavor;
-    let same = |a: &str, b: &str| flavor.normcase(&flavor.normpath(a)) == flavor.normcase(&flavor.normpath(b));
+    // The same folder under another name (a channel folder that is a link to the main one) is the main installation.
+    let same = |a: &str, b: &str| crate::paths::same_place(a, b);
     let sources = translation::channel_sources(paths);
     paths
         .installed_channels()
@@ -1143,6 +1148,9 @@ fn reconcile(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, gam
 }
 
 pub mod watch;
+
+#[cfg(not(feature = "test-build"))]
+pub mod retired;
 
 #[cfg(test)]
 mod tests;

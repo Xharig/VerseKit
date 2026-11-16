@@ -22,7 +22,7 @@
 //! | Windows | GDI (`BitBlt`) | built |
 //! | Linux | X11 (`GetImage` on the window of the game, also under XWayland), [`x11`] | built |
 //! | Linux | Wayland portal (a game as a pure Wayland window) | not built |
-//! | macOS | — | not built |
+//! | macOS | none | not built |
 //!
 //! ⚠ Physical pixels, not the scaled ones of a program without DPI awareness: grabbed in the scaled
 //! computation the picture is compressed and washed out, and with digits nine points wide that is the end of

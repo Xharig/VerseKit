@@ -42,7 +42,7 @@ impl Setup {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         let data = root.to_string_lossy().into_owned();
-        let mut all = vec![("HOME", data.as_str()), ("SC_BP_HOME", data.as_str())];
+        let mut all = vec![("HOME", data.as_str()), ("VERSEKIT_HOME", data.as_str())];
         all.extend_from_slice(vars);
         let host = Host::new(Flavor::native(), &all, &data);
         Setup { usage: PageUsage::new(Paths::new(host), version), root }
@@ -383,7 +383,7 @@ fn serve(mut stream: TcpStream, lists: &Lists, forced: Option<u16>, log: &Mutex<
 
 /// The real transport with the house switch "no network": only the own computer is reachable.
 fn transport() -> HttpTransport {
-    HttpTransport::new("", &Host::new(Flavor::native(), &[("SC_BP_NO_NET", "1")], "/")).unwrap()
+    HttpTransport::new("", &Host::new(Flavor::native(), &[("VERSEKIT_NO_NET", "1")], "/")).unwrap()
 }
 
 fn post(transport: &HttpTransport, url: &str, body: &str) -> u16 {
@@ -420,7 +420,7 @@ fn the_lists_match_the_receiver() {
             ("MAX_MISS_PAIRS".to_string(), MAX_MISS_PAIRS as i64)
         ]
     );
-    assert_eq!(lists.pages.len(), 65);
+    assert_eq!(lists.pages.len(), 69);
     assert!(PAGES.contains(&"handlesuche") && lists.pages.contains("handlesuche"), "the handle search is counted");
 }
 
@@ -489,9 +489,9 @@ fn the_target_is_the_built_in_one_unless_the_variable_names_another() {
 fn no_net_switches_report_and_counting_off() {
     let host = |vars: &[(&str, &str)]| Host::new(Flavor::native(), vars, "/");
     assert!(would_send(&host(&[]), "5.0.0"));
-    assert!(would_send(&host(&[("SC_BP_NO_NET", "0")]), "5.0.0"));
-    assert!(would_send(&host(&[("SC_BP_NO_NET", "")]), "5.0.0"));
-    assert!(!would_send(&host(&[("SC_BP_NO_NET", "1")]), "5.0.0"));
+    assert!(would_send(&host(&[("VERSEKIT_NO_NET", "0")]), "5.0.0"));
+    assert!(would_send(&host(&[("VERSEKIT_NO_NET", "")]), "5.0.0"));
+    assert!(!would_send(&host(&[("VERSEKIT_NO_NET", "1")]), "5.0.0"));
     assert!(!would_send(&host(&[(ENV_TARGET, "aus")]), "5.0.0"));
     assert!(!would_send(&host(&[]), "5.0.0-dev"));
 }
@@ -746,7 +746,7 @@ fn an_action_counts_how_often_only() {
 
 #[test]
 fn without_network_nothing_is_counted_and_old_counters_go() {
-    let s = Setup::new("off", &[("SC_BP_NO_NET", "1")], "5.0.0");
+    let s = Setup::new("off", &[("VERSEKIT_NO_NET", "1")], "5.0.0");
     std::fs::write(s.file(), "{\"pages\":{\"liste\":4}}").unwrap();
     s.usage.window_opened();
     assert!(s.file_text().is_none(), "a counter file of before is dropped");
@@ -917,7 +917,7 @@ fn a_refused_report_keeps_the_counters_and_the_day_open() {
 fn no_net_a_switched_off_target_and_a_source_build_send_nothing() {
     let receiver = Receiver::start(None);
     let t = transport();
-    let off = send_setup("nonet", &receiver, "5.0.0", &[("SC_BP_NO_NET", "1")]);
+    let off = send_setup("nonet", &receiver, "5.0.0", &[("VERSEKIT_NO_NET", "1")]);
     assert_eq!(send_if_due(&t, &off.usage, &plain_facts(), "2026-10-23"), Sent::Off);
     let dev = send_setup("srcbuild", &receiver, "5.0.0-dev", &[]);
     assert_eq!(send_if_due(&t, &dev.usage, &plain_facts(), "2026-10-23"), Sent::Version);
@@ -1135,7 +1135,7 @@ fn the_report_names_the_days_and_never_the_date() {
 fn the_date_is_kept_only_where_a_report_goes_out() {
     let receiver = Receiver::start(None);
     let t = transport();
-    let off = send_setup("alter-aus", &receiver, "5.1.4", &[("SC_BP_NO_NET", "1")]);
+    let off = send_setup("alter-aus", &receiver, "5.1.4", &[("VERSEKIT_NO_NET", "1")]);
     assert_eq!(send_if_due(&t, &off.usage, &plain_facts(), "2026-10-23"), Sent::Off);
     assert_eq!(off.paths().setting(INSTALLED_SETTING), None, "nothing is kept where nothing is sent");
     let dev = send_setup("alter-quelle", &receiver, "5.1.4-dev", &[]);

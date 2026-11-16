@@ -449,6 +449,10 @@ pub(super) fn shops_page(paths: &Paths, lang: Lang) -> Glance {
 pub(super) fn statistics_glance(key: &str, paths: &Paths, lang: Lang) -> Option<Glance> {
     use crate::statistics_page::{Page, Report};
     let page = Page::of(key)?;
+    // The flight log is no page that can be pinned: it has no tile.
+    if page == Page::Flight {
+        return None;
+    }
     let report = Report::build(paths, None, None);
     let value = |label: &str, value: String| {
         tf_in(lang, "s_kt_wert", &[("0", Arg::from(t_in(lang, label))), ("1", Arg::from(value))])
@@ -513,6 +517,7 @@ pub(super) fn statistics_glance(key: &str, paths: &Paths, lang: Lang) -> Option<
                 vec![value("s_sb_absturz", count(s.crashed)), value("s_sb_offen", count(s.open))],
             )
         }
+        Page::Flight => return None,
     };
     Some(tile)
 }

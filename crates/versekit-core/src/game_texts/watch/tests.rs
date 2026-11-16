@@ -732,7 +732,7 @@ fn without_the_net_nothing_is_fetched_and_nothing_runs() {
     s.set_up_german();
     let host = {
         let mut host = s.paths.host.clone();
-        host.set_var("SC_BP_NO_NET", "1");
+        host.set_var("VERSEKIT_NO_NET", "1");
         host
     };
     let paths = Arc::new(Paths::new(host));

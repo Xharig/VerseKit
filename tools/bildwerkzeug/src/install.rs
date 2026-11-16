@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! A made-up installation of Star Citizen with a data folder of Verse-Kit, in a throwaway folder: the pages
+//! A made-up installation of Star Citizen with a data folder of VerseKit, in a throwaway folder: the pages
 //! that read the game folder (`Game.log`, `user.cfg`, `attributes.xml`, `actionmaps.xml`) and the data folder
 //! (settings, price lists) show something on it. Everything in it is invented except the price lists of the
 //! market, which are public data and copied from a folder given with `--markt`; nothing of the computer is
@@ -23,7 +23,7 @@
 
 use std::path::{Path, PathBuf};
 
-use versekit_core::legacy::{ENV_HOME, ENV_NO_NET};
+use versekit_core::envvars::{ENV_HOME, ENV_NO_NET};
 use versekit_core::paths::{ENV_INSTALL_DIR, Host};
 
 /// The sticks and the pedals of the made-up installation: slot, name, id. They are the ones plugged into the

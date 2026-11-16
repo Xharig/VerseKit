@@ -36,7 +36,6 @@ use versekit_core::basetool::orgunits::OrgUnitsArea;
 use versekit_core::basetool::secrets::{MemorySecrets, REFRESH_SECRET, SecretStore};
 use versekit_core::basetool::sync::{Phase, Setup, SyncHandle};
 use versekit_core::jsonio::{self, Value};
-use versekit_core::legacy;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::pypath::Flavor;
 
@@ -190,9 +189,9 @@ impl Fake {
         Host::new(
             Flavor::native(),
             &[
-                (legacy::ENV_BASETOOL_ISSUER, &self.issuer()),
-                (legacy::ENV_BASETOOL_API, &self.api()),
-                (legacy::ENV_BASETOOL_CLIENT, "sandbox-client"),
+                (versekit_core::envvars::ENV_BASETOOL_ISSUER, &self.issuer()),
+                (versekit_core::envvars::ENV_BASETOOL_API, &self.api()),
+                (versekit_core::envvars::ENV_BASETOOL_CLIENT, "sandbox-client"),
             ],
             "/",
         )
@@ -466,7 +465,7 @@ fn a_sync_pass_with_the_unit_list() {
     *issuer_holder.lock().expect("issuer") = fake.issuer();
     let dir = scratch("pass");
     // A made-up computer: nothing of the shell the check runs in counts.
-    let host = Host::new(Flavor::native(), &[(legacy::ENV_HOME, &dir)], &dir);
+    let host = Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &dir)], &dir);
     let paths = Arc::new(Paths::new(host));
     assert!(paths.set_setting("basetool_lager", Value::Bool(true)));
     assert!(paths.set_setting("basetool_name", Value::str("Test-PC")));
@@ -556,11 +555,11 @@ impl SecretStore for Counting {
 #[test]
 fn not_connected_the_worker_does_not_spin() {
     let dir = scratch("spin");
-    let host = Host::new(Flavor::native(), &[(legacy::ENV_HOME, &dir)], &dir);
+    let host = Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &dir)], &dir);
     let paths = Arc::new(Paths::new(host));
     assert!(paths.set_setting("basetool_lager", Value::Bool(true)));
     let secrets = Arc::new(Counting::default());
-    let net = Host::new(Flavor::native(), &[(legacy::ENV_NO_NET, "1")], "/");
+    let net = Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_NO_NET, "1")], "/");
     let conn = Connection::new(
         Config::from_host(&net),
         Arc::new(HttpTransport::new("", &net).expect("transport")),
@@ -601,10 +600,10 @@ fn not_connected_the_worker_does_not_spin() {
 #[test]
 fn a_collection_written_elsewhere_asks_for_a_pass_with_the_blueprints_switched_on() {
     let dir = scratch("bestand-fremd");
-    let host = Host::new(Flavor::native(), &[(legacy::ENV_HOME, &dir)], &dir);
+    let host = Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &dir)], &dir);
     let paths = Arc::new(Paths::new(host));
     let secrets = Arc::new(MemorySecrets::default());
-    let net = Host::new(Flavor::native(), &[(legacy::ENV_NO_NET, "1")], "/");
+    let net = Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_NO_NET, "1")], "/");
     let conn = Connection::new(
         Config::from_host(&net),
         Arc::new(HttpTransport::new("", &net).expect("transport")),

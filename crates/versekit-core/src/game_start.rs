@@ -449,7 +449,7 @@ impl RunState {
 }
 
 /// A made-up machine of a test that must not look at the real process list sets this variable.
-pub const ENV_NO_PROCESS: &str = "SC_BP_NO_PROCESS";
+pub const ENV_NO_PROCESS: &str = "VERSEKIT_NO_PROCESS";
 
 /// The file name of the game's program, in lower case.
 pub const GAME_EXE: &str = "starcitizen.exe";
@@ -909,7 +909,7 @@ mod tests {
         touch(&format!("{live}/user.cfg"), "g_language = english\n");
         let data = format!("{home}/data");
         std::fs::create_dir_all(&data).expect("folder");
-        let paths = linux(&home, &[("SC_BP_HOME", data.as_str()), (ENV_INSTALL_DIR, live.as_str())]);
+        let paths = linux(&home, &[("VERSEKIT_HOME", data.as_str()), (ENV_INSTALL_DIR, live.as_str())]);
         crate::translation::note_set(&paths, "dymerz_de", Some("v1"), Some("german_(germany)"), None);
         assert!(paths.set_setting(crate::game_ini::SETTING_SOURCE, Value::str("dymerz_de")));
         assert!(paths.set_setting(STARTER_SETTING, Value::str("lutris rungame/star-citizen")));
@@ -1086,10 +1086,12 @@ mod tests {
 
     #[test]
     fn the_test_channels_are_known_by_the_name_of_their_folder() {
+        // The two channels under the terms of confidentiality are known to the test build only.
+        let secret = |name: &'static str| crate::edition::IS_TEST_BUILD.then_some(name);
         for (folder, channel) in [
             ("C:\\Games\\Roberts Space Industries\\StarCitizen\\PTU", Some("PTU")),
-            ("/home/me/Games/star-citizen/drive_c/RSI/StarCitizen/eptu/", Some("EPTU")),
-            ("D:\\RSI\\StarCitizen\\TECH-PREVIEW", Some("TECH-PREVIEW")),
+            ("/home/me/Games/star-citizen/drive_c/RSI/StarCitizen/eptu/", secret("EPTU")),
+            ("D:\\RSI\\StarCitizen\\TECH-PREVIEW", secret("TECH-PREVIEW")),
             ("C:\\RSI\\StarCitizen\\LIVE", None),
             ("C:\\RSI\\StarCitizen\\HOTFIX", None),
             ("C:\\RSI\\PTU\\StarCitizen", None),

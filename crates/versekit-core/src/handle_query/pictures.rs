@@ -132,7 +132,7 @@ mod tests {
 
     fn paths(dir: &TestDir, extra: &[(&str, &str)]) -> Paths {
         let home = dir.path().to_string_lossy().into_owned();
-        let mut vars = vec![(crate::legacy::ENV_HOME, home.as_str())];
+        let mut vars = vec![(crate::envvars::ENV_HOME, home.as_str())];
         vars.extend_from_slice(extra);
         Paths::new(Host::new(Flavor::native(), &vars, &home))
     }
@@ -149,7 +149,7 @@ mod tests {
         assert_eq!(net.asked(), [URL], "the second time from the folder");
         assert!(Path::new(&folder(&paths)).join(file_name(URL)).is_file());
         // Without net only the folder answers; a picture not kept is none.
-        let offline = super::tests::paths(&dir, &[(crate::legacy::ENV_NO_NET, "1")]);
+        let offline = super::tests::paths(&dir, &[(crate::envvars::ENV_NO_NET, "1")]);
         let other = "https://robertsspaceindustries.com/media/other.png";
         let quiet = Fake::default().with(other, b"x".to_vec());
         assert_eq!(get(&offline, &quiet, other), None);

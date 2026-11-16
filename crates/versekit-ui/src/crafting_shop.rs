@@ -160,7 +160,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
-        Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text))
+        Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text))
     }
 
     #[test]

@@ -249,8 +249,8 @@ pub struct Catalog {
 }
 
 /// Where a contract entry is offered: the star systems of its places (the localities and locations it is offered
-/// at), and per system the planets they lie at (a moon, a station or an outpost counts for its planet), by English
-/// name in sorted order.
+/// at, and the places its location queries lead to), and per system the planets they lie at (a moon, a station or an
+/// outpost counts for its planet), by English name in sorted order.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Offered {
     pub systems: std::collections::BTreeSet<String>,
@@ -279,7 +279,13 @@ pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFi
             "BlueprintPoolRecord" => inputs.pools.push(record.guid()),
             "ContractGenerator" => inputs.generators.push(record.guid()),
             "ScenarioProgress" => inputs.scenarios.push(record.guid()),
-            "StarMapObject" if name.to_ascii_lowercase().ends_with("star") => inputs.stars.push(record.guid()),
+            "StarMapObject" => {
+                if name.to_ascii_lowercase().ends_with("star") {
+                    inputs.stars.push(record.guid());
+                }
+                let bare = name.strip_prefix(type_name).and_then(|rest| rest.strip_prefix('.')).unwrap_or(name);
+                inputs.star_map.push((record.guid(), bare.to_string()));
+            }
             _ => {}
         }
     }
@@ -314,7 +320,7 @@ pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFi
     }
     catalog.blueprints.sort_by_cached_key(|blueprint| blueprint.class_name.to_ascii_lowercase());
     catalog.shown_keys = sources::shown_keys(&mut trees, &inputs.generators, texts);
-    catalog.offered = sources::offered(&mut trees, &inputs.stars, facts, texts);
+    catalog.offered = sources::offered(&mut trees, &inputs.stars, &inputs.star_map, facts, texts);
     catalog.failed = trees.into_failed();
     catalog.corrections = fixes.into_report();
     catalog

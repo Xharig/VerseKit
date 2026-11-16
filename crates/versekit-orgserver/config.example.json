@@ -1,0 +1,18 @@
+{
+  "public_url": "https://orga.example.org",
+  "name": "Beispiel-Orga",
+  "tag": "BSP",
+  "homepage": "https://orga.example.org",
+  "poll_interval": 5,
+  "members": [
+    { "id": "m1", "name": "Pilotin", "key": "" },
+    { "id": "m2", "name": "Pilot", "key": "" }
+  ],
+  "orders": [
+    {
+      "id": "erz-01",
+      "title": "Quantanium für den Stützpunkt",
+      "items": [{ "item": "Quantanium", "quantity": 64, "unit": "scu" }]
+    }
+  ]
+}

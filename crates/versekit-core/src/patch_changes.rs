@@ -48,10 +48,10 @@ pub fn safe_name(version: &str) -> String {
     version.chars().map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' { c } else { '_' }).collect()
 }
 
-/// The folder of the patch files: `Patches` in the data folder, flat in a data folder given by `SC_BP_HOME`.
+/// The folder of the patch files: `Patches` in the data folder, flat in a data folder given by `VERSEKIT_HOME`.
 pub fn folder(paths: &Paths) -> String {
     let base = paths.app_folder();
-    if paths.host.var_set(crate::legacy::ENV_HOME).is_some() {
+    if paths.host.var_set(crate::envvars::ENV_HOME).is_some() {
         return base;
     }
     let target = paths.host.flavor.join(&base, FOLDER);

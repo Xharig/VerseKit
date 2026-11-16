@@ -61,6 +61,8 @@ PAARE = [
     # Die Datenschutzerklärung, die das KRT Profit Basetool für die Freigabe
     # verlangt.
     ('PRIVACY.en.md', 'PRIVACY.md', 'abschnitte'),
+    # Die Anleitung des offenen Orga-Standards für Orgas.
+    ('tools/orga-standard/README.en.md', 'tools/orga-standard/README.md', 'abschnitte'),
 ]
 
 

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "5.3.7"
+version = "5.4.0"
 edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0-only"
@@ -52,6 +52,8 @@ rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal",
 serde_json = "1"
 versekit-core = { path = "crates/versekit-core" }
 versekit-gamedata = { path = "crates/versekit-gamedata" }
+# The template server of the open org standard: the tests of the client run against it.
+versekit-orgserver = { path = "crates/versekit-orgserver" }
 # Screens and pointer on X11 (RandR, root window): the version winit already brings in.
 x11rb = { version = "0.13", features = ["randr", "resource_manager"] }
 # The WinRT classes of the text recognition (refinery scanner): the version the lock file already holds.

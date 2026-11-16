@@ -29,7 +29,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use versekit_core::catalog_cache::{self, CatalogCache};
 use versekit_core::jsonio::{self, Value};
-use versekit_core::legacy;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::pypath::Flavor;
 use versekit_core::writeguard;
@@ -113,7 +112,7 @@ fn case(name: &str) -> (Paths, PathBuf, String) {
     }
     fs::create_dir_all(&data).unwrap();
     let text = data.to_string_lossy().into_owned();
-    let paths = Paths::new(Host::new(Flavor::native(), &[("SC_BP_HOME", &text)], &text));
+    let paths = Paths::new(Host::new(Flavor::native(), &[("VERSEKIT_HOME", &text)], &text));
     let cache = data.join(CACHE_FILE).to_string_lossy().into_owned();
     (paths, channel, cache)
 }
@@ -443,7 +442,7 @@ fn the_archive_given_from_outside_is_read_where_it_lies() {
     let game_text = game.to_string_lossy().into_owned();
     let host = Host::new(
         Flavor::native(),
-        &[(legacy::ENV_HOME, &data), (versekit_core::paths::ENV_INSTALL_DIR, &game_text)],
+        &[(versekit_core::envvars::ENV_HOME, &data), (versekit_core::paths::ENV_INSTALL_DIR, &game_text)],
         &data,
     );
     let paths = Paths::new(host);

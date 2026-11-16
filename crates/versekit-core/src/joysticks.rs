@@ -685,7 +685,7 @@ mod tests {
         let game = format!("{home}/StarCitizen/LIVE");
         std::fs::create_dir_all(&game).expect("folder");
         let vars = [
-            ("SC_BP_HOME", home.as_str()),
+            ("VERSEKIT_HOME", home.as_str()),
             ("HOME", home.as_str()),
             ("LOCALAPPDATA", home.as_str()),
             (ENV_INSTALL_DIR, game.as_str()),

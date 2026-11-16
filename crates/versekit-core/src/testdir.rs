@@ -48,6 +48,25 @@ pub fn fresh(name: &str) -> PathBuf {
     dir
 }
 
+/// A link to a folder that needs no rights: a junction under Windows, a symbolic link elsewhere. `link` is the
+/// new name, `target` the folder it leads to.
+pub fn link_folder(link: &std::path::Path, target: &std::path::Path) {
+    #[cfg(windows)]
+    {
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            // mklink takes backslashes only: a slash would read as a switch.
+            .arg(link.to_string_lossy().replace('/', "\\"))
+            .arg(target.to_string_lossy().replace('/', "\\"))
+            .stdout(std::process::Stdio::null())
+            .status()
+            .expect("cmd runs");
+        assert!(status.success(), "junction made");
+    }
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, link).expect("link made");
+}
+
 /// A folder of [`fresh`] that is removed when the value goes.
 pub struct Dir(PathBuf);
 

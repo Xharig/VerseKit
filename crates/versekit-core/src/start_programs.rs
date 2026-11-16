@@ -455,7 +455,7 @@ mod tests {
     }
 
     fn paths_in(home: &str) -> Paths {
-        Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home), ("HOME", home)], home))
+        Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", home), ("HOME", home)], home))
     }
 
     fn file_in(home: &str, name: &str) -> String {

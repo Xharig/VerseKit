@@ -44,7 +44,7 @@ use versekit_core::stock_data::{StockData, lower, norm_material};
 use versekit_core::stock_use::{amount_of, pick_crate, quality_of};
 use versekit_core::text::py_sum;
 
-use crate::cart_data::{self, CartData, SlotProvider};
+use crate::cart_data::{CartData, SlotProvider};
 use crate::craft_book::{self, CraftBook};
 use crate::values::{GameValues, Recipe};
 
@@ -122,10 +122,113 @@ pub fn posts_of(values: &GameValues, book: &CraftBook, notes: &[Note]) -> Vec<Po
 /// only parts with a recipe come. `slots` gives the slots of a ship; without
 /// it no ship brings parts.
 pub fn planned_posts(data: &Map, values: &GameValues, book: &CraftBook, slots: Option<&SlotProvider<'_>>) -> Vec<Post> {
+    posts_of_plan(&plan_lines(data, values, book, slots))
+}
+
+/// Where a planned part comes from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlanSource {
+    /// The farm notes: the player plans the part by hand.
+    Notepad,
+    /// A slot of a ship in the hangar.
+    Hangar,
+    /// A slot of a ship on the wish list.
+    Wishlist,
+}
+
+/// One part of the plan: what [`planned_posts`] counts, with where it comes from.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlanLine {
+    pub name: String,
+    /// The identifier of the part; empty for a note.
+    pub reference: String,
+    /// How many, as the farm list counts them: at least one and at most 9999.
+    pub count: i64,
+    pub source: PlanSource,
+    /// The ship the part belongs to; empty for a note.
+    pub ship: String,
+    /// Where on the ship (`Cooler S2`); empty for a note.
+    pub position: String,
+}
+
+/// The whole plan (`cart.invoice`): every part on "build" that is not ticked off and has a recipe, of the notes, the
+/// hangar and the wish list, in the order of the bill. The posts of the farm list are made of exactly these lines.
+pub fn plan_lines(
+    data: &Map,
+    values: &GameValues,
+    book: &CraftBook,
+    slots: Option<&SlotProvider<'_>>,
+) -> Vec<PlanLine> {
     // Prices play no part in the way: the stores of prices stay empty.
     let (shops, raw, market) = (Shops::default(), RawPrices::default(), Market::default());
     let sources = CartData { values, book, shops: &shops, raw: &raw, market: &market, slots };
-    cart_data::posts_of_bill(&cart::invoice(data, &sources).lines)
+    cart::invoice(data, &sources)
+        .lines
+        .iter()
+        .filter(|l| l.way == cart::CRAFT && !l.done)
+        .map(|l| PlanLine {
+            name: l.name.clone(),
+            reference: l.reference.clone(),
+            count: l.count.clamp(1, 9999),
+            source: match l.origin {
+                cart::Origin::Hangar => PlanSource::Hangar,
+                cart::Origin::Wishlist => PlanSource::Wishlist,
+                cart::Origin::Notepad | cart::Origin::Basket => PlanSource::Notepad,
+            },
+            ship: l.ship.clone(),
+            position: l.position.clone(),
+        })
+        .collect()
+}
+
+/// The posts of the farm list for the lines of the plan.
+pub fn posts_of_plan(lines: &[PlanLine]) -> Vec<Post> {
+    lines
+        .iter()
+        .map(|l| Post { name: l.name.clone(), reference: l.reference.clone(), pieces: l.count })
+        .collect()
+}
+
+/// How often one item of the craft book is planned: by the notes and by the ships (hangar and wish list).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PlanCount {
+    pub notes: i64,
+    pub ships: i64,
+}
+
+impl PlanCount {
+    pub fn total(&self) -> i64 {
+        self.notes + self.ships
+    }
+}
+
+/// The count of every item of the book (by its index) that the lines plan. A line finds its item by the identifier
+/// of the part, else by the name the list shows, else by the name of the product.
+pub fn plan_counts(book: &CraftBook, lines: &[PlanLine]) -> HashMap<usize, PlanCount> {
+    let mut by_entity: HashMap<&str, usize> = HashMap::new();
+    let (mut by_name, mut by_basis): (HashMap<String, usize>, HashMap<String, usize>) = (HashMap::new(), HashMap::new());
+    for (at, item) in book.items.iter().enumerate() {
+        if !item.entity.is_empty() {
+            by_entity.entry(item.entity.as_str()).or_insert(at);
+        }
+        by_name.entry(lower(&item.name)).or_insert(at);
+        by_basis.entry(lower(&item.basis)).or_insert(at);
+    }
+    let mut counts: HashMap<usize, PlanCount> = HashMap::new();
+    for line in lines {
+        let found = (!line.reference.is_empty())
+            .then(|| by_entity.get(line.reference.to_lowercase().as_str()).copied())
+            .flatten()
+            .or_else(|| by_name.get(&lower(&line.name)).copied())
+            .or_else(|| by_basis.get(&lower(&line.name)).copied());
+        let Some(at) = found else { continue };
+        let entry = counts.entry(at).or_default();
+        match line.source {
+            PlanSource::Notepad => entry.notes += line.count,
+            PlanSource::Hangar | PlanSource::Wishlist => entry.ships += line.count,
+        }
+    }
+    counts
 }
 
 /// The material for all `posts` against the stock.
@@ -481,6 +584,82 @@ mod tests {
         // Without slots no ship brings parts: only the note is left.
         let notes_only = planned_posts(&data, &values, &book, None);
         assert_eq!(notes_only, vec![Post { name: "Gamma".into(), reference: String::new(), pieces: 3 }]);
+    }
+
+    /// A fleet with the notes, a ship of the hangar and one of the wish list that plan the same parts.
+    fn planning_fleet() -> (GameValues, CraftBook, Map) {
+        let (values, book) = setup(
+            vec![
+                recipe("BP_CRAFT_a", "a", &[("Iron", 1.0, 0)]),
+                recipe("BP_CRAFT_b", "b", &[("Gold", 2.0, 0)]),
+                recipe("BP_CRAFT_c", "c", &[("Iron", 0.5, 0)]),
+            ],
+            &["Alpha", "Beta", "Gamma"],
+        );
+        let data = fleet(
+            r#"{"format": 1,
+              "schiffe": [{"name": "Ship One", "belegung": {
+                  "p1": {"ref": "a", "name": "Alpha", "weg": "bauen"},
+                  "p2": {"ref": "b", "name": "Beta", "weg": "kaufen"},
+                  "p3": {"ref": "c", "name": "Gamma", "weg": "bauen", "erledigt": true}}}],
+              "wunsch": [{"name": "Ship Two", "belegung": {"p1": {"ref": "a", "name": "Alpha", "weg": "bauen"}}}],
+              "merkzettel": [{"name": "Alpha", "anzahl": 3, "weg": "bauen"}, {"name": "Beta", "anzahl": 2, "weg": "bauen"}]}"#,
+        );
+        (values, book, data)
+    }
+
+    fn two_ships_slots(_ship: &Map, _chosen: &Map) -> Vec<cart::Slot> {
+        ["p1", "p2", "p3"]
+            .iter()
+            .map(|path| cart::Slot {
+                path: (*path).into(),
+                kind: "Cooler".into(),
+                size: Some(1),
+                factory_ref: String::new(),
+                factory_name: String::new(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_plan_keeps_where_each_part_comes_from_and_adds_up_to_the_posts_of_the_farm_list() {
+        let (values, book, data) = planning_fleet();
+        let lines = plan_lines(&data, &values, &book, Some(&two_ships_slots));
+        let sources: Vec<(&str, PlanSource, &str, i64)> =
+            lines.iter().map(|l| (l.name.as_str(), l.source, l.ship.as_str(), l.count)).collect();
+        assert_eq!(
+            sources,
+            vec![
+                ("Alpha", PlanSource::Notepad, "", 3),
+                ("Beta", PlanSource::Notepad, "", 2),
+                ("Alpha", PlanSource::Hangar, "Ship One", 1),
+                ("Alpha", PlanSource::Wishlist, "Ship Two", 1),
+            ],
+            "the bought and the ticked-off parts are not in the plan"
+        );
+        // The farm list counts exactly these parts.
+        let posts = planned_posts(&data, &values, &book, Some(&two_ships_slots));
+        assert_eq!(posts, posts_of_plan(&lines));
+        let list = farm_list(&values, &book, &posts, &[], &StockData::default());
+        assert_eq!(list.posts, lines.iter().map(|l| l.count).sum::<i64>());
+    }
+
+    #[test]
+    fn an_item_counts_what_the_notes_and_what_the_ships_plan_apart_and_a_tick_or_a_purchase_counts_nothing() {
+        let (values, book, data) = planning_fleet();
+        let lines = plan_lines(&data, &values, &book, Some(&two_ships_slots));
+        let counts = plan_counts(&book, &lines);
+        let of = |name: &str| {
+            let at = book.items.iter().position(|item| item.name == name).expect("item");
+            counts.get(&at).copied().unwrap_or_default()
+        };
+        assert_eq!(of("Alpha"), PlanCount { notes: 3, ships: 2 }, "a note by its name, the ships by the identifier");
+        assert_eq!(of("Beta"), PlanCount { notes: 2, ships: 0 }, "the part bought on the ship is not planned");
+        assert_eq!(of("Gamma"), PlanCount::default(), "the ticked-off part is not planned");
+        assert_eq!(of("Alpha").total(), 5);
+        // The sums over all items are the sum over all lines: no part is lost on the way to its item.
+        let all: i64 = counts.values().map(PlanCount::total).sum();
+        assert_eq!(all, lines.iter().map(|l| l.count).sum::<i64>());
     }
 
     #[test]

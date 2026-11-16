@@ -440,7 +440,7 @@ pub(crate) mod tests {
 
     pub(crate) fn paths(dir: &TestDir, extra: &[(&str, &str)]) -> Paths {
         let home = dir.path().to_string_lossy().into_owned();
-        let mut vars = vec![(crate::legacy::ENV_HOME, home.as_str())];
+        let mut vars = vec![(crate::envvars::ENV_HOME, home.as_str())];
         vars.extend_from_slice(extra);
         Paths::new(Host::new(Flavor::native(), &vars, &home))
     }
@@ -550,7 +550,7 @@ pub(crate) mod tests {
         let online = paths(&dir, &[]);
         let gate = quick();
         search_with(&gate, &online, &site(), "Musterpilot", false, 1000.0).expect("found");
-        let offline = paths(&dir, &[(crate::legacy::ENV_NO_NET, "1")]);
+        let offline = paths(&dir, &[(crate::envvars::ENV_NO_NET, "1")]);
         let net = site();
         let found = search_with(&gate, &offline, &net, "Musterpilot", true, 1000.0 + 90.0 * DAY).expect("kept");
         assert!(!found.live);

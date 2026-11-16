@@ -293,7 +293,7 @@ mod tests {
         use crate::pypath::Flavor;
         let home = "/home/test";
         let at = |vars: &[(&str, &str)]| {
-            let mut all = vec![(crate::legacy::ENV_HOME, home)];
+            let mut all = vec![(crate::envvars::ENV_HOME, home)];
             all.extend_from_slice(vars);
             file(&Paths::new(Host::new(Flavor::Posix, &all, home)))
         };

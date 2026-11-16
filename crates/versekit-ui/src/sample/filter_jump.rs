@@ -415,6 +415,10 @@ fn every_setting_row_of_every_page_is_found_by_its_name_in_the_menu_filter() {
             let _ = crate::settings::column_log::take_names();
             window.frames(8);
             let mut names = crate::settings::column_log::take_names();
+            // A page that is not there (no connection) shows the blueprint list instead: its rows count there.
+            if window.page.page_key() != *key {
+                continue;
+            }
             names.sort();
             names.dedup();
             // The row at the top of the page Grafik tells what waits to be written: a state, not a setting.

@@ -308,7 +308,7 @@ mod tests {
     fn paths_in(name: &str) -> (Dir, Paths) {
         let folder = Dir::new(name);
         let text = folder.path().to_string_lossy().into_owned();
-        let host = Host::new(Flavor::Posix, &[("SC_BP_HOME", &text)], &text);
+        let host = Host::new(Flavor::Posix, &[("VERSEKIT_HOME", &text)], &text);
         (folder, Paths::new(host))
     }
 

@@ -1645,7 +1645,7 @@ impl World {
     }
 
     /// The refinery change set: `create`, `update` of the timer, `pickup` without store lines, by the rules of the
-    /// resource (keys, counters, refineries, raw inputs, units). Store lines are refused: Verse-Kit never sends them.
+    /// resource (keys, counters, refineries, raw inputs, units). Store lines are refused: VerseKit never sends them.
     fn change_refinery(&mut self, body: &Value) -> Response {
         let (mut applied, mut unchanged) = (0, 0);
         let mut report = Vec::new();

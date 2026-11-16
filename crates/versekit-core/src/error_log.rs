@@ -224,7 +224,7 @@ mod tests {
 
     fn log_in(folder: &std::path::Path) -> Paths {
         let dir = folder.to_string_lossy().to_string();
-        let home = [("SC_BP_HOME", dir.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
+        let home = [("VERSEKIT_HOME", dir.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
         Paths::new(Host::new(Flavor::native(), &home, "/"))
     }
 

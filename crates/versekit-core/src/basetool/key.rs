@@ -158,17 +158,17 @@ impl KeyVault for StoredKey {
     }
 }
 
-/// Name of the Windows key: test runs give theirs (`legacy::ENV_BASETOOL_KEYNAME`)
+/// Name of the Windows key: test runs give theirs (`crate::envvars::ENV_BASETOOL_KEYNAME`)
 /// and clean it up, never touching the player's.
 pub fn key_name(host: &crate::paths::Host) -> String {
-    host.var(crate::legacy::ENV_BASETOOL_KEYNAME)
+    host.var(crate::envvars::ENV_BASETOOL_KEYNAME)
         .map(crate::text::py_strip)
         .filter(|n| !n.is_empty())
         .unwrap_or(KEY_NAME)
         .to_string()
 }
 
-/// Whether the key has a name of its own (`legacy::ENV_BASETOOL_KEYNAME`, not [`KEY_NAME`]): it is not the key
+/// Whether the key has a name of its own (`crate::envvars::ENV_BASETOOL_KEYNAME`, not [`KEY_NAME`]): it is not the key
 /// of the player's installation.
 pub fn own_key_name(host: &crate::paths::Host) -> bool {
     key_name(host) != KEY_NAME

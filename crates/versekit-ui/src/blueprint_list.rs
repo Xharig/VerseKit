@@ -81,6 +81,9 @@ pub struct ListData {
     pub catalog: CatalogCache,
     /// Keys of the blueprints one has.
     pub have: HashSet<String>,
+    /// The names of the blueprints of the collection, sorted: what the list shows while there is no catalog to
+    /// put them in ([`owned_without_catalog`]).
+    pub owned: Vec<String>,
     /// When and from where each blueprint of the collection came, by key (entries with a readable time).
     pub received: HashMap<String, (i64, String)>,
     /// Keys of the blueprints on the watch list (clicked stars).
@@ -116,6 +119,9 @@ pub struct ListData {
     /// Where the catalog comes from, to take a newer one over ([`ListData::follow_catalog`]); `None` for a list
     /// with a catalog given.
     follow: Option<Follow>,
+    /// Who in the orgs that show has which blueprint, by key: a badge on the row, the names in the open row and a
+    /// state of the filter. Nothing of it changes the own list.
+    org_blueprints: std::sync::Arc<crate::org_data::BlueprintIndex>,
 }
 
 /// How often the list looks whether the catalog file or the archive changed, in seconds.
@@ -159,10 +165,32 @@ fn collection_stamp(paths: &Paths) -> Option<(std::time::SystemTime, u64)> {
 }
 
 impl ListData {
+    /// Who in the orgs has which blueprint, from now on shown in the list.
+    pub fn set_org_blueprints(&mut self, index: std::sync::Arc<crate::org_data::BlueprintIndex>) {
+        self.org_blueprints = index;
+    }
+
+    /// The names and sources of the own collection, for sharing it with an org; read from the file when asked, never
+    /// in a frame. The sample list gives its own names.
+    pub fn collection_entries(&self) -> Vec<(String, String)> {
+        let Some(paths) = &self.paths else {
+            return self.owned.iter().map(|name| (name.clone(), "log".to_string())).collect();
+        };
+        let Ok(Value::Object(data)) = jsonio::read_json(&paths.app_file(collection::FILE_NAME)) else {
+            return Vec::new();
+        };
+        let text = |entry: &Value, key: &str| match entry.get(key) {
+            Some(Value::Str(text)) => text.clone(),
+            _ => String::new(),
+        };
+        collection::blueprints(&data).iter().map(|(_, entry)| (text(entry, "name"), text(entry, "quelle"))).collect()
+    }
+
     pub fn new(catalog: CatalogCache, have: HashSet<String>, watched: HashSet<String>, noted: HashSet<String>) -> Self {
         let mut data = ListData {
             catalog,
             have,
+            owned: Vec::new(),
             received: HashMap::new(),
             watched,
             observations: Vec::new(),
@@ -181,6 +209,7 @@ impl ListData {
             collection_seen: None,
             collection_looked: None,
             follow: None,
+            org_blueprints: std::sync::Arc::default(),
         };
         data.derive();
         data
@@ -386,6 +415,7 @@ impl ListData {
     /// What one has and when it came, from the blueprints of a collection.
     fn take_collection(&mut self, data: &jsonio::Map) {
         self.have = collection::keys(data).into_iter().collect();
+        self.owned = collection::names(data);
         self.received = received_by_key(collection::blueprints(data));
     }
 
@@ -441,11 +471,13 @@ impl ListData {
         let read = |file: &str| jsonio::read_json(&paths.app_file(file)).ok();
         // Taken before the reading: a write in between is seen at the next look.
         let seen = collection_stamp(paths);
-        let (have, received) = match read(collection::FILE_NAME) {
-            Some(Value::Object(map)) => {
-                (collection::keys(&map).into_iter().collect(), received_by_key(collection::blueprints(&map)))
-            }
-            _ => (HashSet::new(), HashMap::new()),
+        let (have, received, owned) = match read(collection::FILE_NAME) {
+            Some(Value::Object(map)) => (
+                collection::keys(&map).into_iter().collect(),
+                received_by_key(collection::blueprints(&map)),
+                collection::names(&map),
+            ),
+            _ => (HashSet::new(), HashMap::new(), Vec::new()),
         };
         let watch = read(WATCH_FILE);
         let watched = match watch.as_ref().and_then(|w| w.get("namen")) {
@@ -476,6 +508,7 @@ impl ListData {
         let mut data = ListData::new(catalog, have, watched, noted);
         data.collection_seen = seen;
         data.received = received;
+        data.owned = owned;
         data.hide_no_way = hide_no_way;
         data.observations = observations;
         data.watch_file = Some(paths.app_file(WATCH_FILE));
@@ -983,6 +1016,7 @@ fn fits_state(data: &ListData, i: usize, s: usize) -> bool {
         4 => data.noted.contains(&slim(&blueprint.name)),
         5 => !data.catalog.version.is_empty() && blueprint.since.as_deref() == Some(data.catalog.version.as_str()),
         6 => !have && data.caps.contains_key(&blueprint.key),
+        7 => data.org_blueprints.holders(&blueprint.key).is_some(),
         _ => true,
     }
 }
@@ -1126,11 +1160,58 @@ pub fn empty_notice(ui: &mut Ui, scheme: &Scheme, data: &ListData) -> bool {
     }
     if data.is_building() {
         widgets::empty_state(ui, scheme, "clock", &t("kat_baut"));
-        ui.label(RichText::new(t("kat_baut_hilfe")).small().color(color(scheme.sub)));
+        ui.label(RichText::new(wait_hint(data)).small().color(color(scheme.sub)));
     } else {
         no_catalog(ui, scheme);
     }
+    owned_without_catalog(ui, scheme, data);
     true
+}
+
+/// What the build of the catalog waits for, as the hint under "is being built": the game that has to be closed, the
+/// launcher that has to finish; else the plain "takes a moment".
+fn wait_hint(data: &ListData) -> String {
+    let reason = data.paths().and_then(|paths| {
+        let archive: Option<std::path::PathBuf> =
+            data.follow.as_ref().and_then(|follow| follow.archive.clone()).or_else(|| paths.archive_file().map(Into::into));
+        versekit_core::archive_lock::wait_reason(paths, archive.as_deref())
+    });
+    t(wait_hint_key(reason))
+}
+
+/// The text key of the hint for what is waited for.
+fn wait_hint_key(reason: Option<versekit_core::archive_lock::WaitReason>) -> &'static str {
+    use versekit_core::archive_lock::WaitReason;
+    match reason {
+        Some(WaitReason::GameRunning) => "s_vk_wartet_spiel",
+        Some(WaitReason::LauncherPatching) => "s_vk_wartet_launcher",
+        None => "kat_baut_hilfe",
+    }
+}
+
+/// How many names of the collection the page shows while there is no catalog.
+const OWNED_SHOWN: usize = 300;
+
+/// The blueprints of the collection by name, marked "not in the catalog", while there is no catalog to list them in
+/// (it is being built, or none can be had): what one has collected does not vanish from the page.
+fn owned_without_catalog(ui: &mut Ui, scheme: &Scheme, data: &ListData) {
+    if data.owned.is_empty() {
+        return;
+    }
+    ui.add_space(12.0);
+    ui.label(
+        RichText::new(tf("s_vk_eigene_kopf", &[("0", Arg::from(data.owned.len()))])).strong().color(color(scheme.accent)),
+    );
+    let mark = t("s_be_nicht_kat");
+    egui::ScrollArea::vertical().id_salt("owned-without-catalog").auto_shrink([false, false]).show(ui, |list| {
+        for name in data.owned.iter().take(OWNED_SHOWN) {
+            list.label(RichText::new(format!("{name} · {mark}")).color(color(scheme.sub)));
+        }
+        if data.owned.len() > OWNED_SHOWN {
+            let more = tf("s_vk_eigene_mehr", &[("0", Arg::from(data.owned.len() - OWNED_SHOWN))]);
+            list.label(RichText::new(more).small().color(color(scheme.sub)));
+        }
+    });
 }
 
 pub fn show(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut ListState) {
@@ -1185,7 +1266,14 @@ pub fn show_at(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut Li
     // State toggles with counts over the other filters.
     let since = state.period.since(now);
     let passing: Vec<usize> = (0..total).filter(|&i| passes(data, state, i, &search, since)).collect();
-    let words: Vec<String> = STATES.iter().map(|k| t(k)).collect();
+    let mut words: Vec<String> = STATES.iter().map(|k| t(k)).collect();
+    // The state "the org has it" is there only while an org shows its blueprints.
+    if !data.org_blueprints.is_empty() {
+        words.push(t("s_od_filter_orga"));
+    }
+    if state.state >= words.len() {
+        state.state = 0;
+    }
     let counts: Vec<(&str, usize)> = words
         .iter()
         .enumerate()
@@ -1571,6 +1659,11 @@ fn row(
             if let Some(pool) = &blueprint.pool {
                 widgets::badge(right, scheme, scheme.blue, pool);
             }
+            // How many members of the orgs have it; the names stand in the open row.
+            if let Some(holders) = data.org_blueprints.holders(&blueprint.key) {
+                let text = tf("s_od_bp_orga", &[("n", Arg::from(holders.len() as i64))]);
+                widgets::badge(right, scheme, scheme.accent, &text);
+            }
             right.with_layout(Layout::left_to_right(Align::Center), |middle| {
                 let arrow = if open { "chevron-down" } else { "chevron-right" };
                 if let Some(image) = icons::themed(arrow, scheme, IconTint::Normal, 12.0) {
@@ -1643,6 +1736,10 @@ fn origin_detail(
             widgets::badge(line, scheme, scheme.accent, &ways);
         }
     });
+    if let Some(holders) = data.org_blueprints.holders(&blueprint.key) {
+        let text = tf("s_od_bp_wer", &[("names", Arg::from(holders.join(", ")))]);
+        ui.label(RichText::new(text).small().color(color(scheme.sub)));
+    }
     if !have && let Some((cap, rank)) = data.caps.get(&blueprint.key) {
         ui.horizontal(|line| {
             if let Some(image) = icons::image("triangle-alert", scheme.gold, 14.0) {
@@ -1933,7 +2030,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text));
         let mut data = ListData::new(CatalogCache::default(), HashSet::new(), HashSet::new(), HashSet::new());
         data.paths = Some(Paths::new(paths.host.clone()));
         data.reload_noted();
@@ -2001,7 +2098,7 @@ mod tests {
         let (Ok(channel), Ok(data)) = (std::env::var("VERSEKIT_KANAL"), std::env::var("VERSEKIT_DATEN")) else {
             return;
         };
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &data)], &data));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &data)], &data));
         let scratch = std::env::temp_dir().join(format!("versekit-katalog-echt-{}", versekit_core::testdir::run_tag()));
         std::fs::create_dir_all(&scratch).unwrap();
         let cache = scratch.join(list::CACHE_FILE).to_string_lossy().into_owned();
@@ -2149,7 +2246,7 @@ mod tests {
              {\"titel\": \"Helm\", \"muster\": [\"morozov\"]}], \"fremd\": 1}",
         )
         .unwrap();
-        let host = Host::new(Flavor::native(), &[("SC_BP_HOME", &dir_text)], &dir_text);
+        let host = Host::new(Flavor::native(), &[("VERSEKIT_HOME", &dir_text)], &dir_text);
         let mut data = from_cache(&Paths::new(host));
         let glacier = data.catalog.blueprints.iter().position(|b| b.name == "Glacier").unwrap();
         let arden = data.catalog.blueprints.iter().position(|b| b.name == "Arden Backpack").unwrap();
@@ -2205,7 +2302,7 @@ mod tests {
         .unwrap();
         let hangar = dir.join(FARM_FILE);
         std::fs::write(&hangar, "{\"format\": 1, \"schiffe\": [{\"name\": \"Cutlass\"}]}").unwrap();
-        let host = Host::new(Flavor::native(), &[("SC_BP_HOME", &dir_text)], &dir_text);
+        let host = Host::new(Flavor::native(), &[("VERSEKIT_HOME", &dir_text)], &dir_text);
         let mut data = from_cache(&Paths::new(host));
         let glacier = data.catalog.blueprints.iter().position(|b| b.name == "Glacier").unwrap();
 
@@ -2279,7 +2376,7 @@ mod tests {
         .unwrap();
         // A farm notes file that is no hangar is not overwritten: the write fails.
         std::fs::write(dir.join(FARM_FILE), "{\"format\": 2, \"schiffe\": {}}").unwrap();
-        let host = Host::new(Flavor::native(), &[("SC_BP_HOME", &dir_text)], &dir_text);
+        let host = Host::new(Flavor::native(), &[("VERSEKIT_HOME", &dir_text)], &dir_text);
         let mut data = from_cache(&Paths::new(host));
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -2329,7 +2426,7 @@ mod tests {
         let old = dir.join(export::FOLDER).join("scmdb-import-2026-09-13.json");
         std::fs::create_dir_all(old.parent().unwrap()).unwrap();
         std::fs::write(&old, "alt").unwrap();
-        let host = Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &dir_text)], &dir_text);
+        let host = Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &dir_text)], &dir_text);
         let paths = Paths::new(host);
         let mut data = from_cache(&paths);
         let glacier = data.catalog.blueprints.iter().position(|b| b.name == "Glacier").unwrap();
@@ -2376,7 +2473,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
-        Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text))
+        Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text))
     }
 
     /// Every text a frame drew.
@@ -2391,6 +2488,38 @@ mod tests {
         let mut out = Vec::new();
         shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut out));
         out
+    }
+
+    #[test]
+    fn a_blueprint_shows_how_many_members_of_the_org_have_it_and_the_state_the_org_has_it_filters() {
+        use versekit_core::language::{Choice, set_thread_language};
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut data = ListData::sample();
+        let mut state = ListState::default();
+        let plain = frame(&ctx, &mut data, &mut state);
+        assert!(!plain.iter().any(|s| s.starts_with("Orga hat:")), "nothing of the org without its data");
+        assert!(!plain.iter().any(|s| s.starts_with(&t("s_od_filter_orga"))), "no state of the filter either");
+        let blueprint = data.catalog.blueprints[1].clone();
+        let row = crate::org_data::made_up::blueprint(&blueprint.name, &["Vega", "Mira"]);
+        data.set_org_blueprints(std::sync::Arc::new(crate::org_data::BlueprintIndex::from_rows([&row])));
+        let shown = frame(&ctx, &mut data, &mut state);
+        assert!(shown.contains(&tf("s_od_bp_orga", &[("n", Arg::from(2))])), "the badge: {shown:?}");
+        assert!(shown.iter().any(|s| s.starts_with(&t("s_od_filter_orga"))), "the state of the filter stands there");
+        // The names stand in the open row only.
+        assert!(!shown.iter().any(|s| s.contains("Vega")));
+        state.open = Some(1);
+        let open = frame(&ctx, &mut data, &mut state);
+        assert!(open.contains(&tf("s_od_bp_wer", &[("names", Arg::from("Vega, Mira"))])), "{open:?}");
+        // The state narrows the list to what the org has, and falls back when the data are gone.
+        state.open = None;
+        state.state = 7;
+        assert_eq!(shown_keys(&data, &state).into_iter().collect::<Vec<_>>(), [blueprint.key.clone()]);
+        data.set_org_blueprints(std::sync::Arc::default());
+        frame(&ctx, &mut data, &mut state);
+        assert_eq!(state.state, 0, "without data a stored state of the org is not kept");
     }
 
     /// One frame of the list as the window runs it: take over a finished
@@ -2608,6 +2737,123 @@ mod tests {
         }
         assert_eq!(data.catalog, new);
         assert!(ListData::load_from(&paths, None, None).is_none(), "nothing to show and nothing coming: no list");
+    }
+
+    /// Paths of a throwaway data folder with variables of the made-up machine.
+    fn paths_with(name: &str, extra: &[(&str, &str)]) -> Paths {
+        use versekit_core::paths::Host;
+        use versekit_core::pypath::Flavor;
+
+        let dir = std::env::temp_dir().join(format!("versekit-katalog-{}-{name}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let text = dir.to_string_lossy().into_owned();
+        let mut vars = vec![(versekit_core::envvars::ENV_HOME, text.as_str())];
+        vars.extend_from_slice(extra);
+        Paths::new(Host::new(Flavor::native(), &vars, &text))
+    }
+
+    /// A list whose build has not ended: the sender ends it.
+    fn building_list(paths: &Paths) -> (ListData, std::sync::mpsc::Sender<()>) {
+        let (go, wait) = std::sync::mpsc::channel::<()>();
+        let new = sample_catalog();
+        let building = Pending::spawn(move || {
+            wait.recv().ok()?;
+            Some(new)
+        });
+        (ListData::load_from(paths, None, building).expect("a list while it is built"), go)
+    }
+
+    /// The hint under "is being built" says what the build waits for: that the game is closed, or that the launcher
+    /// is done; without a reason it says only that it takes a moment.
+    #[test]
+    fn the_page_says_what_the_build_waits_for() {
+        use versekit_core::archive_lock::WaitReason;
+        use versekit_core::language::{Choice, set_thread_language};
+
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut state = ListState::default();
+        // A log written just now in the game folder: the game runs, the build waits for it.
+        let game = std::env::temp_dir().join(format!("versekit-katalog-spiel-{}", versekit_core::testdir::run_tag()));
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(game.join("Game.log"), "").unwrap();
+        let folder = game.to_string_lossy().into_owned();
+        let running = paths_with(
+            "wartet-spiel",
+            &[(versekit_core::game_start::ENV_NO_PROCESS, "1"), (versekit_core::paths::ENV_INSTALL_DIR, folder.as_str())],
+        );
+        let (mut waiting, _go) = building_list(&running);
+        let texts = frame(&ctx, &mut waiting, &mut state);
+        assert!(texts.iter().any(|t| *t == t_de("kat_baut")), "{texts:?}");
+        assert!(texts.iter().any(|t| *t == t_de("s_vk_wartet_spiel")), "{texts:?}");
+        assert!(!texts.iter().any(|t| *t == t_de("kat_baut_hilfe")), "{texts:?}");
+        // A machine with nothing in the way: the plain hint.
+        let free = paths_with(
+            "wartet-nichts",
+            &[(versekit_core::game_start::ENV_NO_PROCESS, "1"), (versekit_core::paths::ENV_TEST_MACHINE, "x")],
+        );
+        let (mut going, _go) = building_list(&free);
+        let texts = frame(&ctx, &mut going, &mut state);
+        assert!(texts.iter().any(|t| *t == t_de("kat_baut_hilfe")), "{texts:?}");
+        assert!(!texts.iter().any(|t| *t == t_de("s_vk_wartet_spiel")), "{texts:?}");
+        // The launcher has its own words, in both languages.
+        assert_eq!(wait_hint_key(Some(WaitReason::LauncherPatching)), "s_vk_wartet_launcher");
+        assert_eq!(wait_hint_key(Some(WaitReason::GameRunning)), "s_vk_wartet_spiel");
+        assert_eq!(wait_hint_key(None), "kat_baut_hilfe");
+        assert!(t_de("s_vk_wartet_launcher").contains("Launcher"));
+        set_thread_language(Choice::En);
+        assert!(t("s_vk_wartet_launcher").contains("Launcher") && t("s_vk_wartet_launcher") != t_de("s_vk_wartet_launcher"));
+        set_thread_language(Choice::De);
+    }
+
+    /// Without a catalog (it is being built, or none can be had) the list shows the blueprints of the collection by
+    /// name, marked as not in the catalog, instead of an empty page.
+    #[test]
+    fn owned_blueprints_show_when_the_catalog_is_missing() {
+        use versekit_core::language::{Choice, set_thread_language};
+
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let paths = empty_paths("eigene-ohne-katalog");
+        let file = paths.app_file(collection::FILE_NAME);
+        std::fs::write(
+            &file,
+            r#"{"bauplaene": {"alpha rifle": {"name": "Alpha Rifle", "quelle": "game"}, "beta helmet": {"name": "Beta Helmet"}}}"#,
+        )
+        .unwrap();
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let mut state = ListState::default();
+        let (mut data, go) = building_list(&paths);
+        let mark = t_de("s_be_nicht_kat");
+        let texts = frame(&ctx, &mut data, &mut state);
+        assert!(texts.iter().any(|t| *t == format!("Alpha Rifle · {mark}")), "{texts:?}");
+        assert!(texts.iter().any(|t| *t == format!("Beta Helmet · {mark}")), "{texts:?}");
+        assert!(texts.iter().any(|t| t.contains("(2)") && t.contains("Baupläne")), "the count stands in the head: {texts:?}");
+        // No catalog and none coming: the same names stand under the plain notice.
+        let mut none = ListData::load_from(&paths, Some(CatalogCache::default()), None).expect("a list");
+        let texts = frame(&ctx, &mut none, &mut state);
+        assert!(texts.iter().any(|t| *t == t_de("kein_katalog")), "{texts:?}");
+        assert!(texts.iter().any(|t| *t == format!("Alpha Rifle · {mark}")), "{texts:?}");
+        // The catalog comes: the list is the list, the names are no longer put aside.
+        go.send(()).unwrap();
+        for _ in 0..1000 {
+            frame(&ctx, &mut data, &mut state);
+            if !data.is_building() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let texts = frame(&ctx, &mut data, &mut state);
+        assert!(!texts.iter().any(|t| *t == format!("Alpha Rifle · {mark}")), "{texts:?}");
+        // A collection without a name shows nothing of this.
+        let quiet = empty_paths("eigene-keine");
+        let (mut empty, _go) = building_list(&quiet);
+        let texts = frame(&ctx, &mut empty, &mut state);
+        assert!(!texts.iter().any(|t| t.contains(&mark)), "{texts:?}");
     }
 
     /// A build that fails leaves the list as it is; one without any catalog

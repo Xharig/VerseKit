@@ -717,7 +717,7 @@ mod tests {
         assert!(bench.page.pin_fault.is_some(), "a refusal shows as a fault");
         assert!(!bench.page.take_restart());
         assert_eq!(std::fs::read_to_string(data.join("einstellungen.json")).unwrap(), before, "nothing touched");
-        assert!(files_named(&folder, "Verse-Kit-vorher").is_empty(), "no copy of before for a refusal");
+        assert!(files_named(&folder, "VerseKit-vorher").is_empty(), "no copy of before for a refusal");
         let _ = std::fs::remove_dir_all(folder);
     }
 
@@ -741,7 +741,7 @@ mod tests {
         bench.click(&language::t("abbrechen"));
         finish(&mut bench);
         assert_eq!(std::fs::read_to_string(data.join("Bestand").join("x.json")).unwrap(), "neu");
-        assert!(files_named(&folder, "Verse-Kit-vorher").is_empty());
+        assert!(files_named(&folder, "VerseKit-vorher").is_empty());
         assert!(!bench.page.take_restart());
         // Yes: the old state is back, the new one lies aside, and the program is asked to start anew.
         bench.page.backup.phase = Phase::Opening(Pending::answered(Some(zip)));
@@ -749,7 +749,7 @@ mod tests {
         bench.click(&language::t("s_mu_rest_einspielen"));
         finish(&mut bench);
         assert_eq!(std::fs::read_to_string(data.join("Bestand").join("x.json")).unwrap(), "alt");
-        let aside = files_named(&folder, "Verse-Kit-vorher");
+        let aside = files_named(&folder, "VerseKit-vorher");
         assert_eq!(aside.len(), 1, "{aside:?}");
         assert!(bench.page.take_restart(), "the program starts anew");
         assert!(!bench.page.take_restart(), "once");
@@ -1067,7 +1067,7 @@ mod tests {
         until_phase(&mut bench, is_profiles);
         bench.click(&language::t("e_nein"));
         finish(&mut bench);
-        let copies = files_named(&folder, "Verse-Kit-vorher");
+        let copies = files_named(&folder, "VerseKit-vorher");
         assert_eq!(copies.len(), 1, "{copies:?}");
         assert_eq!(controls_in(&folder.join(&copies[0])), ALL_CONTROLS, "the controls of before are in the copy");
         let _ = std::fs::remove_dir_all(folder);

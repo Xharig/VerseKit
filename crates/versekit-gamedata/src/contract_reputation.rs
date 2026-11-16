@@ -65,7 +65,7 @@ pub fn from_catalogs(
     let contracts: Json = serde_json::from_slice(contracts)?;
     Ok(Contracts {
         parties: parties(&contracts, keys, &factions, &scopes, &Fixes::new(corrections, build)),
-        terms: versekit_core::injection::terms::summarize(&terms(&contracts, keys, &standings(&reputation))),
+        terms: versekit_core::injection::terms::summarize(&terms(&contracts, keys, &standings(&reputation), &factions)),
         regions: Map::new(),
     })
 }
@@ -294,11 +294,13 @@ pub(crate) fn parties(
 /// `canBeShared`, `canReacceptAfterAbandoning` and `canReacceptAfterFailing`. The personal cooldown counts only where
 /// `hasPersonalCooldown` is set.
 /// `standings` are the ranks of the reputation catalog ([`standings`]) the contracts name as `minStandingGuid` and
-/// `maxStandingGuid`.
+/// `maxStandingGuid`; `factions` the English names of the faction reputation records ([`names`]), for the faction
+/// that gives the contract ([`giver_name`]).
 pub fn terms(
     contracts: &Json,
     keys: &HashMap<String, ShownKeys>,
     standings: &HashMap<String, (String, i64)>,
+    factions: &HashMap<String, String>,
 ) -> Vec<(String, Terms)> {
     let rank = |contract: &Json, field: &str| {
         contract.get(field).and_then(Json::as_str).and_then(|guid| standings.get(&guid.to_ascii_lowercase())).cloned()
@@ -323,6 +325,7 @@ pub fn terms(
                 lowest: rank(contract, "minStandingGuid"),
                 highest: rank(contract, "maxStandingGuid"),
                 reward: fixed_reward(contract),
+                giver: giver_name(contract, factions),
             };
             // Every title the game may show, with every description it may show.
             let descriptions: Vec<Option<String>> = if descriptions.is_empty() {
@@ -356,6 +359,16 @@ fn fixed_reward(contract: &Json) -> Option<i64> {
         .filter_map(|reward| reward.get("amount").and_then(Json::as_i64))
         .collect();
     (!amounts.is_empty()).then(|| amounts.iter().sum())
+}
+
+/// The English name of the faction that gives a contract (`giverFaction` of the catalog): the name of its faction
+/// reputation record in `factions`, else the English display name the entry carries; `None` where the catalog names
+/// no giver or the giver has no English name.
+fn giver_name(contract: &Json, factions: &HashMap<String, String>) -> Option<String> {
+    let faction = contract.get("giverFaction").filter(|giver| !giver.is_null())?.get("faction")?;
+    let by_record = faction.get("guid").and_then(Json::as_str).and_then(|guid| factions.get(&guid.to_ascii_lowercase()));
+    let shown = || faction.get("displayName")?.get("en")?.as_str().filter(|name| !name.is_empty()).map(str::to_string);
+    by_record.cloned().or_else(shown)
 }
 
 /// The faction a correction of the contract's faction looks at: the one its first positive reputation gain is
@@ -448,9 +461,38 @@ mod tests {
         merits["fixedRewards"] = json!([{"currency": "MER", "amount": 3000, "max": 5000, "plusBonuses": false}]);
         let mut computed = entry("C", "@computed", json!([]));
         computed["fixedRewards"] = json!([]);
-        let found = terms(&catalog(json!([fixed, merits, computed])), &HashMap::new(), &HashMap::new());
+        let found = terms(&catalog(json!([fixed, merits, computed])), &HashMap::new(), &HashMap::new(), &HashMap::new());
         let rewards: Vec<(&str, Option<i64>)> = found.iter().map(|(title, t)| (title.as_str(), t.reward)).collect();
         assert_eq!(rewards, [("@fixed", Some(134_500)), ("@merits", None), ("@computed", None)]);
+    }
+
+    /// The giver is the faction `giverFaction` names, by the name of its record, else by the name the entry carries;
+    /// an entry without one, or with a giver without an English name, has none.
+    #[test]
+    fn the_giver_is_the_faction_the_catalog_names() {
+        let (factions, _) = tables();
+        let given = |debug: &str, title: &str, faction: Json| {
+            let mut one = entry(debug, title, json!([]));
+            one["giverFaction"] = faction;
+            one
+        };
+        let all = catalog(json!([
+            given("A", "@by_record", json!({"source": "handler", "faction": {"guid": "F2", "name": "b", "displayName": null}})),
+            given(
+                "B",
+                "@by_name",
+                json!({"source": "reputationResult", "faction": {"guid": "f9", "name": "z", "displayName": {"key": "@z", "en": "Zulu", "de": null}}})
+            ),
+            given("C", "@nameless", json!({"source": "handler", "faction": {"guid": "f3", "name": "c", "displayName": null}})),
+            given("D", "@none", Json::Null),
+            entry("E", "@missing", json!([])),
+        ]));
+        let found = terms(&all, &HashMap::new(), &HashMap::new(), &factions);
+        let givers: Vec<(&str, Option<&str>)> = found.iter().map(|(title, t)| (title.as_str(), t.giver.as_deref())).collect();
+        assert_eq!(
+            givers,
+            [("@by_record", Some("Beta")), ("@by_name", Some("Zulu")), ("@nameless", None), ("@none", None), ("@missing", None)]
+        );
     }
 
     /// An entry whose title the game takes from the contractor goes by the key it shows.

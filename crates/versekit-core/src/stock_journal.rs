@@ -1582,7 +1582,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("folder");
         let text = dir.to_string_lossy().into_owned();
-        let host = crate::paths::Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, text.as_str())], "/");
+        let host = crate::paths::Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, text.as_str())], "/");
         (dir, Paths::new(host))
     }
 
@@ -2004,7 +2004,6 @@ mod tests {
 
     mod file {
         use super::*;
-        use crate::legacy;
         use crate::paths::Host;
 
         fn login(handle: &str) -> String {
@@ -2029,7 +2028,7 @@ mod tests {
                 fs::create_dir_all(root.join("logs")).expect("folder");
                 let host = Host::new(
                     Flavor::native(),
-                    &[(legacy::ENV_HOME, root.join("home").to_str().expect("path"))],
+                    &[(crate::envvars::ENV_HOME, root.join("home").to_str().expect("path"))],
                     root.to_str().expect("path"),
                 );
                 Setup { paths: Paths::new(host), root }

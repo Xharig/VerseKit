@@ -461,7 +461,6 @@ pub fn adopt(trade: &mut Vec<Value>, proposal: &Proposal) -> Result<(), Refused>
 mod tests {
     use super::super::{Kind, Movement};
     use super::*;
-    use crate::legacy;
     use crate::paths::Host;
     use crate::pypath::Flavor;
     use crate::stock::{cost_of, number_of};
@@ -962,7 +961,7 @@ mod tests {
             .replace('\\', "/");
         let _ = std::fs::remove_dir_all(&home);
         std::fs::create_dir_all(&home).expect("folder");
-        let host = Host::new(Flavor::native(), &[(legacy::ENV_HOME, &home)], &home);
+        let host = Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, &home)], &home);
         (home, Paths::new(host))
     }
 

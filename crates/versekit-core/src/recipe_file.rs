@@ -266,7 +266,7 @@ fn current_for(data: &Value, build: &str) -> Option<usize> {
 /// `crafting.update`: fetch the recipes of the current build when the file lacks them, or holds another build.
 /// The products come from a fetch of their own: when it fails the recipes are written anyway with the products the
 /// file held before (none without a file), and the build is marked as one without products, so it counts as
-/// current until the next build. Nothing with `SC_BP_NO_NET`.
+/// current until the next build. Nothing with `VERSEKIT_NO_NET`.
 ///
 /// # Errors
 ///

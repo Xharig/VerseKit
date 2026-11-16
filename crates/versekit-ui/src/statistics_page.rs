@@ -69,6 +69,8 @@ pub enum Page {
     Missions,
     Quantum,
     Stability,
+    /// The flight log; it has its own file and its own state (`flugbuch_page`).
+    Flight,
 }
 
 impl Page {
@@ -80,6 +82,7 @@ impl Page {
             "hf_st_auftraege" => Page::Missions,
             "hf_st_quantum" => Page::Quantum,
             "hf_st_stabil" => Page::Stability,
+            "hf_st_flugbuch" => Page::Flight,
             _ => return None,
         })
     }
@@ -91,6 +94,7 @@ impl Page {
             Page::Missions => "s_sm_lead",
             Page::Quantum => "s_sq_lead",
             Page::Stability => "s_sb_lead",
+            Page::Flight => "s_flb_lead",
         }
     }
 }
@@ -424,6 +428,8 @@ pub struct StatsState {
     refreshed: Option<f64>,
     /// A run the user started is on: the buttons wait, a line says so.
     working: Option<Job>,
+    /// The flight log: its own files, its own loading.
+    flight: crate::flugbuch_page::FlightState,
     dialog: Option<file_dialog::Pending>,
     /// Said by the last run or export, taken by the window.
     notice: Option<String>,
@@ -443,6 +449,7 @@ impl StatsState {
             last_page: None,
             refreshed: None,
             working: None,
+            flight: crate::flugbuch_page::FlightState::sample(),
             dialog: None,
             notice: None,
         }
@@ -451,7 +458,12 @@ impl StatsState {
     /// The state for the data folder of `paths`: the first look reads the
     /// saved state in the background.
     pub fn of(paths: &Paths) -> StatsState {
-        StatsState { host: Some(paths.host.clone()), report: None, ..StatsState::sample() }
+        StatsState {
+            host: Some(paths.host.clone()),
+            report: None,
+            flight: crate::flugbuch_page::FlightState::of(paths),
+            ..StatsState::sample()
+        }
     }
 
     /// Is this made-up?
@@ -790,55 +802,75 @@ fn times(n: i64) -> String {
 /// One cell of a table: text and its color (the usual if none).
 type Cell = (String, Option<Color>);
 
-/// A plain table: bold head, stripes, no click. The first column takes the
-/// room and is cut with "…" where it is too long.
+/// The room to the left and right of the text of a cell of a table.
+const CELL_PAD: f32 = 8.0;
+/// The narrowest a column of numbers and the widest-cell-less first column are.
+const NUMBER_COLUMN_LEAST: f32 = 60.0;
+const FIRST_COLUMN_LEAST: f32 = 90.0;
+const HEAD_HEIGHT: f32 = 24.0;
+const ROW_HEIGHT: f32 = 22.0;
+
+/// A plain table: bold head, stripes, no click. The columns after the first are as wide as their widest cell;
+/// the first takes the rest and wraps where a text is longer, so a row is as tall as its text needs and nothing is
+/// cut with "…".
 ///
 /// `numbers` marks the columns of numbers: they stand at the right.
 fn table(ui: &mut Ui, id: &str, headers: &[String], rows: &[Vec<Cell>], numbers: &[bool]) {
     let at_right = |column: usize| numbers.get(column).copied().unwrap_or(false);
-    let place = |column: usize, ui: &mut Ui, label: egui::Label| {
-        // Only the first column is cut: the others are as wide as their widest cell, and a label that may be cut
-        // reports no width of its own to size them by.
-        let label = if column == 0 { label.truncate() } else { label };
-        if at_right(column) {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.add(label));
-        } else {
-            ui.add(label);
-        }
+    let one_line = |text: &str, strong: bool| {
+        let rich = if strong { RichText::new(text).strong() } else { RichText::new(text) };
+        widgets::one_line_width(ui, rich, TextStyle::Body)
     };
-    let mut builder = egui_extras::TableBuilder::new(ui)
-        .id_salt(id)
-        .striped(true)
-        .vscroll(false)
-        .cell_layout(egui::Layout::left_to_right(egui::Align::Center));
-    for index in 0..headers.len() {
-        builder = if index == 0 {
-            builder.column(egui_extras::Column::remainder().at_least(90.0).clip(true))
-        } else {
-            builder.column(egui_extras::Column::auto().at_least(60.0))
-        };
-    }
-    builder
-        .header(24.0, |mut header| {
-            for (column, text) in headers.iter().enumerate() {
-                header.col(|ui| place(column, ui, egui::Label::new(RichText::new(text).strong())));
-            }
+    let others: Vec<f32> = (1..headers.len())
+        .map(|column| {
+            let widest = rows
+                .iter()
+                .filter_map(|cells| cells.get(column))
+                .map(|(text, _)| one_line(text, false))
+                .fold(one_line(&headers[column], true), f32::max);
+            (widest + 2.0 * CELL_PAD).max(NUMBER_COLUMN_LEAST)
         })
-        .body(|mut body| {
-            for cells in rows {
-                body.row(22.0, |mut row| {
-                    for (column, (text, tone)) in cells.iter().enumerate() {
-                        row.col(|ui| {
-                            let rich = match tone {
-                                Some(tone) => RichText::new(text).color(color(*tone)),
-                                None => RichText::new(text),
-                            };
-                            place(column, ui, egui::Label::new(rich));
-                        });
-                    }
-                });
+        .collect();
+    let first = (ui.available_width() - others.iter().sum::<f32>()).max(FIRST_COLUMN_LEAST);
+    let widths: Vec<f32> = std::iter::once(first).chain(others).collect();
+    let first_text = first - 2.0 * CELL_PAD;
+    ui.push_id(id, |ui| {
+        let line = |ui: &mut Ui, height: f32, stripe: bool, cells: Vec<RichText>| {
+            let (rect, _) = ui.allocate_exact_size(egui::vec2(widths.iter().sum(), height), egui::Sense::hover());
+            if stripe {
+                ui.painter().rect_filled(rect, 0.0, ui.visuals().faint_bg_color);
             }
-        });
+            let mut left = rect.min.x;
+            for (column, (rich, width)) in cells.into_iter().zip(&widths).enumerate() {
+                let spot = egui::Rect::from_min_size(
+                    egui::pos2(left + CELL_PAD, rect.min.y),
+                    egui::vec2(width - 2.0 * CELL_PAD, height),
+                );
+                left += width;
+                let layout = if at_right(column) {
+                    egui::Layout::right_to_left(egui::Align::Center)
+                } else {
+                    egui::Layout::left_to_right(egui::Align::Center)
+                };
+                let mut cell = ui.new_child(egui::UiBuilder::new().max_rect(spot).layout(layout));
+                cell.set_clip_rect(spot.intersect(ui.clip_rect()));
+                cell.add(egui::Label::new(rich).wrap());
+            }
+        };
+        line(ui, HEAD_HEIGHT, false, headers.iter().map(|text| RichText::new(text).strong()).collect());
+        for (n, cells) in rows.iter().enumerate() {
+            let text = cells.first().map_or("", |(text, _)| text.as_str());
+            let height = (widgets::wrapped_height(ui, RichText::new(text), first_text, TextStyle::Body) + 6.0).max(ROW_HEIGHT);
+            let rich = cells
+                .iter()
+                .map(|(text, tone)| match tone {
+                    Some(tone) => RichText::new(text).color(color(*tone)),
+                    None => RichText::new(text),
+                })
+                .collect();
+            line(ui, height, n % 2 == 1, rich);
+        }
+    });
 }
 
 /// "Zu den Zahlen": what the figures mean and what they do not know.
@@ -870,6 +902,10 @@ fn moment(lang: Lang, seconds: i64) -> String {
 
 /// Draws a page. Returns what it wants said in the corner of the window.
 pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, page: Page) -> Option<String> {
+    // The flight log reads no log of the evaluation: its own state loads its own files.
+    if page == Page::Flight {
+        return crate::flugbuch_page::show(ui, scheme, &mut state.flight);
+    }
     state.poll();
     state.finish_export();
     let now = ui.input(|i| i.time);
@@ -900,6 +936,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, page: Page) ->
         Page::Missions => missions(ui, scheme, &report, lang),
         Page::Quantum => quantum(ui, scheme, &report),
         Page::Stability => stability(ui, scheme, &report, lang),
+        Page::Flight => {}
     }
     state.take_notice()
 }
@@ -1419,7 +1456,7 @@ mod tests {
     use egui::Pos2;
     use versekit_core::jsonio::Value;
     use versekit_core::language::{Choice, set_thread_language};
-    use versekit_core::legacy::ENV_HOME;
+    use versekit_core::envvars::ENV_HOME;
     use versekit_core::paths::ENV_INSTALL_DIR;
     use versekit_core::pypath::Flavor;
     use versekit_core::theme;

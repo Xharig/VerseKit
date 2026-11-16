@@ -324,7 +324,7 @@ impl DemoSync {
     /// reach `folder` through it); only `folder` is ever written.
     pub fn new(folder: &str, waker: Waker, own_account: Option<String>, worker: bool) -> DemoSync {
         let mut host = Host::current();
-        host.set_var(crate::legacy::ENV_HOME, folder);
+        host.set_var(crate::envvars::ENV_HOME, folder);
         let paths = Arc::new(Paths::new(host));
         let demo = Arc::new(DemoBasetool::new());
         let clock = crate::basetool::connection::system_clock();
@@ -1235,7 +1235,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("versekit-orgstock-pass-{}", crate::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
         let data = dir.to_string_lossy();
-        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::legacy::ENV_HOME, &data)], &data);
+        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::envvars::ENV_HOME, &data)], &data);
         let paths = Arc::new(crate::paths::Paths::new(host));
         assert!(paths.set_setting(SETTING_ORGSTOCK, Value::Bool(true)));
         let demo = Arc::new(DemoBasetool::new());

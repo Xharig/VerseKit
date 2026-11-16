@@ -732,7 +732,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("Ordner");
         let home = dir.to_string_lossy().into_owned();
-        let host = crate::paths::Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, home.as_str())], &home);
+        let host = crate::paths::Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, home.as_str())], &home);
         (Paths::new(host), dir)
     }
 

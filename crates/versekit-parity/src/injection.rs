@@ -22,7 +22,7 @@
 //! `versekit-parity einspielung <szenario> <global.ini> <sprachordner> <schritt> [<fassung>]`
 //!
 //! `<szenario>` holds the data folder `daten` (the 4.12 files, flat like
-//! `SC_BP_HOME`) and the copy of the game folder; nothing outside it is
+//! `VERSEKIT_HOME`) and the copy of the game folder; nothing outside it is
 //! written. Steps: `einspielen`, `entfernen`, `frisch` (as after placing a
 //! new base file), `aufraeumen` (reset a file the note points elsewhere).
 
@@ -34,8 +34,8 @@ pub fn run(scenario: &str, ini: &str, language: &str, step: &str, version: &str)
     let data = format!("{scenario}/daten");
     let mut host = Host::current();
     host.registry = false;
-    host.set_var("SC_BP_HOME", &data);
-    host.set_var("SC_BP_NO_NET", "1");
+    host.set_var("VERSEKIT_HOME", &data);
+    host.set_var("VERSEKIT_NO_NET", "1");
     let paths = Paths::new(host);
     writeguard::deny(true);
     writeguard::allow_under(Some(scenario));

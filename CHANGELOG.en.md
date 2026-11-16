@@ -6,6 +6,212 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.4.0 - 2026-11-16
+
+> VerseKit connects to your org's panel and shows its stock, blueprints and
+> orders next to your own. The flight log comes with
+> it, and it is called VerseKit everywhere now, program file and data folder
+> included. Coming from 4.12, start VerseKit once after the update from the
+> shortcut in the Start menu or on the desktop.
+
+### New
+
+- **Flight log:** A new page under "Statistics". For every session the
+  flight log writes down what happened and in which order: game start and
+  end, changes of place, targets chosen, own quantum jumps, changes of
+  server, lost connections, injuries and deaths, plus your contracts and the
+  blueprints they brought. You choose a session, switch kinds of events on
+  and off and search the timeline. Deaths are presumed: the game writes no
+  line of its own for them, VerseKit recognises them by the body that stays
+  behind. A jump counts only if it was made in your own ship; as a passenger
+  it is missing. The flight log stays on your computer and sends nothing.
+  If you want to hand a flight on, you export it yourself as text or JSON
+  (clipboard or file, with a preview). The export holds only the time (UTC),
+  kind, place names, ship class, contract title, result and blueprint names,
+  never shard, handle or numbers.
+- **Planned parts in Crafting:** Below the fabricator jobs stands a folded
+  card "Planned" with everything you plan: the farm notes and the parts of
+  the ships in the hangar and on the wish list, grouped by where they come
+  from. You change the notes right there (less, more, strike, with undo); the
+  parts of the ships belong to the hangar and are only read, a link leads
+  there. Below it stands what material is still missing, and a button to
+  "What to farm". In the list every part shows how often you planned
+  it already ("◆ 3×", with the share of the ships on hover), the switch
+  "Planned" shows only those parts, and the part itself has a row "Planned"
+  to change the count. VerseKit remembers whether the card is open or folded.
+  (Wish of Aeternitas26)
+- **Connect org:** Under Settings › Connect org, VerseKit connects to your
+  org's panel through the open org standard (versekit-org v1). Enter the
+  address, confirm the code in the org's browser page and choose yourself
+  which rights VerseKit gets; check and end the connection. Without a
+  connection nothing of it shows.
+- **Your org's data in VerseKit:** Under Settings › Connect org you switch on,
+  per org and area (off from the start), what VerseKit shows: the org's
+  stock, blueprints and orders, as far as you gave the right on the panel.
+  The stock stands on the new page "Org stock" (search, filters, total per
+  good) and next to your materials in Crafting and "What I need to farm"; it
+  never changes your numbers. In the blueprint list a badge shows how many
+  members have a blueprint (with a filter and the names in the open row),
+  and Crafting says it where a blueprint is missing. The new page "Org
+  orders" shows the orders with their progress and books a delivery on
+  request, at most once, even if you click again after a network error.
+  Sharing never happens by itself: "Share stock" and "Share my blueprints"
+  first show on a card what goes out and what does not (prices, stolen goods,
+  names VerseKit does not know for sure, starting blueprints), and the org
+  replaces with it what it has of you. "Stop sharing" deletes it there. The
+  org's data stay in memory only; with `VERSEKIT_NO_NET` VerseKit asks no org
+  (except a test server on your own computer).
+- **For orgs:** a description of the standard to build into your own panel,
+  a ready org server to host yourself (own version line from 1.0.0, with an
+  administration for the org's leadership) and the checking tool
+  versekit-orgcheck.
+
+### Improved
+
+- **My Stock, keyboard:** After a booking the cursor goes back to the first
+  field ("Goods", "Material" or "Item"). Tab goes from the amount straight to
+  the quality; the SCU/cSCU switch comes after it and stays reachable with the
+  mouse. The X in the fields is no longer a stop of the Tab key; a field is
+  emptied from the keyboard with Ctrl+A and Delete.
+- **Buy & Sell, the amount calculates:** The amount field when selling
+  calculates like My Stock: "4.5" is the amount, "30+2" is worked out, "+8" and
+  "-2" book onto the amount that lies in My Stock. Enter replaces the sum with
+  its result. This holds for SCU, cSCU and pieces; for pieces the result stays
+  whole and the page says so.
+- **Refinery scan reads more surely:** VerseKit now brings the digits of the
+  terminal font along. New players do not have to teach them first for the
+  slashed zero 0 to be told from the 8; what you teach yourself comes first.
+  Cells in which the recognition found no number at all (often the yield) are
+  now read again at their place with these digits instead of staying empty. On
+  a test set of 35 jobs, with the digits learned each time from the other
+  jobs, 207 instead of 190 of 268 lines are fully right, and 126 instead of
+  110 of the 147 bookable ones; fields read wrong go from 13 to 10. The numbers
+  hold for this set and the font of the game, not for every screen.
+- **Places of the raw materials from the game data:** Where a raw material
+  lies, VerseKit now reads from the game data of your installation (moons,
+  planets and the points of the asteroid fields), no longer only from
+  scmdb.net. The Farm and Mining pages show the same places. The Farm page
+  says in small print where they come from and names raw materials with no
+  known place instead of showing nothing. At the Lagrange points the game
+  knows more points than scmdb.net. It is read once after each patch in the
+  background, while the game is closed; without game data scmdb.net stays the
+  source.
+- **"What to farm" slimmer:** The card "Planned" now stands in
+  Crafting; the farm page shows in its head how many parts are planned (the
+  same number as the card) and has a button "To Crafting". The parts of your
+  ships were in the sum already but not in the list; now both are the same
+  calculation.
+- **Quicker between related pages:** On the blueprint list a button leads to
+  the progress, and one leads back to the list from there. In Crafting the
+  card "Planned" has a button to the farm page.
+- **Blueprint detection without a page of its own:** The page "Blueprint
+  detection" is gone, and nothing of it is lost. The card "Detected message"
+  now stands in Settings › General below the cards for the account and foreign
+  blueprints. "Refresh catalogue" stays on the blueprint list, and the button
+  "Detection in settings" leads from there to the settings. A pinned card or
+  start page that pointed to the old page opens Settings › General.
+- **"Build now":** The field next to "Build" in Crafting is now called
+  "Build now". The number in it counts for building and for planning alike.
+- **Type the quality as a number:** In My Hangar › Equipment & cart, every
+  quality slider of a built part now has an input field to its right. Type a
+  number from 0 to 1000 (for example a round 750) and confirm with Enter or
+  leave the field; the slider and the number always show the same value.
+  Anything but a number from 0 to 1000 is not taken and the field goes back to
+  the old value; Escape throws the input away. (Suggested by Aeternitas26)
+- **Contract region without scmdb too:** The "# Region" line in the contract
+  notes now also comes from the game data for contracts that no offering place
+  fixes (for example the Wikelo contracts). For this VerseKit reads the
+  location queries of the contracts and names the systems and planets they
+  lead to; the destinations therefore show in the region as well. The region
+  is there without internet too, scmdb.net only adds what the game data do
+  not give. The catalog rebuilds once after the update.
+- **VerseKit everywhere:** The program file is now called `VerseKit.exe`
+  (before `SC-BP-Watcher.exe`). The installer closes both, replaces the old
+  file and points the start with Windows to the new one. The data folder under
+  "Documents" is now called `VerseKit`; VerseKit renames it only when that is
+  safe (same drive, not in OneDrive, the new name is free, the settings can be
+  read), otherwise it keeps its old name and VerseKit says so. No data is ever
+  lost. After the move, version 5.2 or earlier no longer finds the folder. The
+  name is now also written as one word, without a hyphen, everywhere in texts,
+  guides and on the website; the line "formerly SC BP Watcher" is gone. New
+  backups are called `VerseKit-Sicherung-…`; older ones named
+  `Verse-Kit-Sicherung-…` are still recognised and restored, and keep their
+  names.
+- **Set up once more:** Windows remembers the path of the program file. If you
+  pinned it to the taskbar or set up a firewall rule, an antivirus exclusion
+  or controlled folder access for it, set that up once more for
+  `VerseKit.exe`. SmartScreen does not know the new file name yet and may ask
+  once.
+- **Environment variables with `VERSEKIT_`:** Variables for your own tests now
+  begin with `VERSEKIT_`, for example `VERSEKIT_NO_NET`. The old names still
+  work as long as the new one is not set.
+- **Uninstall:** It removes your data under every name VerseKit has ever had.
+
+### Fixed
+
+- **My Stock, entering goods:** The entry by hand now knows every good of the
+  catalog, also those without a buy price such as "Recycled Material
+  Composite" or "Scrap" (Reported by Horthy, Freilanze). The abbreviation
+  "RMC" finds the good by the first letters of its words; this holds for every
+  suggestion field, from three letters on.
+- **Blueprint list stayed empty when one channel folder points to another:**
+  If a channel folder (for example HOTFIX) is a link to the folder of another
+  (LIVE), both now count as one channel, LIVE first. VerseKit also recognises
+  the same game file when its path is written differently (case, slashes); so
+  the catalog built last stands in while the game runs or the launcher
+  patches, and the list is not left empty. While the build waits, the page now
+  says what for (the end of the game, or the launcher), and your collected
+  blueprints show by name as "not in the catalog". The contract monitor looks
+  once more for the folder with the Game.log when there is none at the start.
+  (Reported by Kuehlwagen [KRT] and Katscheng)
+- **Stock sync with the Basetool, moving a lot:** The Basetool holds back
+  changes in which a lot goes to 0 unless the same material is added in the
+  same set. When a stock moved to another place, the reduction and the
+  addition could land in different sets, and the reduction stayed held back.
+  All lots of one material now go out in the same set, and a set is only cut
+  between two materials.
+- **Refinery scan, quantity instead of yield:** When one reading missed the
+  head of the column "quantity", the yield got the numbers of the quantity.
+  The column is now completed from the heads of the other readings.
+- **Buy & Sell:** The amount field when selling no longer cuts the amount to
+  whole SCU. "0.1" counts as a tenth of an SCU, and with cSCU set in Mein Lager
+  as a hundredth per cSCU. Piece goods (Saldynium, for example) are typed in
+  pieces, the field says "pcs", and the sum works out price per SCU times the
+  size of a piece times pieces. When the size of a piece is not known, the
+  amount stands in pieces, proceeds and sum are missing, and the page says so.
+- **Update check:** Releases of the org server never count as an update of
+  VerseKit.
+- **Contract log and Statistics › Contracts:** Long contract titles wrap into
+  several lines instead of being cut off with "…".
+- **My stock:** The "Sale" badge no longer reaches over the edge, and long names
+  such as "Construction Materials" are shown whole; where there is not enough
+  room for that, the list shows the compact view.
+- **Test channels under a non-disclosure agreement are no longer touched:**
+  VerseKit no longer recognises, reads or writes the test channels whose
+  content is under a non-disclosure agreement; they are missing from the
+  lists and choices as well. What earlier versions wrote there is taken back
+  once at the first start: the contract notes, the replaced text file (from
+  the copy VerseKit made before it first replaced it), the language line in
+  the user.cfg and the own data of those channels. PTU stays as it was.
+- **Data folder: the pointer is the same everywhere:** When you choose
+  another data folder, move it, or VerseKit renames it to "VerseKit", it
+  writes the pointer to it at every place a version looks for it, older
+  versions included. If you start an older version afterwards, it finds your
+  data instead of making an empty folder.
+- **Data folder not found:** When the pointer names a folder that is not there
+  (a disconnected drive, for example), VerseKit no longer makes an empty
+  folder in its place. It looks for folders with your data at the known
+  places: if it finds exactly one, it takes it; otherwise it says "Data
+  folder not found" and names what it found.
+- **The warning "Fewer blueprints than usual" holds after the update:** The
+  mark of the highest count moves along when the pointer moves to its new
+  place.
+- **A backup at every change of version:** When a different version runs than
+  at the last start (an older one too), VerseKit makes a backup before it
+  renames or moves anything. If the backup before an update fails, VerseKit
+  says so and asks whether to update anyway; without an answer there is no
+  update.
+
 ## v5.3.7 - 2026-11-16
 
 > A follow-up to 5.3.5: the overlay itself now stays in its place on Linux

@@ -451,7 +451,7 @@ mod tests {
     }
 
     fn paths_in(home: &str) -> Paths {
-        Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home), ("HOME", home)], home))
+        Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", home), ("HOME", home)], home))
     }
 
     /// The answer of the stand-in for the file dialog.

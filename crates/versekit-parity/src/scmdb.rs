@@ -125,7 +125,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
     let log = format!("{folder}/Game.log");
     fs::write(&log, "").map_err(|e| e.to_string())?;
     let vars = [
-        (versekit_core::legacy::ENV_HOME, home.as_str()),
+        (versekit_core::envvars::ENV_HOME, home.as_str()),
         ("APPDATA", app.as_str()),
         ("LOCALAPPDATA", local.as_str()),
         (versekit_core::paths::ENV_INSTALL_DIR, folder.as_str()),

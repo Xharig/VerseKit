@@ -44,7 +44,7 @@ impl Setup {
         fs::write(format!("{live}/Game.log"), "").unwrap();
         let host = Host::new(
             Flavor::Posix,
-            &[("HOME", root.as_str()), ("SC_BP_HOME", &data), ("SC_INSTALL_DIR", &live)],
+            &[("HOME", root.as_str()), ("VERSEKIT_HOME", &data), ("SC_INSTALL_DIR", &live)],
             &root,
         );
         Setup { root, paths: Paths::new(host), live }
@@ -453,14 +453,14 @@ fn switched_off_pushes_the_clock_and_does_nothing() {
     assert_eq!(upkeep.texts_next, 100.0 + TEXTS_POLL_SECONDS);
 }
 
-/// `SC_BP_NO_NET` counts as the program was given it, not as the shell of the check has it:
+/// `VERSEKIT_NO_NET` counts as the program was given it, not as the shell of the check has it:
 /// set on the made-up computer nothing runs, unset the run is due.
 #[test]
 fn no_net_of_the_given_environment_stops_the_run() {
     let s = Setup::new("no-net");
     s.set_up_german();
     let mut off = s.paths.host.clone();
-    off.set_var("SC_BP_NO_NET", "1");
+    off.set_var("VERSEKIT_NO_NET", "1");
     let offline = Paths::new(off);
     let archive = FakeArchive::default();
     assert_eq!(Upkeep::default().tick(&offline, &archive, &BTreeSet::new(), 1000.0), None);
@@ -545,7 +545,7 @@ fn a_patch_the_launcher_still_writes_is_not_finished_and_not_remembered() {
         Flavor::Posix,
         &[
             ("HOME", s.root.as_str()),
-            ("SC_BP_HOME", &format!("{}/data", s.root)),
+            ("VERSEKIT_HOME", &format!("{}/data", s.root)),
             ("SC_INSTALL_DIR", &s.live),
             ("APPDATA", &s.root),
         ],
@@ -776,13 +776,20 @@ fn inserting_again_and_choosing_a_source_write_the_notes_into_the_side_channel()
     assert!(matches!(apply(&s.paths, &archive, ""), Outcome::Done(_)));
     assert!(fs::read_to_string(&german).unwrap().contains("Kopfgeld <EM4>[BP]</EM4>"));
     remove(&s.paths);
-    // TECH-PREVIEW takes a source of its own: the test version of Luftwerft, the language, the notes.
+    #[cfg(feature = "test-build")]
+    side_channel_takes_a_source_of_its_own(&s, &archive);
+}
+
+/// TECH-PREVIEW takes a source of its own: the test version of Luftwerft, the language, the notes. Only the test
+/// build works on that channel.
+#[cfg(feature = "test-build")]
+fn side_channel_takes_a_source_of_its_own(s: &Setup, archive: &FakeArchive) {
     let tech = format!("{}/StarCitizen/TECH-PREVIEW", s.root);
     fs::create_dir_all(format!("{tech}/data")).unwrap();
     fs::write(format!("{tech}/Data.p4k"), "").unwrap();
     let url = luftwerft_german("PTU");
     let net = Fake::default().with_head(&url, &[("etag", "\"tp\"")]).with(&url, luftwerft_file("Luftwerft TP"));
-    let said = switch_side(&s.paths, &net, &archive, "TECH-PREVIEW", &tech, "luftwerft_de", &|_| {}).expect("placed");
+    let said = switch_side(&s.paths, &net, archive, "TECH-PREVIEW", &tech, "luftwerft_de", &|_| {}).expect("placed");
     assert!(said.contains(" · "), "the notes are told with it: {said}");
     let text = fs::read_to_string(format!("{tech}/data/Localization/german_(germany)/global.ini")).unwrap();
     assert!(text.contains("Kopfgeld <EM4>[BP]</EM4>") && text.contains("Luftwerft TP\\nVerseKit v"), "{text}");

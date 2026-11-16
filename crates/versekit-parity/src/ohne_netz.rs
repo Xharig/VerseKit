@@ -29,7 +29,7 @@
 //! (`versekit_gamedata::texts_watch::watch`, with the real door to the net), until the catalog is built and the notes
 //! are written, and after it the reading of the game values as the pages start it. The child reaches the net only
 //! through a proxy of this process that writes down every request and answers none (`HTTPS_PROXY` and the others):
-//! every request fails as without a connection, and the switch `SC_BP_NO_NET` stays unset, so that no code takes the
+//! every request fails as without a connection, and the switch `VERSEKIT_NO_NET` stays unset, so that no code takes the
 //! short way a switched-off net offers. `--gegenprobe sperre` gives the child no proxy: the check of the lock must
 //! fail then.
 //!
@@ -72,8 +72,14 @@ const NOTES_MARK: &str = "AUFTRAGSANGABEN";
 const BP_MARK: &str = "[BP]";
 /// The proxy variables the door to the net reads, in both spellings.
 const PROXY_VARS: [&str; 6] = ["ALL_PROXY", "all_proxy", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"];
-/// The variables that would let a request pass the proxy, or switch the net off the short way.
-const CLEARED_VARS: [&str; 5] = ["NO_PROXY", "no_proxy", "SC_BP_NO_NET", "SC_BP_HOME", "VERSEKIT_HOME"];
+/// The variables that would let a request pass the proxy, or switch the net off the short way, under their names
+/// and under the names of the previous version (the program reads those as well).
+fn cleared_vars() -> Vec<&'static str> {
+    use versekit_core::{envvars, legacy};
+    let mut names = vec!["NO_PROXY", "no_proxy", envvars::ENV_NO_NET, envvars::ENV_HOME];
+    names.extend([envvars::ENV_NO_NET, envvars::ENV_HOME].into_iter().filter_map(legacy::old_env_name));
+    names
+}
 /// An address of our own the child asks directly, to see that the lock holds.
 const LOCK_PROBE_URL: &str = "https://versekit.xharig.com/";
 /// The folders of the data copy that are not copied, at any depth: the backups.
@@ -81,7 +87,7 @@ const LEFT_OUT: [&str; 1] = ["Sicherungen"];
 /// The files of `Intern` that are taken out without `--bestand`: everything read from the game data or fetched from a
 /// service of others, so that the run starts as for a player who set VerseKit up but never had them. What the player
 /// set up (the chosen translation, the collection, the settings) stays.
-const DERIVED: [&str; 27] = [
+const DERIVED: [&str; 28] = [
     "katalog-spieldaten.json",
     "katalog-cache.json",
     "katalog-neubau.lock",
@@ -91,6 +97,7 @@ const DERIVED: [&str; 27] = [
     "spiel-schiffe.json",
     "spiel-teile.json",
     "signaturen-spieldaten.json",
+    "fundorte-spieldaten.json",
     "raffinerie-verfahren-spieldaten.json",
     "crafting-blueprints.json",
     "cig-datenfehler.json",
@@ -474,7 +481,7 @@ pub fn run(archive: &str, game: &str, copy: &str, options: &Options<'_>) -> Resu
     if let Some((name, _, _)) = side {
         child.arg(SIDE_CHANNEL).arg(name);
     }
-    for name in CLEARED_VARS.iter().chain(PROXY_VARS.iter()) {
+    for name in cleared_vars().iter().chain(PROXY_VARS.iter()) {
         child.env_remove(name);
     }
     if counter != Some("sperre") {
@@ -536,8 +543,8 @@ fn judge(
         &mut failures,
     );
     check(
-        !lock.contains("SC_BP_NO_NET"),
-        "gescheitert an der Verbindung, nicht am Schalter SC_BP_NO_NET",
+        !lock.contains(versekit_core::envvars::ENV_NO_NET),
+        "gescheitert an der Verbindung, nicht am Schalter VERSEKIT_NO_NET",
         &mut failures,
     );
     check(

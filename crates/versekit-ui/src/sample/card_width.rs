@@ -20,15 +20,15 @@
 //! whole width itself (a row with a control on the right does), so a page showed narrow and wide cards in one
 //! column (Settings › Erkennung).
 //!
-//! The check draws every page of the window in a few sizes, on the sample, on real data in an empty folder and on
-//! real data with files, reads the places of the cards the last frame drew ([`crate::widgets::drawn_cards`]) and
+//! The check draws every page of the window in a few sizes, on the sample, on real data in an empty folder, on
+//! real data with files and on real data with two sticks, never on the game of the computer it runs on, reads the places of the cards the last frame drew ([`crate::widgets::drawn_cards`]) and
 //! compares the cards that start at the same left edge.
 
 use egui::Rect;
 use versekit_core::theme;
 
 use super::docking::tests::draw_cards;
-use super::real_data::{folder, host_in};
+use super::real_data::{folder, host_apart, host_in};
 use super::{NAV, SamplePage};
 
 /// The windows the pages are drawn in: wide, the smallest window of the program (880 wide) and one narrower than
@@ -138,34 +138,69 @@ const FILES: [(&str, &str); 3] = [
     ),
 ];
 
-/// All pages, in the three ways the window is shown, in German and English.
+/// The program on real data in `dir`, with a game folder of its own there: it finds no installation on the drives of
+/// this computer.
+fn apart(dir: &std::path::Path) -> versekit_core::paths::Paths {
+    versekit_core::paths::Paths::new(host_apart(dir))
+}
+
+/// A game folder with two sticks in the log and in the action maps, and the setting that points the program at it.
+fn game_with_sticks(dir: &std::path::Path) -> String {
+    let (left, right) = ("1234ABCD-0000-0000-0000-504944564944", "3344ABCD-0000-0000-0000-504944564944");
+    let game = dir.join("LIVE");
+    let profile = game.join("USER").join("Client").join("0").join("Profiles").join("default");
+    std::fs::create_dir_all(&profile).expect("the profile folder");
+    let line = |slot: u8, name: &str, id: &str| format!("Connected joystick{slot}:  {name}  {{{id}}}\n");
+    std::fs::write(game.join("Game.log"), line(0, "Left Stick", left) + &line(1, "Right Stick", right))
+        .expect("the log");
+    std::fs::write(
+        profile.join("actionmaps.xml"),
+        format!(
+            "<ActionMaps><ActionProfiles><deviceoptions name=\"Left Stick  {{{left}}}\"><option input=\"x\" deadzone=\"0.15\"/><option input=\"slider1\" saturation=\"0.9\"/></deviceoptions><deviceoptions name=\"Right Stick  {{{right}}}\"><option input=\"x\" deadzone=\"0.2\"/></deviceoptions><options type=\"joystick\" instance=\"1\" Product=\"Left Stick  {{{left}}}\"><flight_move_pitch exponent=\"1.5\"/></options><options type=\"joystick\" instance=\"2\" Product=\"Right Stick  {{{right}}}\"/><actionmap name=\"spaceship_general\"><action name=\"v_pitch\"><rebind input=\"js1_x\"/></action><action name=\"v_roll\"><rebind input=\"js1_x\"/></action></actionmap></ActionProfiles></ActionMaps>"
+        ),
+    )
+    .expect("the action maps");
+    game.to_string_lossy().into_owned()
+}
+
+/// All pages, in the four ways the window is shown, in German and English. None of them sees the game of this
+/// computer: the program would find an installation on the drives and show its sticks, which differ from one
+/// computer to the next and from one day to the next.
 fn all_findings() -> Vec<String> {
     use versekit_core::language::{Choice, set_thread_language};
     let mut findings = Vec::new();
     theme::set_current("original");
     let dir = folder("kartenbreite");
     let files = folder("kartenbreite-dateien");
+    let sticks = folder("kartenbreite-sticks");
     for (name, content) in FILES {
         std::fs::write(files.join(name), content).expect("a file of the copy");
     }
+    let game = game_with_sticks(&sticks);
     for (choice, case) in [(Choice::De, "de"), (Choice::En, "en")] {
         set_thread_language(choice);
         let mut sample = SamplePage::preview();
         for key in pages() {
             look(&format!("{case} sample"), &mut sample, key, &mut findings);
         }
-        let mut real = SamplePage::with_settings(versekit_core::paths::Paths::new(host_in(&dir, &[])));
+        let mut real = SamplePage::with_settings(apart(&dir));
         for key in pages() {
             look(&format!("{case} real data"), &mut real, key, &mut findings);
         }
-        let mut full = SamplePage::with_settings(versekit_core::paths::Paths::new(host_in(&files, &[])));
+        let mut full = SamplePage::with_settings(apart(&files));
         for key in pages() {
             look(&format!("{case} real data with files"), &mut full, key, &mut findings);
+        }
+        let vars = [(versekit_core::paths::ENV_INSTALL_DIR, game.as_str())];
+        let mut with_sticks = SamplePage::with_settings(versekit_core::paths::Paths::new(host_in(&sticks, &vars)));
+        for key in pages() {
+            look(&format!("{case} real data with sticks"), &mut with_sticks, key, &mut findings);
         }
     }
     set_thread_language(Choice::De);
     let _ = std::fs::remove_dir_all(dir);
     let _ = std::fs::remove_dir_all(files);
+    let _ = std::fs::remove_dir_all(sticks);
     findings
 }
 
@@ -175,6 +210,18 @@ fn the_cards_of_a_page_are_all_the_same_width() {
     let _language = crate::language_lock();
     let findings = all_findings();
     assert!(findings.is_empty(), "{} page(s) with cards of different widths:\n{}", findings.len(), findings.join("\n"));
+}
+
+/// The pages of the check see the game folder they are given and the installation of no computer: what a page
+/// shows of the sticks and their axes must not depend on who runs the test.
+#[test]
+fn the_pages_of_the_check_do_not_see_the_game_of_this_computer() {
+    let dir = folder("kartenbreite-spiel");
+    let found = apart(&dir).game_folder();
+    let found = found.expect("the folder of the check holds a game folder of its own");
+    let inside = std::path::Path::new(&found).starts_with(&dir);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(inside, "the game folder of the check is {found}, outside its own folder");
 }
 
 #[test]

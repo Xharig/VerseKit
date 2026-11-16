@@ -161,6 +161,33 @@ fn migrate_one(store: &dyn Store, old: &str, command: &str) -> bool {
     store.remove(old).is_ok()
 }
 
+/// Points the entry that runs the program file of the previous version ([`legacy::PROGRAM_FILE`]) at `command`,
+/// when `command` runs another file: the installer gave the program file its new name and took the old one away.
+/// The entry keeps its name, so a switch of the system (task manager) stays as it is; an entry that is off, or
+/// runs anything else, is left alone. True when it was written.
+pub fn repoint(store: &dyn Store, command: &str) -> bool {
+    let old = |line: &str| file_name(&first_part(line)).eq_ignore_ascii_case(legacy::PROGRAM_FILE);
+    let Some(current) = store.get(NAME) else { return false };
+    if current.trim().is_empty() || !old(&current) || old(command) || command.trim().is_empty() {
+        return false;
+    }
+    store.put(NAME, command).is_ok()
+}
+
+/// The program of a command line under Windows: the part in quotes, else everything up to the first space.
+fn first_part(command: &str) -> String {
+    let line = command.trim();
+    match line.strip_prefix('"') {
+        Some(rest) => rest.split('"').next().unwrap_or_default().to_string(),
+        None => line.split(' ').next().unwrap_or_default().to_string(),
+    }
+}
+
+/// The last part of a path, with `\` or `/` between the parts.
+fn file_name(path: &str) -> &str {
+    path.rsplit(['\\', '/']).next().unwrap_or(path)
+}
+
 /// The file name of an entry on a system with `.desktop` files: lower case, spaces as hyphens
 /// (the autostart name of 4.12 becomes the file 4.12 wrote).
 pub fn desktop_file_name(name: &str) -> String {
@@ -531,13 +558,13 @@ mod tests {
 
     #[test]
     fn the_command_is_the_quoted_program_with_nothing_after_it_and_an_appimage_goes_first() {
-        let program = PathBuf::from(r"C:\Programs\Verse-Kit\versekit.exe");
+        let program = PathBuf::from(r"C:\Programs\VerseKit\versekit.exe");
         let none: &[String] = &[];
-        assert_eq!(command_for(true, &program, None, none), r#""C:\Programs\Verse-Kit\versekit.exe""#);
-        assert_eq!(command_for(true, &program, Some(""), none), r#""C:\Programs\Verse-Kit\versekit.exe""#);
-        let image = Some("/home/me/Verse-Kit.AppImage");
-        assert_eq!(command_for(true, &program, image, none), r#""/home/me/Verse-Kit.AppImage""#);
-        assert_eq!(command_for(false, &program, image, none), r#""/home/me/Verse-Kit.AppImage""#);
+        assert_eq!(command_for(true, &program, None, none), r#""C:\Programs\VerseKit\versekit.exe""#);
+        assert_eq!(command_for(true, &program, Some(""), none), r#""C:\Programs\VerseKit\versekit.exe""#);
+        let image = Some("/home/me/VerseKit.AppImage");
+        assert_eq!(command_for(true, &program, image, none), r#""/home/me/VerseKit.AppImage""#);
+        assert_eq!(command_for(false, &program, image, none), r#""/home/me/VerseKit.AppImage""#);
         let quote = PathBuf::from(r#"C:\a"b\p.exe"#);
         assert_eq!(command_for(true, &quote, None, none), r#""C:\ab\p.exe""#, "no quote inside");
         assert_eq!(command(&program, None, none), command_for(cfg!(windows), &program, None, none));
@@ -612,10 +639,44 @@ mod tests {
         assert!(set_on(&locked, true, "\"x\"").is_err() && !is_on(&locked));
     }
 
+    /// The entry an earlier version wrote for its program file under the old name.
+    fn old_command() -> String {
+        format!("\"C:\\Users\\Spieler\\AppData\\Local\\Programs\\VerseKit\\{}\"", legacy::PROGRAM_FILE)
+    }
+
+    #[test]
+    fn an_entry_that_runs_the_old_program_file_runs_the_new_one_and_keeps_its_switch() {
+        let new = r#""C:\Users\Spieler\AppData\Local\Programs\VerseKit\VerseKit.exe""#;
+        let memory = Memory::with(NAME, &old_command());
+        assert!(repoint(&memory, new));
+        assert_eq!(memory.get(NAME).as_deref(), Some(new));
+        assert!(!repoint(&memory, new), "a second start finds nothing to do");
+        // Switched off in the task manager: written all the same, and the switch stays off.
+        let off = Memory::with_switched_off(NAME, &old_command().to_uppercase());
+        assert!(repoint(&off, new), "without regard to case");
+        assert_eq!(off.get(NAME).as_deref(), Some(new));
+        assert!(!off.approved(NAME), "the switch of the system stays as it is");
+        // Nothing there, an empty entry, another program, or the running one still under the old name: untouched.
+        assert!(!repoint(&Memory::default(), new));
+        assert!(Memory::default().entries().is_empty());
+        let empty = Memory::with(NAME, " ");
+        assert!(!repoint(&empty, new) && empty.get(NAME).as_deref() == Some(" "));
+        let other = Memory::with(NAME, r#""D:\Eigen\VerseKit.exe" --x"#);
+        assert!(!repoint(&other, new));
+        let still_old = Memory::with(NAME, &old_command());
+        assert!(!repoint(&still_old, &old_command()), "the running program is the old file: it stays");
+        // A write that fails leaves the entry as it was.
+        let locked = Memory::refusing();
+        locked.entries.borrow_mut().insert(NAME.to_string(), old_command());
+        assert!(!repoint(&locked, new) && locked.get(NAME) == Some(old_command()));
+        assert_eq!(first_part(r#""C:\a b\x.exe" --daten "C:\k""#), r"C:\a b\x.exe");
+        assert_eq!(first_part(r"C:\x.exe --y"), r"C:\x.exe");
+    }
+
     #[test]
     fn the_entry_of_4_12_is_taken_over_under_the_new_name_and_goes() {
         let old = legacy::AUTOSTART_NAME;
-        let memory = Memory::with(old, "\"C:\\Old\\SC-BP-Watcher.exe\"");
+        let memory = Memory::with(old, &old_command());
         assert!(migrate(&memory, "\"C:\\New\\versekit.exe\""));
         assert_eq!(memory.entries().len(), 1, "the old one is gone: {:?}", memory.entries());
         assert_eq!(memory.get(NAME).as_deref(), Some("\"C:\\New\\versekit.exe\""));
@@ -697,7 +758,8 @@ mod tests {
 
     #[test]
     fn the_desktop_file_has_the_name_of_4_12_for_the_old_entry_and_reads_back_its_command() {
-        assert_eq!(desktop_file_name(legacy::AUTOSTART_NAME), "sc-bp-watcher.desktop");
+        // 4.12 named its login file as its menu file.
+        assert_eq!(desktop_file_name(legacy::AUTOSTART_NAME), legacy::MENU_FILE);
         assert_eq!(desktop_file_name(NAME), "versekit.desktop");
         assert_eq!(desktop_file_name(EARLIER_NAMES[1]), "verse-kit.desktop");
         let text = desktop_text(NAME, "\"/opt/versekit\"", "Waits for the game");
@@ -748,12 +810,12 @@ mod tests {
     }
 
     /// The registry code, in a key of its own that has nothing to do with the start of programs
-    /// (`HKCU\Software\Verse-Kit-Pruefung-<tag of the run>`, removed again). ⚠ NEVER in the `Run` key: a test must not
+    /// (`HKCU\Software\VerseKit-Pruefung-<tag of the run>`, removed again). ⚠ NEVER in the `Run` key: a test must not
     /// leave an entry there that starts something with the next login.
     #[cfg(windows)]
     #[test]
     fn the_registry_code_writes_reads_and_removes_a_value_in_a_key_of_its_own() {
-        let path = format!(r"Software\Verse-Kit-Pruefung-{}", crate::testdir::run_tag());
+        let path = format!(r"Software\VerseKit-Pruefung-{}", crate::testdir::run_tag());
         // The key goes away at the end of the test, also when a check in the middle fails.
         struct Cleanup(String);
         impl Drop for Cleanup {

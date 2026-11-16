@@ -544,7 +544,7 @@ pub enum UpdateChoice {
 }
 
 /// The bar across the top of the window when a new version is there.
-/// While Star Citizen is not running, Verse-Kit updates itself silently;
+/// While Star Citizen is not running, VerseKit updates itself silently;
 /// the bar is for the time the game runs. It has no close button: it
 /// stays until the update is loaded.
 pub fn update_bar(ui: &mut Ui, scheme: &Scheme, texts: &UpdateTexts) -> Option<UpdateChoice> {

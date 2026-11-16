@@ -613,6 +613,87 @@ fn zero_and_eight_are_learned_from_typed_values_and_told_apart() {
     assert_eq!(classify(&glyphs(Some(&drawn("0")), Some(1))[0], &only_eights), None);
 }
 
+/// Digits as the shipped file would hold them, learned from drawn cells.
+fn drawn_digits() -> Digits {
+    let mut digits = Digits::default();
+    let cells = [cell("Gold", "888", "808"), cell("Iron", "888", "800")];
+    let typed = [("Gold".to_string(), Some(808.0), Some(1.0)), ("Iron".to_string(), Some(800.0), Some(1.0))];
+    learn_into(&mut digits, &cells, &typed);
+    digits
+}
+
+/// The digit a drawn `0` or `8` is told as, `?` where the digits do not decide.
+fn told(text: &str, digits: &Digits) -> String {
+    glyphs(Some(&drawn(text)), Some(text.len())).iter().map(|v| classify(v, digits).unwrap_or('?')).collect()
+}
+
+#[test]
+fn the_shipped_digits_hold_every_digit_and_decide_a_zero_and_an_eight_for_a_new_player() {
+    let shipped = Digits::shipped();
+    for digit in "0123456789".chars() {
+        assert!(shipped.get(&digit.to_string()).len() >= digits::DIGIT_MIN, "{digit}");
+    }
+    // A player with no file of his own: the shipped digits stand in his place.
+    let nothing = Digits::default().completed_by(Digits::shipped());
+    assert_eq!(nothing, *Digits::shipped());
+    // Without them a new player has nothing that tells 0 from 8; with digits of the kind they tell it.
+    let like_shipped = drawn_digits();
+    assert_eq!(told("0880", &Digits::default()), "????");
+    assert_eq!(told("0880", &Digits::default().completed_by(&like_shipped)), "0880");
+}
+
+#[test]
+fn a_player_without_a_file_reads_with_the_shipped_digits_and_what_he_teaches_stays_his() {
+    let root = std::env::temp_dir().join(format!("versekit-ziffern-{}", crate::testdir::run_tag()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("home")).expect("folder");
+    let home = root.join("home").to_string_lossy().into_owned();
+    let host = crate::paths::Host::new(
+        crate::pypath::Flavor::native(),
+        &[(crate::envvars::ENV_HOME, home.as_str())],
+        &root.to_string_lossy(),
+    );
+    let paths = crate::paths::Paths::new(host);
+    assert!(Digits::load(&paths).is_empty(), "the player has no digits of his own");
+    assert!(Digits::shipped().count() >= 10 * digits::DIGIT_MIN, "the shipped digits are there");
+    assert_eq!(Digits::load_all(&paths).count(), Digits::shipped().count(), "he reads with the shipped ones");
+    // What he teaches is saved alone: the shipped digits never land in his file.
+    let typed = [("Gold".to_string(), Some(808.0), Some(1.0)), ("Iron".to_string(), Some(800.0), Some(1.0))];
+    assert_eq!(digits::learn(&paths, &[cell("Gold", "888", "808"), cell("Iron", "888", "800")], &typed), 6);
+    assert_eq!(Digits::load(&paths).count(), 6);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn the_player_s_own_digits_win_over_the_shipped_ones() {
+    let shipped = drawn_digits();
+    // A player whose 0 and 8 are the other way round (a made-up fault of his typing): his digits stand alone and
+    // tell the drawn digits as he taught them.
+    let mut value = shipped.to_value();
+    if let jsonio::Value::Object(top) = &mut value
+        && let Some((_, jsonio::Value::Object(digits))) = top.iter_mut().find(|(k, _)| k == "ziffern")
+    {
+        let eight = digits.iter().find(|(k, _)| k == "8").map(|(_, v)| v.clone()).expect("eights");
+        let zero = digits.iter().find(|(k, _)| k == "0").map(|(_, v)| v.clone()).expect("zeros");
+        for (digit, patterns) in digits.iter_mut() {
+            match digit.as_str() {
+                "0" => *patterns = eight.clone(),
+                "8" => *patterns = zero.clone(),
+                _ => {}
+            }
+        }
+    }
+    let own = Digits::from_value(&value);
+    assert_eq!(told("08", &shipped), "08");
+    assert_eq!(told("08", &own.clone().completed_by(&shipped)), "80", "his own digits are not outvoted");
+    assert_eq!(own.clone().completed_by(&shipped).get("0"), own.get("0"));
+    // A digit he has too few patterns of is completed by the shipped ones.
+    let mut thin = Digits::default();
+    thin.add("0", vec![1.0, 0.0]);
+    let thin = thin.completed_by(&shipped);
+    assert_eq!(thin.get("0").len(), 1 + shipped.get("0").len());
+}
+
 #[test]
 fn a_whole_cell_is_read_from_learned_digits_and_an_unknown_digit_is_not_guessed() {
     let mut learned = Digits::default();
@@ -723,6 +804,50 @@ fn a_confusable_value_is_confirmed_at_the_learned_digits_of_the_picture() {
     let none = Digits::default();
     let checks = Checks { confirm: Some(confirmer(&picture, &passes, &none, &index, None)), reread: None };
     assert!(merge_passes(&passes, &index, None, &checks, false).found.is_empty());
+}
+
+#[test]
+fn a_cell_no_reading_gave_a_number_in_is_read_at_its_place_from_the_learned_digits() {
+    let index = Index::new(&["Gold".to_string()], |_| false);
+    let (quality, amount) = (drawn("508"), drawn("122"));
+    let h = quality.height as f64;
+    let (width, height) = (400usize, 100usize);
+    let mut gray = vec![32u8; width * height];
+    for (cell, left) in [(&quality, 100usize), (&amount, 250usize)] {
+        for y in 0..cell.height {
+            for x in 0..cell.width {
+                gray[(50 + y) * width + left + x] = cell.gray[y * cell.width + x];
+            }
+        }
+    }
+    let picture = GrayPicture { width: width as i64, height: height as i64, gray };
+    // The heads give the columns; the row reads the quality, but no reading gave a number at the yield.
+    let words = vec![
+        sized("UALITAT", 110.0, 0.0, 60.0, h),
+        sized("AUSBEUTE", 260.0, 0.0, 60.0, h),
+        sized("Gold", 0.0, 50.0, 40.0, h),
+        sized("508", 100.0, 50.0, quality.width as f64, h),
+    ];
+    let mut learned = Digits::default();
+    let typed = [("Gold".to_string(), Some(808.0), None), ("Iron".to_string(), Some(800.0), None)];
+    learn_into(&mut learned, &[cell("Gold", "888", "808"), cell("Iron", "888", "800")], &typed);
+    for text in ["1234", "5678", "9012"] {
+        learn_into(&mut learned, &[cell("Gold", text, text)], &[("Gold".to_string(), text.parse().ok(), None)]);
+    }
+    let passes = vec![words.clone(), words.clone()];
+    fn checks<'a>(picture: &'a GrayPicture, passes: &'a [Vec<Word>], learned: &'a Digits, index: &Index) -> Checks<'a> {
+        Checks {
+            confirm: Some(confirmer(picture, passes, learned, index, None)),
+            reread: Some(rereader(picture, passes, learned, index, None)),
+        }
+    }
+    let merged = merge_passes(&passes, &index, None, &checks(&picture, &passes, &learned, &index), false);
+    assert_eq!(merged.found, found(&[("Gold", 508, 122)]), "the yield is read where it stands");
+    // Counter-check: an empty place stays empty, and without learned digits nothing is read.
+    let blank = GrayPicture { width: width as i64, height: height as i64, gray: vec![32u8; width * height] };
+    assert!(merge_passes(&passes, &index, None, &checks(&blank, &passes, &learned, &index), false).found.is_empty());
+    let none = Digits::default();
+    assert!(merge_passes(&passes, &index, None, &checks(&picture, &passes, &none, &index), false).found.is_empty());
 }
 
 /// Storage locations as the list of places writes them.
@@ -957,6 +1082,49 @@ fn a_reading_with_the_head_of_the_yield_wins_over_one_that_only_read_the_quantit
     let merged = merge_passes(&passes, &index, None, &Checks::default(), false);
     assert_eq!(merged.found, found(&[("Tungsten", 363, 452), ("Iron", 664, 115)]));
     assert_eq!(merged.unsure, ["Gold"]);
+}
+
+#[test]
+fn heads_of_another_reading_are_taken_over_only_where_quality_and_yield_agree() {
+    // The same table: the head of the quantity the first reading lost comes over.
+    let mut heads = vec![100.0, 200.0, 300.0];
+    add_missed_heads(&mut heads, &[101.0, 199.0, 150.0, 300.0]);
+    assert_eq!(heads, [100.0, 200.0, 300.0, 150.0], "150 is a column of its own, 300 is there already");
+    // Another part of the picture (its yield head lies far off) or another quality head: nothing comes over.
+    let mut elsewhere = vec![100.0, 200.0];
+    add_missed_heads(&mut elsewhere, &[100.0, 320.0, 400.0]);
+    assert_eq!(elsewhere, [100.0, 200.0]);
+    let mut shifted = vec![100.0, 200.0];
+    add_missed_heads(&mut shifted, &[160.0, 200.0, 400.0]);
+    assert_eq!(shifted, [100.0, 200.0]);
+    // Too few heads on either side: nothing to compare, nothing changes.
+    let mut few = vec![100.0];
+    add_missed_heads(&mut few, &[100.0, 200.0, 400.0]);
+    assert_eq!(few, [100.0]);
+}
+
+#[test]
+fn a_reading_that_lost_the_head_of_the_quantity_does_not_give_its_numbers_to_the_yield() {
+    let index = index_of(&["Gold", "Tungsten", "Iron"]);
+    // The head of the quantity (`QTY`) is read in the first reading only; the others keep the head of the yield and
+    // would take the numbers of the quantity, which lie nearer to the yield than to the quality, for the yield.
+    let full = setup_card("YIELD", true, &SETUP);
+    let lost: Vec<Word> = full.iter().filter(|w| w.t != "QTY").cloned().collect();
+    // The reading with all heads is not the first: the richest heads count, not the first that name the yield.
+    let passes = vec![lost.clone(), full.clone(), lost.clone(), lost.clone()];
+    let merged = merge_passes(&passes, &index, None, &Checks::default(), true);
+    assert_eq!(
+        merged.found,
+        vec![
+            ("Tungsten".to_string(), Some(363), Some(452)),
+            ("Iron".to_string(), Some(664), Some(115)),
+            ("Gold".to_string(), Some(553), None),
+        ]
+    );
+    // The columns: the quantity stays a column of its own, so its numbers fall into no slot of the yield.
+    let heads = shared_heads(&passes, None).expect("heads");
+    let columns = table_columns_with(&rows(&lost), &material_rows(&rows(&lost), &index), Some(&heads));
+    assert_eq!(columns.len(), 4, "{columns:?}");
 }
 
 /// A recognition whose search over the whole picture reads `search` and whose readings of a table read `parts`.

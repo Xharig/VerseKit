@@ -21,7 +21,7 @@
 //! one incident in full). What it said is kept in `serverstatus.json` in the
 //! form of 4.12 (`etag`, `lage` with `gesamt`, `systeme`, `geholt`, `stand`,
 //! `quelle`; `volltexte` for the full texts of resolved incidents), so that both
-//! versions read what the other fetched. With `SC_BP_NO_NET` nothing is asked;
+//! versions read what the other fetched. With `VERSEKIT_NO_NET` nothing is asked;
 //! the state kept stands.
 //!
 //! The page is asked with the tag of the last answer (`If-None-Match`): when
@@ -460,7 +460,7 @@ fn put(data: &mut Map, key: &str, value: Value) {
 
 /// The state of all systems (`state`): the one kept while it is younger than `limit` seconds (`None`: five
 /// minutes) unless `force`; else the page is asked, with the tag of the last answer unless `force`. When the page
-/// cannot be asked the state kept stands, marked [`State::no_net`]; with `SC_BP_NO_NET` nothing is asked and the
+/// cannot be asked the state kept stands, marked [`State::no_net`]; with `VERSEKIT_NO_NET` nothing is asked and the
 /// state kept counts as just looked at, as in 4.12.
 pub fn state(paths: &Paths, net: &dyn Net, now: f64, force: bool, limit: Option<f64>) -> State {
     let mut data = read_file(paths);

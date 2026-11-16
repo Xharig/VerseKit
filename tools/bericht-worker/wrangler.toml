@@ -1,4 +1,4 @@
-# Cloudflare Worker: Weiterleitung der Verse-Kit-Fehlerberichte an Discord.
+# Cloudflare Worker: Weiterleitung der VerseKit-Fehlerberichte an Discord.
 # Einrichten: siehe README.md daneben. Der Webhook kommt NIE hier hinein,
 # sondern als Geheimnis:  npx wrangler secret put DISCORD_WEBHOOK
 name = "versekit-bericht"

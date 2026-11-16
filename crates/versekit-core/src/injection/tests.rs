@@ -47,7 +47,7 @@ impl Fixture {
         fs::write(&ini, ini_text).unwrap();
         let host = Host::new(
             Flavor::Posix,
-            &[("HOME", root.as_str()), ("SC_BP_HOME", &data), ("SC_INSTALL_DIR", &game)],
+            &[("HOME", root.as_str()), ("VERSEKIT_HOME", &data), ("SC_INSTALL_DIR", &game)],
             &root,
         );
         Fixture { root, paths: Paths::new(host), ini }
@@ -525,6 +525,7 @@ fn with_terms() -> Inputs {
                 lowest: Some(("Neutral".into(), 0)),
                 highest: Some(("Top Rank".into(), 95250)),
                 reward: None,
+                giver: None,
             },
         ),
         (

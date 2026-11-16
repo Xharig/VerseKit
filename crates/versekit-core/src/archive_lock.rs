@@ -77,6 +77,31 @@ pub fn may_read_archive(paths: &Paths, archive: &Path) -> bool {
     may_read(paths) && !crate::launcher_log::patching(paths, archive)
 }
 
+/// What a reading of the archive waits for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WaitReason {
+    /// The game runs, or it cannot be told that it does not ([`may_read`]).
+    GameRunning,
+    /// The launcher is patching the archive ([`launcher_log::patching`]).
+    LauncherPatching,
+}
+
+/// The reason from the two answers: the game first, as it is the one the player can end.
+pub fn reason_of(game_running: bool, launcher_patching: bool) -> Option<WaitReason> {
+    if game_running {
+        Some(WaitReason::GameRunning)
+    } else if launcher_patching {
+        Some(WaitReason::LauncherPatching)
+    } else {
+        None
+    }
+}
+
+/// What a reading of `archive` waits for now; `None` when it may go ([`may_read_archive`]).
+pub fn wait_reason(paths: &Paths, archive: Option<&Path>) -> Option<WaitReason> {
+    reason_of(!may_read(paths), archive.is_some_and(|archive| crate::launcher_log::patching(paths, archive)))
+}
+
 /// [`may_read_archive`] for the installed archive ([`Paths::archive_file`]); [`may_read`] without one.
 pub fn may_read_installed(paths: &Paths) -> bool {
     match paths.archive_file() {
@@ -168,7 +193,7 @@ mod tests {
     fn machine(vars: &[(&str, &str)]) -> Paths {
         let home = std::env::temp_dir().join(format!("versekit-sperre-{}", crate::testdir::run_tag()));
         let text = home.to_string_lossy().into_owned();
-        let mut all = vec![("HOME", text.as_str()), ("SC_BP_HOME", text.as_str())];
+        let mut all = vec![("HOME", text.as_str()), ("VERSEKIT_HOME", text.as_str())];
         all.extend_from_slice(vars);
         Paths::new(Host::new(Flavor::native(), &all, &text))
     }
@@ -209,16 +234,43 @@ mod tests {
         assert!(may_read(&made_up));
     }
 
+    /// What a reading waits for is told to the page: the game first, then the launcher, else nothing.
+    #[test]
+    fn the_reason_a_reading_waits_is_the_game_first_then_the_launcher() {
+        assert_eq!(reason_of(true, true), Some(WaitReason::GameRunning), "the one the player can end");
+        assert_eq!(reason_of(true, false), Some(WaitReason::GameRunning));
+        assert_eq!(reason_of(false, true), Some(WaitReason::LauncherPatching));
+        assert_eq!(reason_of(false, false), None);
+        let archive = Some(Path::new("Spiele/StarCitizen/LIVE/Data.p4k"));
+        // A log written just now in the game folder given: the game runs.
+        let game = std::env::temp_dir().join(format!("versekit-sperre-spiel-{}", crate::testdir::run_tag()));
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(game.join("Game.log"), "").unwrap();
+        let folder = game.to_string_lossy().into_owned();
+        let running = machine(&[(crate::game_start::ENV_NO_PROCESS, "1"), (crate::paths::ENV_INSTALL_DIR, folder.as_str())]);
+        assert_eq!(wait_reason(&running, archive), Some(WaitReason::GameRunning));
+        assert_eq!(wait_reason(&running, None), Some(WaitReason::GameRunning), "without an archive too");
+        let _ = std::fs::remove_dir_all(&game);
+        let made_up = machine(&[(crate::game_start::ENV_NO_PROCESS, "1"), (ENV_TEST_MACHINE, "x")]);
+        assert_eq!(wait_reason(&made_up, archive), None);
+    }
+
     #[test]
     fn an_archive_of_a_test_channel_is_told_by_its_folder() {
-        for channel in ["PTU", "ptu", "EPTU", "HOTFIX", "TECH-PREVIEW"] {
+        for channel in ["PTU", "ptu", "HOTFIX"] {
             assert!(is_test_archive(Path::new(&format!("C:/Games/StarCitizen/{channel}/Data.p4k"))), "{channel}");
+        }
+        // The two channels under the terms of confidentiality are known to the test build only.
+        for channel in ["EPTU", "TECH-PREVIEW"] {
+            let known = is_test_archive(Path::new(&format!("C:/Games/StarCitizen/{channel}/Data.p4k")));
+            assert_eq!(known, crate::edition::IS_TEST_BUILD, "{channel}");
         }
         for channel in ["LIVE", "live", "PTUX", "Anything"] {
             assert!(!is_test_archive(Path::new(&format!("C:/Games/StarCitizen/{channel}/Data.p4k"))), "{channel}");
         }
         assert!(!is_test_archive(Path::new("Data.p4k")));
-        assert_eq!(test_channel_of(Path::new("D:/SC/tech-preview/Data.p4k")), Some("TECH-PREVIEW"));
+        let tech = test_channel_of(Path::new("D:/SC/tech-preview/Data.p4k"));
+        assert_eq!(tech, crate::edition::IS_TEST_BUILD.then_some("TECH-PREVIEW"));
         assert_eq!(test_channel_of(Path::new("D:/SC/LIVE/Data.p4k")), None);
     }
 
@@ -229,8 +281,12 @@ mod tests {
         use crate::language::{Arg, Lang, tf_in};
         use crate::paths::CHANNELS;
         assert_eq!(test_channel_notes("PTU"), ["s_ak_testkanal"]);
-        assert_eq!(test_channel_notes("TECH-PREVIEW"), ["s_ak_testkanal"]);
-        assert_eq!(test_channel_notes("EPTU"), ["s_ak_testkanal", "s_ak_eptu"]);
+        if crate::edition::IS_TEST_BUILD {
+            assert_eq!(test_channel_notes("TECH-PREVIEW"), ["s_ak_testkanal"]);
+            assert_eq!(test_channel_notes("EPTU"), ["s_ak_testkanal", "s_ak_eptu"]);
+        } else {
+            assert!(test_channel_notes("TECH-PREVIEW").is_empty() && test_channel_notes("EPTU").is_empty());
+        }
         assert!(test_channel_notes("HOTFIX").is_empty(), "HOTFIX is a build of LIVE: no note at all");
         assert!(test_channel_notes("LIVE").is_empty() && test_channel_notes("Anything").is_empty(), "nothing to say");
         for channel in CHANNELS.iter().filter(|c| **c != "LIVE") {

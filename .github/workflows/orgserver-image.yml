@@ -1,0 +1,142 @@
+# The container image of the template server of the open org standard (versekit-orgserver).
+#
+# The server has its own version line (crates/versekit-orgserver/Cargo.toml, 1.0.0 onwards) and its own git tags
+# `orgserver-v1.0.0`. This file reacts only to them; release.yml (the app, tags `v*`) never does, and the app's
+# updater leaves `orgserver-v…` releases out.
+#
+# test:    builds the image for amd64, starts it with the example configuration, asks the discovery, logs a member
+#          in through the panel, restarts the container and checks that the token and the state are still there.
+#          Runs at every server tag and by hand (workflow_dispatch); pushes nothing.
+# publish: only at a tag orgserver-v*, after test: builds for amd64 and arm64 and pushes
+#          ghcr.io/xharig/versekit-orgserver:<version>, and for a version without a pre-release mark also :<major>
+#          and :latest; then a build provenance for the image (Sigstore, kept in the registry and by GitHub;
+#          `gh attestation verify oci://ghcr.io/xharig/versekit-orgserver:1 --repo Xharig/VerseKit`).
+# release: a GitHub release for the tag with the notes of CHANGELOG-orgserver.md, never marked "latest", so the
+#          app's release stays the latest one; the administration of the server asks these releases for updates.
+#
+# Rules of this file as in release.yml: actions pinned to a commit, no ${{ }} inside `run:` (values come through
+# `env:`), the token of the registry only in the login step.
+
+name: Orga-Server-Image
+
+on:
+  push:
+    tags: ['orgserver-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/xharig/versekit-orgserver
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: The tag names the version of the server
+        if: startsWith(github.ref, 'refs/tags/orgserver-v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          own="$(grep -m1 '^version = ' crates/versekit-orgserver/Cargo.toml | cut -d'"' -f2)"
+          [ "orgserver-v$own" = "$TAG" ] || { echo "tag $TAG does not match the server version $own"; exit 1; }
+
+      - name: Build the image (amd64)
+        run: docker build -f crates/versekit-orgserver/Dockerfile -t versekit-orgserver:test .
+
+      - name: Start, log in, restart, check
+        run: bash crates/versekit-orgserver/container_check.sh versekit-orgserver:test
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/orgserver-v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # For the build provenance only: the token of this run for Sigstore, and storing the attestation.
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1  # v4.4.0
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550  # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # orgserver-v1.2.3 becomes 1.2.3, 1 and latest; orgserver-v1.3.0-rc1 becomes 1.3.0-rc1 only.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=match,pattern=^orgserver-v(.+)$,group=1
+            type=match,pattern=^orgserver-v(\d+)\.\d+\.\d+$,group=1
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-rc') && !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-dev') }}
+          labels: |
+            org.opencontainers.image.title=versekit-orgserver
+            org.opencontainers.image.description=Template server of the open VerseKit org standard (versekit-org v1)
+            org.opencontainers.image.licenses=GPL-3.0-only
+
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
+        with:
+          context: .
+          file: crates/versekit-orgserver/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build provenance of the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/orgserver-v')
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: GitHub release of the server, never the latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#orgserver-v}"
+          # The section "## <version>" of both changelogs up to the next one, German first.
+          section() { awk -v v="## $version" '$0 == v {on=1; next} /^## / && on {exit} on' "$1"; }
+          de="$(section crates/versekit-orgserver/CHANGELOG-orgserver.md)"
+          en="$(section crates/versekit-orgserver/CHANGELOG-orgserver.en.md)"
+          [ -n "$de" ] && [ -n "$en" ] || { echo "a changelog of the server has no section ## $version"; exit 1; }
+          printf '%s\n\n---\n\n%s\n' "$de" "$en" > notes.md
+          flag=""
+          case "$version" in *-rc*|*-beta*|*-alpha*|*-dev*) flag="--prerelease" ;; esac
+          gh release create "$TAG" --title "VerseKit Orga-Server $version" --notes-file notes.md --latest=false $flag

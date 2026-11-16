@@ -218,7 +218,7 @@ mod tests {
         std::fs::write(game.join("Game.log"), "").expect("log");
         let (text, game) = (home.to_string_lossy().into_owned(), game.to_string_lossy().into_owned());
         let vars = [
-            ("SC_BP_HOME", text.as_str()),
+            ("VERSEKIT_HOME", text.as_str()),
             ("HOME", text.as_str()),
             (versekit_core::paths::ENV_INSTALL_DIR, game.as_str()),
         ];

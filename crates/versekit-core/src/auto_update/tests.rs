@@ -166,6 +166,7 @@ fn request<'a>(
         at_exit: false,
         temp,
         env: vec![("PATH".into(), std::env::var("PATH").unwrap_or_default())],
+        without_backup: false,
     }
 }
 
@@ -177,7 +178,7 @@ fn under_windows_a_backup_then_the_installer_itself_is_started_and_no_copy_of_th
     let folder = dir.path().join("Programme").join("Verse-Kit");
     fs::create_dir_all(&folder).unwrap();
     let system = PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()));
-    let program = folder.join("SC-BP-Watcher.exe");
+    let program = folder.join("VerseKit.exe");
     fs::copy(system.join(r"System32\PING.EXE"), &program).unwrap();
     // A copy of `where` stands in for the installer: on these arguments it ends at once, without a window.
     let fetched = dir.path().join("lokal").join("VerseKit").join("Update");
@@ -185,7 +186,8 @@ fn under_windows_a_backup_then_the_installer_itself_is_started_and_no_copy_of_th
     let setup = fetched.join("VerseKit-Setup.exe");
     fs::copy(system.join(r"System32\where.exe"), &setup).unwrap();
     let downloaded = Downloaded { checksum: checksum_of(&setup).unwrap(), path: setup.clone() };
-    let error = install(request(&paths, &downloaded, &program, Packaging::Exe, &temp)).expect_err("ended at once");
+    let error =
+        install(request(&paths, &downloaded, &program, Packaging::Exe, &temp)).expect_err("ended at once").message();
     assert!(error.contains("ended at once"), "{error}");
     let backups = fs::read_dir(paths.app_file(backup::BEFORE_UPDATE_FOLDER)).unwrap().count();
     assert_eq!(backups, 1, "a backup before the update");
@@ -203,7 +205,7 @@ fn under_windows_a_backup_then_the_installer_itself_is_started_and_no_copy_of_th
 #[test]
 fn a_file_changed_since_it_was_fetched_or_a_foreign_program_stops_everything() {
     let (dir, paths, temp, downloaded) = world("auto-abgelehnt");
-    let program = dir.path().join("SC-BP-Watcher.exe");
+    let program = dir.path().join("VerseKit.exe");
     fs::write(&program, b"x").unwrap();
     let foreign = dir.path().join("Fremd.exe");
     fs::write(&foreign, b"x").unwrap();
@@ -213,6 +215,32 @@ fn a_file_changed_since_it_was_fetched_or_a_foreign_program_stops_everything() {
     assert!(install(request(&paths, &downloaded, &program, Packaging::Exe, &temp)).is_err());
     assert!(!downloaded.path.exists(), "the changed file goes");
     assert!(read_run(&paths).is_none() && !temp.join(update_run::HELPER_NAME).exists(), "nothing handed over");
+}
+
+/// ⚠ A backup that cannot be made stops the update: without it there is no way back if the new version damages the
+/// data. Only the player's answer (`without_backup`) lets it go on.
+#[test]
+fn a_backup_that_cannot_be_made_stops_the_update_until_the_player_says_otherwise() {
+    let (dir, paths, _temp, _) = world("auto-ohne-sicherung");
+    let appimage = dir.path().join("VerseKit-x86_64.AppImage");
+    fs::write(&appimage, b"alt").unwrap();
+    let new_file = dir.path().join(".VerseKit-x86_64.AppImage.neu");
+    fs::write(&new_file, b"neu").unwrap();
+    let downloaded = Downloaded { checksum: checksum_of(&new_file).unwrap(), path: new_file };
+    // A file where the folder of the backups belongs: the backup cannot be made.
+    fs::write(paths.app_file(backup::BEFORE_UPDATE_FOLDER), b"im Weg").unwrap();
+
+    let refused = install(request(&paths, &downloaded, &appimage, Packaging::AppImage, dir.path()));
+    let Err(InstallError::NoBackup(reason)) = refused else { panic!("stopped for want of a backup: {refused:?}") };
+    assert!(!reason.is_empty());
+    assert_eq!(fs::read(&appimage).unwrap(), b"alt", "nothing was exchanged");
+    assert!(downloaded.path.exists(), "the fetched file stays for the answer");
+    assert!(!InstallError::NoBackup(reason).message().contains("up_sicherung_fehlt"), "a sentence, no key");
+
+    let mut agreed = request(&paths, &downloaded, &appimage, Packaging::AppImage, dir.path());
+    agreed.without_backup = true;
+    assert_eq!(install(agreed).expect("the player said to go on"), Installed::Swapped);
+    assert_eq!(fs::read(&appimage).unwrap(), b"neu");
 }
 
 #[test]

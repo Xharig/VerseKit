@@ -788,9 +788,14 @@ pub fn data_stand(head: &str) -> Option<String> {
 
 /// The build of the game a version box names (`4.10.2-live.12913470`, `4.10.3-ptu.13093654`).
 pub fn build_of(head: &str) -> Option<String> {
+    // The builds of the channels this program works on (`paths::CHANNELS`), as the box names them.
     static BUILD_NAME: LazyLock<regex::Regex> = LazyLock::new(|| {
-        regex::Regex::new(r"(?i)\b\d+\.\d+(?:\.\d+)*-(?:live|ptu|eptu|hotfix|tech-preview|evocati)\.\d+\b")
-            .expect("pattern")
+        let mut names: Vec<String> = CHANNELS.iter().map(|channel| channel.to_lowercase()).collect();
+        if crate::edition::IS_TEST_BUILD {
+            names.push("evocati".to_string());
+        }
+        let pattern = format!(r"(?i)\b\d+\.\d+(?:\.\d+)*-(?:{})\.\d+\b", names.join("|"));
+        regex::Regex::new(&pattern).expect("pattern")
     });
     BUILD_NAME.find(head).map(|m| m.as_str().to_string())
 }
@@ -1226,7 +1231,7 @@ pub fn looks_like_global_ini(content: &[u8]) -> bool {
 const BACKUP_MARK: &str = ".versekit-";
 /// The mark of copies an older version left; they are found and can be put
 /// back, but none is made any more.
-const OLD_BACKUP_MARK: &str = ".scbpw-";
+const OLD_BACKUP_MARK: &str = crate::legacy::GAME_BACKUP_MARK;
 
 /// The tail of a copy's name after its mark: `YYYYMMDD-HHMMSS`, within the
 /// same second with a counter `-NN`.
@@ -1353,7 +1358,7 @@ pub fn backups_of(target: &str) -> Vec<String> {
 }
 
 /// The copy first, then its note: a copy left over must never lose its note.
-fn remove_backup(backup: &str) -> std::io::Result<()> {
+pub(crate) fn remove_backup(backup: &str) -> std::io::Result<()> {
     jsonio::remove_file(backup)?;
     let note = companion(backup);
     if std::path::Path::new(&note).exists()

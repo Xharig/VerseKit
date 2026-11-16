@@ -31,6 +31,10 @@
 //! and learned digits of that copy (read only) and measures a second time with the learned digits; without it a
 //! list of the refinable ores and no places. `VERSEKIT_RAFFINERIE_AUFTRAG=<folder name>` measures one folder only;
 //! `VERSEKIT_RAFFINERIE_DEBUG=1` also prints every reading of every table with the columns taken from its heads.
+//! After the totals the run counts the errors by kind (a field left empty, 0 and 8 swapped …) with the lines of
+//! each. `VERSEKIT_RAFFINERIE_MESSUNG=<file>` writes the numbers of the measurements as JSON (never beside the set),
+//! and `VERSEKIT_RAFFINERIE_BASIS=<such a file>` fails the run when a measurement of the same name falls below it:
+//! lines right more than half a point lower, or more fields read wrong.
 //!
 //! The recognition: `VERSEKIT_RAFFINERIE_LESER=windows` (the default under Windows) or `eigen` (the own one,
 //! [`own_ocr`], the default elsewhere) with the shipped font or the one in `VERSEKIT_SCHRIFT=<file>`.
@@ -44,7 +48,7 @@ use std::time::Instant;
 
 use serde_json::Value;
 use versekit_core::paths::{Host, Paths};
-use versekit_core::refinery_scan::digits::Digits;
+use versekit_core::refinery_scan::digits::{self, Cell, Digits, Typed};
 use versekit_core::refinery_scan::own_ocr::{self, Font};
 use versekit_core::refinery_scan::{
     Index, Job, Ocr, PASSES, ScanError, Word, find_tables, header_columns, join_scrolled, match_material, merge_words,
@@ -59,6 +63,13 @@ const DEBUG: &str = "VERSEKIT_RAFFINERIE_DEBUG";
 const READER: &str = "VERSEKIT_RAFFINERIE_LESER";
 const FONT: &str = "VERSEKIT_SCHRIFT";
 const PART: &str = "VERSEKIT_RAFFINERIE_TEIL";
+/// Where the numbers of the measurement are written (JSON), and the file of an earlier measurement to hold it to.
+const RESULT: &str = "VERSEKIT_RAFFINERIE_MESSUNG";
+const BASE: &str = "VERSEKIT_RAFFINERIE_BASIS";
+/// `kreuz`: measures each half of the set with the digits learned from the other half. `..._SCHREIBEN=<file>`
+/// writes the digits learned from the whole set as the file the program ships.
+const DIGITS: &str = "VERSEKIT_RAFFINERIE_ZIFFERN";
+const DIGITS_WRITE: &str = "VERSEKIT_RAFFINERIE_ZIFFERN_SCHREIBEN";
 const GOLDEN: &str = "golden-expected.json";
 
 /// The recognition a measurement reads with.
@@ -298,10 +309,54 @@ fn share(part: usize, all: usize) -> String {
     if all == 0 { "-".to_string() } else { format!("{:.1} %", 100.0 * part as f64 / all as f64) }
 }
 
+/// The kinds of error a measurement counts, in the order they are printed.
+const CLASSES: [&str; 11] = [
+    "Zeile fehlt",
+    "Material falsch",
+    "Qualitaet leer, Wert mit 0 oder 8",
+    "Qualitaet leer, Wert ohne 0 und 8",
+    "Qualitaet 0 und 8 vertauscht",
+    "Qualitaet anders falsch",
+    "Ausbeute leer, Wert mit 0 oder 8",
+    "Ausbeute leer, Wert ohne 0 und 8",
+    "Ausbeute 0 und 8 vertauscht",
+    "Ausbeute anders falsch",
+    "Wert gelesen, Zelle sollte leer sein",
+];
+
+/// The kind of error of one field: `None` when it is right.
+fn field_class(name: &str, expected: Option<i64>, got: Option<i64>) -> Option<&'static str> {
+    let [with_confusable, without, swapped, other] = if name == "Qualitaet" {
+        [CLASSES[2], CLASSES[3], CLASSES[4], CLASSES[5]]
+    } else {
+        [CLASSES[6], CLASSES[7], CLASSES[8], CLASSES[9]]
+    };
+    match (expected, got) {
+        (e, g) if e == g => None,
+        (None, Some(_)) => Some(CLASSES[10]),
+        (Some(e), None) => {
+            Some(if e.to_string().chars().any(|c| c == '0' || c == '8') { with_confusable } else { without })
+        }
+        (Some(e), Some(g)) => {
+            let (e, g) = (e.to_string(), g.to_string());
+            let alike = |a: &str, b: &str| a.len() == b.len() && a.replace('8', "0") == b.replace('8', "0");
+            Some(if alike(&e, &g) { swapped } else { other })
+        }
+        (None, None) => None,
+    }
+}
+
 /// The comparison of one folder: the tally of all lines, of the bookable lines, and the differences as text.
 fn compare(expected: &[Expected], read: &[Read]) -> (Tally, Tally, Vec<String>) {
+    let (all, bookable, notes, _) = compare_classed(expected, read);
+    (all, bookable, notes)
+}
+
+/// [`compare`] and the kinds of error, each with the line it was found in.
+fn compare_classed(expected: &[Expected], read: &[Read]) -> (Tally, Tally, Vec<String>, Vec<(&'static str, String)>) {
     let pairs = align(expected, read);
     let (mut all, mut bookable, mut notes) = (Tally::default(), Tally::default(), Vec::new());
+    let mut classes: Vec<(&'static str, String)> = Vec::new();
     let mut paired_read = vec![false; read.len()];
     for (i, line) in expected.iter().enumerate() {
         let mut tally = Tally { expected: 1, ..Tally::default() };
@@ -319,6 +374,16 @@ fn compare(expected: &[Expected], read: &[Read]) -> (Tally, Tally, Vec<String>) 
                 tally.wrong = usize::from(!material)
                     + usize::from(got.quality.is_some() && !quality)
                     + usize::from(got.amount.is_some() && !yield_);
+                if !material {
+                    classes.push((CLASSES[1], line.show()));
+                }
+                for (name, wanted, found) in
+                    [("Qualitaet", line.quality, got.quality), ("Ausbeute", line.yield_, got.amount)]
+                {
+                    if let Some(class) = field_class(name, wanted, found) {
+                        classes.push((class, format!("{} | gelesen {}", line.show(), got.show())));
+                    }
+                }
                 if tally.whole == 0 {
                     let mut wrong = Vec::new();
                     if !material {
@@ -341,6 +406,7 @@ fn compare(expected: &[Expected], read: &[Read]) -> (Tally, Tally, Vec<String>) 
             None => {
                 tally.missing = 1;
                 notes.push(format!("  fehlt: {}", line.show()));
+                classes.push((CLASSES[0], line.show()));
             }
         }
         all.add(&tally);
@@ -354,10 +420,11 @@ fn compare(expected: &[Expected], read: &[Read]) -> (Tally, Tally, Vec<String>) 
             notes.push(format!("  zusaetzlich: {}", got.show()));
         }
     }
-    (all, bookable, notes)
+    (all, bookable, notes, classes)
 }
 
 /// One folder of the set.
+#[derive(Clone)]
 struct Folder {
     name: String,
     pictures: Vec<PathBuf>,
@@ -402,6 +469,8 @@ struct Reading {
     field: String,
     station: String,
     pictures: Vec<String>,
+    /// The cells of the unsure rows of the cards taken, for learning digits.
+    cells: Vec<Cell>,
 }
 
 /// What a measurement reads with: the recognition and, for the own one, the font.
@@ -412,7 +481,7 @@ struct With<'a> {
 }
 
 fn read_folder(folder: &Folder, index: &Index, learned: &Digits, cache: &mut Cache, with: With) -> Reading {
-    let mut reading = Reading { field: String::new(), station: String::new(), pictures: Vec::new() };
+    let mut reading = Reading { field: String::new(), station: String::new(), pictures: Vec::new(), cells: Vec::new() };
     for path in &folder.pictures {
         let bitmap = load(path);
         let started = Instant::now();
@@ -462,10 +531,11 @@ fn read_folder(folder: &Folder, index: &Index, learned: &Digits, cache: &mut Cac
             (compare(&folder.expected, &read).0.whole, read.len())
         });
         let text = best.map(|j| j.text.clone()).unwrap_or_default();
-        if let Some(job) = best
-            && reading.station.is_empty()
-        {
-            reading.station = job.station.clone();
+        if let Some(job) = best {
+            reading.cells.extend(job.cells.iter().cloned());
+            if reading.station.is_empty() {
+                reading.station = job.station.clone();
+            }
         }
         reading.pictures.push(format!(
             "  {file}: {}x{} {:.1} s, {} Tabelle(n), {} Zeilen, unsicher {}, Station {:?}, Summe {:?}",
@@ -490,18 +560,134 @@ fn read_folder(folder: &Folder, index: &Index, learned: &Digits, cache: &mut Cac
     reading
 }
 
+/// What one measurement came to, for the file of the measurement and the comparison with a base.
+#[derive(Clone, Debug, PartialEq)]
+struct Outcome {
+    label: String,
+    all: Tally,
+    bookable: Tally,
+    /// Each kind of error with how often it was found.
+    classes: Vec<(&'static str, usize)>,
+}
+
+impl Outcome {
+    fn to_json(&self) -> Value {
+        let tally = |t: &Tally| {
+            serde_json::json!({
+                "erwartet": t.expected, "ganz_richtig": t.whole, "falsch_gelesen": t.wrong,
+                "fehlend": t.missing, "zusaetzlich": t.extra,
+            })
+        };
+        let classes: serde_json::Map<String, Value> =
+            self.classes.iter().map(|(name, n)| ((*name).to_string(), Value::from(*n))).collect();
+        serde_json::json!({ "bezeichnung": self.label, "alle": tally(&self.all), "buchbar": tally(&self.bookable), "fehlerklassen": classes })
+    }
+}
+
+fn print_tally(name: &str, t: &Tally) {
+    println!(
+        "{name}: {} Zeilen, ganz richtig {} ({}), Material {} ({}), Qualitaet {} ({}), Ausbeute {} ({}), fehlend {}, zusaetzlich {}, FALSCH GELESEN {} Felder, Menge nicht gelesen",
+        t.expected,
+        t.whole,
+        share(t.whole, t.expected),
+        t.material,
+        share(t.material, t.expected),
+        t.quality,
+        share(t.quality, t.expected),
+        t.yield_,
+        share(t.yield_, t.expected),
+        t.missing,
+        t.extra,
+        t.wrong,
+    );
+}
+
+impl Outcome {
+    /// The measurements of two parts of the set as one.
+    fn merged(label: &str, parts: &[Outcome]) -> Outcome {
+        let (mut all, mut bookable) = (Tally::default(), Tally::default());
+        let mut classes: Vec<(&'static str, usize)> = CLASSES.iter().map(|name| (*name, 0)).collect();
+        for part in parts {
+            all.add(&part.all);
+            bookable.add(&part.bookable);
+            for (name, n) in &part.classes {
+                if let Some((_, sum)) = classes.iter_mut().find(|(known, _)| known == name) {
+                    *sum += n;
+                }
+            }
+        }
+        Outcome { label: label.to_string(), all, bookable, classes }
+    }
+}
+
+/// The share of whole lines in percent points, 0 without lines.
+fn percent(part: usize, all: usize) -> f64 {
+    if all == 0 { 0.0 } else { 100.0 * part as f64 / all as f64 }
+}
+
+/// How far a measurement may fall below its base before the run fails, in points of the lines right.
+const BASE_SLACK_POINTS: f64 = 0.5;
+
+/// What is wrong with a measurement against its base, or nothing: the lines right fell by more than
+/// [`BASE_SLACK_POINTS`] points, or more fields were read wrong. `base` is the entry of the same label.
+fn regression(now: &Outcome, base: &Value) -> Vec<String> {
+    let number = |value: &Value, part: &str, key: &str| value[part][key].as_u64().unwrap_or(0) as usize;
+    let mut found = Vec::new();
+    for (part, tally) in [("alle", &now.all), ("buchbar", &now.bookable)] {
+        let (base_whole, base_all) = (number(base, part, "ganz_richtig"), number(base, part, "erwartet"));
+        let (before, after) = (percent(base_whole, base_all), percent(tally.whole, tally.expected));
+        if after + BASE_SLACK_POINTS < before {
+            found.push(format!("{}: {part}: ganz richtig {after:.1} % statt {before:.1} %", now.label));
+        }
+        let base_wrong = number(base, part, "falsch_gelesen");
+        if tally.wrong > base_wrong {
+            found.push(format!("{}: {part}: falsch gelesen {} statt {base_wrong}", now.label, tally.wrong));
+        }
+    }
+    found
+}
+
+/// The digits the folders teach: the cells of the unsure rows learn from the typed lines, as with a player who
+/// types after a reading.
+fn learn_digits(folders: &[Folder], index: &Index, cache: &mut Cache, with: With) -> Digits {
+    let mut learned = Digits::default();
+    for folder in folders {
+        let reading = read_folder(folder, index, &Digits::default(), cache, with);
+        let typed: Vec<Typed> = folder
+            .expected
+            .iter()
+            .map(|line| (line.material.clone(), line.quality.map(|v| v as f64), line.yield_.map(|v| v as f64)))
+            .collect();
+        digits::learn_into(&mut learned, &reading.cells, &typed);
+    }
+    learned
+}
+
 /// One measurement over every folder, printed.
-fn measure(label: &str, folders: &[Folder], index: &Index, learned: &Digits, cache: &mut Cache, with: With) {
+fn measure(
+    label: &str,
+    folders: &[Folder],
+    index: &Index,
+    learned: &Digits,
+    cache: &mut Cache,
+    with: With,
+) -> Outcome {
     println!("\n######## {label}, {}", with.reader.name());
     let (mut all, mut bookable) = (Tally::default(), Tally::default());
     let (mut stations, mut stations_right) = (0, 0);
     let mut groups: Vec<(String, Tally)> = Vec::new();
     let mut table = Vec::new();
     let mut details = Vec::new();
+    let mut classes: Vec<(&'static str, Vec<String>)> = CLASSES.iter().map(|name| (*name, Vec::new())).collect();
     for folder in folders {
         let reading = read_folder(folder, index, learned, cache, with);
         let read: Vec<Read> = reading.field.lines().filter_map(Read::parse).collect();
-        let (tally, booked, notes) = compare(&folder.expected, &read);
+        let (tally, booked, notes, kinds) = compare_classed(&folder.expected, &read);
+        for (kind, line) in kinds {
+            if let Some((_, lines)) = classes.iter_mut().find(|(name, _)| *name == kind) {
+                lines.push(format!("{}: {line}", folder.name));
+            }
+        }
         all.add(&tally);
         bookable.add(&booked);
         let station = match &folder.location {
@@ -558,29 +744,25 @@ fn measure(label: &str, folders: &[Folder], index: &Index, learned: &Digits, cac
     for line in &table {
         println!("{line}");
     }
-    let print = |name: &str, t: &Tally| {
-        println!(
-            "{name}: {} Zeilen, ganz richtig {} ({}), Material {} ({}), Qualitaet {} ({}), Ausbeute {} ({}), fehlend {}, zusaetzlich {}, FALSCH GELESEN {} Felder, Menge nicht gelesen",
-            t.expected,
-            t.whole,
-            share(t.whole, t.expected),
-            t.material,
-            share(t.material, t.expected),
-            t.quality,
-            share(t.quality, t.expected),
-            t.yield_,
-            share(t.yield_, t.expected),
-            t.missing,
-            t.extra,
-            t.wrong,
-        );
-    };
     println!();
-    print("ALLE", &all);
-    print("BUCHBAR (refine, Ausbeute > 0)", &bookable);
+    print_tally("ALLE", &all);
+    print_tally("BUCHBAR (refine, Ausbeute > 0)", &bookable);
     println!("STATION: {stations_right} von {stations} ({})", share(stations_right, stations));
     for (group, t) in &groups {
         println!("GRUPPE {group}: {} von {} ganz richtig ({})", t.whole, t.expected, share(t.whole, t.expected));
+    }
+    println!("\nFEHLERKLASSEN (Felder und Zeilen, die nicht stimmen):");
+    for (name, lines) in &classes {
+        println!("KLASSE {name}: {}", lines.len());
+        for line in lines {
+            println!("    {line}");
+        }
+    }
+    Outcome {
+        label: label.to_string(),
+        all,
+        bookable,
+        classes: classes.iter().map(|(name, lines)| (*name, lines.len())).collect(),
     }
 }
 
@@ -627,13 +809,123 @@ fn the_test_set_of_refinery_pictures_is_measured() {
     }
     let mut cache = HashMap::new();
     let source = if copy.is_some() { "Materialien und Orte der Kopie" } else { "Liste der Erze, keine Orte" };
-    measure(&format!("ohne gelernte Ziffern, {source}"), &folders, &index, &Digits::default(), &mut cache, with);
+    let mut outcomes =
+        vec![measure(&format!("ohne gelernte Ziffern, {source}"), &folders, &index, &Digits::default(), &mut cache, with)];
     if let Some(paths) = &copy {
         let learned = Digits::load(paths);
         if !learned.is_empty() {
-            measure(&format!("mit gelernten Ziffern der Kopie, {source}"), &folders, &index, &learned, &mut cache, with);
+            outcomes.push(measure(
+                &format!("mit gelernten Ziffern der Kopie, {source}"),
+                &folders,
+                &index,
+                &learned,
+                &mut cache,
+                with,
+            ));
         }
     }
+    // The digits of the font learned from the typed lines of the set, the way a player teaches them. `kreuz`: the
+    // folders with an even number teach the digits that read the odd ones and the other way round, so no folder is
+    // read with digits learned from itself.
+    if std::env::var(DIGITS).as_deref() == Ok("kreuz") {
+        let (even, odd): (Vec<Folder>, Vec<Folder>) = folders.iter().cloned().partition(|f| number(&f.name) % 2 == 0);
+        let (from_even, from_odd) =
+            (learn_digits(&even, &index, &mut cache, with), learn_digits(&odd, &index, &mut cache, with));
+        println!("Ziffern der geraden Auftraege: {}, der ungeraden: {}", from_even.count(), from_odd.count());
+        let odd_read =
+            measure(&format!("ungerade Auftraege mit Ziffern der geraden, {source}"), &odd, &index, &from_even, &mut cache, with);
+        let even_read =
+            measure(&format!("gerade Auftraege mit Ziffern der ungeraden, {source}"), &even, &index, &from_odd, &mut cache, with);
+        let both = Outcome::merged(&format!("Kreuzmessung mit gelernten Ziffern, {source}"), &[odd_read, even_read]);
+        println!("\n######## {}", both.label);
+        print_tally("KREUZ ALLE", &both.all);
+        print_tally("KREUZ BUCHBAR", &both.bookable);
+        outcomes.push(both);
+    }
+    // The digits of the whole set into a file: what is shipped with the program (`daten/raffinerie-ziffern.json`).
+    if let Some(file) = std::env::var_os(DIGITS_WRITE) {
+        let learned = learn_digits(&folders, &index, &mut cache, with);
+        println!("Ziffern gelernt: {} Muster", learned.count());
+        let text = versekit_core::jsonio::dumps(&learned.to_value(), None, false);
+        std::fs::write(&file, text).expect("the file of the digits");
+    }
+    // The file of the measurement: only numbers, written where the caller asks, never beside the set.
+    if let Some(file) = std::env::var_os(RESULT) {
+        let all: Vec<Value> = outcomes.iter().map(Outcome::to_json).collect();
+        let text = serde_json::to_string_pretty(&serde_json::json!({ "messungen": all })).expect("JSON");
+        std::fs::write(&file, text).expect("the file of the measurement");
+    }
+    // A base to hold the measurement to: a file of an earlier measurement (`messungen` by the same label).
+    if let Some(file) = std::env::var_os(BASE) {
+        let base: Value = serde_json::from_slice(&std::fs::read(&file).expect("the base")).expect("JSON");
+        let mut problems = Vec::new();
+        for now in &outcomes {
+            let known = base["messungen"].as_array().into_iter().flatten().find(|m| m["bezeichnung"] == now.label);
+            match known {
+                Some(known) => problems.extend(regression(now, known)),
+                None => println!("Basis: keine Messung \"{}\" in der Basis", now.label),
+            }
+        }
+        assert!(problems.is_empty(), "gegen die Basis schlechter:\n{}", problems.join("\n"));
+    }
+}
+
+/// An outcome with these numbers, for the tests of the comparison with a base.
+fn outcome(whole: usize, wrong: usize) -> Outcome {
+    let tally = Tally { expected: 100, whole, wrong, ..Tally::default() };
+    Outcome { label: "x".into(), all: tally, bookable: tally, classes: Vec::new() }
+}
+
+#[test]
+fn a_regression_against_the_base_turns_the_measurement_red() {
+    let base = outcome(70, 10).to_json();
+    // As good or better, or a hair worse: no complaint.
+    assert!(regression(&outcome(70, 10), &base).is_empty());
+    assert!(regression(&outcome(80, 5), &base).is_empty());
+    assert!(regression(&outcome(70, 10), &outcome(70, 10).to_json()).is_empty());
+    // Within the slack of half a point: no regression (shown on 1000 lines, 70.0 % against 69.6 % and 69.0 %).
+    let wide = |whole: usize| {
+        let tally = Tally { expected: 1000, whole, wrong: 10, ..Tally::default() };
+        Outcome { label: "x".into(), all: tally, bookable: tally, classes: Vec::new() }
+    };
+    assert!(regression(&wide(696), &wide(700).to_json()).is_empty());
+    assert!(!regression(&wide(690), &wide(700).to_json()).is_empty());
+    // Five points less, or more wrong fields: red.
+    assert!(!regression(&outcome(65, 10), &base).is_empty());
+    assert!(!regression(&outcome(70, 11), &base).is_empty());
+    // Counter-check: a base raised by five points turns the run that was fine red.
+    assert!(!regression(&outcome(70, 10), &outcome(75, 10).to_json()).is_empty());
+}
+
+#[test]
+fn the_measurement_counts_the_classes_of_errors() {
+    let index = Index::new(&["Iron".to_string(), "Gold".to_string(), "Tin".to_string()], |_| false);
+    let expected: Vec<Expected> = [
+        "IRON [ORE]|880|50|180|true",
+        "GOLD (ORE)|200|60|300|true",
+        "TIN (ORE)|555|70|123|true",
+        "IRON [ORE]|333|70|null|false",
+    ]
+    .into_iter()
+    .filter_map(|line| Expected::parse(line, &index))
+    .collect();
+    // Iron: 0 and 8 swapped in the quality, the yield 180 read as 18. Gold: both read as nothing, the yield holds a 0.
+    // Tin: the yield empty although it holds no 0 and no 8. The last line is not read at all; a yield stood where it
+    // was empty.
+    let read: Vec<Read> =
+        ["Iron 800 18 cSCU", "Gold ? ? cSCU", "Tin 555 ? cSCU"].into_iter().filter_map(Read::parse).collect();
+    let (_, _, _, classes) = compare_classed(&expected, &read);
+    let count = |name: &str| classes.iter().filter(|(class, _)| *class == name).count();
+    assert_eq!(count("Qualitaet 0 und 8 vertauscht"), 1);
+    assert_eq!(count("Ausbeute anders falsch"), 1);
+    assert_eq!(count("Qualitaet leer, Wert mit 0 oder 8"), 1);
+    assert_eq!(count("Ausbeute leer, Wert mit 0 oder 8"), 1);
+    assert_eq!(count("Ausbeute leer, Wert ohne 0 und 8"), 1);
+    assert_eq!(count("Zeile fehlt"), 1);
+    // A value read where none stands.
+    let wrongly: Vec<Read> = ["Iron 333 99 cSCU"].into_iter().filter_map(Read::parse).collect();
+    let last = &expected[3..];
+    assert_eq!(compare_classed(last, &wrongly).3.iter().filter(|(class, _)| *class == CLASSES[10]).count(), 1);
 }
 
 #[test]

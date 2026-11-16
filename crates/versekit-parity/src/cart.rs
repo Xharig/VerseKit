@@ -67,7 +67,7 @@ struct World {
 impl World {
     fn load(world: &Value, home: &str) -> Result<World, String> {
         fs::create_dir_all(home).map_err(|e| e.to_string())?;
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home)], home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home)], home));
         fs::write(paths.app_file(versekit_core::shops::CACHE), world["shops_file"].to_string())
             .map_err(|e| e.to_string())?;
         fs::write(paths.app_file(versekit_core::stock_fetch::PRICES_FILE), world["prices_file"].to_string())

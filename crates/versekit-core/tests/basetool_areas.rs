@@ -74,7 +74,7 @@ fn build(name: &str, switches: &[&str], on_names: Option<Arc<dyn Fn() + Send + S
     std::fs::create_dir_all(&game).expect("game folder");
     let host = Host::new(
         Flavor::native(),
-        &[(versekit_core::legacy::ENV_HOME, &data), (versekit_core::paths::ENV_INSTALL_DIR, &game)],
+        &[(versekit_core::envvars::ENV_HOME, &data), (versekit_core::paths::ENV_INSTALL_DIR, &game)],
         &data,
     );
     let paths = Arc::new(Paths::new(host));

@@ -59,6 +59,8 @@ const ACTIONS_WIDTH: f32 = 2.0 * widgets::ICON_BUTTON_SIZE + 12.0;
 const ACTIONS_WIDTH_SPLIT: f32 = 4.0 * widgets::ICON_BUTTON_SIZE + 12.0;
 /// Inner margin plus border of `widgets::list_frame`.
 const FRAME_INSET: f32 = 5.0;
+/// What the frame of a badge adds to its text: the margin of five on both sides and the border.
+const BADGE_FRAME: f32 = 12.0;
 /// Where the list keeps (room left on screen, height asked for, visible page,
 /// height drawn, row height) of the last frame.
 const LIST_ROOM_ID: &str = "lager-liste-platz";
@@ -293,6 +295,8 @@ pub struct StockState {
     trade_place: String,
     editing: Option<Editing>,
     to_form: bool,
+    /// The form whose first field gets the cursor after a booking.
+    focus_first: Option<Form>,
     refinery_open: bool,
     refinery_text: String,
     refinery_cscu: bool,
@@ -370,6 +374,7 @@ impl Default for StockState {
             trade_place: String::new(),
             editing: None,
             to_form: false,
+            focus_first: None,
             refinery_open: false,
             refinery_text: String::new(),
             refinery_cscu: true,
@@ -766,6 +771,15 @@ impl StockState {
         self.message = Some(Message { text, since: None, undo: None });
     }
 
+    /// Whether the first field of `form` gets the cursor in this frame (once after a booking).
+    fn take_focus(&mut self, form: Form) -> bool {
+        if self.focus_first == Some(form) {
+            self.focus_first = None;
+            return true;
+        }
+        false
+    }
+
     /// A message that does not push away a pending undo.
     fn tell(&mut self, text: String) {
         if !self.message.as_ref().is_some_and(|m| m.undo.is_some()) {
@@ -829,6 +843,11 @@ impl StockState {
 
     pub(crate) fn rows(&self) -> Vec<Row> {
         stock::rows(&self.raw, &self.trade, &self.data)
+    }
+
+    /// The lists of names the stock knows, for sharing the stock with an org.
+    pub(crate) fn names(&self) -> &StockData {
+        &self.data
     }
 
     fn kind_of(&self, row: &Row) -> Kind {
@@ -1063,6 +1082,7 @@ impl StockState {
             self.split.booked(Store::Raw, &name, &place, Some(quality), false);
             self.raw_place = place;
             self.reset_raw();
+            self.focus_first = Some(Form::Raw);
             self.say(text);
         }
     }
@@ -1078,7 +1098,7 @@ impl StockState {
             .and_then(|e| e.get("ware").and_then(Value::as_str).map(|s| s.trim().to_string()));
         self.trade_form.errors = Errors::default();
         let name = self.trade_form.goods.trim().to_string();
-        if !self.data.knows_goods(&name) && Some(&name) != name_before.as_ref() {
+        if !self.data.knows_trade_goods(&name) && Some(&name) != name_before.as_ref() {
             self.trade_form.errors.name = Some(t("s_hl_unbekannt"));
             return;
         }
@@ -1130,6 +1150,7 @@ impl StockState {
             self.remember_trade_place(&f.place);
             let form = &mut self.trade_form;
             (form.goods, form.amount, form.cost) = (String::new(), String::new(), String::new());
+            self.focus_first = Some(Form::Trade);
             self.say(t("s_hl_gebucht"));
         }
     }
@@ -1200,6 +1221,7 @@ impl StockState {
             self.split.booked(Store::Trade, &name, &f.place, None, f.stolen);
             self.remember_trade_place(&f.place);
             (self.item_form.name, self.item_form.amount) = (String::new(), String::new());
+            self.focus_first = Some(Form::Item);
             self.say(t("s_hl_gebucht"));
         }
     }
@@ -1758,6 +1780,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     let lang = language::current();
     ui.add(egui::Label::new(RichText::new(t("s_mlg_lead")).small().color(color(scheme.sub))).wrap());
     ui.add_space(4.0);
+    suggestions::show_switch(ui, scheme, state);
     if state.moved_note {
         moved_card(ui, scheme, state);
         ui.add_space(GAP);
@@ -1854,7 +1877,22 @@ fn suggest_field(
     entries: &[String],
     error: &mut Option<String>,
 ) -> bool {
-    suggest_field_marked(ui, scheme, salt, hint, text, entries, error, None).0
+    suggest_field_marked(ui, scheme, salt, hint, text, entries, error, None, false).0
+}
+
+/// [`suggest_field`] that also puts the cursor into the field in this frame while `focus`.
+#[allow(clippy::too_many_arguments)]
+fn suggest_field_focus(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    salt: &str,
+    hint: &str,
+    text: &mut String,
+    entries: &[String],
+    error: &mut Option<String>,
+    focus: bool,
+) -> bool {
+    suggest_field_marked(ui, scheme, salt, hint, text, entries, error, None, focus).0
 }
 
 /// [`suggest_field`] that can also mark a field left empty: a border in the warning color and `note` below it
@@ -1869,6 +1907,7 @@ fn suggest_field_marked(
     entries: &[String],
     error: &mut Option<String>,
     note: Option<&str>,
+    focus: bool,
 ) -> (bool, egui::Response) {
     let more = |n: usize| tf("s_mlg_mehr", &[("n", Arg::from(n))]);
     let shown_error = error.clone();
@@ -1880,7 +1919,10 @@ fn suggest_field_marked(
                 let w = &mut ui.visuals_mut().widgets;
                 (w.inactive.bg_stroke, w.hovered.bg_stroke) = (stroke, stroke);
             }
-            widgets::SuggestField::new(salt, hint, scheme, &more).width(ui.available_width()).show(ui, text, entries)
+            widgets::SuggestField::new(salt, hint, scheme, &more)
+                .width(ui.available_width())
+                .focus(focus)
+                .show(ui, text, entries)
         })
         .inner;
     if out.response.changed() {
@@ -2036,8 +2078,9 @@ fn raw_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     let names = state.data.storable().to_vec();
     let places = state.data.places().to_vec();
     field_label(ui, &t("s_lg_material"));
+    let focus = state.take_focus(Form::Raw);
     let f = &mut state.raw_form;
-    enter |= suggest_field(
+    enter |= suggest_field_focus(
         ui,
         scheme,
         "lager-rohstoff",
@@ -2045,6 +2088,7 @@ fn raw_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         &mut f.material,
         &names,
         &mut f.errors.name,
+        focus,
     );
     let piece = state.data.is_piece(&state.raw_form.material);
     let label = if piece {
@@ -2055,13 +2099,17 @@ fn raw_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         t("s_lg_menge")
     };
     let preview = raw_preview(state);
+    // Tab goes from the amount to the quality; the unit switch stands under the amount but is built after the
+    // quality, so it comes next in the order of the keyboard (egui walks the widgets in the order they are built).
+    let mut switch_place: Option<egui::Rect> = None;
     crate::layout::columns_or_stack(ui, 220.0, 2, |col, i| {
         let f = &mut state.raw_form;
         if i == 0 {
             field_label(col, &label);
             enter |= plain_field(col, scheme, &mut f.amount, &t("s_pl_lager_menge"), &mut f.errors.amount);
             if !piece {
-                widgets::switch_row(col, scheme, &t("s_lg_cscu"), &mut f.cscu);
+                let height = widgets::switch_row_height(col, scheme);
+                switch_place = Some(col.allocate_space(egui::vec2(col.available_width(), height)).1);
             }
             if let Some((text, warn)) = &preview {
                 let tone = if *warn { scheme.gold } else { scheme.accent };
@@ -2072,6 +2120,12 @@ fn raw_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
             enter |= plain_field(col, scheme, &mut f.quality, &t("s_pl_qualitaet"), &mut f.errors.quality);
         }
     });
+    if let Some(place) = switch_place {
+        let cscu = &mut state.raw_form.cscu;
+        ui.scope_builder(egui::UiBuilder::new().max_rect(place), |ui| {
+            widgets::switch_row(ui, scheme, &t("s_lg_cscu"), cscu);
+        });
+    }
     field_label(ui, &t(if state.split.place_required() { "s_ml_ort" } else { "s_lg_ort" }));
     let f = &mut state.raw_form;
     enter |= suggest_field(ui, scheme, "lager-ort", &t("s_mlg_pl_ort"), &mut f.place, &places, &mut f.errors.place);
@@ -2105,13 +2159,23 @@ fn form_actions(state: &mut StockState, form: Form, save: bool, cancel: bool, de
 
 fn trade_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     let mut enter = false;
-    let goods = state.data.goods();
+    let goods = state.data.trade_goods();
     let places = state.data.places().to_vec();
     let required = state.split.place_required();
     let piece = state.editing.as_ref().is_some_and(|e| stock::is_pieces(&e.entry));
+    let focus = state.take_focus(Form::Trade);
     let f = &mut state.trade_form;
     field_label(ui, &t("s_hl_ware"));
-    enter |= suggest_field(ui, scheme, "lager-ware", &t("s_mlg_pl_ware"), &mut f.goods, &goods, &mut f.errors.name);
+    enter |= suggest_field_focus(
+        ui,
+        scheme,
+        "lager-ware",
+        &t("s_mlg_pl_ware"),
+        &mut f.goods,
+        &goods,
+        &mut f.errors.name,
+        focus,
+    );
     field_label(ui, &t(if piece { "s_hl_menge_stueck" } else { "s_hl_menge" }));
     enter |= plain_field(ui, scheme, &mut f.amount, &t("s_pl_lager_menge"), &mut f.errors.amount);
     let raw = f.amount.trim().to_string();
@@ -2152,9 +2216,10 @@ fn item_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     let mut enter = false;
     let places = state.data.places().to_vec();
     let required = state.split.place_required();
+    let focus = state.take_focus(Form::Item);
     let f = &mut state.item_form;
     field_label(ui, &t("s_ml_item"));
-    enter |= suggest_field(
+    enter |= suggest_field_focus(
         ui,
         scheme,
         "lager-item",
@@ -2162,6 +2227,7 @@ fn item_form(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         &mut f.name,
         state.data.item_names(),
         &mut f.errors.name,
+        focus,
     );
     field_label(ui, &t("s_hl_menge_stueck"));
     enter |= plain_field(ui, scheme, &mut f.amount, &t("s_ml_stueck_h"), &mut f.errors.amount);
@@ -2217,6 +2283,7 @@ fn refinery_section(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
             &places,
             &mut state.refinery_error,
             note.as_deref(),
+            false,
         );
         state.refinery_field = Some(field.id);
         // A place in the field ends the question; emptying it again starts it anew.
@@ -2524,7 +2591,17 @@ fn list(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, rows: &[Row], lang
         .collect();
     let available = ui.available_width() - crate::layout::SAFETY - 2.0 * FRAME_INSET;
     let actions = if state.split.available() { ACTIONS_WIDTH_SPLIT } else { ACTIONS_WIDTH };
-    let compact = available - widths.iter().sum::<f32>() - actions - 12.0 < NAME_MIN;
+    // The name column is as wide as the longest name (never cut with "…" where the page can give the room); where
+    // that room is not, the rows have three lines and the name the whole width of the first.
+    let longest_name = all
+        .iter()
+        .filter_map(|line| match line {
+            Line::Group(_, rows, _) => Some(format!("{} ({})", rows[0].name, rows.len())),
+            Line::Post(row, nested) => (!nested).then(|| row.name.clone()),
+        })
+        .map(|name| text_width(ui, &name, true) + 8.0)
+        .fold(0.0, f32::max);
+    let compact = available - widths.iter().sum::<f32>() - actions - 12.0 < NAME_MIN.max(longest_name);
     let table = Table { columns, widths, compact, selling, actions };
 
     let sort_click = heads(ui, scheme, state, &table, available);
@@ -2737,20 +2814,24 @@ fn draw_line(
     let mut cell = ui.new_child(UiBuilder::new().max_rect(name_rect).layout(Layout::left_to_right(Align::Center)));
     cell.set_clip_rect(name_rect.intersect(ui.clip_rect()));
     cell.add_space(indent);
-    let tag_width = tag.as_ref().map_or(0.0, |tag| text_width(&cell, tag, false) * 0.85 + 8.0);
-    // As many badges as fit beside the name and the tag; the others go into the `+n` badge.
-    let badge_width = |m: &str| text_width(&cell, m, false) * 0.85 + 16.0;
-    let name_least = if nested { 0.0 } else { (text_width(&cell, &name, true) + 4.0).min(90.0) };
+    let gap = cell.spacing().item_spacing.x;
+    let small_width = |text: &str| widgets::one_line_width(&cell, RichText::new(text).small(), egui::TextStyle::Small);
+    let tag_width = tag.as_ref().map_or(0.0, |tag| small_width(tag) + gap);
+    // The width a badge takes: its text, the margin and border of the frame, and the space before the next one.
+    let badge_width = |m: &str| small_width(m) + BADGE_FRAME + gap;
+    let rest_width = |count: usize| small_width(&format!("+{count}")) + BADGE_FRAME + gap;
+    // The name comes first: as many badges as leave it whole beside the tag; the others go into the `+n` badge.
+    let name_whole = if nested { 0.0 } else { text_width(&cell, &name, true) + gap };
     let full = (0..=marks.len().min(2))
         .rev()
         .find(|&k| {
             let shown: f32 = marks.iter().take(k).map(|(m, _)| badge_width(m)).sum();
-            let rest = if marks.len() > k { 30.0 } else { 0.0 };
-            name_least + tag_width + shown + rest <= cell.available_width()
+            let rest = if marks.len() > k { rest_width(marks.len() - k) } else { 0.0 };
+            name_whole + tag_width + shown + rest <= cell.available_width()
         })
         .unwrap_or(0);
     let marks_width: f32 = marks.iter().take(full).map(|(m, _)| badge_width(m)).sum::<f32>()
-        + if marks.len() > full { 30.0 } else { 0.0 };
+        + if marks.len() > full { rest_width(marks.len() - full) } else { 0.0 };
     if !nested {
         let room = (cell.available_width() - marks_width - tag_width).max(40.0);
         cell.scope(|c| {
@@ -3010,7 +3091,7 @@ mod tests {
         jsonio::make_dirs(&home).expect("folder");
         let paths = Paths::new(versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::Posix,
-            &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())],
+            &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str())],
             &home,
         ));
         let write = |file: &str, text: &str| {
@@ -3348,6 +3429,114 @@ mod tests {
         };
         state.undo(deleted);
         assert_eq!(state.raw, before);
+    }
+
+    /// The form of the stock page in a window without a screen (egui_kittest), with `state` as it is.
+    fn form_harness(state: StockState) -> egui_kittest::Harness<'static, StockState> {
+        let mut harness = egui_kittest::Harness::builder()
+            .with_size(egui::vec2(900.0, 1400.0))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(
+                |ui, state: &mut StockState| form_section(ui, versekit_core::theme::current(), state),
+                state,
+            );
+        harness.run_steps(3);
+        harness
+    }
+
+    /// The text fields of the form by what stands in them (every field of a test holds a text of its own).
+    fn field_with<'a>(harness: &'a egui_kittest::Harness<'static, StockState>, value: &str) -> egui_kittest::Node<'a> {
+        use egui_kittest::kittest::Queryable;
+        harness
+            .query_all_by_role(egui::accesskit::Role::TextInput)
+            .find(|node| node.value().as_deref() == Some(value))
+            .unwrap_or_else(|| panic!("no field holds {value:?}"))
+    }
+
+    #[test]
+    fn goods_of_the_catalog_without_a_buy_price_are_booked_in_the_goods_form() {
+        for name in ["Recycled Material Composite", "Scrap"] {
+            let mut state = StockState::default();
+            let before = state.trade.len();
+            state.book_goods(name, "5", "");
+            assert_eq!(state.trade_form.errors.name, None, "{name}: no error at the name");
+            assert_eq!(state.trade.len(), before + 1, "{name}: booked");
+        }
+        let mut state = StockState::default();
+        state.book_goods("Nichtsda Ware", "5", "");
+        assert_eq!(state.trade_form.errors.name, Some(t("s_hl_unbekannt")), "a name nobody knows stays refused");
+    }
+
+    #[test]
+    fn tab_goes_from_the_amount_to_the_quality_and_the_unit_switch_comes_after_it() {
+        use egui_kittest::kittest::Queryable;
+        let mut state = StockState { form_open: true, form: Form::Raw, ..StockState::default() };
+        state.raw_form =
+            RawForm { material: "Iron".into(), amount: "AMT".into(), quality: "QLT".into(), place: "PLC".into(), ..RawForm::default() };
+        let mut harness = form_harness(state);
+        field_with(&harness, "AMT").focus();
+        harness.run_steps(2);
+        assert!(field_with(&harness, "AMT").is_focused(), "the amount has the focus");
+        harness.key_press(egui::Key::Tab);
+        harness.run_steps(2);
+        assert!(field_with(&harness, "QLT").is_focused(), "Tab from the amount stops at the quality");
+        harness.key_press(egui::Key::Tab);
+        harness.run_steps(2);
+        let switch = harness.get_by_role_and_label(egui::accesskit::Role::CheckBox, "cSCU");
+        assert!(switch.is_focused(), "after the quality comes the unit switch");
+        harness.key_press(egui::Key::Tab);
+        harness.run_steps(2);
+        assert!(field_with(&harness, "PLC").is_focused(), "then the place");
+        harness.key_press_modifiers(egui::Modifiers::SHIFT, egui::Key::Tab);
+        harness.run_steps(2);
+        assert!(
+            harness.get_by_role_and_label(egui::accesskit::Role::CheckBox, "cSCU").is_focused(),
+            "Shift+Tab leads back to the switch: it stays reachable by keyboard"
+        );
+    }
+
+    #[test]
+    fn after_a_booking_the_focus_goes_back_to_the_first_field() {
+        use egui_kittest::kittest::Queryable;
+        for form in [Form::Raw, Form::Trade, Form::Item] {
+            let mut state = StockState { form_open: true, form, ..StockState::default() };
+            let before = state.trade.len() + state.raw.len();
+            match form {
+                Form::Raw => {
+                    state.raw_form = RawForm {
+                        material: "Iron".into(),
+                        amount: "4".into(),
+                        quality: "500".into(),
+                        place: "Area18".into(),
+                        ..RawForm::default()
+                    }
+                }
+                Form::Trade => {
+                    state.trade_form =
+                        TradeForm { goods: "Laranite".into(), amount: "4".into(), place: "Area18".into(), ..TradeForm::default() }
+                }
+                Form::Item => {
+                    let name = state.data.item_names().first().cloned().unwrap_or_default();
+                    state.item_form = ItemForm { name, amount: "2".into(), place: "Area18".into(), ..ItemForm::default() }
+                }
+            }
+            let mut harness = form_harness(state);
+            // The cursor stands in the last field, as after typing the place and pressing Enter.
+            harness.query_all_by_role(egui::accesskit::Role::TextInput).last().expect("a field").focus();
+            harness.run_steps(2);
+            match form {
+                Form::Raw => harness.state_mut().save_raw(),
+                Form::Trade => harness.state_mut().save_trade(),
+                Form::Item => harness.state_mut().save_item(),
+            }
+            let after = harness.state().trade.len() + harness.state().raw.len();
+            assert_eq!(after, before + 1, "{form:?}: the booking went through");
+            harness.run_steps(3);
+            let first = harness.query_all_by_role(egui::accesskit::Role::TextInput).next().expect("a field");
+            assert!(first.is_focused(), "{form:?}: the first field has the focus after the booking");
+        }
     }
 
     #[test]
@@ -3814,7 +4003,7 @@ mod tests {
         jsonio::make_dirs(&home).expect("folder");
         let paths = Paths::new(versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::Posix,
-            &[(versekit_core::legacy::ENV_HOME, home.as_str()), ("HOME", home.as_str())],
+            &[(versekit_core::envvars::ENV_HOME, home.as_str()), ("HOME", home.as_str())],
             &home,
         ));
         for (file, text) in files {

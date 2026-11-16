@@ -576,7 +576,7 @@ mod tests {
             std::fs::write(format!("{profile}/attributes.xml"), file).expect("file");
         }
         std::fs::write(format!("{game}/Game.log"), "x").expect("log");
-        let vars = [("SC_BP_HOME", home.as_str()), ("HOME", home.as_str()), (ENV_INSTALL_DIR, game.as_str())];
+        let vars = [("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str()), (ENV_INSTALL_DIR, game.as_str())];
         (Paths::new(Host::new(Flavor::Posix, &vars, &home)), home)
     }
 

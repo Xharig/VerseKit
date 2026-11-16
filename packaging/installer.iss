@@ -28,11 +28,18 @@
 #ifndef AppIdGuid
   #define AppIdGuid "7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461"
 #endif
-; The program file in the installation folder. 5.0 keeps the file name of 4.12: the update helper of 4.12
-; starts exactly this file once the setup has run.
+; The program file in the installation folder.
 #ifndef ProgramFile
-  #define ProgramFile "SC-BP-Watcher.exe"
+  #define ProgramFile "VerseKit.exe"
 #endif
+; The program file of an earlier installation (5.0 to 5.2 kept the name of 4.12). It is ended before the files
+; are copied and removed once the new one is in place; the update helper of those versions starts the file
+; the installer names under ProgramKey, which is the new one.
+; old-names: begin
+#ifndef OldProgramFile
+  #define OldProgramFile "SC-BP-Watcher.exe"
+#endif
+; old-names: end
 ; The value under the user's Run key; the program writes the same name (`autostart::NAME`).
 #ifndef RunValue
   #define RunValue "VerseKit"
@@ -142,6 +149,7 @@ Source: "{#ExtensionDir}\*"; DestDir: "{app}\erweiterung"; Flags: ignoreversion
 ; name in it stays. A desktop shortcut goes only together with its replacement (task "desktopicon").
 [InstallDelete]
 Type: files; Name: "{app}\erweiterung\*.xpi"
+; old-names: begin
 #ifndef TestRun
 Type: files; Name: "{autoprograms}\SC BP Watcher\SC BP Watcher.lnk"
 Type: files; Name: "{autoprograms}\SC BP Watcher\{cm:UninstallProgram,SC BP Watcher}.lnk"
@@ -154,6 +162,13 @@ Type: dirifempty; Name: "{autoprograms}\Verse-Kit"
 Type: files; Name: "{autodesktop}\SC BP Watcher.lnk"; Tasks: desktopicon
 Type: files; Name: "{autodesktop}\Verse-Kit.lnk"; Tasks: desktopicon
 #endif
+; old-names: end
+
+; The program file of the earlier name, should it have stayed (in use while installing).
+[UninstallDelete]
+; old-names: begin
+Type: files; Name: "{app}\{#OldProgramFile}"
+; old-names: end
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#ProgramFile}"
@@ -365,12 +380,33 @@ begin
   end;
 end;
 
+{ Once the new program file is in place: the start with Windows that runs the program file of the earlier name
+  runs the new one (the value keeps its name, so a switch of the task manager stays as it is), and the earlier
+  program file goes. Only after the copy: a cancelled installation keeps the program that ran. }
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Command: String;
 begin
   if CurStep = ssInstall then
     Installing := True
   else if CurStep = ssPostInstall then
+  begin
     Installed := True;
+    if not FileExists(ExpandConstant('{app}\{#ProgramFile}')) then
+      Exit;
+    // old-names: begin
+    if RegQueryStringValue(HKEY_CURRENT_USER, RUN_KEY, '{#RunValue}', Command)
+      and (Pos(Lowercase('{#OldProgramFile}'), Lowercase(Command)) > 0) then
+      RegWriteStringValue(HKEY_CURRENT_USER, RUN_KEY, '{#RunValue}', '"' + ExpandConstant('{app}\{#ProgramFile}') + '"');
+    // The update helper of 4.12 starts the program file it names in SCBP_EXE once the installer has ended; that
+    // is the file of the earlier name. It gets a copy of the new program file instead of being removed, and the
+    // next update through a helper of 5.x removes it.
+    if CompareText(ExtractFileName(GetEnv('SCBP_EXE')), '{#OldProgramFile}') = 0 then
+      FileCopy(ExpandConstant('{app}\{#ProgramFile}'), ExpandConstant('{app}\{#OldProgramFile}'), False)
+    else if FileExists(ExpandConstant('{app}\{#OldProgramFile}')) then
+      DeleteFile(ExpandConstant('{app}\{#OldProgramFile}'));
+    // old-names: end
+  end;
 end;
 
 { At the end of an update the program started: the exit code and the log lines for the program. Once the
@@ -425,14 +461,17 @@ begin
     Result := '/FI "SESSION eq ' + IntToStr(Session) + '" ';
 end;
 
-{ Ends every process of the program file in this session once; returns the exit code of taskkill. }
+{ Ends every process of the program file, under its name and under the earlier one, in this session once; returns
+  the exit code of taskkill. }
 function EndProgram(): Integer;
 var
   Code: Integer;
 begin
   Result := -1;
-  if Exec(ExpandConstant('{sys}\taskkill.exe'), '/F ' + SessionFilter() + '/IM {#ProgramFile}', '', SW_HIDE,
-      ewWaitUntilTerminated, Code) then
+  // old-names: begin
+  if Exec(ExpandConstant('{sys}\taskkill.exe'), '/F ' + SessionFilter() + '/IM {#ProgramFile} /IM {#OldProgramFile}', '',
+      SW_HIDE, ewWaitUntilTerminated, Code) then
+    // old-names: end
     Result := Code;
 end;
 
@@ -449,14 +488,32 @@ begin
   end;
 end;
 
-{ Does a process of the program file still run in this session? Asks the process list, which also shows processes
-  this one may not end, such as one started as administrator. PROGRAM_UNKNOWN when the list cannot be had. A check
-  setup takes the answer from /VKLAEUFTNOCH (runs, as a program it may not end) and /VKLISTEFEHLT (unknown). }
-function ProgramState(): Integer;
+{ Does a process of the program file `Name` run in this session? Asks the process list, which also shows processes
+  this one may not end, such as one started as administrator. PROGRAM_UNKNOWN when the list cannot be had. }
+function ListedState(const Name: String): Integer;
 var
   List: String;
   Code: Integer;
   Lines: AnsiString;
+begin
+  Result := PROGRAM_UNKNOWN;
+  List := ExpandConstant('{tmp}\processes.csv');
+  DeleteFile(List);
+  if Exec(ExpandConstant('{cmd}'), '/C ""' + ExpandConstant('{sys}\tasklist.exe') + '" ' + SessionFilter() +
+      '/FI "IMAGENAME eq ' + Name + '" /FO CSV /NH > "' + List + '""', '', SW_HIDE, ewWaitUntilTerminated, Code)
+    and (Code = 0) and LoadStringFromFile(List, Lines) then
+  begin
+    if Pos('"' + Lowercase(Name) + '"', Lowercase(String(Lines))) > 0 then
+      Result := PROGRAM_RUNS
+    else
+      Result := PROGRAM_GONE;
+  end;
+end;
+
+{ Does a process of the program file still run in this session, under its name or under the earlier one?
+  PROGRAM_UNKNOWN when the list cannot be had. A check setup takes the answer from /VKLAEUFTNOCH (runs, as a
+  program it may not end) and /VKLISTEFEHLT (unknown). }
+function ProgramState(): Integer;
 begin
 #ifdef TestRun
   if HasSwitch('/VKLAEUFTNOCH') then
@@ -476,18 +533,11 @@ begin
     Exit;
   end;
 #endif
-  Result := PROGRAM_UNKNOWN;
-  List := ExpandConstant('{tmp}\processes.csv');
-  DeleteFile(List);
-  if Exec(ExpandConstant('{cmd}'), '/C ""' + ExpandConstant('{sys}\tasklist.exe') + '" ' + SessionFilter() +
-      '/FI "IMAGENAME eq {#ProgramFile}" /FO CSV /NH > "' + List + '""', '', SW_HIDE, ewWaitUntilTerminated, Code)
-    and (Code = 0) and LoadStringFromFile(List, Lines) then
-  begin
-    if Pos('"' + Lowercase('{#ProgramFile}') + '"', Lowercase(String(Lines))) > 0 then
-      Result := PROGRAM_RUNS
-    else
-      Result := PROGRAM_GONE;
-  end;
+  Result := ListedState('{#ProgramFile}');
+  // old-names: begin
+  if Result = PROGRAM_GONE then
+    Result := ListedState('{#OldProgramFile}');
+  // old-names: end
 end;
 
 { The state once the program has had time to go: asks again every PROCESS_POLL milliseconds for at most
@@ -555,7 +605,10 @@ begin
       Exit;
     end;
   end;
-  WasInstalled := FileExists(ExpandConstant('{app}\{#ProgramFile}'));
+  // old-names: begin
+  WasInstalled := FileExists(ExpandConstant('{app}\{#ProgramFile}'))
+    or FileExists(ExpandConstant('{app}\{#OldProgramFile}'));
+  // old-names: end
   { A process list that cannot be read does not stop Setup or the update: the program was ended as always, and only
     one that is seen to run on stops it. }
   if (WasInstalled or (ProgramState() = PROGRAM_RUNS)) and not ProgramEnded(False) then
@@ -575,10 +628,12 @@ end;
 procedure RemoveStartWithWindows();
 begin
   RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, '{#RunValue}');
+  // old-names: begin
 #ifndef TestRun
   RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, 'Verse-Kit');
   RegDeleteValue(HKEY_CURRENT_USER, RUN_KEY, 'SC BP Watcher');
 #endif
+  // old-names: end
 end;
 
 { Runs the installed program with `Switch` on the player's data and returns its exit code, -1 when it could not be

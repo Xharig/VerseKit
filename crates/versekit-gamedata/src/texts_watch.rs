@@ -166,7 +166,7 @@ mod tests {
         std::fs::create_dir_all(&ptu).unwrap();
         let data = format!("{root}/data");
         std::fs::create_dir_all(&data).unwrap();
-        let vars = [(versekit_core::legacy::ENV_HOME, data.as_str()), (ENV_TEST_MACHINE, "1")];
+        let vars = [(versekit_core::envvars::ENV_HOME, data.as_str()), (ENV_TEST_MACHINE, "1")];
         let paths = Paths::new(Host::new(Flavor::native(), &vars, &root));
         let main_catalog = paths.app_file(list::CACHE_FILE);
         std::fs::write(&main_catalog, "main").unwrap();

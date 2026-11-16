@@ -173,7 +173,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
     for case in cases(&input, "titles")? {
         let mut host = Host::new(Flavor::native(), &[], "/");
         if let Some(value) = field(case, "env")?.as_str() {
-            host.set_var("SC_BP_TESTFASSUNG", value);
+            host.set_var("VERSEKIT_TESTFASSUNG", value);
         }
         titles.push(Value::str(language::window_title_in(lang(case)?, text(case, "text")?, &host)));
     }

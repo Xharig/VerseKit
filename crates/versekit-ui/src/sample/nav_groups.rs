@@ -61,12 +61,25 @@ fn settle(ctx: &egui::Context, page: &mut SamplePage) -> Vec<(String, Pos2)> {
 }
 
 fn click(ctx: &egui::Context, page: &mut SamplePage, label: &str) -> Vec<(String, Pos2)> {
+    click_beside(ctx, page, label, vec2(4.0, 4.0))
+}
+
+/// The arrow at the right edge of a group head: a click there folds the group, whatever its name is.
+fn click_arrow(ctx: &egui::Context, page: &mut SamplePage, label: &str) -> Vec<(String, Pos2)> {
+    click_beside(ctx, page, label, vec2(ARROW_FROM_NAME, 4.0))
+}
+
+/// How far right of the start of its name the arrow of a group head stands (the menu is 220 points wide in this
+/// window, the arrow area its last 28).
+const ARROW_FROM_NAME: f32 = 196.0;
+
+fn click_beside(ctx: &egui::Context, page: &mut SamplePage, label: &str, by: egui::Vec2) -> Vec<(String, Pos2)> {
     let texts = settle(ctx, page);
     let (_, at) = texts
         .iter()
         .find(|(text, _)| text == label)
         .unwrap_or_else(|| panic!("{label:?} not drawn: {texts:?}"));
-    let at = *at + vec2(4.0, 4.0);
+    let at = *at + by;
     let button = |pressed| Event::PointerButton {
         pos: at,
         button: egui::PointerButton::Primary,
@@ -84,7 +97,7 @@ fn shows(texts: &[(String, Pos2)], text: &str) -> bool {
 }
 
 #[test]
-fn a_group_folded_in_4_12_starts_folded_and_a_click_on_its_head_is_kept() {
+fn a_group_folded_in_4_12_starts_folded_and_a_click_on_its_arrow_is_kept() {
     let _language = crate::language_lock();
     let (mut page, dir) = real_page("gruppen", "{\n  \"gruppe_zu_logistik\": true\n}\n", &[]);
     page.open_overview();
@@ -95,12 +108,13 @@ fn a_group_folded_in_4_12_starts_folded_and_a_click_on_its_head_is_kept() {
     assert!(shows(&texts, &other), "another group is open: {texts:?}");
     assert!(!shows(&texts, &entry), "the group folded in 4.12 starts folded: {texts:?}");
 
-    let texts = click(&ctx, &mut page, &head);
+    let texts = click_arrow(&ctx, &mut page, &head);
     assert!(shows(&texts, &entry), "a click opens it: {texts:?}");
+    assert_eq!(page.page_key(), "", "the arrow opens no page");
     let file = || std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
     assert!(file().contains("\"gruppe_zu_logistik\": false"), "{}", file());
 
-    let texts = click(&ctx, &mut page, &head);
+    let texts = click_arrow(&ctx, &mut page, &head);
     assert!(!shows(&texts, &entry), "folded again");
     assert!(file().contains("\"gruppe_zu_logistik\": true"), "{}", file());
     let _ = std::fs::remove_dir_all(dir);
@@ -130,5 +144,97 @@ fn the_order_of_the_groups_is_kept_and_starts_as_it_was() {
     let _ = settle(&ctx, &mut page);
     let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
     assert!(file.contains("\"handel\",") && file.find("\"handel\"") < file.find("\"info\""), "{file}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The page open after a click on the head named `head`, from the overview, with `stored` in the settings.
+fn page_after_head_click(name: &str, stored: &str, head: &str) -> String {
+    let (mut page, dir) = real_page(name, stored, &[]);
+    page.open_overview();
+    let ctx = egui::Context::default();
+    crate::install(&ctx);
+    click(&ctx, &mut page, &t(head).to_uppercase());
+    let opened = page.page_key().to_string();
+    let _ = std::fs::remove_dir_all(dir);
+    opened
+}
+
+#[test]
+fn a_click_on_a_group_name_opens_its_first_page_while_nothing_is_known() {
+    let _language = crate::language_lock();
+    assert_eq!(page_after_head_click("kopf-erste", "", "hf_gruppe_logistik"), "hf_hangar");
+    assert_eq!(page_after_head_click("kopf-erste-bp", "", "hf_gruppe_bp"), "hf_liste");
+}
+
+#[test]
+fn a_click_on_a_group_name_opens_the_page_used_last() {
+    let _language = crate::language_lock();
+    let stored = concat!(
+        "{\"bereich_zuletzt\": {\"bauplaene\": \"hf_auftragslog\"}, ",
+        "\"bereich_zaehler\": {\"bauplaene\": {\"hf_liste\": 9}}}"
+    );
+    assert_eq!(page_after_head_click("kopf-zuletzt", stored, "hf_gruppe_bp"), "hf_auftragslog");
+}
+
+#[test]
+fn without_a_last_page_a_click_on_a_group_name_opens_the_page_used_most() {
+    let _language = crate::language_lock();
+    let stored = concat!(
+        "{\"bereich_zuletzt\": {\"bauplaene\": \"hf_gibt_es_nicht\"}, ",
+        "\"bereich_zaehler\": {\"bauplaene\": {\"hf_liste\": 1, \"hf_fortschritt\": 4}}}"
+    );
+    assert_eq!(page_after_head_click("kopf-meist", stored, "hf_gruppe_bp"), "hf_fortschritt");
+}
+
+#[test]
+fn a_page_opened_by_the_menu_is_the_one_the_group_name_opens_next_time_and_is_written() {
+    let _language = crate::language_lock();
+    let (mut page, dir) = real_page("kopf-merken", "", &[]);
+    page.open_overview();
+    let ctx = egui::Context::default();
+    crate::install(&ctx);
+    click(&ctx, &mut page, &t("hf_fortschritt"));
+    assert_eq!(page.page_key(), "hf_fortschritt");
+    let file = || std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
+    settle(&ctx, &mut page);
+    assert!(file().contains("\"bauplaene\": \"hf_fortschritt\""), "{}", file());
+    page.open_overview();
+    click(&ctx, &mut page, &t("hf_gruppe_bp").to_uppercase());
+    assert_eq!(page.page_key(), "hf_fortschritt", "the group name leads back to it");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_arrow_of_a_group_head_only_folds_and_the_name_opens_a_page_and_unfolds() {
+    let _language = crate::language_lock();
+    let (mut page, dir) = real_page("kopf-pfeil", "", &[]);
+    page.open_overview();
+    let ctx = egui::Context::default();
+    crate::install(&ctx);
+    let (head, entry) = (t("hf_gruppe_logistik").to_uppercase(), t("hf_meinlager"));
+    assert!(shows(&settle(&ctx, &mut page), &entry), "open at first");
+    let texts = click_arrow(&ctx, &mut page, &head);
+    assert!(!shows(&texts, &entry), "the arrow folds it: {texts:?}");
+    assert_eq!(page.page_key(), "", "and opens nothing");
+    // The name of the folded group opens its page and the group opens with it.
+    let texts = click(&ctx, &mut page, &head);
+    assert_eq!(page.page_key(), "hf_hangar");
+    assert!(shows(&texts, &entry), "the group is open again: {texts:?}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn the_blueprint_detection_has_no_entry_in_the_menu() {
+    let _language = crate::language_lock();
+    assert_eq!(super::group_of("hf_erkennung"), None, "in no group of the menu");
+    let blueprints = super::NAV.iter().find(|(group, _)| *group == "hf_gruppe_bp").unwrap().1;
+    assert!(!blueprints.iter().any(|(page, _)| *page == "hf_erkennung"), "no longer in the blueprint group");
+    assert_eq!(super::group_of("hf_allgemein"), Some("hf_gruppe_einst"), "the detection is part of the general settings");
+    let (mut page, dir) = real_page("erkennung-menue", "", &[]);
+    page.open_overview();
+    let ctx = egui::Context::default();
+    crate::install(&ctx);
+    let texts = settle(&ctx, &mut page);
+    assert!(!shows(&texts, &t("hf_erkennung")), "no row in the side bar: {texts:?}");
     let _ = std::fs::remove_dir_all(dir);
 }

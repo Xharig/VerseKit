@@ -588,7 +588,7 @@ fn the_checks_find_their_defect() {
     for text in ["{0} s", "5–100", "—", "Q {0:g}", "cm"] {
         assert!(!has_a_word(text), "{text}");
     }
-    for text in ["Status", "Terminal", "{0} SCU", "Verse-Kit"] {
+    for text in ["Status", "Terminal", "{0} SCU", "VerseKit"] {
         assert!(has_a_word(text), "{text}");
     }
 

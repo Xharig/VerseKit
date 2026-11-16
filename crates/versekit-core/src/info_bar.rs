@@ -196,7 +196,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let home = dir.to_string_lossy().into_owned();
-        let vars = [(crate::legacy::ENV_HOME, home.as_str())];
+        let vars = [(crate::envvars::ENV_HOME, home.as_str())];
         let paths = Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home));
         assert_eq!(Places::read(&paths), Places::default(), "nothing kept at first");
         let places = Places::default().with_place("2560x1440", [40, 300]).with_place("1920x1080", [-5, 12]);

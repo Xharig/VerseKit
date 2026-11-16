@@ -133,7 +133,7 @@ mod tests {
         let first = format!("{root}/StarCitizen/{}", channels[0].0);
         let data = format!("{root}/data");
         fs::create_dir_all(&data).unwrap();
-        let vars = [("HOME", root.as_str()), ("SC_BP_HOME", data.as_str()), ("SC_INSTALL_DIR", first.as_str())];
+        let vars = [("HOME", root.as_str()), ("VERSEKIT_HOME", data.as_str()), ("SC_INSTALL_DIR", first.as_str())];
         let paths = Paths::new(Host::new(Flavor::Posix, &vars, &root));
         (root, paths)
     }
@@ -162,20 +162,21 @@ mod tests {
     fn each_channel_gets_a_bubble_with_the_state_of_its_user_cfg_and_a_look_holds_for_a_while() {
         let _language = crate::language_lock();
         language::set_thread_language(language::Choice::De);
-        let (root, paths) = world(
-            "blasen",
-            &[
-                ("LIVE", true, Some("g_language = german_(germany)\n")),
-                ("HOTFIX", true, Some("sys_MaxFPS = 60\n")),
-                ("PTU", true, None),
-                ("EPTU", false, None),
-            ],
-        );
+        let mut worlds = vec![
+            ("LIVE", true, Some("g_language = german_(germany)\n")),
+            ("HOTFIX", true, Some("sys_MaxFPS = 60\n")),
+            ("PTU", true, None),
+        ];
+        let mut bubbles = vec![("LIVE", "s_uc_ok"), ("HOTFIX", "s_uc_ohne_sprache"), ("PTU", "s_uc_ohne_datei")];
+        // The channel under the terms of confidentiality is known to the test build only.
+        if versekit_core::edition::IS_TEST_BUILD {
+            worlds.push(("EPTU", false, None));
+            bubbles.push(("EPTU", "s_uc_keine"));
+        }
+        let (root, paths) = world("blasen", &worlds);
         let mut states = ChannelStates::default();
         let texts = drawn(&mut states, &paths, 10.0);
-        for (channel, key) in
-            [("LIVE", "s_uc_ok"), ("HOTFIX", "s_uc_ohne_sprache"), ("PTU", "s_uc_ohne_datei"), ("EPTU", "s_uc_keine")]
-        {
+        for (channel, key) in bubbles {
             let bubble = format!("{channel}: {}", t(key));
             assert!(texts.contains(&bubble), "{bubble}: {texts:?}");
         }
@@ -184,7 +185,10 @@ mod tests {
         assert!(texts.contains(&title) && texts.contains(&t("s_uc_kanaele_h")), "{texts:?}");
         // The order of the channels is the one of the game.
         let at = |channel: &str| texts.iter().position(|text| text.starts_with(channel)).unwrap();
-        assert!(at("LIVE") < at("HOTFIX") && at("HOTFIX") < at("PTU") && at("PTU") < at("EPTU"));
+        assert!(at("LIVE") < at("HOTFIX") && at("HOTFIX") < at("PTU"));
+        if versekit_core::edition::IS_TEST_BUILD {
+            assert!(at("PTU") < at("EPTU"));
+        }
         // A file changed a moment later is not looked at yet; after the time it is.
         fs::write(format!("{root}/StarCitizen/HOTFIX/user.cfg"), "g_language = english\n").unwrap();
         let texts = drawn(&mut states, &paths, 10.5);

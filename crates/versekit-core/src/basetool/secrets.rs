@@ -35,7 +35,6 @@ use std::fmt;
 use std::io::Write;
 use std::sync::{Mutex, OnceLock};
 
-use crate::legacy;
 use crate::paths::Host;
 use crate::writeguard;
 
@@ -124,7 +123,7 @@ pub struct SystemSecrets {
 
 /// `secret-tool` on the search path, unless test runs ask for the file.
 fn find_secret_tool(host: &Host) -> Option<String> {
-    if cfg!(windows) || host.var(legacy::ENV_SECRETS_FILE).is_some_and(|v| !v.is_empty() && v != "0") {
+    if cfg!(windows) || host.var(crate::envvars::ENV_SECRETS_FILE).is_some_and(|v| !v.is_empty() && v != "0") {
         return None;
     }
     let path = host.var("PATH")?;
@@ -216,7 +215,7 @@ impl SystemSecrets {
     }
 }
 
-/// The own folder of the secrets: `SC_BP_SECRETS`, otherwise under
+/// The own folder of the secrets: `VERSEKIT_SECRETS`, otherwise under
 /// `%LOCALAPPDATA%` (Windows) or `$XDG_CONFIG_HOME`/`~/.config`. Neither moves
 /// with the data folder or into the backup.
 ///
@@ -230,7 +229,7 @@ pub fn folder(host: &Host) -> String {
         }
         path.to_string_lossy().into_owned()
     };
-    if let Some(custom) = host.var_set(legacy::ENV_SECRETS) {
+    if let Some(custom) = host.var_set(crate::envvars::ENV_SECRETS) {
         return custom.to_string();
     }
     if cfg!(windows) {
@@ -399,7 +398,7 @@ impl SecretStore for SystemSecrets {
 }
 
 #[cfg(windows)]
-mod dpapi {
+pub(crate) mod dpapi {
     use windows_sys::Win32::Foundation::LocalFree;
     use windows_sys::Win32::Security::Cryptography::{
         CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData, CryptUnprotectData,
@@ -484,13 +483,13 @@ mod tests {
 
     #[test]
     fn folder_never_in_the_data_folder() {
-        let host = Host::new(Flavor::Posix, &[("HOME", "/home/spieler"), ("SC_BP_HOME", "/daten")], "/");
+        let host = Host::new(Flavor::Posix, &[("HOME", "/home/spieler"), ("VERSEKIT_HOME", "/daten")], "/");
         if !cfg!(windows) {
             assert_eq!(folder(&host), "/home/spieler/.config/versekit/basetool");
             let xdg = Host::new(Flavor::Posix, &[("HOME", "/home/spieler"), ("XDG_CONFIG_HOME", "/cfg")], "/");
             assert_eq!(folder(&xdg), "/cfg/versekit/basetool");
         }
-        let custom = Host::new(Flavor::Posix, &[(legacy::ENV_SECRETS, "/tmp/s")], "/");
+        let custom = Host::new(Flavor::Posix, &[(crate::envvars::ENV_SECRETS, "/tmp/s")], "/");
         assert_eq!(folder(&custom), "/tmp/s");
     }
 
@@ -499,7 +498,7 @@ mod tests {
     fn file_store_is_private_and_round_trips() {
         use std::os::unix::fs::PermissionsExt;
         let dir = scratch("file");
-        let host = Host::new(Flavor::Posix, &[(legacy::ENV_SECRETS, &dir), (legacy::ENV_SECRETS_FILE, "1")], "/");
+        let host = Host::new(Flavor::Posix, &[(crate::envvars::ENV_SECRETS, &dir), (crate::envvars::ENV_SECRETS_FILE, "1")], "/");
         let store = SystemSecrets::from_host(&host);
         assert_eq!(store.backend(), Backend::File);
         assert_eq!(store.load(REFRESH_SECRET).unwrap(), None);
@@ -547,7 +546,7 @@ mod tests {
     #[test]
     fn dpapi_store_round_trips_in_its_own_folder() {
         let dir = scratch("dpapi");
-        let host = Host::new(Flavor::native(), &[(legacy::ENV_SECRETS, &dir)], &dir);
+        let host = Host::new(Flavor::native(), &[(crate::envvars::ENV_SECRETS, &dir)], &dir);
         let store = SystemSecrets::from_host(&host);
         assert_eq!(store.backend(), Backend::Dpapi);
         assert_eq!(store.load(REFRESH_SECRET).unwrap(), None);
@@ -568,7 +567,7 @@ mod tests {
     #[test]
     fn the_write_lock_holds() {
         let dir = scratch("lock");
-        let host = Host::new(Flavor::Posix, &[(legacy::ENV_SECRETS, &dir), (legacy::ENV_SECRETS_FILE, "1")], "/");
+        let host = Host::new(Flavor::Posix, &[(crate::envvars::ENV_SECRETS, &dir), (crate::envvars::ENV_SECRETS_FILE, "1")], "/");
         let store = SystemSecrets::from_host(&host);
         writeguard::deny(true);
         let refused = store.save(REFRESH_SECRET, "x");

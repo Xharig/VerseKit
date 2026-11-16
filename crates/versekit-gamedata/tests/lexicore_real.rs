@@ -39,7 +39,7 @@ fn a_real_file_of_lexicore_against_a_copy_of_the_catalog() {
     let data = data.replace('\\', "/");
     let host = Host::new(
         Flavor::native(),
-        &[(versekit_core::legacy::ENV_HOME, data.as_str()), (versekit_core::legacy::ENV_NO_NET, "1")],
+        &[(versekit_core::envvars::ENV_HOME, data.as_str()), (versekit_core::envvars::ENV_NO_NET, "1")],
         &data,
     );
     let paths = Paths::new(host);

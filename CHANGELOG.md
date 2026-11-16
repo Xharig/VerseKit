@@ -6,6 +6,218 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.4.0 - 2026-11-16
+
+> VerseKit verbindet sich mit dem Panel eurer Orga und zeigt deren Lager,
+> Baupläne und Aufträge neben euren eigenen. Dazu kommt das Flugbuch, und
+> überall heißt es jetzt VerseKit, auch bei Programmdatei und Datenordner. Kommt ihr von 4.12, startet VerseKit nach dem Update einmal
+> über die Verknüpfung im Startmenü oder auf dem Desktop.
+
+### Neu
+
+- **Flugbuch:** Neue Seite unter „Statistiken“. Das Flugbuch zeichnet für
+  jede Sitzung auf, was in welcher Reihenfolge passiert ist: Spielstart und
+  -ende, Ortswechsel, gewählte Ziele, eigene Quantensprünge, Serverwechsel,
+  Verbindungsabbrüche, Verletzungen und Tode, dazu eure Aufträge und die
+  Baupläne, die sie gebracht haben. Ihr wählt eine Sitzung, schaltet
+  Ereignisarten ein und aus und sucht im Zeitstrahl. Tode sind vermutet: das
+  Spiel schreibt dafür keine eigene Zeile, VerseKit erkennt sie am Körper, der
+  zurückbleibt. Ein Sprung zählt nur, wenn er mit eurem Schiff geschah; fliegt
+  ihr als Passagier mit, fehlt er. Das Flugbuch bleibt auf eurem Rechner und
+  sendet nichts. Wollt ihr einen Flug weitergeben, exportiert ihr ihn selbst
+  als Text oder JSON (Zwischenablage oder Datei, mit Vorschau). Der Export
+  enthält nur Zeit (UTC), Art, Ortsnamen, Schiffsklasse, Auftragstitel,
+  Ergebnis und Bauplannamen, nie Shard, Handle oder Nummern.
+- **Geplante Teile in der Herstellung:** Unter den Fabrikator-Aufträgen steht
+  eine zugeklappte Karte „Vorgemerkt“ mit allem, was ihr einplant: dem
+  Merkzettel und den Teilen der Schiffe im Hangar und auf der Wunschliste, je
+  Herkunft gruppiert. Den Merkzettel ändert ihr gleich dort (weniger, mehr,
+  streichen, mit Rückgängig); die Schiffsteile gehören dem Hangar und sind nur
+  zu lesen, ein Link führt dorthin. Darunter steht, was an Material noch
+  fehlt, und ein Knopf zu „Was ich farmen muss“. In der Liste zeigt jedes
+  Teil, wie oft ihr es schon eingeplant habt („◆ 3×“, mit Anteil der Schiffe
+  im Hover), der Schalter „Geplant“ zeigt nur diese Teile, und im Teil steht
+  die Zeile „Geplant“ zum Ändern der Stückzahl. Ob die Karte offen oder zu
+  ist, merkt sich VerseKit. (Wunsch von Aeternitas26)
+- **Orga verbinden:** Unter Einstellungen › Orga verbinden verbindet sich
+  VerseKit über den offenen Orga-Standard (versekit-org v1) mit dem Panel
+  eurer Orga. Adresse eintragen, Code im Browser der Orga bestätigen und
+  selbst wählen, welche Rechte VerseKit bekommt; Verbindung prüfen und
+  trennen. Ohne Verbindung bleibt alles davon unsichtbar.
+- **Daten eurer Orga in VerseKit:** Unter Einstellungen › Orga verbinden
+  schaltet ihr je Orga und Bereich ein (ab Werk aus), was VerseKit zeigen
+  soll: den Bestand, die Baupläne und die Aufträge der Orga, soweit ihr im
+  Panel das Recht gegeben habt. Der Bestand steht auf der neuen Seite
+  „Orga-Lager“ (Suche, Filter, Summe je Ware) und neben euren Rohstoffen in
+  Herstellung und „Was ich farmen muss“; eure Zahlen ändert er nie. In der
+  Bauplan-Liste zeigt ein Abzeichen, wie viele Mitglieder einen Bauplan haben
+  (mit Filter und den Namen in der geöffneten Zeile), die Herstellung sagt es
+  bei einem fehlenden Bauplan. Die neue Seite „Orga-Aufträge“ zeigt die
+  Aufträge mit Fortschritt und bucht auf Wunsch eine Lieferung, höchstens
+  einmal, auch wenn ihr nach einem Netzfehler noch einmal klickt. Das Teilen
+  geht nie von selbst: „Bestand teilen“ und „Meine Baupläne teilen“ zeigen
+  vorher in einer Karte, was hinausgeht und was nicht (Preise, gestohlene
+  Ware, Namen, die VerseKit nicht sicher kennt, Startbaupläne), und die Orga
+  ersetzt damit, was sie von euch hat. „Teilen beenden“ löscht es dort. Die
+  Daten der Orga bleiben nur im Arbeitsspeicher, mit `VERSEKIT_NO_NET` fragt
+  VerseKit keine Orga an (nur ein Testserver auf dem eigenen Rechner).
+- **Für Orgas:** eine Beschreibung des Standards zum Einbauen ins eigene
+  Panel, ein fertiger Orga-Server zum Selbsthosten (eigene Versionsreihe ab
+  1.0.0, mit Verwaltung für die Orga-Leitung) und das Prüfwerkzeug
+  versekit-orgcheck.
+
+### Verbessert
+
+- **Mein Lager, Tastatur:** Nach dem Erfassen springt der Cursor zurück in das
+  erste Feld („Ware“, „Rohstoff“ oder „Gegenstand“). Tab geht von der Menge
+  direkt zur Qualität; der Schalter SCU/cSCU kommt danach und bleibt mit der
+  Maus erreichbar. Das X in den Feldern ist kein Halt der Tab-Taste mehr; ein
+  Feld leert die Tastatur mit Strg+A und Entf.
+- **Kaufen & Verkaufen, Menge rechnet:** Das Mengenfeld beim Verkauf rechnet
+  wie Mein Lager: „4,5“ ist die Menge, „30+2“ wird ausgerechnet, „+8“ und
+  „-2“ buchen auf die Menge, die in Mein Lager liegt. Mit Enter wird die
+  Rechnung durch ihr Ergebnis ersetzt. Gilt für SCU, cSCU und Stück; bei
+  Stück bleibt das Ergebnis ganzzahlig und die Seite sagt es.
+- **Raffinerie-Scan liest sicherer:** VerseKit bringt jetzt die Ziffern der
+  Terminalschrift mit. Neue Spieler müssen sie nicht erst selbst anlernen,
+  damit die Strichnull 0 von der 8 getrennt wird; was ihr selbst anlernt,
+  geht vor. Zellen, in denen die Erkennung gar keine Zahl fand (oft die
+  Ausbeute), liest der Scan jetzt an ihrem Platz mit diesen Ziffern nach,
+  statt sie leer zu lassen. An einem Prüfsatz von 35 Aufträgen, bei dem die
+  Ziffern jeweils aus den anderen Aufträgen gelernt wurden, stimmen so 207
+  statt 190 von 268 Zeilen ganz, bei den buchbaren Zeilen 126 statt 110 von
+  147; falsch gelesene Felder gehen von 13 auf 10 zurück. Die Zahlen gelten
+  für diesen Satz und die Schrift des Spiels, nicht für jeden Bildschirm.
+- **Fundorte der Rohstoffe aus den Spieldaten:** Wo ein Rohstoff liegt, liest
+  VerseKit jetzt aus den Spieldaten deiner Installation (Monde, Planeten und die
+  Punkte der Asteroidenfelder), nicht mehr nur von scmdb.net. Farm- und
+  Bergbau-Seite zeigen dieselben Orte. Die Farm-Seite sagt klein, woher sie
+  stammen, und nennt Rohstoffe, für die kein Fundort bekannt ist, statt nichts
+  zu zeigen. Bei den Lagrange-Punkten kennt das Spiel mehr Punkte als scmdb.net.
+  Gelesen wird einmal nach jedem Patch im Hintergrund, bei geschlossenem Spiel;
+  ohne Spieldaten bleibt scmdb.net die Quelle.
+- **„Was ich farmen muss“ schlanker:** Die Karte „Vorgemerkt“ steht jetzt in
+  der Herstellung; die Farm-Seite zeigt in ihrem Kopf, wie viele Teile geplant
+  sind (dieselbe Zahl wie die Karte), und hat einen Knopf „Zur Herstellung“.
+  Auch die Teile eurer Schiffe waren schon in der Summe, standen aber nicht in
+  der Liste; jetzt ist beides dieselbe Rechnung.
+- **Schneller zwischen verwandten Seiten:** Auf der Bauplan-Liste führt ein
+  Knopf zum Fortschritt, dort einer zurück zur Liste. In der Herstellung führt
+  die Karte „Vorgemerkt“ mit einem Knopf zur Farm-Seite.
+- **Bauplan-Erkennung ohne eigene Seite:** Die Seite „Bauplan-Erkennung“ gibt
+  es nicht mehr, und nichts von ihr geht verloren. Die Karte „Erkannte
+  Meldung“ steht jetzt in Einstellungen › Allgemein unter den Karten zu Account
+  und fremden Bauplänen. „Katalog auffrischen“ bleibt auf der Bauplan-Liste, und
+  der Knopf „Erkennung in den Einstellungen“ führt von dort zu den Einstellungen.
+  Eine angeheftete Karte oder Startseite, die auf die alte Seite zeigte, öffnet
+  Einstellungen › Allgemein.
+- **„Jetzt bauen“:** Das Feld neben „Bauen“ in der Herstellung heißt jetzt
+  „Jetzt bauen“. Die Zahl darin gilt fürs Bauen und auch fürs Vormerken.
+- **Qualität als Zahl eintippen:** In „Mein Hangar“ › Ausstattung & Warenkorb
+  steht rechts neben jedem Qualitätsregler eines selbst gebauten Teils jetzt
+  ein Eingabefeld. Tippt eine Zahl von 0 bis 1000 ein (zum Beispiel glatt 750)
+  und bestätigt mit Enter oder wechselt das Feld; Regler und Zahl zeigen immer
+  dasselbe. Etwas anderes als eine Zahl von 0 bis 1000 wird nicht übernommen
+  und springt auf den alten Wert zurück, Escape verwirft die Eingabe. (Wunsch
+  von Aeternitas26)
+- **Region der Aufträge auch ohne scmdb:** Die Zeile „# Region“ in den
+  Auftragsangaben kommt jetzt auch für Aufträge aus den Spieldaten, die kein
+  Angebotsort festlegt (zum Beispiel die Wikelo-Aufträge). VerseKit liest dafür
+  die Ortsabfragen der Aufträge und nennt die Systeme und Planeten, zu denen
+  sie führen; die Zielorte stehen dadurch ebenfalls in der Region. Die Region
+  steht auch ohne Internet da, scmdb.net ergänzt nur, was die Spieldaten nicht
+  hergeben. Der Katalog baut sich nach dem Update einmal neu auf.
+- **Überall VerseKit:** Die Programmdatei heißt jetzt `VerseKit.exe` (vorher
+  `SC-BP-Watcher.exe`). Der Installer beendet beide, ersetzt die alte Datei und
+  biegt den Start mit Windows auf die neue um. Der Datenordner unter
+  „Dokumente“ heißt jetzt `VerseKit`; VerseKit benennt ihn nur um, wenn das
+  sicher ist (gleiches Laufwerk, nicht in OneDrive, der neue Name ist frei, die
+  Einstellungen sind lesbar), sonst bleibt er unter seinem alten Namen und
+  VerseKit sagt es. Daten gehen dabei nie verloren. Nach dem Umzug findet
+  Version 5.2 oder früher den Ordner nicht mehr. Der Name steht jetzt auch in
+  Texten, Anleitungen und auf der Webseite überall in einem Wort, ohne
+  Bindestrich; die Zeile „ehemals SC BP Watcher“ ist weg. Neue Sicherungen
+  heißen `VerseKit-Sicherung-…`; ältere mit `Verse-Kit-Sicherung-…` erkennt
+  und spielt VerseKit weiter ein und lässt sie, wie sie heißen.
+- **Einmal neu einrichten:** Windows merkt sich den Pfad der Programmdatei.
+  Habt ihr sie an die Taskleiste geheftet oder für sie eine Firewall-Regel,
+  eine Ausnahme im Virenschutz oder einen Zugriffsschutz für Ordner angelegt,
+  richtet das für `VerseKit.exe` einmal neu ein. SmartScreen kennt den neuen
+  Dateinamen noch nicht und fragt unter Umständen einmal nach.
+- **Umgebungsvariablen mit `VERSEKIT_`:** Variablen für eigene Tests beginnen
+  jetzt mit `VERSEKIT_`, zum Beispiel `VERSEKIT_NO_NET`. Die alten Namen gelten
+  weiter, solange der neue nicht gesetzt ist.
+- **Deinstallation:** Sie nimmt eure Daten unter allen Namen mit, die VerseKit
+  je hatte.
+
+### Behoben
+
+- **Mein Lager, Eingabe von Waren:** Die händische Erfassung kennt jetzt alle
+  Waren des Katalogs, auch die ohne Ankaufpreis wie „Recycled Material
+  Composite“ oder „Scrap“ (gemeldet von Horthy, Freilanze). Die Abkürzung
+  „RMC“ findet die Ware über die Anfangsbuchstaben ihrer Wörter; das gilt für
+  jedes Vorschlagsfeld, ab drei Buchstaben.
+- **Bauplan-Liste blieb leer, wenn ein Kanalordner auf einen anderen
+  zeigt:** Ist ein Kanalordner (zum Beispiel HOTFIX) eine Verknüpfung auf den
+  Ordner eines anderen (LIVE), zählen beide jetzt als ein Kanal, LIVE zuerst.
+  Dieselbe Spieldatei erkennt VerseKit auch, wenn der Pfad anders geschrieben
+  ist (Groß- und Kleinschreibung, Schrägstriche); so springt der zuletzt
+  gebaute Katalog ein, solange das Spiel läuft oder der Launcher patcht, und
+  die Liste bleibt nicht leer. Wartet der Aufbau, steht dort jetzt, worauf
+  (Spielende oder Launcher), und eure gesammelten Baupläne erscheinen mit
+  Namen als „nicht im Katalog“. Der Auftragsmonitor sucht den Ordner mit der
+  Game.log später noch einmal, wenn es beim Start keinen gibt. (Meldung von
+  Kuehlwagen [KRT] und Katscheng)
+- **Lager-Abgleich mit dem Basetool, Umzug eines Postens:** Das Basetool hält
+  Änderungen zurück, in denen ein Posten auf 0 geht, ohne dass im selben Satz
+  dieselbe Ware dazukommt. Bei einem Umzug an einen anderen Ort konnten
+  Abgang und Zugang in verschiedenen Sätzen landen, und der Abgang blieb
+  hängen. Alle Posten einer Ware gehen jetzt im selben Satz hinaus, ein Satz
+  wird nur zwischen zwei Waren getrennt.
+- **Raffinerie-Scan, Menge statt Ausbeute:** Liest ein Durchgang den Kopf der
+  Spalte „Menge“ nicht, bekam die Ausbeute die Zahlen der Menge. Die Spalte
+  wird jetzt aus den Köpfen der anderen Durchgänge ergänzt.
+- **Kaufen & Verkaufen:** Das Mengenfeld beim Verkauf schneidet die Menge
+  nicht mehr auf ganze SCU ab. „0,1“ zählt als ein Zehntel SCU, bei cSCU nach
+  der Einstellung von Mein Lager als ein Hundertstel je cSCU. Stückware (zum
+  Beispiel Saldynium) wird in Stück eingegeben, das Feld sagt „Stück“, und die
+  Summe rechnet Preis je SCU mal Größe eines Stücks mal Stück. Ist die Größe
+  eines Stücks nicht bekannt, steht die Menge in Stück da, Erlös und Summe
+  fehlen, und die Seite sagt es.
+- **Update-Prüfung:** Releases des Orga-Servers gelten nie als Update von
+  VerseKit.
+- **Auftragslog und Statistik › Aufträge:** Lange Titel von Aufträgen brechen
+  in mehrere Zeilen um, statt mit „…“ abgeschnitten zu werden.
+- **Mein Lager:** Das Schild „Verkauf“ ragt nicht mehr über den Rand, und lange
+  Namen wie „Construction Materials“ stehen ganz da; wo der Platz dafür nicht
+  reicht, zeigt die Liste die kompakte Ansicht.
+- **Testkanäle mit Verschwiegenheitspflicht werden nicht mehr bearbeitet:**
+  VerseKit erkennt, liest und beschreibt Testkanäle, deren Inhalte unter
+  Verschwiegenheit stehen, nicht mehr; sie fehlen auch in den Listen und
+  Auswahlfeldern. Was frühere Versionen dort geschrieben haben, nimmt
+  VerseKit beim ersten Start einmal zurück: die Auftragsangaben, die ersetzte
+  Textdatei (aus der Kopie, die VerseKit vor dem ersten Ersetzen angelegt
+  hat), die Sprachzeile in der user.cfg und die eigenen Daten dieser Kanäle.
+  PTU bleibt wie bisher.
+- **Datenordner: Zeiger an allen Stellen gleich:** Wählt ihr einen anderen
+  Datenordner, zieht ihn um oder benennt VerseKit ihn in „VerseKit“ um,
+  schreibt VerseKit den Zeiger darauf überall dorthin, wo eine Version ihn
+  sucht, auch für ältere Versionen. Startet ihr danach noch einmal eine
+  ältere Version, findet sie eure Daten, statt einen leeren Ordner anzulegen.
+- **Datenordner nicht gefunden:** Zeigt der Zeiger auf einen Ordner, den es
+  nicht gibt (zum Beispiel eine getrennte Festplatte), legt VerseKit dort
+  keinen leeren Ordner mehr an. Es sucht an den bekannten Orten nach Ordnern
+  mit euren Daten: findet es genau einen, nimmt es ihn; sonst sagt es
+  „Datenordner nicht gefunden“ und nennt, was es gefunden hat.
+- **Warnung „Weniger Baupläne als sonst“ bleibt nach dem Update:** Die Marke
+  für den höchsten Stand zieht mit, wenn der Zeiger an seinen neuen Ort
+  umzieht.
+- **Sicherung bei jedem Versionswechsel:** Läuft eine andere Version als beim
+  letzten Start (auch eine ältere), legt VerseKit eine Sicherung an, bevor es
+  etwas umbenennt oder verschiebt. Scheitert die Sicherung vor einem Update,
+  sagt VerseKit es und fragt, ob trotzdem aktualisiert werden soll; ohne
+  Antwort gibt es kein Update.
+
 ## v5.3.7 - 2026-11-16
 
 > Nachbesserung zu 5.3.5: Auch das Overlay selbst bleibt unter Linux mit KDE
@@ -183,8 +395,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   keine Frachtzeile mehr statt „0 SCU“.
 - **Kaputte Setup-Datei:** Ein beschädigter Installer öffnet beim Update
   kein Windows-Fehlerfenster mehr.
-- **Herstellung „Name A–Z“:** Die Liste sortierte dabei zuerst nach Größe
-  und erst dann nach Name. Jetzt geht „Name A–Z“ nur nach dem Namen; die
+- **Herstellung „Name A bis Z“:** Die Liste sortierte dabei zuerst nach Größe
+  und erst dann nach Name. Jetzt geht „Name A bis Z“ nur nach dem Namen; die
   bisherige Ordnung heißt „Größe, dann Name“ und bleibt der Standard.
   Gemeldet von Aeternitas26
 - **Fabrikator-Zeile in der Herstellung:** „2 in Arbeit, 4 wartend, 10 im

@@ -52,6 +52,8 @@ pub enum Error {
     Slots { source: Cause },
     /// p4kx could not build its catalog of the reputation records, or its JSON could not be read.
     Reputation { source: Cause },
+    /// p4kx could not build its whole catalog (the places where raw materials lie), or its JSON could not be read.
+    Places { source: Cause },
 }
 
 impl Error {
@@ -77,6 +79,7 @@ impl fmt::Display for Error {
             Self::Contracts { .. } => f.write_str("cannot read the contracts of the game data with p4kx"),
             Self::Slots { .. } => f.write_str("cannot read the slots of the ships of the game data with p4kx"),
             Self::Reputation { .. } => f.write_str("cannot read the reputation of the game data with p4kx"),
+            Self::Places { .. } => f.write_str("cannot read the places of the raw materials of the game data with p4kx"),
         }
     }
 }
@@ -90,7 +93,8 @@ impl std::error::Error for Error {
             | Self::Localization { source, .. }
             | Self::Contracts { source }
             | Self::Slots { source }
-            | Self::Reputation { source } => Some(source.as_ref()),
+            | Self::Reputation { source }
+            | Self::Places { source } => Some(source.as_ref()),
             Self::Read { source, .. } => Some(source),
         }
     }

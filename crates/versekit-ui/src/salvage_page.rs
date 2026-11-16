@@ -1241,7 +1241,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("folder");
         let home = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &home)], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &home)], &home));
         // UEX gives the Sabre Raven EX under two ids with one name.
         let ships = r#"{"format": 5, "schiffe": {"290": {"name": "Aegis Sabre Raven EX"},
                         "291": {"name": "Aegis Sabre Raven EX"}, "3": {"name": "Aegis Sabre"}}}"#;
@@ -1262,7 +1262,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("folder");
         let home = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &home)], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &home)], &home));
         let ships = r#"{"format": 5, "schiffe": {"1": {"name": "Drake Cutlass Black", "werft": "Drake"},
                         "2": {"name": "Anvil Concept", "werft": "Anvil", "konzept": true}}}"#;
         std::fs::write(paths.app_file(versekit_core::ships::UEX_FILE), ships).expect("ships");

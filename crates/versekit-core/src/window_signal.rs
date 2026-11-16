@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Signals between the windows of Verse-Kit on one desktop. Each window
+//! Signals between the windows of VerseKit on one desktop. Each window
 //! marks itself with its role; the others find it by that mark, not by its
 //! title (which follows the language), and post it a registered message.
 //!
@@ -267,14 +267,14 @@ mod imp {
 
     const SUBCLASS_ID: usize = 0x5645_5349;
 
-    /// The upper part of `dwData` of a handing over of Verse-Kit; the kind is in the lowest byte. Data of other
+    /// The upper part of `dwData` of a handing over of VerseKit; the kind is in the lowest byte. Data of other
     /// programs (another number) are passed on untouched.
     const DATA_MARK: usize = 0x5645_5300;
 
     /// How long a handing over waits for the other window.
     const DATA_WAIT_MS: u32 = 1000;
 
-    /// The handing over that `lparam` of a `WM_COPYDATA` carries, if it is one of Verse-Kit.
+    /// The handing over that `lparam` of a `WM_COPYDATA` carries, if it is one of VerseKit.
     ///
     /// # Safety
     /// `lparam` is the `COPYDATASTRUCT` of a `WM_COPYDATA` the system delivers, valid during the message.
@@ -302,13 +302,13 @@ mod imp {
         text.encode_utf16().chain(std::iter::once(0)).collect()
     }
 
-    /// The name of the mark every Verse-Kit window carries.
+    /// The name of the mark every VerseKit window carries.
     fn mark_name() -> &'static [u16] {
         static NAME: OnceLock<Vec<u16>> = OnceLock::new();
         NAME.get_or_init(|| wide("VerseKit.Rolle"))
     }
 
-    /// The message number all Verse-Kit windows agree on.
+    /// The message number all VerseKit windows agree on.
     fn message() -> u32 {
         static MESSAGE: OnceLock<u32> = OnceLock::new();
         // SAFETY: the name is a terminated wide string that lives for the call.
@@ -526,7 +526,7 @@ pub fn send_to(role: Role, signal: Signal) -> bool {
 }
 
 /// Asks the window `hwnd` to close, as its own close button does (a window of another program of
-/// Verse-Kit, which ends with it); `false` when it cannot be reached.
+/// VerseKit, which ends with it); `false` when it cannot be reached.
 pub fn close_window(hwnd: isize) -> bool {
     imp::close_window(hwnd)
 }

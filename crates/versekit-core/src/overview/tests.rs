@@ -29,7 +29,7 @@ fn paths(name: &str, settings: &str) -> (Paths, std::path::PathBuf) {
     if !settings.is_empty() {
         std::fs::write(root.join("einstellungen.json"), settings).unwrap();
     }
-    let host = Host::new(Flavor::Posix, &[("HOME", data.as_str()), ("SC_BP_HOME", data.as_str())], &data);
+    let host = Host::new(Flavor::Posix, &[("HOME", data.as_str()), ("VERSEKIT_HOME", data.as_str())], &data);
     (Paths::new(host), root)
 }
 
@@ -179,6 +179,17 @@ fn the_pinned_shader_cache_counts_as_the_graphics_page() {
     assert_eq!(resolve("shader").0, "grafik");
     assert_eq!(page_key("shader"), None, "no page of its own any more");
     assert_eq!(page_key(resolve("shader").0), Some("hf_grafik"));
+}
+
+/// The detection is part of the general settings: a pinned `erkennung` is the page Allgemein, once.
+#[test]
+fn the_pinned_detection_counts_as_the_general_settings() {
+    let (p, root) = paths("pinned-erkennung", r#"{"karten_angeheftet": ["erkennung", "hangar", "allgemein"]}"#);
+    assert_eq!(pinned(&p), ids(&["allgemein", "hangar"]), "once, at the place of the first");
+    let _ = std::fs::remove_dir_all(root);
+    assert_eq!(resolve("erkennung").0, "allgemein");
+    assert_eq!(page_key("erkennung"), None, "no page of its own any more");
+    assert_eq!(page_key(resolve("erkennung").0), Some("hf_allgemein"));
 }
 
 #[test]

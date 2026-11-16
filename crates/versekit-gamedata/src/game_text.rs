@@ -949,7 +949,7 @@ mod tests {
             fs::write(format!("{game}/Game.log"), "").unwrap();
             let host = Host::new(
                 Flavor::native(),
-                &[("HOME", root.as_str()), ("SC_BP_HOME", data.as_str()), ("SC_INSTALL_DIR", game.as_str())],
+                &[("HOME", root.as_str()), ("VERSEKIT_HOME", data.as_str()), ("SC_INSTALL_DIR", game.as_str())],
                 &root,
             );
             Self { root, game, paths: Paths::new(host) }
@@ -1365,30 +1365,33 @@ mod tests {
         fx.archive(b"a=1\nb=2\n");
         let target = format!("{}/global.ini", fx.root);
         fx.put(&target, b"a=1\n");
+        let old = versekit_core::legacy::GAME_BACKUP_MARK;
         for stamp in ["20200101-000001", "20200101-000002", "20200101-000003", "20200101-000004"] {
-            fx.put(&format!("{target}.scbpw-{stamp}"), stamp.as_bytes());
+            fx.put(&format!("{target}{old}{stamp}"), stamp.as_bytes());
         }
         // Files that do not follow the pattern are not copies.
-        fx.put(&format!("{target}.scbpw-x"), b"x");
-        fx.put(&format!("{target}.bak"), b"x");
-        fx.put(&format!("{target}.scbpw-20200101-00000"), b"x");
-        fx.put(&format!("{}/other.ini.scbpw-20200101-000001", fx.root), b"x");
+        let not_copies = [format!("{target}{old}x"), format!("{target}.bak"), format!("{target}{old}20200101-00000")];
+        for file in &not_copies {
+            fx.put(file, b"x");
+        }
+        let other = format!("{}/other.ini{old}20200101-000001", fx.root);
+        fx.put(&other, b"x");
 
         // The copies of the older version count with the new one: the
         // newest three by their time stay, whatever their mark.
         assert_eq!(fill_gaps(&fx.paths, &target, Some(&fx.game)), 1);
         let backups = translation::backups_of(&target);
         assert_eq!(backups.len(), 3, "{backups:?}");
-        assert!(backups[0].ends_with(".scbpw-20200101-000003"));
-        assert!(backups[1].ends_with(".scbpw-20200101-000004"));
+        assert!(backups[0].ends_with(&format!("{old}20200101-000003")));
+        assert!(backups[1].ends_with(&format!("{old}20200101-000004")));
         // The fresh one has the new mark and holds the state before the change.
         assert!(file_name_of(&backups[2]).starts_with("global.ini.versekit-"), "{backups:?}");
         assert_eq!(fs::read(&backups[2]).unwrap(), b"a=1\n");
         assert_eq!(fx.backups(&target).len(), 1, "no copy with the old mark is made");
-        for kept in ["scbpw-x", "bak", "scbpw-20200101-00000"] {
-            assert!(Path::new(&format!("{target}.{kept}")).exists(), "{kept}");
+        for kept in &not_copies {
+            assert!(Path::new(kept).exists(), "{kept}");
         }
-        assert!(Path::new(&format!("{}/other.ini.scbpw-20200101-000001", fx.root)).exists());
+        assert!(Path::new(&other).exists());
     }
 
     // ------------------------------------------------ the original
@@ -1439,7 +1442,7 @@ mod tests {
         fs::create_dir_all(&data).unwrap();
         let host = Host::new(
             Flavor::native(),
-            &[("HOME", copy.as_str()), ("SC_BP_HOME", data.as_str()), ("SC_INSTALL_DIR", copy.as_str())],
+            &[("HOME", copy.as_str()), ("VERSEKIT_HOME", data.as_str()), ("SC_INSTALL_DIR", copy.as_str())],
             &copy,
         );
         let paths = Paths::new(host);
@@ -1608,7 +1611,7 @@ mod tests {
             .write_to(format!("{chosen}/{ARCHIVE_NAME}"))
             .unwrap();
         let paths =
-            Paths::new(Host::new(Flavor::Posix, &[("HOME", root.as_str()), ("SC_BP_HOME", data.as_str())], &root));
+            Paths::new(Host::new(Flavor::Posix, &[("HOME", root.as_str()), ("VERSEKIT_HOME", data.as_str())], &root));
         paths.set_setting("spiel_ordner", Value::str(&game));
         let choice: Map = vec![("PTU".to_string(), Value::str(&chosen))];
         paths.set_setting(versekit_core::paths::SETTING_CHANNEL_FOLDERS, Value::Object(choice));

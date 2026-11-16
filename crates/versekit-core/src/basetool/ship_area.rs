@@ -43,7 +43,7 @@ use crate::hangar;
 use crate::jsonio::{Map, Value, map_set};
 use crate::paths::Paths;
 
-/// Refusals where the Basetool wins over the unit: Verse-Kit takes its unit
+/// Refusals where the Basetool wins over the unit: VerseKit takes its unit
 /// instead of sending again at every sync.
 pub const UNIT_REJECTIONS: [&str; 2] = ["ORG_UNIT_NOT_ALLOWED", "ORG_UNIT_VERSION_CONFLICT"];
 

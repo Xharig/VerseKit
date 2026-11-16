@@ -775,7 +775,7 @@ mod tests {
         .unwrap();
         let home = base.join("home");
         let (game, home) = (game.to_string_lossy(), home.to_string_lossy());
-        let vars = [(crate::paths::ENV_INSTALL_DIR, &*game), (crate::legacy::ENV_HOME, &*home)];
+        let vars = [(crate::paths::ENV_INSTALL_DIR, &*game), (crate::envvars::ENV_HOME, &*home)];
         let paths = Paths::new(Host::new(crate::pypath::Flavor::native(), &vars, &home));
         let archive = Archive("item_NameDouble2=Parallax B (Civ/1/A)\u{1c}item_NameHelix=Falsch\n");
         let route = BackRoute { paths: &paths, archive: &archive };

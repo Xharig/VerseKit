@@ -31,6 +31,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use egui::{RichText, Ui};
 use versekit_core::browser;
+use versekit_core::folder_rename::Renamed;
 use versekit_core::given::{Fixed, GivenBy};
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::paths::Paths;
@@ -83,6 +84,8 @@ pub struct DataFolderState {
     restart: Restart,
     /// When the folder was last opened, and whether it worked.
     opened: Option<(f64, bool)>,
+    /// What the page says of a data folder under an earlier name, looked at once and after the button.
+    rename: Option<Renamed>,
 }
 
 impl Default for DataFolderState {
@@ -92,11 +95,44 @@ impl Default for DataFolderState {
 }
 
 /// The folder of the sample page, shown while the preview has no data of its own.
-const SAMPLE_FOLDER: &str = "C:\\Users\\Name\\Documents\\Verse-Kit";
+const SAMPLE_FOLDER: &str = "C:\\Users\\Name\\Documents\\VerseKit";
 
 impl DataFolderState {
     pub fn new() -> Self {
-        DataFolderState { dialog: None, question: None, work: None, report: None, restart: Restart::None, opened: None }
+        DataFolderState {
+            dialog: None,
+            question: None,
+            work: None,
+            report: None,
+            restart: Restart::None,
+            opened: None,
+            rename: None,
+        }
+    }
+
+    /// The hint of a data folder under an earlier name, with the button that renames it where that can work
+    /// (`Paths::rename_to_current_name`). A rename that worked is said like a switch and asks for a restart.
+    fn rename_hint(&mut self, ui: &mut Ui, scheme: &Scheme, paths: &Paths) {
+        let working = self.working();
+        let state = self.rename.get_or_insert_with(|| paths.rename_preview());
+        let Some(text) = state.message() else { return };
+        let retry = state.can_retry() && !working;
+        ui.add_space(4.0);
+        report_box(ui, scheme, &Report { good: false, text });
+        if !retry {
+            return;
+        }
+        let label = t("nu_knopf");
+        if ui.add(widgets::Button::new(&label, ButtonKind::Normal, scheme)).on_hover_text(t("nu_knopf_h")).clicked() {
+            let result = paths.rename_to_current_name();
+            if let (Renamed::Done { .. }, Some(text)) = (&result, result.message()) {
+                self.report = Some(Report { good: true, text });
+                self.restart = Restart::Wanted;
+                self.rename = Some(Renamed::Nothing);
+            } else {
+                self.rename = Some(result);
+            }
+        }
     }
 
     /// The question that waits for an answer.
@@ -238,6 +274,14 @@ impl DataFolderState {
         }
         if let Some(fixed) = &given {
             given_line(ui, scheme, fixed);
+        }
+        if let (Some(paths), None) = (paths, &given) {
+            // The folder the pointers name is not there: said for as long as it stays so.
+            if let Some(text) = paths.lost_message() {
+                ui.add_space(4.0);
+                report_box(ui, scheme, &Report { good: false, text });
+            }
+            self.rename_hint(ui, scheme, paths);
         }
         if self.working() {
             widgets::loading(ui, scheme, &t("s_pf_zieht_um"));
@@ -545,6 +589,55 @@ mod tests {
         button(&nodes, "Durchsuchen …");
         button(&nodes, "Öffnen");
         assert!(!has(&nodes, "Vorgegeben"), "nothing given: no line about it");
+    }
+
+    /// A data folder under the name of the previous version: the page says so, and the button renames it and asks
+    /// for a restart. Afterwards the hint is gone.
+    #[test]
+    fn a_folder_under_an_old_name_is_said_and_renamed_by_the_button() {
+        let _german = german();
+        let root = scratch("alter-name");
+        let paths = machine(&root);
+        let old = join(&root, versekit_core::legacy::DOCUMENTS_FOLDER);
+        let settings = join(&join(&old, "Einstellungen"), "einstellungen.json");
+        fs::create_dir_all(Flavor::native().dirname(&settings)).unwrap();
+        fs::write(&settings, "{\"sprache\": \"de\"}").unwrap();
+        assert_eq!(paths.app_folder(), old);
+        let (ctx, mut state) = (context(), DataFolderState::new());
+        frame(&ctx, &mut state, Some(&paths), Vec::new());
+        let nodes = frame(&ctx, &mut state, Some(&paths), Vec::new());
+        assert!(has(&nodes, "trägt noch einen alten Namen"), "{:?}", nodes.iter().map(|n| &n.1).collect::<Vec<_>>());
+        let at = button(&nodes, "Jetzt umbenennen");
+        frame(&ctx, &mut state, Some(&paths), click(at));
+        let nodes = frame(&ctx, &mut state, Some(&paths), Vec::new());
+        let new = join(&root, versekit_core::paths::NEW_FOLDER_NAME);
+        assert!(fs::metadata(&old).is_err() && fs::metadata(&new).is_ok(), "renamed");
+        assert_eq!(paths.app_folder(), new);
+        assert!(has(&nodes, "heißt jetzt VerseKit"));
+        assert!(!has(&nodes, "trägt noch einen alten Namen"));
+        assert!(nodes.iter().all(|(_, label, _)| label != "Jetzt umbenennen"), "the button is gone");
+        assert_eq!(state.restart(), Restart::Wanted);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A folder of the new name in the way: the page says why, the button is there to try again once it is gone.
+    #[test]
+    fn a_folder_of_the_new_name_in_the_way_is_said_and_nothing_moves() {
+        let _german = german();
+        let root = scratch("alter-name-ziel");
+        let paths = machine(&root);
+        let old = join(&root, versekit_core::legacy::DOCUMENTS_FOLDER);
+        fs::create_dir_all(join(&old, "Einstellungen")).unwrap();
+        fs::write(join(&join(&old, "Einstellungen"), "einstellungen.json"), "{}").unwrap();
+        fs::create_dir_all(join(&root, versekit_core::paths::NEW_FOLDER_NAME)).unwrap();
+        let (ctx, mut state) = (context(), DataFolderState::new());
+        frame(&ctx, &mut state, Some(&paths), Vec::new());
+        let nodes = frame(&ctx, &mut state, Some(&paths), Vec::new());
+        assert!(has(&nodes, "weil es"), "{:?}", nodes.iter().map(|n| &n.1).collect::<Vec<_>>());
+        frame(&ctx, &mut state, Some(&paths), click(button(&nodes, "Jetzt umbenennen")));
+        assert!(fs::metadata(&old).is_ok(), "nothing moves");
+        assert_eq!(state.restart(), Restart::None);
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

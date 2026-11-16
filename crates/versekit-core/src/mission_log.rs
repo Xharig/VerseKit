@@ -698,7 +698,8 @@ mod tests {
         assert_eq!(clean("Retake  Platforms <EM4>[BP!]</EM4>"), "Retake Platforms");
         assert_eq!(clean("<EM4>[BP]?</EM4> Rescue"), "Rescue");
         assert_eq!(clean("Hunt <EM4>[150 Rep] [BP]*</EM4>"), "Hunt");
-        assert_eq!(clean("[SCBPW] 3 Baupläne [/SCBPW]Defend"), "Defend");
+        let (open, close) = crate::legacy::TITLE_MARK;
+        assert_eq!(clean(&format!("{open} 3 Baupläne {close}Defend")), "Defend");
         assert_eq!(clean("Hilfe <EM4>[Bauplan]</EM4>"), "Hilfe");
         // Only a bubble with a blueprint mark goes; other emphasis stays.
         assert_eq!(clean("<EM4>[800 Rep]</EM4> Job"), "<EM4>[800 Rep]</EM4> Job");

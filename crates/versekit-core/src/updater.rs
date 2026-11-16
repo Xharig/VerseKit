@@ -112,12 +112,20 @@ fn text_of(value: &Value, key: &str) -> String {
     value.get(key).and_then(Value::as_str).unwrap_or("").to_string()
 }
 
-/// The releases in an answer of the GitHub API, drafts left out. `None` if it is no list.
+/// Whether a tag names a version of the app: `v5.4.0` or `5.4.0`. The repository also holds the releases of the org
+/// server (`orgserver-v1.0.0`), which are never an update of the app.
+pub fn is_app_tag(tag: &str) -> bool {
+    tag.strip_prefix('v').unwrap_or(tag).starts_with(|c: char| c.is_ascii_digit())
+}
+
+/// The releases of the app in an answer of the GitHub API, drafts and releases of other parts left out. `None` if
+/// it is no list.
 pub fn releases_from_api(body: &[u8]) -> Option<Vec<Release>> {
     let list: Vec<Value> = serde_json::from_slice(body).ok()?;
     Some(
         list.iter()
             .filter(|r| !r.get("draft").and_then(Value::as_bool).unwrap_or(false))
+            .filter(|r| r.get("tag_name").and_then(Value::as_str).is_some_and(is_app_tag))
             .map(|r| {
                 let time = text_of(r, "published_at");
                 Release {
@@ -231,7 +239,7 @@ pub struct Checked {
 }
 
 /// Is there something new for `own`? GitHub is asked at most every [`MIN_INTERVAL`] seconds (`force` asks
-/// anyway); in between, and without the net, what is remembered counts. ⚠ `SC_BP_NO_NET` forbids asking, not
+/// anyway); in between, and without the net, what is remembered counts. ⚠ `VERSEKIT_NO_NET` forbids asking, not
 /// showing what is already known.
 pub fn check(net: &dyn Net, paths: &Paths, own: &str, force: bool, at: f64) -> Checked {
     let mut cache = cache_read(paths);
@@ -283,7 +291,7 @@ pub fn known_newer(paths: &Paths, own: &str) -> Option<Release> {
 pub fn best_newer<'a>(releases: &'a [Release], own: &str, with_prerelease: bool) -> Option<&'a Release> {
     let mut best: Option<&Release> = None;
     for release in releases {
-        if release.version.is_empty() || (is_test(release) && !with_prerelease) || !is_newer(&release.version, own) {
+        if !is_app_tag(&release.version) || (is_test(release) && !with_prerelease) || !is_newer(&release.version, own) {
             continue;
         }
         if best.is_none_or(|b| is_newer(&release.version, &b.version)) {
@@ -304,7 +312,7 @@ fn is_test(release: &Release) -> bool {
 pub fn latest(releases: &[Release], with_prerelease: bool) -> Option<&Release> {
     let mut best: Option<&Release> = None;
     for release in releases {
-        if release.version.is_empty() || (is_test(release) && !with_prerelease) {
+        if !is_app_tag(&release.version) || (is_test(release) && !with_prerelease) {
             continue;
         }
         if best.is_none_or(|b| is_newer(&release.version, &b.version)) {

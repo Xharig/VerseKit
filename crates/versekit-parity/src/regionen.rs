@@ -60,13 +60,27 @@ fn cause(mine: &str, main: Option<&str>, theirs: &str) -> &'static str {
     let systems_mine: BTreeSet<&String> = mine.keys().collect();
     let systems_theirs: BTreeSet<&String> = theirs_parsed.keys().collect();
     if systems_mine == systems_theirs {
-        // The same systems: scmdb names planets the data do not offer the contract at (the target places of its
-        // location query), or names the whole system where the data name planets.
-        let wider = mine.iter().all(|(system, planets)| {
+        // The same systems. The own region already holds the places the location queries lead to, so scmdb is said to
+        // name target places only where it names planets the own region lacks (the own region is the whole system or
+        // lists fewer planets); where the own region names planets scmdb leaves out, the own one is finer.
+        let (mut theirs_more, mut mine_more) = (false, false);
+        for (system, planets) in &mine {
             let other = &theirs_parsed[system];
-            planets.is_empty() || other.is_empty() || planets.is_subset(other)
-        });
-        return if wider { "Zielorte (Ortsabfrage)" } else { "Planeten anders" };
+            match (planets.is_empty(), other.is_empty()) {
+                (true, false) => theirs_more = true,
+                (false, true) => mine_more = true,
+                (false, false) => {
+                    theirs_more |= !other.is_subset(planets);
+                    mine_more |= !planets.is_subset(other);
+                }
+                (true, true) => {}
+            }
+        }
+        return match (theirs_more, mine_more) {
+            (true, false) => "Zielorte (Ortsabfrage)",
+            (false, true) => "eigen genauer",
+            _ => "Planeten anders",
+        };
     }
     if systems_mine.is_superset(&systems_theirs) { "eigen mehr Systeme" } else { "scmdb mehr Systeme" }
 }
@@ -84,6 +98,12 @@ pub fn run(folder: &str, merged: &str, all: bool) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     let entries: serde_json::Value = serde_json::from_slice(&contracts).map_err(|e| e.to_string())?;
     println!("Stand scmdb {build}; {} Vertragseinträge mit Orten aus der Sternkarte", catalog.offered.len());
+    let (templates, queries) = facts.location_counts();
+    println!(
+        "Ortsvorlagen {templates}, Ortsabfragen {queries}; Vertragseinträge ohne jeden Ort: {} von {}",
+        facts.len().saturating_sub(catalog.offered.len()),
+        facts.len()
+    );
 
     // The regions, and those of the contracts alone without their sub contracts (scmdb's file lists no sub
     // contract), to tell why a region differs.

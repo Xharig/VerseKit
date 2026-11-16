@@ -1,0 +1,59 @@
+# Template server of the open VerseKit org standard (versekit-org v1) with HTTPS included, ready to copy.
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# For a host that has nothing else on the ports 80 and 443 (a small rented server, a NAS with its own address).
+# 1. Point your domain (an A or AAAA record) at this host.
+# 2. Next to this file: config.json (copy of config.example.json) and a file .env with the line
+#      VERSEKIT_ORG_DOMAIN=orga.example.org
+# 3. docker compose -f docker-compose.caddy.yml up -d
+# Caddy fetches the certificate from Let's Encrypt by itself and renews it. The org server is not reachable from
+# outside at all, only through Caddy.
+# Admin password: docker compose -f docker-compose.caddy.yml exec orgserver versekit-orgserver --admin-password
+
+services:
+  caddy:
+    image: caddy:2.10                                     # the web server in front; takes care of HTTPS and the certificate
+    restart: unless-stopped                               # starts again after a crash and after a restart of the host
+    read_only: true                                       # writes only into its two volumes
+    cap_drop: [ALL]                                       # no special rights of the kernel ...
+    cap_add: [NET_BIND_SERVICE]                           # ... except listening on the ports 80 and 443
+    security_opt: [no-new-privileges:true]                # nothing inside can gain rights later
+    pids_limit: 200                                       # at most 200 threads: a flood of connections cannot use up the host
+    mem_limit: 256m                                       # at most 256 MB of memory
+    ports:
+      - "80:80"                                           # only for the certificate and the redirect to https
+      - "443:443"                                         # HTTPS
+      - "443:443/udp"                                     # HTTP/3
+    command: caddy reverse-proxy --from "${VERSEKIT_ORG_DOMAIN:?set VERSEKIT_ORG_DOMAIN in .env}" --to orgserver:8080
+    volumes:
+      - caddy-daten:/data                                 # the certificates; keep them, Let's Encrypt limits new ones
+      - caddy-config:/config                              # Caddy's own settings
+    depends_on: [orgserver]
+
+  orgserver:
+    image: ghcr.io/xharig/versekit-orgserver:1           # the finished image (amd64 and arm64); :1 takes every update of version 1, never a breaking 2
+    restart: unless-stopped                               # starts again after a crash and after a restart of the host
+    read_only: true                                       # the container can write nowhere but /data
+    cap_drop: [ALL]                                       # no special rights of the kernel; the server needs none
+    security_opt: [no-new-privileges:true]                # nothing inside can gain rights later
+    pids_limit: 200                                       # at most 200 threads: a flood of connections cannot use up the host
+    mem_limit: 256m                                       # at most 256 MB of memory
+    expose: ["8080"]                                      # only for Caddy inside this compose network, no port on the host
+    volumes:
+      - orga-daten:/data                                  # state.json and the admin password; stays across restarts and updates
+      - ./config.json:/etc/versekit-org/config.json:ro    # members with their keys and the orders; the server only reads it
+    environment:
+      VERSEKIT_ORG_CONFIG: /etc/versekit-org/config.json  # where the configuration lies inside the container
+      VERSEKIT_ORG_PUBLIC_URL: "https://${VERSEKIT_ORG_DOMAIN:?set VERSEKIT_ORG_DOMAIN in .env}" # the address members type into VerseKit
+      VERSEKIT_ORG_NAME: "Beispiel-Orga"                  # the name VerseKit shows; replaces name of config.json
+      VERSEKIT_ORG_TAG: "BSP"                             # the short tag of the org; replaces tag of config.json
+      VERSEKIT_ORG_ADMIN_PASSWORD: "${VERSEKIT_ORG_ADMIN_PASSWORD:-}" # optional, from .env; empty: the server creates one in /data
+      VERSEKIT_ORG_UPDATE_CHECK: "1"                      # once a day ask GitHub for a newer server version; nothing about the org, GitHub sees address and version; "0" turns it off
+      VERSEKIT_ORG_DISCORD_CLIENT_ID: "${VERSEKIT_ORG_DISCORD_CLIENT_ID:-}"         # members' portal /portal: the Discord application of the org, from .env; all three empty: the portal stays off
+      VERSEKIT_ORG_DISCORD_CLIENT_SECRET: "${VERSEKIT_ORG_DISCORD_CLIENT_SECRET:-}" # its client secret, from .env only
+      VERSEKIT_ORG_DISCORD_GUILD_ID: "${VERSEKIT_ORG_DISCORD_GUILD_ID:-}"           # the id of the org's Discord server; only its members get in
+
+volumes:
+  orga-daten:                                             # the state of the org server
+  caddy-daten:                                            # the certificates of Caddy
+  caddy-config:                                           # the settings of Caddy

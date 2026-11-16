@@ -66,7 +66,7 @@ pub const FILE_VERSION: i64 = 3;
 pub const RANK: [(&str, i32); 7] =
     [("basetool", 0), ("launcher", 1), ("import", 1), ("hand", 2), ("start", 3), ("log", 4), ("nachlese", 4)];
 
-/// Verse-Kit rebuilds these sources on its own after a reset.
+/// VerseKit rebuilds these sources on its own after a reset.
 pub const RESTORABLE: [&str; 3] = ["log", "nachlese", "start"];
 
 /// From this many words on, matching by word set is allowed.
@@ -886,7 +886,7 @@ mod tests {
     fn paths_in(home: &str) -> Paths {
         let (appdata, config) = (Flavor::native().join(home, "appdata"), Flavor::native().join(home, "config"));
         let vars =
-            [(crate::legacy::ENV_HOME, home), ("APPDATA", appdata.as_str()), ("XDG_CONFIG_HOME", config.as_str())];
+            [(crate::envvars::ENV_HOME, home), ("APPDATA", appdata.as_str()), ("XDG_CONFIG_HOME", config.as_str())];
         Paths::new(Host::new(Flavor::native(), &vars, home))
     }
 

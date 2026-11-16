@@ -362,7 +362,7 @@ mod tests {
         std::fs::create_dir_all(&dir).expect("folder");
         let host = Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, dir.as_str()), (versekit_core::paths::ENV_INSTALL_DIR, dir.as_str())],
+            &[(versekit_core::envvars::ENV_HOME, dir.as_str()), (versekit_core::paths::ENV_INSTALL_DIR, dir.as_str())],
             &dir,
         );
         Bench { host, dir }

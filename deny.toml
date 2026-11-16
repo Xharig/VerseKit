@@ -92,7 +92,7 @@ crate = "option-ext"
 allow = ["MPL-2.0"]
 
 # Root certificates of rustls-platform-verifier, a dependency only on wasm32,
-# which Verse-Kit never builds; on Windows, macOS and Linux the system checks
+# which VerseKit never builds; on Windows, macOS and Linux the system checks
 # the certificates. A permissive data license.
 [[licenses.exceptions]]
 crate = "webpki-root-certs"

@@ -54,7 +54,7 @@ fn an_encrypted_dataforge_is_noted_not_asked_for() {
     let _ = fs::remove_dir_all(&home);
     fs::create_dir_all(&home).unwrap();
     let dir = home.to_string_lossy().to_string();
-    let vars = [("SC_BP_HOME", dir.as_str()), ("HOME", dir.as_str()), ("USERPROFILE", dir.as_str())];
+    let vars = [("VERSEKIT_HOME", dir.as_str()), ("HOME", dir.as_str()), ("USERPROFILE", dir.as_str())];
     let paths = Paths::new(Host::new(Flavor::native(), &vars, "/"));
     let log = ErrorLog::new(&paths, "5.0.0-test");
     assert!(record_encrypted(&log, "LIVE", &error));

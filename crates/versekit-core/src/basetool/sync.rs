@@ -1091,7 +1091,7 @@ mod tests {
         let data = dir.to_string_lossy().replace('\\', "/");
         let host = crate::paths::Host::new(
             crate::pypath::Flavor::native(),
-            &[(crate::legacy::ENV_HOME, &data)],
+            &[(crate::envvars::ENV_HOME, &data)],
             &data,
         );
         let paths = Arc::new(Paths::new(host));

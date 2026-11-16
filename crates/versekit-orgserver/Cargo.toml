@@ -1,0 +1,18 @@
+[package]
+name = "versekit-orgserver"
+description = "VerseKit: Vorlage-Server des offenen Orga-Standards versekit-org v1 zum Selbsthosten"
+# Its own version line, apart from the app (5.x) and from the standard (versekit-org v1); git tags orgserver-v<version>.
+version = "1.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+# Only crates the workspace already uses: random numbers, SHA-256 and PBKDF2 from ring, JSON from serde_json, HTTPS
+# out (daily update check, versekit-orgcheck) from ureq with rustls.
+[dependencies]
+ring.workspace = true
+rustls.workspace = true
+serde_json.workspace = true
+ureq.workspace = true

@@ -139,7 +139,7 @@ pub fn read_screen(paths: &Paths, rect: screen_grab::Area) -> Result<(Vec<Scanne
         };
         win_ocr::png_of(&bitmap, area, most).is_ok_and(|png| keep(paths, &png, kind))
     };
-    let learned = Digits::load(paths);
+    let learned = Digits::load_all(paths);
     let mut ocr = recognition(&bitmap);
     read_image(size, Some(&bitmap), &mut *ocr, &index(paths), &learned, Some(&mut keep_one))
 }
@@ -338,7 +338,7 @@ mod tests {
         let home = dir.path().to_string_lossy().into_owned();
         let paths = Paths::new(crate::paths::Host::new(
             crate::pypath::Flavor::native(),
-            &[(crate::legacy::ENV_HOME, home.as_str())],
+            &[(crate::envvars::ENV_HOME, home.as_str())],
             &home,
         ));
         for kind in ["bild", "tabelle", "tabelle", "bild", "tabelle"] {

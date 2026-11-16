@@ -162,7 +162,7 @@ pub fn encode(shared: &Shared) -> String {
 
 /// The file with several codes: two lines that say what it is, then one code per line.
 pub fn file_text(codes: &[String]) -> String {
-    let mut text = String::from("# Verse-Kit: Ausstattungen / loadouts\n# https://versekit.xharig.com\n");
+    let mut text = String::from("# VerseKit: Ausstattungen / loadouts\n# https://versekit.xharig.com\n");
     for code in codes {
         text.push_str(code);
         text.push('\n');

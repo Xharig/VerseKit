@@ -17,7 +17,7 @@
 
 //! One connection to the Basetool for the whole program (`basetool.Connection`).
 //!
-//! **Login:** device login (RFC 8628). Verse-Kit fetches a code, the player
+//! **Login:** device login (RFC 8628). VerseKit fetches a code, the player
 //! types it into the browser and agrees. ⚠⚠ Only the code and the plain
 //! address are shown, never `verification_uri_complete`: the link with the
 //! code built in skips the page on which the Basetool warns about code

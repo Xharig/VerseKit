@@ -28,6 +28,7 @@ pub mod cart_data;
 mod catalog;
 pub mod commodity_names;
 mod contract_facts;
+pub mod contract_finder;
 pub mod contract_info;
 pub mod contract_reputation;
 pub mod control_profile;
@@ -42,8 +43,10 @@ pub mod game_text;
 mod item_values;
 pub mod list;
 mod localization;
+mod location_targets;
 pub mod mineables;
 pub mod place_names;
+pub mod places;
 pub mod product_table;
 pub mod quality;
 pub mod quality_goods;
@@ -71,6 +74,7 @@ pub use catalog::{Blueprint, Catalog, Item, Manufacturer, Offered, Source, Sourc
 pub use contract_facts::ContractFacts;
 pub use error::Error;
 pub use localization::{Language, Localization};
+pub use location_targets::LocationTargets;
 pub use sources::{ShownKeys, entry_key};
 
 /// The name of the archive in a channel folder.
@@ -244,11 +248,12 @@ impl GameData {
         texts: &Localization,
         corrections: &[corrections::Correction],
     ) -> Result<Catalog, Error> {
-        self.blueprints_with(texts, corrections, &self.contract_catalog()?)
+        self.blueprints_with(texts, corrections, &self.contract_catalog()?, &self.location_catalog()?)
     }
 
-    /// [`GameData::blueprints_corrected`] with the catalog of the contract generators built already
-    /// ([`GameData::contract_catalog`]).
+    /// [`GameData::blueprints_corrected`] with the catalog of the contract generators and that of the location
+    /// templates built already ([`GameData::contract_catalog`], [`GameData::location_catalog`]); `locations` may be
+    /// empty, the places the location queries lead to are then left out.
     ///
     /// # Errors
     ///
@@ -258,9 +263,9 @@ impl GameData {
         texts: &Localization,
         corrections: &[corrections::Correction],
         contracts: &[u8],
+        locations: &[u8],
     ) -> Result<Catalog, Error> {
-        let facts =
-            ContractFacts::from_catalog(contracts).map_err(|source| Error::Contracts { source: Box::new(source) })?;
+        let facts = facts_of(contracts, locations)?;
         let (entry, bytes) = self.read_dataforge()?;
         let forge = DataForge::open(&bytes).map_err(|source| Error::DataForge { entry, source: Box::new(source) })?;
         let fixes = corrections::CatalogFixes::new(corrections, self.scmdb_build().as_deref());
@@ -278,9 +283,9 @@ impl GameData {
         texts: &Localization,
         corrections: &[corrections::Correction],
         contracts: &[u8],
+        locations: &[u8],
     ) -> Result<(Catalog, versekit_core::jsonio::Map), Error> {
-        let facts =
-            ContractFacts::from_catalog(contracts).map_err(|source| Error::Contracts { source: Box::new(source) })?;
+        let facts = facts_of(contracts, locations)?;
         let (entry, bytes) = self.read_dataforge()?;
         let forge = DataForge::open(&bytes).map_err(|source| Error::DataForge { entry, source: Box::new(source) })?;
         let fixes = corrections::CatalogFixes::new(corrections, self.scmdb_build().as_deref());
@@ -295,8 +300,7 @@ impl GameData {
     /// [`Error::Encrypted`] when the DataForge is encrypted, [`Error::Contracts`]
     /// when p4kx cannot build its catalog of the contracts.
     pub fn contract_facts(&self) -> Result<ContractFacts, Error> {
-        ContractFacts::from_catalog(&self.contract_catalog()?)
-            .map_err(|source| Error::Contracts { source: Box::new(source) })
+        facts_of(&self.contract_catalog()?, &self.location_catalog()?)
     }
 
     /// The Basetool catalog of p4kx for the contract generators of the
@@ -307,6 +311,16 @@ impl GameData {
     /// The errors of [`GameData::contract_facts`].
     pub fn contract_catalog(&self) -> Result<Vec<u8>, Error> {
         self.catalog_of(contract_facts::CONTRACT_GENERATORS)
+    }
+
+    /// The Basetool catalog of p4kx for the location templates of the archive (the places the location queries of
+    /// the contracts search), as JSON, e.g. to keep it for tests.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`GameData::contract_facts`].
+    pub fn location_catalog(&self) -> Result<Vec<u8>, Error> {
+        self.catalog_of(contract_facts::LOCATION_TEMPLATES)
     }
 
     /// From which reputation each rank begins: text key of the rank's name → threshold (see
@@ -365,6 +379,20 @@ impl GameData {
     ///
     /// [`Error::Encrypted`] when the DataForge is encrypted, [`Error::Contracts`] when p4kx cannot build the catalog.
     pub fn catalog_of(&self, filter: &str) -> Result<Vec<u8>, Error> {
+        self.catalog_with(Some(filter))
+    }
+
+    /// The whole Basetool catalog of p4kx, without a filter, as JSON (about 210 MB, half a minute): the places
+    /// where the raw materials lie need the starmap, the provider presets and the mining records together.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`GameData::catalog_of`].
+    pub fn catalog_all(&self) -> Result<Vec<u8>, Error> {
+        self.catalog_with(None)
+    }
+
+    fn catalog_with(&self, filter: Option<&str>) -> Result<Vec<u8>, Error> {
         if let Some(entry) = DATAFORGE_ENTRIES.iter().find_map(|path| self.find_entry(path))
             && entry.is_encrypted()
         {
@@ -550,6 +578,14 @@ pub fn record_encrypted(log: &versekit_core::error_log::ErrorLog<'_>, channel: &
     log.record("gamedata.encrypted", None, &note)
 }
 
+/// The facts of the contracts in the catalog `contracts`, with the templates of the catalog `locations` unless that is
+/// empty.
+fn facts_of(contracts: &[u8], locations: &[u8]) -> Result<ContractFacts, Error> {
+    let failed = |source: serde_json::Error| Error::Contracts { source: Box::new(source) };
+    let facts = ContractFacts::from_catalog(contracts).map_err(failed)?;
+    if locations.is_empty() { Ok(facts) } else { facts.with_locations(locations).map_err(failed) }
+}
+
 /// The blueprint catalog of the DataForge `bytes` (see [`GameData::blueprints`]),
 /// e.g. of a copy kept for tests; `facts` are those of the same archive
 /// ([`GameData::contract_facts`], or [`ContractFacts::from_catalog`] of the
@@ -590,6 +626,10 @@ pub fn values_from_dataforge(
 }
 
 /// The game channels, as their folders end and as scmdb names them.
+#[cfg(not(feature = "test-build"))]
+const CHANNELS: [(&str, &str); 3] = [("PTU", "ptu"), ("HOTFIX", "hotfix"), ("LIVE", "live")];
+/// The game channels the test build of the developer knows.
+#[cfg(feature = "test-build")]
 const CHANNELS: [(&str, &str); 5] =
     [("TECH-PREVIEW", "tech-preview"), ("EPTU", "eptu"), ("PTU", "ptu"), ("HOTFIX", "hotfix"), ("LIVE", "live")];
 
@@ -645,8 +685,9 @@ mod tests {
         assert_eq!(channel_of("LIVE"), Some("live"));
         assert_eq!(channel_of("Spieldaten LIVE"), Some("live"));
         assert_eq!(channel_of("PTU"), Some("ptu"));
-        assert_eq!(channel_of("EPTU"), Some("eptu"));
-        assert_eq!(channel_of("TECH-PREVIEW"), Some("tech-preview"));
+        // The two channels under the terms of confidentiality are known to the test build only.
+        assert_eq!(channel_of("EPTU"), versekit_core::edition::IS_TEST_BUILD.then_some("eptu"));
+        assert_eq!(channel_of("TECH-PREVIEW"), versekit_core::edition::IS_TEST_BUILD.then_some("tech-preview"));
         assert_eq!(channel_of("OLIVE"), None);
         assert_eq!(channel_of("Daten"), None);
     }

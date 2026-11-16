@@ -236,6 +236,12 @@ impl AxesState {
         self.notice.take()
     }
 
+    /// Whether the first look of the devices is still on its way: the layout of the page changes when it comes.
+    #[cfg(test)]
+    pub(crate) fn reading(&self) -> bool {
+        self.job.is_some() || self.look.is_none()
+    }
+
     /// The room the foot below the page needs (0 where the page draws none): the page scrolls above it.
     pub fn foot_height(&self) -> f32 {
         if self.footed { self.foot_height } else { 0.0 }
@@ -1810,7 +1816,7 @@ mod tests {
             .and_then(|f| f.set_modified(old))
             .expect("age");
         let vars = [
-            ("SC_BP_HOME", home.as_str()),
+            ("VERSEKIT_HOME", home.as_str()),
             ("HOME", home.as_str()),
             (ENV_INSTALL_DIR, game.as_str()),
             (versekit_core::game_start::ENV_NO_PROCESS, "1"),

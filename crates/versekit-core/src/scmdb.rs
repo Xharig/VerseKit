@@ -21,13 +21,13 @@
 //!
 //! Nothing of it is shipped. scmdb is CC BY-NC-ND 4.0; its operator allows
 //! fetching on the user's computer from the original address, not passing
-//! the files on (the raw data belong to CIG). With `SC_BP_NO_NET` set,
+//! the files on (the raw data belong to CIG). With `VERSEKIT_NO_NET` set,
 //! nothing is fetched.
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::legacy::ENV_NO_NET;
+use crate::envvars::ENV_NO_NET;
 
 /// The public mirror, the first choice: no bot protection in front of it.
 pub const MIRROR: &str = "https://raw.githubusercontent.com/KrovaxCode/SCMDB_DATA/main/data";
@@ -44,7 +44,7 @@ const BODY_LIMIT: u64 = 64 * 1024 * 1024;
 /// Why a file could not be fetched.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FetchError {
-    /// Fetching is switched off (`SC_BP_NO_NET`).
+    /// Fetching is switched off (`VERSEKIT_NO_NET`).
     Offline,
     /// The file is not there (HTTP 404) at either address.
     Missing,
@@ -71,7 +71,7 @@ impl std::fmt::Display for FetchError {
 impl std::error::Error for FetchError {}
 
 fn offline() -> bool {
-    std::env::var(ENV_NO_NET).is_ok_and(|value| !value.is_empty() && value != "0")
+    crate::envvars::process_var(ENV_NO_NET).is_some_and(|value| !value.is_empty() && value != "0")
 }
 
 pub(crate) fn agent(user_agent: &str) -> ureq::Agent {
@@ -112,7 +112,7 @@ pub(crate) fn fetch_from(agent: &ureq::Agent, url: &str) -> Result<Vec<u8>, Fetc
 ///
 /// # Errors
 ///
-/// [`FetchError::Offline`] with `SC_BP_NO_NET` set; otherwise the error of
+/// [`FetchError::Offline`] with `VERSEKIT_NO_NET` set; otherwise the error of
 /// scmdb.net, or [`FetchError::Missing`] when neither address has the file.
 pub fn fetch_file(name: &str, user_agent: &str) -> Result<Vec<u8>, FetchError> {
     // The guard stands before the switch, so it holds with the network off too.

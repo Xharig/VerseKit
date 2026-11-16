@@ -166,7 +166,7 @@ mod tests {
         use crate::pypath::Flavor;
         let dir = crate::testdir::Dir::new("katalogwache-kumulativ");
         let home = dir.path().to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, home.as_str())], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, home.as_str())], &home));
         let item = |key: &str| Item { key: key.into(), name: key.to_uppercase(), kind: "Rüstung".into() };
         let catalog = |keys: &[&str]| -> Vec<Item> { keys.iter().map(|k| item(k)).collect() };
         let names = |found: &[Found]| found.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
@@ -194,7 +194,7 @@ mod tests {
         use crate::pypath::Flavor;
         let dir = crate::testdir::Dir::new("katalogwache-zwei-schreiber");
         let home = dir.path().to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, home.as_str())], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, home.as_str())], &home));
         let item = |key: &str| Item { key: key.into(), name: key.to_uppercase(), kind: "Waffe".into() };
         let items: Vec<Item> = ["a", "b", "c", "d"].iter().map(|k| item(k)).collect();
         remember(&paths, &set(&["a", "b", "c"]), "1");

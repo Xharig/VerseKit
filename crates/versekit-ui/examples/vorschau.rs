@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The Verse-Kit 5 window with sample contents: the functions (navigation,
+//! The VerseKit 5 window with sample contents: the functions (navigation,
 //! menu filter, tiles, settings, color schemes, size) can be tried without
 //! own data.
 //!
@@ -107,8 +107,8 @@ fn main() -> eframe::Result {
     page.start_contract_scan();
     // Once a day "the program runs" with the page counters (own data, not for a build of the
     // source). The preview runs on copies of data: it reports only to a receiver named in
-    // SC_BP_NUTZUNG_ZIEL, never to the built-in one.
-    if std::env::var_os(versekit_core::usage::ENV_TARGET).is_some() {
+    // VERSEKIT_NUTZUNG_ZIEL, never to the built-in one.
+    if versekit_core::envvars::process_var(versekit_core::usage::ENV_TARGET).is_some() {
         page.start_usage_ping();
     }
     let (width, height) = font_size::BASE_MIN_SIZE;

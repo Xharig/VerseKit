@@ -15,11 +15,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The page "Erkennung" (`_detection` and `_account_rows` of 4.12): how Verse-Kit notices a blueprint. The
-//! phrase found, the catalog to fetch again, the switch for blueprints with no known source. An entry of its
-//! own in the settings group of the menu. The own account, the blueprints of another account that did not
-//! count and those that ended up in the collection stand at the top of the page "Allgemein" ([`show_account`]),
-//! drawn from the same state.
+//! How VerseKit notices a blueprint (`_detection` and `_account_rows` of 4.12). The blueprint list fetches the
+//! catalog again ([`missing_row`], which also leads to the settings) and holds the switch for blueprints with no
+//! known source ([`list_switch`]). The own account, the blueprints of another account that did not count, those
+//! that ended up in the collection and the phrase found in the logs stand at the top of the page "Allgemein"
+//! ([`show_account`]), drawn from the same state.
 //!
 //! The logs are read in a thread of their own (accounts and foreign blueprints together: 180 logs take
 //! seconds), the catalog is built in one too. What the logic needs lives in `versekit_core::detection`.
@@ -36,7 +36,6 @@ use versekit_core::detection::{self, Accounts};
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::logsource::ALL_ACCOUNTS;
 use versekit_core::paths::Paths;
-use versekit_core::stock_journal;
 use versekit_core::theme::Scheme;
 use versekit_gamedata::list;
 
@@ -71,9 +70,6 @@ enum Foreign {
 pub struct DetectionState {
     loaded: bool,
     phrases: Vec<String>,
-    all: bool,
-    /// The switch "Lager aus dem Log lesen".
-    stock_log: bool,
     accounts: Option<Accounts>,
     foreign: Foreign,
     catalog: Option<Receiver<Option<usize>>>,
@@ -98,8 +94,6 @@ impl DetectionState {
         DetectionState {
             loaded: false,
             phrases: Vec::new(),
-            all: false,
-            stock_log: true,
             accounts: None,
             foreign: Foreign::Clean,
             catalog: None,
@@ -127,8 +121,6 @@ impl DetectionState {
 
     fn load(&mut self, paths: &Paths) {
         self.phrases = detection::phrases_found(paths);
-        self.all = detection::all_blueprints(paths);
-        self.stock_log = stock_journal::enabled(paths);
         self.loaded = true;
         self.search(paths);
     }
@@ -189,91 +181,29 @@ fn block<R>(
     drawn
 }
 
-/// Draws the page and moves the jobs on.
-pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths: &Paths) {
-    if !state.loaded {
-        state.load(paths);
-    }
-    poll(ui, state, paths);
-    ui.label(RichText::new(t("s_er_lead")).small().color(color(scheme.sub)));
-    ui.add_space(8.0);
-
-    // The phrase the game writes.
-    block(ui, scheme, &t("s_er_satz"), &t("s_er_satz_h"), |ui| {
-        let text = if state.phrases.is_empty() { t("s_er_satz_leer") } else { state.phrases.join(" · ") };
-        ui.label(text);
-    });
-    ui.add_space(8.0);
-
-    // The catalog.
-    widgets::card(ui, scheme, |ui| {
-        widgets::card_title(ui, scheme, &t("s_er_kat_kopf"));
-        ui.add_space(4.0);
-        let busy = state.catalog.is_some();
-        let reason = busy.then(|| t("s_er_kat_laeuft"));
-        let mut clicked = false;
-        let word = t("s_er_kat_jetzt");
-        settings::setting_row(ui, scheme, &t("s_er_kat"), &t("s_er_kat_h"), false, |row| {
-            let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).blocked(reason.as_deref());
-            clicked = row.add(button).clicked();
-        });
-        if busy {
-            widgets::loading(ui, scheme, &t("s_er_kat_holt"));
-        }
-        if clicked && !busy {
-            let (sender, receiver) = mpsc::channel();
-            let (copy, build) = (paths.working_copy(), state.build);
-            let all = detection::all_blueprints(paths);
-            versekit_core::language::spawn_with_language(move || {
-                let counted =
-                    build(&copy).map(|catalog| catalog.blueprints.iter().filter(|b| all || !b.no_way).count());
-                let _ = sender.send(counted);
+/// The switch for blueprints with no known source, on the blueprint list where the list is set: the stored value
+/// is read at every frame, a change is written at once and tells the lists to follow ([`DetectionState::take_all_changed`]).
+pub fn list_switch(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths: &Paths) {
+    let mut on = detection::all_blueprints(paths);
+    let name = t("s_er_alle");
+    settings::setting_row(ui, scheme, &name, &t("s_er_alle_h"), false, |row| {
+        let switch = row.add(widgets::Toggle::new(&mut on, scheme));
+        let (enabled, now) = (switch.enabled(), on);
+        switch.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, now, &name));
+        if switch.changed() {
+            state.notice = Some(if detection::set_all_blueprints(paths, on) {
+                state.all_changed = true;
+                Said::note(t(if on { "s_er_alle_hin" } else { "s_er_alle_weg" }))
+            } else {
+                Said::fault(t("s_hl_fehler"))
             });
-            state.catalog = Some(receiver);
         }
-    });
-    ui.add_space(8.0);
-
-    // Blueprints with no known source and the stock from the log, in one card.
-    widgets::card(ui, scheme, |ui| {
-        widgets::card_title(ui, scheme, &t("s_er_listen_kopf"));
-        ui.add_space(4.0);
-        let name = t("s_er_alle");
-        settings::setting_row(ui, scheme, &name, &t("s_er_alle_h"), false, |row| {
-            let switch = row.add(widgets::Toggle::new(&mut state.all, scheme));
-            let (enabled, on) = (switch.enabled(), state.all);
-            switch.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, on, &name));
-            if switch.changed() {
-                state.notice = Some(if detection::set_all_blueprints(paths, state.all) {
-                    state.all_changed = true;
-                    Said::note(t(if state.all { "s_er_alle_hin" } else { "s_er_alle_weg" }))
-                } else {
-                    state.all = !state.all;
-                    Said::fault(t("s_hl_fehler"))
-                });
-            }
-        });
-
-        // The stock from the log.
-        let name = t("s_lj_schalter");
-        settings::setting_row(ui, scheme, &name, &t("s_lj_schalter_h"), false, |row| {
-            let switch = row.add(widgets::Toggle::new(&mut state.stock_log, scheme));
-            let (enabled, on) = (switch.enabled(), state.stock_log);
-            switch.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, on, &name));
-            if switch.changed() {
-                state.notice = Some(if stock_journal::set_enabled(paths, state.stock_log) {
-                    Said::note(t(if state.stock_log { "s_lj_schalter_an" } else { "s_lj_schalter_aus" }))
-                } else {
-                    state.stock_log = !state.stock_log;
-                    Said::fault(t("s_hl_fehler"))
-                });
-            }
-        });
     });
 }
 
-/// The own account and the blueprints of other accounts, at the top of the page "Allgemein": the choice, the
-/// blueprints of another account that did not count, and those that ended up in the collection. Moves the jobs on.
+/// The own account, the blueprints of other accounts and the phrase found, at the top of the page "Allgemein": the
+/// choice, the blueprints of another account that did not count, those that ended up in the collection and the
+/// phrase the game writes. Moves the jobs on.
 pub fn show_account(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths: &Paths) {
     if !state.loaded {
         state.load(paths);
@@ -341,10 +271,69 @@ pub fn show_account(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, pa
 
     // Blueprints of other accounts in the collection.
     foreign_block(ui, scheme, state, paths);
+    ui.add_space(8.0);
+
+    // The phrase the game writes.
+    block(ui, scheme, &t("s_er_satz"), &t("s_er_satz_h"), |ui| {
+        let text = if state.phrases.is_empty() { t("s_er_satz_leer") } else { state.phrases.join(" · ") };
+        ui.label(text);
+    });
+}
+
+/// Builds the catalog again in a thread of its own; its end is told by [`DetectionState::take_notice`].
+fn start_catalog(state: &mut DetectionState, paths: &Paths) {
+    let (sender, receiver) = mpsc::channel();
+    let (copy, build) = (paths.working_copy(), state.build);
+    let all = detection::all_blueprints(paths);
+    versekit_core::language::spawn_with_language(move || {
+        let counted = build(&copy).map(|catalog| catalog.blueprints.iter().filter(|b| all || !b.no_way).count());
+        let _ = sender.send(counted);
+    });
+    state.catalog = Some(receiver);
+}
+
+/// The hint on the blueprint list for a blueprint that is missing: the way to the detection in the settings and the
+/// button that builds the catalog again. Moves the catalog job on. `true` when the way to the settings was clicked.
+pub fn missing_row(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, paths: &Paths) -> bool {
+    poll_catalog(ui, state);
+    let busy = state.catalog.is_some();
+    let (mut to_page, mut refresh) = (false, false);
+    let drawn = ui.horizontal_wrapped(|row| {
+        row.label(RichText::new(t("s_fg_fehlt")).strong());
+        let hint = t("s_fg_fehlt_h");
+        let go = t("s_fg_fehlt_knopf");
+        to_page = row
+            .add(widgets::Button::new(&go, ButtonKind::Normal, scheme).icon("settings"))
+            .on_hover_text(&hint)
+            .clicked();
+        let word = t("s_er_kat");
+        let reason = busy.then(|| t("s_er_kat_laeuft"));
+        let button =
+            widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("rotate-cw").blocked(reason.as_deref());
+        let response = row.add(button);
+        // A blocked button already says why.
+        refresh = if busy { response.clicked() } else { response.on_hover_text(t("s_er_kat_h")).clicked() };
+        if busy {
+            row.add(egui::Spinner::new().color(color(scheme.accent)));
+            row.label(t("s_er_kat_holt"));
+        }
+    });
+    // A jump of the menu filter to the catalog button frames the row.
+    crate::highlight::mark(ui, scheme, drawn.response.rect, &[&t("s_er_kat"), &t("s_er_kat_h")]);
+    if refresh && !busy {
+        start_catalog(state, paths);
+    }
+    to_page
 }
 
 /// Moves the jobs on that finished.
 fn poll(ui: &mut Ui, state: &mut DetectionState, paths: &Paths) {
+    poll_catalog(ui, state);
+    poll_foreign(ui, state, paths);
+}
+
+/// Moves the catalog job on when it finished.
+fn poll_catalog(ui: &mut Ui, state: &mut DetectionState) {
     if let Some(receiver) = &state.catalog {
         match receiver.try_recv() {
             Ok(counted) => {
@@ -361,6 +350,10 @@ fn poll(ui: &mut Ui, state: &mut DetectionState, paths: &Paths) {
             }
         }
     }
+}
+
+/// Moves the search of the logs and the removal of foreign blueprints on when they finished.
+fn poll_foreign(ui: &mut Ui, state: &mut DetectionState, paths: &Paths) {
     match &state.foreign {
         Foreign::Searching(receiver) => match receiver.try_recv() {
             Ok((accounts, names)) => {
@@ -487,7 +480,7 @@ mod tests {
         std::fs::write(format!("{game}/Game.log"), "x\n").unwrap();
         let paths = Paths::new(Host::new(
             Flavor::Posix,
-            &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str()), (ENV_INSTALL_DIR, game.as_str())],
+            &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str()), (ENV_INSTALL_DIR, game.as_str())],
             &home,
         ));
         (home, paths)
@@ -543,10 +536,11 @@ mod tests {
                 ..Default::default()
             };
             let (state, paths) = (&mut self.state, &self.paths);
-            // The page Erkennung and, below it, the part of the page Allgemein: one state for both.
+            // The part of the page Allgemein and the rows of the blueprint list: one state for both.
             let mut output = self.ctx.run_ui(input, |ui| {
-                show_page(ui, scheme, state, paths);
                 show_account(ui, scheme, state, paths);
+                missing_row(ui, scheme, state, paths);
+                list_switch(ui, scheme, state, paths);
             });
             output.textures_delta.clear();
             let mut texts = Vec::new();
@@ -647,13 +641,14 @@ mod tests {
     }
 
     #[test]
-    fn the_page_shows_the_phrases_and_the_switch_is_stored_told_and_passed_on() {
+    fn the_general_page_shows_the_phrases_and_the_switch_is_stored_told_and_passed_on() {
         let _language = setup();
         let home = scratch("schalter");
         let paths =
-            Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())], &home));
+            Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str())], &home));
         let mut bench = Bench::new(home, paths);
         let texts = bench.until(|texts| shows(texts, &t("s_er_fremd_keine")));
+        assert!(shows(&texts, &t("s_er_satz")) && shows(&texts, &t("s_er_satz_h")), "the card stands there: {texts:?}");
         assert!(shows(&texts, "Bauplan erhalten") && shows(&texts, "Received Blueprint"), "{texts:?}");
         assert!(shows(&texts, &t("s_er_acc_keiner")), "no account yet says what to do: {texts:?}");
         bench.click_named(egui::Role::CheckBox, &t("s_er_alle"));
@@ -663,40 +658,6 @@ mod tests {
         bench.click_named(egui::Role::CheckBox, &t("s_er_alle"));
         assert!(!detection::all_blueprints(&bench.paths));
         assert_eq!(bench.state.take_notice(), Some(Said::note(t("s_er_alle_weg"))));
-        let _ = std::fs::remove_dir_all(&bench.home);
-    }
-
-    #[test]
-    fn the_switch_for_the_stock_from_the_log_is_on_says_what_is_kept_and_is_stored() {
-        let _language = setup();
-        let home = scratch("lagerlog");
-        let paths =
-            Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())], &home));
-        let mut bench = Bench::new(home, paths);
-        let texts = bench.until(|texts| shows(texts, &t("s_er_fremd_keine")));
-        assert!(shows(&texts, &t("s_lj_schalter")), "{texts:?}");
-        // The hint, with what is kept, on hover behind the symbol `info`, never as a line under the name.
-        let hint = t("s_lj_schalter_h");
-        let first = hint.split_once(". ").map_or(hint.clone(), |(head, _)| format!("{head}."));
-        assert!(!shows(&texts, &first), "the hint stands on hover: {texts:?}");
-        assert!(
-            hint.contains("Speichert nur Klasse, Menge, Preis, Zeit, Ort und Laden, nie Namen oder Spielerkennungen."),
-            "the hint names what is kept: {hint}"
-        );
-        assert!(stock_journal::enabled(&bench.paths), "on by default");
-        assert_eq!(bench.paths.setting("lager_aus_log"), None, "nothing stored yet");
-        bench.click_named(egui::Role::CheckBox, &t("s_lj_schalter"));
-        assert!(!stock_journal::enabled(&bench.paths), "stored at once");
-        assert!(!bench.paths.setting_bool("lager_aus_log", true), "under the key `lager_aus_log`");
-        assert_eq!(bench.state.take_notice(), Some(Said::note(t("s_lj_schalter_aus"))));
-        bench.click_named(egui::Role::CheckBox, &t("s_lj_schalter"));
-        assert!(stock_journal::enabled(&bench.paths));
-        assert_eq!(bench.state.take_notice(), Some(Said::note(t("s_lj_schalter_an"))));
-        // The page reads the stored value again after the settings were read anew.
-        stock_journal::set_enabled(&bench.paths, false);
-        bench.state.invalidate();
-        bench.until(|texts| shows(texts, &t("s_er_fremd_keine")));
-        assert!(!bench.state.stock_log, "the switch shows the stored value");
         let _ = std::fs::remove_dir_all(&bench.home);
     }
 
@@ -787,13 +748,13 @@ mod tests {
     }
 
     #[test]
-    fn the_catalog_button_says_how_many_it_got_or_that_it_could_not() {
+    fn the_catalog_button_of_the_list_says_how_many_it_got_or_that_it_could_not() {
         let _language = setup();
         let home = scratch("katalog");
         let paths =
-            Paths::new(Host::new(Flavor::Posix, &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())], &home));
+            Paths::new(Host::new(Flavor::Posix, &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str())], &home));
         let mut bench = Bench::new(home, paths);
-        bench.click(&t("s_er_kat_jetzt"));
+        bench.click(&t("s_er_kat"));
         let mut said = None;
         for _ in 0..100 {
             bench.settle();
@@ -807,7 +768,7 @@ mod tests {
         assert_eq!(said, Some(Said::note(tf("s_er_kat_da", &[("0", Arg::from(2i64))]))));
         assert!(detection::set_all_blueprints(&bench.paths, true));
         bench.state.build = built;
-        bench.click(&t("s_er_kat_jetzt"));
+        bench.click(&t("s_er_kat"));
         let mut said = None;
         for _ in 0..100 {
             bench.settle();
@@ -820,7 +781,7 @@ mod tests {
         assert_eq!(said, Some(Said::note(tf("s_er_kat_da", &[("0", Arg::from(3i64))]))), "all: three");
         // A build that gives nothing is told as what it is, not as a success (4.12 always said "refreshed").
         bench.state.build = not_built;
-        bench.click(&t("s_er_kat_jetzt"));
+        bench.click(&t("s_er_kat"));
         let mut said = None;
         for _ in 0..100 {
             bench.settle();

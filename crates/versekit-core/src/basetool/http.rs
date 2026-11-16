@@ -29,7 +29,6 @@ use std::time::Duration;
 
 use crate::basetool::error::ApiError;
 use crate::basetool::jose::UrlParts;
-use crate::legacy;
 use crate::paths::Host;
 
 pub const TIMEOUT: Duration = Duration::from_secs(30);
@@ -136,7 +135,7 @@ impl HttpTransport {
             let builder = if proxy { builder } else { builder.proxy(None) };
             builder.build().new_agent()
         };
-        let offline = host.var(legacy::ENV_NO_NET).is_some_and(|v| !v.is_empty() && v != "0");
+        let offline = host.var(crate::envvars::ENV_NO_NET).is_some_and(|v| !v.is_empty() && v != "0");
         Ok(HttpTransport { agent: agent(true), local_agent: agent(false), offline })
     }
 }
@@ -146,7 +145,7 @@ impl Transport for HttpTransport {
         let parts = UrlParts::split(&request.url).map_err(|_| ApiError::network("ValueError"))?;
         let host = parts.hostname().unwrap_or_default();
         if self.offline && !loopback(&host) {
-            return Err(ApiError::network(legacy::ENV_NO_NET));
+            return Err(ApiError::network(crate::envvars::ENV_NO_NET));
         }
         if parts.scheme != "https" && !(parts.scheme == "http" && loopback(&host)) {
             return Err(ApiError::network("InsecureAddress"));
@@ -199,11 +198,11 @@ mod tests {
 
     #[test]
     fn no_net_and_plain_http_stay_local() {
-        let host = Host::new(Flavor::Posix, &[(legacy::ENV_NO_NET, "1")], "/");
+        let host = Host::new(Flavor::Posix, &[(crate::envvars::ENV_NO_NET, "1")], "/");
         let transport = HttpTransport::new("", &host).unwrap();
         let request = |url: &str| Request { method: "GET".into(), url: url.into(), headers: vec![], body: None };
         let refused = transport.send(&request("https://ingest.profit-base.online/exchange/v1")).unwrap_err();
-        assert_eq!((refused.code.as_str(), refused.problem_text("detail")), ("NETWORK", Some(legacy::ENV_NO_NET)));
+        assert_eq!((refused.code.as_str(), refused.problem_text("detail")), ("NETWORK", Some(crate::envvars::ENV_NO_NET)));
         let online = HttpTransport::new("", &Host::new(Flavor::Posix, &[], "/")).unwrap();
         let insecure = online.send(&request("http://example.org/")).unwrap_err();
         assert_eq!(insecure.problem_text("detail"), Some("InsecureAddress"));

@@ -23,7 +23,7 @@ use crate::testdir::Dir;
 fn paths_in(name: &str) -> (Dir, Paths) {
     let folder = Dir::new(name);
     let text = folder.path().to_string_lossy().into_owned();
-    (folder, Paths::new(Host::new(Flavor::native(), &[(legacy::ENV_HOME, &text)], &text)))
+    (folder, Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, &text)], &text)))
 }
 
 fn mark(target: &str, previous: &str, start: f64) -> RunMark {
@@ -326,10 +326,10 @@ fn the_check_of_the_delivery_starts_the_setup_as_the_program_does() {
     let template: String = block.split('\'').skip(1).step_by(2).collect();
     let job = SetupJob {
         target_dir: PathBuf::from(r"C:\Programme & ^ % ! ( ) ' Ümlaut"),
-        setup_log: PathBuf::from(r"C:\Dokumente\Verse-Kit Ü\update-setup.txt"),
-        lock: PathBuf::from(r"C:\Dokumente\Verse-Kit Ü\update-sperre.json"),
-        result: PathBuf::from(r"C:\Dokumente\Verse-Kit Ü\update-ergebnis.txt"),
-        log: PathBuf::from(r"C:\Dokumente\Verse-Kit Ü\update-helfer.txt"),
+        setup_log: PathBuf::from(r"C:\Dokumente\VerseKit Ü\update-setup.txt"),
+        lock: PathBuf::from(r"C:\Dokumente\VerseKit Ü\update-sperre.json"),
+        result: PathBuf::from(r"C:\Dokumente\VerseKit Ü\update-ergebnis.txt"),
+        log: PathBuf::from(r"C:\Dokumente\VerseKit Ü\update-helfer.txt"),
         wait_for: vec![4242],
         ..SetupJob::default()
     };
@@ -369,7 +369,7 @@ fn the_installer_waits_for_this_process_and_reports_to_the_files_of_the_data_fol
     fs::write(&setup, b"der Installer").unwrap();
     let downloaded = updater::Downloaded { checksum: updater::checksum_of(&setup).unwrap(), path: setup.clone() };
     let folder = dir.path().join("Programm");
-    let job = setup_job(&paths, &downloaded, &folder.join("SC-BP-Watcher.exe"), dir.path());
+    let job = setup_job(&paths, &downloaded, &folder.join("VerseKit.exe"), dir.path());
     assert_eq!(job.wait_for.first(), Some(&std::process::id()), "this process first");
     assert_eq!((job.setup, job.target_dir), (setup, folder));
     assert_eq!(job.log, PathBuf::from(paths.app_file(LOG_FILE)));
@@ -400,7 +400,7 @@ fn setup_case(name: &str, content: &[u8]) -> (Dir, Paths, SetupJob) {
     fs::create_dir_all(&folder).unwrap();
     let setup = folder.join("VerseKit-Setup.exe");
     fs::write(&setup, content).unwrap();
-    let program = dir.path().join("Programm & ^ % ! ( ) ' Ümlaut").join("SC-BP-Watcher.exe");
+    let program = dir.path().join("Programm & ^ % ! ( ) ' Ümlaut").join("VerseKit.exe");
     fs::create_dir_all(program.parent().unwrap()).unwrap();
     fs::write(&program, b"alt").unwrap();
     let downloaded = updater::Downloaded { checksum: updater::checksum_of(&setup).unwrap(), path: setup };
@@ -487,7 +487,7 @@ fn the_installer_is_started_directly_and_the_program_steps_down_only_after_its_s
     // No copy of a program file anywhere: only the installer and the program.
     let mut found = program_files(dir.path());
     found.sort();
-    let mut expected = vec![job.setup.clone(), job.target_dir.join("SC-BP-Watcher.exe")];
+    let mut expected = vec![job.setup.clone(), job.target_dir.join("VerseKit.exe")];
     expected.sort();
     assert_eq!(found, expected);
 }
@@ -642,7 +642,7 @@ fn an_installer_that_cannot_be_read_for_a_moment_is_tried_again_and_never_delete
 fn the_installer_waits_for_every_other_process_of_the_program_file_too() {
     use std::os::windows::process::CommandExt;
     let (dir, paths) = paths_in("lauf-andere");
-    let program = dir.path().join("Programm").join("SC-BP-Watcher.exe");
+    let program = dir.path().join("Programm").join("VerseKit.exe");
     fs::create_dir_all(program.parent().unwrap()).unwrap();
     fs::write(&program, system_program("PING.EXE")).unwrap();
     let mut other = std::process::Command::new(&program)

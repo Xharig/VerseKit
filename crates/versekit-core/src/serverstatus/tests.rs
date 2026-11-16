@@ -36,9 +36,9 @@ fn paths_in(name: &str, off: bool) -> (Paths, std::path::PathBuf) {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let home = dir.to_string_lossy().into_owned();
-    let mut vars = vec![(crate::legacy::ENV_HOME, home.as_str())];
+    let mut vars = vec![(crate::envvars::ENV_HOME, home.as_str())];
     if off {
-        vars.push((crate::legacy::ENV_NO_NET, "1"));
+        vars.push((crate::envvars::ENV_NO_NET, "1"));
     }
     let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home);
     (Paths::new(host), dir)
@@ -100,7 +100,7 @@ fn the_page_is_asked_at_most_every_five_minutes_and_never_without_the_net() {
     let _ = std::fs::remove_dir_all(&dir);
 
     let (quiet, dir) = paths_in("aus", true);
-    assert_eq!(refresh(&quiet, &net, 1000.0), None, "SC_BP_NO_NET: nothing asked");
+    assert_eq!(refresh(&quiet, &net, 1000.0), None, "VERSEKIT_NO_NET: nothing asked");
     assert_eq!(net.asked().len(), 2);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -142,7 +142,7 @@ fn without_the_net_the_state_kept_stands_and_says_so() {
     let (quiet, dir) = paths_in("ohne-aus", true);
     let net = Fake::default().with(&index(), PAGE);
     assert!(state(&quiet, &net, 1000.0, true, None).is_empty());
-    assert!(net.asked().is_empty(), "SC_BP_NO_NET: nothing asked");
+    assert!(net.asked().is_empty(), "VERSEKIT_NO_NET: nothing asked");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

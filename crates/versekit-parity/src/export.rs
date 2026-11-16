@@ -33,7 +33,7 @@ use versekit_core::language::{self, Choice};
 use versekit_core::paths::{Host, Paths};
 use versekit_core::phrases::EnglishNames;
 use versekit_core::pypath::Flavor;
-use versekit_core::{errors, legacy, writeguard};
+use versekit_core::{errors, writeguard};
 
 const FIXED_NOW: &str = "2026-10-19 12:00:00";
 const HOME_MARK: &str = "<HOME>";
@@ -133,7 +133,7 @@ fn run_case(scratch: &str, case: &Value, version: &str) -> Result<Value, String>
     }
     place(&f.join_all(scratch, &["inputs", name]), &home)?;
     let mut host = Host::current();
-    host.set_var(legacy::ENV_HOME, &home);
+    host.set_var(versekit_core::envvars::ENV_HOME, &home);
     host.set_var("APPDATA", &f.join(scratch, "appdata_rs"));
     let paths = Paths::new(host);
     language::set_language(if lang == "en" { Choice::En } else { Choice::De });

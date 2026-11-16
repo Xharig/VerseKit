@@ -89,7 +89,7 @@ fn the_old_names_of_the_relations_lead_to_the_handle_search() {
     let home = dir.path().to_string_lossy().into_owned();
     let paths = versekit_core::paths::Paths::new(versekit_core::paths::Host::new(
         versekit_core::pypath::Flavor::native(),
-        &[(versekit_core::legacy::ENV_HOME, home.as_str())],
+        &[(versekit_core::envvars::ENV_HOME, home.as_str())],
         &home,
     ));
     paths.set_setting(overview::PINNED_SETTING, overview::list_value(&["beziehungen".into(), "handlesuche".into()]));

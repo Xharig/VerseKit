@@ -189,7 +189,7 @@ const SETTINGS_OF_4_12: &str = include_str!("../../pruefdaten/einstellungen-4-12
 /// setup may open), the settings of a program set up with 4.12 where `set_up` says so. Nothing of the computer
 /// is touched, and the Basetool cannot go out.
 fn throwaway(set_up: bool) -> (std::path::PathBuf, versekit_core::paths::Paths) {
-    use versekit_core::legacy::{ENV_HOME, ENV_NO_NET};
+    use versekit_core::envvars::{ENV_HOME, ENV_NO_NET};
     use versekit_core::paths::{ENV_INSTALL_DIR, Host, Paths};
     // The picture shows the game folder in the field: a path in the home folder would show the name of the
     // user. The folder lies in the root of the system drive instead (a plain `StarCitizen\LIVE` under it), and
@@ -369,7 +369,7 @@ fn gallery_pictures(dir: &str, english: bool) {
 fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
     // The pictures of the start page and of every stop of the tour (`assets/seite.js`). The hangar is drawn by
     // `echt`: its slots come from the game data of the made-up installation.
-    let pages: [(&str, Option<&str>); 47] = [
+    let pages: [(&str, Option<&str>); 48] = [
         ("uebersicht", None),
         ("notizen", Some("hf_notizen")),
         ("liste", Some("hf_liste")),
@@ -394,14 +394,15 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
         ("statistik-auftraege", Some("hf_st_auftraege")),
         ("statistik-quantum", Some("hf_st_quantum")),
         ("statistik-stabil", Some("hf_st_stabil")),
+        ("statistik-flugbuch", Some("hf_st_flugbuch")),
         ("allgemein", Some("hf_allgemein")),
         ("anzeige", Some("hf_overlay")),
         ("darstellung", Some("hf_darstellung")),
         ("ordner", Some("hf_ordner")),
         ("module", Some("hf_module")),
-        ("erkennung", Some("hf_erkennung")),
         ("startprogramme", Some("hf_startprogramme")),
         ("basetool", Some("k_basetool_verbindung")),
+        ("orga-verbinden", Some("s_os_seite")),
         ("bestand", Some("hf_sichern")),
         ("auftragstexte", Some("hf_spiel")),
         ("uebersetzung", Some("hf_uebersetzung")),
@@ -884,7 +885,7 @@ fn review_pictures(dir: &str) {
 /// (`install.rs`): the window model on real data, with nothing of the computer touched. Named as the website takes
 /// them, like [`website_pictures`].
 fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&std::path::Path>) {
-    let pages: [(&str, &str); 20] = [
+    let pages: [(&str, &str); 19] = [
         ("hangar", "hf_hangar"),
         ("hangarwerte", "hf_hangar"),
         ("bergung", "hf_bergung"),
@@ -898,7 +899,6 @@ fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&s
         ("achsen", "hf_achsen"),
         ("shader", "hf_shader"),
         ("module", "hf_module"),
-        ("erkennung", "hf_erkennung"),
         ("startprogramme", "hf_startprogramme"),
         ("laeden", "hf_laeden"),
         ("verkauf", "hf_verkauf"),

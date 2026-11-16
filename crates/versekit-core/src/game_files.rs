@@ -21,7 +21,7 @@
 //!
 //! The rules (decided in the night of 2026-10-22, the player may overturn them):
 //! * **One name for all new copies:** `<file>.versekit-<YYYYMMDD-HHMMSS>`, two within the same second
-//!   `-02`, `-03` … (nothing is overwritten). Copies of 4.12 (`.scbpw-…`) are found and counted, can be put
+//!   `-02`, `-03` … (nothing is overwritten). Copies of 4.12 (`legacy::GAME_BACKUP_MARK`) are found and counted, can be put
 //!   back, but are never made again.
 //! * **Ten copies** of a small file stay (the large `global.ini` keeps three).
 //! * **Nothing is written while the game runs, or when nobody can tell** (`game_start::run_state`): a game
@@ -130,7 +130,7 @@ mod tests {
         let home = scratch(name);
         let game = format!("{home}/StarCitizen/LIVE");
         std::fs::create_dir_all(&game).expect("folder");
-        let mut vars = vec![("SC_BP_HOME", home.as_str()), ("HOME", home.as_str()), (game_start::ENV_NO_PROCESS, "1")];
+        let mut vars = vec![("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str()), (game_start::ENV_NO_PROCESS, "1")];
         if let Some(age) = age {
             std::fs::write(format!("{game}/Game.log"), "x").expect("log");
             let at = std::time::SystemTime::now() - std::time::Duration::from_secs(age);
@@ -178,15 +178,16 @@ mod tests {
     fn copies_of_4_12_count_and_go_first_but_are_never_made_again() {
         let (home, paths, target) = world("alt", Some(7200));
         std::fs::write(&target, "now").expect("file");
+        let old = crate::legacy::GAME_BACKUP_MARK;
         for n in 0..10 {
-            std::fs::write(format!("{target}.scbpw-20260101-0000{n:02}"), format!("old {n}")).expect("old copy");
+            std::fs::write(format!("{target}{old}20260101-0000{n:02}"), format!("old {n}")).expect("old copy");
         }
         let backup = write(&paths, &target, b"next").expect("written").expect("a copy");
-        assert!(backup.contains(".versekit-") && !backup.contains(".scbpw-"), "{backup}");
+        assert!(backup.contains(".versekit-") && !backup.contains(old), "{backup}");
         let kept = backups(&target);
         assert_eq!(kept.len(), KEPT, "{kept:?}");
         assert!(!kept.iter().any(|b| b.ends_with("20260101-000000")), "the oldest old copy was cut: {kept:?}");
-        assert_eq!(kept.iter().filter(|b| b.contains(".scbpw-")).count(), 9, "{kept:?}");
+        assert_eq!(kept.iter().filter(|b| b.contains(old)).count(), 9, "{kept:?}");
         let name = |path: &str| path.rsplit(['/', '\\']).next().unwrap_or_default().to_string();
         assert_eq!(kept.last().map(|b| name(b)), Some(name(&backup)), "the new one is the newest");
         let _ = std::fs::remove_dir_all(home);

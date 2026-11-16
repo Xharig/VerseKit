@@ -173,7 +173,7 @@ impl eframe::App for TableApp {
         egui::Panel::top("kopf").show(ui, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
-                ui.heading("Verse-Kit Tabellen-Test");
+                ui.heading("VerseKit Tabellen-Test");
                 ui.label(format!("{} von {} Zeilen", self.view.len(), self.rows.len()));
             });
             ui.horizontal(|ui| {

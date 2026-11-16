@@ -461,7 +461,7 @@ impl ScanWindow {
             draggable: Cell::new(false),
         });
         let class: Vec<u16> = CLASS.encode_utf16().chain(std::iter::once(0)).collect();
-        let title: Vec<u16> = "Verse-Kit".encode_utf16().chain(std::iter::once(0)).collect();
+        let title: Vec<u16> = "VerseKit".encode_utf16().chain(std::iter::once(0)).collect();
         // SAFETY: the class is registered; the data pointer is set below, before any message of ours is read.
         let hwnd = unsafe {
             CreateWindowExW(
@@ -684,7 +684,7 @@ impl FrameWindow {
             return None;
         }
         let class: Vec<u16> = FRAME_CLASS.encode_utf16().chain(std::iter::once(0)).collect();
-        let title: Vec<u16> = "Verse-Kit".encode_utf16().chain(std::iter::once(0)).collect();
+        let title: Vec<u16> = "VerseKit".encode_utf16().chain(std::iter::once(0)).collect();
         // SAFETY: the class is registered; the window is destroyed in `Drop`.
         let hwnd = unsafe {
             CreateWindowExW(

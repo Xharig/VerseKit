@@ -278,7 +278,6 @@ pub fn as_text(seconds: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::legacy;
     use crate::paths::Host;
 
     #[test]
@@ -304,7 +303,7 @@ mod tests {
         let gone = root.join("kein-spiel").to_string_lossy().into_owned();
         let paths = Paths::new(Host::new(
             crate::pypath::Flavor::native(),
-            &[(legacy::ENV_HOME, home.as_str()), (crate::paths::ENV_INSTALL_DIR, gone.as_str())],
+            &[(crate::envvars::ENV_HOME, home.as_str()), (crate::paths::ENV_INSTALL_DIR, gone.as_str())],
             &home,
         ));
         assert_eq!(session_now(&paths), 0, "no game folder, no session");
@@ -340,7 +339,7 @@ mod tests {
         fs::create_dir_all(&logs).expect("Ordner");
         let host = Host::new(
             Flavor::native(),
-            &[(legacy::ENV_HOME, home.to_str().expect("Pfad"))],
+            &[(crate::envvars::ENV_HOME, home.to_str().expect("Pfad"))],
             root.to_str().expect("Pfad"),
         );
         let paths = Paths::new(host);

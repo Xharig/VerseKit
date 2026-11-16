@@ -110,7 +110,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("versekit-state-{name}-{}", crate::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
         let dir = dir.to_string_lossy().into_owned();
-        let host = Host::new(crate::pypath::Flavor::native(), &[(crate::legacy::ENV_HOME, &dir)], &dir);
+        let host = Host::new(crate::pypath::Flavor::native(), &[(crate::envvars::ENV_HOME, &dir)], &dir);
         (Paths::new(host), dir)
     }
 

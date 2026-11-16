@@ -351,7 +351,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
     let font = &input["schrift"];
     let work = testdir::fresh("parity-raffinerie");
     let home = work.to_string_lossy().into_owned();
-    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
+    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home));
     let mut result = json!({});
 
     result["zahlen"] = Value::Array(

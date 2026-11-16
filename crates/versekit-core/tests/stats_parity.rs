@@ -29,7 +29,6 @@
 use std::collections::HashMap;
 
 use serde_json::Value;
-use versekit_core::legacy;
 use versekit_core::mission_log;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::pypath::Flavor;
@@ -53,7 +52,7 @@ fn the_sums_equal_the_numbers_of_the_python_version() {
         &std::fs::read_to_string(std::env::var("STATS_PARITY_PY").expect("STATS_PARITY_PY")).expect("file"),
     )
     .expect("json");
-    let host = Host::new(Flavor::native(), &[(legacy::ENV_HOME, &data)], &data);
+    let host = Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &data)], &data);
     let paths = Paths::new(host);
     let own = Some("Xharig");
     let sessions = stats_report::load_sessions(&paths);

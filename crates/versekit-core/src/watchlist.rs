@@ -172,7 +172,7 @@ mod tests {
         use crate::pypath::Flavor;
         let dir = crate::testdir::Dir::new("merkliste-zwei-schreiber");
         let home = dir.path().to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::legacy::ENV_HOME, home.as_str())], &home));
+        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, home.as_str())], &home));
         let start = data(r#"{"namen": [], "eintraege": [{"titel": "Rucksack", "muster": ["arden backpack"]}]}"#);
         assert!(save(&paths, &start));
         let (held_tx, held_rx) = std::sync::mpsc::channel();

@@ -9,7 +9,7 @@
 // Adresse; der Webhook liegt ausschließlich als Geheimnis beim Worker
 // (`DISCORD_WEBHOOK`) und lässt sich jederzeit tauschen, ohne neue Version.
 //
-// Der Worker nimmt NUR an, was wie ein Verse-Kit-Bericht aussieht, begrenzt
+// Der Worker nimmt NUR an, was wie ein VerseKit-Bericht aussieht, begrenzt
 // die Menge je Absender und schaltet alle Erwähnungen ab. Die Nachricht in
 // Discord baut er selbst zusammen — vom Absender kommt nur die geprüfte
 // Versionsnummer und die Dateien, kein freier Text.

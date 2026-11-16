@@ -30,7 +30,7 @@ use versekit_core::jsonio::{self, Map, Value};
 use versekit_core::paths::{Host, Paths, name_key};
 use versekit_core::phrases::{ArchiveText, BackRoute, EnglishNames, clear_back_caches};
 use versekit_core::pypath::Flavor;
-use versekit_core::{errors, legacy, writeguard};
+use versekit_core::{errors, writeguard};
 
 const FIXED_NOW: &str = "2026-10-19 12:00:00";
 const SOURCES: [&str; 7] = ["nachlese", "log", "basetool", "launcher", "hand", "start", "import"];
@@ -126,7 +126,7 @@ fn summary(data: &Map) -> Value {
 
 fn home_paths(home: &str, appdata: Option<&str>) -> Paths {
     let mut host = Host::current();
-    host.set_var(legacy::ENV_HOME, home);
+    host.set_var(versekit_core::envvars::ENV_HOME, home);
     if let Some(appdata) = appdata {
         host.set_var("APPDATA", appdata);
     }

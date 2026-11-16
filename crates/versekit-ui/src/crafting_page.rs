@@ -32,6 +32,7 @@
 //! the ones read last are shown at once, new ones are read in a thread.
 
 mod list;
+mod plan;
 
 use versekit_core::language::SpawnWithLanguage as _;
 use std::collections::{HashMap, HashSet};
@@ -41,7 +42,7 @@ use std::time::SystemTime;
 use egui::accesskit::Role;
 use egui::{RichText, Ui, WidgetInfo};
 use versekit_core::catalog_cache::CatalogCache;
-use versekit_core::erkul_slots::{self, FitAnswer};
+use versekit_core::erkul_slots::{self, ErkulData, FitAnswer};
 use versekit_core::fabricator::{self, Names, Place};
 use versekit_core::formats;
 use versekit_core::hangar;
@@ -75,6 +76,8 @@ const LOOK_SECONDS: f64 = 1.0;
 const SETTING_FILL: &str = "herstellung_fuellen";
 /// The setting that remembers whether the list shows tiles or rows.
 const SETTING_VIEW: &str = "herstellung_ansicht";
+/// The setting that remembers whether the card "Vorgemerkt" is open.
+const SETTING_PLAN_OPEN: &str = "herstellung_vorgemerkt_offen";
 /// The farm notes live in the hangar file.
 const NOTES_FILE: &str = "hangar.json";
 /// The least height of a row of the list.
@@ -97,6 +100,10 @@ pub enum Action {
     ToMining(String),
     /// Show the shops.
     ToShops,
+    /// Show the page of the farm list.
+    ToFarm,
+    /// Show the hangar.
+    ToHangar,
 }
 
 /// The picks of the filters.
@@ -112,6 +119,8 @@ struct Picks {
     material: String,
     /// The name of the hangar ship whose slots the items have to fit; empty is every item.
     ship: String,
+    /// Only the items the plan holds (the farm notes and the parts of the ships).
+    planned: bool,
 }
 
 /// What the ship of the filter lets through, worked out once for the list.
@@ -271,6 +280,10 @@ pub struct CraftingState {
     /// The reading ended without values.
     failed: bool,
     stock: Vec<Value>,
+    /// What the orgs share of each material, to show next to the own stock; never taken from what is missing.
+    org_stock: std::sync::Arc<crate::org_data::StockIndex>,
+    /// Who in the orgs has which blueprint, to say it where the own one is missing.
+    org_blueprints: std::sync::Arc<crate::org_data::BlueprintIndex>,
     stock_version: u64,
     stock_seen: Option<SystemTime>,
     notes: Map,
@@ -278,6 +291,11 @@ pub struct CraftingState {
     /// The slots of the ships (erkul), for "fits into your ship".
     ships: ErkulShips,
     ships_seen: Option<SystemTime>,
+    /// The slots of the ships as the shopping list reads them, for the plan.
+    erkul: ErkulData,
+    erkul_seen: [Option<SystemTime>; 4],
+    /// The plan: every part the farm list counts, and how often each item is planned.
+    plan: plan::Plan,
     looked_at: f64,
     prices: RawPrices,
     pub search: String,
@@ -399,6 +417,16 @@ impl Default for CraftingState {
 }
 
 impl CraftingState {
+    /// What the orgs share, from now on shown next to the own stock of each material.
+    pub fn set_org_stock(&mut self, index: std::sync::Arc<crate::org_data::StockIndex>) {
+        self.org_stock = index;
+    }
+
+    /// Who in the orgs has which blueprint, from now on said where the own blueprint is missing.
+    pub fn set_org_blueprints(&mut self, index: std::sync::Arc<crate::org_data::BlueprintIndex>) {
+        self.org_blueprints = index;
+    }
+
     fn empty(paths: Option<Paths>) -> CraftingState {
         CraftingState {
             paths,
@@ -414,12 +442,17 @@ impl CraftingState {
             source: String::new(),
             failed: false,
             stock: Vec::new(),
+            org_stock: std::sync::Arc::default(),
+            org_blueprints: std::sync::Arc::default(),
             stock_version: 0,
             stock_seen: None,
             notes: hangar::empty(),
             notes_seen: None,
             ships: ErkulShips::default(),
             ships_seen: None,
+            erkul: ErkulData::default(),
+            erkul_seen: [None; 4],
+            plan: plan::Plan::default(),
             looked_at: f64::NEG_INFINITY,
             prices: RawPrices::default(),
             search: String::new(),
@@ -459,6 +492,7 @@ impl CraftingState {
         let mut state = CraftingState::empty(Some(Paths::new(paths.host.clone())));
         state.fill = if paths.setting(SETTING_FILL).as_deref() == Some("worst") { Order::Worst } else { Order::Best };
         state.view = View::from_word(paths.setting(SETTING_VIEW).as_deref());
+        state.plan.open = paths.setting_bool(SETTING_PLAN_OPEN, false);
         state.prices = RawPrices::load(paths);
         state.shop = crate::crafting_shop::ShopLine::new(Some(paths));
         let folder = paths.game_folder().map(std::path::PathBuf::from);
@@ -479,6 +513,7 @@ impl CraftingState {
         state.reload_stock();
         state.reload_notes();
         state.reload_ships();
+        state.reload_erkul();
         state
     }
 
@@ -523,6 +558,7 @@ impl CraftingState {
         vec![
             (SETTING_FILL, Value::str(if self.fill == Order::Worst { "worst" } else { "best" })),
             (SETTING_VIEW, Value::str(self.view.word())),
+            (SETTING_PLAN_OPEN, Value::Bool(self.plan.open)),
         ]
     }
 
@@ -680,7 +716,7 @@ impl CraftingState {
     }
 
     /// Fetches the raw material prices in a thread of their own when they
-    /// are due (at most once a day, `SC_BP_NO_NET` switches it off).
+    /// are due (at most once a day, `VERSEKIT_NO_NET` switches it off).
     fn fetch_prices(&mut self, paths: &Paths) {
         if !versekit_core::stock_fetch::prices_due(paths, SystemTime::now()) {
             return;
@@ -817,6 +853,13 @@ impl CraftingState {
         self.ship_version += 1;
     }
 
+    fn reload_erkul(&mut self) {
+        let Some(paths) = &self.paths else { return };
+        self.erkul_seen = ErkulData::files(paths).map(|file| Self::file_time(&file));
+        self.erkul = ErkulData::load(paths);
+        self.ship_version += 1;
+    }
+
     /// Reads the stock, the notes and the slots of the ships again when they changed on disk.
     fn follow(&mut self, ctx: &egui::Context) {
         let now = ctx.input(|i| i.time);
@@ -825,11 +868,15 @@ impl CraftingState {
         }
         self.looked_at = now;
         let Some(paths) = &self.paths else { return };
+        let erkul_changed = ErkulData::files(paths).map(|file| Self::file_time(&file)) != self.erkul_seen;
         let (stock_changed, notes_changed, ships_changed) = (
             Self::file_time(&paths.app_file(stock::RAW_FILE)) != self.stock_seen,
             Self::file_time(&paths.app_file(NOTES_FILE)) != self.notes_seen,
             Self::file_time(&paths.app_file(ERKUL_FILE)) != self.ships_seen,
         );
+        if erkul_changed {
+            self.reload_erkul();
+        }
         if stock_changed {
             self.reload_stock();
         }
@@ -1029,6 +1076,8 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, shared
     }
     // The jobs of the fabricator, folded while none is open.
     crate::workbench_ui::show(ui, scheme, &mut state.workbench, state.paths.as_ref());
+    // The plan, folded like the jobs of the fabricator: the lists below keep their room.
+    let plan_action = plan::show(ui, scheme, state);
     if state.pending.is_some() {
         widgets::loading(ui, scheme, &t("s_p9_werte_neu"));
     }
@@ -1083,7 +1132,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, shared
                 {
                     state.open = None;
                     state.detail = None;
-                    return None;
+                    return plan_action;
                 }
                 ui.add_space(4.0);
                 let rest = (height - (ui.cursor().min.y - top)).max(list_min(ui));
@@ -1095,7 +1144,7 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, shared
             }
         }
     }
-    action
+    action.or(plan_action)
 }
 
 /// A side of the page, `width` wide, its content from the top.
@@ -1484,6 +1533,12 @@ fn item_head(
                 action = Some(Action::ToBlueprint(item.basis.clone()));
             }
         }
+        // The blueprint is missing: say who in the orgs has it, never anything when nobody is known to.
+        if mark == Have::No
+            && let Some(holders) = state.org_blueprints.holders(&name_key(&item.basis))
+        {
+            ui.label(sub(scheme, tn("s_od_bp_haben", &[Arg::Int(holders.len() as i64)])));
+        }
         if state.shop.show(ui, scheme, &item.entity, &item.basis).is_some() {
             action = Some(Action::ToShops);
         }
@@ -1534,13 +1589,14 @@ fn fits_block(ui: &mut Ui, scheme: &Scheme, state: &CraftingState, catalog: &Cat
 
 /// The side of the recipe: count, crafting, autofill, then one block per slot.
 fn recipe_side(ui: &mut Ui, scheme: &Scheme, state: &mut CraftingState, values: &Arc<GameValues>) -> Option<Action> {
-    let Some((_, item, recipe, ingredients)) = chosen(state, values) else {
+    let Some((index, item, recipe, ingredients)) = chosen(state, values) else {
         choose_hint(ui, scheme);
         return None;
     };
     let mut action = None;
     widgets::card(ui, scheme, |ui| {
         widgets::card_title(ui, scheme, &t("s_fb_rezept"));
+        plan::row(ui, scheme, state, index);
         count_row(ui, scheme, state, &ingredients);
         craft_buttons(ui, scheme, state, &item, &ingredients);
         fill_row(ui, scheme, state, &ingredients);
@@ -1650,7 +1706,13 @@ fn craft_buttons(
             if let Some(image) = icons::image("check", scheme.accent, 14.0) {
                 row.add(image);
             }
-            row.label(RichText::new(t("s_p9_vorgemerkt")).small().color(color(scheme.accent)));
+            let planned = state.open.map_or(0, |index| state.plan_count(index).notes);
+            let said = if planned > 0 {
+                tf("s_fg_pl_vorgemerkt_n", &[("n", Arg::from(planned))])
+            } else {
+                t("s_p9_vorgemerkt")
+            };
+            row.label(RichText::new(said).small().color(color(scheme.accent)));
         }
     });
     if let Some(feedback) = state.detail.as_ref().and_then(|d| d.feedback.clone()) {
@@ -1778,6 +1840,7 @@ fn add_note(state: &mut CraftingState, item: &CraftItem) {
     notepad::add(&mut held.data, &item.name, "", count);
     hangar::save_held(&file, &mut held);
     state.notes = held.data;
+    state.ship_version += 1;
 }
 
 /// Takes the qualities of the stock again after the count, the fill or the
@@ -1972,6 +2035,10 @@ fn ingredient_line(
             let minimum = standing.map_or(0.0, |s| s.quality);
             let key = if piece { "s_p9_zu_schlecht_stk" } else { "s_p9_zu_schlecht" };
             row.label(sub(scheme, tn(key, &[Arg::from(g(rounded3(too_low))), Arg::from(g(minimum))])));
+        }
+        // Next to the own stock, never taken from it: the stock of an org is not the member's.
+        if let Some(has) = state.org_stock.of(&ingredient.material) {
+            row.label(sub(scheme, crate::org_data::org_has_text(has)));
         }
         if missing > 0.0
             && let Some(price) = state.prices.price(&ingredient.material)
@@ -2466,6 +2533,7 @@ mod tests {
     use versekit_core::language::{Choice, set_thread_language};
     use versekit_core::paths::Host;
     use versekit_core::pypath::Flavor;
+    use versekit_gamedata::farm::PlanCount;
 
     use super::list::{self, Line as ListLine};
     use super::*;
@@ -2513,7 +2581,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
-        Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, &text)], &text))
+        Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text))
     }
 
     fn entries(text: &str) -> Vec<Value> {
@@ -3050,6 +3118,23 @@ mod tests {
         detail.mix.get("Iron").map_or_else(Vec::new, |rows| rows.iter().map(|r| (r.amount, r.quality)).collect())
     }
 
+    #[test]
+    fn the_stock_of_the_org_stands_next_to_the_own_stock_of_a_material_and_changes_nothing_of_it() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = mix_bench("org-lager", TWO_IRONS);
+        let own = tn("s_p9_da", &[Arg::from("2,3")]);
+        let before = bench.frame();
+        assert!(has(&before, &own), "{before:?}");
+        let lot = crate::org_data::made_up::lot("Iron", 7.0, 600);
+        bench.page.set_org_stock(std::sync::Arc::new(crate::org_data::StockIndex::from_lots([lot].iter())));
+        let after = bench.frame();
+        let line = tf("s_od_im_lager", &[("menge", Arg::from("7 SCU")), ("q", Arg::from(600))]);
+        assert!(has(&after, &line), "{after:?}");
+        assert!(has(&after, &own), "the own stock stays as it was: {after:?}");
+        assert!(!has(&before, &line));
+    }
+
     const TWO_IRONS: &str = r#"[{"material":"Iron","menge":0.3,"qualitaet":865,"ort":"Levski"},
                                 {"material":"Iron","menge":2.0,"qualitaet":797,"ort":"Area18"},
                                 {"material":"Gold","menge":1.0,"qualitaet":700,"ort":"Levski"}]"#;
@@ -3469,6 +3554,14 @@ mod tests {
         let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
         assert!(has(&shown, &t("s_he_woher_bp")), "{shown:?}");
         assert!(shown.iter().any(|s| s.starts_with("Passt in deine Schiffe: Eclipse")), "{shown:?}");
+        // Where the blueprint is missing the orgs say who has it, and nothing when nobody is known to.
+        let who = tn("s_od_bp_haben", &[Arg::Int(2)]);
+        assert!(!has(&shown, &who), "{shown:?}");
+        let row = crate::org_data::made_up::blueprint("Arc Shield", &["Vega", "Mira"]);
+        page.set_org_blueprints(std::sync::Arc::new(crate::org_data::BlueprintIndex::from_rows([&row])));
+        let shown = frame_with(&ctx, &mut page, &["Frostline"], 1300.0, &catalog);
+        assert!(has(&shown, &who), "{shown:?}");
+        page.set_org_blueprints(std::sync::Arc::default());
 
         // The Gladius takes only the power plant.
         page.open = None;
@@ -4067,6 +4160,278 @@ mod tests {
                     for line in ["Platinum Bay", "Gladius Valiant", "Lightning Power Ltd."] {
                         if !drawn.iter().any(|text| text.contains(line)) {
                             findings.push(format!("{which}: die Zeile mit {line} fehlt"));
+                        }
+                    }
+                }
+            }
+        }
+        set_thread_language(Choice::De);
+        assert!(findings.is_empty(), "{} findings:\n{}", findings.len(), findings[..findings.len().min(25)].join("\n"));
+    }
+
+    // ---------------------------------------------------------------- the plan
+
+    /// One ship with two slots of the cooler and one of the power plant, as the stored erkul file has them.
+    const PLAN_SHIPS: &str = r#"{"format": 4, "spielversion": "4.0", "hersteller": {}, "schiffe": {"testship": {
+        "id": "test_ship", "name": "Test Ship", "plaetze": [], "slots": [
+        {"pfad": "c1", "art": "Cooler", "groesse": 2, "werk": {"ref": "f-cooler", "name": "Factory Cooler"}},
+        {"pfad": "c2", "art": "Cooler", "groesse": 2, "werk": {"ref": "f-cooler", "name": "Factory Cooler"}},
+        {"pfad": "s1", "art": "PowerPlant", "groesse": 1}]}}}"#;
+
+    /// The ship of the hangar builds a Frostline and a Grand Core; the notes plan two more Frostlines.
+    const PLAN_FLEET: &str = r#"{"format": 1, "schiffe": [{"name": "Test Ship", "belegung": {
+        "c1": {"ref": "a", "name": "Frostline", "weg": "bauen"},
+        "s1": {"ref": "c", "name": "Grand Core", "weg": "bauen"}}}],
+        "merkzettel": [{"name": "Frostline", "anzahl": 2, "weg": "bauen"}]}"#;
+
+    /// The page on the sample recipes with a hangar, the slots of its ship and the farm notes.
+    fn plan_bench(name: &str) -> Bench {
+        let mut bench = Bench::new(name, STOCK, 1300.0);
+        let paths = bench.page.paths.as_ref().expect("a data folder");
+        std::fs::write(paths.app_file(ERKUL_FILE), PLAN_SHIPS).unwrap();
+        std::fs::write(paths.app_file(NOTES_FILE), PLAN_FLEET).unwrap();
+        bench.page.reload_notes();
+        bench.page.reload_ships();
+        bench.page.reload_erkul();
+        bench
+    }
+
+    /// The farm notes as the file holds them.
+    fn stored_notes(bench: &Bench) -> Map {
+        hangar::read(&bench.page.paths.as_ref().unwrap().app_file(NOTES_FILE)).unwrap()
+    }
+
+    fn plan_title(parts: i64) -> String {
+        tf("s_fg_pl_titel", &[("n", Arg::from(parts))])
+    }
+
+    #[test]
+    fn the_card_is_folded_names_all_planned_parts_and_opens_to_every_source() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-karte");
+        let shown = bench.frame();
+        assert!(has(&shown, &plan_title(4)), "two notes and two parts of the ship: {shown:?}");
+        assert!(!has(&shown, &t("s_fg_pl_merkzettel")), "folded: {shown:?}");
+        bench.click_text(&plan_title(4));
+        // The groups scroll in a box whose height is known from the second frame on.
+        bench.frame();
+        let shown = bench.frame();
+        let ship = tf("s_fg_pl_kopf_hangar", &[("0", Arg::from("Test Ship"))]);
+        for text in [t("s_fg_pl_merkzettel"), ship, t("s_fg_pl_zur_farm"), t("s_fg_pl_im_hangar_oeffnen")] {
+            // The link of the hangar is named for a screen reader by its part: "Frostline: Im Hangar öffnen".
+            if text == t("s_fg_pl_im_hangar_oeffnen") {
+                assert!(bench.nodes.iter().any(|(_, name, _)| *name == format!("Frostline: {text}")), "{:?}", bench.nodes);
+                continue;
+            }
+            assert!(has(&shown, &text), "{text}: {shown:?}");
+        }
+        // The farm notes can be changed in the row, the parts of a ship cannot: they belong to the hangar.
+        let named = |item: &str, meaning: &str| format!("{item}: {}", t(meaning));
+        let buttons = |label: &str| {
+            bench.nodes.iter().filter(|(role, name, _)| *role == Role::Button && name == label).count()
+        };
+        assert_eq!(buttons(&named("Frostline", "s_fg_pl_mehr")), 1, "only the note has a plus");
+        assert_eq!(buttons(&named("Frostline", "s_mz_weg")), 1);
+        assert_eq!(buttons(&named("Grand Core", "s_fg_pl_mehr")), 0, "a part of the ship has none");
+        assert_eq!(buttons(&named("Grand Core", "s_mz_weg")), 0);
+        // One calculation: nothing is planned that the farm list does not count.
+        assert_eq!(bench.page.plan.pieces(), 4);
+    }
+
+    #[test]
+    fn a_long_plan_scrolls_inside_the_card_and_the_way_to_the_farm_list_stays_in_reach() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-lang");
+        // Twenty ships that each plan a Frostline: twenty groups, which the card has to hold without growing with them.
+        let paths = bench.page.paths.as_ref().unwrap();
+        let ships: Vec<String> = (1..=20)
+            .map(|n| {
+                format!(
+                    r#""ship{n:02}": {{"id": "s{n:02}", "name": "Ship {n:02}", "plaetze": [], "slots": [{{"pfad": "c1", "art": "Cooler", "groesse": 2}}]}}"#
+                )
+            })
+            .collect();
+        let erkul = format!(r#"{{"format": 4, "spielversion": "4.0", "hersteller": {{}}, "schiffe": {{{}}}}}"#, ships.join(", "));
+        let fleet: Vec<String> = (1..=20)
+            .map(|n| format!(r#"{{"name": "Ship {n:02}", "belegung": {{"c1": {{"ref": "a", "name": "Frostline", "weg": "bauen"}}}}}}"#))
+            .collect();
+        std::fs::write(paths.app_file(ERKUL_FILE), erkul).unwrap();
+        std::fs::write(paths.app_file(NOTES_FILE), format!(r#"{{"format": 1, "schiffe": [{}]}}"#, fleet.join(", "))).unwrap();
+        bench.page.reload_notes();
+        bench.page.reload_ships();
+        bench.page.reload_erkul();
+        bench.click_text(&plan_title(20));
+        bench.frame();
+        let at = |text: &str| bench.texts.iter().find(|(shown, _)| shown == text).map(|(_, rect)| *rect);
+        let title = at(&plan_title(20)).expect("the title");
+        let foot = at(&t("s_fg_pl_zur_farm")).expect("the way to the farm list stays in reach");
+        assert!(foot.bottom() - title.top() < 420.0, "the card is {:.0} points high: it grew with the plan", foot.bottom() - title.top());
+    }
+
+    #[test]
+    fn the_card_is_kept_open_or_folded_in_the_settings_and_starts_as_it_was_left() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-gemerkt");
+        let kept = |bench: &Bench| {
+            bench.page.setting_values().into_iter().find(|(key, _)| *key == SETTING_PLAN_OPEN).map(|(_, value)| value)
+        };
+        assert_eq!(kept(&bench), Some(Value::Bool(false)), "folded from the factory");
+        bench.click_text(&plan_title(4));
+        assert_eq!(kept(&bench), Some(Value::Bool(true)), "a click on the title opens it and is kept");
+        bench.click_text(&plan_title(4));
+        assert_eq!(kept(&bench), Some(Value::Bool(false)));
+        // A start with the stored choice: open without a click.
+        let paths = bench.page.paths.as_ref().unwrap();
+        assert!(paths.set_setting(SETTING_PLAN_OPEN, Value::Bool(true)));
+        let again = CraftingState::with_files(paths, Arc::new(values_store::Offline));
+        assert!(again.plan.open, "read from the settings");
+    }
+
+    #[test]
+    fn a_count_and_a_strike_on_a_note_are_written_and_the_strike_can_be_taken_back() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-notiz");
+        bench.click_text(&plan_title(4));
+        bench.click_button(&format!("Frostline: {}", t("s_fg_pl_mehr")));
+        assert_eq!(notepad::count_of_item(&stored_notes(&bench), "Frostline"), 3, "one more, written at once");
+        let shown = bench.frame();
+        assert!(has(&shown, &plan_title(5)), "the title follows: {shown:?}");
+        bench.click_button(&format!("Frostline: {}", t("s_mz_weg")));
+        assert_eq!(notepad::count_of_item(&stored_notes(&bench), "Frostline"), 0, "struck");
+        let shown = bench.frame();
+        assert!(has(&shown, &t("s_p9_rueckgaengig")), "{shown:?}");
+        bench.click_node(Role::Link, &format!("Frostline: {}", t("s_p9_rueckgaengig")));
+        assert_eq!(notepad::count_of_item(&stored_notes(&bench), "Frostline"), 3, "taken back whole");
+    }
+
+    #[test]
+    fn the_list_marks_every_part_the_plan_holds_with_its_number_in_tiles_and_rows() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-zahl");
+        let shown = bench.frame();
+        assert!(has(&shown, "3×") && has(&shown, "1×"), "Frostline 2 + 1, Grand Core 1: {shown:?}");
+        assert!(!has(&shown, "0×"), "a part nobody planned has no number");
+        bench.page.view = View::List;
+        let shown = bench.frame();
+        assert!(has(&shown, "3×") && has(&shown, "1×"), "{shown:?}");
+        // The hover and the screen reader say it too, with the share of the ships.
+        let item = bench.page.book.items.iter().find(|i| i.name == "Frostline").unwrap().clone();
+        let (access, hover) = list::spoken(&item, Have::No, PlanCount { notes: 2, ships: 1 });
+        let said = tf("s_fg_pl_zahl_schiffe", &[("n", Arg::from(3_i64)), ("k", Arg::from(1_i64))]);
+        assert!(access.contains(&said) && hover.contains(&said), "{access} / {hover}");
+        let (_, plain) = list::spoken(&item, Have::No, PlanCount::default());
+        assert!(!plain.contains("geplant"), "no plan, no sentence: {plain}");
+    }
+
+    #[test]
+    fn the_switch_planned_shows_only_the_parts_the_plan_holds_and_works_with_the_search() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-filter");
+        let shown = bench.frame();
+        assert!(has(&shown, "Arc Shield"), "all parts at first: {shown:?}");
+        bench.page.picks.planned = true;
+        let shown = bench.frame();
+        assert!(has(&shown, "Frostline") && has(&shown, "Grand Core"), "{shown:?}");
+        assert!(!has(&shown, "Arc Shield"), "not planned: {shown:?}");
+        bench.page.search = "frost".into();
+        let shown = bench.frame();
+        assert!(has(&shown, "Frostline") && !has(&shown, "Grand Core"), "the search narrows it further: {shown:?}");
+        // A search by an ingredient keeps the numbers of the parts it finds.
+        bench.page.search = "iron".into();
+        let shown = bench.frame();
+        assert!(has(&shown, "Frostline") && has(&shown, "3×"), "{shown:?}");
+    }
+
+    #[test]
+    fn the_row_planned_changes_only_the_notes_and_a_plus_without_a_note_puts_the_part_on_them() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-zeile");
+        let shown = bench.click_text("Grand Core");
+        assert!(has(&shown, &t("s_fg_pl_geplant")), "the row of the chosen part: {shown:?}");
+        assert!(has(&shown, &tf("s_fg_pl_plus_schiffe", &[("k", Arg::from(1_i64))])), "the ship's share: {shown:?}");
+        assert_eq!(notepad::count_of_item(&stored_notes(&bench), "Grand Core"), 0);
+        bench.click_button(&format!("Grand Core: {}", t("s_fg_pl_mehr")));
+        let notes = stored_notes(&bench);
+        assert_eq!(notepad::count_of_item(&notes, "Grand Core"), 1, "a note came into being");
+        assert_eq!(hangar::ships(&notes).len(), 1, "the hangar is left as it was");
+        let shown = bench.frame();
+        assert!(has(&shown, "2×"), "1 on the note + 1 on the ship: {shown:?}");
+        assert!(has(&shown, &tf("s_fg_pl_vorgemerkt_n", &[("n", Arg::from(1_i64))])), "{shown:?}");
+    }
+
+    #[test]
+    fn the_card_leads_to_the_farm_list_and_a_ship_part_to_the_hangar() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-wege");
+        bench.click_text(&plan_title(4));
+        bench.click_button(&t("s_fg_pl_zur_farm"));
+        assert_eq!(bench.asked.take(), Some(Action::ToFarm));
+        bench.click_node(Role::Link, &format!("Frostline: {}", t("s_fg_pl_im_hangar_oeffnen")));
+        assert_eq!(bench.asked.take(), Some(Action::ToHangar));
+    }
+
+    #[test]
+    fn the_number_of_the_card_is_the_number_of_the_farm_list() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut bench = plan_bench("plan-gleich");
+        bench.frame();
+        let mut farm = crate::farm_page::FarmState::with_files(bench.page.paths.as_ref().unwrap());
+        let scheme = versekit_core::theme::current();
+        let ctx = context();
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(900.0, 1800.0))),
+                ..Default::default()
+            },
+            |ui| {
+                crate::farm_page::show_page(ui, scheme, &mut farm, &mut bench.page);
+            },
+        );
+        output.textures_delta.clear();
+        let shown: Vec<String> = texts(&output.shapes).into_iter().map(|(text, _)| text).collect();
+        let n = bench.page.plan.pieces();
+        assert!(has(&shown, &tf("s_fl_kopf", &[("n", Arg::from(n))])), "the head of the farm page: {shown:?}");
+        assert!(has(&bench.frame(), &plan_title(n)), "the title of the card");
+    }
+
+    #[test]
+    fn the_open_card_and_the_marks_stick_out_nowhere_at_any_width_size_and_language() {
+        let _language = crate::language_lock();
+        let mut findings = Vec::new();
+        for lang in [Choice::De, Choice::En] {
+            set_thread_language(lang);
+            for points in [versekit_core::font_size::POINTS_RANGE.0, 12, versekit_core::font_size::POINTS_RANGE.1] {
+                for width in [380.0, 520.0, 900.0, 1300.0] {
+                    let mut bench = plan_bench(&format!("plan-rand-{points}-{width}"));
+                    crate::apply_size(&bench.ctx, points);
+                    bench.width = width;
+                    bench.frame();
+                    bench.click_text(&plan_title(4));
+                    for view in [View::Grid, View::List] {
+                        bench.page.view = view;
+                        bench.click_text("Frostline");
+                        let _ = bench.frame();
+                        let which = format!("{lang:?} Größe {points} Breite {width} {view:?}");
+                        let wide: Vec<String> = bench
+                            .texts
+                            .iter()
+                            .filter(|(_, rect)| rect.max.x > width + 0.5)
+                            .map(|(text, rect)| format!("{text:?} bis {:.0}", rect.max.x))
+                            .collect();
+                        if !wide.is_empty() {
+                            findings.push(format!("{which}: Text über den Rand: {wide:?}"));
+                        }
+                        if bench.page.list_overflow > 0.5 {
+                            findings.push(format!("{which}: {:.0} zu breit", bench.page.list_overflow));
                         }
                     }
                 }

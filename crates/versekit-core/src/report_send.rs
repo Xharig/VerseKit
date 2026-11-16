@@ -22,7 +22,7 @@
 //! ⚠ Nothing leaves by itself. The pieces here are called by a click on a
 //! button, after the player ticked the box, and with the text the player saw.
 //! The address is [`Target`]: the built-in one, another one for test runs
-//! (`SC_BP_BERICHT_ZIEL`), or none. Only a run on the player's own data gets
+//! (`VERSEKIT_BERICHT_ZIEL`), or none. Only a run on the player's own data gets
 //! one ([`Target::for_run`]); copies of the data, test runs and previews use
 //! [`Target::off`] or a made-up server on the own computer ([`Target::local`]),
 //! never the built-in one.
@@ -78,11 +78,11 @@ pub(crate) fn loopback_http(address: &str) -> bool {
 }
 
 impl Target {
-    /// The address of a host: `SC_BP_BERICHT_ZIEL` if set (stripped), else
+    /// The address of a host: `VERSEKIT_BERICHT_ZIEL` if set (stripped), else
     /// the built-in relay. Only `https://` counts as a target; `http://` only
     /// to the own computer, for a made-up server.
     pub fn from_host(host: &Host) -> Target {
-        let address = match host.var(crate::legacy::ENV_REPORT_TARGET) {
+        let address = match host.var(crate::envvars::ENV_REPORT_TARGET) {
             Some(value) => py_strip(value).to_string(),
             None => RELAY.to_string(),
         };
@@ -222,7 +222,7 @@ pub fn submit(
         url: address.to_string(),
         headers: vec![
             ("Content-Type".into(), format!("multipart/form-data; boundary={limit}")),
-            ("User-Agent".into(), "Verse-Kit".into()),
+            ("User-Agent".into(), "VerseKit".into()),
         ],
         body: Some(body),
     };
@@ -476,7 +476,7 @@ mod tests {
     #[test]
     fn the_target_follows_the_environment() {
         let with = |value: Option<&str>| {
-            let vars: Vec<(&str, &str)> = value.map(|v| (crate::legacy::ENV_REPORT_TARGET, v)).into_iter().collect();
+            let vars: Vec<(&str, &str)> = value.map(|v| (crate::envvars::ENV_REPORT_TARGET, v)).into_iter().collect();
             Target::from_host(&Host::new(Flavor::Posix, &vars, "/"))
         };
         assert_eq!(with(None).address(), Some(RELAY));
@@ -498,9 +498,9 @@ mod tests {
         let host = |vars: &[(&str, &str)]| Host::new(Flavor::Posix, vars, "/");
         assert_eq!(Target::for_run(&host(&[]), true).address(), Some(RELAY), "own data: the built-in relay");
         assert!(!Target::for_run(&host(&[]), false).available(), "a copy or a test run sends nothing");
-        let local = [(crate::legacy::ENV_REPORT_TARGET, "http://127.0.0.1:9/x")];
+        let local = [(crate::envvars::ENV_REPORT_TARGET, "http://127.0.0.1:9/x")];
         assert!(!Target::for_run(&host(&local), false).available(), "not even to a server named from outside");
-        let off = [(crate::legacy::ENV_REPORT_TARGET, "aus")];
+        let off = [(crate::envvars::ENV_REPORT_TARGET, "aus")];
         assert!(!Target::for_run(&host(&off), true).available(), "the switch off holds on own data too");
     }
 
@@ -550,7 +550,7 @@ mod tests {
             ]),
             seen: Mutex::new(Vec::new()),
         };
-        let send = || submit(&transport, &target, "Verse-Kit 5 text", "5.0.0", "2026-10-21-0905", &[]);
+        let send = || submit(&transport, &target, "VerseKit 5 text", "5.0.0", "2026-10-21-0905", &[]);
         assert_eq!(send(), Ok(()));
         assert_eq!(send(), Ok(()));
         assert_eq!(send(), Err(SendFailure::TooMany));

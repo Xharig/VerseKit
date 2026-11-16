@@ -1801,7 +1801,7 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
                 app.opened == ["https://xharig.com/discord", "https://ko-fi.com/xharig"],
             );
             // A message of the system.
-            app.notices.push(("Verse-Kit: Raffinerie".into(), "Raffinerie fertig: Gold".into()));
+            app.notices.push(("VerseKit: Raffinerie".into(), "Raffinerie fertig: Gold".into()));
             next(&mut probe);
         }
         103 if waited >= 0.5 => {
@@ -1810,7 +1810,7 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
             probe.check(
                 "systemmeldung_am_symbol",
                 sent.as_ref().is_some_and(|c| {
-                    c.flags & NIF_INFO != 0 && c.title == "Verse-Kit: Raffinerie" && c.text == "Raffinerie fertig: Gold"
+                    c.flags & NIF_INFO != 0 && c.title == "VerseKit: Raffinerie" && c.text == "Raffinerie fertig: Gold"
                 }),
             );
             // The taskbar comes back (the Explorer restarted): the icon is placed again.

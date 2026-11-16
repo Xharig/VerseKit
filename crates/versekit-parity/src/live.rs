@@ -34,7 +34,7 @@ use versekit_core::contracts::Patterns;
 use versekit_core::errors;
 use versekit_core::jsonio::{self, Value};
 use versekit_core::language::{self, Choice};
-use versekit_core::legacy::ENV_HOME;
+use versekit_core::envvars::ENV_HOME;
 use versekit_core::live_contracts::{Check, Live, Out, Section, SectionScan, hidden_load};
 use versekit_core::logsource::ContractScan;
 use versekit_core::mission_log::{ContractBlueprints, clean, ini_files};

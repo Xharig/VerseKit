@@ -18,7 +18,7 @@
 Checks the Windows delivery end to end, on an invisible desktop of its own:
 
   1. installs the first check setup silently into a throwaway folder with awkward characters,
-  2. starts the installed program on a throwaway data folder (SC_BP_HOME),
+  2. starts the installed program on a throwaway data folder (VERSEKIT_HOME),
   3. starts the second check setup as the program starts an update: the setup itself, from the folder of
      VerseKit under %LOCALAPPDATA%, with the switches of the update run (/VKUPDATE and the files it reports
      to, in a data folder with a space and an umlaut); no copy of the program file, nothing started from the
@@ -119,14 +119,14 @@ def inside(setup1, setup2):
     work = tempfile.mkdtemp(prefix='versekit-ausliefern-')
     target = os.path.join(work, "Programme & ^ % ! ( ) ' Ümlaut")
     # A data folder with a space and an umlaut: the setup reads the files of the update from its command line.
-    data = os.path.join(work, 'Dokumente', 'Verse-Kit Ü')
+    data = os.path.join(work, 'Dokumente', 'VerseKit Ü')
     temp = os.path.join(work, 'temp')
     appdata = os.path.join(work, 'appdata')
     local = os.path.join(work, 'localappdata')
     for folder in (data, temp, appdata, local):
         os.makedirs(folder)
     # The program keeps files under %APPDATA% also with its own data folder: both point into the throwaway folder.
-    env = dict(os.environ, SC_BP_HOME=data, SC_BP_NO_NET='1', TEMP=temp, TMP=temp, APPDATA=appdata,
+    env = dict(os.environ, VERSEKIT_HOME=data, VERSEKIT_NO_NET='1', TEMP=temp, TMP=temp, APPDATA=appdata,
                LOCALAPPDATA=local)
     try:
         if not check(not key_exists(UNINSTALL_KEY), 'no check installation left from before'):

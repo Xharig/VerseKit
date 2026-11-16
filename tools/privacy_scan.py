@@ -76,8 +76,7 @@ import ausgabe                                                 # noqa: E402
 ausgabe.utf8()
 
 WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SPERRLISTE = os.environ.get('VERSEKIT_SPERRLISTE') or os.environ.get('SC_BP_SPERRLISTE') or os.path.join(WURZEL,
-                                                                '.sperrliste')
+SPERRLISTE = os.environ.get('VERSEKIT_SPERRLISTE') or os.path.join(WURZEL, '.sperrliste')
 
 # Dateien, die nicht durchsucht werden.
 #
@@ -138,7 +137,7 @@ MUSTER = [
     # naheliegen: Laufwerksbuchstabe und Windows-Freigabe. Am ganzen Repo
     # gemessen ergaben sie **17 Fehlalarme und null echte Funde**
     # — Quelle waren verdoppelte Backslashes in Python-Zeichenketten
-    # (`%APPDATA%\\sc-bp-watcher\\` sieht aus wie `\\SERVER\`) und
+    # (`%APPDATA%\\versekit\\` sieht aus wie `\\SERVER\`) und
     # Zeitstempel-Ausdruecke (`\d\dT\d\d:\d\d` enthaelt `d:\d`). Beides ist im
     # Quelltext nicht sauber von echten Pfaden zu trennen.
     #

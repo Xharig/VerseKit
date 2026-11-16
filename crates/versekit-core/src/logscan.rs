@@ -37,7 +37,7 @@ const DASH: &str = "\u{2013}|-";
 
 /// Suffix after an item name: `(Mil/1/A)`, `(Ind/4/–)`, `(Bal)`, `(IR1)`.
 ///
-/// ⚠ The abbreviations must match the suffixes Verse-Kit itself writes onto
+/// ⚠ The abbreviations must match the suffixes VerseKit itself writes onto
 /// item names.
 static SUFFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(

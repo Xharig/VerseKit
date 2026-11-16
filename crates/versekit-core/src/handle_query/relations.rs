@@ -333,7 +333,7 @@ mod tests {
         let home = dir.path().to_string_lossy().into_owned();
         Paths::new(crate::paths::Host::new(
             crate::pypath::Flavor::native(),
-            &[(crate::legacy::ENV_HOME, home.as_str())],
+            &[(crate::envvars::ENV_HOME, home.as_str())],
             &home,
         ))
     }

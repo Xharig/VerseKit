@@ -544,7 +544,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let home = dir.to_string_lossy().into_owned();
-        let vars = [(versekit_core::legacy::ENV_HOME, home.as_str()), (versekit_core::legacy::ENV_NO_NET, "1")];
+        let vars = [(versekit_core::envvars::ENV_HOME, home.as_str()), (versekit_core::envvars::ENV_NO_NET, "1")];
         let host = versekit_core::paths::Host::new(versekit_core::pypath::Flavor::native(), &vars, &home);
         (Paths::new(host), dir)
     }

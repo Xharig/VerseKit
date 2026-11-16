@@ -340,7 +340,7 @@ mod tests {
     fn paths_mails_and_tokens_are_covered_without_being_learned() {
         let _guard = on();
         for private in [
-            r"C:\Users\Anna Musterfrau\Documents\Verse-Kit",
+            r"C:\Users\Anna Musterfrau\Documents\VerseKit",
             r"D:\Spiele\StarCitizen\LIVE\Game.log",
             r"\\nas\daten\verse",
             "/home/anna/.config/verse-kit",

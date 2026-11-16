@@ -63,7 +63,7 @@ fn summary_value(summary: &Summary) -> Value {
 pub fn run(input: &str, out: &str, counter: bool) -> Result<(), String> {
     let python = jsonio::read_json(input).map_err(|e| format!("{input}: {e:?}"))?;
     let home = text(&python, "home");
-    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::legacy::ENV_HOME, home.as_str())], &home));
+    let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, home.as_str())], &home));
     let offered: Vec<Offered> = match get(&python, "offered") {
         Some(Value::Array(list)) => list
             .iter()

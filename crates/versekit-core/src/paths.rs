@@ -41,6 +41,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use regex::Regex;
 
+use crate::envvars;
 use crate::errors;
 use crate::given::{Fixed, Given, GivenBy};
 use crate::jsonio::{self, Map, Newline, ReadError, Value};
@@ -57,14 +58,33 @@ use crate::text::{lines_universal, py_isspace, py_strip};
 ///
 /// The one list of the channels: every page (installation and paths, user.cfg, translation, the channels found,
 /// backup) and every part of the core takes it from here, so that none of them misses a channel again.
+///
+/// The build players get works on LIVE, HOTFIX and PTU only; the test build of the developer
+/// ([`crate::edition::IS_TEST_BUILD`]) also on the two channels whose content is under a non-disclosure agreement.
+#[cfg(not(feature = "test-build"))]
+pub const CHANNELS: [&str; 3] = ["LIVE", "HOTFIX", "PTU"];
+/// The one list of the channels, as the test build of the developer knows them.
+#[cfg(feature = "test-build")]
 pub const CHANNELS: [&str; 5] = ["LIVE", "HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
 /// The channels of [`CHANNELS`] that are test builds (what they hold is confidential by the terms of service, and a
 /// translation takes the test version of its source there).
+#[cfg(not(feature = "test-build"))]
+pub const TEST_CHANNELS: [&str; 1] = ["PTU"];
+/// The test channels of the test build of the developer.
+#[cfg(feature = "test-build")]
 pub const TEST_CHANNELS: [&str; 3] = ["PTU", "EPTU", "TECH-PREVIEW"];
 /// The channels whose translation can follow that of LIVE ("Wie LIVE"): the test channels and HOTFIX. HOTFIX is a
 /// build of LIVE and no test channel: it is not confidential and takes the LIVE version of a source.
+#[cfg(not(feature = "test-build"))]
+pub const FOLLOWS_LIVE: [&str; 2] = ["HOTFIX", "PTU"];
+/// The channels that can follow LIVE in the test build of the developer.
+#[cfg(feature = "test-build")]
 pub const FOLLOWS_LIVE: [&str; 4] = ["HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
 /// The test channels whose content is under the non-disclosure agreement of the Evocati besides the terms of service.
+#[cfg(not(feature = "test-build"))]
+pub const UNDER_AGREEMENT: [&str; 0] = [];
+/// The test channels under the non-disclosure agreement, in the test build of the developer.
+#[cfg(feature = "test-build")]
 pub const UNDER_AGREEMENT: [&str; 1] = ["EPTU"];
 
 /// ⚠⚠ Only these two share a blueprint collection. The test environments
@@ -98,7 +118,19 @@ pub fn subfolder(name: &str) -> &'static str {
 }
 
 /// Newly created default folder under Documents.
-pub const NEW_FOLDER_NAME: &str = "Verse-Kit";
+pub const NEW_FOLDER_NAME: &str = "VerseKit";
+
+/// The names the default folder under Documents had before, in the order they are looked for: the one of 4.12
+/// and the one of 5.0 to 5.2. A folder under one of them stays the default folder until it is renamed
+/// ([`Paths::rename_to_current_name`]).
+pub const EARLIER_FOLDER_NAMES: [&str; 2] = [legacy::DOCUMENTS_FOLDER, "Verse-Kit"];
+
+/// The folder of the second pointer in the configuration directory (`%APPDATA%` or `~/.config`); the one of
+/// the previous version ([`legacy::CONFIG_FOLDER`]) counts as long as only it holds a pointer.
+pub const CONFIG_FOLDER_NAME: &str = "versekit";
+
+/// The name of the second pointer file.
+pub const SECOND_POINTER_FILE: &str = "ablage.json";
 
 /// The window class (Wayland: app id) of every window of the program, the main window and the overlay alike.
 /// ⚠ NOT the display name: on Linux the desktop entry (`StartupWMClass`) is matched against this, and two
@@ -243,6 +275,78 @@ pub(crate) fn file_identity(_p: &str) -> (u64, u64) {
     (0, 0)
 }
 
+/// Do two paths lead to the same place: the same name apart from the case and the kind of slash (where the system
+/// does not tell them apart), or the same thing on the disk (a link, a junction, a mapped drive)? The names are
+/// compared first, so that two paths that do not exist can still be the same; the disk is asked only when they
+/// differ.
+pub fn same_place(a: &str, b: &str) -> bool {
+    same_name(a, b) || same_thing(a, b)
+}
+
+/// The same name apart from the case and the kind of slash.
+fn same_name(a: &str, b: &str) -> bool {
+    let f = Flavor::native();
+    let cwd = std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+    f.normcase(&f.abspath(a, &cwd)) == f.normcase(&f.abspath(b, &cwd))
+}
+
+/// The same thing on the disk under two names.
+fn same_thing(a: &str, b: &str) -> bool {
+    let (x, y) = (file_identity(a), file_identity(b));
+    x != (0, 0) && x == y
+}
+
+/// The position of a channel in [`CHANNELS`]: the earlier one wins where two folders are the same.
+fn channel_rank(name: &str) -> usize {
+    CHANNELS.iter().position(|k| k.eq_ignore_ascii_case(name)).unwrap_or(usize::MAX)
+}
+
+/// `folder` as the channel folder it stands for: where it is one of the channel folders beside it (`LIVE`, `HOTFIX`
+/// …) or leads to the same real folder as one of them (HOTFIX as a junction to LIVE), the first of those in the order
+/// of [`CHANNELS`], so that one folder is one channel. Any other folder stays as it is.
+pub fn leading_channel_folder(folder: &str) -> String {
+    leading_channel_folder_in(Flavor::native(), folder)
+}
+
+/// [`leading_channel_folder`] for a machine of the kind `f`.
+pub fn leading_channel_folder_in(f: Flavor, folder: &str) -> String {
+    let trimmed = folder.trim_end_matches(f.sep());
+    let parent = f.dirname(trimmed);
+    if parent.is_empty() || !is_dir(trimmed) {
+        return folder.to_string();
+    }
+    for k in CHANNELS {
+        let candidate = f.join(&parent, k);
+        // The folder is the first of its kind itself: as it was given, not as it is written here.
+        if same_name(&candidate, trimmed) {
+            break;
+        }
+        if is_dir(&candidate) && same_thing(&candidate, trimmed) {
+            return candidate;
+        }
+    }
+    folder.to_string()
+}
+
+/// Leaves out of `found` every folder that is the same real folder as one of a channel earlier in [`CHANNELS`]:
+/// `(channel, folder)` of each entry through `key`.
+fn without_linked<T>(found: Vec<T>, key: impl Fn(&T) -> (&str, &str)) -> Vec<T> {
+    let keys: Vec<(String, String)> = found.iter().map(|c| (key(c).0.to_string(), key(c).1.to_string())).collect();
+    found
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| {
+            let (name, folder) = &keys[*i];
+            !keys.iter().enumerate().any(|(j, (other, other_folder))| {
+                j != *i
+                    && (channel_rank(other), j) < (channel_rank(name), *i)
+                    && same_place(other_folder, folder)
+            })
+        })
+        .map(|(_, c)| c)
+        .collect()
+}
+
 // ------------------------------------------------------------ Environment
 
 /// What the program knows about the machine: path rules, environment
@@ -283,6 +387,7 @@ impl Host {
                 host.set_var(&key, &value);
             }
         }
+        legacy::take_over_old_env(&mut host);
         match host.var_set(ENV_TEST_MACHINE).map(String::from) {
             Some(root) => host.contained(&root),
             None => host,
@@ -662,6 +767,9 @@ struct StorageMemo {
 #[derive(Default)]
 struct State {
     storage_memo: Option<StorageMemo>,
+    /// What the look for a data folder that the pointers name and that is not there found
+    /// ([`crate::lost_storage`]).
+    lost: Option<crate::lost_storage::LostMemo>,
     heal_failed: HashSet<(String, String)>,
     settings_memo: Option<(SettingsStamp, Map)>,
     still_locked: Option<String>,
@@ -719,7 +827,7 @@ impl Paths {
         {
             host.set_var(name, value);
         }
-        host.remove_var(legacy::ENV_HOME);
+        host.remove_var(crate::envvars::ENV_HOME);
         host.registry = false;
         host.copy = Some(flavor.abspath(root, &host.cwd));
         let full = |p: &str| flavor.normcase(&flavor.abspath(p, &host.cwd));
@@ -739,6 +847,8 @@ impl Paths {
                 return None;
             }
             paths.set_setting(STORAGE_KEY, Value::str(&data));
+            // ⚠ Made here, by name: `app_folder` does not make a folder a pointer names (`Paths::storage_missing`).
+            paths.ensure_folder(&data);
         }
         if !inside(&paths.settings_file()) {
             return None;
@@ -758,8 +868,8 @@ impl Paths {
     pub fn given(&self) -> Given {
         let set = self.state().given.clone();
         let data = set.data.or_else(|| {
-            let value = self.host.var_set(legacy::ENV_HOME)?;
-            Some(Fixed { folder: self.host.expanduser(value), by: GivenBy::Environment(legacy::ENV_HOME.into()) })
+            let value = self.host.var_set(crate::envvars::ENV_HOME)?;
+            Some(Fixed { folder: self.host.expanduser(value), by: GivenBy::Environment(crate::envvars::ENV_HOME.into()) })
         });
         let game = set.game.or_else(|| {
             let value = self.host.var_set(ENV_INSTALL_DIR)?;
@@ -778,13 +888,13 @@ impl Paths {
     }
 
     /// The own data of a side channel: its own folder `Kanaele/<channel>` in the data folder, flat like a data folder
-    /// given by `SC_BP_HOME`, with its own settings, and the `Data.p4k` in `root` (the game folder of that channel)
+    /// given by `VERSEKIT_HOME`, with its own settings, and the `Data.p4k` in `root` (the game folder of that channel)
     /// as the archive to read. Everything built from an archive (catalog, reputation, ranks, names, values) lands
     /// there, never beside the files of the main installation.
     pub fn for_channel(&self, channel: &str, root: &str) -> Paths {
         let mut host = self.host.clone();
         let folder = self.host.flavor.join_all(&self.app_folder(), &[CHANNEL_DATA_FOLDER, channel]);
-        host.set_var(legacy::ENV_HOME, &folder);
+        host.set_var(envvars::ENV_HOME, &folder);
         let own = Paths::new(host);
         own.set_given_archive(&self.join(root, ARCHIVE_NAME), GivenBy::CommandLine);
         own.state().channel_root = Some(root.to_string());
@@ -910,17 +1020,20 @@ impl Paths {
         None
     }
 
-    /// The default folder under Documents, the old one if it already exists.
+    /// The default folder under Documents: the one under the current name when it holds a settings file, else
+    /// one under an earlier name that exists ([`EARLIER_FOLDER_NAMES`]), else the one under the current name.
     ///
-    /// ⚠⚠ Never rename what is already there: the old folder holds the
-    /// collection and settings, or the pointer to a custom location.
+    /// ⚠⚠ Nothing is renamed here: the old folder holds the collection and settings, or the pointer to a custom
+    /// location. Only [`Paths::rename_to_current_name`] renames it, and only where that is safe. A folder of
+    /// the current name without a settings file (made by the player, or left empty) does not take the place of
+    /// the one that holds the data.
     pub fn default_folder(&self) -> String {
         let documents = self.documents();
-        let old = self.join(&documents, legacy::DOCUMENTS_FOLDER);
-        if is_dir(&old) {
-            return old;
+        let current = self.join(&documents, NEW_FOLDER_NAME);
+        if is_file(&self.join_all(&current, &["Einstellungen", SETTINGS_FILE])) {
+            return current;
         }
-        self.join(&documents, NEW_FOLDER_NAME)
+        EARLIER_FOLDER_NAMES.iter().map(|name| self.join(&documents, name)).find(|old| is_dir(old)).unwrap_or(current)
     }
 
     /// The visible pointer file, always at the default location, never in the storage folder.
@@ -930,16 +1043,36 @@ impl Paths {
 
     /// The second pointer file in the configuration folder, where nobody
     /// cleans up. Each heals the other: if one is missing, it is created from
-    /// the other.
+    /// the other. It lies in the folder of the current name ([`CONFIG_FOLDER_NAME`]) unless only the folder of
+    /// the previous version holds one.
     pub fn second_pointer(&self) -> String {
-        let base = match self.host.flavor {
+        let (current, old) = self.second_pointer_places();
+        if !is_file(&current) && is_file(&old) { old } else { current }
+    }
+
+    /// The second pointer file in the folder of the current name and in the one of the previous version.
+    pub fn second_pointer_places(&self) -> (String, String) {
+        let base = self.config_base();
+        (
+            self.join_all(&base, &[CONFIG_FOLDER_NAME, SECOND_POINTER_FILE]),
+            self.join_all(&base, &[legacy::CONFIG_FOLDER, SECOND_POINTER_FILE]),
+        )
+    }
+
+    /// The configuration directory: `%APPDATA%` (else the home folder) or `$XDG_CONFIG_HOME` (else `~/.config`).
+    fn config_base(&self) -> String {
+        match self.host.flavor {
             Flavor::Windows => self.host.var_set("APPDATA").map(String::from).unwrap_or_else(|| self.host.home()),
             Flavor::Posix => match self.host.var_set("XDG_CONFIG_HOME") {
                 Some(v) => v.to_string(),
                 None => self.join(&self.host.home(), ".config"),
             },
-        };
-        self.join_all(&base, &[legacy::CONFIG_FOLDER, "ablage.json"])
+        }
+    }
+
+    /// Forget the storage folder read last, so that the next question reads the pointers again.
+    pub(crate) fn forget_storage(&self) {
+        self.state().storage_memo = None;
     }
 
     /// The lock file of the write lock that the processes of one run share (overlay, main window, small
@@ -1028,9 +1161,62 @@ impl Paths {
         let ok = self.write_pointer(&first, &Value::str(value), None);
         if ok == self.blocked_first(&second, &first) {
             let keep = self.read_pointer(&second).unwrap_or_else(|| value.to_string());
-            self.write_pointer(&second, &Value::Str(keep), if ok { None } else { Some(&first) });
+            self.write_second_pointers(&Value::Str(keep), if ok { None } else { Some(&first) });
         }
+        self.write_other_visible_pointers(&Value::str(value));
         ok
+    }
+
+    /// The visible pointer files under Documents besides [`Paths::pointer_file`]: the one of the folder of the
+    /// current name and of each folder under an earlier name, where the file is there. A version that looks under
+    /// another name reads its own.
+    ///
+    /// ⚠ Only a file that exists: a folder made for the purpose would take the place of the data folder
+    /// ([`Paths::default_folder`] prefers the folder with a settings file).
+    fn other_visible_pointers(&self) -> Vec<String> {
+        let documents = self.documents();
+        let first = self.pointer_file();
+        std::iter::once(NEW_FOLDER_NAME)
+            .chain(EARLIER_FOLDER_NAMES)
+            .map(|name| self.join_all(&documents, &[name, "Einstellungen", SETTINGS_FILE]))
+            .filter(|file| is_file(file) && !self.same_path(file, &first))
+            .collect()
+    }
+
+    /// `value` as the storage folder into the file `path`, the other fields of it kept (it may be a settings
+    /// file); the file is replaced whole, never half written.
+    fn write_pointer_keeping(&self, path: &str, value: &Value) -> io::Result<()> {
+        let mut existing: Map = match jsonio::read_json(path) {
+            Ok(Value::Object(map)) => map,
+            _ => Vec::new(),
+        };
+        jsonio::map_set(&mut existing, STORAGE_KEY, value.clone());
+        let temp = format!("{path}.tmp");
+        jsonio::make_dirs(&self.host.flavor.dirname(path))?;
+        jsonio::write_new(&temp, &jsonio::file_bytes(&Value::Object(existing), 2))?;
+        jsonio::replace_file(&temp, path)
+    }
+
+    /// The same storage folder in the other visible pointers ([`Paths::other_visible_pointers`]); a failure is
+    /// recorded and does not stop the others.
+    fn write_other_visible_pointers(&self, value: &Value) {
+        for file in self.other_visible_pointers() {
+            if let Err(error) = self.write_pointer_keeping(&file, value) {
+                errors::record("paths.write_other_pointer", &error);
+            }
+        }
+    }
+
+    /// The second pointer in the folder of the current name and, where its folder is there, in the one of the
+    /// previous version: an older version started later reads that one and finds the same folder. True when one
+    /// of them was written.
+    ///
+    /// ⚠ The folder of the previous version is not made for it: a computer that never had it needs none.
+    pub(crate) fn write_second_pointers(&self, value: &Value, blocked: Option<&str>) -> bool {
+        let (current, old) = self.second_pointer_places();
+        let first = self.write_pointer(&current, value, blocked);
+        let second = !is_dir(&self.host.flavor.dirname(&old)) || self.write_pointer(&old, value, blocked);
+        first || second
     }
 
     /// Read the custom storage folder from the two pointers.
@@ -1052,13 +1238,19 @@ impl Paths {
         }
         for (value, missing_at) in candidates {
             let Some(value) = value else { continue };
-            if !is_dir(&self.host.expanduser(&value)) {
+            let folder = self.host.expanduser(&value);
+            if !is_dir(&folder) {
                 // Points into nothing (disk not mounted): ask the other one.
                 continue;
             }
+            // ⚠ A pointer to the default folder names no other place. Healing the visible pointer there would
+            // write over the settings file that lies in it.
+            if self.same_path(&folder, &self.default_folder()) {
+                return None;
+            }
             if self.read_pointer(&missing_at).as_deref() != Some(value.as_str()) {
                 if missing_at == second {
-                    self.write_pointer(&second, &Value::str(&value), if blocked { Some(&first) } else { None });
+                    self.write_second_pointers(&Value::str(&value), if blocked { Some(&first) } else { None });
                 } else if !blocked {
                     // Only one attempt per pointer and location per run.
                     let key = (first.clone(), value.clone());
@@ -1104,17 +1296,36 @@ impl Paths {
     }
 
     /// Folder for the own files. Created on demand.
+    ///
+    /// ⚠⚠ Not where a pointer names a folder that is not there: an empty one made in its place would look like
+    /// the data folder from then on, and the data that lie elsewhere like lost ones. Then
+    /// [`Paths::storage_missing`] looks for the data and leaves the folder alone.
     pub fn app_folder(&self) -> String {
-        let custom = match self.host.var_set(legacy::ENV_HOME) {
-            Some(v) => Some(v.to_string()),
+        let named = self.host.var_set(crate::envvars::ENV_HOME).map(String::from);
+        let from_pointer = named.is_none();
+        let custom = match named {
+            Some(v) => Some(v),
             None => self.remembered_storage(),
         };
+        let pointed = custom.as_deref().is_some_and(|c| !c.is_empty());
         let p = match custom.filter(|c| !c.is_empty()) {
             Some(c) => self.host.expanduser(&c),
             None => self.default_folder(),
         };
+        if from_pointer && pointed && !is_dir(&p) {
+            return self.storage_missing(&p);
+        }
+        self.state().lost = None;
         self.ensure_folder(&p);
         p
+    }
+
+    pub(crate) fn lost_memo(&self) -> Option<crate::lost_storage::LostMemo> {
+        self.state().lost.clone()
+    }
+
+    pub(crate) fn set_lost_memo(&self, memo: Option<crate::lost_storage::LostMemo>) {
+        self.state().lost = memo;
     }
 
     /// Create the folder if it is missing. True if it exists afterwards.
@@ -1129,7 +1340,7 @@ impl Paths {
     /// folder via environment variable everything is flat.
     pub fn app_file(&self, name: &str) -> String {
         let base = self.app_folder();
-        if self.host.var_set(legacy::ENV_HOME).is_some() {
+        if self.host.var_set(crate::envvars::ENV_HOME).is_some() {
             return self.join(&base, name);
         }
         let target = self.join(&base, subfolder(name));
@@ -1336,7 +1547,7 @@ impl Paths {
         data
     }
 
-    fn settings_value(&self, name: &str) -> Option<Value> {
+    pub(crate) fn settings_value(&self, name: &str) -> Option<Value> {
         self.settings().into_iter().find(|(k, _)| k == name).map(|(_, v)| v)
     }
 
@@ -1415,22 +1626,12 @@ impl Paths {
     /// Documents, where controlled folder access can lock it out.
     fn set_storage_folder(&self, value: &Value) -> bool {
         let target = self.pointer_file();
-        let mut existing: Map = match jsonio::read_json(&target) {
-            Ok(Value::Object(map)) => map,
-            _ => Vec::new(),
-        };
-        jsonio::map_set(&mut existing, STORAGE_KEY, value.clone());
-        let temp = format!("{target}.tmp");
-        let first = (|| -> io::Result<()> {
-            jsonio::make_dirs(&self.host.flavor.dirname(&target))?;
-            jsonio::write_new(&temp, &jsonio::file_bytes(&Value::Object(existing), 2))?;
-            jsonio::replace_file(&temp, &target)
-        })();
+        let first = self.write_pointer_keeping(&target, value);
         if let Err(e) = &first {
             errors::record("paths._set_storage_folder", e);
         }
-        let second =
-            self.write_pointer(&self.second_pointer(), value, if first.is_ok() { None } else { Some(&target) });
+        self.write_other_visible_pointers(value);
+        let second = self.write_second_pointers(value, if first.is_ok() { None } else { Some(&target) });
         first.is_ok() || second
     }
 
@@ -1536,7 +1737,15 @@ impl Paths {
     /// folder given from outside (a test copy, by a tool or the variable): only it, its channels and the ones
     /// next to it count, else there is none. On purpose unlike 4.12, which falls back to the real installation
     /// then.
+    ///
+    /// One real folder is one channel: a folder that is a link to another channel folder (HOTFIX as a junction to
+    /// LIVE) is given as the first of them in the order of [`CHANNELS`] ([`leading_channel_folder`]), whatever the
+    /// setting or the launcher names.
     pub fn game_folder(&self) -> Option<String> {
+        self.found_game_folder().map(|folder| leading_channel_folder_in(self.host.flavor, &folder))
+    }
+
+    fn found_game_folder(&self) -> Option<String> {
         let f = self.host.flavor;
         let given = self.given_game_folder();
         let only_given = given.is_some();
@@ -1817,6 +2026,36 @@ impl Paths {
             }
         }
         found.sort_by_key(|c| CHANNELS.iter().position(|k| *k == c.0).unwrap_or(99));
+        // One real folder is one channel: HOTFIX as a link to LIVE is LIVE.
+        without_linked(found, |c| (c.0.as_str(), c.1.as_str()))
+    }
+
+    /// The folders of the channel `name` that are there, also one this build does not know ([`CHANNELS`]): a folder
+    /// chosen for it ([`SETTING_CHANNEL_FOLDERS`]) and the one of that name beside the game folder. Only for taking
+    /// back what an older version wrote there.
+    #[cfg(not(feature = "test-build"))]
+    pub(crate) fn folders_of_channel(&self, name: &str) -> Vec<String> {
+        let mut found: Vec<String> = Vec::new();
+        if self.given_game_folder().is_none()
+            && let Some(Value::Object(chosen)) = self.settings_value(SETTING_CHANNEL_FOLDERS)
+        {
+            for (key, value) in &chosen {
+                if let Value::Str(folder) = value
+                    && key.eq_ignore_ascii_case(name)
+                {
+                    let folder = self.host.expanduser(py_strip(folder).trim_end_matches(self.host.flavor.sep()));
+                    if !folder.is_empty() && is_dir(&folder) && !found.contains(&folder) {
+                        found.push(folder);
+                    }
+                }
+            }
+        }
+        for base in self.channel_bases() {
+            let folder = self.join(&base, name);
+            if is_dir(&base) && is_dir(&folder) && !found.contains(&folder) {
+                found.push(folder);
+            }
+        }
         found
     }
 
@@ -1845,7 +2084,7 @@ impl Paths {
             }
         }
         found.sort_by(|a, b| b.2.total_cmp(&a.2));
-        found
+        without_linked(found, |c| (c.0.as_str(), c.1.as_str()))
     }
 
     /// Reading from a different channel than the configured one:
@@ -2154,7 +2393,7 @@ impl Paths {
 
 // ------------------------------------------------------------ Name normalization
 
-/// Class codes that Verse-Kit and other tools append to item names. Only
+/// Class codes that VerseKit and other tools append to item names. Only
 /// these; real name parentheses like `(S2)` are kept.
 const CLASS_CODES: &str = "civ|mil|ind|sth|cmp|las|ele|pla|dis|mic|bal|nah|min|slv|med|tool|trc";
 
@@ -2495,7 +2734,7 @@ mod tests {
         touch(&p.second_pointer(), &object(&[("ablage_ordner", &format!(" {storage} "))]));
         assert_eq!(p.app_folder(), storage);
         assert_eq!(p.read_pointer(&p.pointer_file()).as_deref(), Some(storage.as_str()));
-        assert!(p.second_pointer().ends_with(&format!("/.config/{}/ablage.json", legacy::CONFIG_FOLDER)));
+        assert!(p.second_pointer().ends_with(&format!("/.config/{CONFIG_FOLDER_NAME}/ablage.json")));
         let nl = if cfg!(windows) { "\r\n" } else { "\n" };
         let want = format!("{{{nl}  \"ablage_ordner\": \"{}\"{nl}}}", storage.replace('\\', "\\\\"));
         assert_eq!(fs::read_to_string(p.pointer_file()).unwrap(), want);
@@ -2506,7 +2745,7 @@ mod tests {
         assert_eq!(p2.storage_from_file().as_deref(), Some("/gibt/es/nicht"));
         // Custom data folder via environment variable: flat, without subfolders.
         let mut host = Host::new(Flavor::Posix, &[("HOME", &home)], &home);
-        host.set_var(legacy::ENV_HOME, &p.join(&home, "test"));
+        host.set_var(crate::envvars::ENV_HOME, &p.join(&home, "test"));
         let p3 = Paths::new(host);
         assert_eq!(p3.app_file("bestand.json"), p.join_all(&home, &["test", "bestand.json"]));
         assert!(Path::new(&p.join(&home, "test")).is_dir());
@@ -2655,6 +2894,48 @@ mod tests {
         assert_eq!(p.resolve_game_folder(&home).as_deref(), Some(hotfix.as_str()));
         assert_eq!(p.resolve_game_folder(&sc).as_deref(), Some(hotfix.as_str()));
         let _ = fs::remove_dir_all(&home);
+    }
+
+    /// One real folder is one channel: HOTFIX as a junction (or link) to LIVE is LIVE, whichever of the two the
+    /// setting names, and the channel appears once, not twice.
+    #[test]
+    fn a_channel_folder_that_is_a_link_to_another_one_is_that_channel() {
+        let home = scratch("linked-channels");
+        let p = linux(&home);
+        let sc = p.join_all(&home, &["Platte", "StarCitizen"]);
+        let live = p.join(&sc, "LIVE");
+        let hotfix = p.join(&sc, "HOTFIX");
+        for file in ["Game.log", "Data.p4k"] {
+            touch(&p.join(&live, file), "");
+        }
+        crate::testdir::link_folder(Path::new(&hotfix), Path::new(&live));
+        for named in [&hotfix, &live] {
+            touch(&p.settings_file(), &object(&[("spiel_ordner", named.as_str())]));
+            assert_eq!(p.game_folder().as_deref(), Some(live.as_str()), "named {named}: LIVE counts");
+            let installed: Vec<(String, String)> = p.installed_channels().into_iter().map(|c| (c.0, c.1)).collect();
+            assert_eq!(installed, [("LIVE".to_string(), live.clone())], "named {named}: the folder once");
+            let with_log: Vec<String> = p.available_channels().into_iter().map(|c| c.0).collect();
+            assert_eq!(with_log, ["LIVE"], "named {named}");
+        }
+        assert!(same_place(&p.join(&live, "Data.p4k"), &p.join(&hotfix, "Data.p4k")), "the same file through the link");
+        assert_eq!(leading_channel_folder_in(Flavor::Posix, &hotfix), live, "the first of the channels that lead there");
+        assert_eq!(leading_channel_folder_in(Flavor::Posix, &live), live);
+        // A folder that is no link, and one that is no channel folder, stay as they are.
+        let ptu = p.join(&sc, "PTU");
+        touch(&p.join(&ptu, "Game.log"), "");
+        assert_eq!(leading_channel_folder_in(Flavor::Posix, &ptu), ptu);
+        assert_eq!(leading_channel_folder_in(Flavor::Posix, &p.join(&home, "irgendwo")), p.join(&home, "irgendwo"));
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// The same place in another spelling: case and slashes, where the system does not tell them apart.
+    #[test]
+    #[cfg(windows)]
+    fn two_spellings_of_a_path_are_the_same_place() {
+        assert!(same_place(r"C:\Spiele\SC\LIVE\Data.p4k", "c:/spiele/sc/live/Data.p4k"));
+        assert!(same_place(r"C:\Spiele\SC\LIVE\Data.p4k", "C:/Spiele/SC/LIVE/Data.p4k"));
+        assert!(!same_place(r"C:\Spiele\SC\LIVE\Data.p4k", r"C:\Spiele\SC\PTU\Data.p4k"));
+        assert!(!same_place(r"C:\Spiele\SC\LIVE", r"C:\Spiele\SC\LIVE2"));
     }
 
     /// A folder chosen for a channel counts instead of the one next to the
@@ -2853,6 +3134,47 @@ mod tests {
         let _ = fs::remove_dir_all(&home);
     }
 
+    /// The build players get knows LIVE, HOTFIX and PTU and no channel that is under the terms of confidentiality; the
+    /// test build of the developer knows all five.
+    #[test]
+    fn the_channels_of_the_player_build_are_three_and_those_of_the_test_build_five() {
+        if crate::edition::IS_TEST_BUILD {
+            assert_eq!(CHANNELS[..], ["LIVE", "HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"][..]);
+            assert_eq!(TEST_CHANNELS[..], ["PTU", "EPTU", "TECH-PREVIEW"][..]);
+            assert_eq!(FOLLOWS_LIVE[..], ["HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"][..]);
+            assert_eq!(UNDER_AGREEMENT[..], ["EPTU"][..]);
+        } else {
+            assert_eq!(CHANNELS[..], ["LIVE", "HOTFIX", "PTU"][..]);
+            assert_eq!(TEST_CHANNELS[..], ["PTU"][..]);
+            assert_eq!(FOLLOWS_LIVE[..], ["HOTFIX", "PTU"][..]);
+            assert!(UNDER_AGREEMENT.is_empty());
+        }
+    }
+
+    /// The player build neither finds nor reads a channel it does not know: a folder of it next to the game is no
+    /// installed channel, and a folder chosen for it is not taken.
+    #[test]
+    fn the_player_build_does_not_find_a_channel_folder_it_does_not_know() {
+        let home = scratch("kanal-unbekannt");
+        let p = linux(&home);
+        let sc = p.join_all(&home, &["Platte", "StarCitizen"]);
+        for k in ["LIVE", "PTU", "EPTU", "TECH-PREVIEW"] {
+            touch(&p.join_all(&sc, &[k, "Data.p4k"]), "");
+            touch(&p.join_all(&sc, &[k, "Game.log"]), "");
+        }
+        touch(&p.settings_file(), &object(&[("spiel_ordner", &p.join(&sc, "LIVE"))]));
+        let names: Vec<String> = p.installed_channels().into_iter().map(|(name, _, _)| name).collect();
+        let mut available: Vec<String> = p.available_channels().into_iter().map(|c| c.0).collect();
+        let known = |name: &str| crate::edition::IS_TEST_BUILD || !matches!(name, "EPTU" | "TECH-PREVIEW");
+        let mut wanted: Vec<&str> =
+            ["LIVE", "PTU", "EPTU", "TECH-PREVIEW"].into_iter().filter(|name| known(name)).collect();
+        assert_eq!(names, wanted, "installed");
+        available.sort();
+        wanted.sort();
+        assert_eq!(available, wanted, "with a log");
+        let _ = fs::remove_dir_all(&home);
+    }
+
     /// Several installed channels without a log: the configured one first, else the order of the channels.
     #[test]
     fn of_several_installed_channels_without_a_log_the_configured_or_the_first_one_is_taken() {
@@ -3027,7 +3349,9 @@ mod tests {
                 ("APPDATA", "D:\\Konten\\Spieler\\AppData\\Roaming"),
             ],
             "C:\\",
-        );
+        )
+        // The drives are given, not asked of the machine the test runs on: six, two program folders each.
+        .with_drives(&["C:\\", "D:\\", "E:\\", "F:\\", "G:\\", "H:\\"]);
         assert_eq!(host.var("USERPROFILE"), Some("D:\\Konten\\Spieler"));
         assert_eq!(host.expanduser("~\\x"), "D:\\Konten\\Spieler\\x");
         assert_eq!(host.expanduser("~Gast/x"), "D:\\Konten\\Gast/x");
@@ -3035,10 +3359,7 @@ mod tests {
         assert_eq!(host.expandvars("%FEHLT%\\a"), "%FEHLT%\\a");
         assert_eq!(host.expandvars("'%APPDATA%' $USERNAME ${USERNAME} $$ 100%"), "'%APPDATA%' Spieler Spieler $ 100%");
         let p = Paths::new(host);
-        assert_eq!(
-            p.second_pointer(),
-            format!("D:\\Konten\\Spieler\\AppData\\Roaming\\{}\\ablage.json", legacy::CONFIG_FOLDER)
-        );
+        assert_eq!(p.second_pointer(), "D:\\Konten\\Spieler\\AppData\\Roaming\\versekit\\ablage.json");
         assert_eq!(p.game_roots()[..2], ["C:\\Program Files", "C:\\Program Files (x86)"]);
         assert_eq!(p.game_roots().len(), 12);
         assert!(p.same_path("d:/konten/spieler/x", "D:\\Konten\\Spieler\\x\\"));

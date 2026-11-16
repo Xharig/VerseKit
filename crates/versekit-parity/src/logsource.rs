@@ -30,7 +30,6 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use regex::Regex;
 use versekit_core::jsonio::{self, Map, Value};
-use versekit_core::legacy;
 use versekit_core::logscan::Find;
 use versekit_core::logsource::{LogSource, LogTail, ReadState, Report};
 use versekit_core::paths::{ENV_INSTALL_DIR, Host, Paths};
@@ -201,7 +200,7 @@ impl FakeClock {
 /// (a check run has only a handful of them).
 fn start(home: &str, game: &str, clock: &FakeClock) -> &'static LogSource<'static> {
     let mut host = Host::current();
-    host.set_var(legacy::ENV_HOME, home);
+    host.set_var(versekit_core::envvars::ENV_HOME, home);
     host.set_var(ENV_INSTALL_DIR, game);
     let paths: &'static Paths = Box::leak(Box::new(Paths::new(host)));
     let sources = LogSource::sources_of(paths);

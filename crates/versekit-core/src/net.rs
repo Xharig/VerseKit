@@ -19,12 +19,12 @@
 //! there and never touch the net.
 //!
 //! [`Web`] is the real one: HTTPS with the system's certificates, a time
-//! limit and a size limit; with `SC_BP_NO_NET` set it fetches nothing.
+//! limit and a size limit; with `VERSEKIT_NO_NET` set it fetches nothing.
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::legacy::ENV_NO_NET;
+use crate::envvars::ENV_NO_NET;
 pub use crate::scmdb::FetchError;
 
 /// What the servers see of the program: `VerseKit/<version> (+<homepage>)`, the version of this build.
@@ -120,13 +120,13 @@ pub trait Net: Send + Sync {
     }
 }
 
-/// Whether fetching is switched off (`SC_BP_NO_NET`) for the running process. Only for the
-/// door to the real net itself; logic decides by [`offline_in`] with its own environment.
+/// Whether fetching is switched off (`VERSEKIT_NO_NET`, or the variable under its old name) for the running
+/// process. Only for the door to the real net itself; logic decides by [`offline_in`] with its own environment.
 pub fn offline() -> bool {
-    std::env::var(ENV_NO_NET).is_ok_and(|value| !value.is_empty() && value != "0")
+    crate::envvars::process_var(ENV_NO_NET).is_some_and(|value| !value.is_empty() && value != "0")
 }
 
-/// Whether fetching is switched off (`SC_BP_NO_NET`) on `host`: the environment the program
+/// Whether fetching is switched off (`VERSEKIT_NO_NET`) on `host`: the environment the program
 /// was given, so that a check sets its own and does not depend on the shell it runs in.
 pub fn offline_in(host: &crate::paths::Host) -> bool {
     host.var(ENV_NO_NET).is_some_and(|value| !value.is_empty() && value != "0")
@@ -433,9 +433,12 @@ mod tests {
             user_agent(env!("CARGO_PKG_VERSION")),
             user_agent(""),
         ];
+        let name = crate::legacy::OWN_FILENAME;
+        let old_names =
+            [name.to_string(), name.replace('-', " "), name.replace('-', ""), name.replace('-', "_"), "ehemals".into()];
         for agent in sent {
             let lower = agent.to_lowercase();
-            for old in ["sc-bp-watcher", "sc bp watcher", "scbpwatcher", "sc_bp_watcher", "ehemals", "watcher"] {
+            for old in old_names.iter().map(String::as_str).chain(["watcher"]) {
                 assert!(!lower.contains(old), "{agent:?} names the old program ({old})");
             }
             assert!(agent.starts_with("VerseKit/"), "{agent:?}");

@@ -478,7 +478,7 @@ pub(crate) mod tests {
         let online = cache::tests::paths(&dir, &[]);
         let gate = quick();
         let first = load_with(&gate, &online, &site("TEST"), "TEST", false, 1000.0).expect("found");
-        let offline = cache::tests::paths(&dir, &[(crate::legacy::ENV_NO_NET, "1")]);
+        let offline = cache::tests::paths(&dir, &[(crate::envvars::ENV_NO_NET, "1")]);
         let net = site("TEST");
         let found = load_with(&gate, &offline, &net, "TEST", true, 1000.0 + 90.0 * 86_400.0).expect("kept");
         assert_eq!(found.failed, Some(Failure::Offline));

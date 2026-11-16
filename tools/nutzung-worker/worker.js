@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //
-// Zähler für täglich aktive Verse-Kit-Installationen — und die private
+// Zähler für täglich aktive VerseKit-Installationen — und die private
 // Übersicht dazu. Läuft als Cloudflare Worker, NICHT im Programm und NICHT
 // auf einem Heimserver.
 //

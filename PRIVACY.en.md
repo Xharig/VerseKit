@@ -36,7 +36,7 @@ access the memory of the running game.
 
 ### Your data folder
 
-Out of the box the folder `Verse-Kit` in your documents; you change the place
+Out of the box the folder `VerseKit` in your documents; you change the place
 under Settings › Installation & paths. If your documents are in OneDrive,
 iCloud or another cloud, the folder is there too. It holds everything VerseKit
 knows about you: blueprint collection, watchlist, settings, contract log,
@@ -113,7 +113,7 @@ sees your IP address. All requests use https.
 | Shared relations list ("Load list" in the handle search) | the address you enter yourself | only on your click |
 
 Every request carries the identifier `VerseKit/<version> (+https://versekit.xharig.com)`;
-the usage count sends `VerseKit/<version>`, the problem report `Verse-Kit`.
+the usage count sends `VerseKit/<version>`, the problem report `VerseKit`.
 
 VerseKit loads a shared relations list only when you click "Load list", and
 only over https. All that goes there is the usual identifier. The list joins
@@ -125,7 +125,7 @@ VerseKit fetches and installs new versions by itself, at the earliest two
 minutes after they appear and never while Star Citizen runs. There is no switch
 for it.
 
-With the environment variable `SC_BP_NO_NET=1` (any value except empty and
+With the environment variable `VERSEKIT_NO_NET=1` (any value except empty and
 `0`) VerseKit fetches and sends nothing at all.
 
 ## Count usage
@@ -183,7 +183,7 @@ Only the developer sees the numbers.
 The report is on by default. Under Settings › General › Privacy you switch off
 "Count usage" (key `nutzung_melden`); then nothing is sent and nothing more is
 counted, and VerseKit deletes the counters so far at the next counting attempt.
-`SC_BP_NO_NET=1` stops it as well.
+`VERSEKIT_NO_NET=1` stops it as well.
 
 ## Downloads from the website
 
@@ -235,6 +235,35 @@ terminal's table from a reading that was not reliable (the last three). Only if
 the table was not found at all is it the game picture, scaled down; it can show
 your handle and your aUEC balance. The game picture for the signature window
 and the uncertain signature crops (`signatur-gemerkt`) never go along.
+
+## Connect org
+
+Only when you enter the address of an org under Settings › Connect org and
+confirm the code on the org's panel does VerseKit talk to its server (the open
+org standard, over https only). The access data stay only in your user folder,
+never in the data folder, the backup or the problem report. You choose which
+rights VerseKit gets on the panel; whether an org page shows is decided by one
+more switch per org and area (off from the start).
+
+- **What comes back:** the org's stock, blueprints and orders, with the names
+  of the members who shared them. VerseKit fetches them when you open the page
+  and the data are older than ten minutes, and on the "Update" button, never on
+  a clock. They stay in memory only: never in a file, never in the backup,
+  never in the problem report. They never change your own stock or your own
+  blueprint list. In streamer mode the names of the members and the address of
+  the org do not show.
+- **What goes out:** only when you click. "Share stock" sends the list the
+  confirmation card shows first: name, quantity, unit, quality and place of each
+  row, never purchase prices, never stolen goods, never rows whose English name
+  VerseKit does not know for sure. "Share my blueprints" sends the names of
+  your blueprints without the starting blueprints. "Book a delivery" sends the
+  quantities you enter. The org replaces with a sharing what it had of you;
+  "Stop sharing" deletes it there. VerseKit only keeps the time and the number
+  of the last sharing (`teilen.json` in the folder of the org connections), no
+  names and no quantities.
+- **`VERSEKIT_NO_NET=1`** also blocks every request to an org. Only addresses on
+  your own computer (`localhost`, `127.0.0.1`), such as a test server, stay
+  reachable.
 
 ## KRT Profit Basetool
 

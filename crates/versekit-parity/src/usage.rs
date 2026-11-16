@@ -86,7 +86,7 @@ fn paths_in(home: &Path, settings: &str) -> Result<Paths, String> {
     let game = home.join("kein-spiel").to_string_lossy().into_owned();
     let host = Host::new(
         Flavor::native(),
-        &[("SC_BP_HOME", data.as_str()), ("HOME", data.as_str()), ("SC_INSTALL_DIR", game.as_str())],
+        &[("VERSEKIT_HOME", data.as_str()), ("HOME", data.as_str()), ("SC_INSTALL_DIR", game.as_str())],
         &data,
     );
     Ok(Paths::new(host))

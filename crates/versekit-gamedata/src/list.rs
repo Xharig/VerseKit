@@ -80,8 +80,10 @@ pub const CACHE_FILE: &str = "katalog-spieldaten.json";
 /// 9: a title the contractor gives is a contract of its own, a contract whose blueprints come only at another result
 ///    than its completion counts as not sure (`unsicher`), the contracts carry their ranks, chance, payout and gain
 ///    from the game data where scmdb names none, and building it writes the regions of the contracts from the star
-///    map of the game data (`auftragsruf.json`).
-pub const CACHE_FORMAT: i64 = 9;
+///    map of the game data (`auftragsruf.json`), with the faction that gives each contract in its terms
+///    (`auftraggeber`).
+/// 10: the regions of the contracts also name the places the location queries of the contracts lead to.
+pub const CACHE_FORMAT: i64 = 10;
 
 /// The lock file beside the cache file that keeps two builds of the same catalog apart, in one process and between
 /// the main window and the overlay.
@@ -129,7 +131,7 @@ pub trait Supply: Send + Sync {
     }
 }
 
-/// The supply at run time: scmdb's mirror, then scmdb.net (`SC_BP_NO_NET`
+/// The supply at run time: scmdb's mirror, then scmdb.net (`VERSEKIT_NO_NET`
 /// switches it off).
 #[derive(Clone, Debug)]
 pub struct Runtime {
@@ -164,7 +166,8 @@ impl Supply for Runtime {
     }
 
     fn is_off(&self) -> bool {
-        std::env::var(versekit_core::legacy::ENV_NO_NET).is_ok_and(|value| !value.is_empty() && value != "0")
+        versekit_core::envvars::process_var(versekit_core::envvars::ENV_NO_NET)
+            .is_some_and(|value| !value.is_empty() && value != "0")
     }
 }
 
@@ -428,7 +431,17 @@ fn is_current(source: Option<&Value>, stamp: &Value, has_archive: bool, supply: 
 /// Whether the stored cache was built in the layout of `stamp` from the archive it names, as it is now.
 fn same_archive(source: &Value, stamp: &Value) -> bool {
     let same = |key: &str| source.get(key) == stamp.get(key);
-    same("format") && same("archiv") && same("archiv_stand")
+    same("format") && same_archive_path(source, stamp) && same("archiv_stand")
+}
+
+/// Whether two stamps name the same archive file: the same place, not only the same text. The path of a channel
+/// comes in another spelling (case, slash) or as a link to another folder (HOTFIX as a junction to LIVE) without
+/// the file being another; the size and time of the file (`archiv_stand`) tell whether it changed.
+fn same_archive_path(source: &Value, stamp: &Value) -> bool {
+    match (source.get("archiv"), stamp.get("archiv")) {
+        (Some(Value::Str(a)), Some(Value::Str(b))) => a == b || versekit_core::paths::same_place(a, b),
+        (a, b) => a == b,
+    }
 }
 
 /// Whether the craft data of the catalog (kind, size, grade, class) lag behind `scmdb_build`, the build scmdb names
@@ -504,7 +517,7 @@ fn start_in(
         Some(Value::Int(text)) => text.parse::<i64>().is_ok_and(|format| (OLDEST_STAND_IN..=CACHE_FORMAT).contains(&format)),
         _ => false,
     };
-    let same_archive = |old: &Value| readable(old) && old.get("archiv") == stamp.get("archiv");
+    let same_archive = |old: &Value| readable(old) && same_archive_path(old, &stamp);
     if let Some(data) = stored.as_ref().filter(|_| source.is_some_and(same_archive))
         && let Some(catalog) = non_empty(data)
     {
@@ -906,10 +919,11 @@ fn keep_reputation(
     reputation::save(paths, &table);
 }
 
-/// The regions of the titles for the notes: those the game data give (`own`, where the contracts are offered), each
-/// with what scmdb's table or the stored one of the same build (`theirs`) adds for the same title (it also names where
-/// a contract leads, which the game data state only as a search over tags), then the titles of `theirs` the game data
-/// do not place ([`crate::contract_reputation::join_regions`]). Without `theirs` the game data stand alone.
+/// The regions of the titles for the notes: those the game data give (`own`, where the contracts are offered and where
+/// their location queries lead), each with what scmdb's table or the stored one of the same build (`theirs`) adds for
+/// the same title (it can place a contract whose location query is too broad for the game data), then
+/// the titles of `theirs` the game data do not place ([`crate::contract_reputation::join_regions`]). Without `theirs`
+/// the game data stand alone.
 fn own_regions_first(own: Map, theirs: Map) -> Map {
     let mut theirs: HashMap<String, Value> = theirs.into_iter().map(|(key, value)| (key.to_lowercase(), value)).collect();
     let mut regions: Map = own
@@ -1018,7 +1032,12 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
     let read = game.and_then(Result::ok).map(|game| {
         let catalog = game.localization(Language::English).and_then(|texts| {
             let contracts = game.contract_catalog()?;
-            let (catalog, stats) = game.blueprints_and_stats(&texts, &fixes, &contracts)?;
+            // Without the templates only the places the contracts name themselves are known: scmdb adds the rest.
+            let locations = game.location_catalog().unwrap_or_else(|error| {
+                versekit_core::errors::record("list.archive", &error);
+                Vec::new()
+            });
+            let (catalog, stats) = game.blueprints_and_stats(&texts, &fixes, &contracts, &locations)?;
             own_reputation =
                 Some(game.contract_reputation(&contracts, &catalog.shown_keys, &catalog.offered, &fixes));
             own_stats = stats;
@@ -2327,7 +2346,7 @@ mod tests {
         let root = dir.to_string_lossy().into_owned();
         let host = versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, root.as_str())],
+            &[(versekit_core::envvars::ENV_HOME, root.as_str())],
             &root,
         );
         let paths = Paths::new(host);
@@ -2405,7 +2424,7 @@ mod tests {
         set_thread_language(Choice::De);
         let dir = versekit_core::testdir::fresh("abgleich-hinweis");
         let root = dir.to_string_lossy().into_owned();
-        let vars = [(versekit_core::legacy::ENV_HOME, root.as_str())];
+        let vars = [(versekit_core::envvars::ENV_HOME, root.as_str())];
         let host = versekit_core::paths::Host::new(versekit_core::pypath::Flavor::native(), &vars, &root);
         let paths: &'static Paths = Box::leak(Box::new(Paths::new(host)));
         let log: &'static ErrorLog<'static> = Box::leak(Box::new(ErrorLog::new(paths, "5.2.8")));
@@ -2479,13 +2498,104 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    /// The paths of a throwaway data folder on a machine that is made up (no process list asked).
+    fn made_up_paths(dir: &Path) -> Paths {
+        let text = dir.to_string_lossy().into_owned();
+        let vars = [(versekit_core::envvars::ENV_HOME, text.as_str()), (versekit_core::paths::ENV_TEST_MACHINE, "1")];
+        Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &vars, &text))
+    }
+
+    /// The archive of a channel is the same file whatever the way to it is written: case and slashes (the launcher and
+    /// the setting write them differently), or a channel folder that is a link to the one the catalog was built from.
+    /// The catalog of the same archive stands in (the list is never empty while the build waits for the game) and
+    /// counts as current once it is in the layout of today.
+    #[test]
+    #[cfg(windows)]
+    fn a_catalog_of_the_same_archive_in_another_spelling_stands_in_and_is_current() {
+        let dir = versekit_core::testdir::fresh("katalog-schreibweise");
+        let paths = made_up_paths(&dir);
+        let cache = paths.app_file(CACHE_FILE);
+        let archive = dir.join("Spiele").join("SC").join("LIVE").join(ARCHIVE_NAME);
+        fs::create_dir_all(archive.parent().unwrap()).unwrap();
+        fs::write(&archive, b"p4k").unwrap();
+        let named = keyed(&["Alpha"], "4.10.2-live.1");
+        let text = archive.to_string_lossy().into_owned();
+        let spellings = [text.to_lowercase(), text.replace('\\', "/"), text.to_uppercase().replace('\\', "/")];
+
+        // The layout before (format 9), built from the archive as the launcher writes it.
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT - 1), &named, &Map::new()).unwrap();
+        for spelling in &spellings {
+            let start = start_catalog_archive(&paths, Some(Path::new(spelling)), &cache, Arc::new(Offline));
+            assert_eq!(start.catalog.as_ref().map(|c| c.version.as_str()), Some("4.10.2-live.1"), "{spelling}");
+            assert!(start.rebuild.is_some(), "it is built anew in the layout of today: {spelling}");
+        }
+        // The layout of today: current, nothing to build.
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT), &named, &Map::new()).unwrap();
+        for spelling in &spellings {
+            let start = start_catalog_archive(&paths, Some(Path::new(spelling)), &cache, Arc::new(Offline));
+            assert!(start.catalog.is_some() && start.rebuild.is_none(), "{spelling}");
+            assert!(!catalog_behind_file(Some(Path::new(spelling)), &cache), "{spelling}");
+        }
+        // Another archive stays another: no stand-in from a catalog of a different file.
+        let other = dir.join("Spiele").join("SC").join("PTU").join(ARCHIVE_NAME);
+        fs::create_dir_all(other.parent().unwrap()).unwrap();
+        fs::write(&other, b"another p4k").unwrap();
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT - 1), &named, &Map::new()).unwrap();
+        assert!(start_catalog_archive(&paths, Some(&other), &cache, Arc::new(Offline)).catalog.is_none());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// The same for a channel folder that is a junction to the folder of another channel (HOTFIX to LIVE).
+    #[test]
+    fn a_catalog_built_through_the_link_of_a_channel_folder_stands_in_for_the_real_one() {
+        let dir = versekit_core::testdir::fresh("katalog-verknuepft");
+        let paths = made_up_paths(&dir);
+        let cache = paths.app_file(CACHE_FILE);
+        let live = dir.join("StarCitizen").join("LIVE");
+        fs::create_dir_all(&live).unwrap();
+        fs::write(live.join(ARCHIVE_NAME), b"p4k").unwrap();
+        let hotfix = dir.join("StarCitizen").join("HOTFIX");
+        versekit_core::testdir::link_folder(&hotfix, &live);
+        let named = keyed(&["Alpha"], "4.10.2-live.1");
+        let (real, linked) = (live.join(ARCHIVE_NAME), hotfix.join(ARCHIVE_NAME));
+        for (built_from, asked_with) in [(&real, &linked), (&linked, &real)] {
+            write_cache(&cache, &stamp_in(Some(built_from), CACHE_FORMAT - 1), &named, &Map::new()).unwrap();
+            let start = start_catalog_archive(&paths, Some(asked_with), &cache, Arc::new(Offline));
+            assert!(start.catalog.is_some(), "the list is not empty: {built_from:?} asked with {asked_with:?}");
+            write_cache(&cache, &stamp_in(Some(built_from), CACHE_FORMAT), &named, &Map::new()).unwrap();
+            let start = start_catalog_archive(&paths, Some(asked_with), &cache, Arc::new(Offline));
+            assert!(start.catalog.is_some() && start.rebuild.is_none(), "current: {built_from:?} asked with {asked_with:?}");
+        }
+        // A patch of the file is seen through the link all the same.
+        write_cache(&cache, &stamp_in(Some(&real), CACHE_FORMAT), &named, &Map::new()).unwrap();
+        fs::write(live.join(ARCHIVE_NAME), b"patched p4k").unwrap();
+        assert!(catalog_behind_file(Some(&linked), &cache));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// An older layout of the catalog with the same archive still stands in: the guard of the change above.
+    #[test]
+    fn the_catalog_of_an_older_layout_stands_in_for_the_same_archive() {
+        let dir = versekit_core::testdir::fresh("katalog-aelter");
+        let paths = made_up_paths(&dir);
+        let cache = paths.app_file(CACHE_FILE);
+        let archive = dir.join(ARCHIVE_NAME);
+        fs::write(&archive, b"p4k").unwrap();
+        write_cache(&cache, &stamp_in(Some(&archive), CACHE_FORMAT - 2), &keyed(&["Alpha"], "4.10.2-live.1"), &Map::new())
+            .unwrap();
+        let start = start_catalog_archive(&paths, Some(&archive), &cache, Arc::new(Offline));
+        assert_eq!(start.catalog.map(|c| c.blueprints.len()), Some(1));
+        assert!(start.rebuild.is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn a_build_that_waited_for_another_one_takes_the_catalog_that_one_wrote() {
         let dir = std::env::temp_dir().join(format!("versekit-katalog-sperre-{}", versekit_core::testdir::run_tag()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
-        let vars = [(versekit_core::legacy::ENV_HOME, text.as_str()), (versekit_core::paths::ENV_TEST_MACHINE, "1")];
+        let vars = [(versekit_core::envvars::ENV_HOME, text.as_str()), (versekit_core::paths::ENV_TEST_MACHINE, "1")];
         let paths = Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &vars, &text));
         let cache = paths.app_file(CACHE_FILE);
         let archive = dir.join(ARCHIVE_NAME);
@@ -2522,7 +2632,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
-        let vars = [(versekit_core::legacy::ENV_HOME, text.as_str()), (versekit_core::paths::ENV_TEST_MACHINE, "1")];
+        let vars = [(versekit_core::envvars::ENV_HOME, text.as_str()), (versekit_core::paths::ENV_TEST_MACHINE, "1")];
         let paths = Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &vars, &text));
         let cache = paths.app_file(CACHE_FILE);
         let archive = dir.join(ARCHIVE_NAME);
@@ -2574,7 +2684,7 @@ mod tests {
     fn a_catalog_that_cannot_be_written_is_built_once_per_run_and_not_at_every_ask() {
         let dir = versekit_core::testdir::fresh("katalog-nicht-schreibbar");
         let root = dir.to_string_lossy().into_owned();
-        let host = Host::new(versekit_core::pypath::Flavor::native(), &[(versekit_core::legacy::ENV_HOME, root.as_str())], &root);
+        let host = Host::new(versekit_core::pypath::Flavor::native(), &[(versekit_core::envvars::ENV_HOME, root.as_str())], &root);
         let paths = Paths::new(host);
         // A file where the folder of the cache should be: nothing can be written below it.
         let blocker = dir.join("gesperrt");
@@ -2635,7 +2745,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let text = dir.to_string_lossy().into_owned();
-        let paths = Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &[("SC_BP_HOME", &text)], &text));
+        let paths = Paths::new(Host::new(versekit_core::pypath::Flavor::native(), &[("VERSEKIT_HOME", &text)], &text));
         let cache = paths.app_file(CACHE_FILE);
 
         // The first build ever has nothing to compare with: nothing is new.

@@ -310,7 +310,7 @@ pub(crate) fn test_world(name: &str) -> (Paths, String, crate::testdir::Dir) {
     // The game folder counts as one with a log in it.
     std::fs::write(format!("{game}/Game.log"), "").expect("log");
     let vars = [
-        ("SC_BP_HOME", home.as_str()),
+        ("VERSEKIT_HOME", home.as_str()),
         ("HOME", home.as_str()),
         ("LOCALAPPDATA", home.as_str()),
         (crate::paths::ENV_INSTALL_DIR, game.as_str()),

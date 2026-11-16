@@ -16,7 +16,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! The sample page: every control in every color scheme and size, the
-//! reference for how Verse-Kit's pages look and behave. Shown by the example
+//! reference for how VerseKit's pages look and behave. Shown by the example
 //! `farbschemata`; the edge check below builds it without a window in every
 //! size and scheme and demands that nothing is cut off.
 //!
@@ -61,11 +61,15 @@ mod silent_buttons;
 #[cfg(test)]
 mod back_bar;
 #[cfg(test)]
+mod fehlgriffe;
+#[cfg(test)]
 mod filter_jump;
 #[cfg(test)]
 mod handle_tabs;
 #[cfg(test)]
 mod nav_groups;
+#[cfg(test)]
+mod org_areas;
 mod crash_hint;
 mod first_backup_hint;
 mod glance;
@@ -338,7 +342,7 @@ pub struct SamplePage {
     frame_extra: f32,
     /// How far the preview stuck out at the bottom in the last frame.
     frame_overflow_y: f32,
-    /// Graphics card: as set, and as Verse-Kit started with.
+    /// Graphics card: as set, and as VerseKit started with.
     gpu: bool,
     gpu_started: bool,
     /// The 24-hour clock (`formats::CLOCK_24_SETTING`); off, the times of day are written with AM and PM.
@@ -417,6 +421,8 @@ pub struct SamplePage {
     patch_changes: crate::patch_changes_page::PatchChangesState,
     /// The handle search with the list of the handles and organizations marked.
     handles: crate::handle_page::HandlePageState,
+    /// Every contract of the stored game data, filtered and sorted.
+    contract_finder: crate::contract_finder_page::ContractFinderState,
     /// A self timer ran out: when, and what the notice says.
     contested_notice: Option<(f64, String)>,
     /// The page shown in the last frame, to notice that one is entered.
@@ -446,6 +452,13 @@ pub struct SamplePage {
     /// The connection to the made-up Basetool; the unit storage is there only
     /// with it connected, its switch on and its right granted.
     connection: basetool_page::ConnectionState,
+    /// The page "Connect org": the orgs of the open org standard.
+    orgs: crate::org_connect_page::OrgConnectState,
+    org_lots: crate::org_data_stock_page::OrgLotsState,
+    org_orders: crate::org_data_orders_page::OrgOrdersState,
+    org_index: crate::org_data::IndexCache,
+    org_share_stock: crate::org_share::OrgShareState,
+    org_share_blueprints: crate::org_share::OrgShareState,
     /// The sync button in the head of the blueprint list, My stock and hangar.
     head_sync: crate::head_sync::HeadSync,
     /// The mission log: the user's saved log or the sample, and what the page is set to.
@@ -565,6 +578,10 @@ pub struct SamplePage {
     rescan_notice: crate::collection_tools::RescanNotice,
     /// Which groups of the menu are folded, in the order of [`GROUP_SETTINGS`].
     groups_closed: [bool; GROUP_SETTINGS.len()],
+    /// Which page of each group was opened last and how often: where a click on a group head leads.
+    visits: versekit_core::navigation::Visits,
+    /// The page the window starts with (a page key); empty is the overview.
+    start_page: String,
     /// The language the folded groups were last handed to the menu in (their state is kept by the shown name).
     groups_language: Option<language::Lang>,
     /// The setup assistant, while it is open.
@@ -1405,19 +1422,26 @@ impl SamplePage {
             server_status: crate::serverstatus_page::ServerStatusState::sample(versekit_core::contested::now()),
             patch_changes: crate::patch_changes_page::PatchChangesState::sample(),
             handles: crate::handle_page::HandlePageState::sample(versekit_core::contested::now()),
+            contract_finder: crate::contract_finder_page::ContractFinderState::sample(),
             contested_notice: None,
             shown_page: String::new(),
             usage: None,
             usage_route: None,
             search_counted: (false, false),
             usage_started: false,
-            selling: selling_page::SellingState::default(),
+            selling: selling_page::SellingState::sample(),
             routes: routes_page::RoutesState::default(),
             shops: shops_page::ShopsState::default(),
             org_stock: org_stock_page::OrgStockState::new(Some(org_stock_page::Link::demo()), None),
             demand: demand_page::DemandState::default(),
             bank: bank_page::BankState::default(),
             connection: basetool_page::ConnectionState::new(None),
+            orgs: crate::org_connect_page::OrgConnectState::sample(),
+            org_lots: crate::org_data_stock_page::OrgLotsState::default(),
+            org_orders: crate::org_data_orders_page::OrgOrdersState::default(),
+            org_index: crate::org_data::IndexCache::default(),
+            org_share_stock: crate::org_share::OrgShareState::default(),
+            org_share_blueprints: crate::org_share::OrgShareState::default(),
             head_sync: crate::head_sync::HeadSync::default(),
             contracts: contract_log::LogData::sample(),
             contract_view: contract_log::LogState::default(),
@@ -1486,6 +1510,8 @@ impl SamplePage {
             collection_tools: Default::default(),
             rescan_notice: Default::default(),
             groups_closed: [false; GROUP_SETTINGS.len()],
+            visits: Default::default(),
+            start_page: String::new(),
             groups_language: None,
             setup: None,
             backup: backup_flow::BackupFlow::default(),
@@ -1612,7 +1638,7 @@ impl SamplePage {
     /// the data, the copy never holds a credential and the login of the user's installation
     /// stays untouched.
     fn connect_system_as(&mut self, paths: &Paths, keyname: Option<&str>) {
-        use versekit_core::legacy::{ENV_BASETOOL_KEYNAME, ENV_SECRETS, ENV_SECRETS_FILE};
+        use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_SECRETS, ENV_SECRETS_FILE};
         // The old connection's worker ends; a new one takes over (a worker left running would
         // go on writing into the same files).
         if let Some(old) = self.connection.wire() {
@@ -1659,6 +1685,19 @@ impl SamplePage {
         self.connection = basetool_page::ConnectionState::new(wire);
     }
 
+    /// Connects the page "Connect org" to the org connections of this machine. On a data folder fixed from
+    /// outside (a copy to try things on) they stay inside it, never those of the real installation.
+    fn connect_orgs(&mut self, paths: &Paths) {
+        let folder = match paths.given().data {
+            Some(fixed) if paths.host.var_set(versekit_core::orgstd::store::ENV_FOLDER).is_none() => {
+                paths.host.flavor.join(&fixed.folder, "orga-geheim")
+            }
+            _ => versekit_core::orgstd::store::folder(&paths.host),
+        };
+        let areas = versekit_core::orgstd::areas::Areas::in_settings(Paths::new(paths.host.clone()));
+        self.orgs = crate::org_connect_page::OrgConnectState::system(&paths.host, &folder).with_areas(areas);
+    }
+
     /// Wires the connection page and the unit storage to a made-up Basetool
     /// with settings in a throwaway folder. `worker` starts the sync in the
     /// background.
@@ -1702,6 +1741,9 @@ impl SamplePage {
             // The bank: its switch on, its right granted, the connection standing.
             ("hf_bank", Some(wire)) => !wire.sync.area_visible(SETTING_BANK),
             ("hf_bank", None) => self.real(),
+            // The pages of an org's data: there with a connection, the right and the switch of the area.
+            (ORG_STOCK_PAGE, _) => !self.orgs.link().visible(versekit_core::orgstd::hub::Kind::Stock),
+            (ORG_ORDERS_PAGE, _) => !self.orgs.link().visible(versekit_core::orgstd::hub::Kind::Orders),
             _ => false,
         }
     }
@@ -1755,6 +1797,24 @@ impl SamplePage {
     pub fn open_page(&mut self, ctx: &egui::Context, key: &str, group: &str) {
         self.page = key.to_string();
         widgets::set_nav_section_open(ctx, &t(group), false);
+    }
+
+    /// The page now open counts as opened in its group: it is the one the group head leads to next time.
+    fn note_visit(&mut self) {
+        if let Some(g) = NAV.iter().position(|(_, pages)| pages.iter().any(|(page, _)| *page == self.page)) {
+            self.visits.note(group_id(g), &self.page);
+        }
+    }
+
+    /// A click on the name of the head of group `g`: opens the page of the group opened last, else the one opened
+    /// most, else the first one shown, and opens the group so the page stands in it.
+    fn open_group_page(&mut self, ctx: &egui::Context, g: usize, route: &'static str) {
+        let pages: Vec<&str> = NAV[g].1.iter().map(|(page, _)| *page).filter(|page| !self.page_hidden(page)).collect();
+        let Some(page) = self.visits.target(group_id(g), &pages) else { return };
+        self.page = page.to_string();
+        self.usage_route = Some(route);
+        widgets::set_nav_section_open(ctx, &t(NAV[g].0), true);
+        self.mark_seen(page);
     }
 
     /// Switches to the page of a page name of 4.12 (`main_window.open_page`): an old name leads to its new page
@@ -2103,10 +2163,12 @@ impl SamplePage {
         page.server_status = crate::serverstatus_page::ServerStatusState::with_files(&paths);
         page.patch_changes = crate::patch_changes_page::PatchChangesState::with_files(&paths);
         page.handles = crate::handle_page::HandlePageState::with_files(&paths);
+        page.contract_finder = crate::contract_finder_page::ContractFinderState::with_files(&paths);
         page.selling = selling_page::SellingState::with_files(&paths);
         page.routes = routes_page::RoutesState::with_files(&paths);
         page.shops = shops_page::ShopsState::with_files(&paths);
         page.connect_system(&paths);
+        page.connect_orgs(&paths);
         page.contracts = contract_log::LogData::load(&paths);
         page.stats = statistics_page::StatsState::of(&paths);
         // The report page reads the same data folder; nothing can be sent
@@ -2137,12 +2199,38 @@ impl SamplePage {
         )));
         page.store = Some(SettingsStore { paths, writer: None, saved: None, failed: false });
         page.load_start_page(&start_paths);
+        page.apply_start_page();
         page
+    }
+
+    /// What the choice of the start page offers: (page key, words), the overview first, then every page of the menu
+    /// that is shown, each with its group in front.
+    fn start_choices(&self) -> Vec<(String, String)> {
+        let mut choices = vec![(String::new(), t("hf_uebersicht"))];
+        for (group, pages) in NAV {
+            for (page, _) in pages.iter().filter(|(page, _)| !self.page_hidden(page)) {
+                choices.push((page.to_string(), format!("{} › {}", t(group), t(page))));
+            }
+        }
+        choices
+    }
+
+    /// The window starts on the page chosen in the settings while that page is in the menu and shown, else on the
+    /// overview.
+    fn apply_start_page(&mut self) {
+        // A start page taken out of the menu is its successor.
+        if let Some(successor) = Self::successor_of(&self.start_page) {
+            self.start_page = successor.to_string();
+        }
+        let known = NAV.iter().any(|(_, pages)| pages.iter().any(|(page, _)| *page == self.start_page));
+        if known && !self.page_hidden(&self.start_page) {
+            self.page.clone_from(&self.start_page);
+        }
     }
 
     /// Reports once a day in the background that the program runs, with the
     /// page counters (`usage_ping.start`): at once, then hourly, ten minutes
-    /// after a failed try. Own data only; off with `SC_BP_NO_NET` and for a
+    /// after a failed try. Own data only; off with `VERSEKIT_NO_NET` and for a
     /// version the receiver does not take.
     pub fn start_usage_ping(&self) {
         let (Some(store), Some(usage)) = (&self.store, &self.usage) else { return };
@@ -2335,6 +2423,8 @@ impl SamplePage {
         self.groups_closed = GROUP_SETTINGS.map(|(_, key)| paths.setting_bool(key, false));
         self.group_order = group_order_from(paths.settings().iter().find(|(k, _)| k == GROUP_ORDER_SETTING).map(|(_, v)| v));
         self.groups_language = None;
+        self.visits = versekit_core::navigation::Visits::load(paths);
+        self.start_page = versekit_core::navigation::start_page(paths);
         self.sounds[0] = paths.setting_bool("signalton", true);
         self.sounds[1] = versekit_core::sound::refinery_on(paths);
         self.volume = versekit_core::sound::volume(paths);
@@ -2504,6 +2594,8 @@ impl SamplePage {
         ]);
         values.extend(GROUP_SETTINGS.iter().zip(self.groups_closed).map(|((_, key), closed)| (*key, Value::Bool(closed))));
         values.push((GROUP_ORDER_SETTING, group_order_value(&self.group_order)));
+        values.extend(self.visits.values());
+        values.push((versekit_core::navigation::START_SETTING, Value::str(&self.start_page)));
         values.extend([
             ("overlay_ecke", Value::str(corner_name(self.overlay_place))),
             ("overlay_leiste", Value::str(if self.bar_side == settings::BarSide::Bottom { "unten" } else { "oben" })),
@@ -3104,6 +3196,13 @@ impl SamplePage {
         self.store.is_some()
     }
 
+    /// Whether the page reads in a thread of its own what it has to show and the answer is still on its way (a
+    /// test draws on until it is there).
+    #[cfg(test)]
+    pub(crate) fn reading(&self) -> bool {
+        self.real() && self.page == "hf_achsen" && self.axes.reading()
+    }
+
     /// The language to start in: the stored one on real data, German on the sample
     /// page (its sample texts are German). The program sets it once at start.
     pub fn start_language(&self) -> language::Choice {
@@ -3131,6 +3230,44 @@ impl SamplePage {
     /// made-up version that waits for nothing).
     fn update_days(&self) -> Option<u64> {
         self.updates.waiting_days(versekit_core::updater::now()).filter(|_| self.real())
+    }
+
+    /// The running version and the newer one on offer; the sample page names a made-up one. `known`: a list of
+    /// versions was read at all, so "up to date" is a fact and not a guess.
+    fn update_stand(&self) -> (String, Option<String>, bool) {
+        if self.real() {
+            let newer = self.updates.newer().map(str::to_string);
+            (self.updates.own_version().to_string(), newer, !self.updates.releases().is_empty())
+        } else {
+            let newer = (!self.update_version.is_empty()).then(|| self.update_version.clone());
+            (env!("CARGO_PKG_VERSION").to_string(), newer, true)
+        }
+    }
+
+    /// The row at the top of the overview: whether the running version is the newest, or which one is on offer,
+    /// and the way to the page that fetches it. `true` when that way was clicked.
+    fn update_card(&self, ui: &mut egui::Ui, scheme: &Scheme) -> bool {
+        let (version, newer, known) = self.update_stand();
+        let own = [("0", Arg::from(version.as_str()))];
+        let (icon, tone, line) = match (&newer, known) {
+            (Some(newer), _) => {
+                let both = [("0", Arg::from(newer.as_str())), ("1", Arg::from(version.as_str()))];
+                ("download", scheme.accent, tf("s_fg_update_neu", &both))
+            }
+            (None, true) => ("circle-check", scheme.accent, tf("s_fg_update_aktuell", &own)),
+            (None, false) => ("info", scheme.sub, tf("s_fg_update_unbekannt", &own)),
+        };
+        let mut open = false;
+        ui.horizontal_wrapped(|row| {
+            if let Some(image) = crate::icons::image(icon, tone, 18.0) {
+                row.add(image);
+            }
+            row.label(RichText::new(line).strong());
+            let word = t("s_fg_update_knopf");
+            let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("arrow-right");
+            open = row.add(button).on_hover_text(t("s_fg_update_knopf_h")).clicked();
+        });
+        open
     }
 
     /// The page „Update & Über“ on real data; what the player asked for in it.
@@ -3283,7 +3420,7 @@ impl SamplePage {
         }
     }
 
-    /// A model of the window as in Verse-Kit 4.12: the overview alone on top,
+    /// A model of the window as in VerseKit 4.12: the overview alone on top,
     /// the menu filter, the folding groups that scroll on their own, Ko-fi and
     /// Discord fixed at the foot; at the right the page, below the status bar.
     /// Names come from the language file.
@@ -3456,10 +3593,15 @@ impl SamplePage {
                             }
                         }
                     });
-                    // A group opened or closed by a click is a click on the way to a page.
-                    if section.head.clicked() {
+                    // A group opened or closed by a click on its arrow is a click on the way to a page; a click on
+                    // its name opens the page of the group the player most likely wants.
+                    if section.folded {
                         self.count_group_toggle();
                     }
+                    if section.named {
+                        self.open_group_page(&ctx, g, menu_route);
+                    }
+                    section.fold.on_hover_text(t("s_fg_bereich_klappen"));
                     let head = section.head.on_hover_text(t("s_ke_gruppe_h"));
                     // While filtering all groups are open: no moving then.
                     if !filtering && head.drag_started() {
@@ -3580,6 +3722,7 @@ impl SamplePage {
             // A page entered anew starts without the filters it was left with.
             if self.shown_page != self.page {
                 self.count_page(route);
+                self.note_visit();
                 // The notes written but not yet saved go to the file when their page is left.
                 if self.shown_page == "hf_notizen" {
                     self.memo_page.flush(None);
@@ -3759,6 +3902,7 @@ impl SamplePage {
                     "hf_staffellager" => self.org_stock.is_narrowed(),
                     "hf_routen" if self.real() => self.routes.is_narrowed(),
                     "hf_laeden" if self.real() => self.shops.is_narrowed(),
+                    CONTRACT_FINDER_PAGE => self.contract_finder.is_narrowed(),
                     _ => false,
                 };
                 if narrowed || sync_area.is_some() {
@@ -3779,6 +3923,7 @@ impl SamplePage {
                                     "hf_routen" => self.routes.reset(),
                                     "hf_laeden" => self.shops.reset(),
                                     "hf_staffellager" => self.org_stock.reset(),
+                                    CONTRACT_FINDER_PAGE => self.contract_finder.reset(),
                                     _ => self.contract_view.reset(),
                                 }
                             }
@@ -3818,6 +3963,33 @@ impl SamplePage {
                 // Like `layout::page`: a little room so rounding cannot push a full-width row out.
                 page.set_max_width(page.available_width() - layout::SAFETY);
                 let blueprints_missing = self.blueprints.sample;
+                // A blueprint that is missing from the list: the way to the detection in the settings and the catalog
+                // built again, also where there is no catalog yet.
+                if self.page == "hf_liste"
+                    && let Some(store) = &self.store
+                {
+                    if detection_page::missing_row(page, scheme, &mut self.detection, &store.paths) {
+                        jump = Some(("hf_allgemein".to_string(), "hf_gruppe_einst"));
+                    }
+                    // Blueprints with no known source come into the list or stay out of it: the list follows at once.
+                    detection_page::list_switch(page, scheme, &mut self.detection, &store.paths);
+                    if self.detection.take_all_changed() {
+                        self.blueprints.follow_all_setting(&store.paths, &mut self.blueprint_view);
+                    }
+                    page.add_space(GAP);
+                    if let Some(said) = self.detection.take_notice() {
+                        self.pin_fault = said.fault.then(|| said.text.clone());
+                        self.pin_notice = Some((page.input(|i| i.time), said.text));
+                    }
+                }
+                if matches!(self.page.as_str(), "hf_herstellung" | "hf_farmliste" | "hf_liste") {
+                    // What the orgs share, shown next to the own stock of each material and the own blueprints.
+                    let (stock, blueprints) = self.orgs.link().indexes(&mut self.org_index);
+                    self.crafting.set_org_stock(stock.clone());
+                    self.farm.set_org_stock(stock);
+                    self.crafting.set_org_blueprints(blueprints.clone());
+                    self.blueprints.set_org_blueprints(blueprints);
+                }
                 match self.page.as_str() {
                     // No catalog on real data: say so, not that the page comes later.
                     "hf_liste" | "hf_fortschritt" if self.real() && self.blueprints_none => {
@@ -3880,6 +4052,11 @@ impl SamplePage {
                             hidden: &hidden,
                             keys: &keys,
                         };
+                        // How the update stands: the running version, and the newer one when there is one.
+                        if self.update_card(page, scheme) {
+                            jump = Some(("hf_ueber".to_string(), "hf_gruppe_info"));
+                        }
+                        page.add_space(GAP);
                         let real = self.overview.clone();
                         // A running refinery job counts its time down every second.
                         if real.as_ref().is_some_and(|o| o.ticking || o.hangar_ticking) {
@@ -4052,6 +4229,7 @@ impl SamplePage {
                         // The start with the system: does this system have one, and what the entry says now.
                         let autostart_possible = self.autostart.possible();
                         let mut autostart_wanted: Option<bool> = None;
+                        let start_choices = self.start_choices();
                         let autostart_on = &mut self.autostart_on;
                         let (switches, sounds) = (&mut self.general_switches, &mut self.sounds);
                         let (english, volume) = (&mut self.general_english, &mut self.volume);
@@ -4062,6 +4240,7 @@ impl SamplePage {
                         let streamer = &mut self.streamer;
                         let usage_on = &mut self.usage_on;
                         let main_at_start = &mut self.main_at_start;
+                        let start_page = &mut self.start_page;
                         let mut streamer_changed = false;
                         let play_head = &mut self.play_head;
                         let mut play_head_changed = false;
@@ -4120,7 +4299,21 @@ impl SamplePage {
                                     (0, 1) => {
                                         row.add(widgets::Toggle::new(main_at_start, scheme));
                                     }
+                                    // The page the window starts with: the overview or any page of the menu.
                                     (0, 2) => {
+                                        let shown = start_choices
+                                            .iter()
+                                            .find(|(key, _)| key == start_page)
+                                            .map_or_else(|| start_choices[0].1.clone(), |(_, word)| word.clone());
+                                        settings::choice_box(row, "startseite", &name, &shown, |list| {
+                                            for (key, word) in &start_choices {
+                                                if list.selectable_label(key == start_page, word).clicked() {
+                                                    key.clone_into(start_page);
+                                                }
+                                            }
+                                        });
+                                    }
+                                    (0, 3) => {
                                         if row.add(widgets::Toggle::new(gpu, scheme)).changed() {
                                             *later = false;
                                         }
@@ -4325,7 +4518,7 @@ impl SamplePage {
                                 }
                             });
                             page.add_space(4.0);
-                            // A link out of Verse-Kit carries the symbol.
+                            // A link out of VerseKit carries the symbol.
                             if widgets::external_link(page, scheme, &infos[2]).clicked() {
                                 page.ctx().open_url(egui::OpenUrl::new_tab("https://versekit.xharig.com"));
                             }
@@ -5179,8 +5372,31 @@ impl SamplePage {
                         let infos = page_infos("k_basetool_verbindung");
                         widgets::status_box(page, scheme, scheme.yellow, "shield-alert", &infos[0], &infos[1]);
                     }
+                    "s_os_seite" => crate::org_connect_page::show_page(page, scheme, &mut self.orgs),
+                    ORG_STOCK_PAGE => {
+                        let link = self.orgs.link();
+                        crate::org_data_stock_page::show_page(page, scheme, &mut self.org_lots, &link)
+                    }
+                    ORG_ORDERS_PAGE => {
+                        let link = self.orgs.link();
+                        crate::org_data_orders_page::show_page(page, scheme, &mut self.org_orders, &link)
+                    }
                     "hf_liste" => {
+                        // The list and the progress are two views of the same blueprints: one button leads across.
+                        if cross_button(page, scheme, "chart-column", "s_fg_pl_zum_fortschritt") {
+                            jump = Some(("hf_fortschritt".to_string(), "hf_gruppe_bp"));
+                        }
                         self.blueprint_view.craftable = self.crafting.craftable();
+                        // The line to share the own blueprints with an org, only for an org the member may share with.
+                        let link = self.orgs.link();
+                        if !link.writable("blueprints:write").is_empty() {
+                            let data = &self.blueprints;
+                            let build = || {
+                                versekit_core::orgstd::share::own_blueprint_share(data.collection_entries(), &data.catalog)
+                            };
+                            let source = crate::org_share::Source::Blueprints(&build);
+                            crate::org_share::show(page, scheme, &mut self.org_share_blueprints, &link, &source);
+                        }
                         blueprint_list::show(page, scheme, &mut self.blueprints, &mut self.blueprint_view);
                         // The crafting page of the blueprint: the item stands open there.
                         if let Some(name) = self.blueprint_view.craft_jump.take() {
@@ -5238,20 +5454,6 @@ impl SamplePage {
                             self.pin_notice = Some((page.input(|i| i.time), said.text));
                         }
                     }
-                    "hf_erkennung" if self.real() => {
-                        if let Some(store) = &self.store {
-                            detection_page::show_page(page, scheme, &mut self.detection, &store.paths);
-                            // The switch for blueprints with no known source, or the collection, changed:
-                            // the list and the progress follow at once.
-                            if self.detection.take_all_changed() {
-                                self.blueprints.follow_all_setting(&store.paths, &mut self.blueprint_view);
-                            }
-                        }
-                        if let Some(said) = self.detection.take_notice() {
-                            self.pin_fault = said.fault.then(|| said.text.clone());
-                            self.pin_notice = Some((page.input(|i| i.time), said.text));
-                        }
-                    }
                     "hf_module" if self.real() => {
                         if let Some(store) = &self.store {
                             modules_page::show_page(page, scheme, &mut self.modules, &store.paths);
@@ -5296,7 +5498,16 @@ impl SamplePage {
                             jump = Some(("hf_hangar".to_string(), "hf_gruppe_logistik"));
                         }
                     }
-                    "hf_meinlager" => stock_page::show_page(page, scheme, &mut self.stock),
+                    "hf_meinlager" => {
+                        // The line to share the own stock with an org, only for an org the member may share with.
+                        let link = self.orgs.link();
+                        if !link.writable("stock:write").is_empty() {
+                            let rows = self.stock.rows();
+                            let source = crate::org_share::Source::Stock(&rows, self.stock.names());
+                            crate::org_share::show(page, scheme, &mut self.org_share_stock, &link, &source);
+                        }
+                        stock_page::show_page(page, scheme, &mut self.stock)
+                    }
                     "hf_farmliste" => match farm_page::show_page(page, scheme, &mut self.farm, &mut self.crafting) {
                         // The item opens in Crafting with its recipe.
                         Some(farm_page::Action::ToCrafting(name)) => {
@@ -5306,6 +5517,10 @@ impl SamplePage {
                         Some(farm_page::Action::ToMining(search)) => {
                             self.mining.jump_to(&search);
                             jump = Some(("hf_bergbau".to_string(), "hf_gruppe_abbau"));
+                        }
+                        // The crafting page, where the plan is listed.
+                        Some(farm_page::Action::ToCraftingPage) => {
+                            jump = Some(("hf_herstellung".to_string(), "hf_gruppe_herst"));
                         }
                         None => {}
                     },
@@ -5328,6 +5543,9 @@ impl SamplePage {
                         }
                     }
                     "hf_handlesuche" => crate::handle_page::show_page(page, scheme, &mut self.handles),
+                    CONTRACT_FINDER_PAGE => {
+                        crate::contract_finder_page::show_page(page, scheme, &mut self.contract_finder);
+                    }
                     "hf_bergbau" => {
                         if let Some(mining_page::Action::ToRefineries) =
                             mining_page::show_page(page, scheme, &mut self.mining)
@@ -5353,6 +5571,12 @@ impl SamplePage {
                             Some(crafting_page::Action::ToShops) => {
                                 jump = Some(("hf_laeden".to_string(), "hf_gruppe_handel"));
                             }
+                            Some(crafting_page::Action::ToFarm) => {
+                                jump = Some(("hf_farmliste".to_string(), "hf_gruppe_herst"));
+                            }
+                            Some(crafting_page::Action::ToHangar) => {
+                                jump = Some(("hf_hangar".to_string(), "hf_gruppe_logistik"));
+                            }
                             None => {}
                         }
                     }
@@ -5361,6 +5585,9 @@ impl SamplePage {
                     "hf_bedarf" => demand_page::show_page(page, scheme, &mut self.demand),
                     "hf_bank" => bank_page::show_page(page, scheme, &mut self.bank),
                     "hf_fortschritt" => {
+                        if cross_button(page, scheme, "clipboard-list", "s_fg_pl_zur_liste") {
+                            jump = Some(("hf_liste".to_string(), "hf_gruppe_bp"));
+                        }
                         // A jump that brings its filter along.
                         if let Some((to, from)) =
                             blueprint_progress::show(page, scheme, &self.blueprints, &mut self.progress_view)
@@ -5474,7 +5701,13 @@ impl SamplePage {
                 && self.real()
                 && let Some(store) = &self.store
             {
-                axes_page::show_foot(&mut page, scheme, &mut self.axes, &store.paths);
+                // As wide as the cards above it: the scroll area gives up the width of its bar when it shows one,
+                // and the cards keep the room of `layout::SAFETY` free.
+                let width = shown.inner_rect.width() - layout::SAFETY;
+                page.scope(|foot| {
+                    foot.set_max_width(width);
+                    axes_page::show_foot(foot, scheme, &mut self.axes, &store.paths);
+                });
                 if let Some(said) = self.axes.take_notice() {
                     self.pin_fault = said.fault.then(|| said.text.clone());
                     self.pin_notice = Some((page.input(|i| i.time), said.text));
@@ -5859,31 +6092,44 @@ const GROUP_SETTINGS: [(&str, &str); 10] = [
 /// for the game to close is told on these pages.
 const TOPIC_PAGES: [(&str, &[&str]); 5] = [
     ("texts", &["hf_uebersetzung"]),
-    ("catalog", &["hf_liste", "hf_fortschritt", "hf_herstellung", "hf_farmliste"]),
-    ("signatures", &["hf_bergbau", "hf_erkennung"]),
+    ("catalog", &["hf_liste", "hf_fortschritt", "hf_herstellung", "hf_farmliste", CONTRACT_FINDER_PAGE]),
+    ("signatures", &["hf_bergbau", "hf_allgemein"]),
     ("values", &["hf_hangar"]),
     ("controls", &["hf_joysticks"]),
 ];
 
 /// The pages whose data come out of the game archive: where the data of a test channel are marked as preliminary.
-const ARCHIVE_PAGES: [&str; 9] = [
+const ARCHIVE_PAGES: [&str; 10] = [
     "hf_liste",
+    CONTRACT_FINDER_PAGE,
     "hf_fortschritt",
     "hf_herstellung",
     "hf_farmliste",
     "hf_bergbau",
     "hf_uebersetzung",
     "hf_joysticks",
-    "hf_erkennung",
+    "hf_allgemein",
     "hf_hangar",
 ];
 
 const NAV: [(&str, &[(&str, &str)]); 10] = [
     (
         "hf_gruppe_bp",
-        &[("hf_liste", "clipboard-list"), ("hf_fortschritt", "chart-column"), ("hf_auftragslog", "notebook-pen")],
+        &[
+            ("hf_liste", "clipboard-list"),
+            ("hf_fortschritt", "chart-column"),
+            ("hf_auftragslog", "notebook-pen"),
+        ],
     ),
-    ("hf_gruppe_logistik", &[("hf_hangar", "plane"), ("hf_meinlager", "package"), ("hf_staffellager", "boxes")]),
+    (
+        "hf_gruppe_logistik",
+        &[
+            ("hf_hangar", "plane"),
+            ("hf_meinlager", "package"),
+            ("hf_staffellager", "boxes"),
+            (ORG_STOCK_PAGE, "warehouse"),
+        ],
+    ),
     ("hf_gruppe_herst", &[("hf_herstellung", "zap"), ("hf_farmliste", "diamond")]),
     ("hf_gruppe_abbau", &[("hf_bergbau", "compass"), ("hf_raffinerien", "factory"), ("hf_bergung", "wrench")]),
     (
@@ -5892,7 +6138,12 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
     ),
     (
         "hf_gruppe_beschaffung",
-        &[("hf_bedarf", "arrow-left-right"), ("hf_einkaufsliste", "receipt"), ("hf_contested", "timer")],
+        &[
+            ("hf_bedarf", "arrow-left-right"),
+            (ORG_ORDERS_PAGE, "container"),
+            ("hf_einkaufsliste", "receipt"),
+            ("hf_contested", "timer"),
+        ],
     ),
     (
         "hf_gruppe_statistik",
@@ -5902,6 +6153,7 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
             ("hf_st_auftraege", "crosshair"),
             ("hf_st_quantum", "orbit"),
             ("hf_st_stabil", "activity"),
+            ("hf_st_flugbuch", "plane-landing"),
         ],
     ),
     (
@@ -5912,10 +6164,9 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
             ("hf_darstellung", "palette"),
             ("hf_ordner", "folder"),
             ("hf_module", "puzzle"),
-            // 4.12 hid it in a folded block "Für Fortgeschrittene"; v5 gives it an entry of its own (decision 21.10.).
-            ("hf_erkennung", "scan-search"),
             ("hf_startprogramme", "circle-play"),
             ("k_basetool_verbindung", "arrow-left-right"),
+            ("s_os_seite", "share-2"),
             ("hf_sichern", "archive-restore"),
         ],
     ),
@@ -6143,7 +6394,9 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("LIVE", "s_pf_kanal_da", &["s_durchsuchen", "s_oeffnen"]),
                     ("HOTFIX", "s_ei_ordner_nicht", &["s_durchsuchen", "s_oeffnen"]),
                     ("PTU", "s_pf_kanal_da", &["s_durchsuchen", "s_oeffnen"]),
+                    #[cfg(feature = "test-build")]
                     ("EPTU", "s_ei_ordner_nicht", &["s_durchsuchen", "s_oeffnen"]),
+                    #[cfg(feature = "test-build")]
                     ("TECH-PREVIEW", "s_ei_ordner_nicht", &["s_durchsuchen", "s_oeffnen"]),
                 ],
             ),
@@ -6162,7 +6415,7 @@ fn folder_there(folder: &str) -> bool {
     !folder.is_empty() && std::path::Path::new(folder).is_dir()
 }
 
-/// The channels of the rows of game folders: the one list of the program (LIVE, HOTFIX, PTU, EPTU, TECH-PREVIEW).
+/// The channels of the rows of game folders: the one list of the program (`paths::CHANNELS`).
 const CHANNEL_ROWS: [&str; CHANNEL_COUNT] = versekit_core::paths::CHANNELS;
 const CHANNEL_COUNT: usize = versekit_core::paths::CHANNELS.len();
 
@@ -6171,7 +6424,9 @@ const FOLDERS: [&str; CHANNEL_COUNT] = [
     "C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE",
     "",
     "C:\\Program Files\\Roberts Space Industries\\StarCitizen\\PTU",
+    #[cfg(feature = "test-build")]
     "",
+    #[cfg(feature = "test-build")]
     "",
 ];
 
@@ -6394,6 +6649,7 @@ fn settings_of(page: &str) -> Groups {
 const GENERAL_START: &[Row] = &[
     ("autostart_win", "s_ei_autostart_h", &[]),
     ("s_ei_hauptfenster", "s_ei_hauptfenster_h", &[]),
+    ("s_fg_startseite", "s_fg_startseite_h", &[]),
     // No "look for updates": v5 always looks quietly and installs on a click or
     // once the game has ended, so nobody runs an old version.
     ("s_ei_gpu", "s_ei_gpu_h", &[]),
@@ -6749,6 +7005,39 @@ fn language_infos(page: &str, shown: &dyn Fn(&str) -> bool) -> Vec<String> {
         "hf_st_auftraege" => &["s_sm_lead", "s_sm_fertig", "s_sm_fehl", "s_sm_abbruch", "s_sm_haeufig", "s_sm_letzte"],
         "hf_st_quantum" => &["s_sq_lead", "s_sq_angekommen", "s_sq_wahl", "s_sq_quote", "s_sq_ziele", "s_sq_starts"],
         "hf_st_stabil" => &["s_sb_lead", "s_sb_sauber", "s_sb_absturz", "s_sb_offen", "s_sb_gruende", "s_sb_letzte"],
+        "hf_st_flugbuch" => &[
+            "s_flb_lead",
+            "s_flb_sitzungen",
+            "s_flb_zusammenfassung",
+            "s_flb_zeitstrahl",
+            "s_flb_suche",
+            "s_flb_leer",
+            "s_flb_k_dauer",
+            "s_flb_k_spruenge",
+            "s_flb_k_auftraege",
+            "s_flb_k_funde",
+            "s_flb_k_tode",
+            "s_flb_k_server",
+            "s_flb_k_orte",
+            "s_flb_t_session",
+            "s_flb_t_place",
+            "s_flb_t_target",
+            "s_flb_t_jump",
+            "s_flb_t_contract",
+            "s_flb_t_find",
+            "s_flb_t_death",
+            "s_flb_t_injury",
+            "s_flb_t_connection",
+            "s_flb_t_shard",
+            "s_flb_t_ship",
+            "s_flb_t_loading",
+            "s_flb_export",
+            "s_flb_export_hinweis",
+            "s_flb_export_vorschau",
+            "s_flb_export_kopieren",
+            "s_flb_export_text",
+            "s_flb_export_json",
+        ],
         // The settings of the pairing lie in the fold "Kopplung verwalten" of the hangar page.
         "hf_hangar" => &hangar_page::PAIRING_SETTINGS,
         _ => &[],
@@ -6771,7 +7060,8 @@ fn base_infos(page: &str) -> Vec<String> {
             "s_ub_test",
             "s_ub_einrichtung",
         ]),
-        "hf_liste" => texts(&["s_bp_suche_platz", "filter_deckel", "s_bp_leg_start"]),
+        "hf_liste" => texts(&["s_bp_suche_platz", "filter_deckel", "s_bp_leg_start", "s_fg_pl_zum_fortschritt"]),
+        "hf_fortschritt" => texts(&["s_fg_pl_zur_liste"]),
         "hf_meinlager" => STOCK.iter().map(|(name, ..)| name.to_string()).collect(),
         "hf_sichern" => {
             let mut words: Vec<String> = texts(&[
@@ -6792,8 +7082,27 @@ fn base_infos(page: &str) -> Vec<String> {
             words
         }
         // What the crafting page and the farm list show, so that the menu filter finds it.
-        "hf_herstellung" => texts(&["s_pl_herstellung", "s_lg_anzahl", "s_lg_bauen", "s_mz_knopf", "s_he_regler_kopf"]),
-        "hf_farmliste" => texts(&["s_mz_titel", "s_mz_weg", "s_fl_sammel_kopf", "s_fl_alles_da"]),
+        "hf_herstellung" => texts(&[
+            "s_pl_herstellung",
+            "s_lg_anzahl",
+            "s_lg_bauen",
+            "s_mz_knopf",
+            "s_he_regler_kopf",
+            "s_fg_pl_titel_leer",
+            "s_fg_pl_merkzettel",
+            "s_fg_pl_im_hangar_oeffnen",
+            "s_fg_pl_reicht",
+            "s_fg_pl_filter",
+            "s_fg_pl_zur_farm",
+        ]),
+        "hf_farmliste" => texts(&[
+            "s_fg_pl_zur_herstellung",
+            "s_fl_sammel_kopf",
+            "s_fl_alles_da",
+            "s_fl_ohne_fundort",
+            "s_fl_quelle_spiel",
+            "s_fl_quelle_scmdb",
+        ]),
         "hf_bedarf" => texts(&["s_bd_rohstoffe", "s_bd_gegenstaende", "s_bd_auftraege", "s_bt_jetzt"]),
         "hf_bank" => texts(&["s_bank_konten", "s_bank_antraege", "s_bank_warteschlange", "s_bank_neu"]),
         "hf_einkaufsliste" => texts(&[
@@ -6855,8 +7164,26 @@ fn base_infos(page: &str) -> Vec<String> {
         ]),
         "hf_ordner" => vec![t("s_mu_ordner_gefunden"), FOLDERS[0].to_string()],
         "k_basetool_verbindung" => texts(&["s_uv_basetool_aus", "s_mu_basetool_anmelden"]),
+        CONTRACT_FINDER_PAGE => texts(&[
+            "s_af_lead",
+            "s_af_nur_bauplan",
+            "s_af_nur_teilbar",
+            "s_af_sp_auftraggeber",
+            "s_af_sp_ruf",
+            "s_af_sp_wartezeit",
+            "s_af_sp_rang",
+        ]),
         _ => Vec::new(),
     }
+}
+
+/// A button at the top of a page that leads to the page that shows the same things in another way: `icon` and the text
+/// key of its words. Whether it was clicked.
+fn cross_button(ui: &mut egui::Ui, scheme: &Scheme, icon: &str, words: &str) -> bool {
+    let word = t(words);
+    let clicked = ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon(icon)).clicked();
+    ui.add_space(4.0);
+    clicked
 }
 
 /// The line of a page or tile whose real data are not in this version yet.
@@ -6875,6 +7202,9 @@ fn search_form(text: &str) -> String {
 fn search_words(page: &str) -> &'static [&'static str] {
     match page {
         "k_basetool_verbindung" | "hf_staffellager" | "hf_bedarf" => &["basetool"],
+        "s_os_seite" => &["orga", "org", "panel", "webpanel", "standard"],
+        ORG_STOCK_PAGE => &["orga", "org", "lager", "bestand", "staffel", "stock"],
+        ORG_ORDERS_PAGE => &["orga", "org", "auftraege", "lieferung", "staffel", "orders", "delivery"],
         "hf_bank" => &["basetool", "kartellbank", "bank", "konto", "account"],
         // The two pages this one took over, by their old names and by what they were about.
         "hf_bergung" => &[
@@ -6923,10 +7253,10 @@ const MODULE_SETTINGS: [(&str, &str, &str, &str); 20] = [
     ("hf_handlesuche", "s_hq_einst_log_sek", "s_hq_einst_log_sek_h", ""),
     ("hf_allgemein", "s_er_acc", "s_er_acc_h", "s_er_acc_suche"),
     ("hf_allgemein", "s_er_fremd", "s_er_fremd_h", "s_er_acc_suche"),
-    ("hf_erkennung", "s_er_satz", "s_er_satz_h", ""),
-    ("hf_erkennung", "s_er_kat", "s_er_kat_h", ""),
-    ("hf_erkennung", "s_er_alle", "s_er_alle_h", ""),
-    ("hf_erkennung", "s_lj_schalter", "s_lj_schalter_h", ""),
+    ("hf_allgemein", "s_er_satz", "s_er_satz_h", ""),
+    ("hf_liste", "s_er_kat", "s_er_kat_h", ""),
+    ("hf_liste", "s_er_alle", "s_er_alle_h", ""),
+    ("hf_meinlager", "s_lj_schalter", "s_lj_schalter_h", ""),
     ("hf_spiel", "aafk_taste", "aafk_taste_eigene", ""),
     ("hf_spiel", "aafk_makro", "aafk_makro_h", ""),
 ];
@@ -7063,6 +7393,12 @@ fn usage_page_id(key: &str) -> Option<&'static str> {
 const SALVAGE_PAGE: &str = "hf_bergung";
 /// The page "Schiffe benennen" of 4.12: no entry in the menu, it says where the names went.
 const ASOP_PAGE: &str = "hf_asop";
+/// The page of every contract of the game data.
+const CONTRACT_FINDER_PAGE: &str = "s_af_seite";
+/// The page of the stock the members of an org share.
+const ORG_STOCK_PAGE: &str = "s_ol_seite";
+/// The page of the orders of an org.
+const ORG_ORDERS_PAGE: &str = "s_oa_seite";
 
 /// The group a page belongs to; empty for the page at the top of the menu, which has none.
 /// The menu group of the page `page`, for tools that open a page by its key.
@@ -7090,7 +7426,7 @@ fn tile_of(key: &str) -> (&'static str, String, String) {
     let icon = NAV.iter().flat_map(|(_, pages)| pages.iter()).chain([&TOP_PAGE]).find(|(p, _)| *p == key);
     let mut name = versekit_core::language::t(key);
     // The pages of the folded part "Fortgeschritten" say so on their card (`cards.ADVANCED`).
-    if matches!(versekit_core::overview::page_name(key), Some("erkennung" | "startprogramme")) {
+    if versekit_core::overview::page_name(key) == Some("startprogramme") {
         name = format!("{name} · {}", t("k_fortgeschritten"));
     }
     (icon.map_or("pin", |(_, icon)| *icon), name, t("s_ke_geheftet"))
@@ -7412,6 +7748,20 @@ mod tests {
         }
     }
 
+    /// The test build gets the yellow shield "Testfassung" next to the version like a run on a copy of the data; the
+    /// player build keeps the plain version on its own data.
+    #[test]
+    fn the_test_build_gets_the_same_shield_next_to_the_version_as_a_run_on_a_copy() {
+        use versekit_core::language::test_run;
+        use versekit_core::paths::Host;
+        let own = Host::new(versekit_core::pypath::Flavor::native(), &[], "/");
+        let shield = head_word(true, false, test_run(&own));
+        assert_eq!(shield, versekit_core::edition::IS_TEST_BUILD.then_some("s_kopf_testfassung"));
+        let mut copy = own.clone();
+        copy.copy = Some("/kopie".into());
+        assert_eq!(head_word(true, false, test_run(&copy)), Some("s_kopf_testfassung"), "the copy has it as before");
+    }
+
     /// The overlay closes the main window with itself, and a signal is done
     /// once: the frames after it close nothing.
     #[test]
@@ -7569,9 +7919,17 @@ mod tests {
         assert_eq!(usage_page_id("hf_diagnose"), Some("diagnose"));
         assert_eq!(usage_page_id("hf_meinlager"), Some("meinlager"));
         assert_eq!(usage_page_id("eigene_seite"), None);
-        // Every page of the side bar has an id the receiver takes, the handle search included.
+        // Every page of the side bar has an id the receiver takes, the handle search included; the flight log is
+        // not counted until the receiver knows it.
+        for (page, id) in [("s_os_seite", "orgaverbinden"), (ORG_STOCK_PAGE, "orgalager"), (ORG_ORDERS_PAGE, "orgaauftraege")] {
+            assert_eq!(usage_page_id(page), Some(id), "{page}");
+        }
+        let not_counted = ["hf_st_flugbuch"];
+        for page in not_counted {
+            assert_eq!(usage_page_id(page), None, "{page}");
+        }
         for (_, pages) in NAV {
-            for (page, _) in pages.iter() {
+            for (page, _) in pages.iter().filter(|(page, _)| !not_counted.contains(page)) {
                 let id = usage_page_id(page).unwrap_or_else(|| panic!("{page} has no id"));
                 assert!(versekit_core::usage::PAGES.contains(&id), "{page} → {id}");
             }
@@ -7651,7 +8009,7 @@ mod tests {
         let dir_text = dir.to_string_lossy().into_owned();
         let file = dir.join("einstellungen.json");
         std::fs::write(&file, "{\n  \"fenster_groesse\": \"1229x1186\"\n}\n").unwrap();
-        let host = Host::new(Flavor::native(), &[("SC_BP_HOME", &dir_text)], &dir_text);
+        let host = Host::new(Flavor::native(), &[("VERSEKIT_HOME", &dir_text)], &dir_text);
         let mut page = SamplePage::with_settings(Paths::new(host));
         assert_eq!(page.window_place().map(|p| p.size), Some((1229, 1186)));
         let ctx = egui::Context::default();
@@ -8043,7 +8401,7 @@ mod tests {
         let dir_text = dir.to_string_lossy().into_owned();
         let file = dir.join("einstellungen.json");
         std::fs::write(&file, "{\n  \"fenster_groesse\": \"1229x1186\"\n}\n").unwrap();
-        let host = Host::new(Flavor::native(), &[("SC_BP_HOME", &dir_text)], &dir_text);
+        let host = Host::new(Flavor::native(), &[("VERSEKIT_HOME", &dir_text)], &dir_text);
         let mut page = SamplePage::with_settings(Paths::new(host));
         let ctx = egui::Context::default();
         crate::install(&ctx);
@@ -8162,7 +8520,7 @@ mod tests {
         std::fs::write(&file, "{\n  \"fenster_groesse\": \"1229x1186\"\n}\n").unwrap();
         let mut page = SamplePage::with_settings(Paths::new(Host::new(
             Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, &dir_text)],
+            &[(versekit_core::envvars::ENV_HOME, &dir_text)],
             &dir_text,
         )));
         let ctx = egui::Context::default();
@@ -8336,7 +8694,7 @@ mod tests {
     /// asked for meanwhile waits for it.
     #[test]
     fn a_slow_settings_file_does_not_hold_the_window() {
-        use versekit_core::legacy::ENV_HOME;
+        use versekit_core::envvars::ENV_HOME;
         use versekit_core::paths::Host;
         use versekit_core::pypath::Flavor;
 
@@ -8377,7 +8735,7 @@ mod tests {
     /// window (that made tests of other pages wait for it and fail now and then).
     #[test]
     fn a_slow_writer_of_one_window_leaves_the_writer_of_another_alone() {
-        use versekit_core::legacy::ENV_HOME;
+        use versekit_core::envvars::ENV_HOME;
         use versekit_core::paths::Host;
         use versekit_core::pypath::Flavor;
 
@@ -8403,7 +8761,7 @@ mod tests {
     /// its own keeps the freed corner.
     #[test]
     fn a_corner_freed_by_the_overlay_is_taken_over() {
-        use versekit_core::legacy::ENV_HOME;
+        use versekit_core::envvars::ENV_HOME;
         use versekit_core::paths::Host;
         use versekit_core::pypath::Flavor;
 
@@ -9532,7 +9890,7 @@ mod tests {
         let text = dir.to_string_lossy().into_owned();
         let host = versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, &text)],
+            &[(versekit_core::envvars::ENV_HOME, &text)],
             &text,
         );
         let paths = versekit_core::paths::Paths::new(host);
@@ -9586,7 +9944,7 @@ mod tests {
             ];
             let mut host = versekit_core::paths::Host::new(versekit_core::pypath::Flavor::native(), &home, &root_text);
             if state == "given" {
-                host.set_var(versekit_core::legacy::ENV_HOME, &long.to_string_lossy());
+                host.set_var(versekit_core::envvars::ENV_HOME, &long.to_string_lossy());
                 host.set_var(versekit_core::paths::ENV_INSTALL_DIR, &long.to_string_lossy());
             }
             let paths = Paths::new(host);

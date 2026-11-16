@@ -384,8 +384,7 @@ fn versioned_title(lang: Lang, copy: bool, version: &str) -> String {
     }
 }
 
-/// The title as it stands in the bar: the version of the program, and a test build says so (`SC_BP_TESTFASSUNG`
-/// of `host`).
+/// The title as it stands in the bar: the version of the program, and the test build says so.
 fn shown_title(copy: bool, host: &Host) -> String {
     let lang = versekit_core::language::current();
     let text = versioned_title(lang, copy, env!("CARGO_PKG_VERSION"));
@@ -807,9 +806,11 @@ mod tests {
         assert_eq!(versioned_title(Lang::De, true, "5.0.0-dev"), "VerseKit 5.0.0-dev (Testkopie)");
         assert_eq!(versioned_title(Lang::En, true, "5.0.0-dev"), "VerseKit 5.0.0-dev (test copy)");
         let plain = Host::new(versekit_core::pypath::Flavor::native(), &[], "/");
-        assert_eq!(shown_title(false, &plain), format!("VerseKit {}", env!("CARGO_PKG_VERSION")));
+        // The test build does not mark the title either: its shield stands next to the version in the window.
+        let named = format!("VerseKit {}", env!("CARGO_PKG_VERSION"));
+        assert_eq!(shown_title(false, &plain), named);
         let viewport = base_viewport(false, (880.0, 380.0));
-        assert_eq!(viewport.title.as_deref(), Some(format!("VerseKit {}", env!("CARGO_PKG_VERSION")).as_str()));
+        assert_eq!(viewport.title.as_deref(), Some(named.as_str()));
     }
 
     #[test]
@@ -824,17 +825,16 @@ mod tests {
     }
 
     #[test]
-    fn a_test_build_says_so_in_the_title() {
+    fn the_title_stays_the_same_in_the_test_build_and_the_mark_stands_next_to_the_version() {
         let flavor = versekit_core::pypath::Flavor::native();
         let named = format!("VerseKit {}", env!("CARGO_PKG_VERSION"));
-        let plain = Host::new(flavor, &[], "/");
-        assert_eq!(shown_title(false, &plain), named);
-        let test = Host::new(flavor, &[("SC_BP_TESTFASSUNG", "1")], "/");
-        let warning = versekit_core::language::t("s_testfassung");
-        assert_eq!(shown_title(false, &test), format!("{named}   {warning}"));
+        let host = Host::new(flavor, &[], "/");
+        // The test build marks itself with the yellow shield next to the version (the head bar asks
+        // `language::test_run`), never in the title: a recording reads the title of a window.
+        assert_eq!(versekit_core::language::test_run(&host), versekit_core::edition::IS_TEST_BUILD);
+        assert_eq!(shown_title(false, &host), named);
+        assert!(!shown_title(false, &host).contains(&versekit_core::language::t("s_testfassung")));
         let copy = versioned_title(versekit_core::language::current(), true, env!("CARGO_PKG_VERSION"));
-        assert!(shown_title(true, &test).starts_with(&copy), "the copy keeps its word");
-        let off = Host::new(flavor, &[("SC_BP_TESTFASSUNG", "0")], "/");
-        assert_eq!(shown_title(false, &off), named);
+        assert!(shown_title(true, &host).starts_with(&copy), "the copy keeps its word");
     }
 }

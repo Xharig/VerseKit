@@ -27,7 +27,7 @@ const BASE: &str = "https://github.com/Xharig/VerseKit/releases/download";
 fn paths_in(name: &str, extra: &[(&str, &str)]) -> (Dir, Paths) {
     let folder = Dir::new(name);
     let text = folder.path().to_string_lossy().into_owned();
-    let mut vars = vec![(legacy::ENV_HOME, text.as_str())];
+    let mut vars = vec![(crate::envvars::ENV_HOME, text.as_str())];
     vars.extend_from_slice(extra);
     (folder, Paths::new(Host::new(Flavor::native(), &vars, &text)))
 }
@@ -48,7 +48,7 @@ fn sha(bytes: &[u8]) -> String {
 fn only_release_files_of_this_project_on_github_count() {
     for good in [
         format!("{BASE}/v5.0.0/VerseKit-Setup.exe"),
-        "https://github.com/Xharig/SC-BP-Watcher/releases/download/v4.12.2/VerseKit-Setup.exe".to_string(),
+        format!("https://github.com/{}/releases/download/v4.12.2/VerseKit-Setup.exe", crate::legacy::OLD_REPO),
         "https://GITHUB.com/xharig/versekit/releases/download/v5.0.0-rc1/SHA256SUMS.txt".to_string(),
         "https://github.com/Xharig/VerseKit/releases/v5.0.0/VerseKit-Setup.exe".to_string(),
         "https://github.com:443/Xharig/VerseKit/releases/download/v5.0.0/x.exe".to_string(),
@@ -144,11 +144,25 @@ fn under_windows_only_the_installer_is_fetched_and_only_from_the_project() {
     assert_eq!(matching_asset(&r, Packaging::Exe), None, "not from the project");
 }
 
+/// The attachments of a release under the name of the previous program and under the new one are both taken.
+#[test]
+fn the_attachments_are_found_under_the_old_and_the_new_name() {
+    let old_setup = format!("{}-Setup.exe", crate::legacy::PROGRAM_PROCESS);
+    let old_image = format!("{}-x86_64.AppImage", crate::legacy::PROGRAM_PROCESS);
+    for (setup, image) in [("VerseKit-Setup.exe", "VerseKit-x86_64.AppImage"), (&old_setup, &old_image)] {
+        let mut r = release("v5.3.0", false);
+        r.assets = vec![asset(image), asset(setup)];
+        assert_eq!(matching_asset(&r, Packaging::Exe).map(|a| a.name.as_str()), Some(setup));
+        assert_eq!(matching_asset(&r, Packaging::AppImage).map(|a| a.name.as_str()), Some(image));
+    }
+}
+
 #[test]
 fn a_file_is_ours_by_its_old_or_new_name() {
-    assert!(is_ours(r"C:\Programme\Verse-Kit\SC-BP-Watcher.exe"));
+    assert!(is_ours(&format!(r"C:\Programme\Verse-Kit\{}", crate::legacy::PROGRAM_FILE)));
+    assert!(is_ours(r"C:\Programme\VerseKit\VerseKit.exe"));
     assert!(is_ours("/home/x/Apps/VerseKit-x86_64.AppImage"));
-    assert!(is_ours("/home/x/Apps/sc-bp-watcher-x86_64.AppImage"));
+    assert!(is_ours(&format!("/home/x/Apps/{}-x86_64.AppImage", crate::legacy::OWN_FILENAME)));
     assert!(!is_ours("/home/x/Apps/Firefox.AppImage"));
     assert!(!is_ours(r"C:\versekit\fremd.exe"), "the folder does not count, the name does");
     let dir = Dir::new("updater-appimage");
@@ -241,12 +255,33 @@ fn the_answer_of_github_is_remembered_and_asked_again_only_after_ten_minutes() {
 }
 
 #[test]
+fn the_releases_of_the_org_server_are_never_an_update_of_the_app() {
+    for app in ["v5.4.0", "5.4.0", "v5.4.0-rc1"] {
+        assert!(is_app_tag(app), "{app}");
+    }
+    for other in ["orgserver-v9.9.9", "orgserver-v1.0.0", "", "latest", "vorab"] {
+        assert!(!is_app_tag(other), "{other}");
+    }
+    let body = r#"[{"tag_name":"orgserver-v9.9.9","published_at":"2026-11-22T10:00:00Z","prerelease":false,"draft":false,"assets":[]},
+                   {"tag_name":"v5.0.1","published_at":"2026-11-20T10:00:00Z","prerelease":false,"draft":false,"assets":[]}]"#;
+    let releases = releases_from_api(body.as_bytes()).unwrap();
+    assert_eq!(releases.iter().map(|r| r.version.as_str()).collect::<Vec<_>>(), ["v5.0.1"], "the server's release is left out");
+
+    let mixed = vec![release("orgserver-v9.9.9", false), release("v5.0.1", false)];
+    assert_eq!(best_newer(&mixed, "5.0.0", true).map(|r| r.version.as_str()), Some("v5.0.1"));
+    assert_eq!(latest(&mixed, true).map(|r| r.version.as_str()), Some("v5.0.1"), "never shown as the newest app");
+    let (_dir, paths) = paths_in("updater-orgserver", &[]);
+    cache_write(&paths, &Cache { checked: 0.0, releases: vec![release("orgserver-v9.9.9", false)] }).unwrap();
+    assert_eq!(known_newer(&paths, "5.0.0"), None, "not even from a cache written before");
+}
+
+#[test]
 fn without_the_net_nothing_is_asked_but_what_is_known_is_offered() {
-    let (_dir, paths) = paths_in("updater-ohne-netz", &[(legacy::ENV_NO_NET, "1")]);
+    let (_dir, paths) = paths_in("updater-ohne-netz", &[(crate::envvars::ENV_NO_NET, "1")]);
     cache_write(&paths, &Cache { checked: 0.0, releases: vec![release("v5.0.1", false)] }).unwrap();
     let net = Fake::default();
     let checked = check(&net, &paths, "5.0.0", true, 99_999.0);
-    assert!(net.asked().is_empty(), "SC_BP_NO_NET forbids asking");
+    assert!(net.asked().is_empty(), "VERSEKIT_NO_NET forbids asking");
     assert_eq!((checked.fetched, checked.offer.map(|r| r.version)), (None, Some("v5.0.1".into())));
 }
 

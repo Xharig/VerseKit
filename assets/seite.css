@@ -24,8 +24,7 @@
 .hero h1{margin:0}
 .hero h1 .name{display:block;font-size:clamp(52px,8vw,84px);line-height:1;font-weight:700;letter-spacing:-.02em}
 .hero h1 .zeile{display:block;margin-top:14px;font-size:clamp(23px,2.6vw,30px);line-height:1.25;font-weight:400}
-.hero .unter{font-size:19px;color:var(--leise);max-width:34em;margin:18px 0 6px}
-.hero .fruehername{font-size:15px;color:var(--leise);margin:0 0 28px}
+.hero .unter{font-size:19px;color:var(--leise);max-width:34em;margin:18px 0 28px}
 .hero .anderes{margin:12px 0 0;font-size:15px}
 .hero .klein{margin:14px 0 0;font-size:15px;color:var(--leise)}
 .hero .am-pc{display:none;margin:0 0 14px;font-size:15px;color:var(--leise)}
@@ -281,8 +280,7 @@
   .hero-raster{grid-template-areas:"text" "film" "aktion" "blatt"}
   /* The header already shows the logo right above. */
   .hero .zeichen,.los-innen img{display:none}
-  .hero .unter{font-size:17px}
-  .hero .fruehername{margin-bottom:0}
+  .hero .unter{font-size:17px;margin-bottom:6px}
   .film{margin:28px 0 32px}
   .hero .am-pc{display:block}
   .hero .knopf.voll{background:none;border-color:var(--linie-hell);color:var(--text)}

@@ -31,6 +31,8 @@ use crate::text::py_sum;
 use super::{CONFUSABLE, Int, number};
 
 pub const DIGIT_FILE: &str = "raffinerie-ziffern.json";
+/// The digits that come with the program (`daten/raffinerie-ziffern.json`, the same form as the file of the player).
+const SHIPPED_FILE: &str = include_str!("../../../../daten/raffinerie-ziffern.json");
 /// Size of a pattern in pixels.
 pub const DIGIT_W: usize = 10;
 pub const DIGIT_H: usize = 14;
@@ -118,12 +120,43 @@ impl Digits {
         Value::Object(vec![("format".into(), Value::int(1)), ("ziffern".into(), Value::Object(digits))])
     }
 
-    /// The learned patterns of the player, or none.
+    /// The learned patterns of the player, or none. Only these are kept when the player teaches more
+    /// ([`learn`]); to read with, take [`Digits::load_all`].
     pub fn load(paths: &Paths) -> Digits {
         match jsonio::read_json(&paths.app_file(DIGIT_FILE)) {
             Ok(data) => Digits::from_value(&data),
             Err(_) => Digits::default(),
         }
+    }
+
+    /// The patterns that come with the program: the ten digits of the font of the terminal, learned from typed
+    /// lines of pictures of the terminal the way a player teaches them.
+    pub fn shipped() -> &'static Digits {
+        static SHIPPED: std::sync::OnceLock<Digits> = std::sync::OnceLock::new();
+        SHIPPED.get_or_init(|| match jsonio::loads(SHIPPED_FILE) {
+            Ok(data) => Digits::from_value(&data),
+            Err(_) => Digits::default(),
+        })
+    }
+
+    /// The patterns to read with: the player's own, and the shipped ones for every digit the player has too few
+    /// patterns of ([`DIGIT_MIN`]). A digit the player has taught enough stands alone: his own pictures win over
+    /// the shipped ones, which come from another screen.
+    pub fn load_all(paths: &Paths) -> Digits {
+        Digits::load(paths).completed_by(Digits::shipped())
+    }
+
+    /// `self` with the patterns of `other` added for each digit that has fewer than [`DIGIT_MIN`] here.
+    pub fn completed_by(mut self, other: &Digits) -> Digits {
+        for (digit, patterns) in &other.by_digit {
+            let own = self.by_digit.iter().position(|(d, _)| d == digit);
+            match own {
+                Some(at) if self.by_digit[at].1.len() >= DIGIT_MIN => {}
+                Some(at) => self.by_digit[at].1.extend(patterns.iter().cloned()),
+                None => self.by_digit.push((digit.clone(), patterns.clone())),
+            }
+        }
+        self
     }
 
     /// `save_digits`: written whole or not at all.
@@ -140,6 +173,11 @@ impl Digits {
 
     pub fn is_empty(&self) -> bool {
         self.by_digit.is_empty()
+    }
+
+    /// How many patterns there are over all digits.
+    pub fn count(&self) -> usize {
+        self.by_digit.iter().map(|(_, patterns)| patterns.len()).sum()
     }
 
     /// The patterns of one digit.

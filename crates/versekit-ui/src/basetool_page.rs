@@ -250,7 +250,7 @@ impl Wire {
         let _ = std::fs::create_dir_all(folder);
         let host = versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, folder)],
+            &[(versekit_core::envvars::ENV_HOME, folder)],
             folder,
         );
         let paths = Arc::new(Paths::new(host));
@@ -1865,7 +1865,7 @@ mod tests {
     /// the pages.
     #[test]
     fn the_real_connection_is_made_without_going_out() {
-        use versekit_core::legacy::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
+        use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
         let dir = folder("echt");
         let secrets = format!("{dir}-geheim");
         // A made-up computer: nothing of the shell the check runs in counts.
@@ -1894,9 +1894,9 @@ mod tests {
     }
 
     /// The connection of the program on a copy of the data (`--daten`): `vars` more variables of its host.
-    /// Nothing can go out (`SC_BP_NO_NET`), the key has a name of its own.
+    /// Nothing can go out (`VERSEKIT_NO_NET`), the key has a name of its own.
     fn copy_wire(name: &str, vars: &[(&str, &str)]) -> (Wire, String) {
-        use versekit_core::legacy::{ENV_BASETOOL_KEYNAME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
+        use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
         let root = folder(name);
         std::fs::create_dir_all(std::path::Path::new(&root).join(versekit_core::paths::COPY_DATA_FOLDER)).unwrap();
         let secrets = format!("{root}/geheim");
@@ -2011,9 +2011,9 @@ mod tests {
     }
 
     /// The connection of the program on the player's own data, in a throwaway folder: `vars` more variables.
-    /// Nothing can go out (`SC_BP_NO_NET`).
+    /// Nothing can go out (`VERSEKIT_NO_NET`).
     fn own_wire(name: &str, vars: &[(&str, &str)]) -> (Wire, String, String) {
-        use versekit_core::legacy::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
+        use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET, ENV_SECRETS, ENV_SECRETS_FILE};
         let dir = folder(name);
         let secrets = format!("{dir}-geheim");
         let mut all = vec![
@@ -2076,7 +2076,7 @@ mod tests {
     /// with a key name of its own the key is its own and the line is not there.
     #[test]
     fn a_copy_with_the_real_key_keeps_it_and_the_page_says_so() {
-        use versekit_core::legacy::ENV_BASETOOL_KEYNAME;
+        use versekit_core::envvars::ENV_BASETOOL_KEYNAME;
         use versekit_core::testmode::ENV_BASETOOL_IN_TEST;
         let real = versekit_core::basetool::key::KEY_NAME;
         let (wire, root) = copy_wire("schluessel-echt", &[(ENV_BASETOOL_IN_TEST, "1"), (ENV_BASETOOL_KEYNAME, real)]);

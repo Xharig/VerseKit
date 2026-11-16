@@ -37,7 +37,7 @@ deinen Klick. Auf den Speicher des laufenden Spiels greift VerseKit nicht zu.
 
 ### Dein Datenordner
 
-Ab Werk der Ordner `Verse-Kit` in deinen Dokumenten; den Ort änderst du unter
+Ab Werk der Ordner `VerseKit` in deinen Dokumenten; den Ort änderst du unter
 Einstellungen › Installation & Pfade. Liegen deine Dokumente in OneDrive,
 iCloud oder einer anderen Cloud, liegt der Ordner dort mit. Darin liegt alles,
 was VerseKit über dich weiß: Bauplan-Bestand, Merkliste, Einstellungen,
@@ -119,7 +119,7 @@ IP-Adresse. Alle Abrufe laufen über https.
 | Geteilte Beziehungsliste („Liste laden“ in der Handle-Suche) | die Adresse, die du selbst einträgst | nur auf deinen Klick |
 
 Jeder Abruf trägt die Kennung `VerseKit/<Version> (+https://versekit.xharig.com)`;
-die Nutzungszählung schickt `VerseKit/<Version>`, der Fehlerbericht `Verse-Kit`.
+die Nutzungszählung schickt `VerseKit/<Version>`, der Fehlerbericht `VerseKit`.
 
 Eine geteilte Beziehungsliste lädt VerseKit nur, wenn du auf „Liste laden“
 klickst, und nur über https. Dorthin geht nur die übliche Kennung. Die Liste
@@ -131,7 +131,7 @@ Neue Versionen holt und spielt VerseKit von selbst ein, frühestens zwei Minuten
 nach ihrem Erscheinen und nie, solange Star Citizen läuft. Einen Schalter dafür
 gibt es nicht.
 
-Mit der Umgebungsvariable `SC_BP_NO_NET=1` (jeder Wert außer leer und `0`)
+Mit der Umgebungsvariable `VERSEKIT_NO_NET=1` (jeder Wert außer leer und `0`)
 holt und sendet VerseKit gar nichts.
 
 ## Nutzung zählen
@@ -191,7 +191,7 @@ Entwickler.
 Die Meldung ist ab Werk an. Unter Einstellungen › Allgemein › Datenschutz
 schaltest du „Nutzung zählen lassen“ aus (Schlüssel `nutzung_melden`); dann
 wird nichts gesendet und nichts mehr gezählt, und die bisherigen Zähler löscht
-VerseKit beim nächsten Zählversuch. Ebenso entfällt sie mit `SC_BP_NO_NET=1`.
+VerseKit beim nächsten Zählversuch. Ebenso entfällt sie mit `VERSEKIT_NO_NET=1`.
 
 ## Downloads über die Webseite
 
@@ -247,6 +247,36 @@ Lesung, die nicht sicher war (die letzten drei). Nur wenn die Tabelle gar nicht
 gefunden wurde, ist es das Spielbild, verkleinert; darauf können dein Handle
 und dein aUEC-Stand zu sehen sein. Das Spielbild für das Signatur-Fenster und
 die unsicheren Signatur-Ausschnitte (`signatur-gemerkt`) gehen nie mit.
+
+## Orga verbinden
+
+Nur wenn du unter Einstellungen › Orga verbinden die Adresse einer Orga
+einträgst und im Panel der Orga den Code bestätigst, spricht VerseKit mit
+deren Server (offener Orga-Standard, nur über https). Die Zugangsdaten liegen
+nur in deinem Benutzerordner, nie im Datenordner, in der Sicherung oder im
+Fehlerbericht. Welche Rechte VerseKit bekommt, legst du im Panel fest; ob eine
+Orga-Seite sichtbar ist, entscheidet zusätzlich ein Schalter je Orga und Bereich
+(ab Werk aus).
+
+- **Was zurückkommt:** Bestand, Baupläne und Aufträge der Orga, mit den Namen
+  der Mitglieder, die sie geteilt haben. VerseKit holt sie, wenn du die Seite
+  öffnest und die Daten älter als zehn Minuten sind, und auf den Knopf
+  „Aktualisieren“, nie im Takt. Sie bleiben nur im Arbeitsspeicher: nie in
+  einer Datei, nie in der Sicherung, nie im Fehlerbericht. Dein eigenes Lager
+  und deine eigene Bauplan-Liste ändern sie nie. Im Streamer-Modus erscheinen
+  die Namen der Mitglieder und die Adresse der Orga nicht.
+- **Was hinausgeht:** nur auf deinen Klick. „Bestand teilen“ schickt die Liste,
+  die die Bestätigungskarte vorher zeigt: Name, Menge, Einheit, Qualität und
+  Ort jeder Zeile, nie Kaufpreise, nie gestohlene Ware, nie Zeilen, deren
+  englischen Namen VerseKit nicht sicher kennt. „Meine Baupläne teilen“
+  schickt die Namen deiner Baupläne ohne die Startbaupläne. „Lieferung buchen“
+  schickt die Mengen, die du eingibst. Die Orga ersetzt beim Teilen, was sie
+  bisher von dir hat; „Teilen beenden“ löscht es dort. VerseKit merkt sich nur
+  Zeit und Zahl des letzten Teilens (`teilen.json` im Ordner der
+  Orga-Verbindungen), keine Namen und keine Mengen.
+- **`VERSEKIT_NO_NET=1`** sperrt auch alle Anfragen an eine Orga. Nur Adressen
+  auf deinem eigenen Rechner (`localhost`, `127.0.0.1`), etwa ein Testserver,
+  bleiben erreichbar.
 
 ## KRT Profit Basetool
 

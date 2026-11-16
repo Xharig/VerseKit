@@ -32,7 +32,7 @@ use versekit_core::language::{Arg, t, tf};
 use versekit_core::net::Fake;
 use versekit_core::paths::Paths;
 use versekit_core::theme::Scheme;
-use versekit_core::update_flow::{Env, Runner, State};
+use versekit_core::update_flow::{Env, NoBackup, Runner, State};
 use versekit_core::update_run;
 use versekit_core::update_swap::Started;
 use versekit_core::updater::{self, Packaging, Release};
@@ -143,11 +143,11 @@ impl View {
         }
     }
 
-    /// Does the newest release of the channel the head button fetches from run already? Then it has nothing to
-    /// fetch.
+    /// Does the newest release of the channel the head button fetches from run already, or an even newer version?
+    /// Then it has nothing to fetch.
     pub fn runs_newest(&self) -> bool {
         let channel = if HEAD_FETCH_PRERELEASE { &self.test } else { &self.stable };
-        channel.relation == Relation::Same
+        matches!(channel.relation, Relation::Same | Relation::Older | Relation::Ahead)
     }
 }
 
@@ -231,6 +231,9 @@ pub struct UpdateUi {
     next_look: f64,
     note: Option<Look>,
     question: Option<Question>,
+    /// The fetch that stopped because the backup before the update could not be made: the player is asked whether to
+    /// update without it. ⚠ Without an answer nothing is installed.
+    backup_question: Option<NoBackup>,
     /// Seconds a click still waits after a failed download, as of the last frame of the page.
     manual_wait: Option<f64>,
     /// Since when a newer version is on offer and not installed (`auto_update::offered_since`), as of the last read.
@@ -271,6 +274,7 @@ impl UpdateUi {
             next_look: 0.0,
             note: None,
             question: None,
+            backup_question: None,
             manual_wait: None,
             offered_since: None,
         }
@@ -352,6 +356,10 @@ impl UpdateUi {
         if self.runner.is_busy() {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
+        if let Some(asked) = self.runner.take_no_backup() {
+            self.backup_question = Some(asked);
+            ctx.request_repaint();
+        }
         (self.runner.take_said(), self.runner.state() == State::Quit)
     }
 
@@ -380,12 +388,47 @@ impl UpdateUi {
     }
 
     pub fn asking(&self) -> bool {
-        self.question.is_some()
+        self.question.is_some() || self.backup_question.is_some()
+    }
+
+    /// The question after a backup that could not be made, over the dimmed window: update all the same, or not.
+    /// ⚠ Escape and a click beside it do nothing, as with the first question: without an answer nothing is
+    /// installed. Returns a sentence for the player.
+    fn backup_dialog(&mut self, ctx: &egui::Context, scheme: &Scheme, paths: &Paths) -> Option<String> {
+        let asked = self.backup_question.clone()?;
+        let version = Arg::from(updater::shown_version(&asked.version));
+        let text = tf("up_sicherung_frage", &[("0", version), ("1", Arg::from(asked.reason.as_str()))]);
+        let (title, anyway_word, no_word) =
+            (t("up_sicherung_titel"), t("up_sicherung_trotzdem"), t("up_sicherung_abbruch"));
+        let ((no_clicked, anyway_clicked), _closed) = widgets::dialog(ctx, scheme, "update-ohne-sicherung", |ui| {
+            widgets::heading(ui, scheme, &title);
+            ui.add_space(4.0);
+            ui.add(egui::Label::new(text).wrap());
+            ui.add_space(8.0);
+            ui.horizontal_wrapped(|ui| {
+                let no = ui.add(widgets::Button::new(&no_word, ButtonKind::Strong, scheme)).clicked();
+                let anyway = ui.add(widgets::Button::new(&anyway_word, ButtonKind::Normal, scheme)).clicked();
+                (no, anyway)
+            })
+            .inner
+        });
+        if anyway_clicked {
+            self.backup_question = None;
+            let started = self.runner.start_without_backup(&self.env, paths.host.clone(), asked.with_prerelease);
+            return (!started).then(|| t("up_laeuft_schon"));
+        }
+        if no_clicked {
+            self.backup_question = None;
+        }
+        None
     }
 
     /// The question, over the dimmed window. ⚠ Escape and a click beside it do nothing: the two ways are equal,
     /// and whoever closes the question must not have chosen one. Returns a sentence for the player.
     pub fn dialogs(&mut self, ctx: &egui::Context, scheme: &Scheme, paths: &Paths) -> Option<String> {
+        if self.backup_question.is_some() {
+            return self.backup_dialog(ctx, scheme, paths);
+        }
         let question = self.question.clone()?;
         let version = Arg::from(question.version.as_str());
         let mut text =
@@ -821,5 +864,16 @@ mod tests {
         let stable = View::of(&releases, "5.0.1", false, false);
         assert_eq!((stable.stable.relation, stable.test.relation), (Relation::Same, Relation::Newer));
         assert!(!stable.runs_newest(), "the head button fetches the test version");
+    }
+
+    /// A version newer than every release (a test build) has nothing to fetch by the head button: it would bring
+    /// an older one. The boxes of the channels keep the way back.
+    #[test]
+    fn a_version_newer_than_every_release_greys_the_head_button() {
+        let releases = vec![release("v5.3.6", false)];
+        let ahead = View::of(&releases, "5.4.0", true, false);
+        assert_eq!(ahead.test.relation, Relation::Older);
+        assert!(ahead.runs_newest());
+        assert!(ahead.test.can_fetch(), "the box of the channel still offers the way back");
     }
 }

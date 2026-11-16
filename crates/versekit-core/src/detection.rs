@@ -183,7 +183,7 @@ mod tests {
     }
 
     fn paths_in(home: &str, extra: &[(&str, &str)]) -> Paths {
-        let mut vars = vec![("SC_BP_HOME", home), ("HOME", home)];
+        let mut vars = vec![("VERSEKIT_HOME", home), ("HOME", home)];
         vars.extend_from_slice(extra);
         Paths::new(Host::new(Flavor::Posix, &vars, home))
     }

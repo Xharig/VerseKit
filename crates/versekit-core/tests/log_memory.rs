@@ -32,6 +32,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use versekit_core::contracts::Patterns;
+use versekit_core::flugbuch;
+use versekit_core::injuries::Phrases;
 use versekit_core::jsonio::Map;
 use versekit_core::language::{Choice, set_thread_language};
 use versekit_core::live_contracts::{Check, Line, Live, Out, StartLog, hidden_load};
@@ -44,7 +46,7 @@ use versekit_core::phrases::{Sources, pattern};
 use versekit_core::pypath::Flavor;
 use versekit_core::shard::{Join, joins_in};
 use versekit_core::text::{decode_ignore, decode_replace};
-use versekit_core::{contracts, legacy, logread, logscan, play_stats, playtime};
+use versekit_core::{contracts, envvars, logread, logscan, play_stats, playtime};
 
 static CURRENT: AtomicUsize = AtomicUsize::new(0);
 static PEAK: AtomicUsize = AtomicUsize::new(0);
@@ -216,7 +218,7 @@ fn scratch(name: &str) -> PathBuf {
 
 fn paths_in(dir: &Path) -> Paths {
     let home = dir.to_string_lossy().into_owned();
-    Paths::new(Host::new(Flavor::native(), &[(legacy::ENV_HOME, home.as_str())], &home))
+    Paths::new(Host::new(Flavor::native(), &[(envvars::ENV_HOME, home.as_str())], &home))
 }
 
 fn catalog() -> ContractBlueprints {
@@ -330,10 +332,14 @@ fn the_peak_does_not_grow_with_the_log() {
         let (_, start) = peak_of(|| start_pieces(&paths, &log));
         let (_, stats) = peak_of(|| play_stats::read_log(&path, Some("Xharig")));
         let (_, time) = peak_of(|| playtime::span_from_log(&path));
+        let phrases = Phrases::table();
+        let (flight, book) = peak_of(|| flugbuch::read_log(&path, Some("Xharig"), &phrases));
         // A few blocks at the most, whatever the size of the log.
         assert!(start <= 3 * logread::BLOCK, "start of the overlay, {megabytes} MB: {start}");
         assert!(stats <= 3 * logread::BLOCK, "statistics, {megabytes} MB: {stats}");
         assert!(time <= 3 * logread::BLOCK, "playing time, {megabytes} MB: {time}");
+        assert!(book <= 3 * logread::BLOCK, "flight log, {megabytes} MB: {book}");
+        assert!(flight.is_some_and(|session| session.count(flugbuch::Kind::ServerChange) == 1), "{megabytes} MB");
         std::fs::remove_file(&log).expect("remove");
     }
     let _ = std::fs::remove_dir_all(&dir);
@@ -350,7 +356,7 @@ fn game_in(dir: &Path, megabytes: usize) -> (Paths, PathBuf) {
     let (home, game) = (home.to_string_lossy().into_owned(), game.to_string_lossy().into_owned());
     let host = Host::new(
         Flavor::native(),
-        &[(legacy::ENV_HOME, home.as_str()), (ENV_INSTALL_DIR, game.as_str())],
+        &[(envvars::ENV_HOME, home.as_str()), (ENV_INSTALL_DIR, game.as_str())],
         &dir.to_string_lossy(),
     );
     (Paths::new(host), log)

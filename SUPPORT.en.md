@@ -20,7 +20,7 @@ see all of it beforehand, and nothing is sent in the background.
 **[xharig.com/discord](https://xharig.com/discord)**, forum
 **Fehler-Melden**. **No GitHub account needed.**
 
-If Verse-Kit does not start at all, you cannot reach the button from way 1. A
+If VerseKit does not start at all, you cannot reach the button from way 1. A
 screenshot of the error message is entirely enough — it almost always shows
 what went wrong.
 

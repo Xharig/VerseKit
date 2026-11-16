@@ -57,9 +57,8 @@ fn order(slots: &[(&str, &str, i64)]) -> Remembered {
 fn owner(text: &str, action: &str) -> Option<String> {
     let heads = joysticks::assignment_from_text(text);
     for (device, list) in bindings_from_text(text) {
-        for binding in list.iter().filter(|b| b.action == action && b.kind == joysticks::Kind::Joystick) {
+        if list.iter().any(|b| b.action == action && b.kind == joysticks::Kind::Joystick) {
             let number: i64 = device.trim_start_matches("js").parse().ok()?;
-            let _ = binding;
             return heads.iter().find(|h| h.number == number).map(|h| h.id.clone());
         }
     }
@@ -204,7 +203,7 @@ fn world(name: &str, age: u64, body: &[u8]) -> (Paths, String) {
     let at = std::time::SystemTime::now() - std::time::Duration::from_secs(age);
     std::fs::File::options().write(true).open(format!("{game}/Game.log")).and_then(|f| f.set_modified(at)).expect("age");
     let vars = [
-        ("SC_BP_HOME", home.as_str()),
+        ("VERSEKIT_HOME", home.as_str()),
         ("HOME", home.as_str()),
         (ENV_INSTALL_DIR, game.as_str()),
         (game_start::ENV_NO_PROCESS, "1"),

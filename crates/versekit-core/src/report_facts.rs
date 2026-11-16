@@ -83,9 +83,8 @@ pub const SETTING_ALL: &str = "alle_bauplaene";
 
 /// The setup log the installer leaves in the data folder.
 pub const SETUP_LOG: &str = "update-setup.txt";
-/// If it could not be written there, it goes to the temp folder as
-/// `scbp-update-setup*.txt`.
-pub const SETUP_LOG_PREFIX: &str = "scbp-update-setup";
+/// If 4.12 could not write it there, it went to the temp folder under this beginning of a name.
+pub const SETUP_LOG_PREFIX: &str = crate::legacy::UPDATE_SETUP_LOG_START;
 /// Lines of the setup log that say something about the outcome.
 const SETUP_KEYWORDS: [&str; 11] = [
     "error",
@@ -114,7 +113,7 @@ struct TempScan {
 /// One entry per searched folder.
 static TEMP_SCANS: Mutex<BTreeMap<PathBuf, TempScan>> = Mutex::new(BTreeMap::new());
 
-/// The setup logs `scbp-update-setup*.txt` directly in `folder` (any case,
+/// The setup logs `<SETUP_LOG_PREFIX>*.txt` directly in `folder` (any case,
 /// like the Windows search).
 ///
 /// ⚠ The temp folder is searched **once per program run**, not at every
@@ -1255,7 +1254,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         let _ = fs::create_dir_all(&dir);
         let value = dir.to_string_lossy().to_string();
-        let home = [("SC_BP_HOME", value.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
+        let home = [("VERSEKIT_HOME", value.as_str()), ("HOME", "/home/spieler"), ("USERPROFILE", "/home/spieler")];
         (Paths::new(Host::new(Flavor::native(), &home, "/")), dir)
     }
 
@@ -1348,7 +1347,7 @@ mod tests {
         fs::create_dir_all(&dir).expect("folder");
         let value = dir.to_string_lossy().to_string();
         // Posix rules and a home folder without anything: no game, no script, no starter.
-        let home = [("SC_BP_HOME", value.as_str()), ("HOME", value.as_str())];
+        let home = [("VERSEKIT_HOME", value.as_str()), ("HOME", value.as_str())];
         let paths = Paths::new(Host::new(Flavor::Posix, &home, &value));
         assert_eq!(starter_line(&paths, Lang::De), "keiner gefunden, der Startknopf erscheint nicht");
         assert!(starter_line(&paths, Lang::En).contains("none found"), "{}", starter_line(&paths, Lang::En));
@@ -1373,11 +1372,16 @@ mod tests {
         fs::File::options().write(true).open(path).and_then(|f| f.set_modified(time)).expect("time");
     }
 
+    /// The name of a setup log of 4.12 in the temp folder: the beginning of its name, then `rest`.
+    fn temp_log(rest: &str) -> String {
+        format!("{SETUP_LOG_PREFIX}{rest}")
+    }
+
     #[test]
     fn the_temp_folder_is_searched_once_per_run() {
         let (_paths, temp) = paths_in("temp-suche");
-        for name in ["scbp-update-setup.txt", "SCBP-Update-Setup-1700000000.txt", "scbp-update-setup.log", "andere.txt"]
-        {
+        let upper = format!("{}-1700000000.txt", SETUP_LOG_PREFIX.to_uppercase());
+        for name in [temp_log(".txt"), upper.clone(), temp_log(".log"), "andere.txt".to_string()] {
             write_aged(&temp.join(name), "Log closed\n", 10);
         }
         let names = |found: Vec<PathBuf>| {
@@ -1385,9 +1389,9 @@ mod tests {
         };
         assert_eq!(temp_scans(&temp), 0);
         let first = names(temp_setup_logs(&temp));
-        assert_eq!(first, ["SCBP-Update-Setup-1700000000.txt", "scbp-update-setup.txt"], "only the setup logs count");
+        assert_eq!(first, [upper, temp_log(".txt")], "only the setup logs count");
         // Building the report again and again does not search again, whatever lies there now.
-        write_aged(&temp.join("scbp-update-setup-neu.txt"), "Log closed\n", 5);
+        write_aged(&temp.join(temp_log("-neu.txt")), "Log closed\n", 5);
         for _ in 0..5 {
             assert_eq!(names(temp_setup_logs(&temp)), first);
             let _ = newest_setup_log(&paths_in("temp-suche-daten").0, &temp);
@@ -1395,7 +1399,7 @@ mod tests {
         assert_eq!(temp_scans(&temp), 1, "one search for all of them");
         // Whoever writes a log there says so, and the next report finds it.
         forget_temp_setup_logs();
-        assert!(names(temp_setup_logs(&temp)).contains(&"scbp-update-setup-neu.txt".to_string()));
+        assert!(names(temp_setup_logs(&temp)).contains(&temp_log("-neu.txt")));
         assert_eq!(temp_scans(&temp), 2);
         let _ = fs::remove_dir_all(&temp);
     }
@@ -1412,7 +1416,7 @@ mod tests {
         assert_eq!(older[1..], ["  log closed"], "only the lines that say something about the outcome");
         // A newer one in the temp folder wins (it is searched once: write it first).
         let (_unused, temp2) = paths_in("setup-temp2");
-        write_aged(&temp2.join("scbp-update-setup-1.txt"), "Fehler\nError 5: Zugriff verweigert\nExit code 5\n", 60);
+        write_aged(&temp2.join(temp_log("-1.txt")), "Fehler\nError 5: Zugriff verweigert\nExit code 5\n", 60);
         let newer = update_lines(&paths, Lang::De, &temp2);
         assert_eq!(newer[1..], ["  Error 5: Zugriff verweigert", "  Exit code 5"], "{newer:?}");
         for folder in [&data, &temp, &temp2] {
@@ -1459,11 +1463,11 @@ mod tests {
         let (paths, data) = paths_in("setup-gleich-daten");
         let (_unused, temp) = paths_in("setup-gleich-temp");
         write_aged(&data.join(SETUP_LOG), "log closed\n", 100);
-        write_aged(&temp.join("scbp-update-setup.txt"), "log closed\n", 100);
+        write_aged(&temp.join(temp_log(".txt")), "log closed\n", 100);
         let same = fs::metadata(data.join(SETUP_LOG)).and_then(|m| m.modified()).expect("time");
         fs::File::options()
             .write(true)
-            .open(temp.join("scbp-update-setup.txt"))
+            .open(temp.join(temp_log(".txt")))
             .and_then(|f| f.set_modified(same))
             .expect("time");
         assert_eq!(newest_setup_log(&paths, &temp), Some(data.join(SETUP_LOG)));

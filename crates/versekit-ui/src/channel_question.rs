@@ -369,7 +369,7 @@ mod tests {
         let home = slashes(&dir);
         let host = versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::Posix,
-            &[("SC_BP_HOME", home.as_str()), ("HOME", home.as_str())],
+            &[("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str())],
             &home,
         );
         let paths = Paths::new(host);

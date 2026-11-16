@@ -41,8 +41,9 @@ pub(super) const KOFI_URL: &str = "https://ko-fi.com/xharig";
 /// sit in the fold "Kopplung verwalten" of Mein Hangar, the wishlist is the section "Planned" of it, the
 /// dismantle calculation is a view of the page "Dismantle & Salvage", and the evaluation of the statistics is
 /// part of their overview, the relations are a tab of the handle search, and the shader cache is the last card of
-/// the graphics page.
-const REMOVED_PAGES: [(&str, &str); 6] = [
+/// the graphics page, and the detection is drawn at the top of the general settings.
+const REMOVED_PAGES: [(&str, &str); 7] = [
+    ("hf_erkennung", "hf_allgemein"),
     ("hf_beziehungen", "hf_handlesuche"),
     ("hf_hangar_einlieferung", "hf_hangar"),
     ("hf_wunschliste", "hf_hangar"),
@@ -144,6 +145,11 @@ impl SamplePage {
     pub(super) fn follow_link(&mut self, now: f64, url: &str, opening_key: &str) {
         let text = if (self.open_url)(url) { t(opening_key) } else { tf("s_ub_auf_nein", &[("0", Arg::from(url))]) };
         self.pin_notice = Some((now, text));
+    }
+
+    /// The page that took over from a page taken out of the menu, when `page` is one.
+    pub(super) fn successor_of(page: &str) -> Option<&'static str> {
+        REMOVED_PAGES.iter().find(|(old, _)| *old == page).map(|(_, to)| *to)
     }
 
     /// A page that was taken out of the menu and may still be named (a stored last page, a pinned
@@ -1899,7 +1905,7 @@ pub(in crate::sample) mod tests {
         let (mut page, dir) = start_page_in("nutzung", settings, &[]);
         assert!(page.usage.is_some(), "real data count");
         // Counting needs the network allowed; nothing here sends.
-        let host = || super::super::real_data::host_in(&dir, &[(versekit_core::legacy::ENV_NO_NET, "0")]);
+        let host = || super::super::real_data::host_in(&dir, &[(versekit_core::envvars::ENV_NO_NET, "0")]);
         assert!(!PageUsage::new(Paths::new(host()), "5.0.0-dev").active(), "a build of the source counts nothing");
         let counter = std::sync::Arc::new(PageUsage::new(Paths::new(host()), "5.0.0"));
         page.usage = Some(std::sync::Arc::clone(&counter));
@@ -1909,7 +1915,8 @@ pub(in crate::sample) mod tests {
         bench.click_at(menu);
         assert_eq!(bench.page.page, "hf_liste");
         // A group of the side bar folded on the way, then back to the overview by the side bar.
-        bench.click(&t("hf_gruppe_handel").to_uppercase());
+        let head = bench.place(&t("hf_gruppe_handel").to_uppercase(), 0);
+        bench.click_at(head + egui::vec2(193.0, 0.0));
         bench.click_nth(&t("hf_uebersicht"), 0);
         assert_eq!(bench.page.page, "");
         // A click on the pinned hangar card.
@@ -1955,6 +1962,30 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// A click on the name of a group opens a page of it and counts that page as opened by the side bar, with no
+    /// click spent on the way; the arrow of the group counts as a click on the way, as before.
+    #[test]
+    fn a_click_on_a_group_name_counts_the_page_it_opens_by_the_side_bar() {
+        use versekit_core::jsonio::{self, Value};
+        use versekit_core::usage::PageUsage;
+        let _language = crate::language_lock();
+        let (mut page, dir) = start_page_in("nutzung-bereich", "", &[]);
+        let host = || super::super::real_data::host_in(&dir, &[(versekit_core::envvars::ENV_NO_NET, "0")]);
+        let counter = std::sync::Arc::new(PageUsage::new(Paths::new(host()), "5.0.0"));
+        page.usage = Some(std::sync::Arc::clone(&counter));
+        let mut bench = Bench::new(page);
+        bench.settle();
+        bench.click(&t("hf_gruppe_handel").to_uppercase());
+        assert_eq!(bench.page.page, "hf_laeden", "the first page of the group");
+        bench.settle();
+        bench.page.count_window_end(Some(1.0e6));
+        let stored = Value::Object(counter.stored());
+        let field = |name: &str| jsonio::dumps(stored.get(name).expect("field"), None, false);
+        assert_eq!(field("pages"), r#"{"uebersicht": 1, "laeden": 1}"#);
+        assert_eq!(field("entry"), r#"{"uebersicht": {"start": 1}, "laeden": {"seitenleiste": 1}}"#);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// The menu filter counts once per search as used and, when the menu shows nothing, once as without hits; a page
     /// opened from it counts the way „suche“. The word searched for is never kept.
     #[test]
@@ -1963,7 +1994,7 @@ pub(in crate::sample) mod tests {
         use versekit_core::usage::PageUsage;
         let _language = crate::language_lock();
         let (mut page, dir) = start_page_in("suche-zaehlen", "", &[]);
-        let host = || super::super::real_data::host_in(&dir, &[(versekit_core::legacy::ENV_NO_NET, "0")]);
+        let host = || super::super::real_data::host_in(&dir, &[(versekit_core::envvars::ENV_NO_NET, "0")]);
         let counter = std::sync::Arc::new(PageUsage::new(Paths::new(host()), "5.0.0"));
         page.usage = Some(std::sync::Arc::clone(&counter));
         let mut bench = Bench::new(page);
@@ -2001,7 +2032,7 @@ pub(in crate::sample) mod tests {
         // Pinned under both old names: one card.
         let settings = r#"{"karten_angeheftet": ["zerlegen", "bergung"], "startseite_zuerst": "karten"}"#;
         let (mut page, dir) = start_page_in("zerlegen-bergen", settings, &[]);
-        let host = || super::super::real_data::host_in(&dir, &[(versekit_core::legacy::ENV_NO_NET, "0")]);
+        let host = || super::super::real_data::host_in(&dir, &[(versekit_core::envvars::ENV_NO_NET, "0")]);
         let counter = std::sync::Arc::new(PageUsage::new(Paths::new(host()), "5.0.0"));
         page.usage = Some(std::sync::Arc::clone(&counter));
         let mut bench = Bench::new(page);
@@ -3051,7 +3082,10 @@ pub(in crate::sample) mod tests {
         // One entry less in the group: the evaluation has no page of its own any more.
         let group = super::super::NAV.iter().find(|(group, _)| *group == "hf_gruppe_statistik").expect("the group");
         let keys: Vec<&str> = group.1.iter().map(|(page, _)| *page).collect();
-        assert_eq!(keys, ["hf_st_uebersicht", "hf_st_schiffe", "hf_st_auftraege", "hf_st_quantum", "hf_st_stabil"]);
+        assert_eq!(
+            keys,
+            ["hf_st_uebersicht", "hf_st_schiffe", "hf_st_auftraege", "hf_st_quantum", "hf_st_stabil", "hf_st_flugbuch"]
+        );
         // A stored last page, a pinned tile or a jump with the old key opens the merged page, which has the buttons.
         let mut bench = preview();
         bench.page.go_to("hf_st_auswertung");

@@ -207,7 +207,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let home = dir.to_string_lossy().into_owned();
-        let vars = [(crate::legacy::ENV_HOME, home.as_str()), (crate::legacy::ENV_NO_NET, "1")];
+        let vars = [(crate::envvars::ENV_HOME, home.as_str()), (crate::envvars::ENV_NO_NET, "1")];
         (Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home)), dir)
     }
 

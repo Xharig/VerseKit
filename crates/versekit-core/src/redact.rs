@@ -374,7 +374,7 @@ impl Redactor {
 
     fn redact_secrets(&self, mut text: String) -> Option<String> {
         // The own report address first, whatever it looks like.
-        let target = match self.host.var(crate::legacy::ENV_REPORT_TARGET) {
+        let target = match self.host.var(crate::envvars::ENV_REPORT_TARGET) {
             Some(value) => crate::text::py_strip(value).to_string(),
             None => RELAY.to_string(),
         };
@@ -482,7 +482,7 @@ mod tests {
         assert_eq!(r.redact("t eyJhbGciOi.eyJzdWIiOi.sig"), "t <geheim>");
         assert_eq!(r.redact("refresh_token=xyz&a=1"), "refresh_token=<geheim>&a=1");
         assert_eq!(r.redact("an https://bericht.xharig.com/bericht"), "an <meldeadresse>");
-        let own = redactor("/home/spieler", &[("SC_BP_BERICHT_ZIEL", " https://example.org/hook ")]);
+        let own = redactor("/home/spieler", &[("VERSEKIT_BERICHT_ZIEL", " https://example.org/hook ")]);
         assert_eq!(own.redact("an https://example.org/hook!"), "an <meldeadresse>!");
     }
 
@@ -495,7 +495,7 @@ mod tests {
             std::fs::write(dir.join(file), text).unwrap();
         }
         let data = dir.to_string_lossy().into_owned();
-        let mut all = vec![("HOME", "/home/spieler"), ("SC_BP_HOME", data.as_str())];
+        let mut all = vec![("HOME", "/home/spieler"), ("VERSEKIT_HOME", data.as_str())];
         all.extend_from_slice(vars);
         (Redactor::new(&Paths::new(Host::new(Flavor::native(), &all, "/"))), dir)
     }

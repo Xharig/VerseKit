@@ -178,7 +178,7 @@ pub fn role_lock_file(paths: &Paths, role: Role) -> String {
         Role::Overlay => "overlay",
         Role::Learn => "anlernen",
     };
-    let folder = match paths.host.var_set(crate::legacy::ENV_HOME) {
+    let folder = match paths.host.var_set(crate::envvars::ENV_HOME) {
         Some(_) => data,
         None => flavor.dirname(&paths.second_pointer()),
     };
@@ -335,7 +335,7 @@ mod tests {
         let other = dir.path().join("andere").to_string_lossy().into_owned();
         let host = |home: &str| {
             let vars =
-                [(crate::legacy::ENV_HOME, home), ("APPDATA", appdata.as_str()), ("XDG_CONFIG_HOME", appdata.as_str())];
+                [(crate::envvars::ENV_HOME, home), ("APPDATA", appdata.as_str()), ("XDG_CONFIG_HOME", appdata.as_str())];
             Host::new(crate::pypath::Flavor::native(), &vars, &root)
         };
         let paths = Paths::new(host(&root));

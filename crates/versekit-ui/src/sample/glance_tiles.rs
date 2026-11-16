@@ -967,7 +967,7 @@ mod tests {
         let (data_text, live) = (data.to_string_lossy().into_owned(), game.to_string_lossy().into_owned());
         let host = versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[("SC_BP_HOME", data_text.as_str()), ("HOME", data_text.as_str()), ("SC_INSTALL_DIR", live.as_str())],
+            &[("VERSEKIT_HOME", data_text.as_str()), ("HOME", data_text.as_str()), ("SC_INSTALL_DIR", live.as_str())],
             &data_text,
         );
         let paths = Paths::new(host.clone());
@@ -1083,7 +1083,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("versekit-dienste-{}", versekit_core::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        // The throwaway host has SC_BP_NO_NET set.
+        // The throwaway host has VERSEKIT_NO_NET set.
         let paths = Paths::new(super::super::real_data::host_apart(&dir));
         let look = StatusLook::default();
         assert_eq!(look.poll(&paths, 1000.0), None, "nothing fetched yet");
@@ -1092,7 +1092,7 @@ mod tests {
         std::fs::write(&target, r#"{"etag": "", "lage": {"gesamt": "partial_outage", "geholt": 10.0}}"#).unwrap();
         let state = look.poll(&paths, 1000.0).expect("the state kept");
         assert_eq!(state.word, "partial_outage", "the word of CIG, untranslated");
-        assert!(!look.busy.load(Ordering::Acquire), "SC_BP_NO_NET: the page is not asked");
+        assert!(!look.busy.load(Ordering::Acquire), "VERSEKIT_NO_NET: the page is not asked");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

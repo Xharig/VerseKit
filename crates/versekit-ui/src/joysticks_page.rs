@@ -878,7 +878,7 @@ mod tests {
             .and_then(|f| f.set_modified(old))
             .expect("age");
         let vars = [
-            ("SC_BP_HOME", home.as_str()),
+            ("VERSEKIT_HOME", home.as_str()),
             ("HOME", home.as_str()),
             (ENV_INSTALL_DIR, game.as_str()),
             (versekit_core::game_start::ENV_NO_PROCESS, "1"),

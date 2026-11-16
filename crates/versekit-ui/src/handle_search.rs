@@ -1645,7 +1645,7 @@ pub(crate) mod tests {
         let home = dir.path().to_string_lossy().into_owned();
         Paths::new(versekit_core::paths::Host::new(
             versekit_core::pypath::Flavor::native(),
-            &[(versekit_core::legacy::ENV_HOME, home.as_str())],
+            &[(versekit_core::envvars::ENV_HOME, home.as_str())],
             &home,
         ))
     }

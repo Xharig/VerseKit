@@ -27,7 +27,7 @@ use versekit_core::issue_council::{self, Originals, Search};
 use versekit_core::jsonio::{self, Map, Value};
 use versekit_core::mission_log::{self as log, ContractBlueprints, ContractIndex};
 use versekit_core::paths::{Host, Paths};
-use versekit_core::{catalog_cache, legacy};
+use versekit_core::catalog_cache;
 
 fn maps(value: Option<&Value>) -> Vec<Map> {
     match value {
@@ -49,7 +49,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
     let home = input.get("home").and_then(Value::as_str).ok_or("home fehlt")?;
     let mut host = Host::current();
     host.registry = false;
-    host.set_var(legacy::ENV_HOME, home);
+    host.set_var(versekit_core::envvars::ENV_HOME, home);
     let paths = Paths::new(host);
 
     let loaded = log::load(&paths);

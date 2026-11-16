@@ -18,14 +18,14 @@
 //! The two stocks and the Basetool, the part without the net
 //! (`exchange_stock.py`). The Basetool keeps the personal stock as **lots**: a
 //! material or an item at a place, with quality and "stolen", and an amount.
-//! Verse-Kit has two stocks that both fit it: the raw material stock (a
+//! VerseKit has two stocks that both fit it: the raw material stock (a
 //! material with its quality) and the trade stock (goods under quality 0,
 //! items in whole pieces).
 //!
 //! The rules:
 //! 1. **The first sync only adds.** What is missing here comes in, what is
 //!    missing there goes out (expected amount 0). A lot on **both** sides with
-//!    different amounts is for the player to decide, never for Verse-Kit.
+//!    different amounts is for the player to decide, never for VerseKit.
 //! 2. **After that the comparison with the last state counts** (`baseline`): a
 //!    change only here goes out with the amount that stood there last as
 //!    `expectedQuantity`; a change only there is taken here; a change on both
@@ -658,10 +658,55 @@ pub fn change_sets(
         ops.push(Value::Object(op));
         keys.push(key.clone());
     }
-    ops.chunks(batch)
-        .zip(keys.chunks(batch))
-        .map(|(ops, keys)| (object(vec![("ops", Value::Array(ops.to_vec()))]), keys.to_vec()))
+    in_material_sets(&keys, batch)
+        .into_iter()
+        .map(|at| {
+            let ops: Vec<Value> = at.iter().map(|i| ops[*i].clone()).collect();
+            let keys: Vec<String> = at.iter().map(|i| keys[*i].clone()).collect();
+            (object(vec![("ops", Value::Array(ops))]), keys)
+        })
         .collect()
+}
+
+/// The material of an identifier (`material|place|quality|stolen`).
+fn material_of(key: &str) -> &str {
+    key.rsplitn(4, '|').last().unwrap_or(key)
+}
+
+/// Which instructions go into which change set, by their place in `keys`: all lots of one material in the
+/// same set, in the order they came; a set is closed between two materials, never inside one.
+///
+/// ⚠ The Basetool holds back a change set in which a lot goes to 0 without an equal addition of the same
+/// material in the same set (basetool#3420): a move to another place is the reduction at the old place and
+/// the addition at the new one. Cut by count (`chunks(500)`) a move over the cut left a set of reductions
+/// alone, and the lot stayed held back. A single material above `batch` lots cannot stay whole (the Basetool
+/// refuses a send of more than 500 instructions altogether), so only that one is cut, at `batch`.
+fn in_material_sets(keys: &[String], batch: usize) -> Vec<Vec<usize>> {
+    let batch = batch.max(1);
+    let mut groups: Vec<(&str, Vec<usize>)> = Vec::new();
+    for (at, key) in keys.iter().enumerate() {
+        let material = material_of(key);
+        match groups.iter_mut().find(|(name, _)| *name == material) {
+            Some((_, members)) => members.push(at),
+            None => groups.push((material, vec![at])),
+        }
+    }
+    let mut sets: Vec<Vec<usize>> = Vec::new();
+    let mut open: Vec<usize> = Vec::new();
+    for (_, members) in groups {
+        if !open.is_empty() && open.len() + members.len() > batch {
+            sets.push(std::mem::take(&mut open));
+        }
+        if members.len() > batch {
+            sets.extend(members.chunks(batch).map(<[usize]>::to_vec));
+        } else {
+            open.extend(members);
+        }
+    }
+    if !open.is_empty() {
+        sets.push(open);
+    }
+    sets
 }
 
 #[cfg(test)]
@@ -821,6 +866,87 @@ mod tests {
         assert_eq!(result.push.len(), 1, "without the guard the lot would be set to 0 over there");
         let (guarded, touched) = keep_unmapped(&result, &local, &server, &skipped);
         assert!(guarded.push.is_empty() && !touched.is_empty());
+    }
+
+    fn row_at(material: &str, amount: f64, quality: i64, place: &str) -> Value {
+        let mut row = row(material, amount, quality);
+        if let Value::Object(map) = &mut row {
+            map_set(map, "ort", Value::str(place));
+        }
+        row
+    }
+
+    fn two_places() -> Places {
+        let mut places = places();
+        places.insert("levski".to_string(), Value::Object(vec![("name".into(), Value::str("Levski"))]));
+        places
+    }
+
+    fn ops_of(set: &(Value, Vec<String>)) -> Vec<&Value> {
+        match set.0.get("ops") {
+            Some(Value::Array(ops)) => ops.iter().collect(),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// The Basetool holds back a set in which a lot goes to 0 without an equal addition of the same material
+    /// in the same set (basetool#3420): a move needs both halves in one set, wherever the count falls.
+    #[test]
+    fn a_move_of_a_material_stays_in_one_set_whatever_the_count() {
+        let resolve = |name: &str| Some(format!("bt-{}", name.to_lowercase()));
+        // 499 other materials, sorted ahead of Iron, so that the cut at 500 falls between the two lots of Iron.
+        let mut rows: Vec<Value> = (0..499).map(|n| row_at(&format!("A{n:03}"), 1.0, 0, "Orbituary")).collect();
+        rows.push(row_at("Iron", 2.0, 500, "Levski"));
+        let (local, skipped) = local_lots(&rows, &[], &resolve, &two_places(), &|_| false, &BTreeMap::new());
+        assert!(skipped.material.is_empty() && skipped.location.is_empty());
+        let old = lot("bt-iron", "Orbituary", 500, 2.0, SCU, false);
+        let server = server_lots(&[&old]);
+        let base: BTreeMap<String, f64> = [("bt-iron|orbituary|500|0".to_string(), 2.0)].into_iter().collect();
+        let result = plan(&local, &server, Some(&base), &BTreeMap::new(), &BTreeSet::new());
+        assert_eq!(result.push.len(), 501, "499 new lots, the reduction at the old place, the addition at the new");
+
+        let sets = change_sets(&result, &local, &server, 500, &BTreeSet::new());
+        assert_eq!(sets.iter().map(|s| s.1.len()).sum::<usize>(), 501, "nothing lost");
+        assert!(sets.iter().all(|s| s.1.len() <= 500), "no set above the limit of the Basetool");
+        let with_iron: Vec<&(Value, Vec<String>)> =
+            sets.iter().filter(|s| s.1.iter().any(|k| k.starts_with("bt-iron|"))).collect();
+        assert_eq!(with_iron.len(), 1, "both lots of the move go in one set: {:?}", sets.iter().map(|s| &s.1).collect::<Vec<_>>());
+        assert_eq!(with_iron[0].1, ["bt-iron|levski|500|0", "bt-iron|orbituary|500|0"], "in the order they came");
+        let amounts: Vec<Option<&Value>> =
+            ops_of(with_iron[0]).iter().map(|op| op.get("quantity").and_then(|q| q.get("amount"))).collect();
+        assert_eq!(amounts, [Some(&Value::Float(2.0)), Some(&Value::Float(0.0))], "the addition and the reduction");
+        for (n, set) in sets.iter().enumerate() {
+            assert_eq!(set.1.len(), ops_of(set).len(), "set {n}: one identifier for each instruction");
+            // Each identifier belongs to the instruction at its place: it names that material, place and quality.
+            for (op, key) in ops_of(set).into_iter().zip(&set.1) {
+                let parts: Vec<&str> = key.split('|').collect();
+                let place = op.get("location").and_then(|l| l.get("name")).and_then(Value::as_str).unwrap_or_default();
+                assert_eq!(op.get("material").and_then(|m| m.get("bt")), Some(&Value::str(parts[0])), "set {n}: {key}");
+                assert_eq!(place.to_lowercase(), parts[1], "set {n}: {key}");
+                assert_eq!(op.get("quality"), Some(&Value::int(parts[2].parse().expect("quality"))), "set {n}: {key}");
+            }
+        }
+    }
+
+    #[test]
+    fn sets_close_between_materials_and_only_a_material_above_the_limit_is_cut() {
+        let key = |material: &str, quality: i64| format!("bt-{material}|orbituary|{quality}|0");
+        let mut keys: Vec<String> = Vec::new();
+        keys.extend((0..3).map(|q| key("a", q)));
+        keys.extend((0..4).map(|q| key("b", q)));
+        keys.extend((0..2).map(|q| key("c", q)));
+        // Limit 5: a (3) | b (4) | c (2); b does not fit after a, c does not fit after b.
+        assert_eq!(in_material_sets(&keys, 5), [vec![0, 1, 2], vec![3, 4, 5, 6], vec![7, 8]]);
+        // Limit 7: a and b together, c after them.
+        assert_eq!(in_material_sets(&keys, 7), [vec![0, 1, 2, 3, 4, 5, 6], vec![7, 8]]);
+        // Limit 3: b alone is above the limit and is cut at it, a and c stay whole.
+        assert_eq!(in_material_sets(&keys, 3), [vec![0, 1, 2], vec![3, 4, 5], vec![6], vec![7, 8]]);
+        assert_eq!(in_material_sets(&keys, 100), [(0..9).collect::<Vec<_>>()]);
+        assert!(in_material_sets(&[], 5).is_empty());
+        // Materials that come apart in the plan are still one group; the first appearance sets the order.
+        let apart = [key("a", 0), key("b", 0), key("a", 1)];
+        assert_eq!(in_material_sets(&apart, 5), [vec![0, 2, 1]]);
+        assert_eq!(material_of("bt-iron|levski|500|0"), "bt-iron");
     }
 
     #[test]

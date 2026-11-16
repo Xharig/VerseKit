@@ -30,9 +30,9 @@ fn paths_in(name: &str, off: bool) -> (Paths, std::path::PathBuf) {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let home = dir.to_string_lossy().into_owned();
-    let mut vars = vec![(crate::legacy::ENV_HOME, home.as_str())];
+    let mut vars = vec![(crate::envvars::ENV_HOME, home.as_str())];
     if off {
-        vars.push((crate::legacy::ENV_NO_NET, "1"));
+        vars.push((crate::envvars::ENV_NO_NET, "1"));
     }
     let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home);
     (Paths::new(host), dir)

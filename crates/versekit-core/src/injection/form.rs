@@ -30,8 +30,8 @@ use regex::Regex;
 use crate::text::{PY_SPACE, py_rstrip};
 
 /// The old marks around an addition (`injection.OPEN`, `CLOSE`).
-pub const OPEN: &str = "[SCBPW]";
-pub const CLOSE: &str = "[/SCBPW]";
+pub const OPEN: &str = crate::legacy::TITLE_MARK.0;
+pub const CLOSE: &str = crate::legacy::TITLE_MARK.1;
 
 /// The headings that tell a block as ours or as one from the same source.
 pub const HEADINGS: [&str; 14] = [
@@ -285,7 +285,7 @@ mod tests {
     fn title_marks_are_cut_only_with_the_full_fallback() {
         assert_eq!(strip_form("Title <EM4>[BP 10.000 Rep]</EM4>", Fallback::Full), "Title");
         assert_eq!(strip_form("Title <EM4>[BP]</EM4>", Fallback::Block), "Title <EM4>[BP]</EM4>");
-        assert_eq!(strip_form("Title [SCBPW] x [/SCBPW]  ", Fallback::Off), "Title");
+        assert_eq!(strip_form(&format!("Title {OPEN} x {CLOSE}  "), Fallback::Off), "Title");
     }
 
     #[test]

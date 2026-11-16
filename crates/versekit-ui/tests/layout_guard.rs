@@ -17,12 +17,13 @@
 
 //! The layout check of all pages of the main window, without a window (egui_kittest without a renderer).
 //!
-//! Every page is opened with the sample data in the smallest window the program allows and in a usual one,
-//! in every size of the text, in German and English, and, where a page has a list or a detail, with an entry
-//! chosen and the detail open. Three things are measured in every frame:
+//! Every page is opened with the sample data in the smallest window the program allows, in the screens of a user
+//! (divided by the zoom, as the window has them in interface points) and in tall windows that show what lies under
+//! the fold, in every size of the text, in German and English, scrolled down by the wheel, and, where a page has a
+//! list or a detail, with an entry chosen and the detail open. Three things are measured in every frame:
 //!
-//! - nothing is cut off: no line of text and no control reaches over the edge of its card or of the window, and
-//!   no two lines of text lie over each other;
+//! - nothing is cut off: no line of text and no control reaches over the edge of its card or of the window, no
+//!   word is broken in the middle by the wrapping, and no two lines of text lie over each other;
 //! - the cards of a row begin on one line (each is as tall as its content);
 //! - the height of a card stays the same over thirty frames (nothing grows by itself).
 //!
@@ -76,6 +77,8 @@ struct Line {
     shortened: bool,
     /// Its place in the order of drawing: what is drawn later lies on top.
     order: usize,
+    /// The two halves of a word that the wrapping cut in the middle, as `first|second`.
+    word_cut: Option<String>,
 }
 
 /// A control or label as the accessibility tree knows it.
@@ -149,14 +152,31 @@ fn settle(harness: &mut Harness<'_, Probe>, points: i64, window: Vec2) {
     drawn_cards::take();
 }
 
+/// A word that the wrapping cut in the middle: the row ends with a letter or digit and the next row of the same
+/// text begins with one, without a line break and without `break_anywhere`. Where the wrapping breaks at a space,
+/// the space stays at the end of the row and nothing is found.
+fn word_cut_of(galley: &egui::Galley, index: usize) -> Option<String> {
+    if galley.job.wrap.break_anywhere {
+        return None;
+    }
+    let (row, next) = (galley.rows.get(index)?, galley.rows.get(index + 1)?);
+    if row.ends_with_newline {
+        return None;
+    }
+    let last = row.row.glyphs.last()?.chr;
+    let first = next.row.glyphs.first()?.chr;
+    (last.is_alphanumeric() && first.is_alphanumeric()).then(|| format!("{}|{}", row.row.text(), next.row.text()))
+}
+
 fn collect_lines(shape: &Shape, (clip, order): (Rect, usize), out: &mut Vec<Line>, pictures: &mut Vec<Picture>) {
     match shape {
         Shape::Text(text) => {
-            for row in &text.galley.rows {
+            for (index, row) in text.galley.rows.iter().enumerate() {
                 let rect = row.rect_without_leading_space().translate(text.pos.to_vec2());
                 let line = row.row.text();
                 if !line.trim().is_empty() {
-                    out.push(Line { text: line.to_string(), rect, clip, shortened: text.galley.elided, order });
+                    let word_cut = word_cut_of(&text.galley, index);
+                    out.push(Line { text: line.to_string(), rect, clip, shortened: text.galley.elided, order, word_cut });
                 }
             }
         }
@@ -276,6 +296,9 @@ fn cut_off(frame: &Frame) -> Vec<String> {
         }
         if line.shortened {
             found.push(format!("Text gekürzt: {:?}", line.text));
+        }
+        if let Some(cut) = &line.word_cut {
+            found.push(format!("Wortbruch: {cut:?}"));
         }
     }
     found.extend(overlapping(frame));
@@ -456,6 +479,77 @@ fn measure(harness: &mut Harness<'_, Probe>, window: Vec2, watch: bool, place: &
     findings.extend(here.into_iter().map(|find| format!("{} | {find}", place.text())));
 }
 
+/// The screens a window of the program is measured on, in screen points: Full HD and a smaller one.
+const SCREENS: [Vec2; 2] = [vec2(1280.0, 820.0), vec2(1920.0, 1080.0)];
+/// The height of the tall windows, in points: what lies under the fold of a usual window is drawn too.
+const TALL: f32 = 2400.0;
+/// The sizes of the text on which the windows of a fixed width are measured: a window of the smallest width has the
+/// same width in interface points at every size, so these three stand for all eight.
+const FIXED_WIDTH_POINTS: [i64; 3] = [0, 1, 7];
+
+/// A window as the user has it at the size `points`: the screen in screen points is as wide in interface points as
+/// the screen divided by the zoom, and never smaller than the smallest window.
+fn fitted(screen: Vec2, points: i64) -> Vec2 {
+    (screen / font_size::zoom_factor(points)).max(smallest_window())
+}
+
+/// The windows a page is measured in at the size `points`, each with whether the height of its cards is watched
+/// over time: the smallest window the program allows (watched), the screens divided by the zoom, and tall windows
+/// that show what lies under the fold (a line outside the window is not drawn, so it is not seen in a flat one).
+fn windows(points: i64) -> Vec<(Vec2, bool)> {
+    let mut list = vec![(smallest_window(), true)];
+    list.extend(SCREENS.map(|screen| (fitted(screen, points), false)));
+    if FIXED_WIDTH_POINTS.contains(&points) {
+        list.push((vec2(smallest_window().x, TALL), false));
+    }
+    list.push((fitted(vec2(SCREENS[0].x, TALL), points), false));
+    list
+}
+
+/// Steps of the wheel one after the other, each as far as this many points.
+const SCROLL_STEP: f32 = 260.0;
+const SCROLL_STEPS: usize = 6;
+/// Where the wheel turns, as shares of the width: over the left, the middle and the right of the page.
+const SCROLL_AT: [f32; 3] = [0.35, 0.6, 0.85];
+
+/// Turns the wheel once by `by` points down at `at` and lets the page follow.
+fn wheel(harness: &mut Harness<'_, Probe>, at: egui::Pos2, by: f32) {
+    harness.event(egui::Event::PointerMoved(at));
+    harness.step();
+    harness.event(egui::Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Point,
+        delta: vec2(0.0, -by),
+        phase: egui::TouchPhase::Move,
+        source: egui::MouseWheelSource::Wheel,
+        modifiers: egui::Modifiers::NONE,
+    });
+    for _ in 0..3 {
+        harness.step();
+    }
+}
+
+/// The page in the smallest window, scrolled down in steps by the wheel at three places: a line is only seen when
+/// it is drawn, and what lies far down is drawn only when it has been scrolled to.
+fn scroll_states(key: &'static str, findings: &mut Vec<String>) {
+    theme::set_thread_current("krt");
+    for english in [false, true] {
+        set_thread_language(if english { Choice::En } else { Choice::De });
+        for points in CLICK_POINTS {
+            for share in SCROLL_AT {
+                let mut harness = harness(key);
+                let window = smallest_window();
+                settle(&mut harness, points, window);
+                for step in 1..=SCROLL_STEPS {
+                    wheel(&mut harness, egui::pos2(window.x * share, 250.0), SCROLL_STEP);
+                    let what = format!("gerollt {step} bei x {share}");
+                    let place = Place { key, points, window, english, scheme: "krt", what };
+                    measure(&mut harness, window, false, &place, findings);
+                }
+            }
+        }
+    }
+}
+
 /// Every key of the pages of the window, the overview first.
 fn page_keys() -> Vec<&'static str> {
     SamplePage::page_keys()
@@ -524,7 +618,7 @@ fn click_states(key: &'static str, findings: &mut Vec<String>) {
     for english in [false, true] {
         set_thread_language(if english { Choice::En } else { Choice::De });
         for points in CLICK_POINTS {
-            for (window, watch) in [(smallest_window(), true), (USUAL_WINDOW, false)] {
+            for (window, watch) in windows(points) {
                 let mut base = harness(key);
                 settle(&mut base, points, window);
                 let places = click_places(&frame_of(&mut base, window));
@@ -578,7 +672,7 @@ fn chosen_states(key: &'static str, findings: &mut Vec<String>) {
             findings.push(format!("{} | der gewählte Eintrag öffnet nichts", head.text()));
         }
         for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
-            for (window, watch) in [(smallest_window(), true), (USUAL_WINDOW, false)] {
+            for (window, watch) in windows(points) {
                 settle(&mut harness, points, window);
                 let place = Place { points, window, what: head.what.clone(), ..head };
                 measure(&mut harness, window, watch, &place, findings);
@@ -666,7 +760,7 @@ fn sticks(game: &Path) {
 /// The window on the data folder `dir`, a throwaway one, with [`releases`] remembered and the page `key` open.
 /// Nothing reaches the net, the home folder of this computer or its game installation.
 fn release_page(dir: &Path, key: &str, own: &str) -> SamplePage {
-    use versekit_core::legacy::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET};
+    use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET};
     let game = dir.join("LIVE");
     std::fs::create_dir_all(&game).expect("game folder");
     std::fs::write(game.join("Game.log"), "").expect("game log");
@@ -706,12 +800,90 @@ fn release_states(key: &'static str, findings: &mut Vec<String>) {
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
             for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
-                for (window, watch) in [(smallest_window(), true), (USUAL_WINDOW, false)] {
+                for (window, watch) in windows(points) {
                     settle(&mut harness, points, window);
                     let what = format!("Versionen geladen, {build}");
                     let place = Place { key, points, window, english, scheme: "krt", what };
                     measure(&mut harness, window, watch, &place, findings);
                 }
+            }
+        }
+    }
+}
+
+/// The page of the flight log, which shows data of its own folder beyond the sample.
+const FLIGHT_PAGE: &str = "hf_st_flugbuch";
+
+/// The window on a throwaway data folder with two made-up sessions of the flight log, a contract and a learned
+/// place, the page of the flight log open. Nothing reaches the net, the home folder of this computer or its game.
+fn flight_page(dir: &Path) -> SamplePage {
+    use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET};
+    let game = dir.join("LIVE");
+    std::fs::create_dir_all(&game).expect("game folder");
+    std::fs::write(game.join("Game.log"), "").expect("game log");
+    let (home, game_text) = (dir.to_string_lossy().into_owned(), game.to_string_lossy().into_owned());
+    let vars = [
+        (ENV_HOME, home.as_str()),
+        ("HOME", home.as_str()),
+        ("USERPROFILE", home.as_str()),
+        (ENV_NO_NET, "1"),
+        (ENV_BASETOOL_KEYNAME, "VerseKit Pruefung"),
+        (versekit_core::paths::ENV_INSTALL_DIR, game_text.as_str()),
+    ];
+    let paths = Paths::new(Host::new(Flavor::native(), &vars, &home));
+    let logs = dir.join("logs");
+    std::fs::create_dir_all(&logs).expect("logs folder");
+    let ship = "RSI_Polaris_465232524500";
+    let mut files = Vec::new();
+    for day in [1_u32, 2] {
+        let stamp = |minute: u32| format!("<2026-10-{day:02}T10:{minute:02}:00.000Z>");
+        let mut text = format!("{} Start OnClientSpawned\n", stamp(0));
+        text.push_str(&format!(
+            "{} <Update Inventory Location> Player [Xharig] is changing location. Landing [0] -> [123]. Location [0] -> [5]\n",
+            stamp(1)
+        ));
+        text.push_str(&format!(
+            "{} <Player Selected Quantum Target - Local> a | {ship}[900001]|b Player has selected point LOC_rs_ext_nyx-castra_jp1 as their destination\n",
+            stamp(10)
+        ));
+        text.push_str(&format!("{} <Quantum Drive Arrived - Arrived at Final Destination> a | {ship}[900002]|b\n", stamp(11)));
+        text.push_str(&format!("{} <SystemQuit>\n{} Ende\n", stamp(40), stamp(41)));
+        let file = logs.join(format!("Game-{day}.log"));
+        std::fs::write(&file, text).expect("log");
+        files.push(file.to_string_lossy().into_owned());
+    }
+    let source = versekit_core::logsource::LogSource::new(&paths, versekit_core::logsource::LogSource::sources_of(&paths));
+    versekit_core::flugbuch::catch_up(&source, &files);
+    versekit_core::location::remember(&paths, &vec![("123".to_string(), "Nyx_Levski".to_string())]);
+    let contract = vec![
+        ("name".to_string(), versekit_core::jsonio::Value::str("Retake the Outpost")),
+        ("wann".to_string(), versekit_core::jsonio::Value::str("2026-10-02T10:20:00")),
+        ("bis".to_string(), versekit_core::jsonio::Value::str("2026-10-02T10:30:00")),
+        ("zustand".to_string(), versekit_core::jsonio::Value::str(versekit_core::mission_log::COMPLETED)),
+    ];
+    versekit_core::mission_log::save(&paths, &[contract]);
+    let mut page = SamplePage::with_settings_using(paths, Arc::new(versekit_gamedata::list::Offline));
+    page.go_to(FLIGHT_PAGE);
+    page
+}
+
+/// The page of the flight log on data, through every size, window and language.
+fn flight_states(findings: &mut Vec<String>) {
+    theme::set_thread_current("krt");
+    let dir = versekit_core::testdir::Dir::new("layout-guard-flugbuch");
+    for english in [false, true] {
+        set_thread_language(if english { Choice::En } else { Choice::De });
+        let mut harness = harness_of(flight_page(dir.path()));
+        // The files are loaded in a thread of their own: their page is measured once it is there.
+        for _ in 0..10 {
+            settle(&mut harness, 1, smallest_window());
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+            for (window, watch) in windows(points) {
+                settle(&mut harness, points, window);
+                let place = Place { key: FLIGHT_PAGE, points, window, english, scheme: "krt", what: "Flugbuch geladen".to_string() };
+                measure(&mut harness, window, watch, &place, findings);
             }
         }
     }
@@ -890,7 +1062,7 @@ fn run_part(part: usize) {
             set_thread_language(if english { Choice::En } else { Choice::De });
             theme::set_thread_current("krt");
             for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
-                for (window, watch) in [(smallest_window(), true), (USUAL_WINDOW, false)] {
+                for (window, watch) in windows(points) {
                     settle(&mut harness, points, window);
                     let place = Place { key, points, window, english, scheme: "krt", what: "Grundzustand".to_string() };
                     measure(&mut harness, window, watch, &place, &mut findings);
@@ -911,6 +1083,7 @@ fn run_part(part: usize) {
                 measure(&mut harness, smallest_window(), false, &place, &mut findings);
             }
         }
+        scroll_states(key, &mut findings);
         if !NO_CLICKS.contains(&key) {
             click_states(key, &mut findings);
         }
@@ -919,6 +1092,9 @@ fn run_part(part: usize) {
         }
         if RELEASE_PAGES.contains(&key) {
             release_states(key, &mut findings);
+        }
+        if key == FLIGHT_PAGE {
+            flight_states(&mut findings);
         }
         if key == MAP_PAGE {
             map_drags(&mut findings);
@@ -1060,7 +1236,7 @@ fn card(x0: f32, y0: f32, x1: f32, y1: f32) -> Rect {
 }
 
 fn line(text: &str, rect: Rect, clip: Rect) -> Line {
-    Line { text: text.to_string(), rect, clip, shortened: false, order: 0 }
+    Line { text: text.to_string(), rect, clip, shortened: false, order: 0, word_cut: None }
 }
 
 #[test]
@@ -1163,6 +1339,137 @@ fn the_check_sees_a_control_over_the_window_and_a_shortened_line() {
     }
 }
 
+/// The lines that `add` draws in a cell `width` points wide, as the check collects them from a frame.
+fn lines_in_cell(width: f32, add: impl FnOnce(&mut egui::Ui)) -> Vec<Line> {
+    let ctx = egui::Context::default();
+    versekit_ui::install(&ctx);
+    let input = egui::RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(400.0, 400.0))), ..Default::default() };
+    let mut add = Some(add);
+    let output = ctx.run_ui(input, |ui| {
+        if let Some(add) = add.take() {
+            ui.allocate_ui(vec2(width, 300.0), add);
+        }
+    });
+    let (mut lines, mut pictures) = (Vec::new(), Vec::new());
+    for (order, clipped) in output.shapes.iter().enumerate() {
+        collect_lines(&clipped.shape, (clipped.clip_rect, order), &mut lines, &mut pictures);
+    }
+    lines
+}
+
+fn frame_with(lines: Vec<Line>) -> Frame {
+    let window = card(0.0, 0.0, 400.0, 400.0);
+    Frame {
+        cards: Vec::new(),
+        floating: Vec::new(),
+        lines,
+        nodes: Vec::new(),
+        pictures: Vec::new(),
+        window,
+        overflow: 0.0,
+    }
+}
+
+#[test]
+fn the_check_sees_a_word_cut_in_the_middle() {
+    let cut = frame_with(lines_in_cell(40.0, |ui| {
+        ui.add(egui::Label::new("Auftraggeber").wrap());
+    }));
+    let found = cut_off(&cut);
+    assert!(found.iter().any(|find| find.starts_with("Wortbruch") && find.contains('|')), "{found:?}");
+    // Wrapped at the spaces of a text, in a cell wide enough for its longest word: no cut word.
+    let spaces = frame_with(lines_in_cell(100.0, |ui| {
+        ui.add(egui::Label::new("Auftrag geber hier hinein").wrap());
+    }));
+    assert!(spaces.lines.len() > 1, "the text has to wrap for the check to mean something");
+    assert!(cut_off(&spaces).iter().all(|find| !find.starts_with("Wortbruch")), "{:?}", cut_off(&spaces));
+    // A text that may break anywhere (a path, a checksum) is no cut word.
+    let anywhere = frame_with(lines_in_cell(40.0, |ui| {
+        ui.add(egui::Label::new("Auftraggeber").wrap());
+        let job = egui::text::LayoutJob {
+            wrap: egui::text::TextWrapping { break_anywhere: true, ..Default::default() },
+            ..egui::text::LayoutJob::single_section("Auftraggeber".into(), egui::TextFormat::default())
+        };
+        ui.label(job);
+    }));
+    let found = cut_off(&anywhere);
+    assert_eq!(found.iter().filter(|find| find.starts_with("Wortbruch")).count(), 1, "only the label that did not allow it: {found:?}");
+    // A line break of the text itself is no cut word.
+    let breaks = frame_with(lines_in_cell(300.0, |ui| {
+        ui.add(egui::Label::new("Auftrag\ngeber").wrap());
+    }));
+    assert_eq!(breaks.lines.len(), 2);
+    assert!(cut_off(&breaks).iter().all(|find| !find.starts_with("Wortbruch")));
+}
+
+#[test]
+fn the_windows_are_divided_by_the_zoom() {
+    let smallest = smallest_window();
+    for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+        let list = windows(points);
+        assert!(list.iter().all(|(window, _)| window.x >= smallest.x && window.y >= smallest.y), "{points}: {list:?}");
+        assert_eq!(list[0], (smallest, true), "the smallest window comes first and is watched");
+        let zoom = font_size::zoom_factor(points);
+        let screen = SCREENS[0];
+        let expected = (screen / zoom).max(smallest);
+        assert!(list.iter().any(|(window, watch)| *window == expected && !watch), "{points}: {expected:?} not in {list:?}");
+    }
+    // At the biggest size a window of 1280 x 820 screen points is only 880 x 531 interface points.
+    let at_seven = windows(7);
+    let height = 820.0 / font_size::zoom_factor(7);
+    assert!(at_seven.iter().any(|(window, _)| (window.x - 880.0).abs() < 0.5 && (window.y - height).abs() < 0.5), "{at_seven:?}");
+    assert!(at_seven.iter().all(|(window, _)| *window != USUAL_WINDOW), "no window of 1280 x 820 interface points at size 7");
+    // The size 0 has a zoom below one: its windows are bigger than the screen has points, not smaller.
+    assert!(windows(0).iter().any(|(window, _)| window.x >= 1280.0 / font_size::zoom_factor(0) - 0.5));
+    // The window of the smallest width and the tall one stand on three sizes only; the rest has all eight.
+    let tall_fixed = |points: i64| windows(points).iter().any(|(window, _)| *window == vec2(smallest.x, TALL));
+    assert!(tall_fixed(0) && tall_fixed(1) && tall_fixed(7));
+    assert!(!tall_fixed(2) && !tall_fixed(5));
+    // Every size has the tall window of the screen, divided by the zoom.
+    for points in 0..=7 {
+        let tall = fitted(vec2(SCREENS[0].x, TALL), points);
+        assert!(windows(points).iter().any(|(window, _)| *window == tall), "{points}");
+    }
+}
+
+#[test]
+fn the_tall_window_shows_rows_under_the_fold() {
+    theme::set_thread_current("krt");
+    set_thread_language(Choice::De);
+    let key = "hf_auftragslog";
+    let seen_in = |window: Vec2| {
+        let mut harness = harness(key);
+        settle(&mut harness, 1, window);
+        frame_of(&mut harness, window).lines.len()
+    };
+    let flat = seen_in(smallest_window());
+    let tall = seen_in(vec2(smallest_window().x, TALL));
+    assert!(tall > flat + 10, "the tall window shows {tall} lines, the flat one {flat}");
+    let list = windows(1);
+    assert!(list.iter().any(|(window, _)| window.y >= TALL), "the windows of the check include a tall one");
+    set_thread_language(Choice::Auto);
+    drawn_cards::record(false);
+}
+
+#[test]
+fn a_scrolled_page_shows_its_lower_part() {
+    theme::set_thread_current("krt");
+    set_thread_language(Choice::De);
+    let key = "hf_auftragslog";
+    let window = smallest_window();
+    let mut harness = harness(key);
+    settle(&mut harness, 1, window);
+    let before = texts(&frame_of(&mut harness, window));
+    for _ in 0..SCROLL_STEPS {
+        wheel(&mut harness, egui::pos2(window.x * SCROLL_AT[1], 250.0), SCROLL_STEP);
+    }
+    let after = texts(&frame_of(&mut harness, window));
+    let new = after.iter().filter(|text| !before.contains(text)).count();
+    assert!(new > 3, "the wheel scrolled {new} new lines into view of {} before", before.len());
+    set_thread_language(Choice::Auto);
+    drawn_cards::record(false);
+}
+
 #[test]
 fn the_check_sees_cards_of_a_row_that_differ_and_a_card_that_grows() {
     let level = [card(10.0, 10.0, 200.0, 110.0), card(208.0, 10.0, 398.0, 110.0)];
@@ -1205,7 +1512,7 @@ fn the_parts_cover_every_page_once() {
     for (_, key) in versekit_core::overview::PAGES {
         assert!(keys.contains(&key), "{key} is checked in no part");
     }
-    for key in LISTS_WITH_DETAIL.iter().chain(&RELEASE_PAGES).chain([&MAP_PAGE]) {
+    for key in LISTS_WITH_DETAIL.iter().chain(&RELEASE_PAGES).chain([&MAP_PAGE, &FLIGHT_PAGE]) {
         assert!(keys.contains(key), "{key} is no page of the window");
     }
 }
@@ -1372,7 +1679,6 @@ const RULE_EXCEPTIONS: [(&str, &str); 23] = [
     ("hf_allgemein", "Umbau ausstehend: Accounts und Bestand über volle Breite"),
     ("hf_ordner", "Umbau ausstehend: Spielkanäle schmal"),
     ("hf_module", "Umbau ausstehend: eine Spalte bei 1280"),
-    ("hf_erkennung", "Umbau ausstehend: Karten über volle Breite"),
     ("hf_startprogramme", "Umbau ausstehend: Karten über volle Breite"),
     ("k_basetool_verbindung", "Umbau ausstehend: Verbindung und Datenschutz über volle Breite"),
     ("hf_sichern", "Umbau ausstehend: Karten über volle Breite"),
@@ -1387,6 +1693,9 @@ const RULE_EXCEPTIONS: [(&str, &str); 23] = [
     ("hf_danke", "Umbau ausstehend (Auftrag Danke & Lizenzen)"),
     ("hf_wasistneu", "Umbau ausstehend (Auftrag Was ist neu)"),
     ("hf_diagnose", "Umbau ausstehend: Karten über volle Breite"),
+    // Wide windows: a short sentence (the empty state, the hint of the export) in a card of the full width. How such
+    // cards are to look is an open decision on rule 8.17; until then the page stands here.
+    ("hf_st_flugbuch", "breite Fenster: Sitzungsliste und kurzer Satz in Karte über volle Breite (Leerzustand, Export)"),
 ];
 
 /// Cards that run empty to the right: the content (lines and controls seen in the card) ends before

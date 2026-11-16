@@ -300,7 +300,7 @@ impl eframe::App for OverlayApp {
                 ui.set_min_size(ui.available_size());
                 #[cfg_attr(not(windows), allow(unused_variables))]
                 let drag = ui.add(
-                    egui::Label::new(RichText::new("Verse-Kit Overlay-Test").strong().color(GREEN))
+                    egui::Label::new(RichText::new("VerseKit Overlay-Test").strong().color(GREEN))
                         .sense(egui::Sense::drag()),
                 );
                 // Custom moving instead of StartDrag: the Windows route via the
@@ -379,7 +379,7 @@ fn hwnd_of(window: &impl raw_window_handle::HasWindowHandle) -> isize {
 
 fn run_overlay(args: Args) -> eframe::Result {
     let viewport = egui::ViewportBuilder::default()
-        .with_title("Verse-Kit Overlay-Test")
+        .with_title("VerseKit Overlay-Test")
         .with_app_id("versekit-overlay-proto")
         .with_inner_size([400.0, 330.0])
         .with_position([80.0, 80.0])
@@ -432,7 +432,7 @@ fn run_overlay(args: Args) -> eframe::Result {
 
 fn run_table(args: Args) -> eframe::Result {
     let viewport = egui::ViewportBuilder::default()
-        .with_title("Verse-Kit Tabellen-Test")
+        .with_title("VerseKit Tabellen-Test")
         .with_app_id("versekit-table-proto")
         .with_inner_size([900.0, 640.0])
         .with_active(args.probe.is_none());

@@ -21,7 +21,7 @@
 //! the request pieces, and sends to a made-up server on this computer.
 //!
 //! ⚠ Nothing leaves this computer: sending goes to `127.0.0.1` only, and the
-//! transport refuses every other host (`SC_BP_NO_NET`).
+//! transport refuses every other host (`VERSEKIT_NO_NET`).
 
 use std::fs;
 use std::io::{Read, Write};
@@ -34,7 +34,6 @@ use versekit_core::crash;
 use versekit_core::error_log::ErrorLog;
 use versekit_core::formats::{self, LocalTime};
 use versekit_core::language::{Lang, t_in};
-use versekit_core::legacy;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::redact::Redactor;
 use versekit_core::report::{self, Block, Entry, Facts};
@@ -97,7 +96,7 @@ fn lang_of(code: &str) -> Lang {
 
 fn paths_in(folder: &str) -> Paths {
     let mut host = Host::current();
-    host.set_var(legacy::ENV_HOME, folder);
+    host.set_var(versekit_core::envvars::ENV_HOME, folder);
     Paths::new(host)
 }
 
@@ -449,7 +448,7 @@ fn request(input: &Value, sabotage: bool) -> Result<Value, String> {
     for case in list(input, "targets")? {
         let mut host = Host::new(versekit_core::pypath::Flavor::native(), &[], "/");
         if let Some(env) = case["env"].as_str() {
-            host.set_var(legacy::ENV_REPORT_TARGET, env);
+            host.set_var(versekit_core::envvars::ENV_REPORT_TARGET, env);
         }
         let target = Target::from_host(&host);
         let available = target.available() != (sabotage && case["env"].as_str() == Some("aus"));
@@ -459,7 +458,7 @@ fn request(input: &Value, sabotage: bool) -> Result<Value, String> {
     // sending, to the made-up server only
     let (address, server) = serve(vec![200, 204, 429, 413, 500, 404, 302])?;
     let mut host = Host::current();
-    host.set_var(legacy::ENV_NO_NET, "1");
+    host.set_var(versekit_core::envvars::ENV_NO_NET, "1");
     let transport = HttpTransport::new("", &host).map_err(|e| e.code)?;
     let target = Target::local(&address);
     let image = [Attachment { name: "bild-1.png".into(), data: b"\x89PNG".to_vec(), mime: "image/png".into() }];
@@ -468,18 +467,18 @@ fn request(input: &Value, sabotage: bool) -> Result<Value, String> {
         submits.push(outcome(send::submit(
             &transport,
             &target,
-            "Verse-Kit 5 Bericht ä",
+            "VerseKit 5 Bericht ä",
             "5.0.0",
             "2026-10-21-0905",
             &image,
         )));
     }
     let seen = server.join().map_err(|_| "Server abgestürzt".to_string())?;
-    submits.push(outcome(send::submit(&transport, &target, "Verse-Kit 5 Bericht", "5.0.0", "2026-10-21-0905", &[])));
+    submits.push(outcome(send::submit(&transport, &target, "VerseKit 5 Bericht", "5.0.0", "2026-10-21-0905", &[])));
     let big: Vec<Attachment> = (0..5)
         .map(|i| Attachment { name: format!("bild-{i}.png"), data: vec![0; 2 * 1024 * 1024], mime: "image/png".into() })
         .collect();
-    submits.push(outcome(send::submit(&transport, &target, "Verse-Kit 5", "5.0.0", "2026-10-21-0905", &big)));
+    submits.push(outcome(send::submit(&transport, &target, "VerseKit 5", "5.0.0", "2026-10-21-0905", &big)));
     submits.push(outcome(send::submit(&transport, &Target::off(), "x", "5", "2026-10-21-0905", &[])));
     if sabotage {
         submits[2] = json!({ "ok": true, "reason": "" });
