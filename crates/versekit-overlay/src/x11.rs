@@ -96,6 +96,12 @@ pub fn window_type_choice(var: Option<&str>, desktop: Option<&str>) -> Option<St
     }
 }
 
+/// True where the window manager places the window by itself when it appears or changes its size: the on-screen
+/// display of [`window_type_choice`] (`var`, `desktop` as there), which KWin sets to the lower middle.
+pub fn manager_places(var: Option<&str>, desktop: Option<&str>) -> bool {
+    window_type_choice(var, desktop).is_some_and(|t| t.trim().eq_ignore_ascii_case("osd"))
+}
+
 /// True where the window takes the keyboard by asking the window manager to activate it (`_NET_ACTIVE_WINDOW`)
 /// instead of by `SetInputFocus`: under KDE (`desktop` as for [`window_type_choice`]), whose window manager takes
 /// a focus change by another client back, but obeys the request of a tool.
@@ -184,6 +190,13 @@ mod system {
 
     fn window(xid: isize) -> Option<u32> {
         u32::try_from(xid).ok().filter(|&w| w != 0)
+    }
+
+    /// [`manager_places`] for this run, from [`WINDOW_TYPE_VAR`] and `XDG_CURRENT_DESKTOP`.
+    pub fn window_manager_places() -> bool {
+        let asked = std::env::var(WINDOW_TYPE_VAR).ok();
+        let desktop = std::env::var("XDG_CURRENT_DESKTOP").ok();
+        manager_places(asked.as_deref(), desktop.as_deref())
     }
 
     /// Readies the window before it is shown first: it never takes the keyboard (`WM_HINTS.input`), and it
@@ -496,6 +509,17 @@ mod tests {
         assert_eq!(window_types(window_type_choice(Some("normal"), Some("KDE")).as_deref()), None, "normal takes it back");
         assert_eq!(window_type_choice(None, Some("GNOME")), None, "other desktops as before");
         assert_eq!(window_type_choice(None, None), None);
+    }
+
+    /// Only the on-screen display is placed by the window manager itself.
+    #[test]
+    fn the_window_manager_places_only_the_on_screen_display() {
+        assert!(manager_places(None, Some("KDE")));
+        assert!(manager_places(Some(" OSD "), Some("GNOME")), "asked for by the variable");
+        assert!(!manager_places(Some("normal"), Some("KDE")), "normal takes it back");
+        assert!(!manager_places(Some("utility"), Some("KDE")));
+        assert!(!manager_places(None, Some("GNOME")));
+        assert!(!manager_places(None, None));
     }
 
     /// Only under KDE the keyboard comes by the activation request; other desktops keep `SetInputFocus`.

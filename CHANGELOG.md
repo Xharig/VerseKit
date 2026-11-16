@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.7 - 2026-11-16
+
+> Nachbesserung zu 5.3.5: Auch das Overlay selbst bleibt unter Linux mit KDE
+> jetzt an seinem Platz.
+
+### Behoben
+
+- **Overlay-Platz (Linux, KDE):** Nach dem Start stand das Overlay unter KDE
+  nicht an der gewählten Ecke, sondern dort, wo KDE es hingesetzt hatte, und
+  VerseKit merkte sich diesen Platz sogar. VerseKit stellt das Overlay jetzt
+  sofort an seinen Platz zurück, wie seit 5.3.5 die Info-Leiste (Gemeldet von
+  Rhino).
+
 ## v5.3.6 - 2026-11-16
 
 > Nachbesserung zu 5.3.5: Ins Suchfeld der Info-Leiste könnt ihr jetzt auch

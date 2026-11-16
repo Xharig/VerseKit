@@ -83,7 +83,13 @@ mod os {
     };
 
     #[cfg(all(unix, not(target_os = "macos")))]
-    pub use super::x11::{allow_typing, move_to, reassert_topmost, set_region, window_rect};
+    pub use super::x11::{allow_typing, move_to, reassert_topmost, set_region, window_manager_places, window_rect};
+
+    /// The window stays where the overlay puts it: a move of the system is the player's or the system's own.
+    #[cfg(any(windows, target_os = "macos"))]
+    pub fn window_manager_places() -> bool {
+        false
+    }
 
     /// The short sound of a find; `loud` for one that must not be missed.
     #[cfg(not(windows))]
@@ -485,6 +491,9 @@ pub struct OverlayApp {
     pub pointer_override: Option<Pointer>,
     /// Where the window system says the window stands, instead of asking it: a double for the tests.
     pub window_override: Option<Rect>,
+    /// The window manager places the window by itself ([`os::window_manager_places`]): a move of the system is
+    /// undone instead of followed.
+    pub system_places: bool,
     pub injected: Vec<egui::Event>,
     pub nudged: Vec<(i32, i32)>,
 }
@@ -622,6 +631,13 @@ impl OverlayApp {
         }
         let Some((dx, dy)) = system_move(real, self.canvas, self.place_sent.map(|at| at.elapsed())) else { return };
         self.place_sent = None;
+        if self.system_places {
+            // The window goes back to where the overlay put it, and the place sent gets its time to arrive again.
+            if os::move_to(self.hwnd, self.canvas.x, self.canvas.y) {
+                self.place_sent = Some(Instant::now());
+            }
+            return;
+        }
         for r in [&mut self.current, &mut self.last_open, &mut self.canvas] {
             r.x += dx;
             r.y += dy;
@@ -2697,6 +2713,7 @@ impl OverlayApp {
             frame_asked: p.frame_asked,
             pointer_override: None,
             window_override: None,
+            system_places: os::window_manager_places(),
             injected: Vec::new(),
             nudged: Vec::new(),
         }
@@ -3999,6 +4016,24 @@ mod tests {
         app.follow_system_move();
         assert_eq!((app.current, app.last_open, app.canvas), start);
         assert!(app.place_sent.is_some(), "still on its way");
+    }
+
+    /// Where the window manager places the window by itself (KWin and the on-screen display), its move is not
+    /// taken as the overlay's place: the overlay and the place it remembers stay where they were.
+    #[test]
+    fn a_window_the_window_manager_placed_is_not_followed() {
+        let mut bench = bench(Args::default(), false, None);
+        let app = &mut bench.app;
+        let start = (app.current, app.last_open, app.canvas);
+        let moved = Rect::new(app.canvas.x - 400, app.canvas.y + 300, app.canvas.w.max(1), app.canvas.h.max(1));
+        app.window_override = Some(moved);
+        app.system_places = true;
+        app.place_sent = None;
+        app.follow_system_move();
+        assert_eq!((app.current, app.last_open, app.canvas), start, "placed by KWin");
+        app.system_places = false;
+        app.follow_system_move();
+        assert_eq!((app.canvas.x, app.canvas.y), (moved.x, moved.y), "elsewhere the system move is followed");
     }
 
     #[test]

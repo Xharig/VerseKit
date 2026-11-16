@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.3.7 - 2026-11-16
+
+> A follow-up to 5.3.5: the overlay itself now stays in its place on Linux
+> with KDE as well.
+
+### Fixed
+
+- **Overlay place (Linux, KDE):** After the start the overlay did not stand
+  in the chosen corner under KDE but where KDE had put it, and VerseKit even
+  remembered that place. VerseKit now puts the overlay straight back in its
+  place, as it does for the info bar since 5.3.5 (Reported by Rhino).
+
 ## v5.3.6 - 2026-11-16
 
 > A follow-up to 5.3.5: you can now type into the search field of the info
