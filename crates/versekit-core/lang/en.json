@@ -5529,6 +5529,7 @@
   "s_pf_launcher_hilfe": "Sets the game folder to the folder the RSI Launcher starts the game from.",
   "s_pf_launcher_ok": "Game folder changed.",
   "ov_a_ausgeblendet": "\"{0}\" hidden",
+  "ov_a_zeile_mehrfach": "{0}× {1}",
   "ov_a_zurueck_name": "Show again: {0}",
   "s_p9_bedarf_kein_recht_kopf": "Demand not visible",
   "s_p9_bedarf_kein_recht": "Your account cannot see the demand. Ask your unit about profit sharing.",

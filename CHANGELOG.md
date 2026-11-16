@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.4.1 - 2026-11-16
+
+> Nachbesserung zu 5.4.0: Das Overlay startet sofort, auch wenn ihr das
+> Spiel direkt nach dem Update startet. Dazu zählen gleichnamige Aufträge
+> jetzt einzeln.
+
+### Behoben
+
+- **Overlay blieb bei „Starte …“:** 5.4 baut den Bauplan-Katalog nach dem
+  Update einmal neu und liest dafür die Spieldaten, aber nie, während das
+  Spiel läuft. Lief das Spiel schon, wartete das Overlay auf diesen Neubau
+  und blieb leer, bis das Spiel wieder geschlossen war. Jetzt nimmt es sofort
+  den letzten Katalog, und der Neubau folgt, wenn das Spiel zu ist. Dasselbe
+  gilt für die Seiten, die den Katalog beim Öffnen holen.
+- **Zwei Aufträge mit gleichem Namen:** Das Spiel lässt denselben Auftrag
+  zweimal laufen, etwa einmal angenommen und einmal geteilt. Die Leiste im
+  Overlay zählte beide als einen, und scheiterte einer, verschwand auch der
+  andere. Jetzt steht so ein Auftrag einmal in der Leiste mit „2×“ davor, der
+  Kopf zählt beide, und ein Ende trifft nur seinen eigenen Auftrag. Das
+  Auftragsprotokoll und die Statistik führen beide.
+
 ## v5.4.0 - 2026-11-16
 
 > VerseKit verbindet sich mit dem Panel eurer Orga und zeigt deren Lager,

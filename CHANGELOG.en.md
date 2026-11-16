@@ -6,6 +6,27 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.4.1 - 2026-11-16
+
+> A follow-up to 5.4.0: the overlay starts at once, also when you start the
+> game right after the update. And contracts of the same name now count one
+> by one.
+
+### Fixed
+
+- **Overlay stayed at “Starting …”:** 5.4 builds the blueprint catalog once
+  more after the update and reads the game data for it, but never while the
+  game runs. When the game ran already, the overlay waited for that build and
+  stayed empty until the game was closed again. Now it takes the last catalog
+  at once, and the build follows when the game is closed. The same goes for
+  the pages that fetch the catalog when they open.
+- **Two contracts of the same name:** The game lets the same contract run
+  twice, for example once accepted and once shared. The bar in the overlay
+  counted both as one, and when one failed, the other went too. Now such a
+  contract stands once in the bar with “2×” in front, the header counts both,
+  and an end only hits its own contract. The contract log and the statistics
+  keep both.
+
 ## v5.4.0 - 2026-11-16
 
 > VerseKit connects to your org's panel and shows its stock, blueprints and

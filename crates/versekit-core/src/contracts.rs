@@ -270,7 +270,8 @@ pub fn events_from_text(text: &str, patterns: &Patterns) -> Vec<Event> {
 /// Which open contract does this end close, or none?
 ///
 /// Three steps in this order: an objective id means only an objective ended
-/// and the contract goes on; else over the title; else over the mission id.
+/// and the contract goes on; else over a known mission id (two contracts may
+/// share a title); else over the title.
 pub fn which_ended<'a>(
     plain: &str,
     mission_id: &str,
@@ -281,10 +282,25 @@ pub fn which_ended<'a>(
     if !objective_id.is_empty() {
         return None;
     }
-    if pending.into_iter().any(|name| name == plain) {
-        return Some(plain.to_string());
+    if let Some(key) = mission_keys.get(mission_id).filter(|_| !mission_id.is_empty()) {
+        return Some(key.clone());
     }
-    if mission_id.is_empty() { None } else { mission_keys.get(mission_id).cloned() }
+    if pending.into_iter().any(|name| name == plain) { Some(plain.to_string()) } else { None }
+}
+
+/// Takes away what an end of the contract `gone` closes. With a known mission id only that mission goes, and the
+/// contract stays while another mission of the same title runs. An unknown mission id (the second report of an end
+/// already taken, `EndMission` and the message) ends the contract only when no known mission of its title runs.
+/// Without a mission id every mission of the title goes. Returns whether the contract is gone and the ids taken away.
+pub fn end_missions(gone: &str, mission_id: &str, keys: &mut MissionKeys) -> (bool, Vec<String>) {
+    if mission_id.is_empty() {
+        return (true, keys.remove_key(gone));
+    }
+    if keys.get(mission_id).is_some_and(|key| key == gone) {
+        keys.remove(mission_id);
+        return (keys.ids_of(gone).is_empty(), vec![mission_id.to_string()]);
+    }
+    (keys.ids_of(gone).is_empty(), Vec::new())
 }
 
 /// The raw message about an objective.
@@ -528,8 +544,9 @@ pub fn state_from_text(text: &str, patterns: &Patterns) -> (Vec<String>, Mission
             keys.as_map(),
         );
         let Some(gone) = gone else { continue };
-        pending.retain(|(p, _)| *p != gone);
-        keys.remove_key(&gone);
+        if end_missions(&gone, &event.mission_id, &mut keys).0 {
+            pending.retain(|(p, _)| *p != gone);
+        }
     }
     (pending.into_iter().map(|(_, title)| title).collect(), keys)
 }
@@ -690,6 +707,33 @@ mod tests {
         );
     }
 
+    /// Two contracts of the same title run (one accepted, one shared and accepted); the first fails, the second
+    /// runs on, as in a Game.log of 4.10.3.
+    #[test]
+    fn of_two_contracts_with_the_same_title_an_end_takes_only_its_own() {
+        // The end comes twice, as `EndMission` and as the message; the second must not take the twin.
+        let text = format!(
+            "{}{}<2026-11-16T21:11:08.000Z> [Notice] <EndMission> Ending mission for player. MissionId[8bbc] Player[X] CompletionType[Fail]\n{}",
+            line("Auftrag angenommen", "Silent Strike", &ids("8bbc", "")),
+            line("Auftrag angenommen", "Silent Strike", &ids("fa4a", "")),
+            line("Auftrag fehlgeschlagen", "Silent Strike", &ids("8bbc", "")),
+        );
+        let (open, keys) = state_from_text(&text, &patterns());
+        assert_eq!(open, ["Silent Strike"], "the second one still runs");
+        assert_eq!(keys.ids_of("Silent Strike"), ["fa4a"]);
+        // Its own end takes the second one away too.
+        let both = format!("{text}{}", line("Auftrag abgeschlossen", "Silent Strike", &ids("fa4a", "")));
+        let (open, keys) = state_from_text(&both, &patterns());
+        assert!(open.is_empty() && keys.is_empty(), "{open:?}");
+        // An end without a known id still ends the title with all its missions.
+        let mut keys = MissionKeys::default();
+        keys.insert("a", "T");
+        keys.insert("b", "T");
+        assert_eq!(end_missions("T", "x", &mut keys), (false, Vec::new()), "an unknown id leaves known ones standing");
+        assert_eq!(end_missions("T", "", &mut keys), (true, vec!["a".to_string(), "b".to_string()]));
+        assert_eq!(end_missions("T", "x", &mut keys), (true, Vec::new()), "nothing known runs: the title goes");
+    }
+
     #[test]
     fn a_shared_offer_and_a_placeholder_acceptance_are_no_acceptance() {
         let shared = line("Auftrag geteilt", "Stop Rival Attack at Base", &ids(NULL_ID, ""));
@@ -753,13 +797,15 @@ mod tests {
     }
 
     #[test]
-    fn which_ended_goes_by_title_then_by_id_and_never_by_objective() {
+    fn which_ended_goes_by_id_then_by_title_and_never_by_objective() {
         let mut keys = HashMap::new();
         keys.insert("m1".to_string(), "Alter Titel".to_string());
         let open = ["Alter Titel", "Neu"];
         assert_eq!(which_ended("Neu", "", "o", open, &keys), None);
         assert_eq!(which_ended("Neu", "x", "", open, &keys).as_deref(), Some("Neu"));
         assert_eq!(which_ended("Anders", "m1", "", open, &keys).as_deref(), Some("Alter Titel"));
+        // A known id wins over a title that is open too.
+        assert_eq!(which_ended("Neu", "m1", "", open, &keys).as_deref(), Some("Alter Titel"));
         assert_eq!(which_ended("Anders", "m2", "", open, &keys), None);
         assert_eq!(which_ended("Anders", "", "", open, &keys), None);
     }

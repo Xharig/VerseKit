@@ -729,11 +729,14 @@ fn contracts_bar(ui: &mut Ui, view: &View, out: &mut Output) {
         ui.add_space(2.0);
         return;
     }
-    let head = contracts_head(view.contracts.len(), view.contracts_max);
+    let head = contracts_head(versekit_core::live_contracts::running(view.contracts), view.contracts_max);
     quiet(ui, &head);
     out.contract_texts.push(head);
     for line in view.contracts {
-        let text = line.text.render();
+        let text = match line.count {
+            0 | 1 => line.text.render(),
+            count => tf("ov_a_zeile_mehrfach", &[("0", count.into()), ("1", line.text.render().into())]),
+        };
         let tone = if line.grey { s.sub } else { s.fg };
         // The text column has a fixed width, the button stands at the right edge in every line.
         let rect = line_with_button(ui, |ui| {
@@ -2178,6 +2181,7 @@ mod tests {
             text: Message::Plain(text.into()),
             goals: goals.iter().map(|g| (*g).to_string()).collect(),
             grey,
+            count: 1,
         }
     }
 
@@ -2211,6 +2215,24 @@ mod tests {
             for (line, _) in &jobs {
                 assert!(painted.contains(line), "{}: {line} in {painted:?}", scheme.id);
             }
+        }
+    }
+
+    /// Two contracts of the same title stand in one line with their count, and the header counts contracts.
+    #[test]
+    fn a_title_that_runs_twice_shows_its_count_and_counts_twice() {
+        language::set_thread_language(language::Choice::De);
+        let rows = rows();
+        let status = Message::Plain("x".into());
+        let mut lines = contract_lines();
+        lines[2].count = 2;
+        for scheme in theme::schemes().into_iter().take(1) {
+            let mut v = view(scheme, &rows, &status, Shown::Open);
+            v.contracts = &lines;
+            let (out, _) = frame(&v, vec2(420.0, 400.0), None);
+            assert_eq!(out.contract_texts[0], contracts_head(4, 10));
+            assert!(out.contract_texts.contains(&"2× Auftrag angenommen: Drei".to_string()), "{:?}", out.contract_texts);
+            assert_eq!(out.hide_buttons.len(), 3, "still one line, one button per title");
         }
     }
 

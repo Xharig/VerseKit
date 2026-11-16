@@ -26,8 +26,9 @@
 //! next patch. What it adds is the time of each line, the course over
 //! several sessions, completed against abandoned, and the count.
 //!
-//! ⚠ The game sends the same acceptance twice in the same millisecond with
-//! different numbers in the brackets; it is told apart by (time, title, kind).
+//! ⚠ A report that comes twice is told apart by (time, title and mission id, kind). Two acceptances of the same
+//! title in the same millisecond with different mission ids are two contracts: after a change of server the game
+//! reports every running one again, and a shared contract may run next to the accepted one.
 
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
@@ -410,6 +411,8 @@ struct Book {
     done: Vec<usize>,
     seen: HashSet<(String, String, u8)>,
     ident: HashMap<String, String>,
+    /// Mission id → the run it started: of two contracts with the same title, an end goes to its own.
+    run_of: HashMap<String, usize>,
 }
 
 impl Book {
@@ -473,7 +476,11 @@ impl Book {
             Kind::End => SEEN_END,
             Kind::Left => SEEN_LEFT,
         };
-        if !self.seen.insert((when.to_string(), title.clone(), tag)) {
+        // With the mission id: two contracts of the same title are reported in the same second after a change of
+        // server, and both are contracts.
+        let seen_key =
+            if event.mission_id.is_empty() { title.clone() } else { format!("{title}\u{1f}{}", event.mission_id) };
+        if !self.seen.insert((when.to_string(), seen_key, tag)) {
             return;
         }
         match event.kind {
@@ -496,10 +503,16 @@ impl Book {
                 // ⚠⚠ A resumption is no new acceptance: when logging in, the game
                 // reports every running contract as accepted again. Without this
                 // check a contract would stand once per session it was open in.
+                // With a mission id the id decides: a new id is a new contract, even when one of the same title
+                // runs (the game lets the same contract run twice, accepted and shared).
                 let id = &event.mission_id;
                 let open_with = |name: &str| self.pending.iter().any(|&i| self.runs[i].name == name);
-                let again =
-                    open_with(&title) || (!id.is_empty() && self.ident.get(id).is_some_and(|known| open_with(known)));
+                let again = if id.is_empty() {
+                    open_with(&title)
+                } else {
+                    self.run_of.get(id).is_some_and(|i| self.pending.contains(i))
+                        || (!self.run_of.contains_key(id) && self.ident.get(id).is_some_and(|known| open_with(known)))
+                };
                 if again {
                     return;
                 }
@@ -507,6 +520,7 @@ impl Book {
                 self.pending.push(self.runs.len() - 1);
                 if !id.is_empty() {
                     self.ident.insert(id.clone(), title);
+                    self.run_of.insert(id.clone(), self.runs.len() - 1);
                 }
             }
             Kind::End => {
@@ -518,9 +532,15 @@ impl Book {
                 let hit = contracts::which_ended(&title, &event.mission_id, &event.objective_id, names, &self.ident);
                 let Some(hit) = hit.filter(|h| !h.is_empty()) else { return };
                 let state = state_for(endings.get(event.mission_id.as_str()).copied().unwrap_or(""));
-                // ⚠ The OLDEST fitting one, not the youngest: else a contract gets the end
-                // of a later run and the log shows an end before its start.
-                if let Some(at) = self.pending.iter().position(|&i| self.runs[i].name == hit) {
+                // The run of this mission id first; else the OLDEST fitting one, not the youngest: else a contract
+                // gets the end of a later run and the log shows an end before its start.
+                // An end of a mission whose run has ended already is the second report of that end (`EndMission`
+                // and the message): it hits no other run of the same title.
+                let at = match self.run_of.get(&event.mission_id) {
+                    Some(i) => self.pending.iter().position(|p| p == i),
+                    None => self.pending.iter().position(|&i| self.runs[i].name == hit),
+                };
+                if let Some(at) = at {
                     let i = self.pending.remove(at);
                     self.runs[i].state = state;
                     self.runs[i].until = Some(when.to_string());
@@ -1014,7 +1034,8 @@ mod tests {
     #[test]
     fn the_double_report_counts_once_and_a_resumption_is_no_new_run() {
         let body = format!(
-            "{}{}{}{}",
+            "{}{}{}{}{}",
+            accept(1, "Retake Platforms", "m1"),
             accept(1, "Retake Platforms", "m1"),
             accept(1, "Retake Platforms", "m2"),
             end(5, "Retake Platforms", "m1", "Complete"),
@@ -1022,11 +1043,34 @@ mod tests {
         );
         let entries = history(&[session(&body)]);
         let runs = by_name(&entries, "Retake Platforms");
-        // Two acceptances in the same second are one; the second one at 10 is a run of its own.
-        assert_eq!(runs.len(), 2);
+        // The same mission twice in the same second is one; another mission id in that second is a contract of its
+        // own (after a change of server the game reports two contracts of the same title in one millisecond), and
+        // the end goes to the mission it names.
+        assert_eq!(runs.len(), 3);
         assert_eq!(state_of(runs[0]), RUNNING);
         assert_eq!(state_of(runs[1]), COMPLETED);
         assert_eq!(text_of(runs[1], "bis"), at(5).as_str());
+        assert_eq!(state_of(runs[2]), RUNNING);
+    }
+
+    /// The case of a Game.log of 16.11.2026: Silent Strike accepted, the same contract shared and accepted, the first
+    /// failed; after the change of server both are reported again.
+    #[test]
+    fn of_two_contracts_with_the_same_title_the_end_goes_to_its_own() {
+        let body = format!(
+            "{}{}{}{}{}",
+            accept(1, "Silent Strike", "8bbc"),
+            accept(60, "Silent Strike", "fa4a"),
+            end(120, "Silent Strike", "8bbc", "Fail"),
+            accept(180, "Surprise Party", "17fa"),
+            accept(180, "Surprise Party", "e189"),
+        );
+        let entries = history(&[session(&body)]);
+        let strikes = by_name(&entries, "Silent Strike");
+        assert_eq!(strikes.len(), 2);
+        let states: Vec<&str> = strikes.iter().map(|r| state_of(r)).collect();
+        assert!(states.contains(&FAILED) && states.contains(&RUNNING), "{states:?}");
+        assert_eq!(by_name(&entries, "Surprise Party").len(), 2);
     }
 
     #[test]

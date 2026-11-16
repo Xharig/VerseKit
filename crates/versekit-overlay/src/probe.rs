@@ -743,6 +743,7 @@ fn sample_contracts() -> Vec<ContractLine> {
         text: Message::Plain(text.to_string()),
         goals: goals.iter().map(|g| g.to_string()).collect(),
         grey,
+        count: 1,
     };
     vec![
         line(
@@ -1660,7 +1661,10 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
                 .iter()
                 .map(|c| c.text.render())
                 .chain([
-                    versekit_ui::overlay::contracts_head(app.contracts.len(), app.settings.contracts_max as usize),
+                    versekit_ui::overlay::contracts_head(
+                        versekit_core::live_contracts::running(&app.contracts),
+                        app.settings.contracts_max as usize,
+                    ),
                     "Fliege los".into(),
                     "Sammle die Kisten".into(),
                     t("ov_a_unklar"),

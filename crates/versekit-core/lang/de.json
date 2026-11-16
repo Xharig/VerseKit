@@ -5529,6 +5529,7 @@
   "s_pf_launcher_hilfe": "Stellt den Spielordner auf den Ordner um, aus dem der RSI Launcher das Spiel startet.",
   "s_pf_launcher_ok": "Spielordner umgestellt.",
   "ov_a_ausgeblendet": "„{0}“ ausgeblendet",
+  "ov_a_zeile_mehrfach": "{0}× {1}",
   "ov_a_zurueck_name": "Wieder einblenden: {0}",
   "s_p9_bedarf_kein_recht_kopf": "Bedarf nicht sichtbar",
   "s_p9_bedarf_kein_recht": "Dein Konto sieht den Bedarf nicht. Frag deine Einheit nach der Gewinnbeteiligung.",

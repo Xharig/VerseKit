@@ -204,12 +204,27 @@ pub fn list_catalog(paths: &Paths) -> Option<CatalogCache> {
     list_catalog_file(paths, archive.as_deref(), &paths.app_file(CACHE_FILE))
 }
 
-/// Like [`list_catalog`], never asking the network: the cache, else the
-/// archive alone. For a caller that must not wait for scmdb (the overlay at
-/// its start); the window completes the catalog from scmdb later.
+/// Like [`list_catalog`], never asking the network and never waiting for a build while a catalog stands in: the
+/// cache, else the last build of the same archive, else the 4.12 cache; only without any of them the archive is
+/// read. For a caller that needs a catalog now (the overlay at its start): a build reads the archive, and that waits
+/// as long as the game runs; the window builds the catalog and completes it from scmdb.
 pub fn list_catalog_offline(paths: &Paths) -> Option<CatalogCache> {
     let archive = paths.archive_file().map(PathBuf::from);
-    list_catalog_archive(paths, archive.as_deref(), &paths.app_file(CACHE_FILE), Arc::new(Offline))
+    list_catalog_at_once(paths, archive.as_deref(), &paths.app_file(CACHE_FILE), Arc::new(Offline))
+}
+
+/// [`list_catalog_offline`] with the archive, the cache file and the `supply` given.
+pub fn list_catalog_at_once(
+    paths: &Paths,
+    archive: Option<&Path>,
+    cache_file: &str,
+    supply: Arc<dyn Supply>,
+) -> Option<CatalogCache> {
+    let start = start_in(paths, archive, cache_file, true, Arc::clone(&supply), now());
+    if start.catalog.is_some() {
+        return start.catalog;
+    }
+    list_catalog_archive(paths, archive, cache_file, supply)
 }
 
 /// Like [`list_catalog`], with the channel folder (`None`: no installation)
@@ -2713,6 +2728,40 @@ mod tests {
         let forced = rebuild_now_archive(&paths, None, &cache, supply).run();
         assert!(forced.is_some());
         assert_eq!(counting.builds(), 2, "a build asked for runs");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// After an update that changed the layout a build is due, and a build reads the archive, which waits as long as
+    /// the game runs. The overlay at its start takes the last catalog at once and builds nothing; only without any
+    /// catalog it builds.
+    #[test]
+    fn at_once_the_last_catalog_stands_in_and_nothing_is_built() {
+        let dir = versekit_core::testdir::fresh("katalog-sofort");
+        let root = dir.to_string_lossy().into_owned();
+        let host = Host::new(
+            versekit_core::pypath::Flavor::native(),
+            &[(versekit_core::envvars::ENV_HOME, root.as_str())],
+            &root,
+        );
+        let paths = Paths::new(host);
+        let cache = dir.join(CACHE_FILE).to_string_lossy().into_owned();
+        let counting = Arc::new(Counting::default());
+        let supply: Arc<dyn Supply> = Arc::clone(&counting) as Arc<dyn Supply>;
+        write_cache(
+            &cache,
+            &stamp_in(None, CACHE_FORMAT - 1),
+            &keyed(&["Alpha", "Beta"], "4.10.2-live.1"),
+            &Map::new(),
+        )
+        .unwrap();
+        assert!(start_catalog_archive(&paths, None, &cache, Arc::clone(&supply)).rebuild.is_some(), "a build is due");
+        let now = list_catalog_at_once(&paths, None, &cache, Arc::clone(&supply)).expect("the last catalog");
+        assert_eq!((now.version.as_str(), now.blueprints.len()), ("4.10.2-live.1", 2));
+        assert_eq!(counting.builds(), 0, "nothing was built: the build would wait for the end of the game");
+        // Without any catalog the build runs, as before.
+        let empty = dir.join("leer.json").to_string_lossy().into_owned();
+        assert!(list_catalog_at_once(&paths, None, &empty, supply).is_some());
+        assert_eq!(counting.builds(), 1);
         let _ = fs::remove_dir_all(dir);
     }
 

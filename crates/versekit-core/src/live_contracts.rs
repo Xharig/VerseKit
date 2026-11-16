@@ -32,8 +32,8 @@ use regex::Regex;
 
 use crate::contracts::{
     Event, Kind, MissionKeys, ObjectiveEvent, Objectives, Patterns, Silence, SilenceScan, TEXT_MARKERS,
-    contracts_from_text, events_from_text, objective_events_from_text, server_change_silence, state_from_text,
-    which_ended,
+    contracts_from_text, end_missions, events_from_text, objective_events_from_text, server_change_silence,
+    state_from_text, which_ended,
 };
 use crate::jsonio::{self, Newline, Value};
 use crate::language::{Phrase, tf};
@@ -209,6 +209,14 @@ pub struct Line {
     pub goals: Vec<String>,
     /// Silent since a change of server: grey, with an explanation.
     pub grey: bool,
+    /// How many contracts of this title run (at least one): the game lets the same contract run twice, for
+    /// example one accepted and one shared.
+    pub count: usize,
+}
+
+/// How many contracts run over all lines of the bar.
+pub fn running(lines: &[Line]) -> usize {
+    lines.iter().map(|line| line.count.max(1)).sum()
 }
 
 /// What the thread tells the window.
@@ -376,6 +384,7 @@ impl Live {
                 text: text.clone(),
                 goals: self.objectives.open_for(first.get(title.as_str()).copied()),
                 grey: self.unclear.contains(title),
+                count: self.missions.ids_of(title).len().max(1),
             })
             .collect()
     }
@@ -623,14 +632,20 @@ impl Live {
                 self.open.iter().map(|(t, _)| t.as_str()).chain(now_open.iter().map(|(t, _)| t.as_str())).collect();
             let gone = which_ended(&plain, &event.mission_id, &event.objective_id, known, self.missions.as_map());
             let Some(gone) = gone else { continue };
+            let (title_gone, ids) = end_missions(&gone, &event.mission_id, &mut self.missions);
+            for id in ids {
+                self.objectives.forget(&id);
+            }
+            if !title_gone {
+                // Another contract of the same title runs on: only its count goes down.
+                changed = true;
+                continue;
+            }
             now_open.retain(|(p, _)| *p != gone);
             self.unclear.remove(&gone);
             if let Some(at) = self.open.iter().position(|(t, _)| *t == gone) {
                 self.open.remove(at);
                 changed = true;
-            }
-            for id in self.missions.remove_key(&gone) {
-                self.objectives.forget(&id);
             }
             out.push(Out::Gone(gone.clone()));
             self.seen.remove(&gone);
@@ -766,6 +781,46 @@ mod tests {
         live.report(&paths, &section_of(&end), &end, &check, &mut out);
         assert_eq!(out[0], Out::Gone("Hunt the Target".into()));
         assert!(live.is_empty());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Two contracts of the same title: one line with the count 2, and the end of one leaves the other standing.
+    #[test]
+    fn two_contracts_of_the_same_title_count_twice_and_end_one_by_one() {
+        set_thread_language(Choice::De);
+        let (paths, dir) = paths("zwillinge");
+        let catalog = blueprints();
+        let have = |_: &str| false;
+        let check = Check { blueprints: &catalog, has: &have };
+        let mut live = Live::new();
+        let text = format!(
+            "{}{}{}",
+            line("Auftrag angenommen", "Silent Strike", "8bbc", ""),
+            line("Auftrag angenommen", "Silent Strike", "fa4a", ""),
+            line("Auftrag angenommen", "Ambush Op", "c4d8", ""),
+        );
+        live.report(&paths, &section_of(&text), &text, &check, &mut Vec::new());
+        let lines = live.stand();
+        assert_eq!(lines.len(), 2, "one line per title");
+        assert_eq!(lines[0].count, 2);
+        assert_eq!(running(&lines), 3, "the head counts contracts, not lines");
+        // One of the two fails, reported twice (`EndMission` and the message): the line stays with one, nothing
+        // tells the rows it is gone.
+        let fail = format!(
+            "<2026-10-01T10:00:00.000Z> [Notice] <EndMission> Ending mission for player. MissionId[8bbc] Player[X] CompletionType[Fail]\n{}",
+            line("Auftrag fehlgeschlagen", "Silent Strike", "8bbc", "")
+        );
+        let mut out = Vec::new();
+        live.report(&paths, &section_of(&fail), &fail, &check, &mut out);
+        assert!(!out.iter().any(|o| matches!(o, Out::Gone(_))), "{out:?}");
+        let lines = live.stand();
+        assert_eq!((lines.len(), lines[0].count, running(&lines)), (2, 1, 2));
+        // Its own end takes the second one away.
+        let end = line("Auftrag abgeschlossen", "Silent Strike", "fa4a", "");
+        let mut out = Vec::new();
+        live.report(&paths, &section_of(&end), &end, &check, &mut out);
+        assert!(out.contains(&Out::Gone("Silent Strike".into())), "{out:?}");
+        assert_eq!(running(&live.stand()), 1);
         let _ = std::fs::remove_dir_all(dir);
     }
 
