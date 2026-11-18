@@ -234,6 +234,15 @@ impl ShipArea {
 
     fn sync(&self, pass: &mut Pass<'_>, sub: &mut Map) -> Result<Map, ApiError> {
         let path = pass.paths.app_file(hangar::FILE);
+        // Every entry keeps the identifier it has now, before anything is compared.
+        pass.apply_local(|| {
+            let _lock = hangar::lock();
+            if let Some(mut data) = hangar::load_checked(&path)
+                && hangar::edit_ships(&mut data, |ships| ship_sync::keep_ids(ships))
+            {
+                hangar::save(&path, &mut data);
+            }
+        });
         let (mut server, _resync) = pull_generic(pass.conn, sub, "/me/ships", "shipId")?;
         // One read, no check before it: a file that cannot be read now must not count as an empty hangar.
         let Some(data) = hangar::load_checked(&path) else { return Err(store_busy("hangar unreadable")) };
@@ -361,7 +370,21 @@ impl ShipArea {
             .filter(|e| !links.get(*e).is_some_and(|id| server.contains_key(id)))
             .cloned()
             .collect();
-        let removed_elsewhere: Vec<String> = elsewhere.difference(&created).cloned().collect();
+        // A ship whose type another linked ship holds is never made over there (one entry per type): no
+        // consent can bring it back, so it is no ship removed over there either.
+        let held_types: BTreeSet<&String> = links
+            .iter()
+            .filter(|(_, id)| server.contains_key(*id))
+            .filter_map(|(ext, _)| resolved.get(ext))
+            .filter(|bt| !bt.is_empty())
+            .collect();
+        let type_held = |ext: &String| {
+            !links.get(ext).is_some_and(|id| server.contains_key(id))
+                && resolved.get(ext).is_some_and(|bt| held_types.contains(bt))
+        };
+        let removed_elsewhere: Vec<String> =
+            elsewhere.difference(&created).filter(|ext| !type_held(ext)).cloned().collect();
+        let overrides: BTreeSet<String> = overrides.into_iter().filter(|ext| !type_held(ext)).collect();
         let local_removed: Map = result
             .local_removed
             .iter()

@@ -26,9 +26,9 @@
 //! the Basetool every ship on its own. Exactly one ship per type is linked; a
 //! second one of the same type over there is left alone and never removed.
 //!
-//! The identifier of an entry (`externalId`) comes from maker and name, so
-//! `hangar.json` needs no new field and the identifier stays the same over any
-//! import.
+//! The identifier of an entry (`externalId`) comes from maker and name the
+//! first time and is then kept in the entry ([`ID_FIELD`]), so a maker filled
+//! in later by an import does not make a new ship of it.
 //!
 //! The rules (`resources/ships.md`, the sync guide):
 //! 1. **Link first, then create.** A type that exists over there is hung on a
@@ -72,10 +72,33 @@ fn head(text: &str, count: usize) -> String {
     text.chars().take(count).collect()
 }
 
-/// The fixed identifier of a hangar entry, from maker and name.
-pub fn external_id(entry: &Map) -> String {
+/// The field of a hangar entry that keeps its identifier once it was given.
+pub const ID_FIELD: &str = "kennung";
+
+/// The identifier from maker and name, as an entry gets it the first time.
+pub fn computed_id(entry: &Map) -> String {
     let base = format!("{}|{}", name_key(text(entry, "hersteller")), name_key(text(entry, "name")));
     format!("vk-{}", &sha1_hex(base.as_bytes())[..24])
+}
+
+/// The identifier of a hangar entry: the kept one, else the one from maker and name.
+pub fn external_id(entry: &Map) -> String {
+    let kept = py_strip(text(entry, ID_FIELD));
+    if kept.starts_with("vk-") { kept.to_string() } else { computed_id(entry) }
+}
+
+/// Keeps the identifier in every entry that has none yet, so a later change of
+/// maker or name leaves it as it is. Returns whether an entry was changed.
+pub fn keep_ids(ships: &mut [Map]) -> bool {
+    let mut changed = false;
+    for entry in ships.iter_mut() {
+        if !py_strip(text(entry, ID_FIELD)).starts_with("vk-") {
+            let id = computed_id(entry);
+            map_set(entry, ID_FIELD, Value::str(id));
+            changed = true;
+        }
+    }
+    changed
 }
 
 /// Python's `int(value)` for the values a hangar file can hold; `None` where

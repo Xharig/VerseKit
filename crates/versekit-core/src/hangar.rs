@@ -1071,7 +1071,7 @@ pub fn merge_duplicates(data: &mut Map) -> bool {
         if !truthy(get(target, "belegung")) && truthy(get(&s, "belegung")) {
             map_set(target, "belegung", get(&s, "belegung").cloned().unwrap_or(Value::Null));
         }
-        for key in ["einsatzbereit", "einheit", "schmelzbar", "schmelz_wahl", PIECES] {
+        for key in ["einsatzbereit", "einheit", "schmelzbar", "schmelz_wahl", PIECES, crate::basetool::ship_sync::ID_FIELD] {
             if is_none(get(target, key)) && !is_none(get(&s, key)) {
                 map_set(target, key, get(&s, key).cloned().unwrap_or(Value::Null));
             }

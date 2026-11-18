@@ -1024,6 +1024,7 @@ fn overlay_picture(dir: &str, english: bool) {
         )),
         goals: Vec::new(),
         grey: false,
+        count: 1,
     };
     let contracts = vec![
         contract(

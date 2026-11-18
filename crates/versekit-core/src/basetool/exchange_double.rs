@@ -682,6 +682,11 @@ impl ExchangeDouble {
         self.world().lots.clone()
     }
 
+    /// A second name over there for a ship type it knows, as a variant it does not tell apart.
+    pub fn add_ship_type_name(&self, type_bt: &str, name: &str) {
+        self.world().ship_types.push((type_bt.into(), name.into()));
+    }
+
     /// A ship over there.
     pub fn add_ship(&self, type_name: &str, external: Option<&str>, insurance: Value, name: &str) -> String {
         let mut world = self.world();

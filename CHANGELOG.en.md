@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.4.2 - 2026-11-18
+
+> A follow-up to 5.4.1: own ship names get their name field back in the
+> hangar, ships no longer land twice in the Basetool, and "Report error"
+> counts only real errors.
+
+### Fixed
+
+- **Own ship names, field missing in the hangar:** For ships with an own
+  name, "My hangar" showed "Not found in the language file" instead of the
+  name field. VerseKit no longer remembered the factory name after the
+  translation was loaded again, and took the own name for it. Now it takes
+  the factory name from the game data in that case and remembers it again.
+  Your names stay, in the game and in VerseKit.
+- **Ships twice in the Basetool:** When the maker of a ship came in later,
+  for example through an import, the sync made the ship a second time in the
+  Basetool. Now every ship keeps its identifier and stays one entry.
+- **"Report error" counted errors that were none:** While the update check
+  waited for the hourly limit of GitHub, each wait counted as an error and
+  the button showed for example "(10)". Waiting is now a note, not an error.
+  Reported by Morkhan
+
 ## v5.4.1 - 2026-11-16
 
 > A follow-up to 5.4.0: the overlay starts at once, also when you start the

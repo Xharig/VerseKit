@@ -514,6 +514,27 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
         with_added.extend(added_ships.iter().map(|(k, v)| format!("{k}={v}")));
         asop::build_table(&with_added, &asop::load(&paths.app_file(asop::FILE))).into_iter().collect()
     };
+    // Ship lines that hold only their own name with no stored original: the
+    // factory name comes from the reference names and is stored again.
+    let restored: HashMap<String, String> = {
+        let names = asop::load(&paths.app_file(asop::FILE));
+        let lost: Vec<&str> = lines
+            .iter()
+            .filter_map(|line| form::split_line(line))
+            .filter(|(key, _, text)| {
+                key.starts_with(asop::PREFIX) && asop::original_lost(key, text, &origtext_old, &asop::entry(&names, key).0)
+            })
+            .map(|(key, _, _)| key)
+            .collect();
+        if lost.is_empty() {
+            HashMap::new()
+        } else {
+            let reference = asop::reference_names(paths, ini);
+            lost.into_iter()
+                .filter_map(|key| reference.get(key).filter(|n| !n.is_empty()).map(|n| (key.to_string(), n.clone())))
+                .collect()
+        }
+    };
     let rank_suffix: HashMap<String, String> = if remove_only {
         HashMap::new()
     } else {
@@ -657,7 +678,10 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
             new.push(line.clone());
             continue;
         };
-        let mut orig = strip_old(text, key, &origtext_old, fallback);
+        let mut orig = match restored.get(key) {
+            Some(factory) => factory.clone(),
+            None => strip_old(text, key, &origtext_old, fallback),
+        };
         if orig == ADDED {
             changed += 1;
             continue;

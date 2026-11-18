@@ -6,6 +6,30 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.4.2 - 2026-11-18
+
+> Nachbesserung zu 5.4.1: Eigene Schiffsnamen bekommen im Hangar ihr
+> Namensfeld zurück, Schiffe landen nicht mehr doppelt im Basetool, und
+> „Fehler melden“ zählt nur noch echte Fehler.
+
+### Behoben
+
+- **Eigene Schiffsnamen, Feld fehlte im Hangar:** Bei Schiffen mit eigenem
+  Namen stand in „Mein Hangar“ statt des Namensfelds „In der Sprachdatei
+  nicht gefunden“. VerseKit hatte sich den Werksnamen nicht mehr gemerkt,
+  nachdem die Übersetzung neu geladen wurde, und hielt den eigenen Namen für
+  den Werksnamen. Jetzt holt es den Werksnamen in so einem Fall aus den
+  Spieldaten und merkt ihn sich wieder. Eure Namen bleiben, im Spiel und in
+  VerseKit.
+- **Schiffe im Basetool doppelt:** Kam der Hersteller eines Schiffs erst
+  später dazu, etwa durch einen Import, legte der Abgleich das Schiff im
+  Basetool ein zweites Mal an. Jetzt behält jedes Schiff seine Kennung, und
+  es bleibt bei dem einen Eintrag.
+- **„Fehler melden“ zählte Fehler, die keine waren:** Wartete die
+  Update-Prüfung auf die Stundengrenze von GitHub, zählte jede Wartezeit als
+  Fehler, und der Knopf zeigte etwa „(10)“. Warten ist jetzt ein Hinweis,
+  kein Fehler. Gemeldet von Morkhan
+
 ## v5.4.1 - 2026-11-16
 
 > Nachbesserung zu 5.4.0: Das Overlay startet sofort, auch wenn ihr das

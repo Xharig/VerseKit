@@ -296,6 +296,45 @@ fn own_ship_names_and_missing_ships_are_written_and_taken_back() {
     assert_eq!(fx.text(), game);
 }
 
+/// A file that already holds the own names when its notes start fresh: the factory names come from the stored
+/// original names, are noted again, and removing brings them back.
+#[test]
+fn own_names_without_a_note_get_their_factory_name_back() {
+    let game = "vehicle_NameRSI_Constellation_Andromeda=*Constellation MK IV - M7A\n\
+vehicle_NameANVL_Hornet_F7CM_Mk2=Super Hornet MK II - Laser Cannons\n\
+vehicle_NameAEGS_Gladius=*Gladius\n";
+    let fx = Fixture::new("lost-names", "german_(germany)", game);
+    fx.data_file(
+        asop::FILE,
+        r#"{"format": 1, "namen": {
+            "vehicle_NameRSI_Constellation_Andromeda": {"name": "Constellation MK IV - M7A", "stern": true},
+            "vehicle_NameANVL_Hornet_F7CM_Mk2": {"name": "Super Hornet MK II - Laser Cannons", "stern": false},
+            "vehicle_NameAEGS_Gladius": {"name": "", "stern": true}}}"#,
+    );
+    fx.data_file(
+        asop::NAMES_FILE,
+        r#"{"vehicle_NameRSI_Constellation_Andromeda": "RSI Constellation Mk IV Andromeda",
+            "vehicle_NameANVL_Hornet_F7CM_Mk2": "Anvil F7C-M Super Hornet Mk II",
+            "vehicle_NameAEGS_Gladius": "Aegis Gladius"}"#,
+    );
+    discard_origtext(&fx.paths);
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &inputs(&[]), false);
+    let text = fx.text();
+    assert!(text.contains("vehicle_NameRSI_Constellation_Andromeda=*Constellation MK IV - M7A\n"), "{text}");
+    assert!(text.contains("vehicle_NameANVL_Hornet_F7CM_Mk2=Super Hornet MK II - Laser Cannons\n"), "{text}");
+    let note = load_origtext(&fx.paths);
+    let noted = |key: &str| field(&note, key).and_then(Value::as_str).map(str::to_string);
+    assert_eq!(noted("vehicle_NameRSI_Constellation_Andromeda").as_deref(), Some("RSI Constellation Mk IV Andromeda"));
+    assert_eq!(noted("vehicle_NameANVL_Hornet_F7CM_Mk2").as_deref(), Some("Anvil F7C-M Super Hornet Mk II"));
+    assert_eq!(noted("vehicle_NameAEGS_Gladius"), None, "a star alone keeps the name in the file, nothing is lost");
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &inputs(&[]), false);
+    assert_eq!(fx.text(), text, "a second run changes nothing");
+    remove_texts(&fx.paths, &fx.ini, "german_(germany)");
+    let back = fx.text();
+    assert!(back.contains("vehicle_NameRSI_Constellation_Andromeda=RSI Constellation Mk IV Andromeda\n"), "{back}");
+    assert!(back.contains("vehicle_NameANVL_Hornet_F7CM_Mk2=Anvil F7C-M Super Hornet Mk II\n"), "{back}");
+}
+
 #[test]
 fn a_line_break_in_the_data_makes_no_new_line() {
     let fx = Fixture::new("breaks", "english", GAME);

@@ -295,6 +295,25 @@ fn a_failed_look_says_so_and_keeps_what_is_known() {
     assert_eq!(cache_read(&paths).checked, 0.0, "the cache stays as it was");
 }
 
+#[test]
+fn waiting_for_the_limit_of_github_is_a_note_and_no_error_to_report() {
+    let (_dir, paths) = paths_in("updater-grenze", &[]);
+    let net = sources("5.0.0").iter().fold(Fake::default(), |net, source| net.with_rate_limit(source, 600));
+    let (checked, caught) = errors::captured(|| check(&net, &paths, "5.0.0", true, 99_999.0));
+    assert!(checked.rate_limited, "the limit is said");
+    let ours: Vec<_> = caught.iter().filter(|c| c.label == "updater.check").collect();
+    assert!(!ours.is_empty(), "the wait is written down");
+    assert!(ours.iter().all(|c| c.note), "a wait is a note, not an error");
+}
+
+#[test]
+fn a_broken_answer_of_github_stays_an_error() {
+    let (_dir, paths) = paths_in("updater-kaputt", &[]);
+    let net = sources("5.0.0").iter().fold(Fake::default(), |net, source| net.with(source, "kein json"));
+    let (_, caught) = errors::captured(|| check(&net, &paths, "5.0.0", true, 99_999.0));
+    assert!(caught.iter().any(|c| c.label == "updater.check" && !c.note), "a broken answer is an error");
+}
+
 /// A release with an installer and its checksum file on the stand-in net.
 fn published(content: &[u8], checksums: &str) -> (Release, Fake) {
     let mut r = release("v5.0.1", false);

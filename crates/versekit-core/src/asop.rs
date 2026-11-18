@@ -550,6 +550,65 @@ pub fn added_ship_names(paths: &Paths, ini: &str, lines: &[String], origtext: &M
     missing_names(&own, &reference)
 }
 
+/// The original vehicle names to fall back on for `ini`: the English
+/// `global.ini` next to it (never `ini` itself), else the stored original
+/// names (`namen-original.json`). A star in front is cut.
+pub fn reference_names(paths: &Paths, ini: &str) -> Table {
+    let flavor = paths.host.flavor;
+    let folder = flavor.dirname(ini);
+    let english = flavor.join_all(&flavor.dirname(&folder), &["english", "global.ini"]);
+    let own_file = flavor.basename(&folder).to_lowercase() == "english";
+    let lines: Vec<String> = if !own_file && game_ini::is_file(&english) {
+        game_ini::read_lines(&english).unwrap_or_default()
+    } else {
+        match jsonio::read_json(&paths.app_file(NAMES_FILE)) {
+            Ok(Value::Object(names)) => saved_name_lines(&names),
+            _ => Vec::new(),
+        }
+    };
+    read_keys(&lines).into_iter().map(|(k, v)| (k, v.trim_start_matches(STAR).to_string())).collect()
+}
+
+/// Whether the original text of `key` is lost: no stored original, and the
+/// line holds just the own name of `own` (with or without the star).
+pub fn original_lost(key: &str, text: &str, origtext: &Map, own: &str) -> bool {
+    let own = py_strip(own);
+    if own.is_empty() {
+        return false;
+    }
+    let stored = matches!(get(origtext, key), Some(Value::Str(s)) if !s.is_empty());
+    !stored && py_strip(py_strip(text).trim_start_matches(STAR)) == own
+}
+
+/// Where the line of a ship holds only its own name and no original was
+/// stored, the factory name comes from the reference names; the table
+/// otherwise stays as it is. Returns how many names were taken.
+pub fn restore_lost_names(
+    table: &mut Table,
+    raw: &Table,
+    origtext: &Map,
+    data: &Map,
+    reference: impl FnOnce() -> Table,
+) -> usize {
+    let lost: Vec<&String> = raw
+        .iter()
+        .filter(|(key, text)| original_lost(key, text, origtext, &entry(data, key).0))
+        .map(|(key, _)| key)
+        .collect();
+    if lost.is_empty() {
+        return 0;
+    }
+    let reference = reference();
+    let mut taken = 0;
+    for key in lost {
+        if let Some(name) = reference.get(key).filter(|n| !n.is_empty()) {
+            table.insert(key.clone(), name.clone());
+            taken += 1;
+        }
+    }
+    taken
+}
+
 /// `asop._ini_lines`: the lines of the `global.ini` that counts, with the
 /// added ship names behind them; empty without a file.
 pub fn ini_lines(paths: &Paths, ini: Option<&str>) -> Vec<String> {
@@ -568,7 +627,13 @@ pub fn factory_table(paths: &Paths) -> Table {
     if lines.is_empty() {
         return Table::new();
     }
-    factory_names(&read_keys(&lines), &load_origtext(paths))
+    let raw = read_keys(&lines);
+    let origtext = load_origtext(paths);
+    let mut table = factory_names(&raw, &origtext);
+    let data = load(&paths.app_file(FILE));
+    let ini = ini.unwrap_or_default();
+    restore_lost_names(&mut table, &raw, &origtext, &data, || reference_names(paths, &ini));
+    table
 }
 
 /// Path, modification time and size of each source of the table, to
@@ -675,6 +740,46 @@ mod tests {
         assert_eq!(entry(&data, "k"), (String::new(), true));
         set_name(&mut data, "k", "  ", false);
         assert_eq!(count(&data), 0);
+    }
+
+    #[test]
+    fn a_line_that_holds_only_the_own_name_takes_the_factory_name_of_the_reference() {
+        let raw = table(&[
+            "vehicle_NameRSI_Constellation_Andromeda=*Constellation MK IV - M7A",
+            "vehicle_NameANVL_Hornet_F7CM_Mk2=Super Hornet MK II - Laser Cannons",
+            "vehicle_NameAEGS_Gladius=*Gladius",
+            "vehicle_NameRSI_Ursa_Rover=*Rover",
+        ]);
+        let mut data = empty();
+        set_name(&mut data, "vehicle_NameRSI_Constellation_Andromeda", "Constellation MK IV - M7A", true);
+        set_name(&mut data, "vehicle_NameANVL_Hornet_F7CM_Mk2", "Super Hornet MK II - Laser Cannons", false);
+        set_name(&mut data, "vehicle_NameAEGS_Gladius", "", true);
+        set_name(&mut data, "vehicle_NameRSI_Ursa_Rover", "Rover", true);
+        let origtext: Map = vec![("vehicle_NameRSI_Ursa_Rover".into(), Value::str("Ursa Rover"))];
+        let reference: Table = [
+            ("vehicle_NameRSI_Constellation_Andromeda", "RSI Constellation Mk IV Andromeda"),
+            ("vehicle_NameANVL_Hornet_F7CM_Mk2", "Anvil F7C-M Super Hornet Mk II"),
+            ("vehicle_NameAEGS_Gladius", "Aegis Gladius"),
+            ("vehicle_NameRSI_Ursa_Rover", "Ursa Rover Reference"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        let mut factory = factory_names(&raw, &origtext);
+        let taken = restore_lost_names(&mut factory, &raw, &origtext, &data, || reference.clone());
+        assert_eq!(taken, 2);
+        assert_eq!(factory["vehicle_NameRSI_Constellation_Andromeda"], "RSI Constellation Mk IV Andromeda");
+        assert_eq!(factory["vehicle_NameANVL_Hornet_F7CM_Mk2"], "Anvil F7C-M Super Hornet Mk II");
+        assert_eq!(factory["vehicle_NameAEGS_Gladius"], "Gladius", "a star alone: the file still holds the name");
+        assert_eq!(factory["vehicle_NameRSI_Ursa_Rover"], "Ursa Rover", "a stored original stays the one that counts");
+        let ships = [ship("Constellation Mk IV Andromeda", ""), ship("F7C-M Super Hornet Mk II", "")];
+        let refs: Vec<&Map> = ships.iter().collect();
+        let found: Vec<String> = match_ships(&refs, &factory).into_iter().map(|m| m.key).collect();
+        assert_eq!(found, ["vehicle_NameRSI_Constellation_Andromeda", "vehicle_NameANVL_Hornet_F7CM_Mk2"]);
+        let mut untouched = factory_names(&raw, &origtext);
+        let none =
+            restore_lost_names(&mut untouched, &raw, &origtext, &empty(), || panic!("no reference without a loss"));
+        assert_eq!(none, 0);
     }
 
     #[test]

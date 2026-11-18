@@ -1055,6 +1055,61 @@ fn a_ship_removed_here_is_asked_about_and_one_removed_over_there_is_not_made_aga
     assert_eq!(b.double.ships().len(), 1);
 }
 
+fn ships_state(b: &Bench, key: &str) -> Value {
+    let state = b.state();
+    let ships = state.iter().find(|(k, _)| k == "ships").map(|(_, v)| v.clone()).expect("ships state");
+    ships.get(key).cloned().unwrap_or(Value::Null)
+}
+
+/// An import that fills in the maker of an entry: the entry keeps its identifier, the ship over there stays the
+/// one it is linked to and no second one is made.
+#[test]
+fn a_maker_filled_in_later_keeps_the_ship_it_is_linked_to() {
+    let b = bench("ships-maker-later", &[SETTING_SHIPS]);
+    b.save_hangar(vec![ship("Avenger Titan", "", "pledge")]);
+    b.pass();
+    assert_eq!(b.double.ships().len(), 1);
+    let entry = b.hangar_ships().into_iter().next().expect("entry");
+    let kept = entry.iter().find(|(k, _)| k == "kennung").and_then(|(_, v)| v.as_str()).unwrap_or("").to_string();
+    assert!(kept.starts_with("vk-"), "the entry keeps its identifier: {entry:?}");
+    let mut filled = entry.clone();
+    map_set(&mut filled, "hersteller", Value::str("Aegis Dynamics"));
+    b.save_hangar(vec![Value::Object(filled)]);
+    b.pass();
+    b.pass();
+    let ships = b.double.ships();
+    assert_eq!(ships.len(), 1, "no second ship over there");
+    assert_eq!(ships[0].external.as_deref(), Some(kept.as_str()));
+    assert_eq!(ships_state(&b, "local_removed"), Value::Object(Map::new()), "nothing counts as removed here");
+}
+
+/// Two ships here of a type the Basetool does not tell apart: one entry over there. When that one is removed
+/// over there, the card of ships removed over there does not keep one that can never come back.
+#[test]
+fn a_ship_whose_type_another_one_holds_is_no_ship_removed_over_there() {
+    let b = bench("ships-type-held", &[SETTING_SHIPS]);
+    b.double.add_ship_type_name("bt-ship-avenger", "Avenger Titan Renegade");
+    let titan = ship("Avenger Titan", "Aegis Dynamics", "pledge");
+    b.save_hangar(vec![titan.clone()]);
+    b.pass();
+    let id = b.double.ships()[0].id.clone();
+    b.double.remove_ship_elsewhere(&id);
+    b.pass();
+    let ext_titan = external_of(&ship_entry("Avenger Titan", "Aegis Dynamics"));
+    assert_eq!(ships_state(&b, "removed_elsewhere"), Value::Array(vec![Value::str(&ext_titan)]));
+    // A second ship of the same type comes in and is made over there: now it holds the type.
+    b.save_hangar(vec![titan, ship("Avenger Titan Renegade", "Aegis Dynamics", "pledge")]);
+    b.pass();
+    assert_eq!(b.double.ships().len(), 1, "one entry per type");
+    // Consent for the first one can never make it again: it is off the card, nothing is made twice.
+    assert!(b.sync.decide(decisions::ships_override(vec![ext_titan.clone()])));
+    b.pass();
+    b.pass();
+    assert_eq!(b.double.ships().len(), 1, "never two of the type over there");
+    assert_eq!(ships_state(&b, "removed_elsewhere"), Value::Array(Vec::new()), "the card is empty");
+    assert_eq!(ships_state(&b, "overrides"), Value::Array(Vec::new()), "no consent stays waiting");
+}
+
 fn ship_entry(name: &str, maker: &str) -> Map {
     match ship(name, maker, "pledge") {
         Value::Object(map) => map,
