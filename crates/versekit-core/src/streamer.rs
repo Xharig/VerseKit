@@ -342,7 +342,7 @@ mod tests {
         for private in [
             r"C:\Users\Anna Musterfrau\Documents\VerseKit",
             r"D:\Spiele\StarCitizen\LIVE\Game.log",
-            r"\\nas\daten\verse",
+            r"\\fs\vk\verse",
             "/home/anna/.config/verse-kit",
             "anna@example.org",
         ] {

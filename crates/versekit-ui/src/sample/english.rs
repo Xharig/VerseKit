@@ -340,7 +340,9 @@ impl Findings {
         // org with the switch on).
         let meant = case.starts_with("real data")
             && matches!(key, "hf_staffellager" | "hf_bedarf" | "hf_bank" | super::ORG_STOCK_PAGE | super::ORG_ORDERS_PAGE);
-        if page.page_key() != key && !meant {
+        // A page that became a view of another is drawn as that page, opened at its view.
+        let drawn_as = SamplePage::successor_of(key).unwrap_or(key);
+        if page.page_key() != drawn_as && !meant {
             let entry =
                 self.0.entry((case.to_string(), name.to_string())).or_insert(("this page was not drawn", Vec::new()));
             entry.1.push(name.to_string());

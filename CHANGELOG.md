@@ -6,6 +6,264 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.5.0 - 2026-11-21
+
+> Baupläne erfasst ihr jetzt direkt am Crafting-Terminal: Maus drauf, F10.
+> Dazu ein eigener Ton je Scan-Ergebnis, Standardtasten auf den F-Tasten,
+> Sicherungen je Kanal und von selbst, und „Geänderte Spielwerte“ vergleicht
+> selbst zwei gespeicherte Stände.
+
+### Neu
+
+- **Eigener Ton je Scan-Ergebnis:** Bauplan-Scan, Raffinerie-Scan und
+  Spielbild-Taste klingen jetzt je nach Ergebnis anders: ein leises Klicken
+  beim Drücken, dann „Erfasst“, „Schon da“, „Rückfrage“ oder „Nichts erkannt /
+  Fehler“. Unter Einstellungen › Overlay › Töne hört ihr jeden Ton mit seinem
+  Namen an. Die Zeile „Star Citizen ist nicht im Vordergrund“ verschwindet von
+  selbst, sobald das Spiel wieder vorne ist.
+- **Flugbuch: Feinschliff:** Lange Zeilen im Zeitstrahl brechen jetzt um,
+  statt abgeschnitten zu werden, in jeder Schriftgröße und in beiden Sprachen;
+  der Zeitstrahl bleibt dabei flüssig. Das Flugbuch lässt sich wie die anderen
+  Seiten an die Startseite heften. Die Wörter sind schärfer: „Erhaltene
+  Baupläne“ und „Todesfälle (vermutet)“ stehen an der Kennzahl und am Schalter
+  gleich. „Eigene Sprünge“ zählt nur die Sprünge eurer eigenen Schiffe.
+- **Sicherung mit user.cfg und Charakter-Vorlagen, je Kanal:** Eine Sicherung
+  nimmt jetzt von jedem installierten Kanal (LIVE, PTU) die Steuerung, die
+  Spiel-Einstellungen, die user.cfg und die Charakter-Vorlagen mit. Beim
+  Einspielen kommen Profile und Vorlagen auf das erste Ja zurück, die aktive
+  Belegung, die Spiel-Einstellungen und die user.cfg erst auf ein zweites. Was
+  ersetzt wird, bekommt vorher eine Kopie, eure Sprachzeilen in der user.cfg
+  bleiben. Ältere Sicherungen spielt ihr wie bisher ein.
+- **Vorschau vor dem Einspielen:** Vor der Rückfrage seht ihr, wie viele
+  Dateien ersetzt werden, neu dazukommen oder gleich bleiben, für die Ablage
+  und je Kanal. Auf Wunsch zeigt die Liste jede geänderte Datei.
+- **Automatische Sicherungen:** VerseKit sichert beim ersten Start des Tages
+  und nach jedem Spielende von selbst. Auf der Seite „Sichern & Zurücksetzen“
+  schaltet ihr beides einzeln ab und stellt ein, wie viele Sicherungen bleiben
+  (1 bis 50, voreingestellt 10). Die neueste bleibt immer. Ein Knopf öffnet den
+  Ordner der automatischen Sicherungen zum Einspielen.
+- **Grafik und Blickwinkel je Installation:** Sind LIVE und PTU installiert,
+  wählt ihr oben auf den Seiten „Grafik“ und „Blickwinkel“, welche
+  Installation ihr seht und ändert. Geschrieben wird nur bei geschlossenem
+  Spiel, mit einer Sicherung der Datei daneben. Der Renderer gilt weiter für
+  die zuletzt gestartete Fassung.
+- **Auflösung und Sichtfeld ins Spiel schreiben:** Auf der Seite „Blickwinkel“
+  tragt ihr Breite, Höhe und das Sichtfeld wie im Spielmenü ein. VerseKit
+  rechnet es in den gespeicherten senkrechten Wert um, legt vorher eine
+  Sicherung der Einstellungsdatei an und schreibt nie bei laufendem Spiel.
+  „Neutralen Wert einsetzen“ trägt den Winkel ein, der zu eurem Bildschirm
+  passt.
+- **Fenster je Startprogramm:** Jedes Startprogramm öffnet auf Wunsch
+  minimiert, maximiert oder ganz ohne Fenster. Das gilt unter Windows für
+  Programme, die den Fensterwunsch ihres Starts beachten, die meisten tun das.
+- **Sprachen umbenennen:** In der Übersetzungsliste gebt ihr jeder Sprache
+  einen eigenen Namen, etwa „Deutsch (Crew)“. Leer lassen bringt den üblichen
+  Namen zurück. Geschrieben wird dadurch nichts ins Spiel.
+- **Statistik als Bericht:** Neben dem Speichern als Datei gibt es die
+  Statistik als eine HTML-Seite zum Lesen, Drucken oder Weitergeben, mit
+  Zahlen, Wärmekarte und Sitzungen. Sie enthält keinen Spielernamen und lädt
+  nichts aus dem Netz.
+- **Bauplan erfassen am Crafting-Terminal:** Fehlt ein Bauplan in eurer Liste,
+  legt am Crafting-Terminal die Maus auf ihn, bis sein Name daneben steht,
+  und drückt F10. VerseKit liest den Namen, vergleicht ihn mit der
+  Bauplan-Liste und trägt ihn als erhalten ein. Kurz mitten im Bild steht
+  „Bauplan erfasst“, „Schon erfasst“ oder „Kein Bauplan erkannt“, dazu ein
+  Ton. Was nicht sicher gelesen ist, wird nicht eingetragen: Im Reiter „Scans“
+  der Bauplan-Liste steht dann eine Rückfrage als Tabellenzeile, mit Uhrzeit,
+  dem gelesenen Text und einem Bild vom Namen, und ihr wählt, welcher es war;
+  „Alle verwerfen“ räumt sie weg. Der Reiter zeigt, wie viele Rückfragen offen
+  sind. Darunter stehen die letzten Scans mit Ergebnis und Uhrzeit; ein Klick
+  sucht den Bauplan in der Liste. Die Taste steht unter Einstellungen ›
+  Overlay. Nur unter Windows. Danke an Luftwerft und Choopa für die Tipps.
+- **Nutzung zählt die gewählte Übersetzung:** Die tägliche Meldung nennt jetzt
+  auch, welche Übersetzung für LIVE gewählt ist, nur als Quelle (etwa „Dymerz
+  Deutsch“), nie eine eigene Adresse. So sehe ich, welche Übersetzungen
+  gebraucht werden. Abschalten wie bisher unter Einstellungen.
+- **Neue Standardtasten auf den F-Tasten:** Zu Fuß sind die F-Tasten im Spiel
+  frei, darum liegen die Tastenkürzel für neue Nutzer jetzt dort: Overlay
+  Alt+F12, Raffinerie-Scan F9, Bauplan-Scan F10, Handle-Suche Alt+F8,
+  Spielbild Alt+F10, Hauptfenster Alt+F11. Wer VerseKit schon nutzt, behält
+  seine bisherigen Tasten; ändern lassen sie sich unter Einstellungen ›
+  Overlay.
+- **Meldung im Spiel nach dem Raffinerie-Scan:** Nach dem Lesen am
+  Raffinerie-Terminal per Tastenkombination steht kurz mitten im Bild, was
+  dabei herauskam: „Raffinerie erfasst“ mit der Zahl der Materialien, „Schon
+  erfasst“, wenn der Auftrag schon in der Liste stand, „Unsicher“ mit der Zahl
+  der Werte, die ihr prüfen solltet, oder „Kein Raffinerie-Auftrag erkannt“,
+  dazu ein kurzer Ton. Während des Lesens steht „Raffinerie wird gelesen …“.
+  Mein Lager öffnet sich danach mit dem Gelesenen, nur wenn etwas gelesen
+  wurde.
+- **Meldung im Spiel nach dem Spielbild:** Die Taste für das Spielbild sagt
+  mitten im Bild „Spielbild aufgenommen“ oder warum es nicht ging.
+- **Einstellungen auf andere Kanäle kopieren:** Auf der Seite „Spiel“ übernehmt
+  ihr Grafik, Steuerung und eure user.cfg von einem Kanal in einen anderen,
+  etwa von LIVE ins PTU. Ihr wählt Quelle und Ziel, kreuzt an, was mitgehen
+  soll, und bestätigt eine Rückfrage. Was im Ziel ersetzt wird, bekommt vorher
+  eine Sicherung daneben, und die Sprachzeilen des Ziels bleiben. Das geht nur
+  bei geschlossenem Spiel, danach seht ihr, was kopiert wurde.
+- **Routen: Ziel wählen:** Nach dem Start gibt es ein Feld „Wohin soll es
+  gehen?“. Mit Ziel zeigt VerseKit die Fahrten direkt von A nach B, dazu Wege
+  mit Zwischenstopp, sobald es welche gibt (ab zwei Fahrten). Ein Knopf tauscht
+  Start und Ziel. Ohne Ziel bleibt alles wie bisher. Wunsch von oGundalf.
+- **Eigener Patch-Vergleich:** Auf der Seite „Geänderte Spielwerte“ vergleicht
+  VerseKit zwei Spielstände selbst. Nach jedem Patch speichert es den Stand im
+  Hintergrund, je Kanal die letzten vier, zusammen höchstens 64 MB. Ihr wählt
+  zwei Stände und seht, was sich geändert hat. Jede Zeile nennt, in wie vielen
+  Einträgen die Änderung vorkommt, mit bis zu drei Beispielen. Ein Filter
+  zeigt nur eine Art der Änderung: Wert, Text, Form, Neu oder Weg.
+- **Kennzahlen und Ruf-Skalen:** Je Bereich steht, wie viele Einträge alt und
+  neu da sind und wie viele neu hinzukamen, wegfielen oder sich änderten.
+  Neu aufgebaute Ruf-Skalen stehen daneben.
+- **Karte „Lücken“:** Sie zeigt, wo VerseKit nach dem Patch etwas nicht mehr
+  findet oder nicht mehr lesen kann. Die Lücken stehen in drei Klassen: bricht,
+  sieht anders aus, neu oder geändert.
+- **Texte werden nur gezählt:** Der Vergleich zählt geänderte Texte auf
+  Englisch und Deutsch, zeigt sie aber nicht an.
+- **Testkanäle:** Ihre Vergleiche bleiben lokal, werden nicht exportiert und
+  sind im Streamer-Modus verborgen.
+- **Eigener UEX-Token (freiwillig):** Unter Einstellungen → Allgemein → Abrufe bei
+  UEX könnt ihr euren eigenen Token von uexcorp.space eintragen (Meine Apps →
+  Anwendung anlegen → Bearer-Token kopieren). Dann fragt VerseKit Preise, Shops
+  und Schiffe unter eurem Namen ab. Der Token bleibt im Geheimnisspeicher
+  eures Rechners und wird nie angezeigt. Lehnt UEX ihn ab, sagt die Einstellung
+  Bescheid und alles läuft ohne Token weiter. Ohne Token ändert sich nichts.
+- **Alle Sprachen von Luftwerft, auch neue von selbst:** VerseKit liest die
+  Sprachliste des SC Launch Configurator (Ammax, Choopa) und zeigt jede dort
+  genannte Sprache unter „Übersetzung“, für LIVE und PTU. Neu dabei:
+  Português (Brasil). Kommt bei Luftwerft eine Sprache dazu, erscheint sie ohne
+  neue Version von VerseKit. Fällt eine gewählte Sprache aus der Liste, bleibt
+  sie gewählt und die Seite weist darauf hin. Ohne Netz gelten die bekannten
+  Sprachen. Die beiden Portugiesisch-Quellen von Luftwerft heißen jetzt PT und
+  BR, die von Dymerz BR.
+
+### Verbessert
+
+- **Routen lassen sich vorlesen:** Jede Route steht als Karte da. Oben eine
+  Zeile mit Gewinn, Startgeld, Strecke und Zahl der Fahrten, darunter eine
+  kleine Tabelle mit einer Zeile je Station (Ort, Kaufen, Menge, Verkaufen,
+  Gewinn dieses Abschnitts). Auch bei „Direkt“ steht jetzt der Gewinn. Die
+  Knopfgruppen haben Überschriften, die Knöpfe heißen „2 Fahrten“ statt „2
+  Stationen“. Einheiten wie SCU und Gm und der Vorrat sind beim Überfahren
+  erklärt, und alte Preise warnen mit „Veraltet“.
+- **Ruf ohne bekannte Menge wird jetzt angezeigt:** Gibt ein Auftrag Ruf, aber
+  die Spieldaten nennen die Menge nicht, steht der Ruf trotzdem in der
+  Auftragsliste und im Auftragstext, mit dem Zusatz „Menge unbekannt“. Er
+  fällt nicht mehr stillschweigend weg. Wo die Menge in den Spieldaten an
+  anderer Stelle steht, liest VerseKit sie dort.
+- **Danke-Seite:** Der Eintrag zum SC Launch Configurator dankt jetzt auch für
+  die Tipps beim Bau des Bauplan-Scans und bei der Verbesserung des
+  Raffinerie-Scans.
+- **Zusammengelegte Materialien und Schiffstypen im Basetool:** Legt das
+  Basetool zwei Einträge zusammen, zieht VerseKit mit. Eure Lagerzeile bekommt
+  den neuen Namen und steht mit einer vorhandenen Zeile desselben Postens
+  zusammen; verknüpfte Schiffe bleiben verknüpft. Es entsteht keine zweite
+  Zeile und kein zweites Schiff.
+- **Materialien, die das Basetool nicht mehr führt:** Lässt sich ein Material
+  dort nicht mehr einbuchen, schickt VerseKit den Zugang nicht immer wieder,
+  sondern sagt es an der Zeile. Ausbuchen und Umlagern gehen weiter.
+- **Fortschritt beim Katalog-Aufbau:** Nach einem Patch baut VerseKit den
+  Bauplan-Katalog aus den Spieldaten neu auf, und das dauert einige Minuten.
+  Jetzt seht ihr dabei, dass es arbeitet: Balken, Prozent, „Schritt 4 von 9“
+  mit dem Namen des Schritts und die Zeit. Das steht in der Fußleiste des
+  Hauptfensters, in der Bauplan-Liste und im Overlay beim Start. Wartet
+  VerseKit nur auf das Spielende, sagt es das und zeigt keinen Balken. Ist
+  der Katalog fertig, steht kurz da, wie viele Baupläne er hat; scheitert der
+  Aufbau, steht das ebenfalls da. Gemeldet von moRy [KRT]
+- **Raffinerien als Reiter im Bergbau:** Die Tabelle der Raffinerien ist jetzt
+  ein Reiter der Seite „Bergbau“, wie „Was ich farmen muss“ in der
+  Herstellung. Ihr schaltet oben zwischen „Bergbau“ und „Raffinerien“ um, die
+  Seite merkt sich den Reiter. „Alle Raffinerien vergleichen“ unter einem Erz
+  öffnet den Reiter, angeheftete Kacheln und eine gewählte Startseite führen
+  dorthin wie bisher.
+- **Raffinerie-Scan erkennt verlesene Materialnamen:** Liest die
+  Texterkennung im Namen eine Ziffer statt eines Buchstabens oder „rn“ statt
+  „m“ („C0RUNDURN“, „lR0N“), vergleicht VerseKit ein zweites Mal mit diesen
+  Verwechslungen ausgeglichen. Übernommen wird nur ein Material, das danach
+  höchstens 15 % abweicht und klar vor dem nächsten liegt; sonst lässt
+  VerseKit die Zeile weg, statt zu raten.
+
+### Behoben
+
+- **Kurzzeichen in allen Übersetzungen:** Kannte VerseKit ein Wort der
+  Beschreibung nicht (etwa „Grootte“ auf Niederländisch), fehlte im Kurzzeichen
+  ein Teil, aus „(Ind/1/B)“ wurde „(Ind/–/B)“. Gegenstände, deren Name in der
+  Übersetzung fehlt (bei Dymerz etwa Radare), bekamen gar keins. Jetzt füllt
+  das englische Original jede Lücke. Geprüft mit Deutsch, Englisch,
+  Niederländisch, Französisch, Italienisch, Portugiesisch, Spanisch, Türkisch
+  und Bayrisch.
+- **Übersetzung, Testkanäle:** Folgt PTU der Übersetzung von LIVE, steht jetzt
+  da, warum Sprache und Quelle dort grau sind. Gibt es die Übersetzung von LIVE
+  für den Testkanal nicht, sagt die Karte das, statt still bei der alten
+  Sprache zu bleiben.
+- **Hinweiskästen schnitten Text ab:** Lange Hinweise, etwa „Gut zu wissen“
+  auf der Seite Übersetzung, brechen jetzt um.
+- **Raffinerie-Scan las nur den Ort:** War die Schrift der Spaltenköpfe klein
+  oder verlesen, fand VerseKit die Tabelle nicht und las nur „Levski“. Jetzt
+  erkennt es die Tabelle auch an verstümmelten Köpfen. Danke an J00ker für die
+  Meldung mit Bild.
+- **Mein Hangar: Meldungen verschwanden:** Nach dem ersten Einlesen klappte
+  der Bereich „Hinzufügen“ zu, und mit ihm verschwanden die Meldungen, auch
+  Fehler wie „nicht gespeichert“. Jetzt stehen sie immer über der Liste, der
+  Bereich bleibt, wie ihr ihn lasst, und „Entfernen“ sagt, was entfernt wurde.
+- **Farm-Kachel der Übersicht zählte zu wenig:** Sie rechnete nur mit den
+  Gegenständen aus „Herstellen“, die Seite „Was farmen“ auch mit den Teilen
+  auf „bauen“ der Schiffe im Hangar und auf der Wunschliste. Jetzt zeigen
+  beide dasselbe.
+- **Flugbuch: die zuletzt gespielte Sitzung fehlte:** Nach Spielende zeigte
+  das Flugbuch die letzte Sitzung erst, wenn die Seite „Aufträge“ einmal
+  offen war. Jetzt liest es beim Öffnen und beim Aktualisieren selbst die
+  Protokolle nach, auch die aktuelle `Game.log`.
+- **Anti-AFK meldete fälschlich „Administrator“:** Kam ein Tastendruck nicht
+  sofort zurück, schaltete Anti-AFK ab und riet, VerseKit als Administrator
+  zu starten, auch wenn das Spiel gar nicht so lief. Jetzt bekommt der
+  Tastendruck eine zweite Chance, und Anti-AFK läuft weiter, wenn Windows die
+  Eingabe gesehen hat. Den Administrator-Hinweis gibt es nur noch, wenn das
+  Spiel wirklich als Administrator läuft; sonst sagt eine eigene Meldung, dass
+  der Tastendruck nicht ankam. Der Grund steht im Fehlerbericht.
+- **Lager hing an einer alten Material-Kennung:** Kannte das Basetool ein
+  Material nach einer Zusammenlegung nicht mehr unter seiner alten Kennung,
+  lehnte es die Buchung bei jedem Abgleich ab. Jetzt fragt VerseKit nach und
+  bucht auf das neue Material, sobald das Basetool es zuordnet.
+- **„Wird geschrieben …“ blieb hängen:** Lief das Spiel noch oder war es
+  gerade erst geschlossen, hielt VerseKit die Sprachdatei des Spiels gesperrt,
+  während es im Hintergrund auf die Spieldaten wartete. „Namen ins Spiel
+  schreiben“ und „Neu einsetzen“ warteten dann minutenlang oder bis zum
+  Neustart. Jetzt bleibt die Sprachdatei frei, solange gewartet wird. Hält
+  doch einmal etwas zu lange fest, nennt der Fehlerbericht, welcher Teil von
+  VerseKit es ist und seit wann.
+- **Pieptöne in Serie:** Wurden mit einem Spiel-Update viele Teile auf einmal
+  herstellbar, piepte das Overlay für jedes einzeln. Jetzt gibt es einen Ton
+  für alle zusammen, und laut nur, wenn ein Teil von der Merkliste dabei ist
+  (Gemeldet von Horthy).
+- **„Neu herstellbar“ ohne Spiel-Update:** Baute VerseKit den Katalog für
+  dieselbe Spielversion neu, meldete es manche Teile als neu herstellbar,
+  obwohl sich im Spiel nichts geändert hatte. Jetzt meldet es nur nach einem
+  echten Spiel-Update.
+- **Raffinerie-Werte im Fehlerbericht:** Konnte VerseKit nicht alle neun
+  Verarbeitungsmethoden aus den Spieldaten lesen, stand das mehrmals
+  hintereinander im Fehlerbericht. Jetzt steht es dort einmal, zusammen mit
+  der Zeile, die nicht zu lesen war. Die Bergbau-Seite rechnet in dem Fall wie
+  bisher mit ihrer eigenen Tabelle (Gemeldet von Horthy).
+- **PTU zog bei „Wie LIVE“ nicht mit:** Hattet ihr den Schalter „Wie LIVE“
+  nie selbst umgelegt, stand er zwar auf an, aber nur, solange PTU und LIVE
+  dieselbe Übersetzung hatten. Stellte ihr LIVE um, etwa auf Englisch, blieb
+  das PTU auf der alten Sprache stehen. Jetzt merkt sich VerseKit vor dem
+  Umstellen, welche Kanäle mitgehen, und das PTU zieht nach.
+- **Basetool: „Zugriff verweigert“ beim Anmeldeschlüssel:** Lasen oder
+  schrieben Overlay und Hauptfenster den gespeicherten Schlüssel im selben
+  Augenblick, konnte Windows einem der beiden den Zugriff verweigern, und die
+  Verbindung meldete einen Fehler. Jetzt schreibt jedes Fenster über eine
+  eigene Zwischendatei und versucht es kurz noch einmal, solange das andere
+  die Datei gerade hält.
+- **Kurzzeichen wie „(Mil/3/B)“ in jeder Spielsprache:** VerseKit las Größe,
+  Güte und Klasse nur aus deutschen und englischen Beschreibungen. Auf
+  Französisch und in anderen Sprachen fehlten die Kurzzeichen hinter den
+  Namen. Jetzt versteht es auch die französischen Angaben, und wo eine Sprache
+  unbekannt ist, nimmt es das Kurzzeichen aus dem englischen Original des
+  Spiels. Auf Englisch bekamen viele Waffen die Größe ihres Magazins oder
+  ihrer Batterie, etwa „(Bal/45/–)“; jetzt steht dort wie im Deutschen nur
+  „(Bal)“.
+
 ## v5.4.2 - 2026-11-18
 
 > Nachbesserung zu 5.4.1: Eigene Schiffsnamen bekommen im Hangar ihr
@@ -110,6 +368,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Panel, ein fertiger Orga-Server zum Selbsthosten (eigene Versionsreihe ab
   1.0.0, mit Verwaltung für die Orga-Leitung) und das Prüfwerkzeug
   versekit-orgcheck.
+- **Eigener Patch-Vergleich (Grundlage):** VerseKit hält nach jedem Neubau der
+  Spieldaten den Stand seiner Listen fest (Baupläne, Aufträge, Rezepte,
+  Gegenstände, Schiffe, Teile, Ruf), bis zu vier je Spielkanal und zusammen
+  höchstens 64 MB, nur auf eurem Rechner. Nach dem nächsten Patch vergleicht es
+  den neuen Stand mit dem davor und legt die Änderungen unter „Geänderte
+  Spielwerte“ ab, in der Form, die die Seite schon kennt: je Wert alt und neu.
+  Eine Änderung, die viele Einträge gleich trifft, steht als eine Zeile mit
+  Zähler. Der erste Stand legt nur die Grundlage, den Vergleich zeigt erst der
+  nächste Patch. Die Stände kommen nicht in die Sicherung, nicht in
+  Fehlerberichte und nicht in Exporte. Eine eigene Ansicht mit Kennzahlen und
+  Warnungen folgt.
 
 ### Verbessert
 

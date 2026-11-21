@@ -325,6 +325,7 @@ pub fn reason_key(code: &str) -> Option<&'static str> {
         "STOLEN_MARKING_DISABLED" => "s_sl_r_stolen_marking_disabled",
         "UNMATCHED" => "s_sl_r_unmatched",
         "AMBIGUOUS" => "s_sle_r_ambiguous",
+        "MATERIAL_RETIRED" | "ITEM_RETIRED" => "s_sl_r_ausgemustert",
         _ => return None,
     })
 }

@@ -655,7 +655,7 @@ impl Rebuild {
         let channel = refining_processes::channel_of(game.archive_path());
         match refining_processes::keep(&file, &read, build, &channel) {
             Kept::Written => {}
-            Kept::Incomplete(why) => versekit_core::errors::record("values.refining_incomplete", &why),
+            Kept::Incomplete(why) => report_refining_gap(&why),
             Kept::Failed(error) if writeguard::refused(&error) => {}
             Kept::Failed(error) => versekit_core::errors::record("values.refining_write", &error),
         }
@@ -769,9 +769,49 @@ impl Pending {
     }
 }
 
+/// The gaps of the processing methods told in this process already.
+static TOLD_REFINING_GAPS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// Records that the processing methods read were not all nine, `why` in words. Every build of the values reads
+/// the same archive again: the same gap is recorded once in this process.
+fn report_refining_gap(why: &str) {
+    if first_time_told(why) {
+        versekit_core::errors::record("values.refining_incomplete", &why);
+    }
+}
+
+/// Whether `why` is told for the first time in this process; remembers it.
+fn first_time_told(why: &str) -> bool {
+    let mut told = TOLD_REFINING_GAPS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if told.iter().any(|known| known == why) {
+        return false;
+    }
+    told.push(why.to_string());
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_same_gap_of_the_processing_methods_is_told_once() {
+        let why = "pyrometric missing; Cormack Method: no line of three levels (line \"x\") [values_store test]";
+        let other = format!("{why} other");
+        let ((), caught) = versekit_core::errors::captured(|| {
+            report_refining_gap(why);
+            report_refining_gap(why);
+            report_refining_gap(&other);
+            report_refining_gap(why);
+        });
+        let told: Vec<(&str, &str)> =
+            caught.iter().map(|entry| (entry.label.as_str(), entry.text.as_str())).collect();
+        assert_eq!(
+            told,
+            [("values.refining_incomplete", why), ("values.refining_incomplete", other.as_str())],
+            "each gap once, another gap told as well"
+        );
+    }
 
     fn folder(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("vk-values-{name}-{}", versekit_core::testdir::run_tag()));

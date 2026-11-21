@@ -31,7 +31,7 @@ use std::sync::Arc;
 
 use crate::asop;
 use crate::basetool::area_support::{
-    Posted, pull_generic, put_object, send_unless_held, store_busy, take_object, texts,
+    Posted, pull_generic, put_object, send_unless_held, store_busy, take_object, text_map, texts,
 };
 use crate::basetool::error::ApiError;
 use crate::basetool::feed;
@@ -50,6 +50,9 @@ pub const UNIT_REJECTIONS: [&str; 2] = ["ORG_UNIT_NOT_ALLOWED", "ORG_UNIT_VERSIO
 /// The mark of an entry whose insurance comes from the Basetool (later imports
 /// do not overwrite it).
 const BASETOOL_COVER: &str = "versicherung_basetool";
+
+/// Where the folded ship types stand in the state of the area: old type `bt` in lower case → new type `bt`.
+pub const MERGED_TYPES: &str = "merged_types";
 
 /// `{hangar name: (key, own name)}` for all ships that match a game name;
 /// empty without a language file (`_own_ship_names`).
@@ -243,7 +246,29 @@ impl ShipArea {
                 hangar::save(&path, &mut data);
             }
         });
+        let before: BTreeMap<String, Value> = match crate::basetool::connection::get(sub, "server") {
+            Some(Value::Object(inner)) => inner.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+            _ => BTreeMap::new(),
+        };
         let (mut server, _resync) = pull_generic(pass.conn, sub, "/me/ships", "shipId")?;
+        // A ship type the Basetool folded into another: the same ship carries the other type now. Taken over only
+        // when the catalog agrees; the hangar entries resolved to the old type count for the new one.
+        let mut merged_types = text_map(sub, MERGED_TYPES);
+        for (old, new) in ship_sync::type_changes(&before, &server) {
+            if feed::confirms_merge(pass.conn, "SHIP_TYPE", &old, &new)? {
+                for target in merged_types.values_mut().filter(|t| t.to_lowercase() == old.to_lowercase()) {
+                    *target = new.clone();
+                }
+                merged_types.insert(old.to_lowercase(), new);
+            }
+        }
+        if !merged_types.is_empty() {
+            map_set(
+                sub,
+                MERGED_TYPES,
+                Value::Object(merged_types.iter().map(|(k, v)| (k.clone(), Value::str(v))).collect()),
+            );
+        }
         // One read, no check before it: a file that cannot be read now must not count as an empty hangar.
         let Some(data) = hangar::load_checked(&path) else { return Err(store_busy("hangar unreadable")) };
         let names = own_ship_names(pass.paths, &data);
@@ -251,6 +276,13 @@ impl ShipArea {
         let refs: Vec<(String, Value)> =
             local.iter().map(|(ext, ship)| (ext.clone(), Value::Object(ship.reference.clone()))).collect();
         let mut cache = take_object(sub, "resolved");
+        for (_, value) in cache.iter_mut() {
+            if let Value::Str(bt) = value
+                && let Some(new) = merged_types.get(&bt.to_lowercase())
+            {
+                *value = Value::str(new);
+            }
+        }
         let found = feed::resolve_refs(pass.conn, "SHIP_TYPE", &refs, &mut cache, pass.now);
         put_object(sub, "resolved", cache);
         let resolved: BTreeMap<String, String> = found?.into_iter().collect();
@@ -269,6 +301,17 @@ impl ShipArea {
             .iter()
             .map(|(ext, kind, reason)| (ext.clone(), if reason.is_empty() { kind.clone() } else { reason.clone() }))
             .collect();
+        // A type the Basetool no longer knows under the remembered id: asked anew by the entry at the next pass.
+        let unknown_type: BTreeSet<&String> = failed
+            .iter()
+            .filter(|(_, kind, reason)| kind == "unmatched" || reason == "UNMATCHED")
+            .map(|(ext, _, _)| ext)
+            .collect();
+        if !unknown_type.is_empty() {
+            let mut cache = take_object(sub, "resolved");
+            cache.retain(|(ext, _)| !unknown_type.contains(ext));
+            put_object(sub, "resolved", cache);
+        }
         // With a lock only what stood in an accepted send counts.
         if paused {
             let posted: BTreeSet<&String> = posted.iter().collect();

@@ -27,9 +27,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use egui::{FontSelection, RichText, Role, Sense, TextStyle, Ui, WidgetInfo, WidgetText, vec2};
-use versekit_core::flugbuch::{Book, Data, Event, Item, Kind, Row, Session, Summary, Topic, Where};
+use versekit_core::flugbuch::{self, Book, Data, Event, Item, Kind, Row, Session, Summary, Topic, Where};
 use versekit_core::flugbuch_export::{self, Line, What};
 use versekit_core::language::{self, Arg, Lang, t, tf};
+use versekit_core::logsource::LogSource;
+use versekit_core::play_stats;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::theme::{IconTint, Scheme};
 use versekit_core::{formats, playtime, shard, streamer, writeguard};
@@ -103,6 +105,15 @@ struct Shown {
     entries: Vec<Entry>,
     /// The lines of the export of the same switches.
     lines: Vec<Line>,
+    /// How tall each entry stands at the width it was last drawn at.
+    metrics: Option<Metrics>,
+}
+
+/// The heights of the entries for one width and one size of text: `tops[i]` is where entry `i` starts and
+/// `tops[len]` the height of all of them.
+struct Metrics {
+    key: (i32, i32, i32),
+    tops: Vec<f32>,
 }
 
 enum Entry {
@@ -187,6 +198,10 @@ impl FlightState {
         language::spawn_with_language(move || {
             writeguard::adopt(&lock);
             let paths = Paths::new(host);
+            // The logs first: the last session still lies in the `Game.log` after the game is closed, and nothing
+            // else fills the file while only this page is open.
+            let source = LogSource::new(&paths, LogSource::sources_of(&paths));
+            flugbuch::catch_up(&source, &play_stats::log_files(&paths));
             let book = Book::load(&paths);
             // The number of a shard is private in streamer mode: it is learned before anything is drawn.
             for event in book.sessions.iter().flat_map(|s| &s.events) {
@@ -591,56 +606,102 @@ fn timeline(ui: &mut Ui, scheme: &Scheme, state: &mut FlightState, view: &View, 
     let key = (session.start, state.topic_bits(), state.search.clone(), lang, loaded);
     if state.shown.as_ref().is_none_or(|shown| shown.key != key) {
         let (entries, lines) = shown_of(view, session, &state.topics, &state.search, lang);
-        state.shown = Some(Shown { key, entries, lines });
+        state.shown = Some(Shown { key, entries, lines, metrics: None });
     }
-    let Some(shown) = &state.shown else { return };
+    let Some(shown) = &mut state.shown else { return };
     if shown.entries.is_empty() {
         small(ui, scheme, &t("s_flb_kein_treffer"));
         return;
     }
-    let height = ui.text_style_height(&TextStyle::Body).max(ICON_SIZE) + 8.0;
     let area = egui::ScrollArea::vertical()
         .id_salt("flight-timeline")
         .auto_shrink([false, true])
         .max_height(TIMELINE_HEIGHT)
         .min_scrolled_height(TIMELINE_HEIGHT);
     widgets::scroll_area(ui, scheme, area, |ui| {
-        // Only the lines in view are drawn: every line is one height, nothing between them.
+        // Only the lines in view are drawn. A long line wraps, so each entry is as tall as its text needs at this
+        // width; the heights are worked out once for a width and a size of text.
         ui.spacing_mut().item_spacing.y = 0.0;
-        let entries = &shown.entries;
+        let width = ui.available_width();
+        // The width of the time follows the size of the text: the widest clock reading.
+        let time_width = widgets::one_line_width(ui, RichText::new("00:00:00").small(), TextStyle::Small) + TIME_GAP;
+        let key = (
+            width.round() as i32,
+            (ui.ctx().pixels_per_point() * 100.0).round() as i32,
+            (ui.text_style_height(&TextStyle::Body) * 10.0).round() as i32,
+        );
+        if shown.metrics.as_ref().is_none_or(|metrics| metrics.key != key) {
+            let mut tops = Vec::with_capacity(shown.entries.len() + 1);
+            let mut top = 0.0;
+            for entry in &shown.entries {
+                tops.push(top);
+                top += entry_height(ui, entry, width, time_width);
+            }
+            tops.push(top);
+            shown.metrics = Some(Metrics { key, tops });
+        }
+        let (Some(metrics), entries) = (&shown.metrics, &shown.entries) else { return };
+        let tops = &metrics.tops;
         let clip = ui.clip_rect();
         let origin = ui.cursor().min.y;
-        let first = (((clip.min.y - origin) / height).floor().max(0.0) as usize).min(entries.len());
-        let last = ((((clip.max.y - origin) / height).ceil().max(0.0) as usize) + 1).min(entries.len());
-        ui.add_space(first as f32 * height);
-        for entry in &entries[first..last] {
-            entry_row(ui, scheme, entry, height);
+        let first = tops.partition_point(|top| *top <= clip.min.y - origin).saturating_sub(1).min(entries.len());
+        let last = (tops.partition_point(|top| *top < clip.max.y - origin) + 1).min(entries.len());
+        ui.add_space(tops[first]);
+        for (entry, at) in entries[first..last].iter().zip(first..) {
+            entry_row(ui, scheme, entry, tops[at + 1] - tops[at], time_width);
         }
-        ui.add_space((entries.len() - last) as f32 * height);
+        ui.add_space(tops[entries.len()] - tops[last]);
     });
 }
 
-fn entry_row(ui: &mut Ui, scheme: &Scheme, entry: &Entry, height: f32) {
+/// The room beside the text of an entry: the time and the symbol of a line, the symbol of a header.
+fn text_offset(entry: &Entry, time_width: f32) -> f32 {
+    match entry {
+        Entry::Header(_) => ICON_SIZE + TIME_GAP,
+        Entry::Line { .. } => time_width + ICON_SIZE + TIME_GAP,
+    }
+}
+
+/// How tall an entry stands when its text wraps at the room left beside the time and the symbol.
+fn entry_height(ui: &Ui, entry: &Entry, width: f32, time_width: f32) -> f32 {
+    let room = (width - text_offset(entry, time_width)).max(1.0);
+    let text = match entry {
+        Entry::Header(name) => RichText::new(name).strong(),
+        Entry::Line { text, .. } => RichText::new(text),
+    };
+    widgets::wrapped_height(ui, text, room, TextStyle::Body).max(ICON_SIZE) + 8.0
+}
+
+fn entry_row(ui: &mut Ui, scheme: &Scheme, entry: &Entry, height: f32, time_width: f32) {
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::hover());
+    if !ui.is_rect_visible(rect) {
+        return;
+    }
+    let line = ui.text_style_height(&TextStyle::Body).max(ICON_SIZE);
+    let top = rect.min.y + 4.0;
+    let at = |x: f32, width: f32| egui::Rect::from_min_size(egui::pos2(x, top), vec2(width, line));
+    let icon_at = |x: f32| egui::Rect::from_min_size(egui::pos2(x, top + (line - ICON_SIZE) / 2.0), vec2(ICON_SIZE, ICON_SIZE));
+    let text_x = rect.min.x + text_offset(entry, time_width);
+    let text_room = egui::Rect::from_min_max(egui::pos2(text_x, top), egui::pos2(rect.max.x.max(text_x + 1.0), rect.max.y));
+    let beside = egui::Layout::top_down(egui::Align::Min);
     match entry {
         Entry::Header(name) => {
-            ui.allocate_ui_with_layout(vec2(ui.available_width(), height), egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                if let Some(image) = crate::icons::themed("map-pin", scheme, IconTint::Highlight, ICON_SIZE) {
-                    ui.add(image);
-                }
-                let label = egui::Label::new(RichText::new(name).strong().color(color(scheme.accent))).truncate();
+            if let Some(image) = crate::icons::themed("map-pin", scheme, IconTint::Highlight, ICON_SIZE) {
+                ui.put(icon_at(rect.min.x), image);
+            }
+            ui.scope_builder(egui::UiBuilder::new().max_rect(text_room).layout(beside), |ui| {
+                let label = egui::Label::new(RichText::new(name).strong().color(color(scheme.accent))).wrap();
                 ui.add(label.sense(Sense::hover())).on_hover_text(name);
             });
         }
         Entry::Line { time, icon, text, tip } => {
-            ui.allocate_ui_with_layout(vec2(ui.available_width(), height), egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                let clock = RichText::new(time).small().color(color(scheme.sub));
-                // The width of the time follows the size of the text: the widest clock reading.
-                let wide = widgets::one_line_width(ui, RichText::new("00:00:00").small(), TextStyle::Small);
-                ui.add_sized([wide + TIME_GAP, height], egui::Label::new(clock));
-                if let Some(image) = crate::icons::themed(icon, scheme, IconTint::Normal, ICON_SIZE) {
-                    ui.add(image);
-                }
-                ui.add(egui::Label::new(text.as_str()).truncate().sense(Sense::hover())).on_hover_text(tip);
+            let clock = egui::Label::new(RichText::new(time).small().color(color(scheme.sub)));
+            ui.put(at(rect.min.x, time_width - TIME_GAP), clock);
+            if let Some(image) = crate::icons::themed(icon, scheme, IconTint::Normal, ICON_SIZE) {
+                ui.put(icon_at(rect.min.x + time_width), image);
+            }
+            ui.scope_builder(egui::UiBuilder::new().max_rect(text_room).layout(beside), |ui| {
+                ui.add(egui::Label::new(text.as_str()).wrap().sense(Sense::hover())).on_hover_text(tip);
             });
         }
     }

@@ -161,6 +161,14 @@ pub struct Scheme {
     hover_fg: Option<Color>,
     /// Square boxes with corner brackets in the accent color.
     pub square: bool,
+    /// Rounding of buttons and choice fields in points (not in a square scheme).
+    pub radius_control: u8,
+    /// Rounding of boxes and windows in points (not in a square scheme).
+    pub radius_box: u8,
+    /// An accent line along the lower edge of the head bar.
+    pub head_rule: bool,
+    /// Gauges and progress bars without rounding, whatever the boxes do.
+    pub flat_gauges: bool,
     pub upper_headings: bool,
     pub accent_headings: bool,
     /// Buttons filled with the accent, text in the background color.
@@ -312,6 +320,10 @@ const fn rounded(id: &'static str, label: &'static str, c: [&str; 21]) -> Scheme
         control_border: None,
         hover_fg: None,
         square: false,
+        radius_control: 5,
+        radius_box: 8,
+        head_rule: false,
+        flat_gauges: false,
         upper_headings: false,
         accent_headings: false,
         filled_buttons: false,
@@ -319,28 +331,34 @@ const fn rounded(id: &'static str, label: &'static str, c: [&str; 21]) -> Scheme
 }
 
 const fn krt() -> Scheme {
-    // Field #2d3337 instead of PR 12's #3f474c: red and accent text in a field
-    // and the hint in a search line need 4.5:1. Listed in CHANGED of
-    // `tools/parity_theme.py`.
+    // Colors of the Design System 3.0 of the Profit Basetool (krt-profit/design-system, tokens.json): canvas
+    // #0d0f12, bar and input fields #14171c, box #1a1e24, hairline #2a3038, text #d7dade, muted text #9aa1ab, house
+    // orange #e77e23, control #2f3640, control hover #353c48.
     let mut s = rounded(
         "krt",
         "s_da_krt",
         [
-            "#202020", "#35393d", "#2a2d31", "#dadbde", "#b0b3b7", "#fb8a28", "#404145", "#2d3337", "#ffd23f",
-            "#fe3d51", "#d98a82", "#eeb64b", "#473321", "#3f474c", "#3f474c", "#784a23", "#594839", "#3a1a1c",
-            "#35393d", "#8f9399", "#eeb64b",
+            "#0d0f12", "#1a1e24", "#14171c", "#d7dade", "#9aa1ab", "#e77e23", "#2a3038", "#14171c", "#ffd23f",
+            "#fe3d51", "#d98a82", "#eeb64b", "#473321", "#353c48", "#2f3640", "#784a23", "#594839", "#3a1a1c",
+            "#1a1e24", "#8f9399", "#eeb64b",
         ],
     );
-    // The red is the strong one of the other schemes (#fe3d51): dots, borders and the overlay show it in full.
-    // Text on the light boxes reads at 4.5:1 only in a lighter red: `Scheme::red_text`.
+    // The red is the strong one of the other schemes (#fe3d51): dots, borders and the overlay show it in full; on
+    // the dark boxes of 3.0 it reads at 4.5:1 too (`Scheme::red_text`).
     // Controls have their own fill and a visible border; hovered button text
     // is the light accent.
-    s.control = Some(Color::hex("#3f474c"));
+    s.control = Some(Color::hex("#2f3640"));
     s.control_border = Some(Color::hex("#8f9399"));
     s.hover_fg = Some(Color::hex("#eeb64b"));
-    // Lighter than elsewhere: KRT's boxes are lighter.
+    // Lighter than elsewhere, so it reads on the controls too.
     s.blue = Color::hex("#5cb0e6");
-    s.square = true;
+    // Design System 3.0 rounds: boxes 10 px, controls 6 px; the corner brackets follow the rounding, the head bar
+    // keeps its accent rule and gauges stay flat (`radius-none` of the system).
+    s.square = false;
+    s.radius_control = 6;
+    s.radius_box = 10;
+    s.head_rule = true;
+    s.flat_gauges = true;
     s.upper_headings = true;
     s.accent_headings = true;
     s.filled_buttons = true;
@@ -530,8 +548,10 @@ mod tests {
         assert_eq!(original.control_border(), original.line);
         assert_eq!(original.hover_fg(), original.accent);
         let krt = by_id("krt").expect("krt exists");
-        assert_eq!(krt.control().to_hex(), "#3f474c");
-        assert!(krt.square && krt.upper_headings);
+        assert_eq!(krt.control().to_hex(), "#2f3640");
+        assert!(!krt.square && krt.upper_headings);
+        assert_eq!((krt.radius_control, krt.radius_box), (6, 10));
+        assert_eq!((original.radius_control, original.radius_box), (5, 8));
         assert_eq!(krt.heading("Straße"), "STRASSE");
         assert_eq!(original.heading("Straße"), "Straße");
         assert_eq!(schemes().len(), 6);
@@ -559,44 +579,44 @@ mod tests {
         assert!(set_current("glut"));
         assert_eq!(current().id, "glut");
         assert!(set_current("krt"));
-        assert_eq!(current().accent.to_hex(), "#fb8a28");
+        assert_eq!(current().accent.to_hex(), "#e77e23");
     }
 
     #[test]
-    fn red_text_is_the_red_where_it_reads_and_lighter_on_the_light_krt_boxes() {
+    fn red_text_is_the_red_where_it_reads() {
         for s in schemes() {
             let grounds = [s.bg, s.surface, s.field, s.bar, s.danger_fill];
             assert!(grounds.iter().all(|g| s.red_text().contrast(*g) >= 4.5), "{}", s.id);
-            if s.id == "krt" {
-                assert_eq!(s.red.to_hex(), "#fe3d51");
-                assert_ne!(s.red_text(), s.red);
-            } else {
+            // `krt`: the loud red falls just short of 4.5:1 on the dark fill of the danger button, so its text red is
+            // a hair lighter; the others read with the red itself.
+            if s.id != "krt" {
                 assert_eq!(s.red_text(), s.red, "{}", s.id);
             }
         }
+        assert_eq!(by_id("krt").expect("krt exists").red.to_hex(), "#fe3d51");
     }
 
     #[test]
-    fn the_krt_colors_are_those_of_pull_request_12() {
+    fn the_krt_colors_are_those_of_design_system_3() {
         let s = by_id("krt").expect("krt exists");
         let got = [
-            (s.bg, "#202020"),
-            (s.surface, "#35393d"),
-            (s.bar, "#2a2d31"),
-            (s.fg, "#dadbde"),
-            (s.sub, "#b0b3b7"),
-            (s.accent, "#fb8a28"),
-            (s.line, "#404145"),
-            (s.field, "#2d3337"),
+            (s.bg, "#0d0f12"),
+            (s.surface, "#1a1e24"),
+            (s.bar, "#14171c"),
+            (s.fg, "#d7dade"),
+            (s.sub, "#9aa1ab"),
+            (s.accent, "#e77e23"),
+            (s.line, "#2a3038"),
+            (s.field, "#14171c"),
             (s.accent_dark, "#473321"),
-            (s.hover, "#3f474c"),
-            (s.track, "#3f474c"),
+            (s.hover, "#353c48"),
+            (s.track, "#2f3640"),
             (s.track_on, "#784a23"),
             (s.selected, "#594839"),
             (s.danger_fill, "#3a1a1c"),
-            (s.scroll_groove, "#35393d"),
+            (s.scroll_groove, "#1a1e24"),
             (s.scroll_grip, "#8f9399"),
-            (s.control(), "#3f474c"),
+            (s.control(), "#2f3640"),
             (s.control_border(), "#8f9399"),
             (s.hover_fg(), "#eeb64b"),
         ];

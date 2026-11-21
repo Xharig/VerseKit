@@ -197,6 +197,12 @@ pub fn area_lines(setting: &str, counts: &Map, state: &Map, demand: Option<&Dema
                 if count(c, "offers") != 0 {
                     lines.push(tf("s_btv_lager_angebote", &[n("n", count(c, "offers"))]));
                 }
+                if count(c, "merged") != 0 {
+                    lines.push(tf("s_btv_lager_zusammengelegt", &[n("n", count(c, "merged"))]));
+                }
+                if count(c, "retired") != 0 {
+                    lines.push(tf("s_btv_lager_ausgemustert", &[n("n", count(c, "retired"))]));
+                }
                 refused(&mut lines, c, sub);
             }
         }

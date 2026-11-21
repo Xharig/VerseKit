@@ -278,3 +278,49 @@ fn a_stuck_process_holds_the_writer_only_as_long_as_the_wait() {
     assert!(waited >= Duration::from_millis(250) && waited < Duration::from_secs(4), "waited {waited:?}");
     finish(holder);
 }
+
+/// What the error log received during the test of the holder.
+static REPORTED: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
+
+/// A writer that waited in vain says who held the game files: the process, for how long and the place in the source
+/// that took the lock. Once the holder lets go its note is empty again.
+#[test]
+fn a_writer_that_waited_in_vain_names_the_holder() {
+    let _serial = serial();
+    let dir = Dir::new("spielsperre-halter");
+    let lock = lock_file(dir.path());
+    assert!(injection::share_game_files_between_processes(&lock), "lock file opens");
+    versekit_core::errors::set_sink(|label, text| {
+        REPORTED.lock().unwrap_or_else(|e| e.into_inner()).push((label.to_string(), text.to_string()));
+    });
+    injection::set_game_files_wait(Duration::from_millis(300));
+    let holder = spawn("holder", dir.path(), &[(HOLD_MS, "3000".to_string())]);
+    let process = holder.id();
+    assert!(wait_for(&dir.path().join("haelt.txt"), Duration::from_secs(60)), "the other process holds the lock");
+    drop(injection::game_file_lock());
+    injection::set_game_files_wait(injection::GAME_FILES_WAIT);
+    let said: Vec<String> = REPORTED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+        .filter(|(label, _)| label == "injection.sperre")
+        .map(|(_, text)| text.clone())
+        .collect();
+    assert_eq!(said.len(), 1, "one report: {said:?}");
+    assert!(said[0].contains(&format!("(process {process})")), "the holder is named: {}", said[0]);
+    assert!(said[0].contains("tests/game_lock.rs:"), "with the place that took the lock: {}", said[0]);
+    assert!(!said[0].contains(&dir.path().to_string_lossy().into_owned()), "no folder of the player: {}", said[0]);
+    finish(holder);
+    let note = std::fs::read_to_string(injection::holder_file(&lock)).unwrap_or_default();
+    assert_eq!(note, "", "the note is empty once the holder let go");
+}
+
+#[test]
+fn the_holder_note_reads_as_role_process_time_and_place() {
+    assert_eq!(
+        injection::holder_text("overlay 4711 100 crates/versekit-gamedata/src/game_text.rs:881", 235),
+        "held by overlay (process 4711) for 135 s, taken at crates/versekit-gamedata/src/game_text.rs:881"
+    );
+    assert_eq!(injection::holder_text("", 235), "holder unknown", "a holder that has not written its note yet");
+    assert_eq!(injection::holder_file("a/sperre-spiel-x.lock"), "a/sperre-spiel-x-halter.lock");
+}

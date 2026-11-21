@@ -669,8 +669,272 @@ pub fn change_sets(
 }
 
 /// The material of an identifier (`material|place|quality|stolen`).
-fn material_of(key: &str) -> &str {
+pub fn material_of(key: &str) -> &str {
     key.rsplitn(4, '|').last().unwrap_or(key)
+}
+
+/// The identifier with another material in front.
+fn with_material(key: &str, material: &str) -> String {
+    match key.split_once('|') {
+        Some((_, rest)) => format!("{}|{rest}", material.to_lowercase()),
+        None => material.to_lowercase(),
+    }
+}
+
+/// A material or item the Basetool folded into another: the `bt` and the name that take its place.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Merge {
+    pub bt: String,
+    pub name: String,
+    /// The Basetool keeps it as an item.
+    pub item: bool,
+}
+
+/// A lot of the feed, as far as a merge is told by it.
+struct Seen {
+    bt: String,
+    name: String,
+    spot: (String, i64, bool),
+    amount: f64,
+    unit: String,
+    item: bool,
+}
+
+fn seen(lot: &Value) -> Option<Seen> {
+    let material = field(lot, "material")?;
+    let bt = field(material, "bt").filter(|b| truthy(b)).map(crate::basetool::error::py_str)?;
+    let name = field(material, "name").filter(|n| truthy(n)).map(crate::basetool::error::py_str).unwrap_or_default();
+    let place = field(lot, "location")
+        .and_then(|l| field(l, "name"))
+        .filter(|n| truthy(n))
+        .map(crate::basetool::error::py_str)
+        .unwrap_or_default();
+    let quantity = field(lot, "quantity");
+    let unit = match quantity.and_then(|q| field(q, "unit")) {
+        Some(Value::Str(u)) if !u.is_empty() => u.clone(),
+        _ => SCU.to_string(),
+    };
+    Some(Seen {
+        bt,
+        name,
+        spot: (
+            crate::text::py_strip(&place).to_lowercase(),
+            int_or_zero(field(lot, "quality")),
+            field(lot, "stolen").is_some_and(truthy),
+        ),
+        amount: float_or_zero(quantity.and_then(|q| field(q, "amount"))),
+        unit,
+        item: is_item(lot),
+    })
+}
+
+/// Merges the feed shows: a lot that is gone (its material has no lot left over there) while a lot of another
+/// material at the same place, quality and "stolen" came or grew by exactly its amount. `before` and `after` are
+/// the lots over there by key before and after fetching. Gives the old `bt` (as the Basetool wrote it) and what
+/// takes its place; a material that points to two different ones is left out.
+///
+/// ⚠ This is only a guess from amounts. Whoever takes it over asks the catalog first whether the old `bt` is
+/// really gone or resolves to the new one.
+pub fn merge_candidates(before: &BTreeMap<String, Value>, after: &BTreeMap<String, Value>) -> BTreeMap<String, Merge> {
+    let left: BTreeSet<String> = after.values().filter_map(seen).map(|s| s.bt.to_lowercase()).collect();
+    let mut gone: BTreeMap<(String, i64, bool), Vec<Seen>> = BTreeMap::new();
+    for (key, lot) in before {
+        if after.contains_key(key) {
+            continue;
+        }
+        if let Some(lot) = seen(lot).filter(|s| !left.contains(&s.bt.to_lowercase())) {
+            gone.entry(lot.spot.clone()).or_default().push(lot);
+        }
+    }
+    let mut found: BTreeMap<String, Vec<Merge>> = BTreeMap::new();
+    for (spot, old) in &gone {
+        let old_bts: BTreeSet<String> = old.iter().map(|s| s.bt.to_lowercase()).collect();
+        let had = |bt: &str| -> f64 {
+            before.values().filter_map(seen).filter(|s| s.spot == *spot && s.bt.to_lowercase() == bt).map(|s| s.amount).sum()
+        };
+        let fresh: Vec<Seen> = after
+            .iter()
+            .filter(|(key, lot)| match (seen(lot), before.get(*key).and_then(seen)) {
+                (Some(now), Some(then)) => now.amount != then.amount || now.bt != then.bt,
+                (Some(_), None) => true,
+                _ => false,
+            })
+            .filter_map(|(_, lot)| seen(lot))
+            .filter(|s| s.spot == *spot && !old_bts.contains(&s.bt.to_lowercase()))
+            .collect();
+        let grew_by = |new: &Seen, by: f64| num(by + had(&new.bt.to_lowercase()), &new.unit) == num(new.amount, &new.unit);
+        let all: f64 = old.iter().map(|s| s.amount).sum();
+        let together: Vec<&Seen> = fresh.iter().filter(|new| grew_by(new, all)).collect();
+        for gone_lot in old {
+            let target = match together.as_slice() {
+                [one] => Some(*one),
+                _ => match fresh.iter().filter(|new| grew_by(new, gone_lot.amount)).collect::<Vec<_>>().as_slice() {
+                    [one] => Some(*one),
+                    _ => None,
+                },
+            };
+            if let Some(new) = target {
+                found.entry(gone_lot.bt.clone()).or_default().push(Merge {
+                    bt: new.bt.clone(),
+                    name: new.name.clone(),
+                    item: new.item,
+                });
+            }
+        }
+    }
+    found
+        .into_iter()
+        .filter_map(|(old, targets)| {
+            let first = targets.first()?.clone();
+            targets.iter().all(|t| t.bt == first.bt).then_some((old, first))
+        })
+        .collect()
+}
+
+/// The key of a row as the resolver knows it: its UEX key, else its name in lower case.
+pub fn lookup_key(row: &Value, store: &str) -> String {
+    if store == "trade"
+        && let Some(key) = uex_key(row)
+    {
+        return key;
+    }
+    let name = text_field(row, if store == "raw" { "material" } else { "ware" });
+    crate::text::py_strip(&name).to_lowercase()
+}
+
+fn add_amounts(a: Option<&Value>, b: Option<&Value>) -> Value {
+    match (a, b) {
+        (Some(Value::Int(x)), Some(Value::Int(y))) => {
+            Value::int(x.parse::<i64>().unwrap_or(0) + y.parse::<i64>().unwrap_or(0))
+        }
+        _ => Value::Float(py_round(float_or_zero(a) + float_or_zero(b), 3)),
+    }
+}
+
+/// Moves the rows of a material the Basetool folded into another (`renames`: lookup key of the row → the new
+/// name): they take the new name, and rows that stand alike afterwards (same name, place, quality, "stolen") are
+/// put together into the first of them, so that no second row stands for one lot. Rows that stood alike before and
+/// were not moved stay as they are. Gives both stocks and how many rows moved.
+pub fn follow_merges(raw: &[Value], trade: &[Value], renames: &BTreeMap<String, String>) -> (Vec<Value>, Vec<Value>, usize) {
+    let mut moved = 0;
+    let mut fold = |rows: &[Value], store: &'static str| -> Vec<Value> {
+        let name_field = if store == "raw" { "material" } else { "ware" };
+        let mut rows: Vec<Value> = rows.to_vec();
+        let mut touched: BTreeSet<usize> = BTreeSet::new();
+        for (index, row) in rows.iter_mut().enumerate() {
+            let Some(new) = renames.get(&lookup_key(row, store)) else { continue };
+            if text_field(row, name_field) == *new {
+                continue;
+            }
+            if let Value::Object(map) = row {
+                map_set(map, name_field, Value::str(new));
+                touched.insert(index);
+            }
+        }
+        moved += touched.len();
+        if touched.is_empty() {
+            return rows;
+        }
+        let alike = |row: &Value| -> String {
+            let quality = match field(row, "qualitaet") {
+                Some(Value::Null) | None => 0,
+                Some(v) => py_float_value(v).map_or(0, |q| q.round_ties_even() as i64),
+            };
+            format!(
+                "{}|{}|{}|{}|{}|{}",
+                lookup_key(row, store),
+                crate::text::py_strip(&text_field(row, "ort")).to_lowercase(),
+                quality,
+                field(row, "gestohlen").is_some_and(truthy),
+                field(row, "stueck").is_some_and(truthy),
+                field(row, "uex").map(crate::basetool::error::py_str).unwrap_or_default(),
+            )
+        };
+        let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        for (index, row) in rows.iter().enumerate() {
+            groups.entry(alike(row)).or_default().push(index);
+        }
+        let mut drop: BTreeSet<usize> = BTreeSet::new();
+        for members in groups.values().filter(|m| m.len() > 1 && m.iter().any(|i| touched.contains(i))) {
+            let first = members[0];
+            for other in &members[1..] {
+                let sum = add_amounts(field(&rows[first], "menge"), field(&rows[*other], "menge"));
+                if let Value::Object(map) = &mut rows[first] {
+                    map_set(map, "menge", sum);
+                }
+                drop.insert(*other);
+            }
+        }
+        rows.into_iter().enumerate().filter(|(i, _)| !drop.contains(i)).map(|(_, r)| r).collect()
+    };
+    let raw = fold(raw, "raw");
+    let trade = fold(trade, "trade");
+    (raw, trade, moved)
+}
+
+/// The amounts of the last stand under the new material where one was folded into another
+/// (`merged`: old `bt` in lower case → new `bt`): the lots of both are one now, so their amounts add up.
+pub fn rekey_amounts(stand: &BTreeMap<String, f64>, merged: &BTreeMap<String, String>) -> BTreeMap<String, f64> {
+    let mut out: BTreeMap<String, f64> = BTreeMap::new();
+    for (key, amount) in stand {
+        let key = match merged.get(material_of(key)) {
+            Some(new) => with_material(key, new),
+            None => key.clone(),
+        };
+        *out.entry(key).or_insert(0.0) += amount;
+    }
+    out
+}
+
+/// The keys of a decision or an open conflict under the new material; one that meets an entry of the new material
+/// already gives way to it.
+pub fn rekey_keys<V: Clone>(entries: &BTreeMap<String, V>, merged: &BTreeMap<String, String>) -> BTreeMap<String, V> {
+    let mut out: BTreeMap<String, V> = entries
+        .iter()
+        .filter(|(key, _)| !merged.contains_key(material_of(key)))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    for (key, value) in entries {
+        if let Some(new) = merged.get(material_of(key)) {
+            out.entry(with_material(key, new)).or_insert_with(|| value.clone());
+        }
+    }
+    out
+}
+
+/// The reasons the Basetool gives for a material or item it no longer takes in.
+pub const RETIRED: [&str; 2] = ["MATERIAL_RETIRED", "ITEM_RETIRED"];
+
+/// Leaves out what may not go to the Basetool any more: an addition of a retired material (`retired`: `bt` in lower
+/// case → reason). Reductions still go. A move (a reduction at one place and an addition at another in the same
+/// send) still goes as a whole as long as no more is added than taken away. Gives the plan and the identifiers left
+/// out, with the reason.
+pub fn hold_retired(plan_result: &StockPlan, retired: &BTreeMap<String, String>) -> (StockPlan, BTreeMap<String, String>) {
+    if retired.is_empty() {
+        return (plan_result.clone(), BTreeMap::new());
+    }
+    let mut change: BTreeMap<&str, f64> = BTreeMap::new();
+    for (key, here, expected) in &plan_result.push {
+        let material = material_of(key);
+        if retired.contains_key(material) {
+            *change.entry(material).or_insert(0.0) += here - expected;
+        }
+    }
+    let mut held = BTreeMap::new();
+    let push = plan_result
+        .push
+        .iter()
+        .filter(|(key, here, expected)| {
+            let material = material_of(key);
+            let keep = here <= expected || change.get(material).is_none_or(|sum| *sum <= 1e-9);
+            if !keep {
+                held.insert(key.clone(), retired[material].clone());
+            }
+            keep
+        })
+        .cloned()
+        .collect();
+    (StockPlan { push, take: plan_result.take.clone(), conflicts: plan_result.conflicts.clone() }, held)
 }
 
 /// Which instructions go into which change set, by their place in `keys`: all lots of one material in the
@@ -947,6 +1211,123 @@ mod tests {
         let apart = [key("a", 0), key("b", 0), key("a", 1)];
         assert_eq!(in_material_sets(&apart, 5), [vec![0, 2, 1]]);
         assert_eq!(material_of("bt-iron|levski|500|0"), "bt-iron");
+    }
+
+    fn keyed(lots: &[Value]) -> BTreeMap<String, Value> {
+        lots.iter().map(|l| (l.get("key").and_then(Value::as_str).expect("key").to_string(), l.clone())).collect()
+    }
+
+    fn with_key(mut lot: Value, key: &str) -> Value {
+        if let Value::Object(map) = &mut lot {
+            map_set(map, "key", Value::str(key));
+        }
+        lot
+    }
+
+    #[test]
+    fn a_lot_that_went_while_another_grew_by_its_amount_is_a_merge_and_anything_else_is_not() {
+        let party = with_key(lot("bt-party", "Orbituary", 0, 10.0, SCU, false), "L1");
+        let fire = with_key(lot("bt-fire", "Orbituary", 0, 5.0, SCU, false), "L2");
+        let iron = with_key(lot("bt-iron", "Orbituary", 0, 1.0, SCU, false), "L3");
+        let before = keyed(&[party.clone(), fire.clone(), iron.clone()]);
+        // The Basetool folds party into fire: L1 goes, L2 holds both amounts.
+        let grown = with_key(lot("bt-fire", "Orbituary", 0, 15.0, SCU, false), "L2");
+        let after = keyed(&[grown, iron.clone()]);
+        let found = merge_candidates(&before, &after);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found["bt-party"].bt, "bt-fire");
+        // A new lot under a new key counts as well, where none of the new material stood before.
+        let before_alone = keyed(&[party.clone(), iron.clone()]);
+        let new_lot = with_key(lot("bt-fire", "Orbituary", 0, 10.0, SCU, false), "L9");
+        assert_eq!(merge_candidates(&before_alone, &keyed(&[new_lot, iron.clone()]))["bt-party"].bt, "bt-fire");
+        // Counter-checks: an amount that does not add up, another place, or the old material still somewhere.
+        let wrong = with_key(lot("bt-fire", "Orbituary", 0, 14.0, SCU, false), "L2");
+        assert!(merge_candidates(&before, &keyed(&[wrong, iron.clone()])).is_empty(), "amount");
+        let elsewhere = with_key(lot("bt-fire", "Lorville", 0, 10.0, SCU, false), "L9");
+        assert!(merge_candidates(&before_alone, &keyed(&[elsewhere, iron.clone()])).is_empty(), "place");
+        let still = with_key(lot("bt-party", "Lorville", 0, 1.0, SCU, false), "L8");
+        let grown = with_key(lot("bt-fire", "Orbituary", 0, 15.0, SCU, false), "L2");
+        assert!(merge_candidates(&before, &keyed(&[grown, iron.clone(), still])).is_empty(), "old one still there");
+        // A lot only taken away is no merge.
+        assert!(merge_candidates(&before, &keyed(&[fire, iron])).is_empty(), "removed");
+    }
+
+    #[test]
+    fn rows_of_a_folded_material_take_the_new_name_and_become_one_row_with_the_sum() {
+        let renames: BTreeMap<String, String> = [("party favors".to_string(), "Fireworks".to_string())].into();
+        let mut stolen = row("Party Favors", 1.0, 0);
+        if let Value::Object(map) = &mut stolen {
+            map_set(map, "gestohlen", Value::Bool(true));
+        }
+        let raw = [
+            row("Fireworks", 5.0, 0),
+            row("Iron", 2.0, 0),
+            row("Party Favors", 10.0, 0),
+            stolen,
+            row("Party Favors", 3.0, 500),
+        ];
+        let (raw, trade, moved) = follow_merges(&raw, &[], &renames);
+        assert_eq!(moved, 3);
+        assert!(trade.is_empty());
+        let names: Vec<(String, f64, i64)> = raw
+            .iter()
+            .map(|r| (text_field(r, "material"), float_or_zero(r.get("menge")), int_or_zero(r.get("qualitaet"))))
+            .collect();
+        assert_eq!(
+            names,
+            [
+                ("Fireworks".to_string(), 15.0, 0),
+                ("Iron".to_string(), 2.0, 0),
+                ("Fireworks".to_string(), 1.0, 0),
+                ("Fireworks".to_string(), 3.0, 500),
+            ],
+            "the same lot is one row, a stolen one and another quality stay rows of their own"
+        );
+        assert_eq!(raw[2].get("gestohlen"), Some(&Value::Bool(true)));
+        // Rows alike that no merge touched stay as they are.
+        let (same, _, none) = follow_merges(&[row("Iron", 1.0, 0), row("Iron", 2.0, 0)], &[], &renames);
+        assert_eq!((same.len(), none), (2, 0));
+    }
+
+    #[test]
+    fn the_stand_of_a_folded_material_adds_up_under_the_new_one() {
+        let merged: BTreeMap<String, String> = [("bt-party".to_string(), "bt-fire".to_string())].into();
+        let stand: BTreeMap<String, f64> =
+            [("bt-party|orbituary|0|0".to_string(), 10.0), ("bt-fire|orbituary|0|0".to_string(), 5.0)].into();
+        assert_eq!(rekey_amounts(&stand, &merged), [("bt-fire|orbituary|0|0".to_string(), 15.0)].into());
+        let decisions: BTreeMap<String, String> = [
+            ("bt-party|orbituary|0|0".to_string(), "mine".to_string()),
+            ("bt-party|lorville|0|0".to_string(), "theirs".to_string()),
+            ("bt-fire|orbituary|0|0".to_string(), "theirs".to_string()),
+        ]
+        .into();
+        let moved = rekey_keys(&decisions, &merged);
+        assert_eq!(moved.get("bt-fire|orbituary|0|0").map(String::as_str), Some("theirs"), "the new one stays");
+        assert_eq!(moved.get("bt-fire|lorville|0|0").map(String::as_str), Some("theirs"));
+        assert_eq!(moved.len(), 2);
+    }
+
+    #[test]
+    fn a_retired_material_goes_out_only_as_a_reduction_or_as_a_move() {
+        let retired: BTreeMap<String, String> = [("bt-boron".to_string(), "MATERIAL_RETIRED".to_string())].into();
+        let key = |place: &str| format!("bt-boron|{place}|0|0");
+        let plan_of = |push: Vec<(String, f64, f64)>| StockPlan { push, ..StockPlan::default() };
+        // An addition stays back, a reduction goes, other materials go.
+        let (out, held) = hold_retired(
+            &plan_of(vec![(key("a"), 5.0, 3.0), ("bt-iron|a|0|0".into(), 2.0, 1.0)]),
+            &retired,
+        );
+        assert_eq!(out.push, [("bt-iron|a|0|0".to_string(), 2.0, 1.0)]);
+        assert_eq!(held.get(&key("a")).map(String::as_str), Some("MATERIAL_RETIRED"));
+        let (out, held) = hold_retired(&plan_of(vec![(key("a"), 1.0, 3.0)]), &retired);
+        assert_eq!((out.push.len(), held.len()), (1, 0));
+        // A move: as much away at one place as added at the other, both go.
+        let (out, held) = hold_retired(&plan_of(vec![(key("a"), 0.0, 3.0), (key("b"), 3.0, 0.0)]), &retired);
+        assert_eq!((out.push.len(), held.len()), (2, 0));
+        // More added than taken away: the reduction goes, the addition stays back.
+        let (out, held) = hold_retired(&plan_of(vec![(key("a"), 0.0, 3.0), (key("b"), 5.0, 0.0)]), &retired);
+        assert_eq!(out.push, [(key("a"), 0.0, 3.0)]);
+        assert!(held.contains_key(&key("b")));
     }
 
     #[test]

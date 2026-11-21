@@ -487,7 +487,7 @@ fn py_splitlines(text: &str) -> Vec<&str> {
 
 /// `{lowercase key: text}` of the item names from a `global.ini`;
 /// for a duplicate key the first one wins.
-fn item_texts(text: &str) -> HashMap<String, String> {
+pub(crate) fn item_texts(text: &str) -> HashMap<String, String> {
     let mut out = HashMap::new();
     for line in py_splitlines(text) {
         let Some(sep) = line.find('=').filter(|&s| s >= 1) else { continue };

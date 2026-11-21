@@ -18,48 +18,58 @@
 //! The tag behind an item name, `(Mil/3/A)` or `(IR1)`, read from the
 //! item's description in the same `global.ini`: port of `specs.py`.
 //!
-//! The field names and word parts are matched in both languages at once;
-//! a spelling a file does not use cannot give a false hit.
+//! The field names and word parts are matched in every known language at
+//! once (German, English, French); a spelling a file does not use cannot
+//! give a false hit. Space before the colon counts too (French writes
+//! `Taille : 1`). Where the description of a file gives no tag (a language
+//! whose words are not known here), the tag of the English original stands
+//! in for it, by the same key ([`ORIGINAL_FILE`], [`fill_from_original`]).
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use regex::Regex;
 
+use crate::jsonio::{self, Value};
+use crate::paths::Paths;
 use crate::text::{PY_SPACE, py_strip};
 
 /// Field names per field (`specs.FIELDS`), in the order they are tried.
-const SIZE: [&str; 3] = ["Größe", "Grösse", "Size"];
-const GRADE: [&str; 6] = ["Gütegrad", "Guetegrad", "Güteklasse", "Güte", "Grade", "Grad"];
-const CLASS: [&str; 2] = ["Klasse", "Class"];
-const GUIDANCE_FIELD: [&str; 4] = ["Verfolgungssignal", "Tracking Signal", "Signature Type", "Signature"];
-const MAKER: [&str; 2] = ["Hersteller", "Manufacturer"];
+const SIZE: [&str; 4] = ["Größe", "Grösse", "Size", "Taille"];
+const GRADE: [&str; 8] = ["Gütegrad", "Guetegrad", "Güteklasse", "Güte", "Grade", "Grad", "Qualité", "Catégorie"];
+const CLASS: [&str; 3] = ["Klasse", "Class", "Classe"];
+const GUIDANCE_FIELD: [&str; 5] =
+    ["Verfolgungssignal", "Tracking Signal", "Signature Type", "Signature", "Signal de suivi"];
+const MAKER: [&str; 3] = ["Hersteller", "Manufacturer", "Fabricant"];
 
 /// Word parts and their tags (`specs.CLASSES`), lower case.
 const CLASSES: [(&[&str], &str); 15] = [
-    (&["civilian", "zivil"], "Civ"),
-    (&["military", "militär", "militaer"], "Mil"),
+    (&["civilian", "zivil", "civil"], "Civ"),
+    (&["military", "militär", "militaer", "militaire"], "Mil"),
     (&["industrial", "industrie"], "Ind"),
-    (&["stealth", "tarnung"], "Sth"),
-    (&["competition", "wettkampf", "wettbewerb"], "Cmp"),
+    (&["stealth", "tarnung", "furtiv"], "Sth"),
+    (&["competition", "wettkampf", "wettbewerb", "compétition"], "Cmp"),
     (&["laser"], "Las"),
-    (&["elektron", "electron"], "Ele"),
+    (&["elektron", "electron", "électron"], "Ele"),
     (&["plasma"], "Pla"),
-    (&["distortion", "verzerrung"], "Dis"),
-    (&["microwave", "mikrowelle"], "Mic"),
-    (&["ballist"], "Bal"),
-    (&["melee", "nahkampf"], "Nah"),
-    (&["mining", "bergbau"], "Min"),
-    (&["salvage", "verwertung"], "Slv"),
-    (&["medical", "medizin"], "Med"),
+    (&["distortion", "verzerrung", "distorsion"], "Dis"),
+    (&["microwave", "mikrowelle", "micro-onde"], "Mic"),
+    (&["ballist", "balisti"], "Bal"),
+    (&["melee", "nahkampf", "mêlée"], "Nah"),
+    (&["mining", "bergbau", "minage"], "Min"),
+    (&["salvage", "verwertung", "récupération"], "Slv"),
+    (&["medical", "medizin", "médical"], "Med"),
 ];
 
 /// Tags that name a kind of weapon (`specs.WEAPON_CLASSES`).
 const WEAPON_CLASSES: [&str; 10] = ["Las", "Ele", "Pla", "Dis", "Mic", "Bal", "Nah", "Min", "Slv", "Med"];
 
 /// The seeker of a missile (`specs.GUIDANCE`).
-const GUIDANCE: [(&[&str], &str); 3] =
-    [(&["infrarot", "infrared"], "IR"), (&["elektromagnet", "electromagnet"], "EM"), (&["querschnitt", "cross"], "CS")];
+const GUIDANCE: [(&[&str], &str); 3] = [
+    (&["infrarot", "infrared", "infrarouge"], "IR"),
+    (&["elektromagnet", "electromagnet", "électromagn"], "EM"),
+    (&["querschnitt", "cross", "section"], "CS"),
+];
 
 /// A tag already at the end of a name (`specs.PRESENT_RE`).
 static PRESENT: LazyLock<Regex> = LazyLock::new(|| {
@@ -72,7 +82,8 @@ static PRESENT: LazyLock<Regex> = LazyLock::new(|| {
 
 static NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^S?(\d{1,2})$").expect("pattern"));
 
-/// One pattern per field spelling, built once.
+/// One pattern per field spelling, built once. A field starts its line (`Size:`, never the end of `Magazine Size:`
+/// or `Battery Size:`, which would give a weapon the size of its magazine).
 static FIELD_PATTERNS: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(|| {
     SIZE.iter()
         .chain(&GRADE)
@@ -80,7 +91,8 @@ static FIELD_PATTERNS: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||
         .chain(&GUIDANCE_FIELD)
         .chain(&MAKER)
         .map(|spelling| {
-            let pattern = format!(r"{}:{PY_SPACE}*([^\\]+?)(?:\\n|$)", regex::escape(spelling));
+            let pattern =
+                format!(r"(?:^|\\n){PY_SPACE}*{}{PY_SPACE}*:{PY_SPACE}*([^\\]+?)(?:\\n|$)", regex::escape(spelling));
             (*spelling, Regex::new(&pattern).expect("pattern"))
         })
         .collect()
@@ -208,9 +220,140 @@ pub fn build_table<S: AsRef<str>>(lines: &[S]) -> HashMap<String, String> {
     table
 }
 
+/// The tags of the English original, read from the archive with its names: `{name key in lower case: tag}`.
+pub const ORIGINAL_FILE: &str = "kurzzeichen-original.json";
+
+/// Stores the tags of the English original `lines` ([`build_table`]) in [`ORIGINAL_FILE`], none as well (the
+/// original was read); gives how many.
+pub fn save_original<S: AsRef<str>>(paths: &Paths, lines: &[S]) -> usize {
+    let mut tags: Vec<(String, String)> =
+        build_table(lines).into_iter().map(|(key, tag)| (key.to_lowercase(), tag)).collect();
+    tags.sort();
+    let value = Value::Object(tags.iter().map(|(key, tag)| (key.clone(), Value::str(tag.as_str()))).collect());
+    match jsonio::write_text_atomic(&paths.app_file(ORIGINAL_FILE), &jsonio::dumps(&value, None, false), jsonio::Newline::Keep)
+    {
+        Ok(()) => tags.len(),
+        Err(error) => {
+            crate::errors::record("injection.kurzzeichen", &error);
+            0
+        }
+    }
+}
+
+/// Whether the tags of the English original are stored.
+pub fn original_stored(paths: &Paths) -> bool {
+    std::path::Path::new(&paths.app_file(ORIGINAL_FILE)).is_file()
+}
+
+/// The stored tags of the English original ([`save_original`]); empty without them.
+pub fn load_original(paths: &Paths) -> HashMap<String, String> {
+    match jsonio::read_json(&paths.app_file(ORIGINAL_FILE)) {
+        Ok(Value::Object(map)) => map
+            .into_iter()
+            .filter_map(|(key, value)| match value {
+                Value::Str(tag) => Some((key, tag)),
+                _ => None,
+            })
+            .collect(),
+        _ => HashMap::new(),
+    }
+}
+
+/// Every name key of `lines` that `table` gives no tag, or a tag with gaps (`–`) where the English `original` (keys in
+/// lower case) has fewer, takes the tag of the original under the same key: the key is the same in every language, so
+/// a language whose words are not known, or known only in part, gets its tags.
+pub fn fill_from_original<S: AsRef<str>>(
+    table: &mut HashMap<String, String>,
+    lines: &[S],
+    original: &HashMap<String, String>,
+) {
+    if original.is_empty() {
+        return;
+    }
+    for line in lines {
+        let line = line.as_ref();
+        let Some(sep) = line.find('=').filter(|sep| *sep > 0) else { continue };
+        let key = line[..sep].split(',').next().unwrap_or("");
+        let lower = key.to_lowercase();
+        if after_prefix(&lower, "item_name").is_none() {
+            continue;
+        }
+        let gaps = |tag: &str| tag.matches('–').count();
+        let Some(tag) = original.get(&lower) else { continue };
+        if table.get(key).is_none_or(|own| gaps(own) > gaps(tag)) {
+            table.insert(key.to_string(), tag.clone());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// French writes a space before the colon and its own words: every field and class is read.
+    #[test]
+    fn french_descriptions_give_their_tags() {
+        assert_eq!(from_description("Taille : 1\\nGrade : C\\nClasse : Compétition").as_deref(), Some("(Cmp/1/C)"));
+        assert_eq!(
+            from_description("Fabricant : Behring\\nTaille : 3\\nGrade : B\\nClasse : Militaire\\n").as_deref(),
+            Some("(Mil/3/B)")
+        );
+        assert_eq!(from_description("Classe : Énergie (Électron)").as_deref(), Some("(Ele)"));
+        assert_eq!(from_description("Classe : Balistique").as_deref(), Some("(Bal)"));
+        assert_eq!(from_description("Taille : 2\\nGrade : A\\nClasse : Furtivité").as_deref(), Some("(Sth/2/A)"));
+        assert_eq!(from_description("Taille : 2\\nGrade : D\\nClasse : Civile").as_deref(), Some("(Civ/2/D)"));
+        assert_eq!(from_description("Signal de suivi : Infrarouge\\nTaille : 1").as_deref(), Some("(IR1)"));
+        assert_eq!(from_description("Signal de suivi : Électromagnétique\\nTaille : 2").as_deref(), Some("(EM2)"));
+        assert_eq!(from_description("Signal de suivi : Section transversale\\nTaille : 3").as_deref(), Some("(CS3)"));
+        // Another field that starts with the same word is no size.
+        assert_eq!(from_description("Taille du chargeur : 25\\nClasse : Balistique").as_deref(), Some("(Bal)"));
+        assert_eq!(from_description("Taille : 0\\nQualité : B\\nClasse : Civile").as_deref(), Some("(Civ/0/B)"));
+        assert_eq!(from_description("Taille : 1\\nCatégorie : C\\nClasse : Civil").as_deref(), Some("(Civ/1/C)"));
+    }
+
+    /// A field that only ends with the name of another is not that field: a weapon never gets the size of its
+    /// magazine or battery.
+    #[test]
+    fn the_size_of_a_magazine_is_no_size() {
+        let rifle = "Manufacturer: Behring\\nItem Type: Assault Rifle\\nClass: Ballistic\\n\\nMagazine Size: 45\\nRate Of Fire: 800 rpm";
+        assert_eq!(from_description(rifle).as_deref(), Some("(Bal)"));
+        assert_eq!(from_description("Class: Energy (Laser)\\nBattery Size: 60").as_deref(), Some("(Las)"));
+        assert_eq!(from_description("Size: 2\\nGrade: B\\nClass: Military").as_deref(), Some("(Mil/2/B)"));
+    }
+
+    /// A language whose words are not known: the tag of the English original by the same key; a tag of the file
+    /// itself stays.
+    #[test]
+    fn a_language_without_known_words_takes_the_tags_of_the_english_original() {
+        let english = [
+            "item_DescPOWR_A=Size: 3\\nGrade: B\\nClass: Military",
+            "item_NamePOWR_A=Ginzel",
+            "item_DescCOOL_B=Size: 1\\nGrade: A\\nClass: Civilian",
+            "item_NameCOOL_B=Glacier",
+        ];
+        let original: HashMap<String, String> =
+            build_table(&english).into_iter().map(|(key, tag)| (key.to_lowercase(), tag)).collect();
+        let other = [
+            "item_DescPOWR_A=Tamaño: 3\\nGrado: B\\nClase: Militar",
+            "item_NamePOWR_A=Ginzel",
+            "item_DescCOOL_B=Größe: 2\\nGütegrad: C\\nKlasse: Industrie",
+            "item_NameCOOL_B=Glacier",
+            "item_NameNONE=Nothing",
+        ];
+        let mut table = build_table(&other);
+        assert_eq!(table.len(), 1, "only the known words give a tag: {table:?}");
+        fill_from_original(&mut table, &other, &original);
+        assert_eq!(table.get("item_NamePOWR_A").map(String::as_str), Some("(Mil/3/B)"));
+        assert_eq!(table.get("item_NameCOOL_B").map(String::as_str), Some("(Ind/2/C)"), "the own tag stays");
+        assert_eq!(table.len(), 2);
+
+        // Known in part (Dutch: class and grade read, the size not): the gap is filled from the original.
+        let dutch = ["item_DescPOWR_A=Grootte: 3\\nGrade: B\\nClass: Military", "item_NamePOWR_A=Ginzel"];
+        let mut table = build_table(&dutch);
+        assert_eq!(table.get("item_NamePOWR_A").map(String::as_str), Some("(Mil/–/B)"), "the own tag has a gap");
+        fill_from_original(&mut table, &dutch, &original);
+        assert_eq!(table.get("item_NamePOWR_A").map(String::as_str), Some("(Mil/3/B)"));
+    }
 
     #[test]
     fn tags_from_descriptions() {

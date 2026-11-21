@@ -93,6 +93,8 @@ pub struct Snapshot {
     pub left_places: BTreeSet<String>,
     /// The lots (by identifier) whose change the Basetool refused in the last pass, with its reason.
     pub refused: BTreeMap<String, String>,
+    /// The lots (by identifier) whose addition stays back because the Basetool no longer takes their material in.
+    pub retired: BTreeMap<String, String>,
 }
 
 /// Why the Basetool does not get an own row.
@@ -106,6 +108,8 @@ pub enum Gap {
     UnknownPart,
     /// The Basetool refused the change of the lot (`AMBIGUOUS`, `LOCATION_UNKNOWN` …).
     Refused,
+    /// The Basetool no longer takes the material in; taking out and moving still go.
+    Retired,
 }
 
 fn folded(text: &str) -> String {
@@ -123,6 +127,8 @@ pub fn gap_of(name: &str, place: &str, key: Option<&str>, snap: &Snapshot) -> Op
         Some(Gap::NoPlace)
     } else if snap.left_places.contains(&place) {
         Some(Gap::UnknownPlace)
+    } else if key.is_some_and(|key| snap.retired.contains_key(key)) {
+        Some(Gap::Retired)
     } else if key.is_some_and(|key| snap.refused.contains_key(key)) {
         Some(Gap::Refused)
     } else {
@@ -139,6 +145,14 @@ fn refused_lots(sub: &Map) -> BTreeMap<String, String> {
         .filter_map(|(key, reason)| Some((key.clone(), reason.as_str()?.to_string())))
         .filter(|(_, reason)| reason != "REMOVED_ELSEWHERE")
         .collect()
+}
+
+/// The lots whose addition stayed back in the last pass because the Basetool no longer takes their material in.
+fn retired_lots(sub: &Map) -> BTreeMap<String, String> {
+    let Some(Value::Object(entries)) = get(sub, crate::basetool::stock_area::RETIRED_LOTS) else {
+        return BTreeMap::new();
+    };
+    entries.iter().filter_map(|(key, reason)| Some((key.clone(), reason.as_str()?.to_string()))).collect()
 }
 
 /// The names the pass left out, lower case, from the list in the state.
@@ -232,6 +246,7 @@ pub fn snapshot(state: &Map) -> Option<Snapshot> {
         left_materials: left_out(sub, "material"),
         left_places: left_out(sub, "location"),
         refused: refused_lots(sub),
+        retired: retired_lots(sub),
     })
 }
 
@@ -403,6 +418,7 @@ pub fn reason_key(reason: &str) -> Option<&'static str> {
         "STOLEN_MARKING_DISABLED" => "s_ml_r_gestohlen",
         "UNMATCHED" | "AMBIGUOUS" => "s_ml_r_unbekannt",
         "MASS_CHANGE_PENDING" => "s_ml_r_wartet",
+        "MATERIAL_RETIRED" | "ITEM_RETIRED" => "s_ml_r_ausgemustert",
         _ => return None,
     })
 }
@@ -570,6 +586,20 @@ mod tests {
         assert_eq!(gap_of("Mirage", "Orison", None, &snap), None, "a row never resolved has no lot to be refused");
         assert_eq!(gap_of("Iron", "Orison", Some("bt-iron|orison|500|0"), &snap), None, "a conflict is decided elsewhere");
         assert_eq!(snap.refused.get("bt-mirage|orison|0|0").map(String::as_str), Some("AMBIGUOUS"));
+    }
+
+    #[test]
+    fn a_lot_of_a_retired_material_says_so_and_is_no_refusal() {
+        let state = value(
+            r#"{"stock": {"server": {}, "resolved": {}, "items": {},
+                "retired_lots": {"bt-boron|orison|0|0": "MATERIAL_RETIRED"}}}"#,
+        );
+        let Value::Object(state) = state else { panic!("object") };
+        let snap = snapshot(&state).expect("a snapshot");
+        assert_eq!(gap_of("Boron", "Orison", Some("bt-boron|orison|0|0"), &snap), Some(Gap::Retired));
+        assert!(snap.refused.is_empty(), "no refusal is counted for it");
+        assert_eq!(reason_key("MATERIAL_RETIRED"), Some("s_ml_r_ausgemustert"));
+        assert_eq!(reason_key("ITEM_RETIRED"), Some("s_ml_r_ausgemustert"));
     }
 
     /// The pass gives a name the `bt` of a lot over there before it asks for items; the page does the same, or a

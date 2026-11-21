@@ -30,12 +30,14 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 use egui::{RichText, ScrollArea, Ui};
 use versekit_core::catalog_cache::CatalogCache;
 use versekit_core::erkul_fetch::FnFeed;
-use versekit_core::language::{Arg, pa_field, t, tf};
+use versekit_core::language::{Arg, kind_label, pa_field, t, tf};
 use versekit_core::net::{Net, Web};
 use versekit_core::patch_changes::{
-    self, Change, Fate, FieldChange, Move, Offered, Patch, SHOWN_AT_MOST, Summary, Tone, Unreachable, Verdict,
+    self, Change, Fate, FieldChange, Move, Offered, OwnExtras, Patch, RowExtra, SHOWN_AT_MOST, Summary, Tone,
+    Unreachable, Verdict,
 };
 use versekit_core::paths::Paths;
+use versekit_core::{stand_diff, stands, streamer};
 use versekit_core::theme::{Color, Scheme};
 
 use crate::color;
@@ -59,6 +61,35 @@ enum Said {
     Nothing,
     NoNet,
 }
+
+/// What the comparison of two kept stands said.
+#[derive(Clone, Debug, PartialEq)]
+enum Compared {
+    Running,
+    /// The comparison was kept as the patch of this version.
+    Done(String),
+    Same,
+    Failed,
+}
+
+/// The kinds of change of an own comparison, in the order of the toggles (`stand_diff::Kind::key`).
+const ARTS: [(&str, &str); 5] = [
+    ("wert", "s_pv_art_wert"),
+    ("text", "s_pv_art_text"),
+    ("form", "s_pv_art_form"),
+    ("neu", "s_pv_art_neu"),
+    ("weg", "s_pv_art_weg"),
+];
+
+/// The classes of a warning, worst first (`stand_diff::to_patch`).
+const CLASSES: [(&str, &str); 3] = [
+    ("bricht", "s_pv_klasse_bricht"),
+    ("sieht_anders_aus", "s_pv_klasse_anders"),
+    ("neu_oder_geaendert", "s_pv_klasse_neu"),
+];
+
+/// The made-up comparison of a test channel in the preview (nothing real: the name is invented).
+const SAMPLE_TEST_BUILD: &str = "5.0.0-PTU.1";
 
 /// Where the patches come from.
 enum Source {
@@ -95,6 +126,19 @@ pub struct PatchChangesState {
     chosen_kept: bool,
     /// What is typed in the search of the changes.
     search: String,
+    /// What an own comparison of the patch chosen says besides erkul's form.
+    extras: Option<OwnExtras>,
+    /// 0: all kinds of change; else the kind at that place of [`ARTS`] plus one.
+    art: usize,
+    /// The stands kept, channel by channel, the newest first.
+    stands: Vec<stands::Info>,
+    /// The places in `stands` of the two sides of the comparison asked for.
+    compare_from: usize,
+    compare_to: usize,
+    /// In the preview: how often "Compare" was asked; each ask shows the next state of the line beside the button.
+    sample_round: usize,
+    compare_job: Option<Receiver<Compared>>,
+    compared: Option<Compared>,
     /// The patches already looked at; `None` until the list was first seen with what the source offers.
     seen: Option<BTreeSet<String>>,
     said: Option<Said>,
@@ -136,6 +180,14 @@ impl PatchChangesState {
             unchanged: None,
             chosen_kept: false,
             search: String::new(),
+            extras: None,
+            art: 0,
+            stands: Vec::new(),
+            compare_from: 1,
+            compare_to: 0,
+            sample_round: 0,
+            compare_job: None,
+            compared: None,
             seen: None,
             said: None,
             sync_job: None,
@@ -157,7 +209,7 @@ impl PatchChangesState {
         let item = |kind: &str, fate: Fate, name: &str, size: Option<i64>, fields: Vec<FieldChange>| Change {
             kind: kind.to_string(),
             fate,
-            id: String::new(),
+            id: name.to_string(),
             name: name.to_string(),
             size: size.map(versekit_core::jsonio::Value::int),
             fields,
@@ -186,12 +238,16 @@ impl PatchChangesState {
             ),
         ];
         let older = vec![item("weapons", Fate::Gone, "Klaus & Werner Lumin V", Some(1), Vec::new())];
+        // A made-up comparison of a test channel: it shows the covered card in the streamer mode and the note of a
+        // reader that changed. Nothing in it is real.
+        let test_channel = vec![item("ships", Fate::New, "Example Ship", None, Vec::new())];
         let mut state = PatchChangesState::with_source(Source::Sample(vec![
             ("4.10.0-LIVE.12519617".to_string(), newest, Some(9_120)),
             ("4.9.0-LIVE.12232306".to_string(), older, None),
+            (SAMPLE_TEST_BUILD.to_string(), test_channel, Some(40)),
         ]));
-        // The older patch was looked at, the newer one not yet.
-        state.seen = Some(BTreeSet::from(["4.9.0-LIVE.12232306".to_string()]));
+        // The older patch (and the one of the test channel) was looked at, the newer one not yet.
+        state.seen = Some(BTreeSet::from(["4.9.0-LIVE.12232306".to_string(), SAMPLE_TEST_BUILD.to_string()]));
         let offered = |version: &str, date: &str, added, removed, modified| Offered {
             version: version.to_string(),
             date: date.to_string(),
@@ -206,6 +262,245 @@ impl PatchChangesState {
         state.build();
         state.choose("4.10.0-LIVE.12519617");
         state
+    }
+
+    /// The own comparison of the preview: numbers, a scale that was rebuilt, a gap that grew and a change that
+    /// many entries share.
+    fn sample_extras() -> OwnExtras {
+        let area = |area: &str, old, new, added, removed, changed| patch_changes::AreaNumbers {
+            area: area.to_string(),
+            old,
+            new,
+            added,
+            removed,
+            changed,
+        };
+        let mut rows = std::collections::BTreeMap::new();
+        rows.insert(
+            ("ships".to_string(), '~', "Drake Cutter".to_string()),
+            RowExtra {
+                count: 1892,
+                examples: vec!["DRAK_Cutter".into(), "DRAK_Cutter_Rn".into(), "DRAK_Cutter_Scout".into()],
+                reader_note: false,
+                kinds: vec![
+                    ("precomputed.fuel.hydrogenCapacity".into(), "wert".into()),
+                    ("precomputed.fuel.burnRate.main".into(), "wert".into()),
+                ],
+            },
+        );
+        rows.insert(
+            ("weapons".to_string(), '~', "Behring M5A Cannon".to_string()),
+            RowExtra {
+                count: 1,
+                examples: Vec::new(),
+                reader_note: false,
+                kinds: vec![
+                    ("weapon.ammo.speed".into(), "wert".into()),
+                    ("weapon.ammo.impactRadius".into(), "form".into()),
+                ],
+            },
+        );
+        OwnExtras {
+            from: "4.9.0-LIVE.12232306".into(),
+            channel: "LIVE".into(),
+            reader_changed: false,
+            confidential: false,
+            counts: vec![
+                area("katalog.bauplaene", 1619, 1640, 21, 0, 12),
+                area("katalog.missionen", 357, 360, 3, 0, 40),
+                area("rufstufen.stufen", 89, 12, 0, 77, 3),
+            ],
+            scales: vec![patch_changes::ScaleNumbers {
+                area: "rufstufen.stufen".into(),
+                old: Some((89, Some(250_000))),
+                new: Some((12, Some(50_000))),
+            }],
+            warnings: vec![
+                patch_changes::GapWarning {
+                    name: stand_diff::FIELDS_GONE.into(),
+                    old: 0,
+                    new: 3,
+                    class: "bricht".into(),
+                },
+                patch_changes::GapWarning {
+                    name: "platzhalter".into(),
+                    old: 2,
+                    new: 7,
+                    class: "sieht_anders_aus".into(),
+                },
+            ],
+            rows,
+        }
+    }
+
+    /// The own comparison of a test channel in the preview: a reader that changed, a gap of every class and a scale
+    /// that stayed.
+    fn sample_test_extras() -> OwnExtras {
+        let mut rows = std::collections::BTreeMap::new();
+        rows.insert(
+            ("ships".to_string(), '+', "Example Ship".to_string()),
+            RowExtra { count: 1, examples: Vec::new(), reader_note: true, kinds: Vec::new() },
+        );
+        OwnExtras {
+            from: "4.10.0-LIVE.12519617".into(),
+            channel: "PTU".into(),
+            reader_changed: true,
+            confidential: true,
+            counts: vec![patch_changes::AreaNumbers {
+                area: "katalog.bauplaene".into(),
+                old: 1640,
+                new: 1641,
+                added: 1,
+                removed: 0,
+                changed: 0,
+            }],
+            scales: vec![patch_changes::ScaleNumbers {
+                area: "rufstufen.stufen".into(),
+                old: Some((89, None)),
+                new: Some((89, None)),
+            }],
+            warnings: vec![
+                patch_changes::GapWarning { name: "failed".into(), old: 0, new: 2, class: "bricht".into() },
+                patch_changes::GapWarning {
+                    name: "ohne_wert".into(),
+                    old: 8_340,
+                    new: 9_001,
+                    class: "sieht_anders_aus".into(),
+                },
+                patch_changes::GapWarning {
+                    name: "leere_texte".into(),
+                    old: 4,
+                    new: 9,
+                    class: "neu_oder_geaendert".into(),
+                },
+            ],
+            rows,
+        }
+    }
+
+    /// The own comparison of `version`: from the file, or in the preview the ones made up.
+    fn load_extras(&self, version: &str) -> Option<OwnExtras> {
+        match &self.source {
+            Source::Files(paths) => patch_changes::own_extras(paths, version),
+            Source::Sample(_) => match version {
+                "4.10.0-LIVE.12519617" => Some(PatchChangesState::sample_extras()),
+                SAMPLE_TEST_BUILD => Some(PatchChangesState::sample_test_extras()),
+                _ => None,
+            },
+        }
+    }
+
+    /// In the preview: chooses the comparison of the test channel, to see the page of a patch that is covered in the
+    /// streamer mode and shows the note of a reader that changed. Whether the preview has it.
+    pub fn choose_test_comparison(&mut self) -> bool {
+        let there = self.list.iter().any(|p| p.version == SAMPLE_TEST_BUILD);
+        if there {
+            self.choose(SAMPLE_TEST_BUILD);
+        }
+        there
+    }
+
+    /// The stands kept; in the preview two made up.
+    fn load_stands(&self) -> Vec<stands::Info> {
+        match &self.source {
+            Source::Files(paths) => stands::list(paths),
+            Source::Sample(_) => [
+                ("LIVE", "4.10.0-LIVE.12519617"),
+                ("LIVE", "4.9.0-LIVE.12232306"),
+                ("PTU", SAMPLE_TEST_BUILD),
+            ]
+            .iter()
+            .map(|(channel, build)| stands::Info {
+                channel: (*channel).into(),
+                build: (*build).into(),
+                name: String::new(),
+                bytes: 0,
+            })
+            .collect(),
+        }
+    }
+
+    /// The patch chosen is the comparison of a test channel and the streamer mode hides what it holds.
+    fn hidden(&self) -> bool {
+        let confidential = self
+            .chosen
+            .as_deref()
+            .and_then(|v| self.list.iter().find(|p| p.version == v))
+            .is_some_and(|p| p.confidential);
+        confidential && streamer::active()
+    }
+
+    /// The first two stands of a channel are the ones to compare until the user picks others.
+    fn default_pair(&mut self) {
+        if self.compare_from < self.stands.len() && self.compare_to < self.stands.len() {
+            return;
+        }
+        self.compare_to = 0;
+        self.compare_from = self
+            .stands
+            .iter()
+            .enumerate()
+            .skip(1)
+            .find(|(_, s)| self.stands.first().is_some_and(|first| first.channel == s.channel))
+            .map_or(1, |(i, _)| i);
+    }
+
+    /// Compares the two stands picked, in a thread of its own, and keeps the result as the patch of the newer one.
+    fn compare(&mut self, ctx: &egui::Context) {
+        let (Some(a), Some(b)) =
+            (self.stands.get(self.compare_from).cloned(), self.stands.get(self.compare_to).cloned())
+        else {
+            return;
+        };
+        if self.compare_job.is_some() || a.channel != b.channel || a.build == b.build {
+            return;
+        }
+        let Source::Files(paths) = &self.source else {
+            // The preview compares nothing: each ask shows the next state of the line beside the button.
+            let newer = if versekit_core::patch_history::rank(&a.build) <= versekit_core::patch_history::rank(&b.build) {
+                b.build
+            } else {
+                a.build
+            };
+            self.compared = Some(match self.sample_round % 4 {
+                0 => Compared::Running,
+                1 => Compared::Done(newer),
+                2 => Compared::Same,
+                _ => Compared::Failed,
+            });
+            self.sample_round += 1;
+            return;
+        };
+        let (old, new) = if versekit_core::patch_history::rank(&a.build) <= versekit_core::patch_history::rank(&b.build)
+        {
+            (a, b)
+        } else {
+            (b, a)
+        };
+        let own = Paths::new(paths.host.clone());
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let lock = versekit_core::writeguard::state();
+        let wake = ctx.clone();
+        let started = std::thread::Builder::new().name("patch-vergleich".into()).spawn_with_language(move || {
+            versekit_core::writeguard::adopt(&lock);
+            let outcome = match (stands::load(&own, &old.channel, &old.build), stands::load(&own, &new.channel, &new.build)) {
+                (Some(before), Some(after)) => {
+                    let comparison = stand_diff::compare(&before, &after);
+                    match stand_diff::write_patch(&own, &comparison) {
+                        Ok(Some(_)) => Compared::Done(comparison.to.build.clone()),
+                        Ok(None) => Compared::Same,
+                        Err(_) => Compared::Failed,
+                    }
+                }
+                _ => Compared::Failed,
+            };
+            let _ = sender.send(outcome);
+            wake.request_repaint();
+        });
+        if started.is_ok() {
+            self.compare_job = Some(receiver);
+            self.compared = Some(Compared::Running);
+        }
     }
 
     /// The patches as the list shows them.
@@ -258,6 +553,7 @@ impl PatchChangesState {
         self.moves = patch_changes::largest_moves(&self.changes, MOVES_SHOWN);
         self.unchanged = self.load_unchanged(version);
         self.chosen_kept = self.kept(version);
+        self.extras = self.load_extras(version);
     }
 
     /// The patches with changes not looked at yet, newest first.
@@ -307,6 +603,8 @@ impl PatchChangesState {
             self.load_chosen(&version);
             self.area = self.area.min(self.areas.len());
         }
+        self.stands = self.load_stands();
+        self.default_pair();
         self.refresh_seen();
         self.builds += 1;
     }
@@ -316,6 +614,7 @@ impl PatchChangesState {
         self.chosen = Some(version.to_string());
         self.load_chosen(version);
         self.area = usize::from(!self.areas.is_empty());
+        self.art = 0;
     }
 
     /// Fetches the new patches of erkul and what it offers, in a thread of its own.
@@ -385,6 +684,25 @@ impl PatchChangesState {
                 Err(TryRecvError::Empty) => {}
             }
         }
+        if let Some(job) = &self.compare_job {
+            match job.try_recv() {
+                Ok(outcome) => {
+                    self.compare_job = None;
+                    self.compared = Some(outcome.clone());
+                    if let Compared::Done(version) = outcome {
+                        self.build();
+                        let listed = self.list.iter().find(|p| patch_changes::same_version(&p.version, &version));
+                        let shown = listed.map_or(version, |p| p.version.clone());
+                        self.choose(&shown);
+                    }
+                }
+                Err(TryRecvError::Disconnected) => {
+                    self.compare_job = None;
+                    self.compared = Some(Compared::Failed);
+                }
+                Err(TryRecvError::Empty) => {}
+            }
+        }
         if let Some(job) = &self.sync_job {
             match job.try_recv() {
                 Ok((new, offer)) => {
@@ -430,6 +748,8 @@ fn sample_overview(patches: &[(String, Vec<Change>, Option<i64>)], offered: &[Of
             empty: !o.summary.has_content(),
             at_source: true,
             kept: patches.iter().any(|(v, ..)| *v == o.version),
+            own: false,
+            confidential: false,
         })
         .collect();
     for (version, changes, _) in patches {
@@ -445,6 +765,8 @@ fn sample_overview(patches: &[(String, Vec<Change>, Option<i64>)], offered: &[Of
             empty: false,
             at_source: false,
             kept: true,
+            own: version == SAMPLE_TEST_BUILD,
+            confidential: version == SAMPLE_TEST_BUILD,
         });
     }
     list
@@ -511,7 +833,24 @@ pub fn show_page(
     ui.add_space(GAP);
     patch_list(ui, scheme, state);
     ui.add_space(GAP);
+    compare_card(ui, scheme, state);
+    ui.add_space(GAP);
+    if state.hidden() {
+        widgets::card(ui, scheme, |ui| {
+            ui.set_width(ui.available_width());
+            widgets::card_title(ui, scheme, &t("s_pa_aenderungen_kopf"));
+            ui.add_space(4.0);
+            small(ui, &t("s_pv_verborgen"), scheme.sub);
+        });
+        return None;
+    }
     if biggest(ui, scheme, state) {
+        ui.add_space(GAP);
+    }
+    if figures(ui, scheme, state) {
+        ui.add_space(GAP);
+    }
+    if gaps(ui, scheme, state) {
         ui.add_space(GAP);
     }
     area_choice(ui, scheme, state);
@@ -519,12 +858,243 @@ pub fn show_page(
     items(ui, scheme, state, catalog)
 }
 
+/// The label of a stand in the lists of the comparison.
+fn stand_label(info: &stands::Info) -> String {
+    // In the streamer mode a stand of a test channel is told by nothing: no channel, no build.
+    if streamer::active() && stands::is_confidential(&info.channel) {
+        return t("s_pv_testkanal_stand");
+    }
+    format!("{} {}", info.channel, info.build)
+}
+
+/// The width of a list of the stands: the longest label with the room of the arrow, but not more than the room a pair
+/// of the word and its list has in the card, so that the label is not shortened with "…" and the list does not stand
+/// over the edge of the card.
+fn combo_width(ui: &Ui, labels: &[String]) -> f32 {
+    let font = egui::TextStyle::Button.resolve(ui.style());
+    let longest = labels
+        .iter()
+        .map(|label| ui.painter().layout_no_wrap(label.clone(), font.clone(), egui::Color32::WHITE).size().x)
+        .fold(0.0_f32, f32::max);
+    // Not tied to the room that is left: a width that follows the room makes the page narrower with every frame.
+    longest + ui.spacing().button_padding.x * 2.0 + ui.spacing().icon_width + ui.spacing().icon_spacing
+}
+
+/// The card of the comparison: two lists of the stands kept, "from" and "to", and the button that compares them.
+/// Only stands kept are read, never an archive: a new stand is kept when the catalog is built again after a patch.
+fn compare_card(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
+    let labels: Vec<String> = state.stands.iter().map(stand_label).collect();
+    let mut ask = false;
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_pv_vergl_kopf"));
+        ui.add_space(4.0);
+        small(ui, &t("s_pv_vergl_hinweis"), scheme.sub);
+        if labels.len() < 2 {
+            ui.add_space(4.0);
+            small(ui, &t("s_pv_vergl_leer"), scheme.sub);
+            return;
+        }
+        ui.add_space(6.0);
+        let (mut from, mut to) = (state.compare_from, state.compare_to);
+        let width = combo_width(ui, &labels);
+        // One below the other, each the word and its list: they never part, and the card keeps the width of the page.
+        for (salt, key, at) in [("pv-von", "s_pv_von", &mut from), ("pv-nach", "s_pv_nach", &mut to)] {
+            ui.horizontal(|pair| {
+                pair.label(t(key));
+                let shown = labels.get(*at).cloned().unwrap_or_default();
+                let combo = egui::ComboBox::from_id_salt(salt).width(width).selected_text(&shown).show_ui(pair, |list| {
+                    for (i, label) in labels.iter().enumerate() {
+                        list.selectable_value(at, i, label);
+                    }
+                });
+                widgets::name_combo(&combo.response, &t(key), &shown);
+            });
+        }
+        state.compare_from = from;
+        state.compare_to = to;
+        let (a, b) = (state.stands.get(from), state.stands.get(to));
+        let problem = match (a, b) {
+            (Some(a), Some(b)) if a.channel != b.channel => Some("s_pv_vergl_kanal"),
+            (Some(a), Some(b)) if a.build == b.build => Some("s_pv_vergl_selbst"),
+            _ => None,
+        };
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|row| {
+            let word = t("s_pv_vergleichen");
+            let ready = problem.is_none() && state.compare_job.is_none();
+            let reason = match (problem, state.compare_job.is_some()) {
+                (Some(key), _) => Some(t(key)),
+                (None, true) => Some(t("s_pv_vergl_laeuft")),
+                (None, false) => None,
+            };
+            let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("arrow-left-right").blocked(reason.as_deref());
+            ask = row.add(button).clicked() && ready;
+            let said = match (&state.compared, problem) {
+                (_, Some(key)) => Some(t(key)),
+                (Some(Compared::Running), _) => Some(t("s_pv_vergl_laeuft")),
+                (Some(Compared::Done(version)), _) => {
+                    // The version of a comparison of a test channel stays unsaid in the streamer mode.
+                    let secret = streamer::active()
+                        && (state.list.iter().any(|p| p.version == *version && p.confidential)
+                            || state.stands.iter().any(|s| s.build == *version && stands::is_confidential(&s.channel)));
+                    Some(if secret {
+                        t("s_pv_vergl_fertig_still")
+                    } else {
+                        tf("s_pv_vergl_fertig", &[("version", Arg::from(version.as_str()))])
+                    })
+                }
+                (Some(Compared::Same), _) => Some(t("s_pv_vergl_gleich")),
+                (Some(Compared::Failed), _) => Some(t("s_pv_vergl_fehler")),
+                (None, None) => None,
+            };
+            if let Some(said) = said {
+                row.add(egui::Label::new(RichText::new(said).small().color(color(scheme.sub))).wrap());
+            }
+        });
+    });
+    if ask {
+        state.compare(ui.ctx());
+    }
+}
+
+/// The numbers of the areas of an own comparison and the scales that were rebuilt, in a card of their own. Whether
+/// it was drawn.
+fn figures(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) -> bool {
+    let Some(extras) = state.extras.as_ref().filter(|e| !e.counts.is_empty() || !e.scales.is_empty()) else {
+        return false;
+    };
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_pv_kennzahlen_kopf"));
+        ui.add_space(4.0);
+        for count in &extras.counts {
+            ui.horizontal_wrapped(|row| {
+                row.add(egui::Label::new(RichText::new(kind_label(&count.area)).small().strong()).wrap());
+                let line = tf(
+                    "s_pv_kennzahl_zeile",
+                    &[
+                        ("alt", Arg::from(count.old)),
+                        ("neu", Arg::from(count.new)),
+                        ("plus", Arg::from(count.added)),
+                        ("minus", Arg::from(count.removed)),
+                        ("tilde", Arg::from(count.changed)),
+                    ],
+                );
+                row.add(egui::Label::new(RichText::new(line).small().color(color(scheme.sub))).wrap());
+            });
+        }
+        if !extras.scales.is_empty() {
+            ui.add_space(GAP / 2.0);
+            ui.label(RichText::new(t("s_pv_skalen")).strong());
+            ui.add_space(2.0);
+            let scale = |scale: Option<(i64, Option<i64>)>| match scale {
+                Some((levels, Some(ceiling))) => {
+                    tf("s_pv_skala", &[("stufen", Arg::from(levels)), ("decke", Arg::from(ceiling.to_string()))])
+                }
+                Some((levels, None)) => tf("s_pv_skala_ohne", &[("stufen", Arg::from(levels))]),
+                None => t("s_pv_skala_fehlt"),
+            };
+            for row_scale in &extras.scales {
+                let tone = if row_scale.old == row_scale.new { scheme.sub } else { scheme.accent };
+                ui.horizontal_wrapped(|row| {
+                    row.add(egui::Label::new(RichText::new(kind_label(&row_scale.area)).small().strong()).wrap());
+                    let line = tf(
+                        "s_pv_skala_zeile",
+                        &[("alt", Arg::from(scale(row_scale.old))), ("neu", Arg::from(scale(row_scale.new)))],
+                    );
+                    row.add(egui::Label::new(RichText::new(line).small().color(color(tone))).wrap());
+                });
+            }
+        }
+    });
+    true
+}
+
+/// The name of a counter of the reading probe, readable.
+fn gap_label(name: &str) -> String {
+    match name {
+        "failed" => t("s_pv_zaehler_failed"),
+        "platzhalter" => t("s_pv_zaehler_platzhalter"),
+        "leere_texte" => t("s_pv_zaehler_leere_texte"),
+        "ohne_wert" => t("s_pv_zaehler_ohne_wert"),
+        "texte_nicht_gefunden" => t("s_pv_zaehler_texte_nicht_gefunden"),
+        "texte_ohne_deutsch" => t("s_pv_zaehler_texte_ohne_deutsch"),
+        stand_diff::FIELDS_GONE => t("s_pv_zaehler_form_weg"),
+        other => other.to_string(),
+    }
+}
+
+/// The card of the gaps: the counters of the reading probe that grew, by class, and the note that the reader
+/// changed. Whether it was drawn (only for an own comparison).
+fn gaps(ui: &mut Ui, scheme: &Scheme, state: &PatchChangesState) -> bool {
+    let Some(extras) = state.extras.as_ref() else { return false };
+    widgets::card(ui, scheme, |ui| {
+        ui.set_width(ui.available_width());
+        widgets::card_title(ui, scheme, &t("s_pv_warn_kopf"));
+        ui.add_space(4.0);
+        if extras.reader_changed {
+            small(ui, &t("s_pv_leser_geaendert"), scheme.accent);
+            ui.add_space(2.0);
+        }
+        if extras.warnings.is_empty() {
+            small(ui, &t("s_pv_warn_keine"), scheme.sub);
+            return;
+        }
+        for (class, key) in CLASSES {
+            let of_class: Vec<_> = extras.warnings.iter().filter(|w| w.class == class).collect();
+            if of_class.is_empty() {
+                continue;
+            }
+            ui.add_space(GAP / 2.0);
+            ui.label(RichText::new(t(key)).strong());
+            for warning in of_class {
+                let line = tf(
+                    "s_pv_warn_zeile",
+                    &[
+                        ("name", Arg::from(gap_label(&warning.name))),
+                        ("alt", Arg::from(warning.old)),
+                        ("neu", Arg::from(warning.new)),
+                    ],
+                );
+                let tone = if class == "bricht" { widgets::change_color(scheme, false) } else { scheme.sub };
+                small(ui, &line, tone);
+            }
+        }
+    });
+    true
+}
+
+/// The kind of change of an item: new and gone by its fate, a changed one by the worst kind of its fields (the
+/// form, then the text, then the value); erkul's items, which say none, count as values.
+fn art_of(change: &Change, extra: Option<&RowExtra>) -> &'static str {
+    match change.fate {
+        Fate::New => "neu",
+        Fate::Gone => "weg",
+        Fate::Changed => {
+            let kinds = extra.map(|e| e.kinds.as_slice()).unwrap_or_default();
+            ["form", "text"].into_iter().find(|k| kinds.iter().any(|(_, art)| art == k)).unwrap_or("wert")
+        }
+    }
+}
+
+/// The extra of an item of an own comparison.
+fn extra_of<'a>(extras: Option<&'a OwnExtras>, change: &Change) -> Option<&'a RowExtra> {
+    let mark = match change.fate {
+        Fate::New => '+',
+        Fate::Gone => '-',
+        Fate::Changed => '~',
+    };
+    extras?.rows.get(&(change.kind.clone(), mark, change.id.clone()))
+}
+
 /// The card of the patches: the collection, the button for new patches with its line, the patches with changes in
 /// a list of its own height, the empty ones counted below it.
 fn patch_list(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
     let shown: Vec<Patch> = state.list.iter().filter(|p| !p.empty).cloned().collect();
     let left_out = state.list.len() - shown.len();
-    let row_height = ui.spacing().interact_size.y + ui.spacing().item_spacing.y + 6.0;
+    // A row of the list is two lines: the patch and its badges.
+    let row_height = 2.0 * (ui.spacing().interact_size.y + ui.spacing().item_spacing.y) + 6.0;
     let unread = state.unread();
     let mut picked = None;
     let mut all_read = false;
@@ -572,21 +1142,47 @@ fn patch_list(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState) {
             widgets::scroll_area(ui, scheme, area, |ui| {
                 for patch in &shown {
                     let on = state.chosen.as_deref() == Some(patch.version.as_str());
+                    // A comparison of a test channel shows neither its version nor its date nor its counts in the
+                    // streamer mode, only that it is there.
+                    let covered = patch.confidential && streamer::active();
                     ui.horizontal_wrapped(|row| {
                         let kind = if on { ButtonKind::Strong } else { ButtonKind::Normal };
-                        if row.add(widgets::Button::new(&patch.version, kind, scheme)).clicked() {
+                        let name = if covered { t("s_pv_testkanal") } else { patch.version.clone() };
+                        if row.add(widgets::Button::new(&name, kind, scheme)).clicked() {
                             picked = Some(patch.version.clone());
                         }
-                        if !patch.date.is_empty() {
+                        if !patch.date.is_empty() && !covered {
                             row.add(egui::Label::new(RichText::new(&patch.date).small().color(color(scheme.sub))));
                         }
-                        row.add(egui::Label::new(RichText::new(patch_changes::counter_text(&patch.summary)).small()));
-                        if !patch.at_source {
-                            widgets::badge(row, scheme, scheme.accent, &t("s_pa_nur_hier"));
+                        if !covered {
+                            row.add(egui::Label::new(RichText::new(patch_changes::counter_text(&patch.summary)).small()));
                         }
+                    });
+                    // The badges stand in a line of their own: in the wrapping line above a badge would get only the
+                    // room that is left at its end and break a word in the middle.
+                    ui.horizontal(|row| {
+                        let source = match (patch.own, patch.at_source) {
+                            (true, true) => "s_pv_quelle_beide",
+                            (true, false) => "s_pv_quelle_eigen",
+                            (false, _) => "s_pv_quelle_erkul",
+                        };
+                        if patch.confidential {
+                            widgets::badge(row, scheme, scheme.gold, &t("s_pv_vertraulich"))
+                                .on_hover_text(t("s_pv_vertraulich_h"));
+                        }
+                        // At most two badges are written out, the rest stands in a "+n" with all on hover: a row of
+                        // four badges does not fit the narrowest window and would break a word in the middle.
+                        let (source, only_here, unread_mark) =
+                            (t(source), t("s_pa_nur_hier"), t("s_pag_ungelesen"));
+                        let mut marks: Vec<(&str, Color)> = Vec::new();
                         if unread.contains(&patch.version) {
-                            widgets::badge(row, scheme, scheme.gold, &t("s_pag_ungelesen"));
+                            marks.push((&unread_mark, scheme.gold));
                         }
+                        marks.push((&source, scheme.sub));
+                        if !patch.at_source {
+                            marks.push((&only_here, scheme.accent));
+                        }
+                        widgets::badges(row, scheme, &marks);
                     });
                 }
             });
@@ -731,10 +1327,34 @@ fn items(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState, catalog: &
         }
         // The search runs inside the area chosen, like the areas of the other pages narrow their search.
         let width = ui.available_width();
-        widgets::search_field(ui, &mut state.search, &t("s_pag_suche_platz"), scheme, width);
+        widgets::search_field(ui, &mut state.search, &t("s_pv_suche_platz"), scheme, width);
         ui.add_space(4.0);
-        let shown: Vec<(usize, &Change)> =
-            in_area.into_iter().filter(|(_, c)| patch_changes::matches(c, &state.search)).collect();
+        // The kinds of change are only told by an own comparison.
+        let extras = state.extras.as_ref();
+        let mut art = state.art;
+        if extras.is_some() {
+            let mut numbers = [0_usize; ARTS.len()];
+            for (_, change) in &in_area {
+                let at = ARTS.iter().position(|(key, _)| *key == art_of(change, extra_of(extras, change)));
+                if let Some(at) = at {
+                    numbers[at] += 1;
+                }
+            }
+            let words: Vec<String> = ARTS.iter().map(|(_, key)| t(key)).collect();
+            let all_word = t("s_pa_alle");
+            let mut choices: Vec<(&str, usize)> = vec![(all_word.as_str(), in_area.len())];
+            choices.extend(words.iter().map(String::as_str).zip(numbers));
+            ui.label(RichText::new(t("s_pv_art_kopf")).small().color(color(scheme.sub)));
+            widgets::count_toggles(ui, scheme, &choices, &mut art);
+            ui.add_space(4.0);
+        }
+        state.art = art;
+        let wanted_art = art.checked_sub(1).and_then(|i| ARTS.get(i)).map(|(key, _)| *key);
+        let shown: Vec<(usize, &Change)> = in_area
+            .into_iter()
+            .filter(|(_, c)| patch_changes::matches(c, &state.search))
+            .filter(|(_, c)| wanted_art.is_none_or(|w| art_of(c, extra_of(extras, c)) == w))
+            .collect();
         if shown.is_empty() {
             small(ui, &tf("s_pag_suche_nichts", &[("suche", Arg::from(state.search.trim()))]), scheme.sub);
             return;
@@ -751,7 +1371,8 @@ fn items(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState, catalog: &
                 let blueprint = (change.fate != Fate::Gone)
                     .then(|| state.keys.get(*at).and_then(|key| catalog.blueprints.iter().find(|b| &b.key == key)))
                     .flatten();
-                if item(list, scheme, change, blueprint.map(|b| b.name.as_str())) {
+                let extra = extra_of(extras, change);
+                if item(list, scheme, change, extra, blueprint.map(|b| b.name.as_str())) {
                     action = blueprint.map(|b| Action::ToBlueprint(b.name.clone()));
                 }
             }
@@ -766,7 +1387,7 @@ fn items(ui: &mut Ui, scheme: &Scheme, state: &mut PatchChangesState, catalog: &
 
 /// One item, an entry of the list in the card of the changes: what happened to it, its name and size, the chip to
 /// its blueprint where `blueprint` names one of the catalog, and each changed field. Whether the chip was clicked.
-fn item(ui: &mut Ui, scheme: &Scheme, change: &Change, blueprint: Option<&str>) -> bool {
+fn item(ui: &mut Ui, scheme: &Scheme, change: &Change, extra: Option<&RowExtra>, blueprint: Option<&str>) -> bool {
     let mut jump = false;
     ui.vertical(|ui| {
         ui.set_width(ui.available_width());
@@ -791,6 +1412,29 @@ fn item(ui: &mut Ui, scheme: &Scheme, change: &Change, blueprint: Option<&str>) 
                 jump = chip.on_hover_text(tf("s_pag_bauplan_h", &[("name", Arg::from(name))])).clicked();
             }
         });
+        // What an own comparison adds: how many entries share the change, three of them, and a reader that changed.
+        if let Some(extra) = extra {
+            if extra.count > 1 {
+                ui.horizontal_wrapped(|row| {
+                    row.add_space(12.0);
+                    let line = tf("s_pv_anzahl", &[("n", Arg::from(extra.count))]);
+                    row.add(egui::Label::new(RichText::new(line).small().strong().color(color(scheme.accent))).wrap());
+                    if !extra.examples.is_empty() {
+                        let list = extra.examples.join(", ");
+                        let line = tf("s_pv_beispiele", &[("liste", Arg::from(list))]);
+                        row.add(egui::Label::new(RichText::new(line).small().color(color(scheme.sub))).wrap());
+                    }
+                });
+            }
+            if extra.reader_note {
+                ui.horizontal_wrapped(|row| {
+                    row.add_space(12.0);
+                    row.add(egui::Label::new(
+                        RichText::new(t("s_pv_leser_geaendert")).small().color(color(scheme.gold)),
+                    ).wrap());
+                });
+            }
+        }
         for field in &change.fields {
             let (text, tone) = patch_changes::field_text(field);
             ui.horizontal_wrapped(|row| {

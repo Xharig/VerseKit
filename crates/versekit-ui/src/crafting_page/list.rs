@@ -869,7 +869,7 @@ fn scroll_viewport<R>(
     add_contents: impl FnOnce(&mut Ui, Rect) -> R,
 ) -> egui::scroll_area::ScrollAreaOutput<R> {
     let content_visuals = ui.visuals().clone();
-    let radius = egui::CornerRadius::same(if scheme.square { 0 } else { (widgets::SCROLL_WIDTH / 2.0) as u8 });
+    let radius = egui::CornerRadius::same(if scheme.square || scheme.flat_gauges { 0 } else { (widgets::SCROLL_WIDTH / 2.0) as u8 });
     ui.scope(|ui| {
         ui.spacing_mut().scroll = widgets::scroll_style();
         let v = ui.visuals_mut();

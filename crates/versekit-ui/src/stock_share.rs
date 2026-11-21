@@ -197,11 +197,12 @@ pub struct Gaps {
     pub unknown_place: usize,
     pub unknown_part: usize,
     pub refused: usize,
+    pub retired: usize,
 }
 
 impl Gaps {
     pub fn total(&self) -> usize {
-        self.no_place + self.unknown_place + self.unknown_part + self.refused
+        self.no_place + self.unknown_place + self.unknown_part + self.refused + self.retired
     }
 
     /// "2 entries not in the Basetool: 1 without a location, 1 unknown part", or nothing where none is left out.
@@ -221,6 +222,9 @@ impl Gaps {
         if self.refused > 0 {
             parts.push(tf("s_ml_luecke_abgelehnt", &[("0", n(self.refused))]));
         }
+        if self.retired > 0 {
+            parts.push(tf("s_ml_luecke_ausgemustert", &[("0", n(self.retired))]));
+        }
         let total = self.total();
         if total == 0 {
             return None;
@@ -237,6 +241,7 @@ pub fn gap_word(gap: Gap) -> String {
         Gap::UnknownPlace => "s_ml_b_ort_fremd",
         Gap::UnknownPart => "s_ml_b_teil_fremd",
         Gap::Refused => "s_ml_b_abgelehnt",
+        Gap::Retired => "s_ml_b_ausgemustert",
     })
 }
 
@@ -618,7 +623,8 @@ impl Split {
     /// What the Basetool said when it refused the change of this row, in words; nothing for a row it did not refuse.
     pub fn refusal_text(&self, row: &Row) -> Option<String> {
         let key = self.keys.get(&(row.store, row.index))?;
-        let reason = self.snapshot.as_ref()?.refused.get(key)?;
+        let snapshot = self.snapshot.as_ref()?;
+        let reason = snapshot.retired.get(key).or_else(|| snapshot.refused.get(key))?;
         Some(match reason_key(reason) {
             Some(text) => t(text),
             None => tf("s_ml_r_anders", &[("0", Arg::from(reason.clone()))]),
@@ -634,6 +640,7 @@ impl Split {
                 Some(Gap::UnknownPlace) => gaps.unknown_place += 1,
                 Some(Gap::UnknownPart) => gaps.unknown_part += 1,
                 Some(Gap::Refused) => gaps.refused += 1,
+                Some(Gap::Retired) => gaps.retired += 1,
                 None => {}
             }
         }

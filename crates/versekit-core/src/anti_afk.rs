@@ -36,6 +36,14 @@
 //! never come back. Where the keyboard of the process does not go to the listener, the old hint is all that is
 //! left: `GetLastInputInfo` must drop after the press ([`ARRIVED_WITHIN`]).
 //!
+//! ⚠ **A key that did not come back is not yet a key that was blocked.** The listener can miss it too (its
+//! registration taken, its thread late). So a press that did not come back gets a second chance
+//! ([`AntiAfk::tick`]): the registration is made again, a key that comes late counts, else the keys are pressed
+//! once more and waited for longer ([`RETRY_WAIT`]). Only then the reason is told apart: the game elevated
+//! ([`ERR_ADMIN`]), the game no longer in front (no stop, the next beat tries again), Windows saw input after the
+//! press (pressed, not confirmed), or nothing at all ([`ERR_ARRIVE`]). Each of these writes one line with what
+//! was found into the error log ([`ARRIVAL_LABEL`]).
+//!
 //! ⛔ **No winmm for the sticks.** `joyGetPosEx` runs DirectInput in the process; for empty slots it searches
 //! the devices again, and in that path it can overrun its own heap block (`0xc0000374`, the process ends).
 //! Asked every three seconds on all sixteen slots, that path is taken all the time. Not `joyGetDevCapsW`
@@ -101,9 +109,17 @@ pub const ARRIVAL_WAIT: Duration = Duration::from_secs(1);
 pub const MOVE_THRESHOLD: u32 = 1000;
 /// The file with what the main window needs to know, in the data folder.
 pub const FILE: &str = "anti-afk.json";
-/// The texts of the two reasons for a stop.
+/// How long the second press of [`AntiAfk::tick`] is waited for.
+pub const RETRY_WAIT: Duration = Duration::from_secs(2);
+/// The texts of the reasons for a stop: the game runs elevated and this program does not; the key could not be
+/// sent; the key did not arrive for another reason.
 pub const ERR_ADMIN: &str = "aafk_err_admin";
 pub const ERR_SEND: &str = "aafk_err_send";
+pub const ERR_ARRIVE: &str = "aafk_err_ankunft";
+/// The place in the error log for a press that did not come back at once.
+pub const ARRIVAL_LABEL: &str = "anti_afk.arrival";
+/// The place in the error log for a listener whose thread ended.
+pub const LISTENER_LABEL: &str = "anti_afk.listener";
 
 /// A look at all sticks: device → its latest state.
 pub type JoyStates = StickStates;
@@ -153,8 +169,12 @@ pub enum Outcome {
     Blocked,
     /// The key could not be sent: off.
     Failed,
+    /// The key did not arrive, and nothing points to a reason: off.
+    Lost,
     /// Pressed.
     Sent,
+    /// Pressed; the listener did not see the keys, but Windows saw input right after the press.
+    Unconfirmed,
 }
 
 /// Why it does not press right now, as the page shows it.
@@ -309,6 +329,67 @@ pub trait StickWatch: Send + Sync {
     fn own_keys(&self) -> u32;
     /// Do the keys of this process go to the following (so the keys anti-AFK sends must come back)?
     fn keyboard_ours(&self) -> bool;
+    /// Registers the following again (keyboard, mouse, sticks) without starting it over; gives whether that
+    /// worked. A watch that cannot renew says `false`.
+    fn renew(&self) -> bool {
+        false
+    }
+}
+
+/// What was found about a press that did not come back at once: one line in the error log.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Arrival {
+    /// Did the thread of the listener still run?
+    pub listener: bool,
+    /// Did the keyboard of the process go to the listener?
+    pub keyboard_ours: bool,
+    /// Was the registration made again?
+    pub renewed: bool,
+    /// Did the first press come back late (after the renewal)?
+    pub late: bool,
+    /// Did the second press come back (`None`: there was none)?
+    pub second: Option<bool>,
+    /// Was the game in front after the second chance?
+    pub in_front: bool,
+    /// Did the game run elevated while this program does not (`None`: cannot be told)?
+    pub game_elevated: Option<bool>,
+    /// Seconds since the last input Windows knows, and seconds since the last press began.
+    pub windows_idle: Option<f64>,
+    pub since_press: f64,
+    /// What came of it: the outcome and, for a stop, its text key.
+    pub outcome: Outcome,
+}
+
+impl Arrival {
+    /// Did Windows see any input after the last press began?
+    pub fn windows_saw_input(&self) -> bool {
+        self.windows_idle.is_some_and(|idle| idle <= self.since_press)
+    }
+}
+
+impl std::fmt::Display for Arrival {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let yes = |value: bool| if value { "yes" } else { "no" };
+        let maybe = |value: Option<bool>| value.map_or("unknown", yes);
+        let idle = self.windows_idle.map_or_else(|| "unknown".to_string(), |idle| format!("{idle:.1} s"));
+        write!(
+            f,
+            "own key did not come back within {} s: listener running {}, keyboard to listener {}, renewed {}, \
+             came late {}, second press came back {}, game in front {}, game elevated {}, last windows input {} \
+             ago, last press began {:.1} s ago -> {:?}",
+            ARRIVAL_WAIT.as_secs_f64(),
+            yes(self.listener),
+            yes(self.keyboard_ours),
+            yes(self.renewed),
+            yes(self.late),
+            maybe(self.second),
+            yes(self.in_front),
+            maybe(self.game_elevated),
+            idle,
+            self.since_press,
+            self.outcome,
+        )
+    }
 }
 
 /// The state and the rules, without a system. (No `Debug`: it holds the last stand of the sticks.)
@@ -511,24 +592,89 @@ impl AntiAfk {
             self.fail(ERR_SEND);
             return Outcome::Failed;
         }
-        if !arrived(watch, before, platform) {
-            self.fail(ERR_ADMIN);
-            return Outcome::Blocked;
+        let outcome = if arrived(watch, before, platform, ARRIVAL_WAIT) {
+            Outcome::Sent
+        } else {
+            let arrival = self.second_chance(platform, watch, before);
+            crate::errors::record(ARRIVAL_LABEL, &arrival);
+            arrival.outcome
+        };
+        match outcome {
+            Outcome::Sent | Outcome::Unconfirmed => {
+                self.last_sent = Some(now);
+                self.count += 1;
+                self.threshold = self.interval;
+                self.reason = Some(Reason::Pressed);
+            }
+            Outcome::NotInFront => self.reason = Some(Reason::NotInFront),
+            Outcome::Blocked => self.fail(ERR_ADMIN),
+            Outcome::Failed => self.fail(ERR_SEND),
+            _ => self.fail(ERR_ARRIVE),
         }
-        self.last_sent = Some(now);
-        self.count += 1;
-        self.threshold = self.interval;
-        self.reason = Some(Reason::Pressed);
-        Outcome::Sent
+        outcome
+    }
+
+    /// The press did not come back within [`ARRIVAL_WAIT`]: the registration is made again; a press that comes
+    /// late counts, else the keys are pressed once more and waited for [`RETRY_WAIT`]. Where they still do not
+    /// come back, the reason is told apart. Gives what was found; [`Arrival::outcome`] is the outcome of the beat.
+    fn second_chance(&self, platform: &dyn Platform, watch: &dyn StickWatch, before: u32) -> Arrival {
+        let listener = watch.running();
+        let keyboard_ours = watch.keyboard_ours();
+        let renewed = watch.renew();
+        let late = watch.own_keys() != before;
+        let mut pressed = Instant::now();
+        let mut second = None;
+        let mut outcome = Outcome::Sent;
+        // A second press only into the game, and only where it can take it: keys must not go to another window.
+        let fit = platform.game_in_front() && platform.game_needs_admin() != Some(true);
+        if !late && !fit {
+            outcome = Outcome::Lost;
+        } else if !late {
+            let again = watch.own_keys();
+            pressed = Instant::now();
+            if platform.press(&self.chord.keys).is_err() {
+                outcome = Outcome::Failed;
+            } else {
+                let came = arrived(watch, again, platform, RETRY_WAIT);
+                second = Some(came);
+                if !came {
+                    outcome = Outcome::Lost;
+                }
+            }
+        }
+        let mut arrival = Arrival {
+            listener,
+            keyboard_ours,
+            renewed,
+            late,
+            second,
+            in_front: platform.game_in_front(),
+            game_elevated: platform.game_needs_admin(),
+            windows_idle: platform.idle_seconds(),
+            since_press: pressed.elapsed().as_secs_f64(),
+            outcome,
+        };
+        if arrival.outcome == Outcome::Lost {
+            arrival.outcome = if arrival.game_elevated == Some(true) {
+                Outcome::Blocked
+            } else if !arrival.in_front {
+                Outcome::NotInFront
+            } else if arrival.windows_saw_input() {
+                Outcome::Unconfirmed
+            } else {
+                Outcome::Lost
+            };
+        }
+        arrival
     }
 }
 
 /// Did the keys of the press arrive? Where the keys of the process go to the following, the own keys must come
-/// back to it within [`ARRIVAL_WAIT`] (`before` is its count before the press): keys Windows drops never come
-/// back. Elsewhere only the hint is left: the last input Windows knows must have dropped.
-fn arrived(watch: &dyn StickWatch, before: u32, platform: &dyn Platform) -> bool {
+/// back to it within `wait` (`before` is its count before the press): keys Windows drops never come back.
+/// Elsewhere only the hint is left: the last input Windows knows must have dropped.
+fn arrived(watch: &dyn StickWatch, before: u32, platform: &dyn Platform, wait: Duration) -> bool {
     if watch.keyboard_ours() {
-        let deadline = Instant::now() + ARRIVAL_WAIT;
+        let deadline = Instant::now() + wait;
         while watch.own_keys() == before {
             if Instant::now() >= deadline {
                 return false;
@@ -838,17 +984,29 @@ impl Runner {
         self.shared.paths.as_ref().map_or_else(Chord::default, |paths| locked(&self.shared.chord).get(paths))
     }
 
-    /// The state the button shows now.
+    /// The state the button shows now. Never waits for a beat that is pressing (it may wait seconds for the keys
+    /// to come back): meanwhile the button stands as waiting.
     pub fn state(&self) -> Look {
         let now = self.now();
-        let logic = locked(&self.shared.logic);
+        let Some(logic) = self.logic_now() else {
+            return if self.enabled() { Look::Waiting } else { Look::Off };
+        };
         Look::of(logic.enabled(), logic.last_error().is_some(), logic.reason(), logic.last_sent().map(|at| now - at))
     }
 
-    /// Seconds until the button stops standing as "just pressed"; `None` when it does not.
+    /// The logic where no beat holds it right now.
+    fn logic_now(&self) -> Option<MutexGuard<'_, AntiAfk>> {
+        match self.shared.logic.try_lock() {
+            Ok(logic) => Some(logic),
+            Err(std::sync::TryLockError::Poisoned(poisoned)) => Some(poisoned.into_inner()),
+            Err(std::sync::TryLockError::WouldBlock) => None,
+        }
+    }
+
+    /// Seconds until the button stops standing as "just pressed"; `None` when it does not (or a beat is pressing).
     pub fn flash_left(&self) -> Option<f64> {
         let now = self.now();
-        let logic = locked(&self.shared.logic);
+        let logic = self.logic_now()?;
         let left = FLASH - (now - logic.last_sent()?);
         (logic.enabled() && left > 0.0).then_some(left)
     }
@@ -928,12 +1086,15 @@ impl Runner {
             logic.set_interval(interval);
             logic.set_count_injected(count_injected);
             logic.set_chord(chord);
+            if logic.enabled() {
+                self.renew_dead_watch();
+            }
             let watch = locked(&self.shared.sticks);
             let outcome = logic.tick(now, self.shared.platform.as_ref(), watch.as_deref());
             drop(watch);
             // A stop: the reason is there before the switch shows "off", so whoever sees "off" (a window
             // that asks every frame, a test that waits for it) finds the reason when it asks for it.
-            if matches!(outcome, Outcome::Blocked | Outcome::Failed)
+            if matches!(outcome, Outcome::Blocked | Outcome::Failed | Outcome::Lost)
                 && let Some(reason) = logic.last_error()
             {
                 *locked(&self.shared.stopped) = Some(reason);
@@ -944,7 +1105,7 @@ impl Runner {
             outcome
         };
         match outcome {
-            Outcome::Blocked | Outcome::Failed | Outcome::Unsupported => {
+            Outcome::Blocked | Outcome::Failed | Outcome::Lost | Outcome::Unsupported => {
                 self.stop_workers();
                 self.publish();
                 if let Some(wake) = &*locked(&self.shared.waker) {
@@ -952,7 +1113,7 @@ impl Runner {
                 }
             }
             // A press: the window shows it at once.
-            Outcome::Sent => {
+            Outcome::Sent | Outcome::Unconfirmed => {
                 self.publish_changed();
                 if let Some(wake) = &*locked(&self.shared.waker) {
                     wake();
@@ -962,6 +1123,20 @@ impl Runner {
             _ => self.publish_changed(),
         }
         outcome
+    }
+
+    /// A following whose thread ended (the beat would stay blind for good) is started anew; the error log gets
+    /// a line. Nothing happens while it runs or where there is none.
+    fn renew_dead_watch(&self) {
+        let mut slot = locked(&self.shared.sticks);
+        if !slot.as_ref().is_some_and(|watch| !watch.running()) {
+            return;
+        }
+        drop(slot.take());
+        *slot = self.shared.platform.watch_sticks();
+        let again = slot.as_ref().is_some_and(|watch| watch.running());
+        drop(slot);
+        crate::errors::record(LISTENER_LABEL, &format!("the input listener had ended; started again: {again}"));
     }
 
     /// One look at the sticks: the latest states are taken outside the lock of the logic, the comparison is made
@@ -1078,6 +1253,9 @@ mod windows_system {
         }
         fn keyboard_ours(&self) -> bool {
             Listener::keyboard_ours(self)
+        }
+        fn renew(&self) -> bool {
+            Listener::renew(self)
         }
     }
 
@@ -1258,6 +1436,14 @@ mod tests {
         /// How many watches were handed out and how many of them are gone.
         watches: Arc<AtomicU32>,
         watches_gone: Arc<AtomicU32>,
+        /// The keys of every press from the second one on arrive, whatever `arrives` says.
+        arrive_on_second: AtomicBool,
+        /// A renewal of the watch brings the keys that did not come back (they were late).
+        late_on_renew: Arc<AtomicBool>,
+        /// How many renewals were asked for.
+        renewals: Arc<AtomicU32>,
+        /// The threads of the watches handed out so far up to this number ended (`kill`).
+        dead_upto: Arc<AtomicU32>,
     }
 
     /// The watch of the stand-in: reports what the test put into the fake.
@@ -1269,6 +1455,11 @@ mod tests {
         own: Arc<AtomicU32>,
         ours: Arc<AtomicBool>,
         gone: Arc<AtomicU32>,
+        late_on_renew: Arc<AtomicBool>,
+        renewals: Arc<AtomicU32>,
+        /// The number of this watch among those handed out (from 1), and up to which number they ended.
+        number: u32,
+        dead_upto: Arc<AtomicU32>,
     }
 
     impl StickWatch for FakeWatch {
@@ -1276,6 +1467,13 @@ mod tests {
             self.sticks.lock().unwrap().clone()
         }
         fn running(&self) -> bool {
+            self.number > self.dead_upto.load(Ordering::SeqCst)
+        }
+        fn renew(&self) -> bool {
+            self.renewals.fetch_add(1, Ordering::SeqCst);
+            if self.late_on_renew.load(Ordering::SeqCst) {
+                self.own.fetch_add(2, Ordering::SeqCst);
+            }
             true
         }
         fn input_idle(&self, count_injected: bool) -> (f64, Option<Source>) {
@@ -1326,6 +1524,11 @@ mod tests {
         fn watch(&self) -> Box<dyn StickWatch> {
             self.watch_sticks().expect("a watch")
         }
+
+        /// The threads of every watch handed out so far end; new ones run.
+        fn kill(&self) {
+            self.dead_upto.store(self.watches.load(Ordering::SeqCst), Ordering::SeqCst);
+        }
     }
 
     impl Platform for Fake {
@@ -1353,8 +1556,8 @@ mod tests {
                 return Err(SendError("fake".into()));
             }
             self.keys.lock().unwrap().push(keys.to_vec());
-            self.pressed.fetch_add(1, Ordering::SeqCst);
-            if self.arrives.load(Ordering::SeqCst) {
+            let number = self.pressed.fetch_add(1, Ordering::SeqCst) + 1;
+            if self.arrives.load(Ordering::SeqCst) || (number >= 2 && self.arrive_on_second.load(Ordering::SeqCst)) {
                 // Alt and X, down: the own keys come back; Windows' input time drops.
                 self.own.fetch_add(2, Ordering::SeqCst);
                 self.idle_ms.store(10, Ordering::SeqCst);
@@ -1365,7 +1568,7 @@ mod tests {
             if self.no_sticks.load(Ordering::SeqCst) {
                 return None;
             }
-            self.watches.fetch_add(1, Ordering::SeqCst);
+            let number = self.watches.fetch_add(1, Ordering::SeqCst) + 1;
             Some(Box::new(FakeWatch {
                 sticks: Arc::clone(&self.sticks),
                 input: Arc::clone(&self.input),
@@ -1373,6 +1576,10 @@ mod tests {
                 own: Arc::clone(&self.own),
                 ours: Arc::clone(&self.ours),
                 gone: Arc::clone(&self.watches_gone),
+                late_on_renew: Arc::clone(&self.late_on_renew),
+                renewals: Arc::clone(&self.renewals),
+                number,
+                dead_upto: Arc::clone(&self.dead_upto),
             }))
         }
     }
@@ -1501,19 +1708,177 @@ mod tests {
         let (key, when) = logic.last_failure().expect("the stop is kept");
         assert_eq!(key, ERR_ADMIN);
         assert_eq!(when.len(), "2026-10-23 12:00".len(), "{when}");
-        // Not to be told: tried. The keys go out but never come back to the listener: they did not arrive,
-        // although Windows' input time stands at 0 (the reports of the sticks).
-        fake.admin.store(0, Ordering::SeqCst);
+        // The game turns elevated between the first look and the second chance: the keys never come back, and
+        // the stop says why.
+        fake.admin.store(2, Ordering::SeqCst);
         fake.arrives.store(false, Ordering::SeqCst);
+        fake.idle_ms.store(400_000, Ordering::SeqCst);
         let mut logic = on(&fake);
-        assert_eq!(logic.tick(1000.0, fake.as_ref(), watch), Outcome::Blocked);
-        assert_eq!(fake.pressed.load(Ordering::SeqCst), 1, "this time it was sent");
-        assert_eq!(logic.sent_count(), 0, "and does not count");
+        let elevated = Arc::new(Elevating(Arc::clone(&fake)));
+        assert_eq!(logic.tick(1000.0, elevated.as_ref(), watch), Outcome::Blocked);
         assert_eq!(logic.last_error(), Some(ERR_ADMIN));
-        // They come back: arrived.
-        fake.arrives.store(true, Ordering::SeqCst);
+        assert_eq!(logic.sent_count(), 0, "a blocked press does not count");
+        assert_eq!(fake.pressed.load(Ordering::SeqCst), 1, "no second press into a game that cannot take it");
+    }
+
+    /// The fake, but the game runs elevated from the first press on.
+    struct Elevating(Arc<Fake>);
+
+    impl Platform for Elevating {
+        fn supported(&self) -> bool {
+            self.0.supported()
+        }
+        fn game_in_front(&self) -> bool {
+            self.0.game_in_front()
+        }
+        fn idle_seconds(&self) -> Option<f64> {
+            self.0.idle_seconds()
+        }
+        fn game_needs_admin(&self) -> Option<bool> {
+            if self.0.pressed.load(Ordering::SeqCst) > 0 { Some(true) } else { self.0.game_needs_admin() }
+        }
+        fn press(&self, keys: &[Key]) -> Result<(), SendError> {
+            self.0.press(keys)
+        }
+        fn watch_sticks(&self) -> Option<Box<dyn StickWatch>> {
+            self.0.watch_sticks()
+        }
+    }
+
+    /// One beat whose keys do not come back at once, with the line it wrote into the error log.
+    fn unconfirmed_beat(fake: &Arc<Fake>) -> (AntiAfk, Outcome, String) {
+        let watch = fake.watch();
+        let mut logic = on(fake);
+        let (outcome, caught) = crate::errors::captured(|| logic.tick(1000.0, fake.as_ref(), Some(watch.as_ref())));
+        let lines: Vec<String> =
+            caught.iter().filter(|c| c.label == ARRIVAL_LABEL && !c.note).map(|c| c.text.clone()).collect();
+        assert_eq!(lines.len(), 1, "one line in the error log: {caught:?}");
+        (logic, outcome, lines[0].clone())
+    }
+
+    /// A press that did not come back within the wait: the game is not elevated, so the admin text is not the
+    /// answer. Each way out of the second chance has its own outcome and its line in the error log.
+    #[test]
+    fn a_key_that_does_not_come_back_gets_a_second_chance_and_a_reason_of_its_own() {
+        // Late: it comes back once the registration was made again. Pressed once, counted.
+        let fake = Fake::ready();
+        fake.arrives.store(false, Ordering::SeqCst);
+        fake.late_on_renew.store(true, Ordering::SeqCst);
+        let (logic, outcome, line) = unconfirmed_beat(&fake);
+        assert_eq!(outcome, Outcome::Sent, "{line}");
+        assert_eq!((logic.sent_count(), logic.enabled(), logic.last_error()), (1, true, None));
+        assert_eq!(fake.pressed.load(Ordering::SeqCst), 1, "not pressed twice");
+        assert_eq!(fake.renewals.load(Ordering::SeqCst), 1);
+        assert!(line.contains("renewed yes") && line.contains("came late yes") && line.contains("-> Sent"), "{line}");
+
+        // The second press comes back: counted, it goes on.
+        let fake = Fake::ready();
+        fake.arrives.store(false, Ordering::SeqCst);
+        fake.arrive_on_second.store(true, Ordering::SeqCst);
+        let (logic, outcome, line) = unconfirmed_beat(&fake);
+        assert_eq!(outcome, Outcome::Sent, "{line}");
+        assert_eq!((logic.sent_count(), logic.enabled()), (1, true));
+        assert_eq!(fake.pressed.load(Ordering::SeqCst), 2);
+        assert!(line.contains("second press came back yes"), "{line}");
+
+        // Neither comes back, but Windows saw input after the press (a HOTAS keeps its input time at 0): pressed,
+        // not confirmed; it goes on.
+        let fake = Fake::ready();
+        fake.arrives.store(false, Ordering::SeqCst);
+        let (logic, outcome, line) = unconfirmed_beat(&fake);
+        assert_eq!(outcome, Outcome::Unconfirmed, "{line}");
+        assert_eq!((logic.sent_count(), logic.enabled(), logic.last_error()), (1, true, None));
+        assert_eq!(logic.reason(), Some(Reason::Pressed));
+        assert!(line.contains("second press came back no") && line.contains("game elevated no"), "{line}");
+
+        // Neither comes back and Windows saw nothing: off, with the text of its own, not the admin text.
+        let fake = Fake::ready();
+        fake.arrives.store(false, Ordering::SeqCst);
+        fake.idle_ms.store(400_000, Ordering::SeqCst);
+        let (logic, outcome, line) = unconfirmed_beat(&fake);
+        assert_eq!(outcome, Outcome::Lost, "{line}");
+        assert_eq!((logic.sent_count(), logic.enabled(), logic.last_error()), (0, false, Some(ERR_ARRIVE)));
+        assert_eq!(logic.last_failure().map(|f| f.0), Some(ERR_ARRIVE));
+        assert_ne!(crate::language::t(ERR_ARRIVE), ERR_ARRIVE, "the stop has a text");
+        assert!(line.contains("game in front yes") && line.contains("-> Lost"), "{line}");
+
+        // The same, but the game cannot be asked about its rights: still not the admin text.
+        fake.admin.store(0, Ordering::SeqCst);
+        let (logic, outcome, line) = unconfirmed_beat(&fake);
+        assert_eq!((outcome, logic.last_error()), (Outcome::Lost, Some(ERR_ARRIVE)), "{line}");
+        assert!(line.contains("game elevated unknown"), "{line}");
+
+        // The game went out of front meanwhile: no stop, nothing counted; the next beat tries again.
+        let fake = Fake::ready();
+        fake.arrives.store(false, Ordering::SeqCst);
+        fake.idle_ms.store(400_000, Ordering::SeqCst);
+        let watch = fake.watch();
         let mut logic = on(&fake);
-        assert_eq!(logic.tick(1000.0, fake.as_ref(), watch), Outcome::Sent);
+        let leaving = Leaving(Arc::clone(&fake));
+        assert_eq!(logic.tick(1000.0, &leaving, Some(watch.as_ref())), Outcome::NotInFront);
+        assert_eq!((logic.sent_count(), logic.enabled(), logic.last_error()), (0, true, None));
+        assert_eq!(fake.pressed.load(Ordering::SeqCst), 1, "no second press into another window");
+        assert_eq!(logic.reason(), Some(Reason::NotInFront));
+
+        // The second press cannot be sent: off with the reason of sending.
+        let fake = Fake::ready();
+        fake.arrives.store(false, Ordering::SeqCst);
+        let watch = fake.watch();
+        let mut logic = on(&fake);
+        let failing = FailingSecond(Arc::clone(&fake));
+        assert_eq!(logic.tick(1000.0, &failing, Some(watch.as_ref())), Outcome::Failed);
+        assert_eq!(logic.last_error(), Some(ERR_SEND));
+    }
+
+    /// The fake, but the game leaves the front with the first press.
+    struct Leaving(Arc<Fake>);
+
+    impl Platform for Leaving {
+        fn supported(&self) -> bool {
+            true
+        }
+        fn game_in_front(&self) -> bool {
+            self.0.pressed.load(Ordering::SeqCst) == 0
+        }
+        fn idle_seconds(&self) -> Option<f64> {
+            self.0.idle_seconds()
+        }
+        fn game_needs_admin(&self) -> Option<bool> {
+            self.0.game_needs_admin()
+        }
+        fn press(&self, keys: &[Key]) -> Result<(), SendError> {
+            self.0.press(keys)
+        }
+        fn watch_sticks(&self) -> Option<Box<dyn StickWatch>> {
+            self.0.watch_sticks()
+        }
+    }
+
+    /// The fake, but every press after the first fails.
+    struct FailingSecond(Arc<Fake>);
+
+    impl Platform for FailingSecond {
+        fn supported(&self) -> bool {
+            true
+        }
+        fn game_in_front(&self) -> bool {
+            self.0.game_in_front()
+        }
+        fn idle_seconds(&self) -> Option<f64> {
+            self.0.idle_seconds()
+        }
+        fn game_needs_admin(&self) -> Option<bool> {
+            self.0.game_needs_admin()
+        }
+        fn press(&self, keys: &[Key]) -> Result<(), SendError> {
+            if self.0.pressed.load(Ordering::SeqCst) > 0 {
+                return Err(SendError("fake".into()));
+            }
+            self.0.press(keys)
+        }
+        fn watch_sticks(&self) -> Option<Box<dyn StickWatch>> {
+            self.0.watch_sticks()
+        }
     }
 
     #[test]
@@ -1523,16 +1888,42 @@ mod tests {
         let watch = Some(watch.as_ref());
         fake.ours.store(false, Ordering::SeqCst);
         fake.admin.store(0, Ordering::SeqCst);
-        // The input time of Windows does not drop after the press: not arrived.
+        // The input time of Windows does not drop after either press: not arrived, and not for want of rights.
         fake.idle_ms.store(400_000, Ordering::SeqCst);
         fake.arrives.store(false, Ordering::SeqCst);
         let mut logic = on(&fake);
-        assert_eq!(logic.tick(1000.0, fake.as_ref(), watch), Outcome::Blocked);
+        assert_eq!(logic.tick(1000.0, fake.as_ref(), watch), Outcome::Lost);
+        assert_eq!(logic.last_error(), Some(ERR_ARRIVE));
         // It drops: arrived.
         fake.idle_ms.store(400_000, Ordering::SeqCst);
         fake.arrives.store(true, Ordering::SeqCst);
         let mut logic = on(&fake);
         assert_eq!(logic.tick(1000.0, fake.as_ref(), watch), Outcome::Sent);
+    }
+
+    /// A listener whose thread ended would leave the beat blind for good: the runner starts a new one at the next
+    /// beat and writes a line into the error log.
+    #[test]
+    fn a_listener_whose_thread_ended_is_started_again() {
+        let fake = Fake::ready();
+        let runner = Runner::with_timing(fake.clone(), None, Duration::from_secs(3600), Duration::from_secs(3600));
+        assert!(runner.set_enabled(true));
+        assert_eq!(fake.watches.load(Ordering::SeqCst), 1);
+        fake.kill();
+        assert!(!runner.joy_running(), "the following ended");
+        let (outcome, caught) = crate::errors::captured(|| runner.tick());
+        assert_eq!(outcome, Outcome::Sent, "the new following reads the input: pressed");
+        assert_eq!(fake.watches.load(Ordering::SeqCst), 2, "a new following");
+        assert_eq!(fake.watches_gone.load(Ordering::SeqCst), 1, "the old one is gone");
+        assert!(
+            caught.iter().any(|c| c.label == LISTENER_LABEL && c.text.ends_with("started again: true")),
+            "{caught:?}"
+        );
+        // A following that runs is left as it is.
+        let (_, caught) = crate::errors::captured(|| runner.tick());
+        assert_eq!(fake.watches.load(Ordering::SeqCst), 2);
+        assert!(caught.iter().all(|c| c.label != LISTENER_LABEL), "{caught:?}");
+        runner.set_enabled(false);
     }
 
     #[test]

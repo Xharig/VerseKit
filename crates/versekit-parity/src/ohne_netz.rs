@@ -87,7 +87,7 @@ const LEFT_OUT: [&str; 1] = ["Sicherungen"];
 /// The files of `Intern` that are taken out without `--bestand`: everything read from the game data or fetched from a
 /// service of others, so that the run starts as for a player who set VerseKit up but never had them. What the player
 /// set up (the chosen translation, the collection, the settings) stays.
-const DERIVED: [&str; 28] = [
+const DERIVED: [&str; 29] = [
     "katalog-spieldaten.json",
     "katalog-cache.json",
     "katalog-neubau.lock",
@@ -111,6 +111,7 @@ const DERIVED: [&str; 28] = [
     "scmdb-items.json",
     "scmdb-import.json",
     "namen-original.json",
+    "kurzzeichen-original.json",
     "titel-original.json",
     "injektion-urtext.json",
     "injektion-urtext@PTU.json", // privacy-ok: a file name of the program, not a mail address

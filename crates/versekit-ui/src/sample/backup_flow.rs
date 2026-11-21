@@ -31,7 +31,9 @@ use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use egui::RichText;
-use versekit_core::backup::{self, BindingsError, BindingsRestored, Found, RestoreError, Restored, WriteError};
+use versekit_core::backup::{self, BindingsError, Change, Found, PreviewItem, RestoreError, Restored, WriteError};
+use versekit_core::backup_auto::{self, Trigger};
+use versekit_core::backup_game::{self, ChannelContents, ChannelPreview, GameRestored};
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::paths::Paths;
 use versekit_core::theme::Scheme;
@@ -48,12 +50,124 @@ struct ControlsAsk {
     source: String,
     /// What the restore of the data said (what was switched off, how many files).
     restored: Restored,
-    /// Is the active binding in the backup?
+    /// Is the active binding in the backup (the old way, straight under `Steuerung/`)?
     active: bool,
-    /// The names of the saved profiles in the backup.
+    /// The names of the saved profiles in the backup (the old way).
     profiles: Vec<String>,
+    /// The files of the game by channel; where there are any, they count instead of `active` and `profiles`.
+    channels: Vec<ChannelContents>,
     /// The saved profiles are wanted (the first question was answered with yes).
     profiles_wanted: bool,
+}
+
+impl ControlsAsk {
+    /// Does the backup hold the files of the game by channel?
+    fn by_channel(&self) -> bool {
+        !self.channels.is_empty()
+    }
+
+    /// Is there something that only adds (saved profiles, character templates)?
+    fn has_additive(&self) -> bool {
+        if self.by_channel() { self.channels.iter().any(ChannelContents::has_additive) } else { !self.profiles.is_empty() }
+    }
+
+    /// Is there something the game works with now (active binding; by channel also game settings and `user.cfg`)?
+    fn has_active(&self) -> bool {
+        if self.by_channel() { self.channels.iter().any(ChannelContents::has_active) } else { self.active }
+    }
+
+    /// The first question.
+    fn additive_question(&self) -> String {
+        if !self.by_channel() {
+            return tf("sich_belegung_frage", &[("0", Arg::from(self.profiles.join(", ")))]);
+        }
+        let lines: Vec<String> = self
+            .channels
+            .iter()
+            .filter(|c| c.has_additive())
+            .map(|c| {
+                tf(
+                    "sich_spiel_zeile",
+                    &[
+                        ("0", Arg::from(c.channel.clone())),
+                        ("1", Arg::from(c.profiles.len())),
+                        ("2", Arg::from(c.templates.len())),
+                    ],
+                )
+            })
+            .collect();
+        tf("sich_spiel_frage", &[("0", Arg::from(lines.join("\n")))])
+    }
+
+    /// The second question.
+    fn active_question(&self) -> String {
+        if self.by_channel() { t("sich_spiel_aktiv") } else { t("sich_belegung_aktiv") }
+    }
+}
+
+/// What a restore would do, looked at before the question: the files of the data folder and of the game.
+#[derive(Default)]
+struct Look {
+    data: Vec<PreviewItem>,
+    game: Vec<ChannelPreview>,
+}
+
+/// How many of `items` would be replaced, be new, stay the same.
+fn counted<'a>(items: impl Iterator<Item = &'a PreviewItem>) -> (usize, usize, usize) {
+    items.fold((0, 0, 0), |(replaced, new, same), item| match item.change {
+        Change::Replaced => (replaced + 1, new, same),
+        Change::New => (replaced, new + 1, same),
+        Change::Same => (replaced, new, same + 1),
+        Change::NoPlace => (replaced, new, same),
+    })
+}
+
+/// The word for a change in the list of the look.
+fn change_word(change: Change) -> String {
+    t(match change {
+        Change::New => "sich_aend_neu",
+        Change::Replaced => "sich_aend_ersetzt",
+        Change::Same => "sich_aend_gleich",
+        Change::NoPlace => "sich_aend_kein_ort",
+    })
+}
+
+/// The lines of the look: one for the data folder, one for each channel of the game.
+fn look_lines(look: &Look) -> Vec<String> {
+    let (replaced, new, same) = counted(look.data.iter());
+    let mut lines = vec![tf(
+        "sich_vorschau",
+        &[("0", Arg::from(replaced)), ("1", Arg::from(new)), ("2", Arg::from(same))],
+    )];
+    for channel in &look.game {
+        if channel.installed {
+            let (replaced, new, same) = counted(channel.additive.iter().chain(&channel.active));
+            lines.push(tf(
+                "sich_vorschau_kanal",
+                &[
+                    ("0", Arg::from(channel.channel.clone())),
+                    ("1", Arg::from(replaced)),
+                    ("2", Arg::from(new)),
+                    ("3", Arg::from(same)),
+                ],
+            ));
+        } else {
+            lines.push(tf("sich_vorschau_fehlt", &[("0", Arg::from(channel.channel.clone()))]));
+        }
+    }
+    lines
+}
+
+/// The files of the look that would change something (new, replaced, no place), by name.
+fn look_changes(look: &Look) -> Vec<(Change, String)> {
+    let mut out: Vec<(Change, String)> =
+        look.data.iter().filter(|i| i.change != Change::Same).map(|i| (i.change, i.name.clone())).collect();
+    for channel in &look.game {
+        for item in channel.additive.iter().chain(&channel.active).filter(|i| i.change != Change::Same) {
+            out.push((item.change, format!("{}: {}", channel.channel, item.name)));
+        }
+    }
+    out
 }
 
 /// Where the flow is.
@@ -70,7 +184,7 @@ enum Phase {
     /// A thread works; `.1` is the text it is shown under.
     Working(Receiver<Done>, &'static str),
     /// The look into the file is done: is the player sure?
-    Asking { source: String, found: Found },
+    Asking { source: String, found: Found, look: Look },
     /// The data are back and the backup holds saved profiles: put them back too? (They only lie there until the
     /// player loads one.)
     AskProfiles(ControlsAsk),
@@ -85,21 +199,24 @@ enum Phase {
 enum Done {
     Written {
         target: String,
-        outcome: Result<usize, WriteError>,
+        outcome: Result<backup::Written, WriteError>,
     },
     Checked {
         source: String,
         found: Option<Found>,
+        look: Look,
     },
     Restored {
         source: String,
         outcome: Result<Restored, RestoreError>,
         controls: (bool, Vec<String>),
+        channels: Vec<ChannelContents>,
     },
     /// The controls were put back (or why not); the restore of the data is told with them.
     Controls {
         restored: Restored,
-        outcome: Result<BindingsRestored, BindingsError>,
+        outcome: Result<GameRestored, BindingsError>,
+        by_channel: bool,
     },
 }
 
@@ -185,6 +302,42 @@ impl SamplePage {
         } else if read {
             self.open_backup_read(ui.ctx());
         }
+        self.auto_backup_section(ui, scheme);
+    }
+
+    /// The backups the program writes by itself: when (start, end of the game), how many stay, and the way to put one
+    /// back (the dialog opens in their folder).
+    fn auto_backup_section(&mut self, ui: &mut egui::Ui, scheme: &Scheme) {
+        let Some(store) = &self.store else { return };
+        let paths = &store.paths;
+        ui.add_space(10.0);
+        ui.add(egui::Label::new(RichText::new(t("sich_auto_titel")).strong()).wrap());
+        for (trigger, key) in [(Trigger::Start, "sich_auto_start"), (Trigger::GameEnd, "sich_auto_spielende")] {
+            let mut on = backup_auto::enabled(paths, trigger);
+            if widgets::switch_row(ui, scheme, &t(key), &mut on).changed() {
+                backup_auto::set_enabled(paths, trigger, on);
+            }
+        }
+        let mut keep = i64::try_from(backup_auto::keep(paths)).unwrap_or(backup_auto::KEEP_DEFAULT);
+        let label = tf("sich_auto_behalten", &[("0", Arg::from(keep))]);
+        ui.horizontal_wrapped(|row| {
+            row.add(egui::Label::new(&label));
+            let slider = widgets::Slider::new(&mut keep, backup_auto::KEEP_MIN, backup_auto::KEEP_MAX, scheme).on_release();
+            if row.add(slider).changed() {
+                backup_auto::set_keep(paths, keep);
+            }
+        });
+        ui.add(egui::Label::new(RichText::new(t("sich_auto_hinweis")).small().color(color(scheme.sub))).wrap());
+        ui.add_space(4.0);
+        let folder = backup_auto::folder(paths);
+        let read = ui
+            .add(widgets::Button::new(&t("sich_auto_lesen"), ButtonKind::Normal, scheme).icon("clock"))
+            .clicked();
+        if read && self.backup_free() {
+            let start = std::path::Path::new(&folder).is_dir().then_some(folder.as_str());
+            let pending = file_dialog::open_file(ui.ctx(), &t("sich_auto_lesen"), ZIP_FILES, start);
+            self.backup.phase = Phase::Opening(pending);
+        }
     }
 
     /// Is a backup dialog open (or a thread at work)?
@@ -240,8 +393,8 @@ impl SamplePage {
                     self.start_backup_work(
                         ctx,
                         "sich_arbeitet",
-                        // The controls lie in the game folder: they come along whenever there is one.
-                        move |paths| backup::write(paths, &on, version, &backup::bindings(paths, None)),
+                        // The files of the game of every installed channel come along whenever there are any.
+                        move |paths| backup::write_reporting(paths, &on, version, &backup_game::bindings_all(paths)),
                         move |outcome| Done::Written { target, outcome },
                     );
                 }
@@ -254,8 +407,19 @@ impl SamplePage {
                     self.start_backup_work(
                         ctx,
                         "sich_arbeitet",
-                        move |_| backup::check(&on),
-                        move |found| Done::Checked { source, found },
+                        // The look at what a restore would do is taken with the check, before the question.
+                        move |paths| {
+                            let found = backup::check(&on);
+                            let look = match &found {
+                                Some(_) => Look {
+                                    data: backup::preview_data(paths, &on).unwrap_or_default(),
+                                    game: backup_game::preview(paths, &on),
+                                },
+                                None => Look::default(),
+                            };
+                            (found, look)
+                        },
+                        move |(found, look)| Done::Checked { source, found, look },
                     );
                 }
             },
@@ -275,7 +439,7 @@ impl SamplePage {
                     Self::backup_waiting(ctx, scheme, label);
                 }
             }
-            Phase::Asking { source, found } => self.backup_ask(ctx, scheme, source, found),
+            Phase::Asking { source, found, look } => self.backup_ask(ctx, scheme, source, found, look),
             Phase::AskProfiles(ask) => self.backup_ask_profiles(ctx, scheme, ask),
             Phase::AskActive(ask) => self.backup_ask_active(ctx, scheme, ask),
             Phase::Told { text, count } => self.backup_told(ctx, scheme, text, count),
@@ -328,9 +492,22 @@ impl SamplePage {
                     .file_name()
                     .map_or_else(|| target.clone(), |n| n.to_string_lossy().into_owned());
                 match outcome {
-                    Ok(count) => {
-                        let said = tf("sich_fertig", &[("0", Arg::from(count)), ("1", Arg::from(name))]);
-                        self.say_backup(ctx, said, false);
+                    Ok(written) => {
+                        let mut said =
+                            tf("sich_fertig", &[("0", Arg::from(written.count)), ("1", Arg::from(name))]);
+                        // ⚠ A backup with files missing is no plain success: said as a warning, with the names.
+                        let left = written.left_out.len();
+                        if left > 0 {
+                            let mut names = written.left_out.iter().take(5).cloned().collect::<Vec<_>>().join(", ");
+                            if left > 5 {
+                                names.push_str(", …");
+                            }
+                            said = format!(
+                                "{said}\n{}",
+                                tf("sich_ausgelassen", &[("0", Arg::from(names)), ("1", Arg::from(left))])
+                            );
+                        }
+                        self.say_backup(ctx, said, left > 0);
                         // The overview counts from the time of the last backup: take the counts again.
                         self.overview = None;
                     }
@@ -340,11 +517,11 @@ impl SamplePage {
                     }
                 }
             }
-            Done::Checked { source, found } => match found {
+            Done::Checked { source, found, look } => match found {
                 None => self.say_backup(ctx, t("sich_ungueltig"), true),
-                Some(found) => self.backup.phase = Phase::Asking { source, found },
+                Some(found) => self.backup.phase = Phase::Asking { source, found, look },
             },
-            Done::Restored { source, outcome, controls: (active, profiles) } => {
+            Done::Restored { source, outcome, controls: (active, profiles), channels } => {
                 // The settings were written by another handle: read them anew.
                 if let Some(store) = &self.store {
                     store.paths.forget_settings();
@@ -358,10 +535,10 @@ impl SamplePage {
                         // ⚠⚠ The controls come apart from the data and only on request (4.12): they lie in the game
                         // folder, not in the data folder. First the saved profiles (they only lie there until one is
                         // loaded), then, separately, the active binding.
-                        let ask = ControlsAsk { source, restored, active, profiles, profiles_wanted: false };
-                        if !ask.profiles.is_empty() {
+                        let ask = ControlsAsk { source, restored, active, profiles, channels, profiles_wanted: false };
+                        if ask.has_additive() {
                             self.backup.phase = Phase::AskProfiles(ask);
-                        } else if ask.active {
+                        } else if ask.has_active() {
                             self.backup.phase = Phase::AskActive(ask);
                         } else {
                             self.backup_controls_over(ctx, &ask.restored, None);
@@ -369,10 +546,22 @@ impl SamplePage {
                     }
                 }
             }
-            Done::Controls { restored, outcome } => {
+            Done::Controls { restored, outcome, by_channel } => {
                 let said = match outcome {
-                    Ok(done) if done.count > 0 => tf("sich_belegung_ok", &[("0", Arg::from(done.count))]),
-                    Ok(_) => t("sich_belegung_ohne_ort"),
+                    Ok(done) => {
+                        let mut parts = Vec::new();
+                        if done.count > 0 {
+                            let key = if by_channel { "sich_spiel_ok" } else { "sich_belegung_ok" };
+                            parts.push(tf(key, &[("0", Arg::from(done.count))]));
+                        }
+                        if !done.missing.is_empty() {
+                            parts.push(tf("sich_spiel_fehlt", &[("0", Arg::from(done.missing.join(", ")))]));
+                        }
+                        if parts.is_empty() {
+                            parts.push(t("sich_belegung_ohne_ort"));
+                        }
+                        parts.join("\n")
+                    }
                     Err(BindingsError::GameNotQuiet(reason)) => tf("sich_belegung_spiel", &[("0", Arg::from(reason))]),
                     Err(BindingsError::Failed(why)) => tf("sich_belegung_fehler", &[("0", Arg::from(why))]),
                     Err(BindingsError::Invalid) => t("sich_ungueltig"),
@@ -397,12 +586,13 @@ impl SamplePage {
     /// Puts the controls back in a thread of its own: the saved profiles, and the active binding with
     /// `with_active`.
     fn backup_restore_controls(&mut self, ctx: &egui::Context, ask: ControlsAsk, with_active: bool) {
+        let by_channel = ask.by_channel();
         let ControlsAsk { source, restored, .. } = ask;
         self.start_backup_work(
             ctx,
             "sich_arbeitet",
-            move |paths| backup::restore_bindings(paths, &source, with_active, None),
-            move |outcome| Done::Controls { restored, outcome },
+            move |paths| backup_game::restore(paths, &source, with_active),
+            move |outcome| Done::Controls { restored, outcome, by_channel },
         );
     }
 
@@ -410,8 +600,7 @@ impl SamplePage {
     fn backup_ask_profiles(&mut self, ctx: &egui::Context, scheme: &Scheme, mut ask: ControlsAsk) {
         let ((no, yes), close) = widgets::dialog(ctx, scheme, "sicherung-profile", |ui| {
             widgets::heading(ui, scheme, &t("sich_titel"));
-            let question = tf("sich_belegung_frage", &[("0", Arg::from(ask.profiles.join(", ")))]);
-            ui.add(egui::Label::new(question).wrap());
+            ui.add(egui::Label::new(ask.additive_question()).wrap());
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 let no = ui.add(widgets::Button::new(&t("e_nein"), ButtonKind::Normal, scheme)).clicked();
@@ -422,7 +611,7 @@ impl SamplePage {
         });
         if yes {
             ask.profiles_wanted = true;
-            if ask.active {
+            if ask.has_active() {
                 self.backup.phase = Phase::AskActive(ask);
             } else {
                 self.backup_restore_controls(ctx, ask, false);
@@ -439,7 +628,7 @@ impl SamplePage {
     fn backup_ask_active(&mut self, ctx: &egui::Context, scheme: &Scheme, ask: ControlsAsk) {
         let ((no, yes), close) = widgets::dialog(ctx, scheme, "sicherung-aktiv", |ui| {
             widgets::heading(ui, scheme, &t("sich_titel"));
-            ui.add(egui::Label::new(t("sich_belegung_aktiv")).wrap());
+            ui.add(egui::Label::new(ask.active_question()).wrap());
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 let no = ui.add(widgets::Button::new(&t("e_nein"), ButtonKind::Strong, scheme)).clicked();
@@ -474,12 +663,28 @@ impl SamplePage {
     }
 
     /// "Restore the backup of … with N files?": the state of before is put aside, and the program starts anew.
-    fn backup_ask(&mut self, ctx: &egui::Context, scheme: &Scheme, source: String, found: Found) {
+    fn backup_ask(&mut self, ctx: &egui::Context, scheme: &Scheme, source: String, found: Found, look: Look) {
         let ((cancel, restore), close) = widgets::dialog(ctx, scheme, "sicherung-frage", |ui| {
             widgets::heading(ui, scheme, &t("sich_titel"));
             let when = if found.when.is_empty() { "?".to_string() } else { found.when.clone() };
             let ask = tf("sich_frage", &[("0", Arg::from(when)), ("1", Arg::from(found.count))]);
             ui.add(egui::Label::new(ask).wrap());
+            ui.add_space(6.0);
+            // ⚠ What will be replaced is shown BEFORE the yes: counted, and file by file on request.
+            for line in look_lines(&look) {
+                ui.add(egui::Label::new(RichText::new(line).small().color(color(scheme.sub))).wrap());
+            }
+            let changes = look_changes(&look);
+            if !changes.is_empty() {
+                egui::CollapsingHeader::new(t("sich_vorschau_liste")).id_salt("sicherung-vorschau").show(ui, |ui| {
+                    egui::ScrollArea::vertical().id_salt("sicherung-vorschau-liste").max_height(180.0).show(ui, |ui| {
+                        for (change, name) in &changes {
+                            let line = format!("{}: {name}", change_word(*change));
+                            ui.add(egui::Label::new(RichText::new(line).small()).wrap());
+                        }
+                    });
+                });
+            }
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 let cancel = ui.add(widgets::Button::new(&t("abbrechen"), ButtonKind::Normal, scheme)).clicked();
@@ -494,15 +699,16 @@ impl SamplePage {
             self.start_backup_work(
                 ctx,
                 "sich_arbeitet",
-                // The copy of before carries the player's controls too: a slip costs nothing.
-                move |paths| backup::restore(paths, &on, &backup::bindings(paths, None)),
+                // The copy of before carries the player's files of the game too: a slip costs nothing.
+                move |paths| backup::restore(paths, &on, &backup_game::bindings_all(paths)),
                 move |outcome| {
                     let controls = backup::bindings_in_archive(&source);
-                    Done::Restored { source, outcome, controls }
+                    let channels = backup_game::in_archive(&source);
+                    Done::Restored { source, outcome, controls, channels }
                 },
             );
         } else if !(cancel || close) {
-            self.backup.phase = Phase::Asking { source, found };
+            self.backup.phase = Phase::Asking { source, found, look };
         }
     }
 
@@ -700,6 +906,27 @@ mod tests {
     }
 
     #[test]
+    fn a_backup_with_a_file_left_out_is_told_as_a_warning_with_the_name() {
+        let _language = crate::language_lock();
+        let (page, folder, data) = backup_page("sicherung-ausgelassen");
+        std::fs::create_dir_all(data.join("Bestand")).unwrap();
+        std::fs::write(data.join("Bestand").join("x.json"), "[1]").unwrap();
+        // A file over the limit of the reader; a hole in the file system, nothing is read of it.
+        std::fs::create_dir_all(data.join("Intern")).unwrap();
+        let big = std::fs::File::create(data.join("Intern").join("riesig.json")).unwrap();
+        big.set_len(versekit_core::zip::MAX_ENTRY as u64 + 1).unwrap();
+        drop(big);
+        let mut bench = Bench::new(page);
+        bench.page.backup.phase =
+            Phase::Saving(Pending::answered(Some(folder.join("meine").to_string_lossy().into_owned())));
+        finish(&mut bench);
+        let said = bench.page.pin_notice.as_ref().map(|(_, text)| text.clone()).unwrap_or_default();
+        assert!(said.contains("riesig.json"), "the missing file is named: {said}");
+        assert!(bench.page.pin_fault.is_some(), "a backup with a hole is not a plain success");
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
+    #[test]
     fn a_file_that_is_no_backup_is_refused_before_the_player_is_asked() {
         let _language = crate::language_lock();
         let (page, folder, data) = backup_page("sicherung-ungueltig");
@@ -835,18 +1062,55 @@ mod tests {
                     ]
                     .map(String::from)
                     .to_vec(),
+                    channels: Vec::new(),
                     profiles_wanted: true,
                 };
-                for which in 0..6 {
+                // By channel: every channel with many profiles and templates.
+                let by_channel = || ControlsAsk {
+                    channels: ["LIVE", "HOTFIX", "PTU"]
+                        .map(|channel| ChannelContents {
+                            channel: channel.to_string(),
+                            active: true,
+                            game_settings: true,
+                            user_cfg: true,
+                            profiles: (0..40).map(|n| format!("Profil {n}")).collect(),
+                            templates: (0..12).map(|n| format!("Vorlage {n}")).collect(),
+                        })
+                        .to_vec(),
+                    ..ask()
+                };
+                // The longest look: many files of the data, every channel, one of them not installed here.
+                let look = || {
+                    let item = |name: String, change| PreviewItem { name, change };
+                    let changes = [Change::New, Change::Replaced, Change::Same];
+                    let data = (0..60)
+                        .map(|n| item(format!("Bauplaene/ein-recht-langer-name-einer-datei-{n}.json"), changes[n % 3]))
+                        .collect();
+                    let game = ["LIVE", "PTU"]
+                        .map(|channel| ChannelPreview {
+                            channel: channel.to_string(),
+                            installed: channel == "LIVE",
+                            additive: (0..30)
+                                .map(|n| item(format!("mappings/profil-{n}.xml"), Change::New))
+                                .collect(),
+                            active: vec![item("user.cfg".to_string(), Change::Replaced)],
+                        })
+                        .to_vec();
+                    Look { data, game }
+                };
+                for which in 0..8 {
                     page.backup.phase = match which {
                         0 => Phase::Choose,
                         1 => Phase::Working(rx.take().unwrap_or_else(|| mpsc::channel().1), "sich_arbeitet"),
                         2 => Phase::Asking {
                             source: "x.zip".to_string(),
                             found: Found { count: 1234, when: "01.02.2026 10:11".to_string() },
+                            look: look(),
                         },
                         3 => Phase::AskProfiles(ask()),
                         4 => Phase::AskActive(ask()),
+                        5 => Phase::AskProfiles(by_channel()),
+                        6 => Phase::AskActive(by_channel()),
                         _ => Phase::Told { text: told.clone(), count: 9 },
                     };
                     let lines = draw(&mut page, width);
@@ -985,8 +1249,13 @@ mod tests {
         archive.finish().unwrap()
     }
 
-    /// The names of the files below the `Steuerung/` of an archive.
+    /// The names of the files below the `Steuerung/` of an archive, the old way (not by channel).
     fn controls_in(archive: &Path) -> Vec<String> {
+        all_controls_in(archive).into_iter().filter(|name| !name.starts_with(backup_game::CHANNELS_PREFIX)).collect()
+    }
+
+    /// The names of all files below the `Steuerung/` of an archive, also by channel.
+    fn all_controls_in(archive: &Path) -> Vec<String> {
         let data = std::fs::read(archive).unwrap();
         let mut names: Vec<String> = versekit_core::zip::entries(&data)
             .unwrap()
@@ -1004,6 +1273,19 @@ mod tests {
         "Steuerung/mappings/Bergbau.xml",
         "Steuerung/mappings/Kampf.xml",
     ];
+
+    /// The same files of the made-up game by channel: the game folder `spiel/LIVE` is the channel LIVE.
+    const ALL_BY_CHANNEL: [&str; 4] = [
+        "Steuerung/Kanaele/LIVE/actionmaps.xml",
+        "Steuerung/Kanaele/LIVE/attributes.xml",
+        "Steuerung/Kanaele/LIVE/mappings/Bergbau.xml",
+        "Steuerung/Kanaele/LIVE/mappings/Kampf.xml",
+    ];
+
+    /// The files of the game by channel in an archive.
+    fn by_channel_in(archive: &Path) -> Vec<String> {
+        all_controls_in(archive).into_iter().filter(|name| name.starts_with(backup_game::CHANNELS_PREFIX)).collect()
+    }
 
     /// The state of a restore of a backup made from a game marked `quelle` into a page whose game is marked `ziel`:
     /// the page with the question for the file already answered.
@@ -1053,6 +1335,7 @@ mod tests {
         finish(&mut bench);
         let target = folder.join("mit.zip");
         assert_eq!(controls_in(&target), ALL_CONTROLS, "the active binding, the game settings and both profiles");
+        assert_eq!(by_channel_in(&target), ALL_BY_CHANNEL, "and the same by channel");
         let found = backup::check(&target.to_string_lossy()).expect("a backup of this program");
         let said = bench.notice().unwrap_or_default();
         assert!(said.contains(&found.count.to_string()), "the count in the line says the controls too: {said}");
@@ -1070,6 +1353,7 @@ mod tests {
         let copies = files_named(&folder, "VerseKit-vorher");
         assert_eq!(copies.len(), 1, "{copies:?}");
         assert_eq!(controls_in(&folder.join(&copies[0])), ALL_CONTROLS, "the controls of before are in the copy");
+        assert_eq!(by_channel_in(&folder.join(&copies[0])), ALL_BY_CHANNEL, "by channel too");
         let _ = std::fs::remove_dir_all(folder);
     }
 
@@ -1279,5 +1563,84 @@ mod tests {
         assert!(!shows(&texts, &never), "and no longer 'no backup yet'");
         assert_eq!(texts.iter().filter(|(text, _)| *text == link).count(), 1, "the link stays");
         let _ = std::fs::remove_dir_all(folder);
+    }
+
+    /// A backup by channel: the look is shown before the yes, the question names the channel, the character template
+    /// comes back on the first yes, the `user.cfg` only on the second, with the language line of this computer.
+    #[test]
+    fn a_backup_by_channel_shows_the_look_first_and_brings_the_user_cfg_back_only_on_the_second_yes() {
+        let _language = crate::language_lock();
+        let (source, folder_a, _data_a, game_a) = controls_page("sicherung-kanal-quelle", "quelle", 7200);
+        std::fs::write(game_a.join("user.cfg"), "g_language = german_(germany)\nsys_maxfps = 90\n").unwrap();
+        let templates_a = game_a.join("user").join("client").join("0").join("CustomCharacters");
+        std::fs::create_dir_all(&templates_a).unwrap();
+        std::fs::write(templates_a.join("Pilotin.chf"), b"CHF-quelle").unwrap();
+        let mut bench = Bench::new(source);
+        let zip = folder_a.join("kanal").to_string_lossy().into_owned();
+        bench.page.backup.phase = Phase::Saving(Pending::answered(Some(zip.clone())));
+        finish(&mut bench);
+        let zip = format!("{zip}.zip");
+        assert!(by_channel_in(Path::new(&zip)).contains(&"Steuerung/Kanaele/LIVE/user.cfg".to_string()));
+
+        let (target, folder_b, _data_b, game_b) = controls_page("sicherung-kanal-ziel", "ziel", 7200);
+        std::fs::write(game_b.join("user.cfg"), "g_language = english\nsys_maxfps = 30\n").unwrap();
+        let mut bench = Bench::new(target);
+        bench.page.backup.phase = Phase::Opening(Pending::answered(Some(zip.clone())));
+        let texts = finish_until_asked(&mut bench);
+        let channel_line = language::tf(
+            "sich_vorschau_kanal",
+            &[
+                ("0", language::Arg::from("LIVE")),
+                // Replaced: the active binding, the game settings, both profiles and the user.cfg; new: the template.
+                ("1", language::Arg::from(5)),
+                ("2", language::Arg::from(1)),
+                ("3", language::Arg::from(0)),
+            ],
+        );
+        assert!(shows(&texts, &channel_line), "the look says what changes in the channel: {texts:?}");
+        assert!(control(&game_b, "controls/mappings/Kampf.xml").contains("kampf-ziel"), "the look writes nothing");
+        bench.click(&language::t("s_mu_rest_einspielen"));
+        let texts = until_phase(&mut bench, is_profiles);
+        assert!(shows(&texts, "LIVE: 2"), "the question names the channel: {texts:?}");
+        bench.click(&language::t("e_ja"));
+        let texts = until_phase(&mut bench, is_active);
+        assert!(shows(&texts, language::t("sich_spiel_aktiv").lines().next().unwrap_or("")), "{texts:?}");
+        let template_b = game_b.join("USER").join("Client").join("0").join("CustomCharacters").join("Pilotin.chf");
+        assert!(!template_b.exists(), "nothing before the answers");
+        bench.click(&language::t("e_nein"));
+        until_phase(&mut bench, is_told);
+        assert_eq!(std::fs::read(&template_b).unwrap_or_default(), b"CHF-quelle", "the template came back");
+        assert!(control(&game_b, "controls/mappings/Kampf.xml").contains("kampf-quelle"));
+        let cfg = std::fs::read_to_string(game_b.join("user.cfg")).unwrap();
+        assert!(cfg.contains("sys_maxfps = 30"), "the user.cfg stays without the second yes: {cfg}");
+        bench.click(&language::t("hf_schliessen"));
+        finish(&mut bench);
+
+        // Once more with yes to both: the user.cfg comes back, the language line of this computer stays.
+        let mut bench = Bench::new(controls_page_again(&folder_b));
+        bench.page.backup.phase = Phase::Opening(Pending::answered(Some(zip)));
+        finish_until_asked(&mut bench);
+        bench.click(&language::t("s_mu_rest_einspielen"));
+        until_phase(&mut bench, is_profiles);
+        bench.click(&language::t("e_ja"));
+        until_phase(&mut bench, is_active);
+        bench.click(&language::t("e_ja"));
+        until_phase(&mut bench, is_told);
+        let cfg = std::fs::read_to_string(game_b.join("user.cfg")).unwrap();
+        assert!(cfg.contains("sys_maxfps = 90"), "{cfg}");
+        assert!(cfg.contains("g_language = english") && !cfg.contains("german"), "the language stays: {cfg}");
+        assert!(control(&game_b, "Profiles/default/actionmaps.xml").contains("aktiv-quelle"));
+        let _ = std::fs::remove_dir_all(folder_a);
+        let _ = std::fs::remove_dir_all(folder_b);
+    }
+
+    /// A new page on the throwaway folder of [`controls_page`] that is there already (the game is quiet).
+    fn controls_page_again(folder: &Path) -> SamplePage {
+        let data = folder.join("daten");
+        let live = folder.join("spiel").join("LIVE").to_string_lossy().into_owned();
+        let vars = [(versekit_core::paths::ENV_INSTALL_DIR, live.as_str()), (game_start::ENV_NO_PROCESS, "1")];
+        let mut page = SamplePage::with_settings(Paths::new(host_in(&data, &vars)));
+        page.offer_restart(true);
+        page
     }
 }

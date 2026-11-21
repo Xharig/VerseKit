@@ -43,6 +43,7 @@ use crate::layout::GAP;
 use crate::widgets::{self, ButtonKind};
 
 mod anti_afk;
+mod channel_copy;
 mod user_cfg;
 
 /// The `Data.p4k` of the player, through `versekit-gamedata`.
@@ -105,6 +106,8 @@ pub struct GameTextsState {
     picked_language: Vec<(String, String)>,
     /// The language a card shows where nothing is chosen nor picked (the checks set it).
     default_language: Option<String>,
+    /// The own name being typed for a language: (key of the language, text).
+    rename: (String, String),
     /// The sources a test channel was given because it follows the main installation: (channel, source), tried once
     /// per change, also where it failed.
     followed: Vec<(String, String)>,
@@ -112,6 +115,8 @@ pub struct GameTextsState {
     anti_afk: anti_afk::AfkBlock,
     /// The block "user.cfg" at the foot of the page Spiel.
     user_cfg: user_cfg::UserCfgBlock,
+    /// The block "Copy settings to another channel" on the page Spiel.
+    channel_copy: channel_copy::CopyBlock,
 }
 
 impl Default for GameTextsState {
@@ -131,9 +136,11 @@ impl Default for GameTextsState {
             left_alone: false,
             picked_language: Vec::new(),
             default_language: None,
+            rename: (String::new(), String::new()),
             followed: Vec::new(),
             anti_afk: anti_afk::AfkBlock::default(),
             user_cfg: user_cfg::UserCfgBlock::default(),
+            channel_copy: channel_copy::CopyBlock::default(),
         }
     }
 }
@@ -400,6 +407,12 @@ impl GameTextsState {
     }
 
     fn fetch_source(&mut self, source: String, channel: Option<String>, root: String) {
+        if channel.is_none()
+            && !self.busy
+            && let Some(paths) = &self.paths
+        {
+            keep_following(paths);
+        }
         self.start(move |paths, net, archive, out| {
             let _ =
                 out.send(Message::Progress(tf("s_sp_hole", &[("0", Arg::from(translation::display_name(&source)))])));
@@ -746,6 +759,8 @@ pub fn show_game(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) -> Op
     widgets::card(ui, scheme, |ui| anti_afk::show(ui, scheme, state));
     ui.add_space(GAP);
     widgets::card(ui, scheme, |ui| user_cfg::show(ui, scheme, state));
+    ui.add_space(GAP);
+    widgets::card(ui, scheme, |ui| channel_copy::show(ui, scheme, state));
     jump
 }
 
@@ -753,7 +768,7 @@ fn game_ini_source() -> &'static str {
     translation::SETTING_SOURCE
 }
 
-/// The channel a folder name ends with after a space, `-` or `_` (`Spieldaten LIVE` → `LIVE`),
+/// The channel a folder name ends with after a space, `-` or `_` (`Kopie LIVE` → `LIVE`),
 /// else the name itself.
 fn channel_title(name: &str) -> String {
     let upper = name.trim().to_uppercase();
@@ -878,15 +893,50 @@ fn languages(paths: &Paths, channel: Option<&str>) -> Vec<Language> {
                 continue;
             };
             let name = translation::display_name(&first);
-            let mut label = name.split(" (").next().unwrap_or(&name).to_string();
+            let key = if fun { BAVARIAN.to_string() } else { translation::language_folder(paths, &first, channel) };
+            let mut label = versekit_core::language_names::shown(paths, &key, name.split(" (").next().unwrap_or(&name));
             if fun {
                 label.push_str(" [FUN]");
             }
-            let key = if fun { BAVARIAN.to_string() } else { translation::language_folder(paths, &first, channel) };
             out.push(Language { key, label, flag: translation::flag_of(&first), sources, fun });
         }
     }
     out
+}
+
+/// The line where a language gets its own name: a field (empty is the usual name) and the way back. A name is
+/// taken over when the field is left or Enter is pressed.
+fn rename_row(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState, paths: &Paths, lang: &Language) {
+    use versekit_core::language_names as names;
+    let own = names::custom(paths, &lang.key);
+    if state.rename.0 != lang.key {
+        state.rename = (lang.key.clone(), own.clone().unwrap_or_default());
+    }
+    ui.add_space(4.0);
+    let label = ui.label(RichText::new(t("s_tq_eigener_name")).small().color(color(scheme.sub)));
+    let mut commit = false;
+    let mut reset = false;
+    ui.horizontal(|row| {
+        let field = row
+            .add(
+                widgets::text_field(&mut state.rename.1, &t("s_tq_eigener_name_leer"), scheme)
+                    .id_salt(("sprachname", &lang.key))
+                    .char_limit(names::LONGEST)
+                    .desired_width(220.0),
+            )
+            .labelled_by(label.id);
+        commit = field.lost_focus();
+        let back = t("s_tq_eigener_name_weg");
+        let button = widgets::Button::new(&back, ButtonKind::Normal, scheme);
+        reset = row.add_enabled(own.is_some(), button).clicked();
+    });
+    if reset {
+        names::set(paths, &lang.key, "");
+        state.rename.1.clear();
+    } else if commit && names::clean(&state.rename.1) != own.unwrap_or_default() {
+        names::set(paths, &lang.key, &state.rename.1);
+        state.rename.1 = names::clean(&state.rename.1);
+    }
 }
 
 /// The short name of a source on its chip: who makes it (Luftwerft, Dymerz, StarStrings) or „aus dem Spiel“.
@@ -908,6 +958,23 @@ fn follows_main(paths: &Paths, channel: &str) -> Option<bool> {
             _ => None,
         }),
         _ => None,
+    }
+}
+
+/// Right before the main installation takes another source: every installed test channel with nothing stored that
+/// follows it now (the same source, so its switch shows „on“) has that stored, so that it takes the new source too.
+/// Without it the stored nothing is read against the new source, which differs, and the channel stays behind.
+fn keep_following(paths: &Paths) {
+    let main = paths.setting(translation::SETTING_SOURCE).unwrap_or_default();
+    let sources = translation::channel_sources(paths);
+    for (channel, _, _) in paths.installed_channels() {
+        if !versekit_core::paths::FOLLOWS_LIVE.contains(&channel.as_str()) || follows_main(paths, &channel).is_some() {
+            continue;
+        }
+        let current = sources.iter().find(|(k, _)| *k == channel).and_then(|(_, v)| v.as_str()).unwrap_or_default();
+        if current == main {
+            set_follows_main(paths, &channel, true);
+        }
     }
 }
 
@@ -962,6 +1029,8 @@ fn card_body(
         && state.question.is_none()
         && !state.followed.iter().any(|(k, s)| k == title && s == source)
     {
+        // Only the last source followed counts: a source followed before is followed again when it comes back.
+        state.followed.retain(|(k, _)| k != title);
         state.followed.push((title.to_string(), source.to_string()));
         if source.is_empty() {
             game_texts::leave_alone(paths, Some(title), root);
@@ -984,6 +1053,28 @@ fn card_body(
         }
     };
     hint(c, scheme, &shown);
+    // A channel that follows the main installation says why its language and source cannot be chosen here, and
+    // when the translation of the main installation does not exist for it, that it stays with its own.
+    if let Some((main_title, source, true)) = following {
+        let missing = current != source
+            && !source.is_empty()
+            && source != CUSTOM
+            && !translation::available(paths, source, channel);
+        let said = if missing {
+            let own = if current.is_empty() { t("s_tq_nichts") } else { translation::display_name(&current) };
+            tf(
+                "s_tq_folgt_fehlt",
+                &[
+                    ("0", Arg::from(translation::display_name(source))),
+                    ("1", Arg::from(title)),
+                    ("2", Arg::from(own)),
+                ],
+            )
+        } else {
+            tf("s_tq_folgt", &[("0", Arg::from(main_title))])
+        };
+        hint(c, scheme, &said);
+    }
     c.add_space(4.0);
     let langs = languages(paths, channel);
     let picked_language = state.picked_language.iter().find(|(k, _)| *k == card_key).map(|(_, l)| l.clone());
@@ -1041,6 +1132,10 @@ fn card_body(
                 });
             });
         });
+        // The own name of that language: empty is the usual name.
+        if let Some(k) = language {
+            rename_row(c, scheme, state, paths, &langs[k]);
+        }
         // The sources of that language: who makes it, the one chosen stands out.
         if let Some(k) = language {
             crate::settings::setting_row(c, scheme, &t("s_tq_quelle"), "", false, |row| {
@@ -1244,6 +1339,7 @@ fn questions(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
             state.fetch_source(source, channel, root);
         }
         Question::LeaveAlone => {
+            keep_following(&paths);
             if let Some(root) = paths.game_folder() {
                 game_texts::leave_alone(&paths, None, &root);
             } else {
@@ -1480,7 +1576,7 @@ mod tests {
     #[test]
     fn a_folder_is_named_by_the_channel_it_ends_with() {
         for (folder, title) in [
-            ("Spieldaten LIVE", "LIVE"),
+            ("Kopie LIVE", "LIVE"),
             ("spieldaten-ptu", "PTU"),
             ("Spieldaten", "Spieldaten"),
             ("MEINLIVE", "MEINLIVE"),
@@ -1499,7 +1595,7 @@ mod tests {
         }
     }
 
-    /// A test copy given from outside (`Spieldaten LIVE`, a PTU next to it):
+    /// A test copy given from outside (`Kopie LIVE`, a PTU next to it):
     /// one card per channel of the copy, named by the channel, none for an
     /// installation in the usual places; every translation with its flag.
     #[test]
@@ -1508,7 +1604,7 @@ mod tests {
             std::env::temp_dir().join(format!("versekit-gametexts-page-copy-{}", versekit_core::testdir::run_tag()));
         let _ = fs::remove_dir_all(&root);
         let root = root.to_string_lossy().into_owned();
-        let copy = format!("{root}/Testumgebung/Spieldaten LIVE");
+        let copy = format!("{root}/Testumgebung/Kopie LIVE");
         let real = format!("{root}/.wine/drive_c/Program Files/Roberts Space Industries/StarCitizen");
         let data = format!("{root}/data");
         for folder in [copy.clone(), format!("{root}/Testumgebung/PTU"), format!("{real}/LIVE"), format!("{real}/PTU")]
@@ -1567,7 +1663,7 @@ mod tests {
         }
         let count = |name: &str| labels.iter().filter(|l| *l == name).count();
         assert_eq!((count("LIVE"), count("PTU")), (1, 1), "{labels:?}");
-        assert_eq!(count("Spieldaten LIVE"), 0, "the copy is named by its channel");
+        assert_eq!(count("Kopie LIVE"), 0, "the copy is named by its channel");
         assert_eq!(flags, sources, "the flag of the language on both cards");
         let _ = fs::remove_dir_all(&root);
     }
@@ -1788,6 +1884,26 @@ mod tests {
     }
 
     #[test]
+    fn a_language_with_an_own_name_is_listed_by_it_and_the_name_goes_back_with_the_button() {
+        let game = Game::new("sprachname");
+        let mut state = GameTextsState::with_parts(&game.paths, german_net(), Arc::new(game_texts::NoArchive));
+        let page = Page::new();
+        let usual = languages(&game.paths, None).into_iter().find(|l| l.key == german_folder()).expect("German");
+        assert_eq!(usual.label, "Deutsch");
+        assert!(versekit_core::language_names::set(&game.paths, &german_folder(), "Deutsch (Crew)"));
+        assert!(page.pick(&Which::Translation, &mut state, 0, "Deutsch (Crew)"), "the list shows the own name");
+        let own = languages(&game.paths, None).into_iter().find(|l| l.key == german_folder()).expect("German");
+        assert_eq!((own.label.as_str(), own.key.as_str()), ("Deutsch (Crew)", "german_(germany)"), "the key stays");
+        // Nothing is written into the game by a name.
+        assert!(!std::path::Path::new(&game.ini()).exists() || fs::read_to_string(game.ini()).unwrap().is_empty());
+        // The button for the usual name takes the own one away.
+        assert!(page.click(&Which::Translation, &mut state, Role::Button, &t("s_tq_eigener_name_weg")));
+        assert_eq!(versekit_core::language_names::custom(&game.paths, &german_folder()), None);
+        let back = languages(&game.paths, None).into_iter().find(|l| l.key == german_folder()).expect("German");
+        assert_eq!(back.label, "Deutsch");
+    }
+
+    #[test]
     fn a_source_is_asked_once_fetched_placed_and_the_old_file_comes_back() {
         let game = Game::new("source");
         fs::write(game.ini(), "old=Text\n").unwrap();
@@ -1983,6 +2099,35 @@ mod tests {
         assert_eq!(game.text(), GAME, "the main installation stays as it is");
         assert_eq!(game.paths.setting(translation::SETTING_SOURCE).as_deref(), Some(GERMAN));
         assert_eq!(state.said().map(|s| s.1), Some(false), "{:?}", state.said());
+    }
+
+    /// A PTU on the same translation as LIVE, its switch „Wie LIVE“ never touched (so it shows on): LIVE takes
+    /// another source, and the PTU takes it too, also after the page was closed and opened again.
+    #[test]
+    fn a_test_channel_that_shows_it_follows_live_takes_the_new_source_of_live() {
+        let game = Game::new("follow");
+        game.german();
+        let ptu = format!("{}/StarCitizen/PTU", game.root);
+        fs::create_dir_all(&ptu).unwrap();
+        fs::write(format!("{ptu}/Game.log"), "").unwrap();
+        fs::write(format!("{ptu}/Data.p4k"), "").unwrap();
+        translation::set_channel_source(&game.paths, "PTU", GERMAN);
+        assert_eq!(follows_main(&game.paths, "PTU"), None, "the switch was never touched");
+        let mut state =
+            GameTextsState::with_parts(&game.paths, Arc::new(Fake::default()), Arc::new(game_texts::NoArchive));
+        state.choose(ORIGINAL, None, &game.live);
+        settle(&mut state);
+        assert_eq!(game.paths.setting(translation::SETTING_SOURCE).as_deref(), Some(ORIGINAL));
+        // German was followed earlier in this run; LIVE now on the original.
+        state.followed = vec![("PTU".to_string(), GERMAN.to_string())];
+        Page::new().frame(&Which::Translation, &mut state, Vec::new());
+        assert!(
+            state.followed.iter().any(|(channel, source)| channel == "PTU" && source == ORIGINAL),
+            "the PTU takes the new source of LIVE: {:?}",
+            state.followed
+        );
+        // Only the last one is kept: when LIVE goes back to German, the PTU follows again.
+        assert_eq!(state.followed, [("PTU".to_string(), ORIGINAL.to_string())]);
     }
 
     #[test]
@@ -2614,6 +2759,93 @@ mod tests {
         assert_eq!(state.user_cfg.own, "sys_MaxFPS = 60\n; mine");
     }
 
+    /// LIVE with graphics and a `user.cfg`, a PTU beside it that is installed too (both in the throwaway folder).
+    fn two_channels(name: &str) -> (Game, String) {
+        let game = quiet_game_with_cfg(name, CFG);
+        let ptu = format!("{}/StarCitizen/PTU", game.root);
+        fs::create_dir_all(&ptu).unwrap();
+        fs::write(format!("{ptu}/Data.p4k"), "").unwrap();
+        let attributes = format!("{}/USER/Client/0/Profiles/default", game.live);
+        fs::create_dir_all(&attributes).unwrap();
+        fs::write(format!("{attributes}/attributes.xml"), "<Attributes><Attr name=\"FOV\" value=\"80\"/></Attributes>")
+            .unwrap();
+        (game, ptu)
+    }
+
+    #[test]
+    fn the_copy_block_asks_first_and_then_copies_the_chosen_parts_and_says_what_it_did() {
+        let (game, ptu) = two_channels("kopie-ok");
+        let mut state = cfg_state(&game.paths);
+        let page = Page::new();
+        let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
+        assert!(nodes.iter().any(|(_, label, _)| *label == t("s_kk_titel")), "{nodes:?}");
+        // The source has no controls: the button says why it does nothing, and nothing is asked.
+        assert!(page.click(&Which::Game, &mut state, Role::Button, &t("s_kk_kopieren")));
+        assert!(!state.channel_copy.asking, "blocked while a ticked part is missing in the source");
+        // Controls off: graphics and user.cfg go.
+        assert!(page.click(&Which::Game, &mut state, Role::CheckBox, &t("s_kk_steuerung"))
+            || page.click(&Which::Game, &mut state, Role::Switch, &t("s_kk_steuerung")));
+        assert_eq!(state.channel_copy.parts, [true, false, true]);
+        assert!(page.click(&Which::Game, &mut state, Role::Button, &t("s_kk_kopieren")));
+        assert!(state.channel_copy.asking, "it asks before it writes");
+        assert!(!std::path::Path::new(&format!("{ptu}/user.cfg")).exists(), "nothing written yet");
+        assert!(page.click(&Which::Game, &mut state, Role::Button, &t("s_kk_ja")));
+        let said = state.channel_copy.said.clone().expect("said");
+        assert!(!said.1 && said.0.contains("PTU") && said.0.contains("attributes.xml"), "{said:?}");
+        assert!(
+            fs::read_to_string(format!("{ptu}/user.cfg")).unwrap().contains("sys_MaxFPS = 60"),
+            "the own lines of LIVE arrived"
+        );
+        assert!(fs::read_to_string(format!("{ptu}/USER/Client/0/Profiles/default/attributes.xml")).is_ok());
+        assert_eq!(read_cfg(&game), CFG.replace("\r\n", "\n"), "LIVE is untouched");
+    }
+
+    #[test]
+    fn the_copy_block_writes_nothing_while_the_game_runs_and_says_why() {
+        let (game, ptu) = two_channels("kopie-spiel");
+        let running = paths_while_the_game_runs(&game);
+        let mut state = cfg_state(&running);
+        let page = Page::new();
+        page.frame(&Which::Game, &mut state, Vec::new());
+        state.channel_copy.parts = [true, false, true];
+        assert!(page.click(&Which::Game, &mut state, Role::Button, &t("s_kk_kopieren")));
+        assert!(page.click(&Which::Game, &mut state, Role::Button, &t("s_kk_ja")));
+        assert_eq!(state.channel_copy.said, Some((t("s_gf_spiel"), true)));
+        assert!(!std::path::Path::new(&format!("{ptu}/user.cfg")).exists());
+        assert!(!std::path::Path::new(&format!("{ptu}/USER")).exists());
+    }
+
+    /// The player's build does not know the channels under the non-disclosure agreement: a folder of one, installed
+    /// or not, is neither a source nor a target, and no button names it.
+    #[cfg(not(feature = "test-build"))]
+    #[test]
+    fn the_copy_block_does_not_offer_the_channels_under_the_agreement() {
+        let (game, _ptu) = two_channels("kopie-nda");
+        for hidden in ["EPTU", "TECH-PREVIEW"] {
+            let folder = format!("{}/StarCitizen/{hidden}", game.root);
+            fs::create_dir_all(&folder).unwrap();
+            fs::write(format!("{folder}/Data.p4k"), "").unwrap();
+        }
+        let mut state = cfg_state(&game.paths);
+        let page = Page::new();
+        let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
+        for hidden in ["EPTU", "TECH-PREVIEW"] {
+            assert!(!nodes.iter().any(|(_, label, _)| label.contains(hidden)), "{hidden}: {nodes:?}");
+            assert!(!state.channel_copy.source.ends_with(hidden) && !state.channel_copy.target.ends_with(hidden));
+        }
+        assert!(has(&nodes, Role::Button, "PTU"), "{nodes:?}");
+    }
+
+    #[test]
+    fn the_copy_block_needs_two_installed_channels() {
+        let game = quiet_game_with_cfg("kopie-eins", CFG);
+        let mut state = cfg_state(&game.paths);
+        let page = Page::new();
+        let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
+        assert!(nodes.iter().any(|(_, label, _)| *label == t("s_kk_zwei")), "{nodes:?}");
+        assert!(!has(&nodes, Role::Button, &t("s_kk_kopieren")));
+    }
+
     #[test]
     fn without_any_installation_the_block_says_where_to_set_the_folder() {
         let game = Game::new("cfg-leer");
@@ -2711,10 +2943,12 @@ mod tests {
             for width in [WIDE, NARROW] {
                 let s = seen(&game.paths, width);
                 for channel in ["LIVE", "PTU"] {
+                    // The block that copies settings has the same buttons further down: the topmost is the one asked.
                     let (_, _, button) = s
                         .nodes
                         .iter()
-                        .find(|(role, label, _)| *role == Role::Button && label == channel)
+                        .filter(|(role, label, _)| *role == Role::Button && label == channel)
+                        .min_by(|a, b| a.2.top().total_cmp(&b.2.top()))
                         .unwrap_or_else(|| panic!("{channel} at {width}"));
                     assert!(button.bottom() <= s.own.top() && button.bottom() <= s.whole.top(), "{channel} at {width}");
                 }

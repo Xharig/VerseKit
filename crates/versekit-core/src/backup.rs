@@ -25,6 +25,8 @@
 //! file of one's own would then drop out without anyone noticing, until the computer is set up again. So
 //! the other way round: **everything** comes along except the caches that can be loaded again at any time
 //! ([`RELOADABLE`]). The worst case is a somewhat larger file, never a missing inventory.
+//! ⚠ The one exception is what the reader of a backup would refuse to put back (a file over [`zip::MAX_ENTRY`]) or
+//! what another process holds right now: it stays out, but never silently ([`Written::left_out`], shown on the page).
 //!
 //! ⚠ **A way back belongs to it.** A backup that can only be written does not solve the change of the
 //! computer. [`restore`] is the second half of the same function.
@@ -63,7 +65,7 @@ pub const LAST_SETTING: &str = "letzte_sicherung";
 ///
 /// ⚠ In doubt something does NOT belong here. A backup too large costs seconds, one too small costs the
 /// inventory.
-pub const RELOADABLE: [&str; 19] = [
+pub const RELOADABLE: [&str; 20] = [
     // v5: the two caches built from the `Data.p4k` (the catalog of the blueprint list and the values of the crafting
     // page). They are rebuilt from the game at the next start, are megabytes large and belong to the game folder of
     // the old computer, so they do not go into a backup, and an older backup that holds them does not bring them back.
@@ -86,6 +88,7 @@ pub const RELOADABLE: [&str; 19] = [
     "Intern/serverstatus.json",
     "Intern/uebersetzung.json",
     "Intern/uebersetzung_abfragen.json",
+    "Intern/luftwerft_sprachen.json",
     "Intern/verkauf.json",
     "Intern/aktionsnamen.json",
     "Intern/versionen.json",
@@ -98,7 +101,11 @@ pub const RELOADABLE: [&str; 19] = [
 /// error logs of the old computer.
 /// The data folders of the side channels ([`crate::paths::CHANNEL_DATA_FOLDER`]) hold what is built from their
 /// archives, like the caches above.
-pub const RELOADABLE_FOLDERS: [&str; 3] = ["export", "Diagnose", crate::paths::CHANNEL_DATA_FOLDER];
+/// The stands ([`crate::stands::FOLDER`]) stay out too, and with them the own comparisons (`Patches/eigen-*.json`,
+/// see [`include`]): they hold game content of a channel, the test channels' under confidence, and a backup is a
+/// file that is passed on.
+pub const RELOADABLE_FOLDERS: [&str; 4] =
+    ["export", "Diagnose", crate::paths::CHANNEL_DATA_FOLDER, crate::stands::FOLDER];
 
 /// File endings a backup never writes into the data folder: it holds data only. A program file in it would
 /// be startable by a path that is read in (game folder, start program).
@@ -216,6 +223,9 @@ pub fn include(rel: &str) -> bool {
     if RELOADABLE_FOLDERS.iter().any(|name| name.to_lowercase() == first) {
         return false;
     }
+    if first == crate::patch_changes::FOLDER.to_lowercase() && path.rsplit('/').next().is_some_and(|n| n.starts_with("eigen-")) {
+        return false;
+    }
     // The backup itself not into the backup, if somebody puts it in the data folder; nor the files that are
     // only there while something is written (they may be gone when they are read). ⚠ Nor a lock file
     // (`Intern/katalog-neubau.lock` of the build of the catalog): it holds nothing, and while a build runs its
@@ -299,13 +309,49 @@ fn info_text(marker: &str, version: &str, count: usize) -> String {
 ///
 /// [`WriteError::Empty`] when there is nothing to put in, [`WriteError::Failed`] with the reason.
 pub fn write(paths: &Paths, target: &str, version: &str, bindings: &[Binding]) -> Result<usize, WriteError> {
-    let count = write_marked(paths, target, version, bindings, MARKER)?;
+    write_reporting(paths, target, version, bindings).map(|written| written.count)
+}
+
+/// [`write`] that also says which files had to stay out ([`Written::left_out`]); the page shows them.
+///
+/// # Errors
+///
+/// As [`write`].
+pub fn write_reporting(
+    paths: &Paths,
+    target: &str,
+    version: &str,
+    bindings: &[Binding],
+) -> Result<Written, WriteError> {
+    write_within(paths, target, version, bindings, READER_LIMITS)
+}
+
+/// [`write_reporting`] within `limits`.
+fn write_within(
+    paths: &Paths,
+    target: &str,
+    version: &str,
+    bindings: &[Binding],
+    limits: Limits,
+) -> Result<Written, WriteError> {
+    write_setting_within(paths, target, version, bindings, limits).map_err(WriteError::from)
+}
+
+/// [`write_within`] with the reason kept apart: the restore tells "too large" another way.
+fn write_setting_within(
+    paths: &Paths,
+    target: &str,
+    version: &str,
+    bindings: &[Binding],
+    limits: Limits,
+) -> Result<Written, Refusal> {
+    let written = write_marked_within(paths, target, version, bindings, MARKER, limits)?;
     let (year, month, day, hour, minute, second) = jsonio::local_time();
     paths.set_setting(
         LAST_SETTING,
         Value::str(format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}")),
     );
-    Ok(count)
+    Ok(written)
 }
 
 /// The file in `Intern` that says a backup or a restore is at work right now (`{"pid": …, "zeit": …}`).
@@ -407,6 +453,10 @@ pub fn write_before_test_start(paths: &Paths, version: &str) -> Result<String, W
 
 /// A backup without the controls into `Intern/<folder>/<prefix>-<time>-<version>.zip`, with the mark of 4.12; only
 /// the last `keep` of that kind stay.
+///
+/// ⚠ The files such a backup leaves out ([`Written::left_out`]: too large to be put back, or held) are NOT passed on:
+/// these backups run by themselves before an update or a start, there is no page that could show them. They stand
+/// in the error log (`backup.write`, "left out: …") and that is meant so.
 fn write_rotating(paths: &Paths, folder: &str, prefix: &str, version: &str, keep: usize) -> Result<String, WriteError> {
     let folder = paths.app_file(folder);
     jsonio::make_dirs(&folder).map_err(|e| WriteError::Failed(e.to_string()))?;
@@ -440,26 +490,68 @@ pub(crate) fn write_marked(
     bindings: &[Binding],
     marker: &str,
 ) -> Result<usize, WriteError> {
+    write_marked_within(paths, target, version, bindings, marker, READER_LIMITS)
+        .map(|written| written.count)
+        .map_err(WriteError::from)
+}
+
+/// What a backup was written with: how many files, and which ones were left out and why the player has to know.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Written {
+    /// The files in the archive (without the attachment).
+    pub count: usize,
+    /// The names that are NOT in it: too large to be put back, or held by another process right now.
+    pub left_out: Vec<String>,
+}
+
+/// The sizes the reader of a backup accepts; a backup written within them can always be put back.
+#[derive(Clone, Copy, Debug)]
+struct Limits {
+    /// The largest single file.
+    entry: u64,
+    /// The largest archive.
+    total: u64,
+}
+
+const READER_LIMITS: Limits = Limits { entry: zip::MAX_ENTRY as u64, total: READ_LIMIT };
+
+/// [`write_marked`] within `limits`, and with the names of what had to stay out.
+fn write_marked_within(
+    paths: &Paths,
+    target: &str,
+    version: &str,
+    bindings: &[Binding],
+    marker: &str,
+    limits: Limits,
+) -> Result<Written, Refusal> {
     let root = paths.app_folder();
     let mut files = match files(&root) {
         Ok(files) => files,
         Err(error) => {
             errors::record("backup.write", &error);
-            return Err(WriteError::Failed(error.to_string()));
+            return Err(WriteError::Failed(error.to_string()).into());
         }
     };
     if files.is_empty() {
-        return Err(WriteError::Empty);
+        return Err(WriteError::Empty.into());
     }
     files.extend(bindings.iter().map(|b| (b.full.clone(), b.name.clone())));
     // ⚠ First next to the target, then rename. If the writing breaks off (stick pulled, disk full), a half
     // backup would stand there that looks like a whole one.
     let temp = format!("{target}.teil");
-    let result = (|| -> Result<usize, String> {
+    let result = (|| -> Result<Written, Refusal> {
         let mut archive = zip::Builder::new(jsonio::local_time());
         let mut count = 0;
         let mut held = Vec::new();
+        let mut left_out = Vec::new();
         for (full, name) in &files {
+            // ⚠ What the reader would refuse must not go in: one such file would make the whole backup impossible
+            // to put back, and the player would learn it only on the day it is needed. Asked before it is read.
+            if fs::metadata(full).is_ok_and(|meta| meta.len() > limits.entry) {
+                held.push(format!("{name} (larger than {} MiB)", limits.entry >> 20));
+                left_out.push(name.clone());
+                continue;
+            }
             let content = match fs::read(full) {
                 Ok(content) => content,
                 // A file that was there when the folder was listed and is gone now (a trace of the running
@@ -469,39 +561,88 @@ pub(crate) fn write_marked(
                 // there being no backup at all (none of the program's own data files is held like this).
                 Err(error) if held_by_another(&error) => {
                     held.push(format!("{name} ({error})"));
+                    left_out.push(name.clone());
                     continue;
                 }
-                Err(error) => return Err(error.to_string()),
+                Err(error) => return Err(Refusal::failed(error.to_string())),
             };
-            archive.add(name, &content).map_err(|e| e.to_string())?;
+            archive.add(name, &content).map_err(|e| Refusal::failed(e.to_string()))?;
             count += 1;
         }
         if !held.is_empty() {
-            errors::note("backup.write", &format!("held by another process, left out: {}", held.join(", ")));
+            errors::note("backup.write", &format!("left out: {}", held.join(", ")));
         }
-        archive.add(INFO_FILE, info_text(marker, version, count).as_bytes()).map_err(|e| e.to_string())?;
-        let bytes = archive.finish().map_err(|e| e.to_string())?;
-        jsonio::write_new(&temp, &bytes).map_err(|e| e.to_string())?;
-        jsonio::replace_file(&temp, target).map_err(|e| e.to_string())?;
-        Ok(count)
+        archive
+            .add(INFO_FILE, info_text(marker, version, count).as_bytes())
+            .map_err(|e| Refusal::failed(e.to_string()))?;
+        let bytes = archive.finish().map_err(|e| Refusal::failed(e.to_string()))?;
+        // ⚠ The same for the whole: what [`read_archive`] refuses is not written, it would only look like a backup.
+        if bytes.len() as u64 > limits.total {
+            return Err(Refusal::TooLarge);
+        }
+        jsonio::write_new(&temp, &bytes).map_err(|e| Refusal::failed(e.to_string()))?;
+        jsonio::replace_file(&temp, target).map_err(|e| Refusal::failed(e.to_string()))?;
+        Ok(Written { count, left_out })
     })();
     match result {
-        Ok(count) => Ok(count),
-        Err(message) => {
-            errors::record("backup.write", &message);
+        Ok(written) => Ok(written),
+        Err(refusal) => {
+            errors::record("backup.write", &refusal.reason());
             let _ = jsonio::remove_file(&temp);
-            Err(WriteError::Failed(message))
+            Err(refusal)
         }
     }
 }
 
+/// Why [`write_marked_within`] wrote nothing. The one kind the callers tell apart is [`Refusal::TooLarge`]: the
+/// restore says it another way than a backup does. For everyone else it is a [`WriteError`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Refusal {
+    /// The error as the callers know it.
+    Write(WriteError),
+    /// The archive would be larger than the reader takes.
+    TooLarge,
+}
+
+impl Refusal {
+    fn failed(reason: String) -> Self {
+        Self::Write(WriteError::Failed(reason))
+    }
+
+    /// The text for the player where the callers do not say it themselves.
+    fn reason(&self) -> String {
+        match self {
+            Self::Write(WriteError::Failed(reason)) => reason.clone(),
+            Self::Write(WriteError::Empty) => String::new(),
+            Self::TooLarge => language::t("sich_zu_gross"),
+        }
+    }
+}
+
+impl From<WriteError> for Refusal {
+    fn from(error: WriteError) -> Self {
+        Self::Write(error)
+    }
+}
+
+impl From<Refusal> for WriteError {
+    fn from(refusal: Refusal) -> Self {
+        match refusal {
+            Refusal::Write(error) => error,
+            Refusal::TooLarge => WriteError::Failed(language::t("sich_zu_gross")),
+        }
+    }
+}
+
+/// The largest backup file that is read; one that is written is never larger ([`write_marked`]).
+const READ_LIMIT: u64 = 1 << 30;
+
 /// The file as bytes, if it is not unreasonably large for a backup.
-fn read_archive(source: &str) -> Result<Vec<u8>, String> {
+pub(crate) fn read_archive(source: &str) -> Result<Vec<u8>, String> {
     // A backup holds data of one's own, a few megabytes; whoever picks a film by mistake is told so
     // without reading it all.
-    const LARGEST: u64 = 1 << 30;
     let size = fs::metadata(source).map_err(|e| e.to_string())?.len();
-    if size > LARGEST {
+    if size > READ_LIMIT {
         return Err("file too large".to_string());
     }
     fs::read(source).map_err(|e| e.to_string())
@@ -649,7 +790,7 @@ pub struct BindingsRestored {
 
 /// May a profile of this name be written into the folder of the mappings? Only a plain `.xml` name with
 /// something before it; under Windows none that the system reads another way (see [`restore_rel`]).
-fn profile_name_ok(name: &str, flavor: Flavor) -> bool {
+pub(crate) fn profile_name_ok(name: &str, flavor: Flavor) -> bool {
     let lower = name.to_lowercase();
     lower.len() > ".xml".len()
         && lower.ends_with(".xml")
@@ -658,7 +799,7 @@ fn profile_name_ok(name: &str, flavor: Flavor) -> bool {
 }
 
 /// Is this text XML whose root is `root` (`None`: any root)? A mark of the byte order is allowed.
-fn xml_of(content: &[u8], root: Option<&str>) -> bool {
+pub(crate) fn xml_of(content: &[u8], root: Option<&str>) -> bool {
     let Ok(text) = std::str::from_utf8(content) else { return false };
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     crate::joysticks_write::parse(text).is_some_and(|document| {
@@ -876,7 +1017,7 @@ fn restore_rel(name: &str, flavor: Flavor) -> Option<String> {
 }
 
 /// Does Windows read this part of a path as something else than it is written (see [`restore_rel`])?
-fn windows_reads_differently(part: &str) -> bool {
+pub(crate) fn windows_reads_differently(part: &str) -> bool {
     if part.ends_with(['.', ' ']) && part != ".." {
         return true;
     }
@@ -1024,6 +1165,17 @@ fn restore_with_copy(
     bindings: &[Binding],
     fallback: &str,
 ) -> Result<Restored, RestoreError> {
+    restore_within(paths, source, bindings, fallback, READER_LIMITS)
+}
+
+/// [`restore_with_copy`] where the copy of before is written within `limits`.
+fn restore_within(
+    paths: &Paths,
+    source: &str,
+    bindings: &[Binding],
+    fallback: &str,
+    limits: Limits,
+) -> Result<Restored, RestoreError> {
     let Some(found) = check(source) else { return Err(RestoreError::Invalid) };
     let data = read_archive(source).map_err(RestoreError::Failed)?;
     let entries = zip::entries(&data).map_err(|e| RestoreError::Failed(e.to_string()))?;
@@ -1032,51 +1184,33 @@ fn restore_with_copy(
     let before = paths.settings();
     // ⚠ Without the copy of before nothing is overwritten: that copy is what the question promised. (Nothing
     // to copy, an empty data folder, is no reason to stop.)
-    let previous = match write(paths, fallback, "", bindings) {
-        Err(WriteError::Failed(why)) => {
+    let previous = match write_setting_within(paths, fallback, "", bindings, limits) {
+        // ⚠ A copy of before that would be too large is no reason to write without the copy: said so the player
+        // understands it, and nothing is touched.
+        Err(Refusal::TooLarge) => {
+            errors::record("backup.restore", &Refusal::TooLarge.reason());
+            return Err(RestoreError::Failed(language::t("sich_vorher_zu_gross")));
+        }
+        Err(Refusal::Write(WriteError::Failed(why))) => {
             errors::record("backup.restore", &why);
             return Err(RestoreError::Failed(why));
         }
         other => other.is_ok(),
     };
-    let mut disarmed = Vec::new();
-    // Where a name stands twice, the last one counts (as a zip reader gives it by name).
-    let latest: std::collections::HashMap<&str, &zip::Entry> =
-        entries.iter().map(|entry| (entry.name.as_str(), entry)).collect();
     // ⚠ First read and clean EVERYTHING, then write: a damaged entry (its checksum is checked when it is read)
     // must not leave half of the files replaced and half not.
-    let mut planned: Vec<(String, Vec<u8>)> = Vec::new();
-    for entry in &entries {
-        let Some(rel) = restore_rel(&entry.name, flavor) else { continue };
-        let content = match zip::read(&data, latest[entry.name.as_str()]) {
-            Ok(content) => content,
-            Err(error) => {
-                let _ = jsonio::remove_file(fallback);
-                errors::record("backup.restore", &error);
-                return Err(RestoreError::Failed(error.to_string()));
-            }
-        };
-        let is_settings = SETTINGS_NAMES.contains(&rel.rsplit('/').next().unwrap_or(&rel).to_lowercase().as_str());
-        // Every settings file is cleaned BEFORE it lands on the disk: if the restore breaks off after
-        // it, no live version lies around.
-        let content = if is_settings {
-            match safe_settings(&content, &before, &root, paths) {
-                Some((cleaned, turned_off)) => {
-                    // Each name once, even where several settings files in the backup say it.
-                    for name in turned_off {
-                        if !disarmed.contains(&name) {
-                            disarmed.push(name);
-                        }
-                    }
-                    cleaned
-                }
-                None => continue,
-            }
-        } else {
-            content
-        };
-        planned.push((flavor.join(&root, &rel.replace('/', &flavor.sep().to_string())), content));
-    }
+    let (planned, disarmed) = match plan_data(paths, &data, &entries, &before) {
+        Ok(plan) => plan,
+        Err(error) => {
+            let _ = jsonio::remove_file(fallback);
+            errors::record("backup.restore", &error);
+            return Err(RestoreError::Failed(error));
+        }
+    };
+    let planned: Vec<(String, Vec<u8>)> = planned.into_iter().map(|(_, target, content)| (target, content)).collect();
+    let put_back_collection = planned
+        .iter()
+        .any(|(target, _)| flavor.basename(target).to_lowercase() == crate::collection::FILE_NAME);
     let outcome = (|| -> Result<(), String> {
         for (target, content) in &planned {
             jsonio::make_dirs(&flavor.dirname(target)).map_err(|e| e.to_string())?;
@@ -1092,7 +1226,121 @@ fn restore_with_copy(
     }
     clear_foreign_paths(paths, &root);
     paths.forget_settings();
+    // ⚠ The mark of the highest blueprint count lies outside the data folder. A collection put back on purpose
+    // that is smaller would else make the first start after it warn about a shrinkage nobody caused. Only where the
+    // collection itself was put back: a backup without it leaves the mark, and so the protection, as it is.
+    if put_back_collection {
+        let mark = crate::collection::high_water_path(paths);
+        if let Err(error) = jsonio::remove_file(&mark)
+            && !jsonio::is_not_found(&error)
+        {
+            errors::record("backup.restore.high_water", &error);
+        }
+    }
     Ok(Restored { count: found.count, fallback: previous.then(|| fallback.to_string()), disarmed })
+}
+
+/// One file a restore writes into the data folder: (name in the data folder, full target, content).
+type PlannedFile = (String, String, Vec<u8>);
+
+/// What a restore would write into the data folder: (name in the data folder, full target, content), every settings
+/// file already cleaned ([`safe_settings`]), and the names that cleaning switched off (each once). A name that stands
+/// twice in the archive is planned twice with the last content, as the restore has always written it.
+///
+/// # Errors
+///
+/// The reason where an entry cannot be read (a damaged entry: its checksum is checked when it is read).
+fn plan_data(
+    paths: &Paths,
+    data: &[u8],
+    entries: &[zip::Entry],
+    before: &Map,
+) -> Result<(Vec<PlannedFile>, Vec<String>), String> {
+    let flavor = paths.host.flavor;
+    let root = paths.app_folder();
+    let mut disarmed = Vec::new();
+    // Where a name stands twice, the last one counts (as a zip reader gives it by name).
+    let latest: std::collections::HashMap<&str, &zip::Entry> =
+        entries.iter().map(|entry| (entry.name.as_str(), entry)).collect();
+    let mut planned = Vec::new();
+    for entry in entries {
+        let Some(rel) = restore_rel(&entry.name, flavor) else { continue };
+        let content = zip::read(data, latest[entry.name.as_str()]).map_err(|error| error.to_string())?;
+        let is_settings = SETTINGS_NAMES.contains(&rel.rsplit('/').next().unwrap_or(&rel).to_lowercase().as_str());
+        // Every settings file is cleaned BEFORE it lands on the disk: if the restore breaks off after
+        // it, no live version lies around.
+        let content = if is_settings {
+            match safe_settings(&content, before, &root, paths) {
+                Some((cleaned, turned_off)) => {
+                    // Each name once, even where several settings files in the backup say it.
+                    for name in turned_off {
+                        if !disarmed.contains(&name) {
+                            disarmed.push(name);
+                        }
+                    }
+                    cleaned
+                }
+                None => continue,
+            }
+        } else {
+            content
+        };
+        let target = flavor.join(&root, &rel.replace('/', &flavor.sep().to_string()));
+        planned.push((rel, target, content));
+    }
+    Ok((planned, disarmed))
+}
+
+/// What a file of a backup would do to the file it lands on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Change {
+    /// There is no such file yet.
+    New,
+    /// The file is there with another content and would be replaced.
+    Replaced,
+    /// The file is there with the same content.
+    Same,
+    /// There is no place for it here (the game folder or the channel is missing); it would be left out.
+    NoPlace,
+}
+
+/// One file of the look before a restore: its name, and what it would do.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PreviewItem {
+    pub name: String,
+    pub change: Change,
+}
+
+/// What a file with `content` would do to the file at `target`.
+pub(crate) fn change_of(target: &str, content: &[u8]) -> Change {
+    match fs::read(target) {
+        Ok(bytes) if bytes == content => Change::Same,
+        Ok(_) => Change::Replaced,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Change::New,
+        // A file that is there and cannot be read now is still there: it would be replaced.
+        Err(_) => Change::Replaced,
+    }
+}
+
+/// The look before a restore of the data folder: every file the restore would write, by its name in the data folder
+/// (sorted, each once), with what it would do. `None` where the file is no backup of this program or cannot be read.
+///
+/// ⚠ It plans exactly as [`restore`] does (the same names left out, the settings cleaned the same way), so what it
+/// shows is what is written. Files of the data folder that are not in the backup are not touched by a restore.
+pub fn preview_data(paths: &Paths, source: &str) -> Option<Vec<PreviewItem>> {
+    check(source)?;
+    let data = read_archive(source).ok()?;
+    let entries = zip::entries(&data).ok()?;
+    let (planned, _) = plan_data(paths, &data, &entries, &paths.settings()).ok()?;
+    let mut items: Vec<PreviewItem> = Vec::new();
+    for (rel, target, content) in planned.into_iter().rev() {
+        if items.iter().any(|item| item.name == rel) {
+            continue;
+        }
+        items.push(PreviewItem { change: change_of(&target, &content), name: rel });
+    }
+    items.sort_by(|a, b| a.name.cmp(&b.name));
+    Some(items)
 }
 
 /// Removes the paths of the old computer where they lead nowhere here.
@@ -1617,6 +1865,101 @@ mod tests {
     }
 
     #[test]
+    fn a_file_the_reader_would_refuse_stays_out_so_the_backup_can_be_put_back() {
+        let (paths, dir) = paths_in("zu-gross");
+        put(&paths, "Bestand/klein.json", "alt");
+        put(&paths, "Intern/riesig.json", &"x".repeat(5000));
+        let target = dir.join("meine.zip").to_string_lossy().into_owned();
+        // The limit of one file made small, so no 256 MiB have to be written for the test.
+        let small = Limits { entry: 1000, total: READ_LIMIT };
+        let written = write_marked_within(&paths, &target, "5.4.2", &[], MARKER, small).unwrap();
+        assert_eq!(written.count, 1, "only the small file");
+        assert_eq!(written.left_out, ["Intern/riesig.json"], "and the page is told which one is missing");
+        let data = fs::read(&target).unwrap();
+        let names: Vec<String> = zip::entries(&data).unwrap().into_iter().map(|e| e.name).collect();
+        assert!(!names.iter().any(|n| n.contains("riesig")), "the large file is not in the archive: {names:?}");
+        fs::write(Path::new(&paths.app_folder()).join("Bestand").join("klein.json"), "neu").unwrap();
+        let here = dir.join("vorher.zip").to_string_lossy().into_owned();
+        restore_with_copy(&paths, &target, &[], &here).expect("what was written can be put back");
+        let read = fs::read_to_string(Path::new(&paths.app_folder()).join("Bestand").join("klein.json")).unwrap();
+        assert_eq!(read, "alt");
+        // A normal write says nothing is missing.
+        assert!(write_reporting(&paths, &target, "5.4.2", &[]).unwrap().left_out.is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_backup_over_the_limit_of_the_whole_is_not_written_and_says_why() {
+        let (paths, dir) = paths_in("gesamt-gross");
+        put(&paths, "Bestand/klein.json", "alt");
+        let target = dir.join("meine.zip").to_string_lossy().into_owned();
+        let tiny = Limits { entry: READER_LIMITS.entry, total: 10 };
+        let result = write_marked_within(&paths, &target, "5.4.2", &[], MARKER, tiny);
+        assert_eq!(result, Err(Refusal::TooLarge));
+        assert_eq!(WriteError::from(Refusal::TooLarge), WriteError::Failed(language::t("sich_zu_gross")));
+        assert!(!Path::new(&target).exists() && !Path::new(&format!("{target}.teil")).exists(), "nothing is left");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_data_folder_too_large_for_the_copy_of_before_stops_the_restore_with_a_text_for_the_player() {
+        let (paths, dir) = paths_in("vorher-gross");
+        put(&paths, "Bestand/a.json", "alt");
+        let info = format!("{MARKER}\r\n\r\nErstellt am 01.01.2026 09:00 mit Verse-Kit 5.\r\n");
+        let source = dir.join("neu.zip");
+        fs::write(&source, zip::tests::build(&[("Bestand/a.json", b"neu", true), (INFO_FILE, info.as_bytes(), true)]))
+            .unwrap();
+        let here = dir.join("vorher.zip").to_string_lossy().into_owned();
+        let tiny = Limits { entry: READER_LIMITS.entry, total: 10 };
+        let result = restore_within(&paths, &source.to_string_lossy(), &[], &here, tiny);
+        assert_eq!(result.unwrap_err(), RestoreError::Failed(language::t("sich_vorher_zu_gross")));
+        let read = fs::read_to_string(Path::new(&paths.app_folder()).join("Bestand").join("a.json")).unwrap();
+        assert_eq!(read, "alt", "nothing is written without the copy of before");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_restore_forgets_the_mark_of_the_highest_blueprint_count() {
+        let (paths, dir) = paths_in("hochwasser");
+        put(&paths, "Bauplaene/bestand.json", "alt");
+        // The mark of a larger collection lies next to the second pointer, outside the data folder.
+        let mark = crate::collection::high_water_path(&paths);
+        fs::create_dir_all(Path::new(&mark).parent().unwrap()).unwrap();
+        fs::write(&mark, "{\"bauplaene\": 400}").unwrap();
+        let info = format!("{MARKER}\r\n\r\nErstellt am 01.01.2026 09:00 mit Verse-Kit 5.\r\n");
+        let source = dir.join("klein.zip");
+        fs::write(
+            &source,
+            zip::tests::build(&[("Bauplaene/bestand.json", b"neu", true), (INFO_FILE, info.as_bytes(), true)]),
+        )
+        .unwrap();
+        let here = dir.join("vorher.zip").to_string_lossy().into_owned();
+        restore_with_copy(&paths, &source.to_string_lossy(), &[], &here).unwrap();
+        assert!(
+            !Path::new(&mark).exists(),
+            "a smaller collection that was put back on purpose is no shrinkage the next start has to warn about"
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_restore_without_the_collection_leaves_the_mark_where_it_is() {
+        let (paths, dir) = paths_in("hochwasser-bleibt");
+        put(&paths, "Bauplaene/bestand.json", "alt");
+        let mark = crate::collection::high_water_path(&paths);
+        fs::create_dir_all(Path::new(&mark).parent().unwrap()).unwrap();
+        fs::write(&mark, "{\"bauplaene\": 400}").unwrap();
+        let info = format!("{MARKER}\r\n\r\nErstellt am 01.01.2026 09:00 mit Verse-Kit 5.\r\n");
+        let source = dir.join("ohne.zip");
+        fs::write(&source, zip::tests::build(&[("Intern/notizen.json", b"{}", true), (INFO_FILE, info.as_bytes(), true)]))
+            .unwrap();
+        let here = dir.join("vorher.zip").to_string_lossy().into_owned();
+        restore_with_copy(&paths, &source.to_string_lossy(), &[], &here).unwrap();
+        assert!(Path::new(&mark).exists(), "no collection came back, so the protection stays");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn a_damaged_entry_stops_the_restore_before_anything_is_written() {
         let (paths, dir) = paths_in("beschaedigt");
         put(&paths, "Bestand/a.json", "alt");
@@ -1705,6 +2048,22 @@ mod tests {
         let read = |rel: &str| fs::read_to_string(Path::new(&paths.app_folder()).join(rel)).unwrap();
         assert_eq!(read("Bauplaene/bestand.json"), "{\"a\": 2}");
         assert_eq!(read("Kanaele/PTU/katalog-spieldaten.json"), "{\"katalog\": 1}", "the fresh one stays");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// A stand and an own comparison hold game content of a channel, a test channel's under confidence: a backup is a
+    /// file that is passed on, so neither goes in, whatever the channel, and neither comes back out of one.
+    #[test]
+    fn the_stands_and_the_own_comparisons_do_not_go_into_a_backup() {
+        let (paths, dir) = paths_in("staende");
+        put(&paths, "Bauplaene/bestand.json", "{\"a\": 1}");
+        put(&paths, "Patches/patch-4.10.0-LIVE.1.json", "{}");
+        put(&paths, "Patches/eigen-4.10.0-LIVE.1.json", "{}");
+        put(&paths, "Staende/LIVE_4.10.0-LIVE.1.stand", "x");
+        put(&paths, "Staende/PTU_5.0.0-PTU.1.stand", "x");
+        assert_eq!(tree(&paths), ["Bauplaene/bestand.json", "Patches/patch-4.10.0-LIVE.1.json"]);
+        assert!(!include("staende/ptu_5.0.0.stand") && !include("Staende/LIVE_1.stand"));
+        assert!(!include("patches/eigen-5.0.0.json") && include("patches/patch-4.10.0.json"));
         let _ = fs::remove_dir_all(dir);
     }
 

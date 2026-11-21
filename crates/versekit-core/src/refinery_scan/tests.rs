@@ -362,6 +362,37 @@ fn two_cards_side_by_side_are_two_tables_with_their_own_sums() {
     assert_eq!(find_tables(&wide_screen(true), 5120, 1440).len(), 1);
 }
 
+/// Heads read beyond knowing in small letters (a running job seen from afar): `ONNENE MATERLUEN (CSCU) w.UTiT
+/// AWBEUTE zu FERTIG`. The table is found by the head of the yielded materials and the yield, and it reaches left
+/// over the names of the materials. The profile of the station (`MATERIAL … AUSBEUTE`) stays no table.
+#[test]
+fn a_table_with_misread_heads_is_found_by_the_heads_around_the_quality() {
+    let heads = |quality: &str| {
+        vec![
+            sized("ONNENE", 486.0, 244.0, 40.0, 9.0),
+            sized("MATERLUEN", 531.0, 244.0, 60.0, 9.0),
+            sized("(CSCU)", 603.0, 244.0, 30.0, 9.0),
+            sized(quality, 683.0, 244.0, 30.0, 10.0),
+            sized("AWBEUTE", 738.0, 244.0, 40.0, 9.0),
+            sized("zu", 817.0, 239.0, 12.0, 9.0),
+            sized("FERTIG", 864.0, 244.0, 30.0, 9.0),
+            sized("IRON", 510.0, 278.0, 30.0, 13.0),
+            sized("874", 697.0, 280.0, 20.0, 10.0),
+            sized("31", 759.0, 280.0, 12.0, 10.0),
+        ]
+    };
+    let tables = find_tables(&heads("w.UTiT"), 1012, 1131);
+    assert_eq!(tables.len(), 1, "found");
+    assert!(tables[0].area.0 <= 510, "reaches over the names: {:?}", tables[0].area);
+    // Without a head of the yielded materials (the profile of the station) there is no table.
+    let profile = vec![
+        sized("MATERIAL", 117.0, 203.0, 50.0, 9.0),
+        sized("x", 250.0, 203.0, 8.0, 9.0),
+        sized("AtSBEUTE", 367.0, 203.0, 45.0, 9.0),
+    ];
+    assert!(find_tables(&profile, 1012, 1131).is_empty(), "the profile is no table");
+}
+
 /// The card as the German terminal shows it: the head of the yield cut to `AUSBEU`; with `amount` the head `ANZ.`
 /// between quality and yield, as while setting a job up, with a number of its own in each row.
 fn cut_heads(amount: bool) -> Vec<Word> {
@@ -1233,6 +1264,42 @@ fn a_name_cut_short_is_the_one_material_it_begins() {
     // A further word longer than the kind is no part of a name cut short; the kind is.
     assert_eq!(match_material("TUNGS MATERIALS", &index), None);
     assert_eq!(match_material("TUNGS ORE", &index).as_deref(), Some("Tungsten"));
+}
+
+#[test]
+fn a_name_read_with_mistaken_characters_is_its_material_when_one_leads_clearly() {
+    let ores = [
+        "Agricium", "Aluminum", "Beryl", "Bexalite", "Borase", "Copper", "Corundum", "Gold", "Hephaestanite", "Iron",
+        "Laranite", "Quantainium", "Quartz", "Taranite", "Tin", "Titanium", "Tungsten",
+    ];
+    let index = index_of(&ores);
+    // Letters and digits the recognition mistakes for one another, and `rn` read for `m`.
+    assert_eq!(match_material("lR0N", &index).as_deref(), Some("Iron"));
+    assert_eq!(match_material("e lR0N", &index).as_deref(), Some("Iron"));
+    assert_eq!(match_material("T1N", &index).as_deref(), Some("Tin"));
+    assert_eq!(match_material("CORUNDURN", &index).as_deref(), Some("Corundum"));
+    assert_eq!(match_material("C0RUNDURN", &index).as_deref(), Some("Corundum"));
+    assert_eq!(match_material("TlTAN1UM", &index).as_deref(), Some("Titanium"));
+    assert_eq!(match_material("8ERYL", &index).as_deref(), Some("Beryl"));
+    // More than 15 % wrong after that: none, not a guess.
+    assert_eq!(match_material("lR0NXX", &index), None);
+    assert_eq!(match_material("T1", &index), None);
+    // What is no material stays none.
+    for text in ["INERT MATERIALS", "TOTAL COST", "VERBLEIBENDE ZEIT", "AUSBEUTE", "QUAL1TAT", "MENGE", "5CU", "xx"] {
+        assert_eq!(match_material(text, &index), None, "{text}");
+    }
+}
+
+#[test]
+fn a_name_that_is_two_materials_with_their_lookalikes_made_the_same_is_none() {
+    // Two materials that only a mistakable character tells apart: the reading leaves the line empty.
+    let index = index_of(&["Boron", "8oron", "Iron"]);
+    assert_eq!(match_material("B0R0N", &index), None);
+    // Two materials equally near: none either.
+    let index = index_of(&["Larinite", "Laranite"]);
+    assert_eq!(match_material("LAR4N1TE", &index), None);
+    // One clearly nearer is taken.
+    assert_eq!(match_material("LAR1N1TX", &index).as_deref(), Some("Larinite"));
 }
 
 #[test]

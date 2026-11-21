@@ -383,7 +383,7 @@ fn new_card(ui: &mut Ui, scheme: &Scheme, state: &mut OrgConnectState, view: &Vi
                     } else {
                         tf("s_os_verbunden_mit", &[("org", Arg::from(org.as_str())), ("name", Arg::from(member.as_str()))])
                     };
-                    widgets::status_box_wrapping(ui, scheme, scheme.accent, "circle-check", &head, "");
+                    widgets::status_box(ui, scheme, scheme.accent, "circle-check", &head, "");
                     ui.add_space(6.0);
                 }
                 if let Some(Login::Failed(error)) = other {

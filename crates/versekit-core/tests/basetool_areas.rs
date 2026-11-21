@@ -948,6 +948,175 @@ fn without_the_class_an_item_the_basetool_names_otherwise_stays_unknown() {
     assert_eq!(b.double.lots().iter().find(|l| l.bt == "bt-ad6b").map(|l| l.amount), Some(2.0));
 }
 
+// ------------------------------------------------- merges and retired materials
+
+fn stock_entry(b: &Bench, key: &str) -> Value {
+    let state = b.state();
+    let stock = state.iter().find(|(k, _)| k == "stock").map(|(_, v)| v.clone()).expect("stock state");
+    stock.get(key).cloned().unwrap_or(Value::Null)
+}
+
+fn rows_named<'a>(rows: &'a [Value], name: &str) -> Vec<&'a Value> {
+    rows.iter().filter(|r| r.get("material").and_then(Value::as_str) == Some(name)).collect()
+}
+
+/// The Basetool folds one material into another: the tombstone of the old lot and the grown lot of the new one
+/// come in one feed. The row here moves to the new material and stands together with the one already there, a
+/// change made here in the meantime goes out on top of it, and nothing is left twice.
+#[test]
+fn a_folded_material_moves_its_row_to_the_new_one_and_leaves_no_second_row() {
+    let b = bench("merge-material", &[SETTING_STOCK]);
+    b.double.add_material("Party Favors", false);
+    b.double.add_material("Fireworks", false);
+    b.save_stock(
+        &[raw_row("Party Favors", 10.0, 0, "Orbituary"), raw_row("Fireworks", 5.0, 0, "Orbituary"), raw_row("Iron", 1.0, 0, "Lorville")],
+        &[],
+    );
+    b.pass();
+    assert_eq!(b.double.lot_amount("Party Favors", "Orbituary", 0, false), 10.0);
+    let (old_bt, new_bt) = b.double.merge_material("Party Favors", "Fireworks");
+    assert_eq!(b.double.lot_amount("Fireworks", "Orbituary", 0, false), 15.0);
+    // Meanwhile the player books two more Party Favors here.
+    b.save_stock(
+        &[raw_row("Party Favors", 12.0, 0, "Orbituary"), raw_row("Fireworks", 5.0, 0, "Orbituary"), raw_row("Iron", 1.0, 0, "Lorville")],
+        &[],
+    );
+    let posts = b.posts(ROUTE_STOCK);
+    b.pass();
+    let counts = b.counts("stock");
+    let raw = b.raw();
+    assert!(rows_named(&raw, "Party Favors").is_empty(), "the old row moved: {raw:?}");
+    let fireworks = rows_named(&raw, "Fireworks");
+    assert_eq!(fireworks.len(), 1, "one row for one lot: {raw:?}");
+    assert_eq!(amount(fireworks[0]), 17.0, "both rows together, with the change made here");
+    assert_eq!(raw.len(), 2, "iron stays: {raw:?}");
+    assert_eq!(
+        (count(&counts, "merged"), count(&counts, "conflicts"), count(&counts, "rejected"), count(&counts, "sent")),
+        (1, 0, 0, 1),
+        "{counts:?}"
+    );
+    assert_eq!(b.posts(ROUTE_STOCK), posts + 1);
+    assert_eq!(b.double.lot_amount("Fireworks", "Orbituary", 0, false), 17.0, "the change here went out once");
+    let sent: Vec<Value> = b.double.ops_sent(ROUTE_STOCK).last().cloned().unwrap_or_default();
+    assert!(
+        sent.iter().all(|op| op.get("material").and_then(|m| m.get("bt")).and_then(Value::as_str) == Some(new_bt.as_str())),
+        "nothing goes out under the old id {old_bt}: {sent:?}"
+    );
+    // The name that led to the old id leads to the new one now.
+    let cache = stock_entry(&b, "resolved");
+    assert_eq!(cache.get("party favors").and_then(Value::as_str), Some(new_bt.as_str()));
+    // Steady.
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), posts + 1, "steady after the move");
+    assert_eq!(rows_named(&b.raw(), "Fireworks").len(), 1);
+    // A Party Favors booked later goes to the new lot, under the new name.
+    let mut raw = b.raw();
+    raw.push(raw_row("Party Favors", 3.0, 0, "Orbituary"));
+    b.save_stock(&raw, &[]);
+    b.pass();
+    assert_eq!(b.double.lot_amount("Fireworks", "Orbituary", 0, false), 20.0);
+    assert_eq!(rows_named(&b.raw(), "Fireworks").len(), 1);
+    assert!(rows_named(&b.raw(), "Party Favors").is_empty());
+}
+
+/// Counter-check of the guard against a guess: a lot gone and another one grown by its amount, while the catalog
+/// still knows the old material, is no merge. Nothing is renamed.
+#[test]
+fn a_lot_gone_while_another_grew_is_no_merge_while_the_catalog_still_knows_the_old_one() {
+    let b = bench("merge-guess", &[SETTING_STOCK]);
+    b.save_stock(&[raw_row("Gold", 4.0, 0, "Orbituary"), raw_row("Copper", 1.0, 0, "Orbituary")], &[]);
+    b.pass();
+    // In the browser: gold sold, copper bought for the same amount.
+    b.double.remove_lot_elsewhere("Gold", "Orbituary", 0, false);
+    b.double.set_lot("Copper", "Orbituary", 0, false, 5.0);
+    b.pass();
+    let raw = b.raw();
+    assert!(rows_named(&raw, "Gold").is_empty(), "gold went as it went over there");
+    assert_eq!(rows_named(&raw, "Copper").len(), 1);
+    assert_eq!(amount(rows_named(&raw, "Copper")[0]), 5.0);
+    assert_eq!(count(&b.counts("stock"), "merged"), 0);
+    assert_eq!(stock_entry(&b, "merged"), Value::Null, "nothing remembered as merged");
+}
+
+/// A lot not on the Basetool when the merge came: the old id goes out, `unmatched` comes back. The name is no
+/// alias of the new one, so the row waits; once the catalog resolves the old id, it moves.
+#[test]
+fn an_old_id_that_comes_back_unmatched_is_asked_again_and_moves_once_the_catalog_resolves_it() {
+    let b = bench("merge-unmatched", &[SETTING_STOCK]);
+    b.double.add_material("Party Favors", false);
+    b.double.add_material("Fireworks", false);
+    b.save_stock(&[raw_row("Party Favors", 10.0, 0, "Orbituary")], &[]);
+    b.pass();
+    b.save_stock(&[], &[]);
+    b.pass();
+    assert_eq!(b.double.lot_amount("Party Favors", "Orbituary", 0, false), 0.0);
+    b.double.merge_material("Party Favors", "Fireworks");
+    b.save_stock(&[raw_row("Party Favors", 4.0, 0, "Orbituary")], &[]);
+    b.pass();
+    assert_eq!(rejected_of(&b), [("bt-party-favors|orbituary|0|0".to_string(), "UNMATCHED".to_string())]);
+    assert!(b.double.lots().is_empty(), "nothing booked under the old id");
+    // The next pass asks by name: no alias, the row is left out and stays as it is.
+    let posts = b.posts(ROUTE_STOCK);
+    b.pass();
+    assert_eq!(count(&b.counts("stock"), "skipped_material"), 1);
+    assert_eq!(b.posts(ROUTE_STOCK), posts, "nothing goes out again");
+    assert_eq!(amount(rows_named(&b.raw(), "Party Favors")[0]), 4.0);
+    // A later release of the Basetool resolves the old id; a day on, VerseKit asks again.
+    b.double.resolve_merged_ids(true);
+    b.later(24 * 3600 + 1);
+    b.pass();
+    let raw = b.raw();
+    assert!(rows_named(&raw, "Party Favors").is_empty(), "{raw:?}");
+    assert_eq!(rows_named(&raw, "Fireworks").len(), 1);
+    assert_eq!(b.double.lot_amount("Fireworks", "Orbituary", 0, false), 4.0);
+    assert_eq!(count(&b.counts("stock"), "skipped_material"), 0);
+}
+
+/// A material the Basetool no longer takes in: the refused addition is not sent again and is no refusal, the row
+/// says why; reductions and a move in one send still go.
+#[test]
+fn a_retired_material_is_not_sent_again_and_still_goes_out_when_taken_away_or_moved() {
+    let b = bench("retired", &[SETTING_STOCK]);
+    b.save_stock(&[raw_row("Hadanite", 3.0, 0, "Orbituary")], &[]);
+    b.pass();
+    b.double.retire_material("Hadanite");
+    let key = "bt-hadanite|orbituary|0|0".to_string();
+    b.save_stock(&[raw_row("Hadanite", 5.0, 0, "Orbituary")], &[]);
+    b.pass();
+    let counts = b.counts("stock");
+    assert_eq!((count(&counts, "retired"), count(&counts, "rejected")), (1, 0), "no refusal counted: {counts:?}");
+    assert_eq!(b.double.lot_amount("Hadanite", "Orbituary", 0, false), 3.0);
+    assert_eq!(stock_entry(&b, "retired_lots").get(&key).and_then(Value::as_str), Some("MATERIAL_RETIRED"));
+    // Not sent again, also not after a day (only the sync button tries once more).
+    let posts = b.posts(ROUTE_STOCK);
+    b.pass();
+    b.later(24 * 3600 + 1);
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), posts, "the addition stays back");
+    assert_eq!(count(&b.counts("stock"), "retired"), 1);
+    let state = b.state();
+    let snap = versekit_core::basetool::stock_split::snapshot(&state).expect("a snapshot");
+    assert_eq!(
+        versekit_core::basetool::stock_split::gap_of("Hadanite", "Orbituary", Some(&key), &snap),
+        Some(versekit_core::basetool::stock_split::Gap::Retired)
+    );
+    // Back to what the Basetool holds, then a move to another place: both halves go in one send.
+    b.save_stock(&[raw_row("Hadanite", 3.0, 0, "Orbituary")], &[]);
+    b.pass();
+    assert_eq!(count(&b.counts("stock"), "retired"), 0);
+    b.save_stock(&[raw_row("Hadanite", 3.0, 0, "Lorville")], &[]);
+    let posts = b.posts(ROUTE_STOCK);
+    b.pass();
+    assert_eq!(b.posts(ROUTE_STOCK), posts + 1, "one send");
+    assert_eq!(b.double.lot_amount("Hadanite", "Orbituary", 0, false), 0.0);
+    assert_eq!(b.double.lot_amount("Hadanite", "Lorville", 0, false), 3.0, "the move went through");
+    // Taking away still goes.
+    b.save_stock(&[raw_row("Hadanite", 1.0, 0, "Lorville")], &[]);
+    b.pass();
+    assert_eq!(b.double.lot_amount("Hadanite", "Lorville", 0, false), 1.0);
+    assert_eq!((count(&b.counts("stock"), "retired"), count(&b.counts("stock"), "rejected")), (0, 0));
+}
+
 // ----------------------------------------------------------------- hangar
 
 fn ship(name: &str, maker: &str, origin: &str) -> Value {
@@ -1485,4 +1654,36 @@ fn an_own_name_goes_out_and_the_ready_mark_and_the_unit_come_back() {
     let get = |key: &str| entry.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
     assert_eq!(get("einsatzbereit"), Some(Value::Bool(true)));
     assert_eq!(get("einheit"), Some(Value::str("u7")));
+}
+
+/// The Basetool folds a ship type into another: the linked ship keeps its link and carries the new type, the
+/// entry here counts for the new type, and a second entry of that type is neither created nor taken in twice.
+#[test]
+fn a_folded_ship_type_keeps_the_linked_ship_and_makes_no_double() {
+    let b = bench("ships-merge", &[SETTING_SHIPS]);
+    b.double.add_ship_type_name("bt-ship-titan", "Titan");
+    b.save_hangar(vec![ship("Titan", "Aegis Dynamics", "pledge")]);
+    b.pass();
+    let ships = b.double.ships();
+    assert_eq!(ships.len(), 1, "created");
+    let id = ships[0].id.clone();
+    b.double.merge_ship_type("Titan", "Avenger Titan");
+    b.pass();
+    let ships = b.double.ships();
+    assert_eq!((ships.len(), ships[0].id.as_str(), ships[0].type_bt.as_str()), (1, id.as_str(), "bt-ship-avenger"));
+    assert!(ships[0].external.is_some(), "still linked");
+    assert_eq!(b.hangar_ships().len(), 1, "nothing taken in");
+    let merged = ships_state(&b, "merged_types");
+    assert_eq!(merged.get("bt-ship-titan").and_then(Value::as_str), Some("bt-ship-avenger"));
+    let resolved = ships_state(&b, "resolved");
+    assert!(
+        resolved.as_object().is_some_and(|r| r.iter().all(|(_, bt)| bt.as_str() != Some("bt-ship-titan"))),
+        "no entry keeps the old type: {resolved:?}"
+    );
+    // A second entry of the type the linked ship holds now: one entry per type, so no second ship over there.
+    b.save_hangar(vec![ship("Titan", "Aegis Dynamics", "pledge"), ship("Avenger Titan", "Aegis Dynamics", "pledge")]);
+    b.pass();
+    assert_eq!(b.double.ships().len(), 1, "no double over there: {:?}", b.double.ships());
+    assert_eq!(count(&b.counts("ships"), "created"), 0);
+    assert_eq!(b.hangar_ships().len(), 2, "nothing taken in");
 }

@@ -387,6 +387,26 @@ fn assert_clean(problems: &[String]) {
 }
 
 #[test]
+fn the_backup_page_does_not_promise_everything_and_says_what_stays_out() {
+    let (de, en) = both();
+    let say = |file: &LangFile, key: &str| file.sections["texte"][key].to_lowercase();
+    // What a backup holds beyond the first list, and what it cannot hold: the connections (they are tied to
+    // the computer), the start with the system, the files in the game folder.
+    for (file, words) in [
+        (&de, ["hangar", "verbindung", "start mit system", "spielordner"]),
+        (&en, ["hangar", "connection", "start with system", "game folder"]),
+    ] {
+        let text = say(file, "sich_was");
+        for word in words {
+            assert!(text.contains(word), "{}: sich_was says nothing of {word}: {text}", file.name);
+        }
+    }
+    assert!(say(&de, "sich_was").contains("256 mib") && say(&en, "sich_was").contains("256 mib"), "the limit");
+    assert!(!say(&de, "sich_lead").starts_with("alles"), "'everything' is not true");
+    assert!(!say(&en, "sich_lead").starts_with("everything"), "'everything' is not true");
+}
+
+#[test]
 fn both_files_are_valid_json_with_all_sections() {
     let (de, en) = both();
     // Counted so an empty table cannot pass for a complete one.

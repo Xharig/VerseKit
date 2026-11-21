@@ -512,6 +512,23 @@ fn a_crafted_item_without_text_gets_a_stand_in_name_and_the_block_alone() {
     assert_eq!(fx.text(), GAPS_GAME);
 }
 
+/// A name the translation lacks gets the tag of the English original, like the names it has; a second run adds no
+/// second tag, and removing gives the file back.
+#[test]
+fn a_stand_in_name_gets_the_tag_of_the_english_original() {
+    let fx = Fixture::new("standin-tag", "english", GAPS_GAME);
+    let mut inputs = gaps_inputs();
+    inputs.original_specs = [("item_name_radr_wlop_s03_lephari".to_string(), "(Civ/3/C)".to_string())].into();
+    apply_texts(&fx.paths, &fx.ini, "english", &inputs, false);
+    let text = fx.text();
+    assert!(text.contains("\nitem_Name_RADR_WLOP_S03_Lephari=Lephari (Civ/3/C)\n"), "{text}");
+    assert!(text.contains("\nitem_Name_RADR_GNRP_S03_Idris=Idris\n"), "no tag known: none: {text}");
+    apply_texts(&fx.paths, &fx.ini, "english", &inputs, false);
+    assert_eq!(fx.text(), text, "no second tag");
+    remove_texts(&fx.paths, &fx.ini, "english");
+    assert_eq!(fx.text(), GAPS_GAME);
+}
+
 #[test]
 fn a_text_the_game_supplies_later_is_never_overwritten() {
     let fx = Fixture::new("standin-later", "english", GAPS_GAME);

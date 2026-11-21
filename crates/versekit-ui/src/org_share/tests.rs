@@ -68,8 +68,11 @@ fn row(name: &str, amount: f64, place: &str) -> Row {
     }
 }
 
+/// The requests a page sent: path and body.
+type Sent = Arc<Mutex<Vec<(String, String)>>>;
+
 /// A page over a made-up org that may be shared with, the requests it gets, and the connected state of the hub.
-fn page(scopes: &[&str], rows: Vec<Row>, sample: bool) -> (Harness<'static, Page>, Arc<Mutex<Vec<(String, String)>>>) {
+fn page(scopes: &[&str], rows: Vec<Row>, sample: bool) -> (Harness<'static, Page>, Sent) {
     set_thread_language(Choice::De);
     let sent = Arc::new(Mutex::new(Vec::new()));
     let client = OrgClient::new(Arc::new(Recording(sent.clone())), "5.4.0");

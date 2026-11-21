@@ -882,13 +882,25 @@ mod system {
         positions: HashMap<u64, (i32, i32)>,
     }
 
+    /// What the thread of the listener is asked to do with the registration.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum Request {
+        /// Follow mouse and sticks.
+        Follow,
+        /// Let mouse and sticks go.
+        Release,
+        /// Register the keyboard (and, while following, mouse and sticks) for the window of the listener again,
+        /// without starting the following over.
+        Renew,
+    }
+
     /// The one listener of the process: its thread, its window, and the way to ask it.
     struct Hub {
         thread: u32,
         window: isize,
         shared: Arc<Shared>,
-        /// Requests to follow (`true`) or not; the thread answers whether Windows took the registration.
-        requests: Mutex<Sender<(bool, Sender<bool>)>>,
+        /// Requests for the registration; the thread answers whether Windows took it.
+        requests: Mutex<Sender<(Request, Sender<bool>)>>,
     }
 
     static HUB: Mutex<Option<Arc<Hub>>> = Mutex::new(None);
@@ -934,10 +946,11 @@ mod system {
             }
         }
 
-        /// Asks the thread to follow mouse and sticks (`true`) or to let them go; gives whether Windows took it.
-        fn request(&self, follow: bool) -> bool {
+        /// Asks the thread for `request`; gives whether Windows took the registration (`false` also where the
+        /// thread does not answer within [`ANSWER_WAIT`]).
+        fn request(&self, request: Request) -> bool {
             let (tell, answer) = mpsc::channel();
-            if self.requests.lock().unwrap_or_else(PoisonError::into_inner).send((follow, tell)).is_err() {
+            if self.requests.lock().unwrap_or_else(PoisonError::into_inner).send((request, tell)).is_err() {
                 return false;
             }
             // SAFETY: posts a plain message to the thread of the listener; a thread that is gone just fails.
@@ -949,7 +962,7 @@ mod system {
     }
 
     /// The thread: window, keyboard, then the messages for the life of the process.
-    fn serve(shared: &Shared, requests: &Receiver<(bool, Sender<bool>)>, started: &Sender<Option<(u32, isize)>>) {
+    fn serve(shared: &Shared, requests: &Receiver<(Request, Sender<bool>)>, started: &Sender<Option<(u32, isize)>>) {
         let Some(window) = message_window() else {
             let _ = started.send(None);
             return;
@@ -970,8 +983,8 @@ mod system {
         while unsafe { GetMessageW(&raw mut message, std::ptr::null_mut(), 0, 0) } > 0 {
             if message.hwnd.is_null() {
                 if message.message == REQUEST {
-                    while let Ok((follow, answer)) = requests.try_recv() {
-                        let _ = answer.send(switch(shared, &mut local, window, follow));
+                    while let Ok((request, answer)) = requests.try_recv() {
+                        let _ = answer.send(switch(shared, &mut local, window, request));
                     }
                 }
                 continue;
@@ -991,15 +1004,23 @@ mod system {
         unsafe { DestroyWindow(window) };
     }
 
-    /// Follows mouse and sticks, or lets them go. A following starts empty: no stick, no input of before.
-    fn switch(shared: &Shared, local: &mut Local, window: HWND, follow: bool) -> bool {
-        if !follow {
-            return register(&followed(), None);
+    /// Follows mouse and sticks, lets them go, or registers again what the listener holds. A following starts
+    /// empty: no stick, no input of before; a renewal keeps both.
+    fn switch(shared: &Shared, local: &mut Local, window: HWND, request: Request) -> bool {
+        match request {
+            Request::Release => register(&followed(), None),
+            Request::Follow => {
+                shared.states.lock().unwrap_or_else(PoisonError::into_inner).clear();
+                local.positions.clear();
+                shared.clock.restart_at(shared.clock.now_ms());
+                register(&followed(), Some(window))
+            }
+            Request::Renew => {
+                let keyboard = register(&[KEYBOARD_USAGE], Some(window));
+                let rest = !shared.following.load(Ordering::SeqCst) || register(&followed(), Some(window));
+                keyboard && rest
+            }
         }
-        shared.states.lock().unwrap_or_else(PoisonError::into_inner).clear();
-        local.positions.clear();
-        shared.clock.restart_at(shared.clock.now_ms());
-        register(&followed(), Some(window))
     }
 
     /// Takes one packet: a key event goes to the clock and to the callbacks; mouse and sticks count only while
@@ -1074,10 +1095,10 @@ mod system {
             if hub.shared.following.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
                 return None;
             }
-            if hub.request(true) {
+            if hub.request(Request::Follow) {
                 return Some(Listener { hub });
             }
-            hub.request(false);
+            hub.request(Request::Release);
             hub.shared.following.store(false, Ordering::SeqCst);
             None
         }
@@ -1108,13 +1129,20 @@ mod system {
         pub fn keyboard_ours(&self) -> bool {
             target_of(KEYBOARD_USAGE) == Some(self.hub.window)
         }
+
+        /// Registers keyboard, mouse and sticks for the window of the listener again (taken back where another
+        /// window of the process took them); the following and its clock go on. Gives whether the thread answered
+        /// and Windows took it.
+        pub fn renew(&self) -> bool {
+            self.hub.request(Request::Renew)
+        }
     }
 
     impl Drop for Listener {
         /// Lets mouse and sticks go and waits for it: a new value must not register before this one took its
         /// registration away.
         fn drop(&mut self) {
-            self.hub.request(false);
+            self.hub.request(Request::Release);
             self.hub.shared.following.store(false, Ordering::SeqCst);
         }
     }
@@ -1168,6 +1196,10 @@ mod system {
             // After the first: its registration was taken away, a new one can be made.
             let again = Listener::start().expect("again");
             assert!(again.running() && again.keyboard_ours());
+            // A renewal keeps everything with the listener and the following going.
+            assert!(again.renew(), "the thread answers and Windows takes the registration again");
+            assert!(again.keyboard_ours());
+            assert_eq!(super::target_of(super::MOUSE_USAGE), Some(again.hub.window), "the mouse is still followed");
         }
 
         /// By hand, on the desktop that gets the input: `cargo test -p versekit-core --lib --

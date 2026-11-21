@@ -41,8 +41,12 @@ pub(super) const KOFI_URL: &str = "https://ko-fi.com/xharig";
 /// sit in the fold "Kopplung verwalten" of Mein Hangar, the wishlist is the section "Planned" of it, the
 /// dismantle calculation is a view of the page "Dismantle & Salvage", and the evaluation of the statistics is
 /// part of their overview, the relations are a tab of the handle search, and the shader cache is the last card of
-/// the graphics page, and the detection is drawn at the top of the general settings.
-const REMOVED_PAGES: [(&str, &str); 7] = [
+/// the graphics page, and the detection is drawn at the top of the general settings. The list of what to farm is a
+/// view of the crafting page, the progress a view of the blueprint list, the refineries a view of the mining page.
+const REMOVED_PAGES: [(&str, &str); 10] = [
+    ("hf_farmliste", "hf_herstellung"),
+    ("hf_fortschritt", "hf_liste"),
+    ("hf_raffinerien", "hf_bergbau"),
     ("hf_erkennung", "hf_allgemein"),
     ("hf_beziehungen", "hf_handlesuche"),
     ("hf_hangar_einlieferung", "hf_hangar"),
@@ -56,7 +60,7 @@ const REMOVED_PAGES: [(&str, &str); 7] = [
 const SEEN_FILE: &str = "gesehen.json";
 /// Which area came with which version (the names as `gesehen.json` keeps them, 4.12 `NEW_SINCE`). The page of an
 /// area is `hf_<area>`; an area without such a page carries no mark. A new area: one line here.
-pub(super) const NEW_SINCE: [(&str, &str); 28] = [
+pub(super) const NEW_SINCE: [(&str, &str); 26] = [
     ("statistik", "3.58.0"),
     ("darstellung", "3.58.0"),
     ("basetool", "3.61.0"),
@@ -77,14 +81,12 @@ pub(super) const NEW_SINCE: [(&str, &str); 28] = [
     ("herstellung", "3.3.0"),
     ("bergbau", "3.3.0"),
     ("liste", "3.0.0"),
-    ("fortschritt", "3.0.0"),
     ("bestand", "3.0.0"),
     ("wasistneu", "3.0.0"),
     ("ueber", "3.0.0"),
     ("diagnose", "3.0.0"),
     ("serverstatus", "3.0.0"),
     ("danke", "3.0.0"),
-    ("farmliste", "5.0.0"),
 ];
 
 /// "2.2.0" as (2, 2, 0); what cannot be read counts as 0 (4.12 `_parts`).
@@ -152,12 +154,24 @@ impl SamplePage {
         REMOVED_PAGES.iter().find(|(old, _)| *old == page).map(|(_, to)| *to)
     }
 
+    /// The page `old` is a view of the page that took over: that view comes up (the progress of the blueprint list,
+    /// what to farm on the crafting page, the refineries on the mining page).
+    pub(super) fn show_view_of(&mut self, old: &str) {
+        match old {
+            "hf_farmliste" => self.craft_farm = true,
+            "hf_fortschritt" => self.list_progress = true,
+            "hf_raffinerien" => self.mining_refineries = true,
+            _ => {}
+        }
+    }
+
     /// A page that was taken out of the menu and may still be named (a stored last page, a pinned
     /// tile): the page that took over opens instead, and the setting that was on the old page
     /// opens with it.
     pub(super) fn follow_removed_page(&mut self, now: f64) {
         if let Some((old, to)) = REMOVED_PAGES.iter().find(|(old, _)| *old == self.page) {
             self.page = (*to).to_string();
+            self.show_view_of(old);
             if *old == "hf_shader" {
                 // The card of the shader cache is framed and scrolled into view, as a hit of the menu filter.
                 self.highlight = Some((t("s_sc_titel"), now));
@@ -717,6 +731,22 @@ pub(in crate::sample) mod tests {
             texts
         }
 
+        /// Scrolls the page down to its foot, as a person does with the wheel, and lets it settle.
+        pub(in crate::sample) fn scroll_to_foot(&mut self) {
+            let down = Event::MouseWheel {
+                unit: egui::MouseWheelUnit::Point,
+                delta: egui::vec2(0.0, -120.0),
+                modifiers: egui::Modifiers::NONE,
+                phase: egui::TouchPhase::Move,
+                source: egui::MouseWheelSource::Wheel,
+            };
+            self.frame(vec![Event::PointerMoved(Pos2::new(800.0, 450.0))]);
+            for _ in 0..60 {
+                self.frame(vec![down.clone()]);
+            }
+            self.settle();
+        }
+
         /// Where the `nth` text that reads `label` stands, counted from the top.
         fn place(&mut self, label: &str, nth: usize) -> Pos2 {
             let texts = self.settle();
@@ -1085,12 +1115,62 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The sounds of the scans on the overlay page: each with its name and a button a screen reader names with it;
+    /// a click plays that sound at the volume set and says that it plays. At 0 % the buttons play nothing.
+    #[test]
+    fn every_sound_of_the_scans_can_be_heard_on_the_overlay_page() {
+        use versekit_core::language::Arg;
+        use versekit_core::sound::Cue;
+        static PLAYED: std::sync::Mutex<Vec<(Cue, i64)>> = std::sync::Mutex::new(Vec::new());
+        fn note(cue: Cue, volume: i64) {
+            PLAYED.lock().unwrap().push((cue, volume));
+        }
+        let played = || PLAYED.lock().unwrap().clone();
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("toene-anhoeren", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 4000.0;
+        bench.page.play_sound = note;
+        bench.page.volume = 45;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let shown = |text: &str| texts.iter().any(|(t, _)| t == text);
+        assert!(shown(&language::t("s_ei_toene")), "the card of the sounds");
+        for cue in Cue::SCAN {
+            let name = language::t(cue.name_key().expect("a name"));
+            assert!(shown(&name), "{name}");
+            let spoken = language::tf("s_ton_anhoeren_n", &[("0", Arg::from(name.as_str()))]);
+            let buttons = bench.named(&spoken);
+            assert_eq!(buttons.len(), 1, "one button named „{spoken}“");
+            bench.time = Some(100.0);
+            bench.click_at(buttons[0].center());
+            assert_eq!(played().last(), Some(&(cue, 45)), "{cue:?}");
+            let texts = bench.frame(Vec::new());
+            assert!(texts.iter().any(|(t, _)| *t == language::t("s_ton_spielt")), "it says that it plays");
+            bench.time = Some(110.0);
+            let texts = bench.settle();
+            assert!(!texts.iter().any(|(t, _)| *t == language::t("s_ton_spielt")), "and stops saying it");
+            bench.time = None;
+        }
+        assert_eq!(played().len(), Cue::SCAN.len());
+        // Silent: the buttons wait with the reason, nothing plays.
+        bench.page.volume = 0;
+        let name = language::t("s_ton_erfasst");
+        let spoken = language::tf("s_ton_anhoeren_n", &[("0", Arg::from(name.as_str()))]);
+        let at = bench.named(&spoken).first().map(|r| r.center());
+        if let Some(at) = at {
+            bench.click_at(at);
+        }
+        assert_eq!(played().len(), Cue::SCAN.len(), "at 0 % nothing plays");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// The hotkey of the refinery scan on the overlay page: changed in its picker, said as registered while the
     /// overlay runs, refused without a modifier key, kept in `hotkey_scan`.
     #[test]
     fn the_hotkey_of_the_refinery_scan_is_changed_said_and_refused_without_a_modifier() {
         let _language = crate::language_lock();
-        let (page, dir) = real_page("scan-taste", "", &[]);
+        let (page, dir) = real_page("scan-taste", r#"{"hotkey_scan": "Alt+Umschalt+R"}"#, &[]);
         let mut bench = Bench::new(page);
         // Tall enough for the picker of the scan, the second one of the page.
         bench.height = 1800.0;
@@ -1136,7 +1216,7 @@ pub(in crate::sample) mod tests {
     #[test]
     fn the_hotkey_of_the_handle_search_is_on_at_first_changed_and_refused_without_a_modifier() {
         let _language = crate::language_lock();
-        let (page, dir) = real_page("such-taste", "", &[]);
+        let (page, dir) = real_page("such-taste", r#"{"hotkey_suche": "Alt+Umschalt+H"}"#, &[]);
         let mut bench = Bench::new(page);
         bench.page.overlay_runs = || true;
         // The hotkeys of the picture of the game and of the main window below it without their pickers: the one of
@@ -1170,6 +1250,15 @@ pub(in crate::sample) mod tests {
         bench.page.search_hotkey_on = true;
         let texts = bench.settle();
         assert_eq!(pickers(&texts), on, "on again: its picker is back");
+        // Its picker: the one in the line of its name.
+        let line = texts.iter().find(|(t, _)| *t == language::t("s_hk_suche")).map(|(_, at)| at.y).expect("its name");
+        let off = texts
+            .iter()
+            .filter(|(t, _)| *t == strg)
+            .enumerate()
+            .min_by(|a, b| (a.1.1.y - line).abs().total_cmp(&(b.1.1.y - line).abs()))
+            .map(|(n, _)| n)
+            .expect("its picker");
         let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
         assert!(stored.contains("\"hotkey_suche_ein\": true"), "{stored}");
         bench.click_nth(&strg, off);
@@ -1195,7 +1284,7 @@ pub(in crate::sample) mod tests {
     #[test]
     fn the_hotkey_of_the_picture_of_the_game_is_on_at_first_changed_and_refused_without_a_modifier() {
         let _language = crate::language_lock();
-        let (page, dir) = real_page("bild-taste", "", &[]);
+        let (page, dir) = real_page("bild-taste", r#"{"hotkey_bild": "Alt+Umschalt+B"}"#, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
@@ -1245,7 +1334,7 @@ pub(in crate::sample) mod tests {
     #[test]
     fn the_hotkey_of_the_main_window_is_on_at_first_changed_switched_off_and_said_when_taken() {
         let _language = crate::language_lock();
-        let (page, dir) = real_page("haupt-taste", "", &[]);
+        let (page, dir) = real_page("haupt-taste", r#"{"hotkey_hauptfenster": "Alt+Umschalt+F"}"#, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
@@ -1258,7 +1347,7 @@ pub(in crate::sample) mod tests {
         assert!(shown(&texts, &language::t("s_hk_haupt")), "the row: {texts:?}");
         assert!(bench.page.main_hotkey_on, "on at first");
         let current = |page: &SamplePage| hotkey_text(page.main_modifiers, page.main_key);
-        assert_eq!(current(&bench.page).as_deref(), Some(versekit_core::overlay::DEFAULT_MAIN_HOTKEY));
+        assert_eq!(current(&bench.page).as_deref(), Some("Alt+Umschalt+F"));
         let strg = language::t("s_ei_taste_strg");
         let scan_pickers = usize::from(versekit_core::refinery_scan::screen::supported());
         bench.click_nth(&strg, 1 + scan_pickers);
@@ -1275,7 +1364,7 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
 
         // Set by the player on the key of the overlay: its line says by which it is taken.
-        let settings = r#"{"hotkey_hauptfenster": "Alt+Umschalt+V"}"#;
+        let settings = r#"{"hotkey": "Alt+Umschalt+V", "hotkey_hauptfenster": "Alt+Umschalt+V"}"#;
         let (page, dir) = real_page("haupt-taste-belegt", settings, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
@@ -1287,7 +1376,7 @@ pub(in crate::sample) mod tests {
     }
 
     /// A shortcut that is switched off and still has its default key, which another shortcut holds meanwhile (the
-    /// overlay on Alt+Umschalt+B, the default of the picture): switched on, it takes the spare key it would take at
+    /// overlay on Alt+F10, the default of the picture): switched on, it takes the spare key it would take at
     /// the next start (`overlay::resolve`), instead of springing back off (5.2.2, reported by a tester). A key the
     /// player chose by hand is not given away: that row springs back and says who holds the key.
     #[test]
@@ -1297,7 +1386,7 @@ pub(in crate::sample) mod tests {
             return;
         }
         let spare = versekit_core::overlay::SPARE_HOTKEYS[0];
-        let settings = r#"{"hotkey": "Alt+Umschalt+B", "hotkey_bild_an": false}"#;
+        let settings = r#"{"hotkey": "Alt+F10", "hotkey_bild_an": false}"#;
         let (page, dir) = real_page("taste-aus-weicht", settings, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
@@ -1306,7 +1395,7 @@ pub(in crate::sample) mod tests {
         bench.settle();
         assert!(!bench.page.picture_hotkey_on, "switched off in the settings");
         let current = |page: &SamplePage| hotkey_text(page.picture_modifiers, page.picture_key);
-        assert_eq!(current(&bench.page).as_deref(), Some("Alt+Umschalt+B"), "the default, which the overlay holds");
+        assert_eq!(current(&bench.page).as_deref(), Some("Alt+F10"), "the default, which the overlay holds");
         // The switch stands left of the name of the row.
         let name = bench.place(&language::t("s_hk_bild"), 0);
         bench.click_at(name - egui::vec2(30.0, -4.0));
@@ -1315,7 +1404,7 @@ pub(in crate::sample) mod tests {
         assert_eq!(current(&bench.page).as_deref(), Some(spare), "on the spare key, not on the key of the overlay");
         let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
         assert!(stored.contains("\"hotkey_bild_an\": true") && stored.contains(spare), "{stored}");
-        assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Alt+Umschalt+B"));
+        assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Alt+F10"));
         let _ = std::fs::remove_dir_all(dir);
 
         // Counter-check: a key the player chose by hand is kept; the switch springs back and the row says who holds it.
@@ -1341,14 +1430,14 @@ pub(in crate::sample) mod tests {
     fn a_key_another_shortcut_holds_is_refused_and_said() {
         let _language = crate::language_lock();
         // The case of 5.2.1: the overlay on the default of the picture, the picture never touched.
-        let (page, dir) = real_page("taste-doppelt", r#"{"hotkey": "Alt+Umschalt+B"}"#, &[]);
-        assert_eq!(hotkey_text(page.hotkey_modifiers, page.hotkey_key).as_deref(), Some("Alt+Umschalt+B"));
+        let (page, dir) = real_page("taste-doppelt", r#"{"hotkey": "Alt+F10"}"#, &[]);
+        assert_eq!(hotkey_text(page.hotkey_modifiers, page.hotkey_key).as_deref(), Some("Alt+F10"));
         let picture = hotkey_text(page.picture_modifiers, page.picture_key);
         assert_eq!(picture.as_deref(), Some(versekit_core::overlay::SPARE_HOTKEYS[0]), "the spare, not the overlay's");
         let _ = std::fs::remove_dir_all(dir);
 
         // The overlay on Alt+H; Umschalt added would make it the key of the handle search: refused, said, kept.
-        let (page, dir) = real_page("taste-doppelt-wahl", r#"{"hotkey": "Alt+H"}"#, &[]);
+        let (page, dir) = real_page("taste-doppelt-wahl", r#"{"hotkey": "Alt+H", "hotkey_suche": "Alt+Umschalt+H"}"#, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
@@ -1608,7 +1697,7 @@ pub(in crate::sample) mod tests {
         assert!([t("s_uv_lese"), t("s_gr_klasse_leer")].contains(&computer), "{computer}");
         assert_eq!(
             overview.tile("raffinerie").line,
-            "Kein laufender Auftrag bekannt. Drück am Terminal Alt+Umschalt+R.",
+            "Kein laufender Auftrag bekannt. Drück am Terminal F9.",
             "no job known: the hotkey at the terminal starts the time"
         );
         assert_eq!(
@@ -1804,7 +1893,7 @@ pub(in crate::sample) mod tests {
         assert_eq!(view.jump.as_deref(), Some(t(crate::blueprint_list::period_key(view.period)).as_str()));
         let _ = std::fs::remove_dir_all(dir);
 
-        // Nothing this week: the click leads to the progress page as before, the list stays unfiltered.
+        // Nothing this week: the click leads to the progress view of the list as before, the list stays unfiltered.
         let old = format!(r#"{{"bauplaene": {{{}}}}}"#, entry(names[0], 20 * day, "log"));
         let (page, dir) = start_page_in("kacheln-bauplan-alt", "{}", &[(versekit_core::collection::FILE_NAME, &old)]);
         let mut bench = Bench::new(page);
@@ -1818,7 +1907,8 @@ pub(in crate::sample) mod tests {
         let menu = bench.place("Bauplan-Liste", 0).x + 100.0;
         let at = texts.iter().find(|(text, at)| *text == tile.line && at.x > menu).expect("the line of the tile").1;
         bench.click_at(at + egui::vec2(6.0, 6.0));
-        assert_eq!(bench.page.page, "hf_fortschritt");
+        bench.settle();
+        assert_eq!((bench.page.page.as_str(), bench.page.list_progress), ("hf_liste", true));
         assert_eq!(bench.page.blueprint_view.period, versekit_core::overview::Period::All);
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -2922,34 +3012,34 @@ pub(in crate::sample) mod tests {
         // Someone who comes from an older version has a file of seen areas without this one.
         let (page, dir) = real_page("neu-marke", "", &[]);
         drop(page);
-        std::fs::write(dir.join("gesehen.json"), "{\"zuletzt\": \"4.12.0\", \"bereiche\": {}}").unwrap();
+        std::fs::write(dir.join("gesehen.json"), "{\"zuletzt\": \"4.9.0\", \"bereiche\": {}}").unwrap();
         let paths = Paths::new(super::super::real_data::host_in(&dir, &[]));
         // The gallery of this version was closed already: it would take the click below.
         versekit_core::gallery::mark_shown(&paths, env!("CARGO_PKG_VERSION"));
         let page = SamplePage::with_settings(paths);
-        assert_eq!(page.new_pages, ["hf_farmliste"], "the mark shows for someone who updates, only on what is new");
+        assert_eq!(page.new_pages, ["hf_meinlager"], "the mark shows for someone who updates, only on what is new");
         let mut bench = Bench::new(page);
-        bench.click_nth(&language::t("hf_farmliste"), 0);
+        bench.click_nth(&language::t("hf_meinlager"), 0);
         assert!(bench.page.new_pages.is_empty(), "the area was opened");
         let stored = std::fs::read_to_string(dir.join("gesehen.json")).unwrap();
-        assert!(stored.contains("\"farmliste\""), "and it is written down: {stored}");
+        assert!(stored.contains("\"meinlager\""), "and it is written down: {stored}");
         // The next start: the mark does not come back.
         let paths = Paths::new(super::super::real_data::host_in(&dir, &[]));
         assert!(SamplePage::with_settings(paths).new_pages.is_empty(), "gone for good");
         // A tool of the developers brings it back.
         let mut again = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[])));
         again.forget_seen();
-        assert_eq!(again.new_pages, ["hf_farmliste"]);
+        assert_eq!(again.new_pages, ["hf_meinlager"]);
         assert_eq!(
             SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[]))).new_pages,
-            ["hf_farmliste"]
+            ["hf_meinlager"]
         );
         // A fresh install marks nothing and writes down every area as seen.
         let fresh = folder("neu-marke-frisch");
         let page = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&fresh, &[])));
         assert!(page.new_pages.is_empty(), "nothing is marked on a fresh install");
         let stored = std::fs::read_to_string(fresh.join("gesehen.json")).unwrap();
-        assert!(stored.contains("\"liste\"") && stored.contains("\"farmliste\""), "{stored}");
+        assert!(stored.contains("\"liste\"") && stored.contains("\"meinlager\""), "{stored}");
         let _ = (std::fs::remove_dir_all(dir), std::fs::remove_dir_all(fresh));
     }
 
@@ -2960,10 +3050,10 @@ pub(in crate::sample) mod tests {
         let seen_with = |pairs: &'static [(&'static str, &'static str)], last: &'static str| {
             move |area: &str| Some(pairs.iter().find(|(a, _)| *a == area).map_or(last, |(_, v)| *v).to_string())
         };
-        // Coming from 3.90: Mein Lager (4.10), Grafik (3.97), the overview (3.98), Kaufen & Verkaufen (3.92) and the
-        // farm list (5.0) are new. The shader cache has no page of its own any more (a card of Grafik): no mark.
+        // Coming from 3.90: Mein Lager (4.10), Grafik (3.97), the overview (3.98) and Kaufen & Verkaufen (3.92) are
+        // new. The shader cache has no page of its own any more (a card of Grafik): no mark.
         let marked = new_pages("5.0.0", seen_with(&[], "3.90.0"));
-        for page in ["hf_meinlager", "hf_grafik", "hf_verkauf", "hf_farmliste"] {
+        for page in ["hf_meinlager", "hf_grafik", "hf_verkauf"] {
             assert!(marked.contains(&page), "{page} in {marked:?}");
         }
         assert!(!marked.contains(&"hf_shader"), "{marked:?}");
@@ -2972,7 +3062,7 @@ pub(in crate::sample) mod tests {
         let marked = new_pages("5.0.0", seen_with(&[("grafik", "5.0.0")], "3.90.0"));
         assert!(!marked.contains(&"hf_grafik") && marked.contains(&"hf_meinlager"), "{marked:?}");
         // An area of a later version than the own one stays unmarked.
-        assert!(!new_pages("4.12.0", seen_with(&[], "3.0.0")).contains(&"hf_farmliste"));
+        assert!(!new_pages("4.9.0", seen_with(&[], "3.0.0")).contains(&"hf_meinlager"));
         assert_eq!(version_parts("5.0.0-rc2"), (5, 0, 0));
         assert_eq!(version_parts("x"), (0, 0, 0));
     }
@@ -3073,6 +3163,31 @@ pub(in crate::sample) mod tests {
         other.settle();
         assert_eq!(other.page.page, "hf_allgemein");
         assert!(!other.page.hangar.pairing_unfolded());
+    }
+
+    /// The flight log has a pin like the other pages of the statistics, and its pinned card says what the page is.
+    #[test]
+    fn the_flight_log_can_be_pinned_and_its_card_explains_the_page() {
+        let _language = crate::language_lock();
+        let (page, dir) = start_page_in("flugbuch-nadel", r#"{"karten_angeheftet": ["statistik_flugbuch"], "startseite_zuerst": "karten"}"#, &[]);
+        let mut bench = Bench::new(page);
+        for key in ["hf_st_uebersicht", "hf_st_schiffe", "hf_st_auftraege", "hf_st_quantum", "hf_st_stabil", "hf_st_flugbuch"] {
+            bench.page.go_to(key);
+            assert!(bench.page.can_pin(), "{key} has a pin on real data");
+        }
+        bench.page.open_overview();
+        bench.settle();
+        assert!(bench.page.tiles.iter().any(|tile| tile.pinned && tile.key == "hf_st_flugbuch"), "the stored pin is a tile");
+        for (choice, text) in [
+            (language::Choice::De, "Was in einer Sitzung geschah, Zeile für Zeile, zum Exportieren."),
+            (language::Choice::En, "What happened in a session, line by line, ready to export."),
+        ] {
+            language::set_thread_language(choice);
+            bench.page.overview = None;
+            let texts = bench.settle();
+            assert!(texts.iter().any(|(shown, _)| shown == text), "{text}");
+        }
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

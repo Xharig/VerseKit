@@ -38,6 +38,23 @@ fn ids(list: &[&str]) -> Vec<String> {
 }
 
 #[test]
+fn the_flight_log_is_among_the_pages_that_can_be_pinned() {
+    assert_eq!(PAGES.len(), 45, "the count of the pages that can be pinned");
+    assert_eq!(page_key("statistik_flugbuch"), Some("hf_st_flugbuch"));
+    assert_eq!(page_name("hf_st_flugbuch"), Some("statistik_flugbuch"));
+    let names: std::collections::HashSet<_> = PAGES.iter().map(|(name, _)| name).collect();
+    let keys: std::collections::HashSet<_> = PAGES.iter().map(|(_, key)| key).collect();
+    assert!(names.len() == PAGES.len() && keys.len() == PAGES.len(), "no page stands twice");
+    // The card of a pinned page explains it: the pages of the statistics have their short sentence in both languages.
+    for (name, _) in PAGES.iter().filter(|(name, _)| name.starts_with("statistik")) {
+        for lang in [crate::language::Lang::De, crate::language::Lang::En] {
+            let key = description_key(name);
+            assert_ne!(crate::language::t_in(lang, &key), key, "{key} {lang:?}");
+        }
+    }
+}
+
+#[test]
 fn from_the_factory_all_tiles_show_but_the_play_time_while_the_head_bar_hides_it() {
     let (p, root) = paths("factory", "");
     let visible = visible_tiles(&p);

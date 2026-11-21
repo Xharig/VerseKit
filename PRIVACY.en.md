@@ -55,10 +55,10 @@ On Windows, Windows reports every key press to VerseKit (Raw Input). Shortcuts
 cannot work in the game any other way, because Star Citizen switches off the
 ordinary shortcuts of other programs. This runs as long as the overlay runs,
 also without anti-AFK. VerseKit only compares each press with its own
-shortcuts (Alt+Shift with V, R, B, H or F out of the box) and keeps in memory
+shortcuts (Alt+F12, F9, Alt+F10, Alt+F8 and Alt+F11 out of the box) and keeps in memory
 only which keys are held right now and when the last input came. What you type
 is neither stored nor sent, and nothing is intercepted: the game gets the same
-keys. On Linux VerseKit only reserves its own shortcuts (V, H and F) and does
+keys. On Linux VerseKit only reserves its own shortcuts and does
 not see other keys.
 
 ### Screen
@@ -71,8 +71,8 @@ the game, it is in the picture too. On Linux VerseKit does not read the screen.
 |---|---|---|---|
 | Signature scanner | only when switched on, off by default | twice a second the area in the middle of the game picture, after a find only around the number | only the crop around the number: taught ones up to 200 (`signatur-bilder`), uncertain ones up to 12 (`signatur-gemerkt`) |
 | Frame rate from the game | only when switched on, off by default | the top right corner every three seconds | nothing |
-| Refinery (Alt+Shift+R) | on your key press | the whole game window once | only after an uncertain reading the table, otherwise the game picture made smaller (at most 2560 pixels wide), the last three (`raffinerie-bilder`); plus the number cells until My Inventory takes them over (`raffinerie-lesung.json`) |
-| Game picture for the signature window (Alt+Shift+B) | on your key press | the whole game window once | one file, at most 1280 pixels, the next picture replaces it (`Intern/signatur-spielbild.bin`) |
+| Refinery (F9) | on your key press | the whole game window once | only after an uncertain reading the table, otherwise the game picture made smaller (at most 2560 pixels wide), the last three (`raffinerie-bilder`); plus the number cells until My Inventory takes them over (`raffinerie-lesung.json`) |
+| Game picture for the signature window (Alt+F10) | on your key press | the whole game window once | one file, at most 1280 pixels, the next picture replaces it (`Intern/signatur-spielbild.bin`) |
 
 Whole game pictures can show your handle and your aUEC balance. All pictures
 lie in the data folder and go into the backup zip. They are only sent in a
@@ -137,6 +137,7 @@ Once a day VerseKit sends exactly these details to `nutzung-versekit.xharig.com`
 | Program version | `5.2.10` |
 | System | Windows or Linux |
 | Language of the interface and of the game | `de`, `en` |
+| which translation you chose for LIVE, only its source, never an own address | `dymerz_de`, `luftwerft_nl`, `eigene`, `keine` |
 | whether you are offered test versions | yes / no |
 | which areas are switched on | Ships, Workshop, Trade, Basetool … |
 | how the overlay runs | always visible / only on new blueprints |

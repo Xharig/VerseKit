@@ -74,11 +74,25 @@ fn obj(text: &str) -> Map {
     }
 }
 
+/// The translation goes out as the id of its source, an own address only as `eigene`, never anything else.
+#[test]
+fn the_translation_goes_out_as_the_id_of_its_source() {
+    assert_eq!(translation_code(Some("dymerz_de")), "dymerz_de");
+    assert_eq!(translation_code(Some("luftwerft_ptbr")), "luftwerft_ptbr");
+    assert_eq!(translation_code(Some(crate::translation::ORIGINAL)), "original");
+    assert_eq!(translation_code(Some(crate::translation::CUSTOM)), "eigene");
+    assert_eq!(translation_code(None), "keine");
+    assert_eq!(translation_code(Some("  ")), "keine");
+    assert_eq!(translation_code(Some("https://example.org/global.ini")), "andere", "an address never goes out");
+    assert_eq!(translation_code(Some(&"a".repeat(41))), "andere");
+}
+
 fn plain_facts() -> Facts {
     Facts {
         os: "windows",
         ui: "de".into(),
         game: "de".into(),
+        translation: "dymerz_de".into(),
         rc: false,
         mods: vec!["basetool".into(), "schiffe".into()],
         overlay: "immer".into(),
@@ -160,7 +174,7 @@ fn worker_lists() -> Lists {
     }
 }
 
-const WORKER_FIELDS: [&str; 17] = [
+const WORKER_FIELDS: [&str; 18] = [
     "actions",
     "alter",
     "autostart",
@@ -174,6 +188,7 @@ const WORKER_FIELDS: [&str; 17] = [
     "pages",
     "rc",
     "tiles_off",
+    "tr",
     "ui",
     "update",
     "v",
@@ -224,6 +239,12 @@ fn check(text: &str, lists: &Lists) -> Result<(), (u16, String)> {
     }
     if get("overlay").is_some_and(|v| !matches!(v.as_str(), Some("immer" | "popup"))) {
         return bad("overlay");
+    }
+    let source = |s: &str| {
+        (1..=40).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+    };
+    if get("tr").is_some_and(|v| !v.as_str().is_some_and(source)) {
+        return bad("tr");
     }
     let unique_strings = |v: &Value, most: usize, ok: &dyn Fn(&str) -> bool| match v {
         Value::Array(items) if items.len() <= most => {
@@ -557,7 +578,7 @@ fn the_report_is_written_as_python_writes_it() {
         text,
         "{\"v\": \"5.0.0\", \"os\": \"windows\", \"ui\": \"de\", \"game\": \"de\", \"rc\": false, \
          \"mods\": [\"basetool\", \"schiffe\"], \"overlay\": \"immer\", \"autostart\": true, \"update\": true, \
-         \"view\": \"reiter\", \"tiles_off\": [\"spielzeit\"], \"alter\": 3, \"pages\": {\"hangar\": 1, \"liste\": 2}, \
+         \"view\": \"reiter\", \"tiles_off\": [\"spielzeit\"], \"alter\": 3, \"tr\": \"dymerz_de\", \"pages\": {\"hangar\": 1, \"liste\": 2}, \
          \"entry\": {\"liste\": {\"seitenleiste\": 1, \"start\": 1}}, \"clicks\": {\"liste\": {\"2\": 1, \"10\": 1}}, \
          \"misses\": {}, \"actions\": {\"lager_sync\": 3}}"
     );
@@ -585,6 +606,7 @@ fn the_report_holds_no_more_than_the_known_fields() {
             "view",
             "tiles_off",
             "alter",
+            "tr",
             "pages",
             "entry",
             "clicks",
@@ -882,7 +904,7 @@ fn once_a_day_the_report_goes_out_and_the_counters_are_emptied() {
         one.body,
         "{\"v\": \"5.0.0\", \"os\": \"windows\", \"ui\": \"de\", \"game\": \"de\", \"rc\": false, \
          \"mods\": [\"basetool\", \"schiffe\"], \"overlay\": \"immer\", \"autostart\": true, \"update\": true, \
-         \"view\": \"reiter\", \"tiles_off\": [\"spielzeit\"], \"alter\": 3, \"pages\": {\"uebersicht\": 1}, \
+         \"view\": \"reiter\", \"tiles_off\": [\"spielzeit\"], \"alter\": 3, \"tr\": \"dymerz_de\", \"pages\": {\"uebersicht\": 1}, \
          \"entry\": {\"uebersicht\": {\"start\": 1}}, \"clicks\": {\"uebersicht\": {\"0\": 1}}, \"misses\": {}, \
          \"actions\": {\"galerie_offen\": 1}}"
     );

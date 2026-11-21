@@ -51,6 +51,18 @@ const NAMES = { ui: { de: 'Deutsch', en: 'Englisch' }, overlay: { immer: 'immer 
     bergung: 'Bergung', handel: 'Handel', beschaffung: 'Beschaffung', statistiken: 'Statistik' } };
 const langName = (c) => ({ de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch',
   pt: 'Portugiesisch', pl: 'Polnisch', zh: 'Chinesisch', ja: 'Japanisch', ko: 'Koreanisch', ru: 'Russisch', xx: 'unbekannt' }[c] || c);
+// Kennung einer Übersetzungsquelle als „Sprache · Quelle“; Unbekanntes zeigt die Kennung selbst.
+const TR_LANG = { de: 'Deutsch', en: 'Englisch', fr: 'Französisch', it: 'Italienisch', es: 'Spanisch',
+  pt: 'Portugiesisch (PT)', ptbr: 'Portugiesisch (BR)', tr: 'Türkisch', bar: 'Bayrisch', nl: 'Niederländisch' };
+const TR_FIXED = { starstrings: 'Englisch · StarStrings', original: 'Englisch · aus dem Spiel',
+  eigene: 'eigene Adresse', keine: 'keine Übersetzung', andere: 'andere' };
+const trName = (c) => {
+  if (TR_FIXED[c]) return TR_FIXED[c];
+  const m = /^(dymerz|luftwerft)_(.+)$/.exec(c);
+  if (!m) return c;
+  const who = m[1] === 'dymerz' ? 'Dymerz' : 'Luftwerft';
+  return (TR_LANG[m[2]] || m[2]) + ' · ' + who;
+};
 const PAGES = ${asScript(PAGES)};
 const ROUTES = ${asScript({ ...ROUTES, ...ROUTES_V5 })};
 const ACTIONS = ${asScript(ACTIONS)};
@@ -598,6 +610,8 @@ function render(d, span) {
   klein('Sprache der Oberfläche (Durchschnitt 7 Tage)', share('ui').map(([c, v]) => [langName(c), v]), pct);
 
   klein('Sprache des Spiels (Durchschnitt 7 Tage)', share('game').map(([c, v]) => [langName(c), v]), pct);
+  // Die gewählte Übersetzung von LIVE, ab 5.5.0: Sprache und Quelle, damit ungenutzte Quellen auffallen.
+  klein('Übersetzung (Durchschnitt 7 Tage, ab 5.5.0)', share('tr').map(([c, v]) => [trName(c), v]), pct);
   // Jedes Modul steht da, auch eins, das niemand an hat (0 %): sonst fiele ein ganz abgeschaltetes nicht auf.
   // Bergbau und Beschaffung melden erst Fassungen ab 5.1.1, ältere zählen sie unter Herstellung und Schiffe.
   const mods = Object.fromEntries(share('mod'));

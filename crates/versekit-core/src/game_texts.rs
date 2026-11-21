@@ -37,9 +37,10 @@ use crate::errors;
 use crate::game_ini;
 use crate::injection::{self, Inputs, Outcome, item_info, sources};
 use crate::jsonio::{self, Value};
+use crate::luftwerft_list;
 use crate::net::Net;
 use crate::paths::Paths;
-use crate::translation::{self, CUSTOM, ORIGINAL, SOURCES};
+use crate::translation::{self, CUSTOM, ORIGINAL};
 
 /// Writing notes at all (`inj_an`).
 pub const SETTING_ON: &str = "inj_an";
@@ -748,7 +749,8 @@ fn side_notes(paths: &Paths, archive: &dyn Archive, kept: &Kept) -> Option<Outco
 /// the `user.cfg` (4.12 fell back to the first source with a note and so
 /// undid such a choice). Only without any choice the first set up counts.
 pub fn active_source(paths: &Paths) -> Option<String> {
-    let all: Vec<&str> = SOURCES.iter().map(|s| s.id).chain([CUSTOM]).collect();
+    let ids: Vec<String> = game_ini::all_sources(paths).into_iter().map(|(id, _)| id).collect();
+    let all: Vec<&str> = ids.iter().map(String::as_str).chain([CUSTOM]).collect();
     let settings = paths.settings();
     match settings.iter().find(|(k, _)| k == game_ini::SETTING_SOURCE).map(|(_, v)| v) {
         Some(Value::Str(chosen)) => {
@@ -977,6 +979,8 @@ pub struct Ran {
 pub fn run(job: &Job, paths: &Paths, net: &dyn Net, archive: &dyn Archive, game_version: &str) -> Ran {
     let mut ran = Ran::default();
     let mut side_mark = None;
+    // The list of Luftwerft languages is looked at on every run; with its tag it costs nothing when unchanged.
+    luftwerft_list::refresh(net, paths);
     if !job.channels.is_empty() {
         let mark = stock_mark(paths, &sources::owned(paths));
         let sides = side_channels(paths, paths.game_folder().as_deref());

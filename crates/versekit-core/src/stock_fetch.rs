@@ -172,8 +172,9 @@ pub fn live_fetcher(user_agent: &str) -> impl Fn(&str) -> Result<Vec<u8>, FetchE
 
 fn fetcher(user_agent: &str, off: bool) -> impl Fn(&str) -> Result<Vec<u8>, FetchError> + Sync + use<> {
     let agent = (!off).then(|| scmdb::agent(user_agent));
+    // The player's UEX token goes with the requests to UEX, where one is set (`uex_token`).
     move |url: &str| match &agent {
-        Some(agent) => scmdb::fetch_from(agent, url),
+        Some(agent) => crate::uex_token::fetch_through(url, &|url, bearer| scmdb::fetch_answer(agent, url, bearer)),
         None => Err(FetchError::Offline),
     }
 }

@@ -574,7 +574,7 @@ impl HangarState {
             return;
         }
         if hangar::remove(&mut self.held.data, name, maker) {
-            self.message = None;
+            self.message = Some((tf("s_hgl_entfernt", &[("name", Arg::from(name))]), Tone::Good));
             self.save();
         }
     }
@@ -1375,6 +1375,10 @@ fn hand_part(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
     {
         state.enter_by_hand();
     }
+}
+
+/// The message of the last import, entry or removal, in its tone, with a gap under it; nothing without one.
+fn message_line(ui: &mut Ui, scheme: &Scheme, state: &HangarState) {
     if let Some((text, tone)) = &state.message {
         let tone = match tone {
             Tone::Good => scheme.accent,
@@ -1382,6 +1386,7 @@ fn hand_part(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
             Tone::Quiet => scheme.sub,
         };
         small(ui, text, tone);
+        ui.add_space(GAP);
     }
 }
 
@@ -2026,9 +2031,13 @@ pub fn show_page_with(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sou
         .auto_shrink([false, false]);
     widgets::scroll_area(ui, scheme, area, |ui| {
         ui.set_max_width(ui.available_width() - crate::layout::SAFETY);
-        let open = state.adding_open.unwrap_or_else(|| hangar::ships(&state.held.data).is_empty());
+        // Open on an empty hangar when the page is first shown; after that it stays as it is until the player
+        // folds it, so an import does not fold it away under the player's hands.
+        let open = *state.adding_open.get_or_insert_with(|| hangar::ships(&state.held.data).is_empty());
         head_card(ui, scheme, state, open);
         ui.add_space(GAP);
+        // What the last import, entry or removal came to stands here, whether the part above is open or not.
+        message_line(ui, scheme, state);
         if open {
             import_part(ui, scheme, state);
             ui.add_space(GAP);
@@ -2665,6 +2674,46 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// The message of an import, entry or removal shows while the part for adding is folded, and the part does not
+    /// fold by itself when the first ships come in.
+    #[test]
+    fn the_message_shows_with_the_adding_part_folded_and_the_part_stays_as_it_is() {
+        fn texts(ctx: &egui::Context, state: &mut HangarState) -> Vec<String> {
+            fn collect(shape: &egui::Shape, into: &mut Vec<String>) {
+                match shape {
+                    egui::Shape::Text(text) => into.push(text.galley.text().to_string()),
+                    egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| collect(s, into)),
+                    _ => {}
+                }
+            }
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1100.0, 2000.0))),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| show_page(ui, versekit_core::theme::current(), state));
+            output.textures_delta.clear();
+            let mut found = Vec::new();
+            output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut found));
+            found
+        }
+        steady();
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let (mut state, dir) = page_on("meldung", TWO);
+        texts(&ctx, &mut state);
+        assert_eq!(state.adding_open, Some(false), "a hangar with ships: folded, and kept so");
+        state.remove("Gladius", "Aegis");
+        let message = state.message.clone().expect("a message").0;
+        assert!(texts(&ctx, &mut state).contains(&message), "seen with the part folded: {message}");
+        // An empty hangar opens the part, and ships coming in leave it open.
+        let (mut empty, other) = page_on("meldung-leer", r#"{"format": 1, "schiffe": []}"#);
+        texts(&ctx, &mut empty);
+        assert_eq!(empty.adding_open, Some(true));
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&other);
+    }
+
     #[test]
     fn removing_keeps_a_backup_first() {
         steady();
@@ -2672,6 +2721,11 @@ mod tests {
         state.remove("Gladius", "Aegis");
         assert_eq!(std::fs::read_to_string(dir.join("hangar.bak.json")).expect("backup"), TWO);
         assert_eq!(ship_names(&state), vec!["Carrack"]);
+        assert_eq!(
+            state.message.as_ref().map(|(text, tone)| (text.contains("Gladius"), *tone)),
+            Some((true, Tone::Good)),
+            "a removal says so"
+        );
 
         // No backup possible: nothing is removed.
         std::fs::remove_file(dir.join("hangar.bak.json")).expect("away");

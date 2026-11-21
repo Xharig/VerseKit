@@ -38,6 +38,7 @@ use versekit_core::jsonio::Value;
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::paths::Paths;
 use versekit_core::signature_window::{Place, Size};
+use versekit_core::sound::Cue;
 use versekit_core::theme::{self, Color, IconTint, Scheme};
 use versekit_core::window_signal::{self, Role, Signal};
 use versekit_core::{font_size, language};
@@ -54,6 +55,7 @@ mod channel_states;
 mod controls;
 mod desktop_rows;
 mod docking;
+mod uex_token_row;
 #[cfg(test)]
 mod english;
 #[cfg(test)]
@@ -196,6 +198,12 @@ const HOURS: [f32; 7] = [1.5, 0.0, 2.5, 1.0, 4.0, 6.5, 5.0];
 /// Entries of the sample list with row buttons, as language keys.
 const ENTRIES: [&str; 3] = ["s_mu_n_arclight", "s_mu_n_morozov", "s_mu_n_fr66"];
 
+/// What the row of the start with the system says where it may only show the entry (the test build): its state
+/// and why it is left alone.
+fn autostart_shown(on: bool) -> String {
+    tf("s_autostart_nur_anzeige", &[("0", Arg::from(t(if on { "e_an" } else { "e_aus" }).as_str()))])
+}
+
 /// The short names of the weekdays, Monday first, in the language in force.
 fn days() -> Vec<String> {
     t("s_sx_tage").split(',').map(str::to_string).collect()
@@ -314,6 +322,8 @@ pub struct SamplePage {
     autostart_on: bool,
     /// The rows of the page General that differ by system (icon, message of the system, menu entry).
     desktop: desktop_rows::DesktopRows,
+    /// The row of the player's own UEX token on the page General.
+    uex_token: uex_token_row::UexTokenRow,
     /// The text of a `pin_notice` that tells of a fault: that line shows with the warning symbol instead
     /// of the pin (any other line replacing it shows with the pin).
     pin_fault: Option<String>,
@@ -390,6 +400,16 @@ pub struct SamplePage {
     blueprint_view: blueprint_list::ListState,
     /// What the blueprint progress is set to.
     progress_view: blueprint_progress::ProgressState,
+    /// The page "Bauplan-Liste" shows its progress view, not the list.
+    list_progress: bool,
+    /// The page "Bauplan-Liste" shows its scans view: the open questions and the last scans.
+    list_scans: bool,
+    /// The page "Herstellung" shows the list of what to farm, not the crafting.
+    craft_farm: bool,
+    /// The page "Bergbau" shows the table of the refineries, not the mining.
+    mining_refineries: bool,
+    /// The page id the usage counters last saw, to count a switch of the view of a page.
+    view_counted: Option<&'static str>,
     /// The own ships and the hangar delivery from the browser extension.
     hangar: hangar_page::HangarState,
     /// The game's texts: blueprint notes, translation per channel, and the
@@ -516,6 +536,10 @@ pub struct SamplePage {
     main_modifiers: [bool; 3],
     main_key: usize,
     main_hotkey_on: bool,
+    /// The hotkey of the blueprint scan (`hotkey_bauplan`) and whether it is used (`hotkey_bauplan_an`).
+    blueprint_modifiers: [bool; 3],
+    blueprint_key: usize,
+    blueprint_hotkey_on: bool,
     /// Whether the overlay runs: it registers the hotkeys, so only then a new one counts as registered.
     overlay_runs: fn() -> bool,
     /// The window shows a test build (sample page: a click on the version).
@@ -545,6 +569,8 @@ pub struct SamplePage {
     loading: Option<(f64, String, f64)>,
     /// What loads is the new version (then the what is new gallery opens by itself).
     loading_update: bool,
+    /// How far the build of the catalogue stands, for the foot bar on every page.
+    catalog_watch: crate::catalog_progress::BuildWatch,
     /// The start demo of the foot bar ran.
     loading_shown: bool,
     /// Update page: offer test versions; look for versions, install them by itself.
@@ -655,6 +681,10 @@ pub struct SamplePage {
     place_reset_waits: bool,
     sounds: [bool; 3],
     volume: i64,
+    /// Plays a sound at a volume: the one of the system; a test notes it instead.
+    play_sound: fn(Cue, i64),
+    /// The sound played on the page Overlay and until when it plays.
+    sound_playing: Option<(Cue, f64)>,
     saved_at: Option<f64>,
     selection: widgets::Selection,
     revealed: bool,
@@ -887,6 +917,10 @@ impl MainSignals {
         };
         if !key.is_empty() {
             page.open_page(ctx, key, group);
+            // The scanner of the overlay asks for the mining itself, not the refineries.
+            if key == "hf_bergbau" {
+                page.mining_refineries = false;
+            }
             page.usage_route = Some("overlay");
         }
         // The hotkey of the main window shows it without changing its page.
@@ -1362,6 +1396,7 @@ impl SamplePage {
             autostart_command: String::new(),
             autostart_on: false,
             desktop: desktop_rows::DesktopRows::default(),
+            uex_token: uex_token_row::UexTokenRow::default(),
             pin_fault: None,
             heat,
             size: 1,
@@ -1406,6 +1441,11 @@ impl SamplePage {
             blueprints_none: false,
             blueprint_view: blueprint_list::ListState::default(),
             progress_view: blueprint_progress::ProgressState::default(),
+            list_progress: false,
+            list_scans: false,
+            craft_farm: false,
+            mining_refineries: false,
+            view_counted: None,
             hangar: hangar_page::HangarState::default(),
             game_texts: game_texts_page::GameTextsState::default(),
             stock: stock_page::StockState::default(),
@@ -1479,6 +1519,10 @@ impl SamplePage {
                 .map_or([false, true, true], |h| h.0),
             main_key: parse_hotkey(versekit_core::overlay::DEFAULT_MAIN_HOTKEY).map_or(5, |h| h.1),
             main_hotkey_on: true,
+            blueprint_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_BLUEPRINT_HOTKEY)
+                .map_or([false, true, true], |h| h.0),
+            blueprint_key: parse_hotkey(versekit_core::overlay::DEFAULT_BLUEPRINT_HOTKEY).map_or(0, |h| h.1),
+            blueprint_hotkey_on: true,
             overlay_runs: || versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some(),
             test_build: false,
             news_index: 0,
@@ -1494,6 +1538,7 @@ impl SamplePage {
             overview: None,
             loading: None,
             loading_update: false,
+            catalog_watch: crate::catalog_progress::BuildWatch::default(),
             loading_shown: false,
             update_test: false,
             updates: update_page::UpdateUi::offline(env!("CARGO_PKG_VERSION")),
@@ -1566,6 +1611,8 @@ impl SamplePage {
             place_reset_waits: false,
             sounds: [true, true, false],
             volume: 70,
+            play_sound: if cfg!(test) { |_, _| {} } else { versekit_core::sound::play_cue },
+            sound_playing: None,
             saved_at: None,
             selection: widgets::Selection::new(ORES.len()),
             revealed: false,
@@ -1782,6 +1829,57 @@ impl SamplePage {
             },
             Some(Target::Overview | Target::CardView) => self.page.clear(),
             None => {}
+        }
+    }
+
+    /// The row of tabs of a page that has views: the blueprint list (list, progress), the crafting page
+    /// (crafting, what to farm) and the mining page (mining, refineries). Other pages have none.
+    fn page_tabs(&mut self, ui: &mut egui::Ui, scheme: &Scheme) {
+        if self.page == "hf_liste" {
+            self.list_tabs(ui, scheme);
+            return;
+        }
+        let (words, chosen) = match self.page.as_str() {
+            "hf_liste" => (["hf_liste", "hf_fortschritt"], &mut self.list_progress),
+            "hf_herstellung" => (["hf_herstellung", "hf_farmliste"], &mut self.craft_farm),
+            "hf_bergbau" => (["hf_bergbau", "hf_raffinerien"], &mut self.mining_refineries),
+            _ => return,
+        };
+        let names = words.map(t);
+        let mut index = usize::from(*chosen);
+        if widgets::tab_bar(ui, scheme, &[names[0].as_str(), names[1].as_str()], &mut index) {
+            *chosen = index == 1;
+        }
+        ui.add_space(GAP);
+    }
+
+    /// The tabs of the blueprint list: list, progress and scans; the scans tab names how many questions are open.
+    fn list_tabs(&mut self, ui: &mut egui::Ui, scheme: &Scheme) {
+        let open = self.blueprints.scan_all.len();
+        let scans = if open == 0 { t("s_bpscan_reiter") } else { tf("s_bpscan_reiter_offen", &[("0", Arg::from(open))]) };
+        let names = [t("hf_liste"), t("hf_fortschritt"), scans];
+        let mut index = if self.list_scans { 2 } else { usize::from(self.list_progress) };
+        if widgets::tab_bar(ui, scheme, &[names[0].as_str(), names[1].as_str(), names[2].as_str()], &mut index) {
+            self.list_progress = index == 1;
+            self.list_scans = index == 2;
+        }
+        ui.add_space(GAP);
+    }
+
+    /// Sets the mining page to a raw material or place from another page, in its view of the mining (not the
+    /// refineries it may have been left in); the page and its group to jump to.
+    fn jump_to_mining(&mut self, name: &str) -> (String, &'static str) {
+        self.mining.jump_to(name);
+        self.mining_refineries = false;
+        ("hf_bergbau".to_string(), "hf_gruppe_abbau")
+    }
+
+    /// Which pages show their second view.
+    fn views(&self) -> Views {
+        Views {
+            list_progress: self.list_progress,
+            craft_farm: self.craft_farm,
+            mining_refineries: self.mining_refineries,
         }
     }
 
@@ -2110,6 +2208,18 @@ impl SamplePage {
         overflow
     }
 
+    /// A build of the catalogue given from outside (a check, a picture) in place of the real one: the foot bar and
+    /// the blueprint list show `seen`, the list shows `ended` under it.
+    pub fn show_catalog_build(
+        &mut self,
+        seen: Option<versekit_core::build_progress::Snapshot>,
+        ended: Option<crate::catalog_progress::Ended>,
+    ) {
+        self.catalog_watch.set(seen.clone());
+        self.blueprints.set_build_progress(seen);
+        self.blueprints.set_build_ended(ended);
+    }
+
     /// The window model with the settings of a settings file: read once,
     /// and every change written back at once, in the format of 4.12.
     pub fn with_settings(paths: Paths) -> Self {
@@ -2220,7 +2330,8 @@ impl SamplePage {
     fn apply_start_page(&mut self) {
         // A start page taken out of the menu is its successor.
         if let Some(successor) = Self::successor_of(&self.start_page) {
-            self.start_page = successor.to_string();
+            let old = std::mem::replace(&mut self.start_page, successor.to_string());
+            self.show_view_of(&old);
         }
         let known = NAV.iter().any(|(_, pages)| pages.iter().any(|(page, _)| *page == self.start_page));
         if known && !self.page_hidden(&self.start_page) {
@@ -2247,6 +2358,7 @@ impl SamplePage {
         }
         self.usage_started = true;
         self.salvage_counted = self.salvage_view_open();
+        self.view_counted = self.usage_id();
         if let Some(usage) = &self.usage {
             usage.window_opened();
             if let Some(id) = self.usage_id() {
@@ -2262,7 +2374,19 @@ impl SamplePage {
         if self.page == SALVAGE_PAGE {
             return Some(self.salvage.usage_view());
         }
-        usage_page_id(&self.page)
+        usage_page_id(view_key(&self.page, self.views()))
+    }
+
+    /// A switch of the view of a page on the page itself (the tabs of the crafting page and of the blueprint list):
+    /// counted as a jump to the page id of the view, as the progress and the farm list were pages of their own.
+    fn count_page_view(&mut self) {
+        let id = self.usage_id();
+        if self.view_counted.is_some_and(|counted| Some(counted) != id)
+            && let (Some(id), Some(usage)) = (id, &self.usage)
+        {
+            usage.page_opened(id, Some("sprung"), None);
+        }
+        self.view_counted = id;
     }
 
     /// The view of the page "Dismantle & Salvage" while it is open, else `None`.
@@ -2273,6 +2397,7 @@ impl SamplePage {
     /// A page was entered: counted with its way; the gallery counts as opened however it was reached.
     fn count_page(&mut self, route: Option<&str>) {
         self.salvage_counted = self.salvage_view_open();
+        self.view_counted = self.usage_id();
         let Some(usage) = &self.usage else { return };
         if let Some(id) = self.usage_id() {
             usage.page_opened(id, route, None);
@@ -2433,6 +2558,7 @@ impl SamplePage {
         self.gpu_started = self.gpu;
         self.clock_24 = versekit_core::formats::apply_clock(paths);
         self.desktop.load(paths);
+        self.uex_token.load();
         self.mangohud = paths.setting_bool("mangohud", false);
         self.streamer = versekit_core::streamer::load(paths);
         self.apply_streamer(paths);
@@ -2479,7 +2605,7 @@ impl SamplePage {
             use versekit_core::overlay::{self, DEFAULT_SCAN_HOTKEY, HotkeyChoice, keys};
             // As the overlay registers them: one left at its default whose key an earlier one holds shows the spare
             // it takes instead.
-            let [_, scan, search, picture, main] =
+            let [_, scan, search, picture, main, blueprint] =
                 HotkeyChoice::read_all(paths).map(|c| c.combination().map(|h| h.text()));
             let stored = scan
                 .or_else(|| paths.setting(keys::HOTKEY_SCAN))
@@ -2510,6 +2636,13 @@ impl SamplePage {
                 (self.main_modifiers, self.main_key) = (modifiers, key);
             }
             self.main_hotkey_on = overlay::main_hotkey_on(paths);
+            let stored = blueprint
+                .or_else(|| paths.setting(keys::HOTKEY_BLUEPRINT))
+                .unwrap_or_else(|| overlay::DEFAULT_BLUEPRINT_HOTKEY.to_string());
+            if let Some((modifiers, key)) = parse_hotkey(&stored) {
+                (self.blueprint_modifiers, self.blueprint_key) = (modifiers, key);
+            }
+            self.blueprint_hotkey_on = overlay::blueprint_hotkey_on(paths);
         }
         if let Some(place) = paths.setting("overlay_ecke").as_deref().and_then(corner_of) {
             self.overlay_place = place;
@@ -2521,6 +2654,9 @@ impl SamplePage {
         self.update_test = paths.setting_bool("vorabversionen", false);
         self.mining.scanner.load(paths);
         self.progress_view.watch_only = paths.setting_bool(blueprint_progress::WATCHLIST_SETTING, false);
+        self.list_progress = paths.setting(LIST_VIEW_SETTING).as_deref() == Some(PROGRESS_VIEW);
+        self.craft_farm = paths.setting(CRAFT_VIEW_SETTING).as_deref() == Some(FARM_VIEW);
+        self.mining_refineries = paths.setting(MINING_VIEW_SETTING).as_deref() == Some(REFINERY_VIEW);
         self.window = WindowPlace::from_settings(paths);
         // The game folder as set, or as found; a game folder given from outside wins over the
         // setting. The other channels follow below.
@@ -2601,6 +2737,9 @@ impl SamplePage {
             ("overlay_leiste", Value::str(if self.bar_side == settings::BarSide::Bottom { "unten" } else { "oben" })),
             ("vorabversionen", Value::Bool(self.update_test)),
             (blueprint_progress::WATCHLIST_SETTING, Value::Bool(self.progress_view.watch_only)),
+            (LIST_VIEW_SETTING, Value::str(if self.list_progress { PROGRESS_VIEW } else { "liste" })),
+            (CRAFT_VIEW_SETTING, Value::str(if self.craft_farm { FARM_VIEW } else { "herstellung" })),
+            (MINING_VIEW_SETTING, Value::str(if self.mining_refineries { REFINERY_VIEW } else { "bergbau" })),
             ("spiel_ordner", Value::str(&self.live_folder_saved)),
             (versekit_core::paths::SETTING_CHANNEL_FOLDERS, Value::Object(self.channels_saved.clone())),
         ]);
@@ -2640,6 +2779,10 @@ impl SamplePage {
             values.push((versekit_core::overlay::keys::HOTKEY_MAIN, Value::str(hotkey)));
         }
         values.push((versekit_core::overlay::keys::HOTKEY_MAIN_ON, Value::Bool(self.main_hotkey_on)));
+        if let Some(hotkey) = hotkey_text(self.blueprint_modifiers, self.blueprint_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_BLUEPRINT, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_BLUEPRINT_ON, Value::Bool(self.blueprint_hotkey_on)));
         if let Some(window) = &self.window {
             values.extend(window.values());
         }
@@ -3196,6 +3339,12 @@ impl SamplePage {
         self.store.is_some()
     }
 
+    /// Whether the open page can be pinned to the overview: on real data only a page with a card of its own
+    /// (`cards.PAGES`), on the sample page every page.
+    fn can_pin(&self) -> bool {
+        !self.real() || versekit_core::overview::page_name(&self.page).is_some()
+    }
+
     /// Whether the page reads in a thread of its own what it has to show and the answer is still on its way (a
     /// test draws on until it is there).
     #[cfg(test)]
@@ -3385,10 +3534,17 @@ impl SamplePage {
         let idle = self.foot_idle(now);
         // A version being fetched shows its real progress, before anything else that loads.
         let fetching = if self.real() { self.updates.activity() } else { None };
-        let activity = match (&fetching, &activity) {
-            (Some((text, done)), _) => Some(widgets::Activity { text, done: *done }),
-            (None, Some((text, done))) => Some(widgets::Activity { text, done: Some(*done) }),
-            (None, None) => None,
+        // The catalogue being built (here or by the overlay) comes next: it is what the player waits for.
+        let paths = self.store.as_ref().map(|store| &store.paths);
+        self.catalog_watch.poll(ui.ctx(), paths);
+        let cataloguing = self.catalog_watch.seen().map(crate::catalog_progress::foot);
+        let activity = match (&fetching, &cataloguing, &activity) {
+            (Some((text, done)), _, _) => Some(widgets::Activity { text, done: *done, icon: "download" }),
+            (None, Some((text, done)), _) => Some(widgets::Activity { text, done: *done, icon: "database" }),
+            (None, None, Some((text, done))) => {
+                Some(widgets::Activity { text, done: Some(*done), icon: "download" })
+            }
+            (None, None, None) => None,
         };
         let mut open = None;
         let _ = widgets::foot_bar(ui, scheme, &idle, activity.as_ref(), |bar| {
@@ -3744,7 +3900,7 @@ impl SamplePage {
                 self.shown_page.clone_from(&self.page);
             }
             // A find the overlay wrote into the collection shows in the open list and progress, once a second.
-            if self.store.is_some() && matches!(self.page.as_str(), "hf_liste" | "hf_fortschritt") {
+            if self.store.is_some() && self.page == "hf_liste" {
                 self.blueprints.follow_collection(page.input(|i| i.time));
                 page.ctx().request_repaint_after(std::time::Duration::from_secs_f64(blueprint_list::COLLECTION_LOOK));
             }
@@ -3828,7 +3984,7 @@ impl SamplePage {
             // The sync button of the page: next to the heading on the three pages that have an area, only
             // while the area is switched on and the connection stands; in the test mode with the switch on,
             // blocked, saying why.
-            let sync_area = crate::head_sync::setting_of(&self.page)
+            let sync_area = crate::head_sync::setting_of(view_key(&self.page, self.views()))
                 .filter(|_| self.real())
                 .zip(self.connection.wire().cloned())
                 .filter(|(setting, wire)| {
@@ -3865,13 +4021,12 @@ impl SamplePage {
                         let exact = versekit_core::formats::date_time(versekit_core::language::current(), at);
                         widgets::data_age(head, scheme, age, &exact);
                     }
-                } else if let Some((age, exact)) = data_age_of(&self.page).filter(|_| !self.real()) {
+                } else if let Some((age, exact)) = data_age_of(view_key(&self.page, self.views())).filter(|_| !self.real()) {
                     widgets::data_age(head, scheme, age, &exact);
                 }
                 // The pin (like 4.12): pins the page to the overview or loosens it.
                 let extra_page = self.extension.as_ref().is_some_and(|slot| slot.has(&self.page));
-                // On real data only a page with a card of its own can be pinned (`cards.PAGES`).
-                let pinnable = !self.real() || versekit_core::overview::page_name(&self.page).is_some();
+                let pinnable = self.can_pin();
                 if !self.page.is_empty() && !extra_page && pinnable {
                     // On the overview: a tile of this page that is not hidden.
                     let index = self.tiles.iter().position(|tile| tile.key == self.page);
@@ -3893,7 +4048,7 @@ impl SamplePage {
                     }
                 }
                 // Resetting the filters stays at the top right, so it takes no line of the page.
-                let narrowed = match self.page.as_str() {
+                let narrowed = match view_key(&self.page, self.views()) {
                     "hf_liste" => self.blueprint_view.is_narrowed(),
                     "hf_auftragslog" => self.contract_view.is_narrowed(),
                     "hf_meinlager" => self.stock.is_narrowed(),
@@ -3915,7 +4070,7 @@ impl SamplePage {
                         if narrowed {
                             let word = t("ff_zuruecksetzen");
                             if right.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("x")).clicked() {
-                                match self.page.as_str() {
+                                match view_key(&self.page, self.views()) {
                                     "hf_liste" => self.blueprint_view.reset(),
                                     "hf_meinlager" => self.stock.reset(),
                                     "hf_herstellung" => self.crafting.reset(),
@@ -3963,9 +4118,13 @@ impl SamplePage {
                 // Like `layout::page`: a little room so rounding cannot push a full-width row out.
                 page.set_max_width(page.available_width() - layout::SAFETY);
                 let blueprints_missing = self.blueprints.sample;
+                // The progress and the farm list are views of the blueprint list and of the crafting page: the views
+                // switch in a row of tabs, and the page is drawn by the key of the view it shows.
+                self.page_tabs(page, scheme);
+                let shown_key = view_key(&self.page, self.views()).to_string();
                 // A blueprint that is missing from the list: the way to the detection in the settings and the catalog
                 // built again, also where there is no catalog yet.
-                if self.page == "hf_liste"
+                if shown_key == "hf_liste"
                     && let Some(store) = &self.store
                 {
                     if detection_page::missing_row(page, scheme, &mut self.detection, &store.paths) {
@@ -3982,7 +4141,7 @@ impl SamplePage {
                         self.pin_notice = Some((page.input(|i| i.time), said.text));
                     }
                 }
-                if matches!(self.page.as_str(), "hf_herstellung" | "hf_farmliste" | "hf_liste") {
+                if matches!(self.page.as_str(), "hf_herstellung" | "hf_liste") {
                     // What the orgs share, shown next to the own stock of each material and the own blueprints.
                     let (stock, blueprints) = self.orgs.link().indexes(&mut self.org_index);
                     self.crafting.set_org_stock(stock.clone());
@@ -3990,7 +4149,7 @@ impl SamplePage {
                     self.crafting.set_org_blueprints(blueprints.clone());
                     self.blueprints.set_org_blueprints(blueprints);
                 }
-                match self.page.as_str() {
+                match shown_key.as_str() {
                     // No catalog on real data: say so, not that the page comes later.
                     "hf_liste" | "hf_fortschritt" if self.real() && self.blueprints_none => {
                         blueprint_list::no_catalog(page, scheme);
@@ -4167,7 +4326,14 @@ impl SamplePage {
                                         t(blueprint_list::period_key(period)),
                                     );
                                     target = "hf_liste".to_string();
+                                    self.list_progress = false;
+                                    self.list_scans = false;
                                 }
+                            }
+                            // A tile of a page that became a view opens the page it went into, at that view.
+                            if let Some(to) = Self::successor_of(&target) {
+                                self.show_view_of(&target);
+                                target = to.to_string();
                             }
                             if let Some(group) = group_of(&target) {
                                 jump = Some((target, group));
@@ -4228,6 +4394,7 @@ impl SamplePage {
                         let mut mango_said: Option<bool> = None;
                         // The start with the system: does this system have one, and what the entry says now.
                         let autostart_possible = self.autostart.possible();
+                        let autostart_writable = self.autostart.writable();
                         let mut autostart_wanted: Option<bool> = None;
                         let start_choices = self.start_choices();
                         let autostart_on = &mut self.autostart_on;
@@ -4248,6 +4415,10 @@ impl SamplePage {
                         let mut interval_changed = false;
                         let desktop = &mut self.desktop;
                         let mut desktop_wish = None;
+                        let uex_row = &mut self.uex_token;
+                        let mut uex_wish = None;
+                        let on_copy =
+                            self.store.as_ref().is_some_and(|s| versekit_core::testmode::on_copy(&s.paths));
                         settings::settings_page(page, scheme, "allgemein", &group_refs(&groups), &mut |ui, g, r| {
                             let (name, hint, choices) = rows[g].1[r];
                             // The same row for every system: its name says Windows or the login.
@@ -4279,6 +4450,13 @@ impl SamplePage {
                                     // The start with the system is the entry itself, written at once.
                                     (0, 0) if real && !autostart_possible => {
                                         row.label(RichText::new(language::t("s_nicht_moegl")).color(color(scheme.sub)));
+                                    }
+                                    // The test build shows the entry of the installed program and says why it
+                                    // leaves it alone.
+                                    (0, 0) if real && !autostart_writable => {
+                                        row.label(
+                                            RichText::new(autostart_shown(*autostart_on)).color(color(scheme.sub)),
+                                        );
                                     }
                                     (0, 0) if real => {
                                         if row.add(widgets::Toggle::new(autostart_on, scheme)).changed() {
@@ -4393,6 +4571,10 @@ impl SamplePage {
                                     (2, k) => {
                                         row.add(widgets::Toggle::new(&mut sounds[k], scheme));
                                     }
+                                    // The player's own UEX token: field, buttons and how it stands.
+                                    (5, 0) => {
+                                        uex_wish = uex_row.control(row, scheme, on_copy);
+                                    }
                                     // Errors are always written down: no switch, only the line that says so.
                                     (3, 0) => {}
                                     // The daily usage report: stored at the end of the frame with the other settings.
@@ -4440,6 +4622,10 @@ impl SamplePage {
                         if let Some(wanted) = autostart_wanted {
                             let said = self.change_autostart(wanted);
                             self.pin_notice = Some((page.input(|i| i.time), said));
+                        }
+                        if let Some(wish) = uex_wish {
+                            let real = self.store.as_ref().filter(|_| real).map(|s| &s.paths);
+                            self.uex_token.apply(wish, real, page.ctx());
                         }
                         if let Some(wish) = desktop_wish {
                             let host = self.store.as_ref().map(|s| &s.paths.host);
@@ -4587,6 +4773,14 @@ impl SamplePage {
                             (&mut self.main_modifiers, &mut self.main_key, &mut self.main_hotkey_on);
                         let main_before = main_on.then(|| hotkey_text(*main_modifiers, *main_key)).flatten();
                         let mut main_refused = false;
+                        let (blueprint_modifiers, blueprint_key, blueprint_on) =
+                            (&mut self.blueprint_modifiers, &mut self.blueprint_key, &mut self.blueprint_hotkey_on);
+                        let blueprint_before =
+                            blueprint_on.then(|| hotkey_text(*blueprint_modifiers, *blueprint_key)).flatten();
+                        let mut blueprint_refused = false;
+                        // The blueprint scan reads letters with the recognition of the system: only where it can.
+                        let blueprint_possible =
+                            versekit_core::screen_grab::supported() && versekit_core::win_ocr::supported();
                         // The refinery scan reads the screen: only where that works.
                         let scan_possible = versekit_core::refinery_scan::screen::supported();
                         // The picture of the game grabs the screen: only where that works.
@@ -4607,6 +4801,8 @@ impl SamplePage {
                         let (overlay_size, info_bar_size) = (&mut self.overlay_size, &mut self.overlay_info_bar_size);
                         let handles = &mut self.handles;
                         let scanner = &mut self.mining.scanner;
+                        let (volume, play_sound, sound_playing) =
+                            (self.volume, self.play_sound, &mut self.sound_playing);
                         let mut reset = false;
                         let mut hotkey_refused = false;
                         // A key another shortcut holds: the row that holds it.
@@ -4621,7 +4817,7 @@ impl SamplePage {
                             &group_refs(&groups),
                             // Cards of rows in the columns of cards; the signature window, an editor on pictures of
                             // the game, over the whole width under them.
-                            &[8],
+                            &[9],
                             &mut |ui, g, r| {
                                 let r = if bank_hidden && g == 5 && r >= bank_at { r + 1 } else { r };
                                 let (name, hint, choices) = rows[g].1[r];
@@ -4695,13 +4891,14 @@ impl SamplePage {
                                     let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
                                     let keys = hotkey_names();
                                     let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
-                                    // The five as the overlay registers them, before this frame's change.
+                                    // The six as the overlay registers them, before this frame's change.
                                     let rows_before = [
                                         (*modifiers, *key, overlay_on),
                                         (*scan_modifiers, *scan_key, *scan_on && scan_possible),
                                         (*search_modifiers, *search_key, *search_on),
                                         (*picture_modifiers, *picture_key, *picture_on && picture_possible),
                                         (*main_modifiers, *main_key, *main_on),
+                                        (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
                                     ];
                                     let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
                                         match r {
@@ -4709,13 +4906,20 @@ impl SamplePage {
                                             1 => (Some(&mut *scan_on), &mut *scan_modifiers, &mut *scan_key, "overlay-scan"),
                                             2 => (Some(&mut *search_on), &mut *search_modifiers, &mut *search_key, "overlay-suche"),
                                             3 => (Some(&mut *picture_on), &mut *picture_modifiers, &mut *picture_key, "overlay-bild"),
-                                            _ => (Some(&mut *main_on), &mut *main_modifiers, &mut *main_key, "overlay-haupt"),
+                                            4 => (Some(&mut *main_on), &mut *main_modifiers, &mut *main_key, "overlay-haupt"),
+                                            _ => (
+                                                Some(&mut *blueprint_on),
+                                                &mut *blueprint_modifiers,
+                                                &mut *blueprint_key,
+                                                "overlay-bauplan",
+                                            ),
                                         };
-                                    // The refinery scan and the picture of the game read the screen: only where that
-                                    // works.
+                                    // The refinery scan, the picture of the game and the blueprint scan read the
+                                    // screen: only where that works.
                                     let possible = match r {
                                         1 => scan_possible,
                                         3 => picture_possible,
+                                        5 => blueprint_possible,
                                         _ => true,
                                     };
                                     let before = (*held, *chosen);
@@ -4742,7 +4946,8 @@ impl SamplePage {
                                         1 => scan_refused |= refused,
                                         2 => search_refused |= refused,
                                         3 => picture_refused |= refused,
-                                        _ => main_refused |= refused,
+                                        4 => main_refused |= refused,
+                                        _ => blueprint_refused |= refused,
                                     }
                                     // A key another shortcut that is on holds already: the change goes back (a switch
                                     // turned on goes off again), and the reason is said below the page. One press must
@@ -4753,6 +4958,7 @@ impl SamplePage {
                                         (*search_modifiers, *search_key, *search_on),
                                         (*picture_modifiers, *picture_key, *picture_on && picture_possible),
                                         (*main_modifiers, *main_key, *main_on),
+                                        (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
                                     ];
                                     let changed = (rows_now[r].0, rows_now[r].1) != before;
                                     let turned_on = rows_now[r].2 && !rows_before[r].2;
@@ -4769,7 +4975,8 @@ impl SamplePage {
                                             1 => (&mut *scan_modifiers, &mut *scan_key),
                                             2 => (&mut *search_modifiers, &mut *search_key),
                                             3 => (&mut *picture_modifiers, &mut *picture_key),
-                                            _ => (&mut *main_modifiers, &mut *main_key),
+                                            4 => (&mut *main_modifiers, &mut *main_key),
+                                            _ => (&mut *blueprint_modifiers, &mut *blueprint_key),
                                         };
                                         (*held, *chosen) = (spare_modifiers, spare_key);
                                     } else if (changed || turned_on)
@@ -4780,7 +4987,8 @@ impl SamplePage {
                                             1 => (&mut *scan_modifiers, &mut *scan_key, Some(&mut *scan_on)),
                                             2 => (&mut *search_modifiers, &mut *search_key, Some(&mut *search_on)),
                                             3 => (&mut *picture_modifiers, &mut *picture_key, Some(&mut *picture_on)),
-                                            _ => (&mut *main_modifiers, &mut *main_key, Some(&mut *main_on)),
+                                            4 => (&mut *main_modifiers, &mut *main_key, Some(&mut *main_on)),
+                                            _ => (&mut *blueprint_modifiers, &mut *blueprint_key, Some(&mut *blueprint_on)),
                                         };
                                         if changed {
                                             (*held, *chosen) = before;
@@ -4808,6 +5016,30 @@ impl SamplePage {
                                     subheading(ui, scheme, hint, "");
                                     crate::handle_page::show_settings(ui, scheme, handles);
                                 } else if g == 8 {
+                                    // The sounds of the scans: the name, what it means on hover, a button that plays
+                                    // it at the volume set and, while it plays, a word that says so.
+                                    let cue = Cue::SCAN[r];
+                                    let now = ui.input(|i| i.time);
+                                    let sounding = sound_playing.is_some_and(|(c, until)| c == cue && now < until);
+                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                                        let play = label(choices[0]);
+                                        let spoken = tf("s_ton_anhoeren_n", &[("0", Arg::from(name.as_str()))]);
+                                        let silent = (volume <= 0).then(|| t("s_ton_stumm"));
+                                        let button = widgets::Button::new(&play, ButtonKind::Normal, scheme)
+                                            .icon("volume-2")
+                                            .spoken(&spoken)
+                                            .blocked(silent.as_deref());
+                                        if row.add(button).clicked() && volume > 0 {
+                                            play_sound(cue, volume);
+                                            *sound_playing = Some((cue, now + cue.duration().as_secs_f64() + 0.4));
+                                            row.ctx().request_repaint();
+                                        }
+                                        if sounding {
+                                            row.label(RichText::new(t("s_ton_spielt")).color(color(scheme.accent)));
+                                            row.ctx().request_repaint_after(std::time::Duration::from_millis(100));
+                                        }
+                                    });
+                                } else if g == 9 {
                                     // The window with the scanned material: its place and the search frame on two
                                     // models side by side or one below the other (the frame has no row of its own), its
                                     // size and the extra line in the overlay.
@@ -4961,6 +5193,7 @@ impl SamplePage {
                             (search_refused, self.search_modifiers, self.search_key),
                             (picture_refused, self.picture_modifiers, self.picture_key),
                             (main_refused, self.main_modifiers, self.main_key),
+                            (blueprint_refused, self.blueprint_modifiers, self.blueprint_key),
                         ] {
                             if refused {
                                 let saved = hotkey_text(modifiers, key).unwrap_or_default();
@@ -4976,6 +5209,7 @@ impl SamplePage {
                                 (self.search_modifiers, self.search_key),
                                 (self.picture_modifiers, self.picture_key),
                                 (self.main_modifiers, self.main_key),
+                                (self.blueprint_modifiers, self.blueprint_key),
                             ];
                             let (modifiers, key) = rows[by];
                             let combination = hotkey_text(modifiers, key).unwrap_or_default();
@@ -4999,14 +5233,20 @@ impl SamplePage {
                             .flatten();
                         let main_now =
                             self.main_hotkey_on.then(|| hotkey_text(self.main_modifiers, self.main_key)).flatten();
+                        let blueprint_now = self
+                            .blueprint_hotkey_on
+                            .then(|| hotkey_text(self.blueprint_modifiers, self.blueprint_key))
+                            .flatten();
                         let now_hotkeys = [
                             hotkey_text(self.hotkey_modifiers, self.hotkey_key),
                             hotkey_text(self.scan_modifiers, self.scan_key),
                             search_now,
                             picture_now,
                             main_now,
+                            blueprint_now,
                         ];
-                        let before_hotkeys = [hotkey_before, scan_before, search_before, picture_before, main_before];
+                        let before_hotkeys =
+                            [hotkey_before, scan_before, search_before, picture_before, main_before, blueprint_before];
                         for (before, now) in before_hotkeys.into_iter().zip(now_hotkeys) {
                             if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
                                 && (self.overlay_runs)()
@@ -5173,7 +5413,7 @@ impl SamplePage {
                                 Some(folder) => {
                                     let head = language::t("s_sc_da");
                                     widgets::status_box(page, scheme, scheme.accent, "circle-check", &head, folder);
-                                    // A test build (PTU, EPTU, TECH-PREVIEW): its data are confidential by the terms of service.
+                                    // A channel under a non-disclosure agreement (EPTU, TECH-PREVIEW); PTU is public.
                                     if let Some(channel) = game_start::test_channel(folder) {
                                         let said = tf("s_pf_kanal_hinweis", &[("0", Arg::from(channel.as_str()))]);
                                         page.add_space(4.0);
@@ -5382,10 +5622,6 @@ impl SamplePage {
                         crate::org_data_orders_page::show_page(page, scheme, &mut self.org_orders, &link)
                     }
                     "hf_liste" => {
-                        // The list and the progress are two views of the same blueprints: one button leads across.
-                        if cross_button(page, scheme, "chart-column", "s_fg_pl_zum_fortschritt") {
-                            jump = Some(("hf_fortschritt".to_string(), "hf_gruppe_bp"));
-                        }
                         self.blueprint_view.craftable = self.crafting.craftable();
                         // The line to share the own blueprints with an org, only for an org the member may share with.
                         let link = self.orgs.link();
@@ -5397,7 +5633,16 @@ impl SamplePage {
                             let source = crate::org_share::Source::Blueprints(&build);
                             crate::org_share::show(page, scheme, &mut self.org_share_blueprints, &link, &source);
                         }
-                        blueprint_list::show(page, scheme, &mut self.blueprints, &mut self.blueprint_view);
+                        if self.list_scans {
+                            blueprint_list::show_scans(page, scheme, &mut self.blueprints, &mut self.blueprint_view);
+                            // A click on a scanned blueprint looks for it in the list.
+                            if self.blueprint_view.jump_from_scans {
+                                self.blueprint_view.jump_from_scans = false;
+                                self.list_scans = false;
+                            }
+                        } else {
+                            blueprint_list::show(page, scheme, &mut self.blueprints, &mut self.blueprint_view);
+                        }
                         // The crafting page of the blueprint: the item stands open there.
                         if let Some(name) = self.blueprint_view.craft_jump.take() {
                             self.crafting.jump_to(&name);
@@ -5508,22 +5753,13 @@ impl SamplePage {
                         }
                         stock_page::show_page(page, scheme, &mut self.stock)
                     }
-                    "hf_farmliste" => match farm_page::show_page(page, scheme, &mut self.farm, &mut self.crafting) {
-                        // The item opens in Crafting with its recipe.
-                        Some(farm_page::Action::ToCrafting(name)) => {
-                            self.crafting.jump_to(&name);
-                            jump = Some(("hf_herstellung".to_string(), "hf_gruppe_herst"));
+                    "hf_farmliste" => {
+                        if let Some(farm_page::Action::ToMining(search)) =
+                            farm_page::show_page(page, scheme, &mut self.farm, &mut self.crafting)
+                        {
+                            jump = Some(self.jump_to_mining(&search));
                         }
-                        Some(farm_page::Action::ToMining(search)) => {
-                            self.mining.jump_to(&search);
-                            jump = Some(("hf_bergbau".to_string(), "hf_gruppe_abbau"));
-                        }
-                        // The crafting page, where the plan is listed.
-                        Some(farm_page::Action::ToCraftingPage) => {
-                            jump = Some(("hf_herstellung".to_string(), "hf_gruppe_herst"));
-                        }
-                        None => {}
-                    },
+                    }
                     "hf_einkaufsliste" => {
                         shopping_page::show_page(page, scheme, &mut self.shopping, &mut self.crafting)
                     }
@@ -5547,10 +5783,11 @@ impl SamplePage {
                         crate::contract_finder_page::show_page(page, scheme, &mut self.contract_finder);
                     }
                     "hf_bergbau" => {
+                        // The table of all refineries is the other view of this page.
                         if let Some(mining_page::Action::ToRefineries) =
                             mining_page::show_page(page, scheme, &mut self.mining)
                         {
-                            jump = Some(("hf_raffinerien".to_string(), "hf_gruppe_abbau"));
+                            self.mining_refineries = true;
                         }
                     }
                     "hf_raffinerien" => refineries_page::show_page(page, scheme, &mut self.mining),
@@ -5565,15 +5802,13 @@ impl SamplePage {
                                 jump = Some(("hf_liste".to_string(), "hf_gruppe_bp"));
                             }
                             Some(crafting_page::Action::ToMining(material)) => {
-                                self.mining.jump_to(&material);
-                                jump = Some(("hf_bergbau".to_string(), "hf_gruppe_abbau"));
+                                jump = Some(self.jump_to_mining(&material));
                             }
                             Some(crafting_page::Action::ToShops) => {
                                 jump = Some(("hf_laeden".to_string(), "hf_gruppe_handel"));
                             }
-                            Some(crafting_page::Action::ToFarm) => {
-                                jump = Some(("hf_farmliste".to_string(), "hf_gruppe_herst"));
-                            }
+                            // The list of what to farm is the other view of this page.
+                            Some(crafting_page::Action::ToFarm) => self.craft_farm = true,
                             Some(crafting_page::Action::ToHangar) => {
                                 jump = Some(("hf_hangar".to_string(), "hf_gruppe_logistik"));
                             }
@@ -5585,15 +5820,12 @@ impl SamplePage {
                     "hf_bedarf" => demand_page::show_page(page, scheme, &mut self.demand),
                     "hf_bank" => bank_page::show_page(page, scheme, &mut self.bank),
                     "hf_fortschritt" => {
-                        if cross_button(page, scheme, "clipboard-list", "s_fg_pl_zur_liste") {
-                            jump = Some(("hf_liste".to_string(), "hf_gruppe_bp"));
-                        }
-                        // A jump that brings its filter along.
+                        // A jump that brings its filter along: the list shows it.
                         if let Some((to, from)) =
                             blueprint_progress::show(page, scheme, &self.blueprints, &mut self.progress_view)
                         {
                             self.blueprint_view.jump(to, from);
-                            jump = Some(("hf_liste".to_string(), "hf_gruppe_bp"));
+                            self.list_progress = false;
                         }
                     }
                     "hf_auftragslog" => {
@@ -5731,6 +5963,8 @@ impl SamplePage {
                 _ => {}
             }
             self.count_salvage_view();
+            // Before the jump below: a new page counts as a page, once it is drawn.
+            self.count_page_view();
             for key in self.stock.take_counted() {
                 self.count_action(key);
             }
@@ -6092,19 +6326,17 @@ const GROUP_SETTINGS: [(&str, &str); 10] = [
 /// for the game to close is told on these pages.
 const TOPIC_PAGES: [(&str, &[&str]); 5] = [
     ("texts", &["hf_uebersetzung"]),
-    ("catalog", &["hf_liste", "hf_fortschritt", "hf_herstellung", "hf_farmliste", CONTRACT_FINDER_PAGE]),
+    ("catalog", &["hf_liste", "hf_herstellung", CONTRACT_FINDER_PAGE]),
     ("signatures", &["hf_bergbau", "hf_allgemein"]),
     ("values", &["hf_hangar"]),
     ("controls", &["hf_joysticks"]),
 ];
 
 /// The pages whose data come out of the game archive: where the data of a test channel are marked as preliminary.
-const ARCHIVE_PAGES: [&str; 10] = [
+const ARCHIVE_PAGES: [&str; 8] = [
     "hf_liste",
     CONTRACT_FINDER_PAGE,
-    "hf_fortschritt",
     "hf_herstellung",
-    "hf_farmliste",
     "hf_bergbau",
     "hf_uebersetzung",
     "hf_joysticks",
@@ -6115,11 +6347,7 @@ const ARCHIVE_PAGES: [&str; 10] = [
 const NAV: [(&str, &[(&str, &str)]); 10] = [
     (
         "hf_gruppe_bp",
-        &[
-            ("hf_liste", "clipboard-list"),
-            ("hf_fortschritt", "chart-column"),
-            ("hf_auftragslog", "notebook-pen"),
-        ],
+        &[("hf_liste", "clipboard-list"), ("hf_auftragslog", "notebook-pen")],
     ),
     (
         "hf_gruppe_logistik",
@@ -6130,8 +6358,8 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
             (ORG_STOCK_PAGE, "warehouse"),
         ],
     ),
-    ("hf_gruppe_herst", &[("hf_herstellung", "zap"), ("hf_farmliste", "diamond")]),
-    ("hf_gruppe_abbau", &[("hf_bergbau", "compass"), ("hf_raffinerien", "factory"), ("hf_bergung", "wrench")]),
+    ("hf_gruppe_herst", &[("hf_herstellung", "zap")]),
+    ("hf_gruppe_abbau", &[("hf_bergbau", "compass"), ("hf_bergung", "wrench")]),
     (
         "hf_gruppe_handel",
         &[("hf_laeden", "store"), ("hf_verkauf", "coins"), ("hf_routen", "route"), ("hf_bank", "landmark")],
@@ -6277,7 +6505,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_dauer", "ov_s_dauer_h", &["s_ov_sek_sichtbar"]),
                 ],
             ),
-            // The five shortcuts, one line each: switch, name, modifier keys, key.
+            // The six shortcuts, one line each: switch, name, modifier keys, key.
             (
                 "s_ov_gruppe_kuerzel",
                 &[
@@ -6286,6 +6514,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_hk_suche", "s_hk_suche_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_bild", "s_hk_bild_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_haupt", "s_hk_haupt_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_bauplan", "s_hk_bauplan_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             // The events that open the folded or waiting overlay, one switch each (the order of
@@ -6337,6 +6566,18 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
             ),
             // The settings of the handle search, which shows in the bar: a card of its own.
             ("s_hqs_einstellungen", &[("s_hqs_einstellungen", "s_hqs_einstellungen_h", &[])]),
+            // The sounds of the scans by hotkey, one row each with a button that plays it (the order of
+            // `versekit_core::sound::Cue::SCAN`).
+            (
+                "s_ei_toene",
+                &[
+                    ("s_ton_taste", "s_ton_taste_h", &["s_ton_anhoeren"]),
+                    ("s_ton_erfasst", "s_ton_erfasst_h", &["s_ton_anhoeren"]),
+                    ("s_ton_schon", "s_ton_schon_h", &["s_ton_anhoeren"]),
+                    ("s_ton_frage", "s_ton_frage_h", &["s_ton_anhoeren"]),
+                    ("s_ton_nichts", "s_ton_nichts_h", &["s_ton_anhoeren"]),
+                ],
+            ),
             // The window of the signature scanner, the part for mining, after the overlay itself.
             (
                 "s_sg_titel",
@@ -6580,9 +6821,12 @@ fn keep_hotkey(modifiers: &mut [bool; 3], key: &mut usize, before: ([bool; 3], u
     refused
 }
 
-/// The combinations of the five shortcuts of the overlay (the order of `overlay::Shortcut::ALL`: modifiers, key and
+/// The shortcuts of the overlay.
+const SHORTCUTS: usize = versekit_core::overlay::SHORTCUTS;
+
+/// The combinations of the shortcuts of the overlay (the order of `overlay::Shortcut::ALL`: modifiers, key and
 /// whether it is on and can be had here) that are registered; `None` for one that is not.
-fn active_hotkeys(rows: [([bool; 3], usize, bool); 5]) -> [Option<String>; 5] {
+fn active_hotkeys(rows: [([bool; 3], usize, bool); SHORTCUTS]) -> [Option<String>; SHORTCUTS] {
     rows.map(|(modifiers, key, on)| on.then(|| hotkey_text(modifiers, key)).flatten())
 }
 
@@ -6590,12 +6834,23 @@ fn active_hotkeys(rows: [([bool; 3], usize, bool); 5]) -> [Option<String>; 5] {
 /// key, which it still has as its default and another shortcut holds: the first of `overlay::SPARE_HOTKEYS` that none
 /// of the others holds. `None` for a key the player chose (it is not given away) and where no spare is free. The same
 /// choice `overlay::resolve` makes for a shortcut left at its default when the overlay starts.
-fn spare_for(r: usize, active: &[Option<String>; 5], current: ([bool; 3], usize)) -> Option<([bool; 3], usize)> {
+fn spare_for(
+    r: usize,
+    active: &[Option<String>; SHORTCUTS],
+    current: ([bool; 3], usize),
+) -> Option<([bool; 3], usize)> {
     use versekit_core::overlay::{
-        DEFAULT_HOTKEY, DEFAULT_MAIN_HOTKEY, DEFAULT_PICTURE_HOTKEY, DEFAULT_SCAN_HOTKEY, DEFAULT_SEARCH_HOTKEY,
-        SPARE_HOTKEYS,
+        DEFAULT_BLUEPRINT_HOTKEY, DEFAULT_HOTKEY, DEFAULT_MAIN_HOTKEY, DEFAULT_PICTURE_HOTKEY, DEFAULT_SCAN_HOTKEY,
+        DEFAULT_SEARCH_HOTKEY, SPARE_HOTKEYS,
     };
-    let defaults = [DEFAULT_HOTKEY, DEFAULT_SCAN_HOTKEY, DEFAULT_SEARCH_HOTKEY, DEFAULT_PICTURE_HOTKEY, DEFAULT_MAIN_HOTKEY];
+    let defaults = [
+        DEFAULT_HOTKEY,
+        DEFAULT_SCAN_HOTKEY,
+        DEFAULT_SEARCH_HOTKEY,
+        DEFAULT_PICTURE_HOTKEY,
+        DEFAULT_MAIN_HOTKEY,
+        DEFAULT_BLUEPRINT_HOTKEY,
+    ];
     if parse_hotkey(defaults.get(r)?)? != current {
         return None;
     }
@@ -6606,13 +6861,13 @@ fn spare_for(r: usize, active: &[Option<String>; 5], current: ([bool; 3], usize)
 }
 
 /// The earlier shortcut that holds the combination of row `r`: the overlay does not register a later one on it.
-fn earlier_holder(r: usize, active: &[Option<String>; 5]) -> Option<usize> {
+fn earlier_holder(r: usize, active: &[Option<String>; SHORTCUTS]) -> Option<usize> {
     let mine = active.get(r)?.as_ref()?;
     active[..r].iter().position(|other| other.as_ref() == Some(mine))
 }
 
 /// Any other shortcut that holds the combination of row `r`: the picker gives no key to two of them.
-fn any_holder(r: usize, active: &[Option<String>; 5]) -> Option<usize> {
+fn any_holder(r: usize, active: &[Option<String>; SHORTCUTS]) -> Option<usize> {
     let mine = active.get(r)?.as_ref()?;
     (0..active.len()).find(|&i| i != r && active[i].as_ref() == Some(mine))
 }
@@ -6680,6 +6935,8 @@ const GENERAL_PRIVACY: &[Row] = &[
 ];
 const GENERAL_IN_GAME: &[Row] =
     &[("s_ei_mango", "s_ei_mango_h", &["s_ei_nur_linux"]), ("s_takt", "s_takt_h", &["s_sek"])];
+// The player's own UEX token (`uex_token_row`), with the buttons it shows.
+const GENERAL_UEX: &[Row] = &[("s_uex_token", "s_uex_token_h", &["s_uex_speichern", "s_uex_testen", "s_uex_entfernen"])];
 
 /// The page General.
 const GENERAL: Groups = &[
@@ -6688,6 +6945,7 @@ const GENERAL: Groups = &[
     ("s_ei_toene", GENERAL_SOUNDS),
     ("s_ei_datenschutz", GENERAL_PRIVACY),
     ("s_ei_im_spiel", GENERAL_IN_GAME),
+    ("s_uex_titel", GENERAL_UEX),
 ];
 
 /// [`GENERAL`] without the row of the entry in the application menu.
@@ -6697,6 +6955,7 @@ const GENERAL_WITHOUT_MENU: Groups = &[
     ("s_ei_toene", GENERAL_SOUNDS),
     ("s_ei_datenschutz", GENERAL_PRIVACY),
     ("s_ei_im_spiel", GENERAL_IN_GAME),
+    ("s_uex_titel", GENERAL_UEX),
 ];
 
 /// What the real page Grafik shows as settings, for the menu filter: the same names, hints and choices as
@@ -6839,6 +7098,10 @@ fn search_infos(page: &str, sample: bool, shown: &dyn Fn(&str) -> bool) -> Vec<S
             "s_fv_optimalpunkt",
             "s_fv_optimalpunkt_hilfe",
             "s_fv_hinweis_deutung",
+            "s_inst_titel",
+            "s_fv_w_breite",
+            "s_fv_w_hoehe",
+            "s_fv_w_fov",
         ]
         .iter()
         .map(|key| t(key))
@@ -6952,6 +7215,7 @@ fn search_infos(page: &str, sample: bool, shown: &dyn Fn(&str) -> bool) -> Vec<S
             "s_gr_index",
             "s_gr_schreiben",
             "s_gr_verwerfen",
+            "s_inst_titel",
         ]
         .iter()
         .map(|key| t(key))
@@ -6989,6 +7253,7 @@ fn language_infos(page: &str, shown: &dyn Fn(&str) -> bool) -> Vec<String> {
             "s_sa_neu",
             "s_sa_auto",
             "s_sx_export",
+            "s_sx_export_html",
         ],
         "hf_st_schiffe" => &[
             "s_ss_lead",
@@ -7060,8 +7325,18 @@ fn base_infos(page: &str) -> Vec<String> {
             "s_ub_test",
             "s_ub_einrichtung",
         ]),
-        "hf_liste" => texts(&["s_bp_suche_platz", "filter_deckel", "s_bp_leg_start", "s_fg_pl_zum_fortschritt"]),
-        "hf_fortschritt" => texts(&["s_fg_pl_zur_liste"]),
+        // The mining and its view of the refineries: the name of the view and what its table says.
+        "hf_bergbau" => texts(&["hf_raffinerien", "s_rf_lead", "s_rf_material", "s_bg_raff_alle"]),
+        // The list and its progress view: the names of the views, so the filter finds the progress here.
+        "hf_liste" => texts(&[
+            "s_bp_suche_platz",
+            "filter_deckel",
+            "s_bp_leg_start",
+            "hf_fortschritt",
+            "s_fo_alle",
+            "s_fo_merk",
+            "s_fo_lohnt",
+        ]),
         "hf_meinlager" => STOCK.iter().map(|(name, ..)| name.to_string()).collect(),
         "hf_sichern" => {
             let mut words: Vec<String> = texts(&[
@@ -7094,9 +7369,7 @@ fn base_infos(page: &str) -> Vec<String> {
             "s_fg_pl_reicht",
             "s_fg_pl_filter",
             "s_fg_pl_zur_farm",
-        ]),
-        "hf_farmliste" => texts(&[
-            "s_fg_pl_zur_herstellung",
+            "hf_farmliste",
             "s_fl_sammel_kopf",
             "s_fl_alles_da",
             "s_fl_ohne_fundort",
@@ -7175,15 +7448,6 @@ fn base_infos(page: &str) -> Vec<String> {
         ]),
         _ => Vec::new(),
     }
-}
-
-/// A button at the top of a page that leads to the page that shows the same things in another way: `icon` and the text
-/// key of its words. Whether it was clicked.
-fn cross_button(ui: &mut egui::Ui, scheme: &Scheme, icon: &str, words: &str) -> bool {
-    let word = t(words);
-    let clicked = ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon(icon)).clicked();
-    ui.add_space(4.0);
-    clicked
 }
 
 /// The line of a page or tile whose real data are not in this version yet.
@@ -7386,6 +7650,36 @@ fn usage_page_id(key: &str) -> Option<&'static str> {
         "hf_bank" => Some("basetool"),
         // Any other page by its name in the overview, where the receiver knows that name; otherwise none.
         _ => versekit_core::overview::page_name(key).filter(|id| versekit_core::usage::PAGES.contains(id)),
+    }
+}
+
+/// The settings of the view the blueprint list, the crafting page and the mining page were left in, and the words
+/// they hold for the views that were pages of their own.
+const LIST_VIEW_SETTING: &str = "bauplaene_ansicht";
+const CRAFT_VIEW_SETTING: &str = "herstellung_ansicht";
+const MINING_VIEW_SETTING: &str = "bergbau_ansicht";
+const PROGRESS_VIEW: &str = "fortschritt";
+const FARM_VIEW: &str = "farmliste";
+const REFINERY_VIEW: &str = "raffinerien";
+
+/// Which pages show their second view: the progress of the blueprint list, what to farm on the crafting page, the
+/// refineries on the mining page.
+#[derive(Clone, Copy, Debug, Default)]
+struct Views {
+    list_progress: bool,
+    craft_farm: bool,
+    mining_refineries: bool,
+}
+
+/// The key the open page is drawn by: the progress, the farm list and the refineries are views of the blueprint
+/// list, the crafting page and the mining page, and keep the keys they had as pages (the menu filter, the usage
+/// counters and the tiles know them).
+fn view_key(page: &str, views: Views) -> &str {
+    match page {
+        "hf_herstellung" if views.craft_farm => "hf_farmliste",
+        "hf_liste" if views.list_progress => "hf_fortschritt",
+        "hf_bergbau" if views.mining_refineries => "hf_raffinerien",
+        _ => page,
     }
 }
 
@@ -7611,7 +7905,7 @@ fn head_word(real: bool, test_build: bool, test_run: bool) -> Option<&'static st
 /// bar, so the bar keeps its height.
 fn head_line(bar: egui::Rect, scheme: &Scheme) -> Option<egui::Rect> {
     scheme
-        .square
+        .head_rule
         .then(|| egui::Rect::from_min_max(egui::pos2(bar.left(), bar.bottom() - HEAD_LINE_HEIGHT), bar.right_bottom()))
 }
 
@@ -8597,7 +8891,7 @@ mod tests {
         assert_eq!(shown.as_deref(), Some(versekit_core::overlay::DEFAULT_HOTKEY));
         let scan = hotkey_text(fresh.scan_modifiers, fresh.scan_key);
         assert_eq!(scan.as_deref(), Some(versekit_core::overlay::DEFAULT_SCAN_HOTKEY));
-        assert_eq!((shown.as_deref(), scan.as_deref()), (Some("Alt+Umschalt+V"), Some("Alt+Umschalt+R")));
+        assert_eq!((shown.as_deref(), scan.as_deref()), (Some("Alt+F12"), Some("F9")));
     }
 
     /// One key by itself (Kuehlwagen): F1 … F24 and the named keys need no modifier, a letter or a digit does. A
@@ -8828,7 +9122,7 @@ mod tests {
             }
         }
         assert!(checked > 100, "only {checked} texts checked");
-        assert_eq!(settings_of("hf_allgemein").len(), 5);
+        assert_eq!(settings_of("hf_allgemein").len(), 6);
         assert!(page_infos("hf_raffinerien").iter().any(|info| info.contains("Titanium")));
         // Counter-check: a word on no page finds nothing anywhere.
         for (group, pages) in NAV {
@@ -10039,8 +10333,9 @@ mod tests {
             output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut texts));
             texts
         };
-        for name in ["hf_liste", "hf_fortschritt"] {
+        for (name, progress) in [("hf_liste", false), ("hf_liste", true)] {
             page.page = name.to_string();
+            page.list_progress = progress;
             // The build without any source ends at once; wait until it has.
             let mut texts = Vec::new();
             for _ in 0..500 {

@@ -262,7 +262,7 @@ fn pick(names: &[String], at: usize) -> Option<String> {
 /// The made-up contracts of the preview.
 fn sample_finder() -> Finder {
     let rank = |name: &str, reputation: i64| Some(Rank { name: name.into(), reputation });
-    let gain = |who: &str, low: i64, high: i64| Gain { who: who.into(), kind: "Standing".into(), low, high };
+    let gain = |who: &str, low: i64, high: i64| Gain { who: who.into(), kind: "Standing".into(), low, high, unknown: false };
     let contracts = vec![
         Contract {
             key: "sample_escort_title".into(),
@@ -352,10 +352,13 @@ fn held_text(rank: &Rank) -> String {
     tf("s_af_rang_wahl", &[("rank", Arg::Text(rank.name.clone())), ("rep", Arg::Text(count(rank.reputation)))])
 }
 
-/// A gain with its sign: `Bit Zeros +50 … +200 Standing`.
+/// A gain with its sign: `Bit Zeros +50 … +200 Standing`; one whose amount the data do not state says so:
+/// `Shubin (amount unknown) Standing`.
 fn gain_text(gain: &Gain) -> String {
     let signed = |value: i64| if value < 0 { format!("-{}", count(-value)) } else { format!("+{}", count(value)) };
-    let amount = if gain.low == gain.high {
+    let amount = if gain.unknown {
+        format!("({})", t("s_af_ruf_menge_unbekannt"))
+    } else if gain.low == gain.high {
         signed(gain.high)
     } else {
         format!("{} … {}", signed(gain.low), signed(gain.high))

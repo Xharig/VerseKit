@@ -31,13 +31,15 @@ use versekit_core::jsonio::{self, Map, Value};
 use versekit_core::paths::Paths;
 
 /// A reputation a contract gives or takes on success: whom, of which kind, and the amount, `low` to `high` where the
-/// contracts of the title differ.
+/// contracts of the title differ. `unknown` marks a gain whose amount the game data do not state (`low` and `high`
+/// are zero then): the contract gives that reputation, how much is not known.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Gain {
     pub who: String,
     pub kind: String,
     pub low: i64,
     pub high: i64,
+    pub unknown: bool,
 }
 
 /// A rank of a faction and the reputation it starts at.
@@ -78,9 +80,9 @@ pub struct Contract {
 }
 
 impl Contract {
-    /// The largest reputation it gives any party, `None` without a gain.
+    /// The largest reputation it gives any party, `None` without a gain whose amount is known.
     pub fn best_gain(&self) -> Option<i64> {
-        self.gains.iter().map(|gain| gain.high).max()
+        self.gains.iter().filter(|gain| !gain.unknown).map(|gain| gain.high).max()
     }
 }
 
@@ -208,10 +210,12 @@ fn gains(rows: &Value) -> Vec<Gain> {
     rows.iter()
         .filter_map(|row| {
             let row = row.as_object()?;
-            let (low, high) = span(field(row, "wieviel"))?;
+            // An amount the table does not know (`null`) is a gain of unknown size, not no gain.
+            let unknown = matches!(field(row, "wieviel"), Some(Value::Null));
+            let (low, high) = if unknown { (0, 0) } else { span(field(row, "wieviel"))? };
             let who = text(row, "wer").unwrap_or_default();
             let kind = text(row, "was").unwrap_or_default();
-            (!who.is_empty() || !kind.is_empty()).then_some(Gain { who, kind, low, high })
+            (!who.is_empty() || !kind.is_empty()).then_some(Gain { who, kind, low, high, unknown })
         })
         .collect()
 }

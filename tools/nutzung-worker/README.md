@@ -20,7 +20,7 @@ denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 |---|---|
 | Pfad und Methode | nur `POST /ping` |
 | Größe | höchstens 16 KB (`MAX_BYTES`) — die größte Meldung, die das Programm bauen kann, braucht rund 12 KB |
-| Felder | nur `v`, `os`, `ui`, `game`, `rc`, `mods`, `overlay`, `autostart`, `update`, `pages`, `entry`, `clicks`, `misses`, `actions` — jedes andere Feld: abgelehnt, ebenso die ganze Meldung |
+| Felder | nur `v`, `os`, `ui`, `game`, `tr`, `rc`, `mods`, `overlay`, `autostart`, `update`, `pages`, `entry`, `clicks`, `misses`, `actions` — jedes andere Feld: abgelehnt, ebenso die ganze Meldung |
 | Werte | Version `1.2.3(-rcN)`, System `windows`/`linux`, Sprachen zwei Kleinbuchstaben, Ja/Nein als echte Wahrheitswerte (`rc`, `autostart`, `update`), Bereiche nur Kleinbuchstaben (höchstens 12) |
 | Seitenzähler | nur Seiten-Kennungen aus `pages.js`, Wege nur aus `ROUTES`, Klickstufen 0–10, Fehlgriff-Paare `a>b` mit zwei verschiedenen bekannten Seiten (höchstens 20), Handlungen nur aus `ACTIONS`, jede Zahl eine ganze Zahl von 1 bis 9999 |
 | Menge | 5 je Absender und Minute |
@@ -32,6 +32,7 @@ denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 |---|---|---|
 | `v`, `os` | Programmversion, System | `tage` (mit Land) |
 | `ui`, `game` | Sprache der Oberfläche und des Spiels | `merkmale` |
+| `tr` | gewählte Übersetzung von LIVE als Kennung der Quelle (`dymerz_de`, `original`, `eigene`, `keine`), nie eine Adresse | `merkmale` |
 | `rc`, `autostart`, `update` | Testversionen, Autostart, Auto-Update (ja/nein) | `merkmale` |
 | `mods`, `overlay` | eingeschaltete Bereiche, Overlay-Betrieb | `merkmale` |
 | `pages` | Aufrufe je Seite, `{"liste": 12}` | `seiten` |

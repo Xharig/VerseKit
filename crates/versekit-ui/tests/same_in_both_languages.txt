@@ -175,6 +175,8 @@ We are investigating reports of login failures.
 # Ships and weapons of the sample of the changed game values, as the game names them.
 Behring M5A Cannon
 Drake Cutter
+DRAK_Cutter, DRAK_Cutter_Rn, DRAK_Cutter_Scout
+Example Ship
 Klaus & Werner Lumin V
 MISC Starlancer TAC
 

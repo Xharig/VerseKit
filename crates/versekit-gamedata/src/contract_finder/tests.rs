@@ -80,8 +80,8 @@ fn the_contracts_join_the_terms_the_reputation_the_regions_and_the_blueprints() 
     assert_eq!(
         full.gains,
         [
-            Gain { who: "Bit Zeros".into(), kind: "Standing".into(), low: 50, high: 200 },
-            Gain { who: "Rivals".into(), kind: "Standing".into(), low: -25, high: -25 },
+            Gain { who: "Bit Zeros".into(), kind: "Standing".into(), low: 50, high: 200, unknown: false },
+            Gain { who: "Rivals".into(), kind: "Standing".into(), low: -25, high: -25, unknown: false },
         ]
     );
     assert_eq!(full.best_gain(), Some(200));
@@ -101,7 +101,7 @@ fn the_contracts_join_the_terms_the_reputation_the_regions_and_the_blueprints() 
     assert_eq!(quiet.blueprints.as_deref(), Some(&[][..]), "the catalog knows no blueprint of it");
 
     let rep_only = by_key(&contracts, "rep_only_title");
-    assert_eq!(rep_only.gains, [Gain { who: "Headhunters".into(), kind: String::new(), low: 75, high: 75 }]);
+    assert_eq!(rep_only.gains, [Gain { who: "Headhunters".into(), kind: String::new(), low: 75, high: 75, unknown: false }]);
     assert_eq!(rep_only.region, None, "an empty region is none");
     assert_eq!(by_key(&contracts, "catalog_only_title").blueprints.as_deref(), Some(&["Beta Legs".to_string()][..]));
 
@@ -109,6 +109,32 @@ fn the_contracts_join_the_terms_the_reputation_the_regions_and_the_blueprints() 
     let without = contracts_without_catalog();
     assert!(without.iter().all(|c| c.blueprints.is_none()), "{without:?}");
     assert!(!without.iter().any(|c| c.key == "catalog_only_title"));
+}
+
+/// A gain whose amount the table does not know stays in the contract, marked unknown; it is no gain of zero and does
+/// not count for the largest one.
+#[test]
+fn a_gain_of_an_unknown_amount_is_kept_and_marked() {
+    let table = reputation::Table {
+        contracts: object(
+            r#"{"shubin_title": [{"wer": "Shubin", "was": "Standing", "wieviel": null}, {"wer": "Guild", "was": "", "wieviel": 40}],
+                "only_unknown_title": [{"wer": "Covalex", "was": "Standing", "wieviel": null}]}"#,
+        ),
+        ..reputation::Table::default()
+    };
+    let found = contracts(&table, None, &HashMap::new());
+    let shubin = by_key(&found, "shubin_title");
+    assert_eq!(
+        shubin.gains,
+        [
+            Gain { who: "Shubin".into(), kind: "Standing".into(), low: 0, high: 0, unknown: true },
+            Gain { who: "Guild".into(), kind: String::new(), low: 40, high: 40, unknown: false },
+        ]
+    );
+    assert_eq!(shubin.best_gain(), Some(40), "the unknown one is not a zero that could win or lose");
+    let only = by_key(&found, "only_unknown_title");
+    assert_eq!(only.gains.len(), 1);
+    assert_eq!(only.best_gain(), None);
 }
 
 fn contracts_without_catalog() -> Vec<Contract> {
@@ -153,7 +179,7 @@ fn sample() -> Vec<Contract> {
     vec![
         Contract {
             giver: Some("Headhunters".into()),
-            gains: vec![Gain { who: "Headhunters".into(), kind: "Standing".into(), low: 50, high: 50 }],
+            gains: vec![Gain { who: "Headhunters".into(), kind: "Standing".into(), low: 50, high: 50, unknown: false }],
             cooldown: Some((45, 45)),
             shareable: Some(true),
             region: Some("Pyro (Bloom)".into()),
@@ -164,7 +190,7 @@ fn sample() -> Vec<Contract> {
         },
         Contract {
             giver: Some("Bit Zeros".into()),
-            gains: vec![Gain { who: "Bit Zeros".into(), kind: "Standing".into(), low: 100, high: 300 }],
+            gains: vec![Gain { who: "Bit Zeros".into(), kind: "Standing".into(), low: 100, high: 300, unknown: false }],
             cooldown: Some((10, 30)),
             shareable: Some(false),
             region: Some("Stanton".into()),

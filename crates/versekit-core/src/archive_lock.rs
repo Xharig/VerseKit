@@ -123,6 +123,7 @@ impl Waiter {
         WAITING.fetch_add(1, Ordering::Relaxed);
         let topic = TOPIC.with(Cell::get);
         TOPICS.lock().unwrap_or_else(PoisonError::into_inner).push(topic);
+        crate::build_progress::waiting(true);
         Waiter(topic)
     }
 }
@@ -134,6 +135,7 @@ impl Drop for Waiter {
         if let Some(at) = topics.iter().position(|topic| *topic == self.0) {
             topics.remove(at);
         }
+        crate::build_progress::waiting(false);
     }
 }
 
@@ -282,7 +284,7 @@ mod tests {
         use crate::paths::CHANNELS;
         assert_eq!(test_channel_notes("PTU"), ["s_ak_testkanal"]);
         if crate::edition::IS_TEST_BUILD {
-            assert_eq!(test_channel_notes("TECH-PREVIEW"), ["s_ak_testkanal"]);
+            assert_eq!(test_channel_notes("TECH-PREVIEW"), ["s_ak_testkanal", "s_ak_eptu"]);
             assert_eq!(test_channel_notes("EPTU"), ["s_ak_testkanal", "s_ak_eptu"]);
         } else {
             assert!(test_channel_notes("TECH-PREVIEW").is_empty() && test_channel_notes("EPTU").is_empty());

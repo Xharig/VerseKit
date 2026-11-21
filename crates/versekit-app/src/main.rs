@@ -183,7 +183,12 @@ fn back_up_on_version_change(check: bool, data: Option<&str>) -> Option<String> 
     let paths = run_paths(None)?;
     match back_up_on_change(&paths, env!("CARGO_PKG_VERSION")) {
         Change::Failed(reason) => Some(tf("vw_sicherung_fehlt", &[("0", Arg::from(reason))])),
-        Change::Same | Change::NoData | Change::BackedUp { .. } => None,
+        // A player of an older version keeps the hotkeys he had.
+        Change::BackedUp { previous, .. } => {
+            versekit_core::overlay::keep_old_hotkeys(&paths, previous.as_deref());
+            None
+        }
+        Change::Same | Change::NoData => None,
     }
 }
 
@@ -314,7 +319,7 @@ fn main() -> eframe::Result {
     }
     let own_run = begin_own_run(
         &mut overlay,
-        &versekit_core::autostart::System,
+        versekit_core::autostart::real().as_ref(),
         &autostart_command(&[]),
         custom_home(),
         versekit_core::paths::Host::current(),
@@ -329,6 +334,11 @@ fn main() -> eframe::Result {
             &std::env::temp_dir(),
         );
         updates::spawn(env!("CARGO_PKG_VERSION"));
+        // The backups written by themselves: one at the first start of a day, one after every end of the game.
+        versekit_core::backup_auto::spawn(
+            versekit_core::paths::Paths::new(versekit_core::paths::Host::current()),
+            env!("CARGO_PKG_VERSION"),
+        );
     }
     // A backup made right now is told in the main window: it opens on the overview.
     if backed_up {
@@ -471,6 +481,8 @@ fn start_diagnostics(role: versekit_core::diagnostics::Role, data: Option<&str>)
         None => Some(Paths::new(Host::current())),
     };
     let Some(paths) = paths else { return false };
+    // The player's own UEX token for the requests of this process; a copy of the data loads none.
+    versekit_core::uex_token::start(&paths);
     versekit_core::diagnostics::init_for(Box::leak(Box::new(paths)), role, env!("CARGO_PKG_VERSION"))
 }
 

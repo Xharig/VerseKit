@@ -316,6 +316,12 @@ pub fn missing_row(ui: &mut Ui, scheme: &Scheme, state: &mut DetectionState, pat
         if busy {
             row.add(egui::Spinner::new().color(color(scheme.accent)));
             row.label(t("s_er_kat_holt"));
+            // The build of this process is the one the button started: how far it is.
+            if let Some(seen) = versekit_core::build_progress::snapshot().filter(|seen| !seen.waiting) {
+                let line = format!("{} · {} %", crate::catalog_progress::step_line(&seen), seen.percent());
+                row.label(RichText::new(line).small().color(color(scheme.sub)));
+                row.ctx().request_repaint_after(std::time::Duration::from_millis(500));
+            }
         }
     });
     // A jump of the menu filter to the catalog button frames the row.

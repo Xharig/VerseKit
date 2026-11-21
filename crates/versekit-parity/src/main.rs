@@ -327,6 +327,7 @@ mod ohne_netz;
 mod orgstock;
 mod overrides;
 mod patch_changes;
+mod patch_vergleich;
 mod paths;
 mod phrases_learn;
 mod raffinerie;
@@ -562,6 +563,7 @@ fn main() -> ExitCode {
         }
         [cmd, input, out] if cmd == "overrides" => overrides::run(input, out, false),
         [cmd, input, out, flag] if cmd == "overrides" && flag == "--gegenprobe" => overrides::run(input, out, true),
+        [cmd, rest @ ..] if cmd == "patch_vergleich" => patch_vergleich::run(rest),
         [cmd, input, out] if cmd == "patch_changes" => patch_changes::run(input, out, false),
         [cmd, input, out, flag] if cmd == "patch_changes" && flag == "--gegenprobe" => {
             patch_changes::run(input, out, true)
@@ -686,6 +688,7 @@ fn main() -> ExitCode {
                   versekit-parity waren <dataforge.dcb> <global.ini> <ausgabe.json> [--gegenprobe]\n       \
                   versekit-parity overrides <python.json> <ausgabe.json> [--gegenprobe]\n       \
                   versekit-parity patch_changes <python.json> <ausgabe.json> [--gegenprobe]\n       \
+                  versekit-parity patch_vergleich <kanalordner-alt> <kanalordner-neu> [--erkul <patch-datei>]\n       \
                   versekit-parity hangar <python.json> <ausgabe.json> [--gegenprobe]\n       \
                   versekit-parity hangar_save <python.json> <ausgabe.json> [--gegenprobe format|merge|schiffe]\n       \
                   versekit-parity einlieferung <hangar.json> <port> <token> [--aus]\n       \

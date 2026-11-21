@@ -67,6 +67,7 @@ pub fn run(folder: &str, merged: &str, leave_out: Option<&str>) -> Result<(), St
         &read(&folder.join("reputation.json"))?,
         &[],
         "",
+        &contract_reputation::Amounts::new(),
     )
     .map_err(|e| e.to_string())?;
     if let Some(title) = leave_out {

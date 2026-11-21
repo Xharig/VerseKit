@@ -35,8 +35,9 @@
 //! The pixel width of the right screen comes from the window of the measuring itself: it goes full screen on the
 //! screen it opens on and measures itself.
 //!
-//! ⚠ Only **read** here: `attributes.xml` holds all graphics settings and is not written by this page (4.12 did
-//! not either). What is written are the three numbers of the calibration, in the settings of the program.
+//! `attributes.xml` holds all graphics settings. It is read for the setting of the game; written only by the
+//! player's click, with [`write_game`] (angle and resolution, never while the game runs, a copy first). Besides, the
+//! three numbers of the calibration are written to the settings of the program.
 
 use std::sync::OnceLock;
 
@@ -44,6 +45,7 @@ use regex::Regex;
 
 use crate::graphics;
 use crate::jsonio::Value;
+use crate::language::Arg;
 use crate::paths::Paths;
 use crate::stock_data::py_float;
 
@@ -214,6 +216,122 @@ pub fn game_setting(paths: &Paths, game_folder: Option<&str>) -> GameSetting {
     let mut setting = game_setting_text(&String::from_utf8_lossy(&bytes));
     setting.file = file;
     setting
+}
+
+/// The vertical angle for a horizontal one at an aspect ratio: the inverse of [`horizontal_from_vertical`], for
+/// writing what the menu of the game shows.
+pub fn vertical_from_horizontal(horizontal_deg: f64, aspect: f64) -> Option<f64> {
+    if !(horizontal_deg > 0.0 && horizontal_deg < 180.0 && aspect > 0.0) {
+        return None;
+    }
+    let half = (radians(horizontal_deg) / 2.0).tan() / aspect;
+    Some(degrees(2.0 * half.atan()))
+}
+
+/// The widest and narrowest resolution and angle that are written: what the game itself can hardly have, is not
+/// written either (a typing error would make the game start with a screen it cannot open).
+pub const WIDTH_RANGE: (i64, i64) = (640, 16384);
+/// See [`WIDTH_RANGE`].
+pub const HEIGHT_RANGE: (i64, i64) = (480, 16384);
+/// The vertical angle in degrees that is written, from the narrowest the game allows to a generous top.
+pub const VERTICAL_RANGE: (f64, f64) = (MIN_VERTICAL_DEG, 120.0);
+
+/// What is to be written into `attributes.xml`: any of the three, `None` leaves the line alone.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct GameChange {
+    /// The **vertical** angle, `FOV` in the file.
+    pub fov: Option<f64>,
+    pub width: Option<i64>,
+    pub height: Option<i64>,
+}
+
+/// Why the file was not written.
+#[derive(Debug)]
+pub enum WriteFailure {
+    /// Nothing was asked for.
+    Nothing,
+    /// A value outside what is written: the name in the file.
+    Invalid(&'static str),
+    /// There is no `attributes.xml` under the folder.
+    NoFile,
+    /// The file could not be read (or holds bytes that are no UTF-8, which would be spoiled on writing back).
+    Read,
+    /// The file has no place to put a line.
+    NoPlace,
+    /// The game runs (or nobody can tell) or the copy or the writing failed.
+    Write(crate::game_files::WriteError),
+}
+
+impl WriteFailure {
+    /// The reason in the language of the program, with what to do about it.
+    pub fn reason(&self) -> String {
+        use crate::language::t;
+        match self {
+            WriteFailure::Nothing => t("s_fv_w_nichts"),
+            WriteFailure::Invalid(name) => crate::language::tf("s_fv_w_ungueltig", &[("0", Arg::from(*name))]),
+            WriteFailure::NoFile => t("s_fv_w_keine_datei"),
+            WriteFailure::Read => t("s_fv_w_lesen"),
+            WriteFailure::NoPlace => t("s_fv_w_kein_platz"),
+            WriteFailure::Write(error) => error.reason(),
+        }
+    }
+}
+
+fn valid(change: &GameChange) -> Result<(), WriteFailure> {
+    if let Some(fov) = change.fov
+        && !(fov.is_finite() && (VERTICAL_RANGE.0..=VERTICAL_RANGE.1).contains(&fov))
+    {
+        return Err(WriteFailure::Invalid("FOV"));
+    }
+    if change.width.is_some_and(|w| !(WIDTH_RANGE.0..=WIDTH_RANGE.1).contains(&w)) {
+        return Err(WriteFailure::Invalid("Width"));
+    }
+    if change.height.is_some_and(|h| !(HEIGHT_RANGE.0..=HEIGHT_RANGE.1).contains(&h)) {
+        return Err(WriteFailure::Invalid("Height"));
+    }
+    if change == &GameChange::default() { Err(WriteFailure::Nothing) } else { Ok(()) }
+}
+
+/// The text of `attributes.xml` with the lines changed: only the named ones, in place, the rest as it was.
+/// `Ok(None)` where the text stays as it is.
+///
+/// # Errors
+///
+/// [`WriteFailure::Invalid`], [`WriteFailure::Nothing`] or [`WriteFailure::NoPlace`].
+pub fn change_text(text: &str, change: &GameChange) -> Result<Option<String>, WriteFailure> {
+    valid(change)?;
+    let mut fresh = text.to_string();
+    let wanted =
+        [("FOV", change.fov), ("Width", change.width.map(|w| w as f64)), ("Height", change.height.map(|h| h as f64))];
+    for (name, value) in wanted {
+        if value.is_some() {
+            fresh = graphics::apply(&fresh, name, value, None).map_err(|_| WriteFailure::NoPlace)?;
+        }
+    }
+    Ok((fresh != text).then_some(fresh))
+}
+
+/// Writes the angle and the resolution into the `attributes.xml` of the installation `game_folder` (else the
+/// main one): refused first for a value that does not fit, then the file is read, a copy is made beside it
+/// (`game_files`, ten stay) and the file is written. Gives the copy, `None` where nothing had to change.
+/// **The game must be quiet:** while it runs, or when nobody can tell, nothing is touched.
+///
+/// # Errors
+///
+/// [`WriteFailure`], with the reason in words.
+pub fn write_game(
+    paths: &Paths,
+    game_folder: Option<&str>,
+    change: &GameChange,
+) -> Result<Option<String>, WriteFailure> {
+    valid(change)?;
+    let file = graphics::attribute_file(paths, game_folder).ok_or(WriteFailure::NoFile)?;
+    // One writer at a time, the file read and written under the same lock: nobody slips in between.
+    let _one_writer = crate::injection::game_file_lock();
+    crate::game_files::check_quiet(paths).map_err(WriteFailure::Write)?;
+    let text = std::fs::read(&file).ok().and_then(|bytes| String::from_utf8(bytes).ok()).ok_or(WriteFailure::Read)?;
+    let Some(fresh) = change_text(&text, change)? else { return Ok(None) };
+    crate::game_files::write_locked(paths, &file, fresh.as_bytes()).map_err(WriteFailure::Write)
 }
 
 /// The calibration kept in the settings.
@@ -573,6 +691,127 @@ mod tests {
         assert_eq!(typed_distance_mm("1e308"), None, "beyond any screen");
         assert_eq!(typed_distance_mm("10000"), Some(100_000.0), "the limit itself is taken");
         assert_eq!(typed_distance_mm("10000,1"), None);
+    }
+
+    const FILE: &str = "<Attributes>\r\n <Attr name=\"FOV\" value=\"60\"/>\r\n <Attr name=\"Height\" value=\"1080\"/>\r\n \
+                        <Attr name=\"VSync\" value=\"0\"/>\r\n <Attr name=\"Width\" value=\"1920\"/>\r\n</Attributes>\r\n";
+
+    /// Two installations under a throwaway home: LIVE (its Game.log `age` seconds old, `None`: none) and PTU.
+    fn two_installations(name: &str, age: Option<u64>) -> (String, Paths, String, String) {
+        use crate::paths::{ENV_INSTALL_DIR, Host};
+        use crate::pypath::Flavor;
+        let home = std::env::temp_dir().join(format!("versekit-fovwrite-{}-{name}", crate::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&home);
+        let home = home.to_string_lossy().replace('\\', "/");
+        let (live, ptu) = (format!("{home}/StarCitizen/LIVE"), format!("{home}/StarCitizen/PTU"));
+        for game in [&live, &ptu] {
+            let profile = format!("{game}/USER/Client/0/Profiles/default");
+            std::fs::create_dir_all(&profile).unwrap();
+            std::fs::write(format!("{profile}/attributes.xml"), FILE).unwrap();
+        }
+        if let Some(age) = age {
+            std::fs::write(format!("{live}/Game.log"), "x").unwrap();
+            let at = std::time::SystemTime::now() - std::time::Duration::from_secs(age);
+            std::fs::File::options().write(true).open(format!("{live}/Game.log")).unwrap().set_modified(at).unwrap();
+        }
+        let vars =
+            [("HOME", home.as_str()), (ENV_INSTALL_DIR, live.as_str()), (crate::game_start::ENV_NO_PROCESS, "1")];
+        let paths = Paths::new(Host::new(Flavor::Posix, &vars, &home));
+        (home, paths, live, ptu)
+    }
+
+    fn file_of(game: &str) -> String {
+        std::fs::read_to_string(format!("{game}/USER/Client/0/Profiles/default/attributes.xml")).unwrap()
+    }
+
+    #[test]
+    fn the_menu_angle_and_the_file_angle_convert_both_ways() {
+        // Measured at 32:9: menu 134 <-> file 67.1.
+        let vertical = vertical_from_horizontal(134.0, 5120.0 / 1440.0).unwrap();
+        assert!((vertical - 67.1).abs() < 0.1, "{vertical}");
+        for (horizontal, aspect) in [(90.0, 16.0 / 9.0), (110.0, 21.0 / 9.0), (134.0, 32.0 / 9.0)] {
+            let back = horizontal_from_vertical(vertical_from_horizontal(horizontal, aspect).unwrap(), aspect).unwrap();
+            assert!((back - horizontal).abs() < 1e-9, "{horizontal} {back}");
+        }
+        assert_eq!(vertical_from_horizontal(0.0, 1.0), None);
+        assert_eq!(vertical_from_horizontal(180.0, 1.0), None);
+        assert_eq!(vertical_from_horizontal(90.0, 0.0), None);
+    }
+
+    #[test]
+    fn angle_and_resolution_change_in_place_and_everything_else_stays_as_it_was() {
+        let change = GameChange { fov: Some(67.1), width: Some(2560), height: Some(1440) };
+        let fresh = change_text(FILE, &change).unwrap().expect("changed");
+        assert_eq!(
+            fresh,
+            FILE.replace("\"60\"", "\"67.1\"").replace("\"1080\"", "\"1440\"").replace("\"1920\"", "\"2560\"")
+        );
+        // Only what is named: the resolution alone leaves the angle.
+        let only = change_text(FILE, &GameChange { width: Some(2560), ..GameChange::default() }).unwrap().unwrap();
+        assert!(only.contains("name=\"FOV\" value=\"60\"") && only.contains("name=\"Width\" value=\"2560\""), "{only}");
+        // The same again: nothing to write.
+        assert!(change_text(FILE, &GameChange { width: Some(1920), ..GameChange::default() }).unwrap().is_none());
+        // A line that is missing is put in, at its place in the alphabet.
+        let bare = "<Attributes>\n <Attr name=\"VSync\" value=\"0\"/>\n</Attributes>\n";
+        let put = change_text(bare, &GameChange { fov: Some(70.0), ..GameChange::default() }).unwrap().unwrap();
+        assert_eq!(
+            put,
+            "<Attributes>\n <Attr name=\"FOV\" value=\"70\"/>\n <Attr name=\"VSync\" value=\"0\"/>\n</Attributes>\n"
+        );
+    }
+
+    #[test]
+    fn a_value_that_does_not_fit_is_refused_before_anything_is_touched() {
+        let refuses = |change: GameChange| matches!(change_text(FILE, &change), Err(WriteFailure::Invalid(_)));
+        assert!(refuses(GameChange { fov: Some(10.0), ..GameChange::default() }), "narrower than the game allows");
+        assert!(refuses(GameChange { fov: Some(f64::NAN), ..GameChange::default() }));
+        assert!(refuses(GameChange { fov: Some(200.0), ..GameChange::default() }));
+        assert!(refuses(GameChange { width: Some(0), ..GameChange::default() }));
+        assert!(refuses(GameChange { width: Some(99_999), ..GameChange::default() }));
+        assert!(refuses(GameChange { height: Some(-5), ..GameChange::default() }));
+        assert!(matches!(change_text(FILE, &GameChange::default()), Err(WriteFailure::Nothing)));
+    }
+
+    #[test]
+    fn the_file_of_the_chosen_installation_is_written_with_a_copy_and_the_other_one_is_left_alone() {
+        let (home, paths, live, ptu) = two_installations("je-installation", Some(7200));
+        let change = GameChange { fov: Some(65.0), width: Some(2560), height: Some(1440) };
+        let copy = write_game(&paths, Some(&ptu), &change).expect("written").expect("a copy");
+        assert!(file_of(&ptu).contains("name=\"Width\" value=\"2560\""), "{}", file_of(&ptu));
+        assert_eq!(file_of(&live), FILE, "LIVE is not touched");
+        assert_eq!(std::fs::read_to_string(&copy).unwrap(), FILE, "the copy holds what was there");
+        assert!(copy.contains(".versekit-") && copy.starts_with(&ptu), "{copy}");
+        // Without a folder it is the main installation (LIVE).
+        write_game(&paths, None, &change).expect("written");
+        assert!(file_of(&live).contains("name=\"FOV\" value=\"65\""));
+        // Again with the same values: nothing written, no new copy.
+        let count = crate::game_files::backups(&format!("{ptu}/USER/Client/0/Profiles/default/attributes.xml")).len();
+        assert!(matches!(write_game(&paths, Some(&ptu), &change), Ok(None)));
+        assert_eq!(
+            crate::game_files::backups(&format!("{ptu}/USER/Client/0/Profiles/default/attributes.xml")).len(),
+            count
+        );
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn nothing_is_written_while_the_game_runs_or_when_nobody_can_tell() {
+        use crate::game_files::WriteError;
+        let change = GameChange { width: Some(2560), height: Some(1440), ..GameChange::default() };
+        let (home, paths, live, ptu) = two_installations("laeuft", Some(5));
+        assert!(matches!(write_game(&paths, Some(&ptu), &change), Err(WriteFailure::Write(WriteError::GameRuns))));
+        assert!(matches!(write_game(&paths, None, &change), Err(WriteFailure::Write(WriteError::GameRuns))));
+        assert_eq!((file_of(&live), file_of(&ptu)), (FILE.to_string(), FILE.to_string()));
+        assert!(
+            crate::game_files::backups(&format!("{live}/USER/Client/0/Profiles/default/attributes.xml")).is_empty()
+        );
+        let _ = std::fs::remove_dir_all(home);
+        let (home, paths, _, ptu) = two_installations("unklar", None);
+        assert!(matches!(write_game(&paths, Some(&ptu), &change), Err(WriteFailure::Write(WriteError::GameUnknown))));
+        assert_eq!(file_of(&ptu), FILE);
+        // A folder without the file.
+        assert!(matches!(write_game(&paths, Some(&format!("{home}/nirgends")), &change), Err(WriteFailure::NoFile)));
+        let _ = std::fs::remove_dir_all(home);
     }
 
     #[test]

@@ -19,8 +19,9 @@
 //! strong, readable as text on the ground and as a mark (3:1) on every other, and clearly apart from the colors it
 //! is mistaken for (gold and yellow, which mean warnings, the orange of the brand buttons, the accent).
 //! `red_text` is the red for text on boxes, fields, bars and the danger button: 4.5:1 on all of them, in the
-//! schemes with light boxes (`krt`) a lighter shade of the same red. Every scheme but `krt` has `red_text == red`,
-//! and `krt` has the same loud red as `original`, `eis` and `nebel`.
+//! schemes whose grounds are too light for the loud red a lighter shade of the same red. Every scheme but `krt` has
+//! `red_text == red`; `krt` (dark boxes of Design System 3.0) needs a hair lighter red only on the danger button, and
+//! has the same loud red as `original`, `eis` and `nebel`.
 //! `-- --nocapture` prints the numbers of every scheme.
 
 use versekit_core::theme::{self, Color, KRT_ORANGE, Scheme};
@@ -177,8 +178,8 @@ fn the_red_check_finds_the_old_reds_a_pale_pink_and_an_orange() {
     // The salmon of `krt` a day later: far enough from the orange, but pastel, not loud.
     let pastel_krt = faults(&with_red("krt", "#ff7782"));
     assert!(pastel_krt.iter().any(|f| f.contains("blass")), "{pastel_krt:?}");
-    // A loud red the overlay ground cannot carry as text.
-    assert!(faults(&with_red("krt", "#e53935")).iter().any(|f| f.contains("Grund")));
+    // A dark red the (now dark) overlay ground cannot carry as text.
+    assert!(faults(&with_red("krt", "#b71c1c")).iter().any(|f| f.contains("Grund")));
     // The reds now are fine.
     for s in theme::schemes() {
         assert!(faults(s).is_empty(), "{:?}", faults(s));
@@ -186,9 +187,10 @@ fn the_red_check_finds_the_old_reds_a_pale_pink_and_an_orange() {
 }
 
 /// `krt` has the loud red of the other schemes (the Executive Hangar line of the overlay was hardly told from the
-/// orange accent); text on its light boxes has its own, lighter shade; no other scheme needs one.
+/// orange accent); since its boxes follow Design System 3.0 (dark) that red reads as text on them too, so no scheme
+/// needs a lighter one.
 #[test]
-fn krt_has_the_loud_red_of_the_others_and_a_lighter_one_for_text_on_its_boxes() {
+fn krt_has_the_loud_red_of_the_others_and_it_reads_on_its_dark_boxes() {
     let loud = theme::by_id("original").expect("original").red;
     assert_eq!(loud.to_hex(), "#fe3d51");
     for id in ["eis", "nebel"] {
@@ -198,18 +200,12 @@ fn krt_has_the_loud_red_of_the_others_and_a_lighter_one_for_text_on_its_boxes() 
     assert_eq!(krt.red, loud);
     // On the overlay ground the loud red itself is text.
     assert!(krt.red.contrast(krt.bg) >= TEXT_CONTRAST);
-    // On the boxes it is not, the text red is: 4.5:1 and the lightest change that gets there.
-    assert!(krt.red.contrast(krt.surface) < TEXT_CONTRAST);
+    // On the boxes too: 4.5:1, and the text red is the loud red itself.
+    assert!(krt.red.contrast(krt.surface) >= TEXT_CONTRAST);
     assert!(krt.red_text().contrast(krt.surface) >= TEXT_CONTRAST);
-    assert_ne!(krt.red_text(), krt.red);
-    let white = Color::hex("#ffffff");
-    let share = (0..=100)
-        .find(|n| krt.red.mix(white, f64::from(*n) / 100.0) == krt.red_text())
-        .expect("red_text is the red mixed with white");
-    let one_step_less = krt.red.mix(white, f64::from(share - 1) / 100.0);
-    assert!(one_step_less.contrast(krt.surface) < TEXT_CONTRAST, "red_text is lighter than it must be");
-    // Everywhere else the loud red is already readable and the text red is the same.
+    // Only the dark fill of the danger button needs a hair lighter red (4.49:1 instead of 4.5:1); the others do not.
     for s in theme::schemes().iter().filter(|s| s.id != "krt") {
         assert_eq!(s.red_text(), s.red, "{}", s.id);
     }
+    assert!(distance(krt.red_text(), krt.red) < 6.0, "the text red of krt is no new color");
 }

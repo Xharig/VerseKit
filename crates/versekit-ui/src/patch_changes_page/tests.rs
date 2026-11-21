@@ -426,3 +426,221 @@ fn a_file_of_the_read_patches_that_cannot_be_read_or_written_loses_no_mark_and_r
     assert!(state.unread().is_empty(), "the mark stays after the list is built again");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn an_own_comparison_shows_its_figures_gaps_scales_and_the_count_of_a_shared_change() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    frame(&ctx, &mut state, Vec::new());
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    for text in [
+        t("s_pv_kennzahlen_kopf"),
+        t("s_pv_skalen"),
+        tf("s_pv_skala", &[("stufen", Arg::from(89)), ("decke", Arg::from("250000"))]),
+        t("s_pv_warn_kopf"),
+        t("s_pv_klasse_anders"),
+        tf("s_pv_warn_zeile", &[("name", Arg::from(t("s_pv_zaehler_platzhalter"))), ("alt", Arg::from(2)), ("neu", Arg::from(7))]),
+        tf("s_pv_anzahl", &[("n", Arg::from(1892))]),
+        tf("s_pv_beispiele", &[("liste", Arg::from("DRAK_Cutter, DRAK_Cutter_Rn, DRAK_Cutter_Scout"))]),
+        t("s_pv_art_kopf"),
+    ] {
+        assert!(has(&nodes, &text), "missing: {text}");
+    }
+    assert!(has(&nodes, &format!("{} 1", t("s_pv_art_neu"))) && has(&nodes, &format!("{} 1", t("s_pv_art_wert"))));
+}
+
+#[test]
+fn in_the_preview_the_button_shows_every_state_of_the_line_beside_it() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    let first = frame(&ctx, &mut state, Vec::new());
+    let button = first.iter().find(|(role, text, _)| *role == Role::Button && *text == t("s_pv_vergleichen"));
+    let at = button.expect("the button of the comparison").2;
+    let version = Arg::from("4.10.0-LIVE.12519617");
+    let wanted = [
+        t("s_pv_vergl_laeuft"),
+        tf("s_pv_vergl_fertig", &[("version", version)]),
+        t("s_pv_vergl_gleich"),
+        t("s_pv_vergl_fehler"),
+        t("s_pv_vergl_laeuft"),
+    ];
+    for text in wanted {
+        frame(&ctx, &mut state, click(at));
+        let nodes = frame(&ctx, &mut state, Vec::new());
+        assert!(has(&nodes, &text), "the line says: {text}");
+    }
+}
+
+#[test]
+fn two_stands_of_two_channels_or_the_same_one_twice_are_told_and_the_button_is_blocked() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    let test = state.stands.iter().position(|s| s.channel == "PTU").expect("a stand of a test channel");
+    state.compare_from = test;
+    state.compare_to = 0;
+    frame(&ctx, &mut state, Vec::new());
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    assert!(has(&nodes, &t("s_pv_vergl_kanal")), "two channels");
+    let before = state.sample_round;
+    let button = nodes.iter().find(|(role, text, _)| *role == Role::Button && *text == t("s_pv_vergleichen"));
+    frame(&ctx, &mut state, click(button.expect("button").2));
+    assert_eq!(state.sample_round, before, "a blocked button does nothing");
+    state.compare_from = 0;
+    state.compare_to = 0;
+    frame(&ctx, &mut state, Vec::new());
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    assert!(has(&nodes, &t("s_pv_vergl_selbst")), "the same stand twice");
+}
+
+#[test]
+fn the_comparison_of_a_test_channel_shows_every_class_of_gap_and_the_note_of_a_reader_that_changed() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    assert!(state.choose_test_comparison());
+    frame(&ctx, &mut state, Vec::new());
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    for key in ["s_pv_klasse_bricht", "s_pv_klasse_anders", "s_pv_klasse_neu", "s_pv_leser_geaendert", "s_pv_warn_kopf"] {
+        assert!(has(&nodes, &t(key)), "missing: {key}");
+    }
+    assert!(has(&nodes, &tf("s_pv_skala_zeile", &[
+        ("alt", Arg::from(tf("s_pv_skala_ohne", &[("stufen", Arg::from(89))]))),
+        ("neu", Arg::from(tf("s_pv_skala_ohne", &[("stufen", Arg::from(89))]))),
+    ])), "a scale that stayed, without an upper limit");
+    versekit_core::streamer::set_thread_active(Some(true));
+    frame(&ctx, &mut state, Vec::new());
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    versekit_core::streamer::set_thread_active(None);
+    assert!(has(&nodes, &t("s_pv_verborgen")));
+    assert!(!has(&nodes, &t("s_pv_leser_geaendert")), "nothing of the content in the streamer mode");
+}
+
+#[test]
+fn in_the_streamer_mode_a_test_channel_is_told_nowhere_neither_in_the_lists_nor_in_the_line_beside_the_button() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    assert!(state.stands.iter().any(|s| s.channel == "PTU"), "a stand of a test channel is there");
+    // Two stands of the channel LIVE are asked for, the last comparison made was that of the test channel.
+    state.compare_from = 1;
+    state.compare_to = 0;
+    state.compared = Some(Compared::Done("5.0.0-PTU.1".into()));
+    let seen = |ctx: &egui::Context, state: &mut PatchChangesState, streamer: bool| {
+        versekit_core::streamer::set_thread_active(Some(streamer));
+        frame(ctx, state, Vec::new());
+        let nodes = frame(ctx, state, Vec::new());
+        versekit_core::streamer::set_thread_active(None);
+        nodes
+    };
+    // Shown: the build stands in the list, in the lists of the comparison and in the line.
+    let open = seen(&ctx, &mut state, false);
+    assert!(has(&open, "5.0.0-PTU.1"), "the build is shown when the streamer mode is off");
+    assert!(has(&open, &tf("s_pv_vergl_fertig", &[("version", Arg::from("5.0.0-PTU.1"))])));
+    // Hidden: nothing says the build or the channel, the line says only that it is done.
+    let covered = seen(&ctx, &mut state, true);
+    for secret in ["5.0.0-PTU.1", "PTU"] {
+        assert!(!has(&covered, secret), "told in the streamer mode: {secret}");
+    }
+    assert!(has(&covered, &t("s_pv_vergl_fertig_still")));
+    assert!(has(&covered, &t("s_pv_testkanal")), "the list names the comparison only as a test channel");
+    // A stand of the channel LIVE stays as it is.
+    assert!(has(&covered, "4.10.0-LIVE.12519617"), "a patch of the channel LIVE stays as it is");
+}
+
+#[test]
+fn every_symbol_the_page_names_exists_in_the_set() {
+    let source = include_str!("../patch_changes_page.rs");
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/symbol-vorlagen");
+    let mut seen = 0;
+    for part in source.split(".icon(\"").skip(1) {
+        let name = part.split('"').next().unwrap_or_default();
+        seen += 1;
+        assert!(folder.join(format!("{name}.svg")).is_file(), "the page names a symbol that is not in the set: {name}");
+    }
+    assert!(seen > 0, "the page names at least one symbol");
+}
+
+#[test]
+fn the_kind_of_change_narrows_the_items() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    frame(&ctx, &mut state, Vec::new());
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    let shared = tf("s_pv_anzahl", &[("n", Arg::from(1892))]);
+    assert!(has(&nodes, &shared) && has(&nodes, "MISC Starlancer TAC"));
+    let only_new = nodes.iter().find(|(role, text, _)| *role == Role::Button && *text == format!("{} 1", t("s_pv_art_neu")));
+    frame(&ctx, &mut state, click(only_new.expect("toggle").2));
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    assert!(!has(&nodes, &shared), "the changed ship is gone from the list");
+    assert!(has(&nodes, "MISC Starlancer TAC"));
+}
+
+#[test]
+fn a_comparison_of_a_test_channel_is_hidden_in_the_streamer_mode_and_marked_in_the_list() {
+    let _german = german();
+    let ctx = context();
+    let mut state = PatchChangesState::sample();
+    let chosen = state.chosen.clone().expect("the preview has a patch chosen");
+    state.list.iter_mut().filter(|p| p.version == chosen).for_each(|p| p.confidential = true);
+    versekit_core::streamer::set_thread_active(Some(true));
+    frame(&ctx, &mut state, Vec::new());
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    versekit_core::streamer::set_thread_active(None);
+    assert!(has(&nodes, &t("s_pv_verborgen")), "the content is covered");
+    for secret in ["Drake Cutter", "MISC Starlancer TAC", &tf("s_pv_anzahl", &[("n", Arg::from(1892))])] {
+        assert!(!has(&nodes, secret), "hidden: {secret}");
+    }
+    assert!(has(&nodes, &t("s_pv_vertraulich")), "the mark stays in the list");
+    versekit_core::streamer::set_thread_active(Some(false));
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    versekit_core::streamer::set_thread_active(None);
+    assert!(has(&nodes, "Drake Cutter") && !has(&nodes, &t("s_pv_verborgen")));
+}
+
+#[test]
+fn two_stands_kept_are_compared_in_a_thread_and_the_comparison_is_chosen() {
+    let _german = german();
+    let ctx = context();
+    let (paths, dir) = folder("vergleich");
+    let make = |build: &str, hp: i64| {
+        let mut stand = stands::Stand::new("LIVE", build, "2026-11-17", "r");
+        let mut area = stands::Area::default();
+        area.entries.insert("i1".into(), [("hp".to_string(), stands::Leaf::Int(hp))].into());
+        stand.areas.insert("werte.items".into(), area);
+        stand.probe = stands::probe_of(&stand.areas);
+        stand
+    };
+    let mut state = PatchChangesState::with_files(&paths);
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    assert!(has(&nodes, &t("s_pv_vergl_leer")), "less than two stands: it says so");
+    stands::save(&paths, &make("4.9.0-LIVE.1111111", 10)).unwrap();
+    stands::save(&paths, &make("4.10.0-LIVE.2222222", 12)).unwrap();
+    state.build();
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    assert_eq!(state.stands.len(), 2);
+    assert_ne!(state.compare_from, state.compare_to, "two different stands are chosen");
+    assert_eq!(state.stands[state.compare_to].build, "4.10.0-LIVE.2222222", "the newest is the one to");
+    assert_eq!(state.stands[state.compare_from].build, "4.9.0-LIVE.1111111", "the older is the one from");
+    assert!(!has(&nodes, &t("s_pv_vergl_leer")), "two stands: the lists are shown");
+    let button = nodes.iter().find(|(role, text, _)| *role == Role::Button && *text == t("s_pv_vergleichen"));
+    frame(&ctx, &mut state, click(button.expect("button").2));
+    for _ in 0..500 {
+        frame(&ctx, &mut state, Vec::new());
+        if state.compare_job.is_none() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(state.compared, Some(Compared::Done("4.10.0-LIVE.2222222".into())));
+    assert_eq!(state.chosen.as_deref(), Some("4.10.0-LIVE.2222222"));
+    let nodes = frame(&ctx, &mut state, Vec::new());
+    assert!(has(&nodes, "werte.items") || has(&nodes, &kind_label("werte.items")), "the area of the change");
+    assert!(state.list.iter().any(|p| p.own), "listed as an own comparison");
+    // The same two again: nothing differs from what is kept, the comparison is written once more, not twice listed.
+    assert_eq!(state.list.len(), 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}

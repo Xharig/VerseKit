@@ -25,7 +25,7 @@ use versekit_core::theme;
 use super::*;
 
 fn finder() -> Finder {
-    let gain = |who: &str, high: i64| Gain { who: who.into(), kind: "Standing".into(), low: high, high };
+    let gain = |who: &str, high: i64| Gain { who: who.into(), kind: "Standing".into(), low: high, high, unknown: false };
     Finder {
         contracts: vec![
             Contract {
@@ -95,20 +95,32 @@ fn the_values_of_a_contract_read_unknown_where_the_data_state_none() {
     assert_eq!(facts(&all[2]), ["unbekannt"; 6]);
     let span = Contract {
         cooldown: Some((30, 90)),
-        gains: vec![Gain { who: "X".into(), kind: String::new(), low: -50, high: 20 }],
+        gains: vec![Gain { who: "X".into(), kind: String::new(), low: -50, high: 20, unknown: false }],
         ..Contract::default()
     };
     assert_eq!(facts(&span)[..2], ["X -50 … +20".to_string(), "30 Min – 1 Std 30 Min".to_string()]);
     let loss = Contract {
-        gains: vec![Gain { who: "X".into(), kind: String::new(), low: -100, high: -50 }],
+        gains: vec![Gain { who: "X".into(), kind: String::new(), low: -100, high: -50, unknown: false }],
         ..Contract::default()
     };
     assert_eq!(facts(&loss)[0], "X -100 … -50", "both ends keep their sign");
     let gain_only = Contract {
-        gains: vec![Gain { who: "X".into(), kind: String::new(), low: 20, high: 50 }],
+        gains: vec![Gain { who: "X".into(), kind: String::new(), low: 20, high: 50, unknown: false }],
         ..Contract::default()
     };
     assert_eq!(facts(&gain_only)[0], "X +20 … +50", "a positive low end carries its plus too");
+    // A gain whose amount the data do not state is shown as such, in both languages, never left out.
+    let not_known = Contract {
+        gains: vec![
+            Gain { who: "Shubin".into(), kind: "Standing".into(), low: 0, high: 0, unknown: true },
+            Gain { who: "X".into(), kind: String::new(), low: 20, high: 20, unknown: false },
+        ],
+        ..Contract::default()
+    };
+    assert_eq!(facts(&not_known)[0], "Shubin (Menge unbekannt) Standing, X +20");
+    set_thread_language(Choice::En);
+    assert_eq!(facts(&not_known)[0], "Shubin (amount unknown) Standing, X +20");
+    set_thread_language(Choice::De);
     let capped = Contract {
         rank: Some(Rank { name: "Contractor".into(), reputation: 2200 }),
         rank_max: Some(Rank { name: "Elite Contractor".into(), reputation: 95250 }),

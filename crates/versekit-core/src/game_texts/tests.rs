@@ -708,6 +708,7 @@ fn a_side_channel_gets_its_language_and_the_notes_like_the_main_installation() {
     assert_eq!(job.channels, [("PTU".to_string(), "luftwerft_de".to_string())]);
     let net = Fake::default().with_head(&luftwerft_german("PTU"), &[("etag", "\"a\"")]);
     let ran = run(&job, &s.paths, &net, &FakeArchive::with_channel("5.0.0-ptu.1", &["Bounty_title_001"]), "");
+    assert!(net.asked().contains(&crate::luftwerft_list::LIST_URL.to_string()), "a run looks at the list of languages");
     assert!(ran.notices.contains(&Notice::LanguageRepaired("PTU · german_(germany)".into())), "{:?}", ran.notices);
     let cfg = fs::read_to_string(format!("{ptu}/user.cfg")).unwrap();
     assert!(cfg.contains("g_language = german_(germany)") && !cfg.contains("g_language = english"), "{cfg}");

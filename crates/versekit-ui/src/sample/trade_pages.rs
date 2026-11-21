@@ -200,7 +200,8 @@ fn routes_show_the_trips_from_the_start_and_the_chain_back() {
     assert_eq!(overflow, 0.0);
     // 120 SCU hold, 50 SCU in stock: 50 * 200 = 10.000 on the single trip.
     assert!(shows(&texts, "10.000 aUEC"), "{texts:?}");
-    assert!(shows(&texts, "verkaufen in TDD Lorville"), "{texts:?}");
+    assert!(shows(&texts, "TDD Lorville"), "{texts:?}");
+    assert!(shows(&texts, &language::t("s_rt_t_verkaufen")), "the table has its headings: {texts:?}");
     assert!(shows(&texts, &language::t("s_rt_grenze_vorrat")), "{texts:?}");
     // The chain of two trips: 10.000 there, 120 SCU of 500 in stock back (hold 120): 6.000.
     assert!(shows(&texts, "Gewinn 16.000"), "{texts:?}");
@@ -309,11 +310,15 @@ fn a_place_lists_its_shops_and_a_shop_shows_its_whole_offer() {
     page.shops_place("Lorville");
     let (overflow, texts) = look(&mut page, "hf_laeden", 1280.0);
     assert_eq!(overflow, 0.0);
-    let heading = language::tf("s_ld_shops_hier", &[("0", language::Arg::from("Lorville")), ("1", language::Arg::from("2"))]);
+    let heading =
+        language::tf("s_ld_shops_hier", &[("0", language::Arg::from("Lorville")), ("1", language::Arg::from("2"))]);
     assert!(shows(&texts, &heading), "{texts:?}");
     let row_a = format!("Shop A ({})", language::tf("s_ld_shop_teile", &[("0", language::Arg::from("1"))]));
     let row_t = format!("Tammany ({})", language::tf("s_ld_shop_teile", &[("0", language::Arg::from("1"))]));
-    assert!(shows(&texts, &row_a) && shows(&texts, &row_t) && !shows(&texts, "Shop B ("), "only the shops of the place: {texts:?}");
+    assert!(
+        shows(&texts, &row_a) && shows(&texts, &row_t) && !shows(&texts, "Shop B ("),
+        "only the shops of the place: {texts:?}"
+    );
     assert!(shows(&texts, "Arctic") && shows(&texts, "Iron Helmet"), "what is sold there stays below: {texts:?}");
     // A click on the shop opens what it sells, with its price there; nothing of another shop.
     draw_clicking(&mut page, 1280.0, 820.0, &[&row_a]);
@@ -321,12 +326,18 @@ fn a_place_lists_its_shops_and_a_shop_shows_its_whole_offer() {
     let (overflow, texts) = look(&mut page, "hf_laeden", 1280.0);
     assert_eq!(overflow, 0.0);
     assert!(shows(&texts, "Shop A") && shows(&texts, "Lorville · Stanton"), "{texts:?}");
-    assert!(starting_with(&texts, "Arctic").is_some() && texts.iter().any(|(t, _)| t.contains("1.200 aUEC")), "{texts:?}");
+    assert!(
+        starting_with(&texts, "Arctic").is_some() && texts.iter().any(|(t, _)| t.contains("1.200 aUEC")),
+        "{texts:?}"
+    );
     assert!(!shows(&texts, "Iron Helmet") && !shows(&texts, "Frost"), "only what this shop sells: {texts:?}");
     // A part of the shop opens as in the list (the shops of the place, the shopping list); back leads to the shop.
     draw_clicking(&mut page, 1280.0, 820.0, &["Arctic"]);
     let texts = look(&mut page, "hf_laeden", 1280.0).1;
-    assert!(shows(&texts, "Shop A") && shows(&texts, &language::t("s_ld_in_korb")), "the part with its shops: {texts:?}");
+    assert!(
+        shows(&texts, "Shop A") && shows(&texts, &language::t("s_ld_in_korb")),
+        "the part with its shops: {texts:?}"
+    );
     let back_to = |name: &str| language::tf("s_ld_zurueck_zu", &[("0", language::Arg::from(name))]);
     draw_clicking(&mut page, 1280.0, 820.0, &[&back_to("Shop A")]);
     assert_eq!(page.shops.open_outlet_name().as_deref(), Some("Shop A"), "back to the shop, not to the list");

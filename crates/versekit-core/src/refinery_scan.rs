@@ -226,17 +226,41 @@ pub fn number(token: &str, loose: bool) -> Option<Int> {
 }
 
 /// `match_material`: the material of a name the recognition read, or `None`. First exactly (by the comparison
-/// form), then loosely: the best hit must be at least 0.8 alike and beat the second clearly.
+/// form), then loosely: the best hit must be at least 0.8 alike and beat the second clearly; then a name the
+/// terminal cut short ([`cut_short`]); last with the characters the recognition mistakes for one another made the
+/// same on both sides ([`lookalike_material`]).
 pub fn match_material(text: &str, index: &Index) -> Option<String> {
-    let kept: String = text
-        .chars()
-        .filter(|c| c.is_ascii_alphabetic() || ('\u{C0}'..='\u{FF}').contains(c) || matches!(c, '(' | ')' | ' '))
-        .collect();
+    let wanted = name_form(text, |c| c.is_ascii_alphabetic());
+    if wanted.chars().count() < 3 {
+        // A short name with a digit in it (`T1N`) has too few letters left without it.
+        return lookalike_material(text, index);
+    }
+    if let Some(name) = index.get(&wanted) {
+        return Some(name.to_string());
+    }
+    let mut scored: Vec<(f64, &str)> =
+        index.by_form.iter().map(|(form, _)| (ratio(&wanted, form), form.as_str())).collect();
+    // Python sorts the pairs (ratio, form) from the largest: on the same ratio the larger form first.
+    scored.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| b.1.cmp(a.1)));
+    if let Some(best) = scored.first().filter(|(score, _)| *score >= 0.8) {
+        if scored.len() < 2 || best.0 - scored[1].0 >= 0.08 {
+            return index.get(best.1).map(str::to_string);
+        }
+    } else if let Some(name) = cut_short(&wanted, index) {
+        return Some(name);
+    }
+    lookalike_material(text, index)
+}
+
+/// The comparison form of a name the recognition read: the characters `keep` says and the letters of Latin-1,
+/// brackets and spaces, as [`norm_material`] makes it, without the symbol in front of a material (read as a single
+/// character, `e IRON`) and without the `RAW` the set-up card writes in front of raw materials.
+fn name_form(text: &str, keep: impl Fn(char) -> bool) -> String {
+    let kept: String =
+        text.chars().filter(|c| keep(*c) || ('\u{C0}'..='\u{FF}').contains(c) || matches!(c, '(' | ')' | ' ')).collect();
     let form = norm_material(&kept);
     let form = py_strip(&form);
     let mut wanted = String::new();
-    // The symbol in front of a material is read as a single letter (`e IRON`), and the set-up card writes raw
-    // materials as `RAW OURATITE`: neither is part of the name.
     let mut parts = form.split(py_isspace).filter(|p| !p.is_empty()).peekable();
     while parts.peek().is_some_and(|first| first.chars().count() == 1) {
         parts.next();
@@ -250,23 +274,47 @@ pub fn match_material(text: &str, index: &Index) -> Option<String> {
         }
         wanted.push_str(part);
     }
-    if wanted.chars().count() < 3 {
+    wanted
+}
+
+/// Characters of a name the recognition mistakes for one another, each made the same as the first of its group.
+const NAME_LOOKALIKES: [(char, char); 6] = [('i', 'l'), ('1', 'l'), ('0', 'o'), ('5', 's'), ('8', 'b'), ('2', 'z')];
+/// Pairs of letters the recognition reads as one letter, or the other way round, made the same as that letter.
+const NAME_PAIRS: [(&str, &str); 2] = [("rn", "m"), ("vv", "w")];
+/// How alike a name with its lookalikes made the same must be to the best material, at least: at most 15 % wrong.
+const LOOKALIKE_RATIO: f64 = 0.85;
+/// How far the best material must lead the second one.
+const LOOKALIKE_LEAD: f64 = 0.05;
+
+/// A comparison form with the mistakable characters and pairs made the same.
+fn fold_lookalikes(form: &str) -> String {
+    let mut text = form.to_lowercase();
+    for (pair, one) in NAME_PAIRS {
+        text = text.replace(pair, one);
+    }
+    text.chars().map(|c| NAME_LOOKALIKES.iter().find(|(from, _)| *from == c).map_or(c, |(_, to)| *to)).collect()
+}
+
+/// A material read with mistaken characters (`CORUNDURN`, `C0RUNDUM`): the read name, its digits kept, and every
+/// material with their lookalikes made the same, then compared again. The one material that is the same so, else the
+/// best that is at least [`LOOKALIKE_RATIO`] alike and leads the second by [`LOOKALIKE_LEAD`]; `None` when two
+/// materials are the same so or none leads clearly.
+fn lookalike_material(text: &str, index: &Index) -> Option<String> {
+    let wanted = fold_lookalikes(&name_form(text, |c| c.is_ascii_alphanumeric()));
+    if wanted.chars().filter(char::is_ascii_alphabetic).count() < 3 {
         return None;
     }
-    if let Some(name) = index.get(&wanted) {
-        return Some(name.to_string());
+    let folded: Vec<(String, &str)> =
+        index.by_form.iter().map(|(form, name)| (fold_lookalikes(form), name.as_str())).collect();
+    let mut same = folded.iter().filter(|(form, _)| *form == wanted);
+    if let Some((_, name)) = same.next() {
+        return same.next().is_none().then(|| (*name).to_string());
     }
-    let mut scored: Vec<(f64, &str)> =
-        index.by_form.iter().map(|(form, _)| (ratio(&wanted, form), form.as_str())).collect();
-    // Python sorts the pairs (ratio, form) from the largest: on the same ratio the larger form first.
-    scored.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| b.1.cmp(a.1)));
-    if let Some(best) = scored.first().filter(|(score, _)| *score >= 0.8) {
-        if scored.len() > 1 && best.0 - scored[1].0 < 0.08 {
-            return None;
-        }
-        return index.get(best.1).map(str::to_string);
-    }
-    cut_short(&wanted, index)
+    let mut scored: Vec<(f64, &str)> = folded.iter().map(|(form, name)| (ratio(&wanted, form), *name)).collect();
+    scored.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let (best, name) = *scored.first()?;
+    let second = scored.get(1).map_or(0.0, |s| s.0);
+    (best >= LOOKALIKE_RATIO && best - second >= LOOKALIKE_LEAD).then(|| name.to_string())
 }
 
 /// The fewest letters a name cut short by the terminal must keep.
@@ -920,7 +968,7 @@ pub fn split_heads(words: &[Word]) -> Vec<Word> {
 /// letter (`YIELO`, `YtELD`, `YlELD`, `Y1ELD`), but not `IELD` alone, which `FIELD` and `SHIELD` hold.
 const HEAD_YIELD: [&str; 8] = ["AUSBEU", "USBEU", "YIELD", "ERTRAG", "YIEL", "YTEL", "YLEL", "YELD"];
 /// The heads of the column of materials left of it.
-const HEAD_MATERIAL: [&str; 7] = ["WONNEN", "GEWONN", "MATERIA", "ATERIAL", "CSCU", "YIELDED", "IELDED"];
+const HEAD_MATERIAL: [&str; 8] = ["WONNEN", "GEWONN", "ONNENE", "MATERIA", "ATERIAL", "CSCU", "YIELDED", "IELDED"];
 
 /// `_head`: whether the letters of the word (capitals A to Z only) hold one of the parts.
 fn head(word: &Word, keys: &[&str]) -> bool {
@@ -1085,6 +1133,37 @@ pub struct Table {
     pub total: String,
 }
 
+/// The heads of the column of materials that only a yield table has, not the profile of the station at the left.
+const HEAD_YIELDED: [&str; 6] = ["CSCU", "WONNEN", "GEWONN", "ONNENE", "YIELDED", "IELDED"];
+
+/// The whole word of the German head of the yield, for a head read with faults (`AWBEUTE`); the English one is too
+/// short to tell from other words (`FIELD`, `SHIELD`).
+const YIELD_WORDS: [&str; 1] = ["AUSBEUTE"];
+
+/// A head of the yield: one of [`HEAD_YIELD`] in it, or a word at most two letters from a whole head.
+fn head_of_yield(word: &Word) -> bool {
+    if head(word, &HEAD_YIELD) {
+        return true;
+    }
+    let text: String = word.t.to_uppercase().chars().filter(char::is_ascii_uppercase).collect();
+    text.chars().count() >= 5
+        && YIELD_WORDS.iter().any(|whole| crate::blueprint_scan::edit_distance(&text, whole) <= 2)
+}
+
+/// The head of the quality where the recognition read it beyond knowing (`w.UTiT` for `QUALITÄT` in small
+/// letters): the word right before the head of the yield, in a row that has a head of the yielded materials
+/// left of it. `None` where the row has not both.
+fn quality_between(line: &[Word]) -> Option<&Word> {
+    let yield_head = line.iter().find(|w| head_of_yield(w))?;
+    let materials = line
+        .iter()
+        .filter(|w| head(w, &HEAD_YIELDED) && w.x < yield_head.x)
+        .max_by(|a, b| a.x.total_cmp(&b.x))?;
+    line.iter()
+        .filter(|w| w.x > materials.x + materials.w && w.x + w.w <= yield_head.x + 1.0 && !head(w, &HEAD_MATERIAL))
+        .max_by(|a, b| a.x.total_cmp(&b.x))
+}
+
 /// `find_tables`: every yield table of the picture, left to right, top to bottom. Two job cards side by side have
 /// a row of heads each and so an entry each. A row of heads is a row with a head of the quality and right of it
 /// one of the yield; the list of materials at the left of the terminal (the profile of the station) has no head of
@@ -1102,10 +1181,14 @@ pub fn find_tables(words: &[Word], width: i64, height: i64) -> Vec<Table> {
     let lines = rows(words);
     let mut candidates: Vec<Candidate> = Vec::new();
     for line in &lines {
-        for quality in line.iter().filter(|w| head(w, &HEAD_QUALITY)) {
+        let mut qualities: Vec<&Word> = line.iter().filter(|w| head(w, &HEAD_QUALITY)).collect();
+        if qualities.is_empty() {
+            qualities.extend(quality_between(line));
+        }
+        for quality in qualities {
             let unit = quality.h.max(4.0);
             let qx = quality.x;
-            let yields = line.iter().any(|w| head(w, &HEAD_YIELD) && 0.0 < w.x - qx && w.x - qx < 20.0 * unit);
+            let yields = line.iter().any(|w| head_of_yield(w) && 0.0 < w.x - qx && w.x - qx < 20.0 * unit);
             if !yields {
                 continue;
             }

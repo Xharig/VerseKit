@@ -57,6 +57,15 @@ pub enum Role {
 impl Role {
     pub const ALL: [Role; 3] = [Role::Main, Role::Overlay, Role::Learn];
 
+    /// The name of the role in the names of its files and in the notes of a lock.
+    pub fn name(self) -> &'static str {
+        match self {
+            Role::Main => "hauptfenster",
+            Role::Overlay => "overlay",
+            Role::Learn => "anlernen",
+        }
+    }
+
     /// The crash files of the role.
     pub fn crash_files(self) -> &'static crash::Files {
         match self {
@@ -173,11 +182,7 @@ pub fn role_lock_file(paths: &Paths, role: Role) -> String {
     let flavor = paths.host.flavor;
     let data = paths.app_folder();
     let key = crate::window_signal::folder_key(&data);
-    let name = match role {
-        Role::Main => "hauptfenster",
-        Role::Overlay => "overlay",
-        Role::Learn => "anlernen",
-    };
+    let name = role.name();
     let folder = match paths.host.var_set(crate::envvars::ENV_HOME) {
         Some(_) => data,
         None => flavor.dirname(&paths.second_pointer()),

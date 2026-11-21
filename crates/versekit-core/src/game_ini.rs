@@ -39,7 +39,7 @@ pub const CUSTOM: &str = "eigene";
 pub const ORIGINAL: &str = "original";
 
 /// `translation.SOURCES` in their order: name and language folder.
-pub const SOURCES: [(&str, &str); 15] = [
+pub const SOURCES: [(&str, &str); 16] = [
     ("starstrings", "english"),
     ("dymerz_de", "german_(germany)"),
     ("dymerz_fr", "french_(france)"),
@@ -55,7 +55,19 @@ pub const SOURCES: [(&str, &str); 15] = [
     ("luftwerft_bar", "bavarian_(germany)"),
     ("luftwerft_nl", "dutch_(netherlands)"),
     ("luftwerft_pt", "portuguese_(portugal)"),
+    ("luftwerft_ptbr", "portuguese_(brazil)"),
 ];
+
+/// Every source with its language folder: [`SOURCES`], then the languages the kept list of Luftwerft adds
+/// ([`crate::luftwerft_list`]).
+pub fn all_sources(paths: &Paths) -> Vec<(String, String)> {
+    let mut all: Vec<(String, String)> =
+        SOURCES.iter().map(|(id, folder)| (id.to_string(), folder.to_string())).collect();
+    for entry in crate::luftwerft_list::extras(paths) {
+        all.push((crate::luftwerft_list::id_of(&entry.folder), entry.folder));
+    }
+    all
+}
 
 /// Language folders of translations that are not among the game's own languages: the folder and `g_language`
 /// are named as the source names them.
@@ -282,7 +294,7 @@ fn language_folder(paths: &Paths, note: &Map, source: &str) -> Option<String> {
             _ => Some("english".into()),
         };
     }
-    SOURCES.iter().find(|(name, _)| *name == source).map(|(_, language)| language.to_string())
+    all_sources(paths).into_iter().find(|(name, _)| *name == source).map(|(_, language)| language)
 }
 
 /// `injection.ini_file`: the `global.ini` that counts. The chosen text
@@ -304,7 +316,8 @@ pub struct IniChoice {
 /// `injection.ini_file` with folder and source.
 pub fn ini_choice(paths: &Paths) -> IniChoice {
     let chosen = paths.setting(SETTING_SOURCE);
-    let mut order: Vec<&str> = SOURCES.iter().map(|(name, _)| *name).chain([CUSTOM]).collect();
+    let all = all_sources(paths);
+    let mut order: Vec<&str> = all.iter().map(|(name, _)| name.as_str()).chain([CUSTOM]).collect();
     match chosen.as_deref() {
         Some(source) if order.contains(&source) => {
             order.retain(|s| *s != source);

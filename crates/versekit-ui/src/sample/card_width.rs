@@ -42,7 +42,11 @@ fn pages() -> Vec<&'static str> {
     let mut pages = vec![""];
     pages.extend(NAV.iter().flat_map(|(_, pages)| pages.iter().map(|(page, _)| *page)));
     pages.extend(["hf_wasistneu", "hf_diagnose"]);
-    pages
+    // `CARD_WIDTH_PAGE=<page>` looks at one page only, for the search of a finding.
+    match std::env::var("CARD_WIDTH_PAGE") {
+        Ok(only) => pages.into_iter().filter(|page| *page == only).collect(),
+        Err(_) => pages,
+    }
 }
 
 /// The widest gap between two cards that stand side by side in a row.

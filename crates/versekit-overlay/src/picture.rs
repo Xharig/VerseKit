@@ -15,14 +15,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The fourth hotkey of the overlay (Alt+Umschalt+B): it takes the picture of the game for the signature window at
+//! The fourth hotkey of the overlay (Alt+F10): it takes the picture of the game for the signature window at
 //! once, while the game is in front (`versekit_core::game_picture::take_now`). The grab runs in a thread of its own
-//! and keeps the picture in the folder `Intern`, where the main window finds it; a hint row says what came of it.
+//! and keeps the picture in the folder `Intern`, where the main window finds it; a notice over the game says what
+//! came of it.
 
 use std::sync::mpsc::Sender;
 
 use versekit_core::game_picture::{self, Fetched};
+use versekit_core::language::{self, Lang};
 use versekit_core::paths::Paths;
+use versekit_core::scan_notice::{Notice, NoticeKind};
 use versekit_core::signature_watch::Screen;
 use versekit_core::writeguard;
 
@@ -32,11 +35,11 @@ pub type PictureKey = crate::refinery::KeyJob<Outcome>;
 /// How a grab started by the hotkey ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Outcome {
-    /// Taken and kept (`ov_hk_bild_ok`).
+    /// Taken and kept (`s_bild_t_ok`).
     Taken,
-    /// Star Citizen was not in front: nothing was grabbed (`ov_hk_bild_kein_spiel`).
+    /// Star Citizen was not in front: nothing was grabbed (`s_bpscan_kein_spiel`).
     NoGame,
-    /// The grab or the file failed (`ov_hk_bild_fehler`).
+    /// The grab or the file failed (`s_bild_t_fehler`).
     Failed,
 }
 
@@ -50,12 +53,24 @@ impl Outcome {
         }
     }
 
-    /// The text of the hint row.
-    pub fn hint(self) -> &'static str {
+    /// The notice over the game, in the language of the program; where the game is not in front the caller shows
+    /// it as a hint row.
+    pub fn notice(self) -> Notice {
+        self.notice_in(language::current())
+    }
+
+    /// The notice in `lang`: taken (with where to find it), not in front, or unreadable.
+    pub fn notice_in(self, lang: Lang) -> Notice {
         match self {
-            Outcome::Taken => "ov_hk_bild_ok",
-            Outcome::NoGame => "ov_hk_bild_kein_spiel",
-            Outcome::Failed => "ov_hk_bild_fehler",
+            Outcome::Taken => {
+                Notice::new(NoticeKind::Done, language::t_in(lang, "s_bild_t_ok"), language::t_in(lang, "s_bild_wo"))
+            }
+            Outcome::NoGame => Notice::game_away(language::t_in(lang, "s_bpscan_kein_spiel")),
+            Outcome::Failed => Notice::new(
+                NoticeKind::Nothing,
+                language::t_in(lang, "s_bild_t_fehler"),
+                language::t_in(lang, "s_bild_nochmal"),
+            ),
         }
     }
 }
@@ -66,6 +81,9 @@ pub fn take(paths: Paths, guard: writeguard::State, done: Sender<Outcome>, wake:
     let started = std::thread::Builder::new().name("spielbild-hotkey".into()).spawn(move || {
         writeguard::adopt(&guard);
         let fetched = game_picture::take_now(&mut Screen, &paths.app_file(game_picture::FILE));
+        if let Fetched::Failed(error) = &fetched {
+            versekit_core::errors::record("overlay.spielbild_hotkey", &error.key());
+        }
         let _ = done.send(Outcome::of(&fetched));
         wake();
     });
@@ -89,9 +107,18 @@ mod tests {
         assert_eq!(Outcome::of(&Fetched::NoGame), Outcome::NoGame);
         assert_eq!(Outcome::of(&Fetched::Stopped), Outcome::NoGame);
         assert_eq!(Outcome::of(&Fetched::Failed(GrabError::Failed)), Outcome::Failed);
-        assert_eq!(Outcome::Taken.hint(), "ov_hk_bild_ok");
-        assert_eq!(Outcome::NoGame.hint(), "ov_hk_bild_kein_spiel");
-        assert_eq!(Outcome::Failed.hint(), "ov_hk_bild_fehler");
+        // Each end has a notice over the game in words, a taken picture in the accent with where it is.
+        let taken = Outcome::Taken.notice_in(Lang::De);
+        assert_eq!((taken.kind, taken.title.as_str()), (NoticeKind::Done, "Spielbild aufgenommen"));
+        assert!(!taken.detail.is_empty());
+        for outcome in [Outcome::NoGame, Outcome::Failed] {
+            for lang in [Lang::De, Lang::En] {
+                let n = outcome.notice_in(lang);
+                assert_eq!(n.kind, NoticeKind::Nothing);
+                assert!(!n.title.starts_with("s_"), "{n:?}");
+                assert_eq!(n.away, outcome == Outcome::NoGame, "{n:?}");
+            }
+        }
     }
 
     #[test]

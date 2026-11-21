@@ -258,6 +258,8 @@ pub struct Facts {
     pub os: &'static str,
     pub ui: String,
     pub game: String,
+    /// The translation chosen for the main installation ([`translation_code`]).
+    pub translation: String,
     pub rc: bool,
     pub mods: Vec<String>,
     pub overlay: String,
@@ -351,6 +353,20 @@ pub fn game_code(folder: Option<&str>) -> String {
     GAME_LANGUAGES.iter().find(|(name, _)| *name == stem).map_or("xx", |(_, code)| code).to_string()
 }
 
+/// The translation chosen for the main installation as the id of its source (`dymerz_de`, `luftwerft_nl`,
+/// `original`, `eigene` for an own address, never the address), `keine` without one. An id that is not a plain
+/// word of letters, digits and `_` counts as `andere`.
+pub fn translation_code(source: Option<&str>) -> String {
+    let source = source.map(str::trim).filter(|s| !s.is_empty());
+    match source {
+        None => "keine".into(),
+        Some(id) if id.len() <= 40 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') => {
+            id.into()
+        }
+        Some(_) => "andere".into(),
+    }
+}
+
 /// Does the program start with the system (`autostart.is_on`)? An entry under the name of this program or
 /// one of the earlier names. A made-up computer has no registry.
 pub fn autostart_on(host: &Host) -> bool {
@@ -392,6 +408,7 @@ pub fn facts(paths: &Paths, ui: &str) -> Facts {
         os: system(),
         ui,
         game: game_code(crate::game_ini::game_language(paths).as_deref()),
+        translation: translation_code(paths.setting(crate::translation::SETTING_SOURCE).as_deref()),
         rc: paths.setting_bool("vorabversionen", false),
         mods,
         overlay,
@@ -421,7 +438,9 @@ pub fn payload(version: &str, facts: &Facts, counts: &Map) -> Map {
         ("tiles_off".into(), strings(&facts.tiles_off)),
     ];
     if let Some(days) = facts.age {
-        out.push(("alter".into(), Value::int(days.clamp(0, MAX_AGE))));    }
+        out.push(("alter".into(), Value::int(days.clamp(0, MAX_AGE))));
+    }
+    out.push(("tr".into(), Value::str(&facts.translation)));
     out.extend(outgoing(&Value::Object(counts.clone())));
     out
 }

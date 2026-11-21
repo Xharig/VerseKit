@@ -49,10 +49,14 @@ const FALLBACK_MONEY: i64 = 500_000;
 /// The trips shown of one start, of which are the single ones.
 const SINGLE_SHOWN: usize = 6;
 const SINGLE_ASKED: usize = 8;
+/// The direct trips shown from the start to a chosen destination.
+const DIRECT_SHOWN: usize = 12;
 /// Chains shown from the start and anywhere.
 const CHAINS_SHOWN: usize = 3;
 const CHAINS_ANYWHERE: usize = 8;
 const LOOK_SECONDS: f64 = 1.0;
+/// Prices older than this (seconds) carry a warning.
+const STALE_AFTER: f64 = 3.0 * 86_400.0;
 const LIST_ID: &str = "handel-routen-liste";
 
 /// What identifies a chain calculation, so that it runs again only when something changed.
@@ -64,6 +68,7 @@ struct Key {
     short: bool,
     stops: i64,
     round: bool,
+    dest: Option<String>,
 }
 
 type Chains = Vec<(f64, Vec<Leg>)>;
@@ -78,6 +83,9 @@ pub struct RoutesState {
     looked_at: f64,
     place_text: String,
     start: Option<(String, String)>,
+    /// The destination, when one is chosen: the page then lists the trips from the start to it.
+    dest: Option<(String, String)>,
+    dest_text: String,
     system: usize,
     scu_text: String,
     money_text: String,
@@ -122,6 +130,8 @@ impl Default for RoutesState {
             looked_at: f64::NEG_INFINITY,
             place_text: String::new(),
             start: None,
+            dest: None,
+            dest_text: String::new(),
             system: 0,
             scu_text: "120".to_string(),
             money_text: "500000".to_string(),
@@ -206,6 +216,8 @@ impl RoutesState {
     /// Is something chosen or typed that "Reset" would undo?
     pub fn is_narrowed(&self) -> bool {
         self.start.is_some()
+            || self.dest.is_some()
+            || !self.dest_text.is_empty()
             || !self.place_text.is_empty()
             || self.system != 0
             || self.ship.is_some()
@@ -287,6 +299,9 @@ impl RoutesState {
 
     pub(crate) fn choose_start(&mut self, ctx: &egui::Context, ident: &str, name: &str) {
         self.failed_starts.retain(|failed| failed != ident);
+        if self.dest.as_ref().is_some_and(|(dest, _)| dest == ident) {
+            self.clear_dest();
+        }
         self.start = Some((ident.to_string(), name.to_string()));
         self.place_text = name.to_string();
         self.everywhere = false;
@@ -307,6 +322,38 @@ impl RoutesState {
         }
     }
 
+    /// The destination chosen; it can never be the start itself.
+    pub(crate) fn set_dest(&mut self, ident: &str, name: &str) {
+        if self.start.as_ref().is_none_or(|(start, _)| start == ident) {
+            return;
+        }
+        self.dest = Some((ident.to_string(), name.to_string()));
+        self.dest_text = name.to_string();
+        self.chains = None;
+        self.chain_job = None;
+    }
+
+    /// No destination any more: the page shows the best trips from the start again.
+    pub(crate) fn clear_dest(&mut self) {
+        self.dest = None;
+        self.dest_text.clear();
+        self.chains = None;
+        self.chain_job = None;
+    }
+
+    /// Start and destination change places.
+    pub(crate) fn swap_ends(&mut self, ctx: &egui::Context) {
+        let (Some(start), Some(dest)) = (self.start.clone(), self.dest.clone()) else { return };
+        self.choose_start(ctx, &dest.0, &dest.1);
+        self.set_dest(&start.0, &start.1);
+    }
+
+    /// The start and the destination chosen, as their numbers (for the tests of the page).
+    #[cfg(test)]
+    pub(crate) fn ends(&self) -> (Option<&str>, Option<&str>) {
+        (self.start.as_ref().map(|(i, _)| i.as_str()), self.dest.as_ref().map(|(i, _)| i.as_str()))
+    }
+
     fn key(&self) -> Option<Key> {
         let (start, _) = self.start.clone()?;
         Some(Key {
@@ -315,7 +362,9 @@ impl RoutesState {
             money: self.money(),
             short: self.short,
             stops: self.stops,
-            round: self.round,
+            // A way to a destination has no round trip.
+            round: self.round && self.dest.is_none(),
+            dest: self.dest.as_ref().map(|(ident, _)| ident.clone()),
         })
     }
 
@@ -382,6 +431,17 @@ impl RoutesState {
                 let mut book = Routes::load(&paths);
                 let fetch = trade::fetcher();
                 let now = trade::now();
+                if let Some(dest) = &asked.dest {
+                    return routes::chain_to(
+                        &mut book,
+                        &asked.start,
+                        dest,
+                        asked.scu,
+                        asked.money as f64,
+                        ChainOptions { short: asked.short, most: CHAINS_SHOWN, stops: asked.stops, round_trip: false },
+                        &mut |book, place| routes::fetch_start(&paths, book, place, false, now, &fetch),
+                    );
+                }
                 routes::chain(
                     &mut book,
                     &asked.start,
@@ -445,24 +505,7 @@ fn inputs(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, opened: bool) {
         }
     }
     let wanted_system = state.system.checked_sub(1).and_then(|i| systems.get(i)).map(|(name, _)| name.clone());
-    let mut labels: Vec<String> = Vec::new();
-    let mut idents: Vec<(String, String)> = Vec::new();
-    for (ident, name) in &posts {
-        let spot = state.selling.terminals.get(ident);
-        let system = spot.map(|s| s.system.clone()).unwrap_or_default();
-        if wanted_system.as_ref().is_some_and(|w| *w != system) {
-            continue;
-        }
-        let place = spot.map(|s| s.place.clone()).unwrap_or_default();
-        let mut label = name.clone();
-        for part in [&place, &system] {
-            if !part.is_empty() && *part != *name {
-                label = format!("{label} · {part}");
-            }
-        }
-        labels.push(label);
-        idents.push((ident.clone(), name.clone()));
-    }
+    let (labels, idents) = place_labels(&state.selling, &posts, wanted_system.as_deref(), None);
     let more = |n: usize| tf("s_mlg_mehr", &[("n", Arg::from(n))]);
     let hint = t("s_hd_wo_ph");
     let width = ui.available_width() - layout::SAFETY;
@@ -479,12 +522,17 @@ fn inputs(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, opened: bool) {
         }
         trade::quiet(ui, scheme, &t("s_hd_rt_start_zuerst"));
     }
+    field.response.on_hover_text(t("s_rt_start_tip"));
     state.place_text = text;
     if let Some(index) = picked
         && let Some((ident, name)) = idents.get(index).cloned()
     {
         let ctx = ui.ctx().clone();
         state.choose_start(&ctx, &ident, &name);
+    }
+    if state.start.is_some() {
+        ui.add_space(GAP);
+        dest_field(ui, scheme, state, &posts);
     }
     ui.add_space(GAP);
     layout::columns_or_stack(ui, 240.0, 2, |ui, i| {
@@ -504,6 +552,76 @@ fn inputs(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, opened: bool) {
     });
     ui.add_space(GAP);
     ship_picker(ui, scheme, state);
+}
+
+/// The entries of a field for a place: what is shown (name, place, system) and `(number, name)`, for the
+/// posts of one system when `system` is given, without the post `skip`.
+fn place_labels(
+    selling: &Selling,
+    posts: &[(String, String)],
+    system: Option<&str>,
+    skip: Option<&str>,
+) -> (Vec<String>, Vec<(String, String)>) {
+    let mut labels: Vec<String> = Vec::new();
+    let mut idents: Vec<(String, String)> = Vec::new();
+    for (ident, name) in posts {
+        if skip == Some(ident.as_str()) {
+            continue;
+        }
+        let spot = selling.terminals.get(ident);
+        let here = spot.map(|s| s.system.clone()).unwrap_or_default();
+        if system.is_some_and(|w| w != here) {
+            continue;
+        }
+        let place = spot.map(|s| s.place.clone()).unwrap_or_default();
+        let mut label = name.clone();
+        for part in [&place, &here] {
+            if !part.is_empty() && *part != *name {
+                label = format!("{label} · {part}");
+            }
+        }
+        labels.push(label);
+        idents.push((ident.clone(), name.clone()));
+    }
+    (labels, idents)
+}
+
+/// The destination: a field like the one for the start, beside it the button that swaps both. Emptying the
+/// field takes the destination away; a destination can be any trading post, whatever system the start is in.
+fn dest_field(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, posts: &[(String, String)]) {
+    ui.label(RichText::new(t("s_rt_ziel")).strong());
+    let start_ident = state.start.as_ref().map(|(ident, _)| ident.clone());
+    let (labels, idents) = place_labels(&state.selling, posts, None, start_ident.as_deref());
+    let more = |n: usize| tf("s_mlg_mehr", &[("n", Arg::from(n))]);
+    let hint = t("s_rt_ziel_platz");
+    let width = ui.available_width() - layout::SAFETY - widgets::ICON_BUTTON_SIZE - ui.spacing().item_spacing.x;
+    let mut text = std::mem::take(&mut state.dest_text);
+    let mut picked = None;
+    let mut swap = false;
+    ui.horizontal(|row| {
+        let field =
+            widgets::SuggestField::new("handel-ziel", &hint, scheme, &more).width(width).show(row, &mut text, &labels);
+        picked = field.picked;
+        field.response.on_hover_text(t("s_rt_ziel_tip"));
+        if state.dest.is_some() {
+            swap = widgets::icon_button(row, scheme, "arrow-down-up", &t("s_rt_tauschen")).clicked();
+        } else {
+            widgets::icon_button_blocked(row, scheme, "arrow-down-up", &t("s_rt_tauschen_leer"));
+        }
+    });
+    state.dest_text = text;
+    if state.dest.is_some() && state.dest_text.is_empty() {
+        state.clear_dest();
+    }
+    if let Some(index) = picked
+        && let Some((ident, name)) = idents.get(index)
+    {
+        state.set_dest(ident, name);
+    }
+    if swap {
+        let ctx = ui.ctx().clone();
+        state.swap_ends(&ctx);
+    }
 }
 
 fn ship_picker(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState) {
@@ -577,26 +695,39 @@ fn toggles(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState) {
     let mut changed = false;
     let mut short = usize::from(state.short);
     let words = [t("s_rt_nach_gewinn"), t("s_rt_nach_strecke")];
+    group_title(ui, scheme, &t("s_rt_g_sortieren"));
     changed |= trade::toggle_pair(ui, scheme, [&words[0], &words[1]], &mut short);
     state.short = short == 1;
-    ui.add_space(2.0);
+    ui.add_space(4.0);
+    // With a destination the buttons set the most trips on the way, otherwise the number of trips.
+    group_title(ui, scheme, &t(if state.dest.is_some() { "s_rt_g_fahrten_ziel" } else { "s_rt_g_fahrten" }));
     ui.horizontal_wrapped(|row| {
         for stops in 2..=routes::MAX_STOPS {
             let kind = if state.stops == stops { ButtonKind::Strong } else { ButtonKind::Normal };
-            if row.add(widgets::Button::new(&tf("s_rt_stopps", &[("0", Arg::from(stops))]), kind, scheme)).clicked() {
+            if row.add(widgets::Button::new(&tf("s_rt_fahrten_n", &[("0", Arg::from(stops))]), kind, scheme)).clicked()
+            {
                 state.stops = stops;
                 changed = true;
             }
         }
     });
-    ui.add_space(2.0);
-    let mut round = usize::from(state.round);
-    let words = [t("s_rt_offen"), t("s_rt_rund")];
-    changed |= trade::toggle_pair(ui, scheme, [&words[0], &words[1]], &mut round);
-    state.round = round == 1;
+    // A way to a destination has no round trip.
+    if state.dest.is_none() {
+        ui.add_space(4.0);
+        group_title(ui, scheme, &t("s_rt_g_weg"));
+        let mut round = usize::from(state.round);
+        let words = [t("s_rt_offen"), t("s_rt_rund")];
+        changed |= trade::toggle_pair(ui, scheme, [&words[0], &words[1]], &mut round);
+        state.round = round == 1;
+    }
     if changed {
         state.chains = None;
     }
+}
+
+/// The small heading of a group of buttons.
+fn group_title(ui: &mut Ui, scheme: &Scheme, text: &str) {
+    ui.add(egui::Label::new(widgets::bold(ui, text, egui::TextStyle::Small).color(color(scheme.sub))).wrap());
 }
 
 fn results(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState) {
@@ -610,16 +741,18 @@ fn results(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState) {
         .max_height(room)
         .min_scrolled_height(room)
         .auto_shrink([false, true]);
-    let shown = widgets::list_frame_marked(ui, scheme, |ui| widgets::scroll_area(ui, scheme, area, |ui| {
-        ui.set_max_width(ui.available_width() - layout::SAFETY);
-        if state.all_job.is_some() {
-            widgets::loading(ui, scheme, &t("s_rt_rechnet"));
-        } else if state.everywhere {
-            everywhere_list(ui, scheme, state, lang);
-        } else if state.start.is_some() {
-            from_start(ui, scheme, state, lang);
-        }
-    }))
+    let shown = widgets::list_frame_marked(ui, scheme, |ui| {
+        widgets::scroll_area(ui, scheme, area, |ui| {
+            ui.set_max_width(ui.available_width() - layout::SAFETY);
+            if state.all_job.is_some() {
+                widgets::loading(ui, scheme, &t("s_rt_rechnet"));
+            } else if state.everywhere {
+                everywhere_list(ui, scheme, state, lang);
+            } else if state.start.is_some() {
+                from_start(ui, scheme, state, lang);
+            }
+        })
+    })
     .inner;
     state.list_overflow = trade::overflow_of(&shown);
 }
@@ -648,6 +781,7 @@ fn everywhere_bar(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState) {
             let posts = posts.clone();
             state.everywhere = true;
             state.start = None;
+            state.clear_dest();
             state.all_job = Some((
                 Job::spawn(&ctx, "routes-all", move || {
                     let mut book = Routes::load(&paths);
@@ -687,18 +821,38 @@ fn from_start(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, lang: Lang)
         widgets::loading(ui, scheme, &t("s_rt_rechnet"));
         return;
     }
+    let dest = state.dest.clone();
     trade::two_sided(
         ui,
         |left| {
-            left.label(RichText::new(&name).strong());
+            let title = match &dest {
+                Some((_, dest_name)) => format!("{name} → {dest_name}"),
+                None => name.clone(),
+            };
+            left.label(RichText::new(title).strong());
         },
         |side| {
             if let Some(age) = state.book.age(&ident, now) {
-                trade::quiet(side, scheme, &tf("s_vk_stand", &[("alter", Arg::from(trade::age_text(Some(age))))]));
+                let when = Arg::from(trade::age_text(Some(age)));
+                if age > STALE_AFTER {
+                    side.add(
+                        egui::Label::new(
+                            RichText::new(tf("s_rt_stand_alt", &[("alter", when)])).small().color(color(scheme.yellow)),
+                        )
+                        .wrap(),
+                    )
+                    .on_hover_text(t("s_rt_stand_alt_tip"));
+                } else {
+                    trade::quiet(side, scheme, &tf("s_vk_stand", &[("alter", when)]));
+                }
             }
         },
     );
     ui.add_space(4.0);
+    if let Some((dest_ident, dest_name)) = dest {
+        to_dest(ui, scheme, state, lang, (&ident, &name), (&dest_ident, &dest_name));
+        return;
+    }
     let single = routes::single_trips(&state.book, &ident, state.scu(), state.money() as f64, SINGLE_ASKED);
     if single.is_empty() {
         // Trips that could not be fetched are no proof that nothing pays.
@@ -708,7 +862,8 @@ fn from_start(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, lang: Lang)
     }
     ui.label(RichText::new(t("s_rt_einzeln")).strong());
     for (n, leg) in single.iter().take(SINGLE_SHOWN).enumerate() {
-        leg_row(ui, scheme, lang, leg, n == 0, Some(&name));
+        route_card(ui, scheme, lang, leg.profit, std::slice::from_ref(leg), &name, n == 0, false);
+        ui.add_space(4.0);
     }
     ui.add_space(GAP);
     let title =
@@ -724,12 +879,59 @@ fn from_start(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, lang: Lang)
     match state.chains.as_ref().filter(|(key, _)| Some(key) == current.as_ref()) {
         Some((_, found)) if !found.is_empty() => {
             for (n, (profit, way)) in found.iter().enumerate() {
-                chain_box(ui, scheme, lang, *profit, way, &name, n == 0, state.round);
+                route_card(ui, scheme, lang, *profit, way, &name, n == 0, state.round);
                 ui.add_space(4.0);
             }
         }
         Some(_) => trade::quiet(ui, scheme, &t("s_hd_keine_kette")),
         None => {}
+    }
+}
+
+/// The trips from the start to the chosen destination: the direct ones, and, only when there are any, the ways
+/// over at least one stop in between (a chain starts at two trips).
+fn to_dest(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, lang: Lang, start: (&str, &str), dest: (&str, &str)) {
+    let (start_ident, start_name) = start;
+    let (dest_ident, dest_name) = dest;
+    if state.book.trips(start_ident).is_none() {
+        // Trips that could not be fetched are no proof that nothing pays.
+        let failed = state.failed_starts.iter().any(|failed| failed == start_ident);
+        trade::quiet(ui, scheme, &t(if failed { "s_vk_fehler" } else { "s_hd_nichts" }));
+        return;
+    }
+    let direct =
+        routes::trips_between(&state.book, start_ident, dest_ident, state.scu(), state.money() as f64, DIRECT_SHOWN);
+    ui.label(RichText::new(t("s_rt_direkt")).strong());
+    if direct.is_empty() {
+        trade::quiet(ui, scheme, &tf("s_rt_ziel_nichts_direkt", &[("0", Arg::from(dest_name))]));
+    }
+    for (n, leg) in direct.iter().enumerate() {
+        route_card(ui, scheme, lang, leg.profit, std::slice::from_ref(leg), start_name, n == 0, false);
+        ui.add_space(4.0);
+    }
+    let ctx = ui.ctx().clone();
+    state.ensure_chains(&ctx);
+    if state.chain_job.is_some() {
+        ui.add_space(GAP);
+        widgets::loading(ui, scheme, &t("s_rt_rechnet"));
+        return;
+    }
+    let current = state.key();
+    let found: &[(f64, Vec<Leg>)] = match state.chains.as_ref().filter(|(key, _)| Some(key) == current.as_ref()) {
+        Some((_, found)) => found,
+        None => &[],
+    };
+    if found.is_empty() {
+        if direct.is_empty() && state.chains.is_some() {
+            trade::quiet(ui, scheme, &t("s_rt_ziel_nichts"));
+        }
+        return;
+    }
+    ui.add_space(GAP);
+    ui.label(RichText::new(tf("s_rt_ziel_ketten", &[("0", Arg::from(dest_name))])).strong());
+    for (n, (profit, way)) in found.iter().enumerate() {
+        route_card(ui, scheme, lang, *profit, way, start_name, n == 0, false);
+        ui.add_space(4.0);
     }
 }
 
@@ -750,60 +952,68 @@ fn everywhere_list(ui: &mut Ui, scheme: &Scheme, state: &mut RoutesState, lang: 
         return;
     }
     for (profit, start, way) in found {
-        chain_box(ui, scheme, lang, *profit, way, start, false, false);
+        route_card(ui, scheme, lang, *profit, way, start, false, false);
         ui.add_space(4.0);
     }
 }
 
-/// One single trip: profit, amount, good, where to sell; below the outlay, the stock and what limits it.
-fn leg_row(ui: &mut Ui, scheme: &Scheme, lang: Lang, leg: &Leg, first: bool, start: Option<&str>) {
-    widgets::list_frame(ui, scheme, |ui| {
-        ui.set_min_width(ui.available_width() - layout::SAFETY);
-        ui.horizontal_wrapped(|row| {
-            let tone = if first { scheme.accent } else { scheme.fg };
-            row.label(RichText::new(trade::auec(lang, leg.profit)).strong().color(color(tone)));
-            row.label(tf(
-                "s_rt_scu_menge",
-                &[("0", Arg::from(formats::amount(lang, leg.amount as f64, "").trim_end().to_string()))],
-            ));
-            row.label(RichText::new(&leg.trip.good).strong());
-            if let Some(start) = start {
-                row.label(RichText::new(tf("s_rt_ab", &[("0", Arg::from(start))])).color(color(scheme.sub)));
-            }
-            let target = if leg.trip.dest_name.is_empty() { "?" } else { leg.trip.dest_name.as_str() };
-            row.label(tf("s_rt_nach", &[("0", Arg::from(target))]));
-            if leg.trip.distance > 0.0 {
-                row.label(
-                    RichText::new(tf("s_rt_strecke", &[("0", Arg::from(leg.trip.distance as i64))]))
-                        .color(color(scheme.sub)),
-                );
-            }
-        });
-        if leg.trip.buy != 0.0 {
-            ui.horizontal_wrapped(|row| {
-                let outlay = leg.trip.buy * leg.amount as f64;
-                row.label(
-                    RichText::new(tf("s_rt_einsatz", &[("0", Arg::from(trade::plain(lang, outlay)))]))
-                        .small()
-                        .color(color(scheme.sub)),
-                );
-                if leg.trip.stock > 0 {
-                    row.label(
-                        RichText::new(tf("s_rt_vorrat", &[("0", Arg::from(leg.trip.stock))]))
-                            .small()
-                            .color(color(scheme.sub)),
-                    );
-                }
-                if !leg.limit.is_empty() {
-                    row.label(RichText::new(t(leg.limit)).small().color(color(scheme.yellow)));
-                }
-            });
-        }
-    });
+/// A caption in muted small text and its value in bold, as one label: a wrapping row moves both together.
+fn captioned(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    caption: &str,
+    value: &str,
+    tone: versekit_core::theme::Color,
+) -> egui::Response {
+    let small = egui::TextStyle::Small.resolve(ui.style());
+    let body = egui::TextStyle::Body.resolve(ui.style());
+    let mut job = egui::text::LayoutJob::default();
+    job.append(&format!("{caption} "), 0.0, egui::text::TextFormat::simple(small, color(scheme.sub)));
+    job.append(value, 0.0, egui::text::TextFormat::simple(crate::fonts::bold(body.size), color(tone)));
+    ui.add(egui::Label::new(job).wrap())
 }
 
+/// One station of a route: where it is bought, what, how much, where it is sold, and what this leg earns.
+struct Row {
+    from: String,
+    good: String,
+    amount: i64,
+    to: String,
+    profit: f64,
+    outlay: f64,
+    stock: i64,
+    limit: &'static str,
+}
+
+fn route_rows(way: &[Leg], start_name: &str, round: bool) -> Vec<Row> {
+    let mut from = start_name.to_string();
+    let mut rows = Vec::with_capacity(way.len());
+    for (n, leg) in way.iter().enumerate() {
+        let name = if leg.trip.dest_name.is_empty() { "?".to_string() } else { leg.trip.dest_name.clone() };
+        let to = if round && n + 1 == way.len() {
+            tf("s_rt_zurueck", &[("0", Arg::from(name.as_str()))])
+        } else {
+            name.clone()
+        };
+        rows.push(Row {
+            from: std::mem::replace(&mut from, name),
+            good: leg.trip.good.clone(),
+            amount: leg.amount,
+            to,
+            profit: leg.profit,
+            outlay: leg.trip.buy * leg.amount as f64,
+            stock: leg.trip.stock,
+            limit: leg.limit,
+        });
+    }
+    rows
+}
+
+/// One route as a card: a line with profit, start money, distance and number of trips, below it one row for
+/// each station (where, buy, amount, sell, profit of the leg). Where the table does not fit the width, each
+/// station stands as a short block of captioned lines instead.
 #[allow(clippy::too_many_arguments)]
-fn chain_box(
+fn route_card(
     ui: &mut Ui,
     scheme: &Scheme,
     lang: Lang,
@@ -813,56 +1023,126 @@ fn chain_box(
     first: bool,
     round: bool,
 ) {
+    let rows = route_rows(way, start_name, round);
     widgets::list_frame(ui, scheme, |ui| {
         ui.set_min_width(ui.available_width() - layout::SAFETY);
         let distance: f64 = way.iter().map(|leg| leg.trip.distance).sum();
-        trade::two_sided(
-            ui,
-            |left| {
-                let tone = if first { scheme.accent } else { scheme.fg };
-                left.label(
-                    RichText::new(tf("s_rt_kette_gewinn", &[("0", Arg::from(trade::plain(lang, profit)))]))
-                        .strong()
-                        .color(color(tone)),
-                );
-            },
-            |side| {
-                if distance > 0.0 {
-                    trade::quiet(side, scheme, &tf("s_rt_strecke", &[("0", Arg::from(distance as i64))]));
+        let start_money = rows.first().map_or(0.0, |row| row.outlay);
+        ui.horizontal_wrapped(|line| {
+            line.spacing_mut().item_spacing.x = 18.0;
+            let tone = if first { scheme.accent } else { scheme.fg };
+            captioned(line, scheme, &t("s_rt_k_gewinn"), &trade::auec(lang, profit), tone)
+                .on_hover_text(t("s_rt_k_gewinn_tip"));
+            if start_money != 0.0 {
+                captioned(line, scheme, &t("s_rt_k_start"), &trade::auec(lang, start_money), scheme.fg)
+                    .on_hover_text(t("s_rt_k_start_tip"));
+            }
+            if distance > 0.0 {
+                captioned(
+                    line,
+                    scheme,
+                    &t("s_rt_k_strecke"),
+                    &tf("s_rt_strecke", &[("0", Arg::from(distance as i64))]),
+                    scheme.fg,
+                )
+                .on_hover_text(t("s_rt_k_strecke_tip"));
+            }
+            captioned(line, scheme, &t("s_rt_k_fahrten"), &rows.len().to_string(), scheme.fg)
+                .on_hover_text(t("s_rt_k_fahrten_tip"));
+        });
+        ui.add_space(4.0);
+        let cells: Vec<[String; 5]> = rows
+            .iter()
+            .map(|row| {
+                [
+                    row.from.clone(),
+                    row.good.clone(),
+                    tf(
+                        "s_rt_scu_menge",
+                        &[("0", Arg::from(formats::amount(lang, row.amount as f64, "").trim_end().to_string()))],
+                    ),
+                    row.to.clone(),
+                    trade::auec(lang, row.profit),
+                ]
+            })
+            .collect();
+        let heads = [
+            ("s_rt_t_ort", "s_rt_t_ort_tip"),
+            ("s_rt_t_kaufen", "s_rt_t_kaufen_tip"),
+            ("s_rt_t_menge", "s_rt_t_menge_tip"),
+            ("s_rt_t_verkaufen", "s_rt_t_verkaufen_tip"),
+            ("s_rt_t_gewinn", "s_rt_t_gewinn_tip"),
+        ];
+        const COLUMN_GAP: f32 = 16.0;
+        let small = egui::TextStyle::Small.resolve(ui.style());
+        let head_font = crate::fonts::bold(small.size);
+        let body = egui::TextStyle::Body.resolve(ui.style());
+        let wide = |ui: &Ui, text: &str, font: &egui::FontId| {
+            ui.painter().layout_no_wrap(text.to_string(), font.clone(), egui::Color32::PLACEHOLDER).size().x
+        };
+        let mut needed = COLUMN_GAP * 4.0;
+        for (column, (head, _)) in heads.iter().enumerate() {
+            let cells_wide = cells.iter().map(|row| wide(ui, &row[column], &body)).fold(0.0, f32::max);
+            needed += cells_wide.max(wide(ui, &t(head), &head_font));
+        }
+        if needed + layout::SAFETY <= ui.available_width() {
+            let id = ui.next_auto_id();
+            egui::Grid::new(id).num_columns(5).spacing([COLUMN_GAP, 3.0]).show(ui, |grid| {
+                for (head, tip) in &heads {
+                    let text = widgets::bold(grid, t(head), egui::TextStyle::Small).color(color(scheme.sub));
+                    grid.label(text).on_hover_text(t(tip));
                 }
-            },
-        );
-        if let Some(first_leg) = way.first() {
-            let outlay = first_leg.trip.buy * first_leg.amount as f64;
-            if outlay != 0.0 {
-                trade::quiet(ui, scheme, &tf("s_rt_kette_einsatz", &[("0", Arg::from(trade::plain(lang, outlay)))]));
+                grid.end_row();
+                for (row, cell) in rows.iter().zip(&cells) {
+                    for (column, text) in cell.iter().enumerate() {
+                        let shown = RichText::new(text);
+                        let response = if column == 4 { grid.label(shown.strong()) } else { grid.label(shown) };
+                        match column {
+                            1 if row.outlay != 0.0 => {
+                                response.on_hover_text(tf(
+                                    "s_rt_einkauf_tip",
+                                    &[("0", Arg::from(trade::auec(lang, row.outlay)))],
+                                ));
+                            }
+                            2 if row.stock > 0 => {
+                                response.on_hover_text(tf("s_rt_vorrat_tip", &[("0", Arg::from(row.stock))]));
+                            }
+                            _ => {}
+                        }
+                    }
+                    grid.end_row();
+                }
+            });
+        } else {
+            for (n, (row, cell)) in rows.iter().zip(&cells).enumerate() {
+                if n > 0 {
+                    ui.add_space(4.0);
+                }
+                for (column, (head, tip)) in heads.iter().enumerate() {
+                    let tone = scheme.fg;
+                    let mut response = captioned(ui, scheme, &t(head), &cell[column], tone);
+                    response = response.on_hover_text(t(tip));
+                    match column {
+                        1 if row.outlay != 0.0 => {
+                            response.on_hover_text(tf(
+                                "s_rt_einkauf_tip",
+                                &[("0", Arg::from(trade::auec(lang, row.outlay)))],
+                            ));
+                        }
+                        2 if row.stock > 0 => {
+                            response.on_hover_text(tf("s_rt_vorrat_tip", &[("0", Arg::from(row.stock))]));
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
-        let mut stations = vec![start_name.to_string()];
-        stations.extend(way.iter().map(|leg| leg.trip.dest_name.clone()));
-        ui.add(egui::Label::new(RichText::new(stations.join(" → ")).color(color(scheme.sub))).wrap());
-        let mut from = start_name.to_string();
-        for (n, leg) in way.iter().enumerate() {
-            let mut to = if leg.trip.dest_name.is_empty() { "?".to_string() } else { leg.trip.dest_name.clone() };
-            if round && n + 1 == way.len() {
-                to = tf("s_rt_zurueck", &[("0", Arg::from(to))]);
-            }
-            let mut text = tf(
-                "s_hd_schritt",
-                &[
-                    ("n", Arg::from(n + 1)),
-                    ("von", Arg::from(from.as_str())),
-                    ("menge", Arg::from(leg.amount)),
-                    ("ware", Arg::from(leg.trip.good.as_str())),
-                    ("nach", Arg::from(to)),
-                ],
-            );
-            let outlay = leg.trip.buy * leg.amount as f64;
-            if outlay != 0.0 {
-                text = format!("{text}  ·  {}", tf("s_rt_schritt_ek", &[("0", Arg::from(trade::auec(lang, outlay)))]));
-            }
-            ui.add(egui::Label::new(text).wrap());
-            from = if leg.trip.dest_name.is_empty() { "?".to_string() } else { leg.trip.dest_name.clone() };
+        // What holds a single trip back (money, hold, stock, demand) is worth a line of its own.
+        if let [row] = rows.as_slice()
+            && !row.limit.is_empty()
+        {
+            ui.add_space(2.0);
+            ui.add(egui::Label::new(RichText::new(t(row.limit)).small().color(color(scheme.yellow))).wrap());
         }
     });
 }
@@ -877,6 +1157,8 @@ mod tests {
     struct Rig {
         ctx: egui::Context,
         state: RoutesState,
+        /// The size of the screen in points.
+        screen: egui::Vec2,
     }
 
     /// What one frame drew: every text with its place and the rings of two points in the accent.
@@ -901,7 +1183,7 @@ mod tests {
         fn new() -> Rig {
             let ctx = egui::Context::default();
             crate::install(&ctx);
-            Rig { ctx, state: RoutesState::default() }
+            Rig { ctx, state: RoutesState::default(), screen: vec2(1280.0, 820.0) }
         }
 
         fn run(&mut self, events: Vec<egui::Event>, draw: bool) -> Frame {
@@ -909,7 +1191,7 @@ mod tests {
             let state = &mut self.state;
             let mut output = self.ctx.run_ui(
                 egui::RawInput {
-                    screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1280.0, 820.0))),
+                    screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, self.screen)),
                     events,
                     ..Default::default()
                 },
@@ -970,6 +1252,233 @@ mod tests {
         let chosen = rig.settle();
         assert!(!chosen.shows(&line), "{:?}", chosen.texts);
         assert!(chosen.rings.is_empty(), "{:?}", chosen.rings);
+    }
+
+    fn trip(good: &str, dest: &str, dest_name: &str, sell: f64) -> routes::Trip {
+        routes::Trip {
+            good: good.into(),
+            dest: dest.into(),
+            dest_name: dest_name.into(),
+            buy: 10.0,
+            sell,
+            profit_scu: sell - 10.0,
+            stock: 100,
+            distance: 5.0,
+            ..routes::Trip::default()
+        }
+    }
+
+    /// Three places: A leads to B directly and over C, where C leads to B.
+    fn rig_with_places(with_stop: bool) -> Rig {
+        rig_with_names(with_stop, ["Alpha", "Beta", "Gamma"])
+    }
+
+    fn rig_with_names(with_stop: bool, names: [&str; 3]) -> Rig {
+        let mut rig = Rig::new();
+        for (ident, name) in [("A", names[0]), ("B", names[1]), ("C", names[2])] {
+            rig.state
+                .selling
+                .terminals
+                .set(ident, versekit_core::selling::Terminal { name: name.into(), ..Default::default() });
+        }
+        let mut from_a = vec![trip("Wasser", "B", names[1], 40.0)];
+        let mut book = Routes::default();
+        if with_stop {
+            from_a.push(trip("Erz", "C", names[2], 60.0));
+            book.starts.set("C", routes::Start { fetched: 0.0, trips: vec![trip("Gold", "B", names[1], 90.0)] });
+        }
+        book.starts.set("A", routes::Start { fetched: 0.0, trips: from_a });
+        rig.state.book = book;
+        let ctx = rig.ctx.clone();
+        rig.state.choose_start(&ctx, "A", names[0]);
+        rig
+    }
+
+    /// The page with a destination, a direct trip and a way over a stop, ready to draw.
+    fn rig_with_routes(names: [&str; 3]) -> Rig {
+        let mut rig = rig_with_names(true, names);
+        rig.state.set_dest("B", names[1]);
+        let key = rig.state.key().expect("start chosen");
+        let found = routes::chain_to(
+            &mut rig.state.book,
+            "A",
+            "B",
+            120,
+            500_000.0,
+            ChainOptions { short: false, most: CHAINS_SHOWN, stops: 2, round_trip: false },
+            &mut |_, _| false,
+        );
+        rig.state.chains = Some((key, found));
+        rig
+    }
+
+    /// Every size of the text, both languages, a narrow and a wide window, short and very long names: the cards
+    /// of the routes read top to bottom and nothing reaches over the edge. Where the table fits, it has its
+    /// headings; where it does not, every station stands as lines with a caption.
+    #[test]
+    fn the_route_cards_fit_in_every_size_and_language_without_cut_off() {
+        let _language = crate::language_lock();
+        let long = [
+            "Seraphim Station Orbital Logistics Depot",
+            "Everus Harbor Commercial Freight Terminal",
+            "Port Tressler Central Trade Warehouse",
+        ];
+        let mut tables = 0;
+        let mut blocks = 0;
+        for lang in [Choice::De, Choice::En] {
+            set_thread_language(lang);
+            for names in [["Alpha", "Beta", "Gamma"], long] {
+                for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                    for pixels in [880.0, 1920.0] {
+                        let mut rig = rig_with_routes(names);
+                        let zoom = versekit_core::font_size::zoom_factor(points);
+                        rig.ctx.set_zoom_factor(zoom);
+                        rig.screen = vec2(pixels / zoom, 3000.0);
+                        let frame = rig.settle();
+                        let case = format!("{lang:?} {names:?} size {points} at {pixels}");
+                        assert!(frame.shows(&t("s_rt_direkt")), "{case}: {:?}", frame.texts);
+                        let right = rig.screen.x;
+                        for (text, rect) in &frame.texts {
+                            assert!(
+                                rect.max.x <= right + 0.75,
+                                "{case}: `{text}` reaches to {} of {right}",
+                                rect.max.x
+                            );
+                        }
+                        assert!(
+                            rig.state.list_overflow() <= 0.75,
+                            "{case}: list reaches over by {}",
+                            rig.state.list_overflow()
+                        );
+                        // A card reads: profit first, then the stations with the places in them.
+                        assert!(frame.texts.iter().any(|(text, _)| text.starts_with(&t("s_rt_k_gewinn"))), "{case}");
+                        assert!(frame.texts.iter().any(|(text, _)| text.contains(names[1])), "{case}");
+                        if frame.shows(&t("s_rt_t_kaufen")) {
+                            tables += 1;
+                        } else {
+                            blocks += 1;
+                            assert!(
+                                frame.texts.iter().any(|(text, _)| text.starts_with(&t("s_rt_t_kaufen"))),
+                                "{case}: without the table every station has its captions: {:?}",
+                                frame.texts
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        // Both ways of drawing a station were seen, so neither goes untested.
+        assert!(tables > 0 && blocks > 0, "tables {tables}, blocks {blocks}");
+    }
+
+    /// The old prices carry a warning in the line of the age; fresh ones do not.
+    #[test]
+    fn old_prices_say_so_and_fresh_ones_do_not() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut rig = rig_with_names(false, ["Alpha", "Beta", "Gamma"]);
+        let now = trade::now();
+        for (fetched, old) in [(now - 3_600.0, false), (now - 31.0 * 86_400.0, true)] {
+            rig.state.book.starts.set("A", routes::Start { fetched, trips: vec![trip("Wasser", "B", "Beta", 40.0)] });
+            let frame = rig.settle();
+            let warned = frame.texts.iter().any(|(text, _)| text.starts_with("Veraltet: Stand"));
+            let plain = frame.texts.iter().any(|(text, _)| text.starts_with("Stand: "));
+            assert_eq!((warned, plain), (old, !old), "{:?}", frame.texts);
+        }
+    }
+
+    /// The field for a destination shows only once a start is chosen, and the button that swaps both is
+    /// greyed out until a destination is there.
+    #[test]
+    fn the_destination_field_comes_with_the_start() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let label = t("s_rt_ziel");
+        let mut rig = Rig::new();
+        assert!(!rig.settle().shows(&label), "no start, no field for a destination");
+        let mut rig = rig_with_places(false);
+        assert!(rig.settle().shows(&label));
+    }
+
+    /// With a destination the list holds the direct trips there and no others; a chain appears only when a
+    /// way over a stop exists.
+    #[test]
+    fn a_destination_lists_the_direct_trips_and_a_chain_only_with_a_stop_in_between() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let (direct, chains) = (t("s_rt_direkt"), tf("s_rt_ziel_ketten", &[("0", Arg::from("Beta"))]));
+        let mut rig = rig_with_places(false);
+        rig.state.set_dest("B", "Beta");
+        let frame = rig.settle();
+        assert!(frame.shows(&direct), "{:?}", frame.texts);
+        assert!(frame.shows("Wasser"), "{:?}", frame.texts);
+        assert!(!frame.shows(&chains), "one trip is no chain: {:?}", frame.texts);
+        // The other trips of the start are not listed under a destination.
+        let mut rig = rig_with_places(true);
+        rig.state.set_dest("B", "Beta");
+        let key = rig.state.key().expect("start chosen");
+        let found = routes::chain_to(
+            &mut rig.state.book,
+            "A",
+            "B",
+            120,
+            500_000.0,
+            ChainOptions { short: false, most: CHAINS_SHOWN, stops: 2, round_trip: false },
+            &mut |_, _| false,
+        );
+        assert_eq!(found.len(), 1);
+        rig.state.chains = Some((key, found));
+        let frame = rig.settle();
+        assert!(frame.shows(&chains), "{:?}", frame.texts);
+        assert!(frame.shows("Wasser"), "{:?}", frame.texts);
+        // The trip to C appears only as the first leg of the way over C, not as a card of its own.
+        assert_eq!(frame.texts.iter().filter(|(text, _)| text == "Erz").count(), 1, "{:?}", frame.texts);
+        assert_eq!(frame.texts.iter().filter(|(text, _)| text.starts_with("Gewinn ")).count(), 2, "{:?}", frame.texts);
+    }
+
+    /// Nothing pays direct and no chain exists: one line says so, not an empty list.
+    #[test]
+    fn a_destination_without_trips_says_so() {
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let mut rig = rig_with_places(false);
+        rig.state.set_dest("C", "Gamma");
+        let key = rig.state.key().expect("start chosen");
+        rig.state.chains = Some((key, Vec::new()));
+        let frame = rig.settle();
+        assert!(frame.shows(&t("s_rt_ziel_nichts")), "{:?}", frame.texts);
+        assert!(frame.shows(&tf("s_rt_ziel_nichts_direkt", &[("0", Arg::from("Gamma"))])), "{:?}", frame.texts);
+    }
+
+    /// Start and destination are never the same place, swap places on request, and an emptied field drops the
+    /// destination.
+    #[test]
+    fn start_and_destination_are_never_the_same_place_and_swap() {
+        let mut rig = rig_with_places(true);
+        rig.state.set_dest("A", "Alpha");
+        assert_eq!(rig.state.ends(), (Some("A"), None), "the start cannot be the destination");
+        rig.state.set_dest("B", "Beta");
+        assert_eq!(rig.state.ends(), (Some("A"), Some("B")));
+        let ctx = rig.ctx.clone();
+        rig.state.swap_ends(&ctx);
+        assert_eq!(rig.state.ends(), (Some("B"), Some("A")));
+        rig.state.choose_start(&ctx, "A", "Alpha");
+        assert_eq!(rig.state.ends(), (Some("A"), None), "the new start was the destination");
+        rig.state.set_dest("B", "Beta");
+        rig.state.dest_text.clear();
+        rig.settle();
+        assert_eq!(rig.state.ends(), (Some("A"), None), "an emptied field takes the destination away");
+    }
+
+    /// The chains of a way to a destination do not mix with those of the plain start: the key tells them apart.
+    #[test]
+    fn the_destination_is_part_of_what_a_chain_calculation_is_for() {
+        let mut rig = rig_with_places(true);
+        let plain = rig.state.key().expect("start chosen");
+        rig.state.set_dest("B", "Beta");
+        assert_ne!(rig.state.key().expect("start chosen"), plain);
+        rig.state.set_round(true);
+        assert!(!rig.state.key().expect("start chosen").round, "a way to a destination has no round trip");
     }
 
     /// The field takes the keyboard focus when the page opens, once: not again while the page stays open,

@@ -493,6 +493,8 @@ fn the_patches_looked_at_are_kept_and_the_others_are_unread() {
         empty,
         at_source: true,
         kept: false,
+        own: false,
+        confidential: false,
     };
     let list = [patch("4.11.0-LIVE.2", false), patch("4.10.1-LIVE.1", true), patch("4.10.0-LIVE.1", false)];
     let looked: BTreeSet<String> = ["4.10.0-LIVE.1".to_string()].into();
@@ -501,5 +503,136 @@ fn the_patches_looked_at_are_kept_and_the_others_are_unread() {
     assert!(stored(&paths).is_empty(), "the file is no patch file");
     assert_eq!(unread(&list, &looked), ["4.11.0-LIVE.2"], "a patch without changes is never unread");
     assert!(unread(&list, &list.iter().map(|p| p.version.clone()).collect()).is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// An own comparison as `stand_diff` writes it, in the least form the list needs.
+fn put_own(paths: &Paths, version: &str, channel: &str) {
+    let text = format!(
+        r#"{{"version": "{version}", "kanal": "{channel}", "quelle": "eigen", "datum": "2026-10-05",
+        "summary": {{"added": 1, "removed": 0, "modified": 2}}, "categories": []}}"#
+    );
+    std::fs::write(own_file(paths, version), text).unwrap();
+}
+
+#[test]
+fn one_version_from_two_sources_is_one_row() {
+    static ASKED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    let (paths, dir) = paths_in("two-sources");
+    put_own(&paths, "4.10.0-live.12519617", "LIVE");
+    let new = sync(&paths, &feed(&ASKED, true)).expect("reachable");
+    assert_eq!(new, ["4.10.0-LIVE.12519617", "4.9.0-LIVE.12232306"], "an own file does not keep erkul's from being kept");
+    assert_eq!(stored(&paths), ["4.10.0-LIVE.12519617", "4.9.0-LIVE.12232306"], "listed once, not three times");
+    let list = overview(&paths, &[]);
+    assert_eq!(list.len(), 2);
+    let both = list.iter().find(|p| p.short == "4.10.0").unwrap();
+    assert!(both.own && both.kept, "{both:?}");
+    assert!(!list.iter().find(|p| p.short == "4.9.0").unwrap().own);
+    let source = |data: Option<Map>| text(&data.expect("kept"), "quelle");
+    assert_eq!(source(load(&paths, "4.10.0-LIVE.12519617")), "eigen", "the own comparison is the one shown");
+    assert_eq!(source(load_own(&paths, "4.10.0-LIVE.12519617")), "eigen");
+    assert_eq!(source(load_erkul(&paths, "4.10.0-LIVE.12519617")), "erkul.games", "erkul's stays for the cross-check");
+    assert_eq!(source(load(&paths, "4.9.0-LIVE.12232306")), "erkul.games", "without an own one erkul's is shown");
+    let offered = [Offered {
+        version: "4.10.0-LIVE.12519617".into(),
+        date: "2026-10-02".into(),
+        summary: Summary { added: 17, removed: 1, modified: 352 },
+        path: String::new(),
+    }];
+    assert_eq!(overview(&paths, &offered).len(), 2, "the offered one and the kept one of another spelling are one patch");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_same_patch_is_told_by_version_and_build() {
+    assert!(same_version("4.10.0-LIVE.12519617", "4.10.0-live.12519617"));
+    assert!(same_version("4.10.0-LIVE.12519617", "4.10.0-HOTFIX.12519617"), "the same build number");
+    assert!(!same_version("4.10.0-LIVE.12519617", "4.10.0-LIVE.12600000"));
+    assert!(!same_version("4.10.0", "4.10.1"));
+    assert!(!same_version("4.10.0-LIVE.1", "4.10.0-LIVE.1x"), "a short number is no build");
+}
+
+#[cfg(not(feature = "test-build"))]
+#[test]
+fn an_own_file_of_a_channel_the_program_is_not_built_for_is_not_listed() {
+    let (paths, dir) = paths_in("own-channel");
+    put_own(&paths, "5.0.0-EPTU.1", "EPTU");
+    put_own(&paths, "5.0.0-TECH-PREVIEW.2", "TECH-PREVIEW");
+    put_own(&paths, "4.10.0-LIVE.12519617", "LIVE");
+    assert_eq!(stored(&paths), ["4.10.0-LIVE.12519617"]);
+    assert!(load_own(&paths, "5.0.0-EPTU.1").is_none());
+    assert!(load(&paths, "5.0.0-TECH-PREVIEW.2").is_none());
+    assert!(changes(&paths, "5.0.0-EPTU.1", None).is_empty());
+    assert_eq!(overview(&paths, &[]).len(), 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_file_that_is_not_an_own_comparison_is_not_one() {
+    let (paths, dir) = paths_in("not-own");
+    std::fs::write(own_file(&paths, "4.10.0-LIVE.1"), r#"{"version": "4.10.0-LIVE.1", "kanal": "LIVE", "quelle": "erkul.games"}"#).unwrap();
+    assert!(stored(&paths).is_empty(), "a name that looks like ours is not enough");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_ptu_comparison_kept_with_the_old_mark_is_no_longer_confidential() {
+    let (paths, dir) = paths_in("old-mark");
+    let file = |version: &str, channel: &str| {
+        let source = crate::stand_diff::SOURCE;
+        let text = format!(
+            r#"{{"version": "{version}", "kanal": "{channel}", "quelle": "{source}", "vertraulich": true, "von": "x", "summary": {{}}}}"#
+        );
+        std::fs::write(own_file(&paths, version), text).unwrap();
+    };
+    file("5.0.0-PTU.1", "PTU");
+    assert!(own_extras(&paths, "5.0.0-PTU.1").is_some_and(|e| !e.confidential), "PTU is public");
+    assert!(!overview(&paths, &[]).iter().any(|p| p.confidential), "nor in the list");
+    // The channel decides: a file of a channel under an agreement keeps its mark (in the test build, which knows it).
+    file("5.0.0-EPTU.2", "EPTU");
+    assert_eq!(own_extras(&paths, "5.0.0-EPTU.2").is_some_and(|e| e.confidential), crate::edition::IS_TEST_BUILD);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn an_own_comparison_gives_its_counts_scales_gaps_and_the_rows_that_many_entries_share() {
+    use crate::stands::{Area, Leaf, Stand, probe_of};
+    let (paths, dir) = paths_in("own-extras");
+    let make = |build: &str, level: i64, names: &[(&str, &str)], placeholders: usize| {
+        let mut stand = Stand::new("LIVE", build, "2026-11-17", "r");
+        let mut ships = Area::default();
+        for (key, name) in names {
+            ships.entries.insert((*key).into(), [("name".to_string(), Leaf::Text((*name).into()))].into());
+        }
+        for i in 0..placeholders {
+            ships.entries.insert(format!("p{i}"), [("name".to_string(), Leaf::Text("~mission(X)".into()))].into());
+        }
+        stand.areas.insert("schiffe.schiffe".into(), ships);
+        let mut ranks = Area::default();
+        for i in 0..level {
+            ranks.entries.insert(format!("r{i}"), [(String::new(), Leaf::Int(i * 100))].into());
+        }
+        stand.areas.insert("rufstufen.stufen".into(), ranks);
+        stand.probe = probe_of(&stand.areas);
+        stand
+    };
+    let old = make("4.9.0-LIVE.1111111", 51, &[("a", "Old"), ("b", "Old"), ("c", "Old")], 0);
+    let new = make("4.10.0-LIVE.2222222", 5, &[("a", "New"), ("b", "New"), ("c", "New")], 2);
+    let cmp = crate::stand_diff::compare(&old, &new);
+    crate::stand_diff::write_patch(&paths, &cmp).unwrap().unwrap();
+
+    let extras = own_extras(&paths, "4.10.0-LIVE.2222222").expect("the file of an own comparison");
+    assert_eq!(extras.from, "4.9.0-LIVE.1111111");
+    assert!(!extras.confidential && !extras.reader_changed);
+    let ships = extras.counts.iter().find(|c| c.area == "schiffe.schiffe").unwrap();
+    assert_eq!((ships.old, ships.new, ships.added, ships.changed), (3, 5, 2, 3));
+    assert_eq!(extras.scales[0].old, Some((51, Some(5000))));
+    assert_eq!(extras.scales[0].new, Some((5, Some(400))), "a scale rebuilt has a line of its own");
+    assert!(extras.warnings.iter().any(|w| w.name == "platzhalter" && (w.old, w.new) == (0, 2) && w.class == "sieht_anders_aus"));
+    let row = extras.rows.get(&("schiffe.schiffe".to_string(), '~', "a".to_string())).expect("one row for the three");
+    assert_eq!(row.count, 3);
+    assert_eq!(row.examples, ["a", "b", "c"]);
+    assert_eq!(row.kinds, [("name".to_string(), "text".to_string())]);
+    assert!(own_extras(&paths, "4.9.0-LIVE.1111111").is_none(), "erkul's file or none says nothing of the kind");
     let _ = std::fs::remove_dir_all(&dir);
 }

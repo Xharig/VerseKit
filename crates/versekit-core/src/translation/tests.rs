@@ -129,7 +129,7 @@ fn grouped_sources_like_4_12() {
         vec!["luftwerft_nl"],
         vec!["luftwerft_fr", "dymerz_fr"],
         vec!["luftwerft_it", "dymerz_it"],
-        vec!["dymerz_pt"],
+        vec!["luftwerft_ptbr", "dymerz_pt"],
         vec!["luftwerft_pt"],
         vec!["luftwerft_es", "dymerz_es"],
         vec!["dymerz_tr"],
@@ -142,10 +142,110 @@ fn grouped_sources_like_4_12() {
         vec!["luftwerft_nl"],
         vec!["luftwerft_fr"],
         vec!["luftwerft_it"],
+        vec!["luftwerft_ptbr"],
         vec!["luftwerft_pt"],
         vec!["luftwerft_es"],
     ];
     assert_eq!(ptu, expected);
+}
+
+#[test]
+fn the_portuguese_sources_have_distinct_names_in_both_languages() {
+    let ids = ["luftwerft_pt", "luftwerft_ptbr", "dymerz_pt"];
+    for lang in [Lang::De, Lang::En] {
+        let names: Vec<String> = ids.iter().map(|id| language::t_in(lang, &label_key(id))).collect();
+        for (i, a) in names.iter().enumerate() {
+            for b in &names[i + 1..] {
+                assert_ne!(a, b, "{lang:?}: two Portuguese sources with one name");
+            }
+        }
+    }
+    let brazil: Vec<&str> =
+        game_ini::SOURCES.iter().filter(|(_, folder)| *folder == "portuguese_(brazil)").map(|(id, _)| *id).collect();
+    assert_eq!(brazil, ["dymerz_pt", "luftwerft_ptbr"], "both Brazilian sources share one folder");
+}
+
+fn fixed_luftwerft_folders() -> Vec<&'static str> {
+    game_ini::SOURCES.iter().filter(|(id, _)| id.starts_with("luftwerft_")).map(|(_, folder)| *folder).collect()
+}
+
+/// Keeps a list of Luftwerft with the fixed languages except `without` and the folders of `extra`.
+fn keep_list(game: &Game, extra: &[&str], without: &[&str]) {
+    let mut folders: Vec<&str> = fixed_luftwerft_folders().into_iter().filter(|f| !without.contains(f)).collect();
+    folders.extend(extra);
+    let net = Fake::default().with(luftwerft_list::LIST_URL, luftwerft_list::tests::list_of(&folders));
+    luftwerft_list::refresh(&net, &game.paths);
+}
+
+#[test]
+fn a_language_of_the_luftwerft_list_becomes_a_source_for_both_channels() {
+    let game = Game::new("liste-neu");
+    let (folder, id) = ("swedish_(sweden)", "luftwerft_swedish_sweden");
+    assert!(spec(&game.paths, id, None).is_none(), "without the list it is no source");
+    assert!(!grouped_sources(&game.paths, None, true).concat().contains(&id.to_string()));
+    keep_list(&game, &[folder], &[]);
+    let base = "https://www.luftwerft.com/download/resources/localizations";
+    let live = spec(&game.paths, id, None).expect("a source now");
+    assert_eq!(live.url.as_deref(), Some(format!("{base}/LIVE/{folder}/global.ini").as_str()));
+    assert_eq!(live.audio.as_deref(), Some("english"));
+    let ptu = spec(&game.paths, id, Some("PTU")).expect("for PTU too");
+    assert_eq!(ptu.url.as_deref(), Some(format!("{base}/PTU/{folder}/global.ini").as_str()));
+    assert_eq!(language_folder(&game.paths, id, None), folder);
+    assert_eq!(display_name(id), "Swedish, Sweden (Luftwerft)");
+    assert_eq!(flag_of(id), None);
+    let groups = grouped_sources(&game.paths, None, true);
+    assert!(groups.contains(&vec![id.to_string()]), "a language of its own: {groups:?}");
+    assert!(game_ini::all_sources(&game.paths).contains(&(id.to_string(), folder.to_string())));
+    let other = Game::new("liste-fremd");
+    assert!(spec(&other.paths, id, None).is_none(), "another data folder knows nothing of it");
+}
+
+#[test]
+fn the_fixed_sources_and_their_keys_stand_with_or_without_the_list() {
+    let game = Game::new("liste-fest");
+    let before = grouped_sources(&game.paths, None, true);
+    keep_list(&game, &[], &[]);
+    assert_eq!(grouped_sources(&game.paths, None, true), before, "a list with the same languages changes nothing");
+    for (id, folder) in game_ini::SOURCES {
+        if id.starts_with("luftwerft_") {
+            assert_eq!(language_folder(&game.paths, id, None), folder, "{id}");
+        }
+    }
+    let broken = Fake::default().with(luftwerft_list::LIST_URL, "no list");
+    assert_eq!(luftwerft_list::refresh(&broken, &game.paths), luftwerft_list::Refresh::Failed);
+    assert_eq!(grouped_sources(&game.paths, None, true), before);
+}
+
+#[test]
+fn a_chosen_language_that_leaves_the_list_stays_chosen_and_says_so() {
+    let game = Game::new("liste-weg");
+    let (folder, id) = ("danish_(denmark)", "luftwerft_danish_denmark");
+    keep_list(&game, &[folder], &[]);
+    assert!(set_channel_source(&game.paths, "PTU", id));
+    assert!(grouped_sources(&game.paths, Some("PTU"), true).concat().contains(&id.to_string()));
+    assert_eq!(status_text(&game.paths, id, Some("PTU"), Lang::De, "2026-11-18"), "");
+    keep_list(&game, &[], &[]);
+    assert!(delisted(&game.paths, id, Some("PTU")));
+    let ptu = grouped_sources(&game.paths, Some("PTU"), true).concat();
+    assert!(ptu.contains(&id.to_string()), "the choice stays in the list: {ptu:?}");
+    let main = grouped_sources(&game.paths, None, true).concat();
+    assert!(!main.contains(&id.to_string()), "where it is not chosen it is not offered: {main:?}");
+    assert_eq!(channel_sources(&game.paths).iter().find(|(k, _)| k == "PTU").and_then(|(_, v)| v.as_str()), Some(id));
+    assert!(spec(&game.paths, id, Some("PTU")).is_some(), "it is not switched to another source");
+    assert!(status_text(&game.paths, id, Some("PTU"), Lang::De, "2026-11-18").contains("nicht mehr in seiner Liste"));
+    assert!(status_text(&game.paths, id, Some("PTU"), Lang::En, "2026-11-18").contains("no longer lists"));
+}
+
+#[test]
+fn a_fixed_language_that_leaves_the_list_is_offered_only_while_chosen() {
+    let game = Game::new("liste-fest-weg");
+    keep_list(&game, &[], &["dutch_(netherlands)"]);
+    assert!(delisted(&game.paths, "luftwerft_nl", None));
+    assert!(!delisted(&game.paths, "luftwerft_de", None));
+    assert!(!grouped_sources(&game.paths, None, true).concat().contains(&"luftwerft_nl".to_string()));
+    game.paths.set_setting(SETTING_SOURCE, Value::str("luftwerft_nl"));
+    assert!(grouped_sources(&game.paths, None, true).concat().contains(&"luftwerft_nl".to_string()));
+    assert!(grouped_sources(&game.paths, None, true).concat().contains(&"luftwerft_ptbr".to_string()));
 }
 
 #[test]
@@ -155,7 +255,8 @@ fn the_new_luftwerft_languages_come_for_both_channels_into_their_own_folders() {
     for (id, folder, label, flag) in [
         ("luftwerft_bar", "bavarian_(germany)", "Bayrisch (Luftwerft) [FUN]", "de"),
         ("luftwerft_nl", "dutch_(netherlands)", "Nederlands (Luftwerft)", "nl"),
-        ("luftwerft_pt", "portuguese_(portugal)", "Português (Luftwerft)", "pt"),
+        ("luftwerft_pt", "portuguese_(portugal)", "Português PT (Luftwerft)", "pt"),
+        ("luftwerft_ptbr", "portuguese_(brazil)", "Português BR (Luftwerft)", "br"),
     ] {
         let live = spec(&game.paths, id, None).expect(id);
         assert_eq!(live.url.as_deref(), Some(format!("{base}/LIVE/{folder}/global.ini").as_str()));

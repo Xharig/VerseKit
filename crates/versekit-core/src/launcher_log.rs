@@ -495,7 +495,7 @@ mod tests {
             &events,
             Path::new(r"C:\Program Files\Roberts Space Industries\StarCitizen\PTU\Data.p4k")
         ));
-        assert!(!open_update(&events, Path::new(r"E:\Testumgebung\Spieldaten LIVE\Data.p4k")));
+        assert!(!open_update(&events, Path::new(r"E:\Testumgebung\Kopie LIVE\Data.p4k")));
         assert!(!open_update(&events, Path::new("Data.p4k")));
         // The case of the folder does not matter, nor the kind of separator.
         assert!(open_update(&events, Path::new("c:/program files/roberts space industries/starcitizen/live/Data.p4k")));

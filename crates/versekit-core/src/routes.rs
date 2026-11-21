@@ -475,6 +475,87 @@ pub fn chain(
     done
 }
 
+/// How many branches a search for a given destination follows per step.
+pub const TARGET_BRANCHES: usize = 6;
+
+/// The trips from a place straight to one destination, best profit first.
+pub fn trips_between(routes: &Routes, start: &str, dest: &str, scu: i64, money: f64, most: usize) -> Vec<Leg> {
+    let mut found: Vec<Leg> =
+        single_trips(routes, start, scu, money, usize::MAX).into_iter().filter(|leg| leg.trip.dest == dest).collect();
+    found.truncate(most);
+    found
+}
+
+/// Ways from a place to one destination over at least one stop in between
+/// (2 up to `options.stops` trips): the destination ends the way and is not
+/// passed on the way. A way of one trip is [`trips_between`]. The round-trip
+/// switch of `options` does not count here. Gives `(whole profit, trips)`.
+pub fn chain_to(
+    routes: &mut Routes,
+    start: &str,
+    dest: &str,
+    scu: i64,
+    money: f64,
+    options: ChainOptions,
+    missing: Missing<'_>,
+) -> Vec<(f64, Vec<Leg>)> {
+    let stops = options.stops.clamp(2, MAX_STOPS) as usize;
+    if dest.is_empty() || dest == start {
+        return Vec::new();
+    }
+    let mut branches: Vec<(f64, String, Vec<Leg>)> = vec![(0.0, start.to_string(), Vec::new())];
+    let mut done: Vec<(f64, Vec<Leg>)> = Vec::new();
+    for step in 0..stops {
+        let mut next_branches: Vec<(f64, String, Vec<Leg>)> = Vec::new();
+        for (profit_so_far, place, so_far) in &branches {
+            if routes.trips(place).is_none() && !missing(routes, place) {
+                continue;
+            }
+            let money_now = money + profit_so_far;
+            // The trip to the destination is rarely among the best few of a place.
+            if step > 0 {
+                for leg in trips_between(routes, place, dest, scu, money_now, 1) {
+                    let mut way = so_far.clone();
+                    let profit = profit_so_far + leg.profit;
+                    way.push(leg);
+                    done.push((profit, way));
+                }
+            }
+            if step + 1 == stops {
+                continue;
+            }
+            for leg in single_trips(routes, place, scu, money_now, TARGET_BRANCHES) {
+                let to = leg.trip.dest.as_str();
+                if to.is_empty() || to == dest || to == start || so_far.iter().any(|b| b.trip.dest == to) {
+                    continue;
+                }
+                let mut way = so_far.clone();
+                let next = to.to_string();
+                let profit = profit_so_far + leg.profit;
+                way.push(leg);
+                next_branches.push((profit, next, way));
+            }
+        }
+        next_branches.sort_by(|a, b| b.0.total_cmp(&a.0));
+        next_branches.truncate(TARGET_BRANCHES);
+        branches = next_branches;
+        if branches.is_empty() {
+            break;
+        }
+    }
+    if options.short {
+        done.retain(|(_, way)| way.iter().all(|leg| leg.trip.distance != 0.0));
+        done.sort_by(|a, b| {
+            let (da, db) = (distance_sum(&a.1), distance_sum(&b.1));
+            da.total_cmp(&db).then(b.0.total_cmp(&a.0))
+        });
+    } else {
+        done.sort_by(|a, b| b.0.total_cmp(&a.0));
+    }
+    done.truncate(options.most);
+    done
+}
+
 /// Python's `sum()` of the distances: the order of the legs must not tip two equal ways apart.
 fn distance_sum(way: &[Leg]) -> f64 {
     crate::text::py_sum(way.iter().map(|leg| leg.trip.distance))
@@ -723,6 +804,70 @@ mod tests {
         let found = chain(&mut routes, "A", 100, 100_000.0, options(2, false, false), &mut |_, _| false);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].1[1].trip.dest, "C");
+    }
+
+    #[test]
+    fn the_trips_between_two_places_are_the_ones_that_end_at_the_destination() {
+        let routes = book(&[(
+            "A",
+            vec![
+                trip("W", "B", 10.0, 50.0, 100, 0, 1.0),
+                trip("X", "C", 10.0, 90.0, 100, 0, 1.0),
+                trip("Y", "B", 10.0, 70.0, 100, 0, 1.0),
+            ],
+        )]);
+        let found = trips_between(&routes, "A", "B", 10, 100_000.0, 5);
+        let goods: Vec<&str> = found.iter().map(|leg| leg.trip.good.as_str()).collect();
+        assert_eq!(goods, ["Y", "W"], "only B, the better one first");
+        assert!(trips_between(&routes, "A", "Z", 10, 100_000.0, 5).is_empty());
+        assert_eq!(trips_between(&routes, "A", "B", 10, 100_000.0, 1).len(), 1);
+    }
+
+    #[test]
+    fn a_way_to_a_destination_has_at_least_one_stop_between_and_ends_there() {
+        // A -> B pays most but leads away; the way to D goes over C, the direct trip is no chain.
+        let mut routes = book(&[
+            (
+                "A",
+                vec![
+                    trip("W", "B", 10.0, 100.0, 100, 0, 1.0),
+                    trip("W", "C", 10.0, 30.0, 100, 0, 1.0),
+                    trip("W", "D", 10.0, 20.0, 100, 0, 1.0),
+                ],
+            ),
+            ("B", vec![trip("X", "A", 10.0, 90.0, 100, 0, 1.0)]),
+            ("C", vec![trip("Y", "D", 10.0, 60.0, 100, 0, 1.0)]),
+        ]);
+        let found = chain_to(&mut routes, "A", "D", 100, 100_000.0, options(3, false, false), &mut |_, _| false);
+        assert_eq!(found.len(), 1, "{found:?}");
+        let way: Vec<&str> = found[0].1.iter().map(|leg| leg.trip.dest.as_str()).collect();
+        assert_eq!(way, ["C", "D"]);
+        let same = chain_to(&mut routes, "A", "A", 100, 100_000.0, options(3, false, false), &mut |_, _| false);
+        assert!(same.is_empty());
+        let none = chain_to(&mut routes, "A", "", 100, 100_000.0, options(3, false, false), &mut |_, _| false);
+        assert!(none.is_empty());
+    }
+
+    #[test]
+    fn a_way_to_a_destination_is_found_through_a_trip_that_is_not_among_the_best() {
+        // C leads to D with the least profit of eight trips: it must still be found.
+        let mut from_c: Vec<Trip> =
+            (0..7).map(|i| trip("Y", &format!("E{i}"), 10.0, 80.0 + f64::from(i), 100, 0, 1.0)).collect();
+        from_c.push(trip("Z", "D", 10.0, 12.0, 100, 0, 1.0));
+        let mut routes = book(&[("A", vec![trip("W", "C", 10.0, 50.0, 100, 0, 1.0)]), ("C", from_c)]);
+        let found = chain_to(&mut routes, "A", "D", 100, 100_000.0, options(2, false, false), &mut |_, _| false);
+        assert_eq!(found.len(), 1, "{found:?}");
+    }
+
+    #[test]
+    fn a_way_to_a_destination_neither_passes_it_nor_turns_back_to_the_start() {
+        let mut routes = book(&[
+            ("A", vec![trip("W", "D", 10.0, 100.0, 100, 0, 1.0), trip("W", "B", 10.0, 20.0, 100, 0, 1.0)]),
+            ("B", vec![trip("X", "A", 10.0, 90.0, 100, 0, 1.0)]),
+            ("D", vec![trip("Y", "C", 10.0, 90.0, 100, 0, 1.0)]),
+        ]);
+        let found = chain_to(&mut routes, "A", "D", 100, 100_000.0, options(4, false, false), &mut |_, _| false);
+        assert!(found.is_empty(), "{found:?}");
     }
 
     #[test]

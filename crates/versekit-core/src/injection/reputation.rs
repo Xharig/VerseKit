@@ -158,8 +158,12 @@ pub fn merge_parties(contracts: &[(String, Vec<Map>)]) -> Map {
         .collect()
 }
 
-/// One amount when all are the same, else `[least, most]`.
+/// One amount when all are the same, else `[least, most]`; `null` (the amount is not known) when any of them is: a
+/// span over an amount nobody knows would state something the data do not.
 fn span(amounts: &[Value]) -> Value {
+    if amounts.iter().any(|amount| matches!(amount, Value::Null)) {
+        return Value::Null;
+    }
     let as_number = |v: &Value| match v {
         Value::Int(text) => text.parse::<f64>().ok(),
         Value::Float(x) => Some(*x),
@@ -200,15 +204,23 @@ fn lookup<'a>(map: &'a Map, raw_key: &str) -> Option<&'a Value> {
     map.iter().find(|(k, _)| *k == wanted).map(|(_, v)| v)
 }
 
-/// `reputation.line`: `# Ruf: Headhunters +50 Standing`, or empty.
-pub fn line(table: &Table, raw_key: &str, word: &str) -> String {
+/// `reputation.line`: `# Ruf: Headhunters +50 Standing`, or empty. A gain whose amount is not known (`null`) says
+/// `unknown` in place of the amount in brackets: `# Ruf: Headhunters Standing (Menge unbekannt)`.
+pub fn line(table: &Table, raw_key: &str, word: &str, unknown: &str) -> String {
     let mut parts = Vec::new();
     if let Some(Value::Array(entries)) = lookup(&table.contracts, raw_key) {
         for entry in entries {
-            let amount = amount_text(entry.get("wieviel"));
             let text =
                 |name: &str| crate::text::py_strip(entry.get(name).and_then(Value::as_str).unwrap_or("")).to_string();
             let (who, what) = (text("wer"), text("was"));
+            if matches!(entry.get("wieviel"), Some(Value::Null)) {
+                let named = [who.as_str(), what.as_str()].into_iter().filter(|part| !part.is_empty()).collect::<Vec<_>>();
+                if !named.is_empty() {
+                    parts.push(format!("{} ({unknown})", named.join(" ")));
+                }
+                continue;
+            }
+            let amount = amount_text(entry.get("wieviel"));
             match (who.is_empty(), what.is_empty()) {
                 (false, false) => parts.push(format!("{who} {amount} {what}")),
                 (false, true) => parts.push(format!("{who} {amount}")),
@@ -254,7 +266,7 @@ mod tests {
             r#"{"t": [{"wer": "HH", "was": "Standing", "wieviel": 75}, {"wer": "HH", "was": "Affinity", "wieviel": [50, 200]}]}"#
         );
         let table = Table { contracts: one, ..Table::default() };
-        assert_eq!(line(&table, "T", "Ruf"), "# Ruf: HH +75 Standing, HH +50–200 Affinity");
+        assert_eq!(line(&table, "T", "Ruf", "?"), "# Ruf: HH +75 Standing, HH +50–200 Affinity");
     }
 
     /// A row that some contracts of a title give and others not stands for none of them; a title left without rows
@@ -285,7 +297,7 @@ mod tests {
             )]),
             ..Table::default()
         };
-        assert_eq!(line(&table, "t", "Ruf"), "# Ruf: CFP -50 Standing, HH +100 Standing");
+        assert_eq!(line(&table, "t", "Ruf", "?"), "# Ruf: CFP -50 Standing, HH +100 Standing");
         let span = Table {
             contracts: merge_parties(&[
                 ("s".into(), rows(r#"[{"wer": "CFP", "was": "Standing", "wieviel": -50}]"#)),
@@ -293,7 +305,25 @@ mod tests {
             ]),
             ..Table::default()
         };
-        assert_eq!(line(&span, "s", "Ruf"), "# Ruf: CFP -50–20 Standing");
+        assert_eq!(line(&span, "s", "Ruf", "?"), "# Ruf: CFP -50–20 Standing");
+    }
+
+    /// A gain without a known amount stays in the line and says so; in a title whose contracts differ in knowing
+    /// the amount it is unknown as a whole, and the amounts that are known are left as they are.
+    #[test]
+    fn an_amount_that_is_not_known_is_said_and_not_left_out() {
+        let table = Table {
+            contracts: merge_parties(&[
+                ("u".into(), rows(r#"[{"wer": "Shubin", "was": "Standing", "wieviel": null}, {"wer": "HH", "was": "Standing", "wieviel": 5}]"#)),
+                ("m".into(), rows(r#"[{"wer": "Shubin", "was": "Standing", "wieviel": 50}]"#)),
+                ("m".into(), rows(r#"[{"wer": "Shubin", "was": "Standing", "wieviel": null}]"#)),
+                ("w".into(), rows(r#"[{"wer": "", "was": "Rep", "wieviel": null}]"#)),
+            ]),
+            ..Table::default()
+        };
+        assert_eq!(line(&table, "u", "Ruf", "Menge unbekannt"), "# Ruf: Shubin Standing (Menge unbekannt), HH +5 Standing");
+        assert_eq!(line(&table, "m", "Ruf", "Menge unbekannt"), "# Ruf: Shubin Standing (Menge unbekannt)");
+        assert_eq!(line(&table, "w", "Ruf", "amount unknown"), "# Ruf: Rep (amount unknown)");
     }
 
     #[test]
@@ -309,9 +339,9 @@ mod tests {
             regions: vec![("k_title".into(), Value::str("Pyro (Bloom)"))],
             ..Table::default()
         };
-        assert_eq!(line(&table, "@K_Title", "Ruf"), "# Ruf: Headhunters +50 Standing, +5 Rep");
+        assert_eq!(line(&table, "@K_Title", "Ruf", "?"), "# Ruf: Headhunters +50 Standing, +5 Rep");
         assert_eq!(region_line(&table, "K_TITLE", "Region"), "# Region: Pyro (Bloom)");
-        assert_eq!(line(&table, "other", "Ruf"), "");
+        assert_eq!(line(&table, "other", "Ruf", "?"), "");
         assert!(same_build("4.10.1-live.1", "4.10.1"));
         assert!(!same_build("4.10.10-live.1", "4.10.1"));
     }

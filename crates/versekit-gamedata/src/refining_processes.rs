@@ -117,6 +117,33 @@ pub fn gather(found: Vec<(String, Option<[u8; 3]>)>) -> Read {
     read
 }
 
+/// [`gather`] from the lines of the terminal as the texts hold them (`None` where a method has none): a method left
+/// out for its line says what the line was, so a report shows what the game data held instead of three levels.
+pub fn gather_lines(found: Vec<(String, Option<String>)>) -> Read {
+    let mut unread: Vec<(String, Option<String>)> = Vec::new();
+    let levels = found
+        .into_iter()
+        .map(|(name, line)| {
+            let levels = line.as_deref().and_then(levels_of);
+            if levels.is_none() {
+                unread.push((name.clone(), line));
+            }
+            (name, levels)
+        })
+        .collect();
+    let mut read = gather(levels);
+    for entry in &mut read.left_out {
+        let said = unread.iter().find(|(name, _)| entry.starts_with(&format!("{name}: no line")));
+        if let Some((_, line)) = said {
+            entry.push_str(&match line {
+                Some(line) => format!(" (line {line:?})"),
+                None => " (no line)".to_string(),
+            });
+        }
+    }
+    read
+}
+
 /// The processing methods of the DataForge `bytes`, with their names and lines from the English texts `texts`
 /// ([`gather`]). What is left out leaves the mining page with its own table, for it needs all nine.
 ///
@@ -127,7 +154,7 @@ pub fn from_dataforge(bytes: &[u8], texts: &Localization) -> Result<Read, Error>
     let forge = DataForge::open(bytes)
         .map_err(|source| Error::DataForge { entry: "Data\\Game2.dcb".to_string(), source: Box::new(source) })?;
     let mut builder = p4kx_dataforge::TreeBuilder::new();
-    let mut found: Vec<(String, Option<[u8; 3]>)> = Vec::new();
+    let mut found: Vec<(String, Option<String>)> = Vec::new();
     for record in forge.records() {
         if record.type_name().ok() != Some(PROCESS_TYPE) {
             continue;
@@ -135,10 +162,9 @@ pub fn from_dataforge(bytes: &[u8], texts: &Localization) -> Result<Read, Error>
         let Ok(tree) = builder.build(&record) else { continue };
         let Some(key) = locale_key(Some(tree.root()), "processName") else { continue };
         let name = texts.english(key).unwrap_or_else(|| key.to_string());
-        let levels = texts.english(&format!("{key}_Details")).and_then(|details| levels_of(&details));
-        found.push((name, levels));
+        found.push((name, texts.english(&format!("{key}_Details"))));
     }
-    Ok(gather(found))
+    Ok(gather_lines(found))
 }
 
 /// The channel the archive at `archive` belongs to: the name of its folder (`LIVE`, `PTU` …).

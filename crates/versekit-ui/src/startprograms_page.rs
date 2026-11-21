@@ -37,7 +37,7 @@ use versekit_core::game_start::Spawner;
 use versekit_core::jsonio::Value;
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::paths::Paths;
-use versekit_core::start_programs::{self, Entry, When};
+use versekit_core::start_programs::{self, Entry, Show, When};
 use versekit_core::theme::Scheme;
 
 use crate::file_dialog::{self, Pending};
@@ -281,6 +281,17 @@ fn card(ui: &mut Ui, scheme: &Scheme, item: &mut Item) -> Did {
             ui.label(RichText::new(t(&format!("{key}_h"))).small().color(color(scheme.sub)));
         }
         ui.add_space(6.0);
+        ui.label(RichText::new(t("s_pg_fenster")).small().color(color(scheme.sub)));
+        for show in Show::ALL {
+            if widgets::radio(ui, scheme, item.entry.show == show, &t(show.text_key())).clicked()
+                && item.entry.show != show
+            {
+                item.entry.show = show;
+                did.changed = true;
+            }
+        }
+        ui.label(RichText::new(t("s_pg_fenster_h")).small().color(color(scheme.sub)));
+        ui.add_space(6.0);
         let end = t("s_pg_beenden");
         settings::setting_row(ui, scheme, &end, "", false, |row| {
             did.changed |= switch(row, scheme, &mut item.entry.end, &format!("{title}: {end}"));
@@ -499,7 +510,7 @@ mod tests {
         fn frame(&mut self, events: Vec<Event>) -> (Texts, Named) {
             let scheme = theme::by_id("original").expect("original");
             let input = egui::RawInput {
-                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(1000.0, 1600.0))),
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(1000.0, 2400.0))),
                 events,
                 ..Default::default()
             };
@@ -720,7 +731,7 @@ mod tests {
         let scheme = theme::by_id("original").expect("original");
         let (state, paths, spawner) = (&mut bench.state, &bench.paths, &bench.spawner);
         let input = egui::RawInput {
-            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(1000.0, 1600.0))),
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(1000.0, 2400.0))),
             ..Default::default()
         };
         let mut output = bench.ctx.run_ui(input, |ui| show_page(ui, scheme, state, paths, spawner));

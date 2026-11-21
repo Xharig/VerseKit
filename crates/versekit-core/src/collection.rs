@@ -63,8 +63,17 @@ pub const FILE_VERSION: i64 = 3;
 /// ⚠ The log is at the top: `restorable` counts by this field what comes back
 /// on its own after a reset. `basetool` (no proof in the game) is at the very
 /// bottom.
-pub const RANK: [(&str, i32); 7] =
-    [("basetool", 0), ("launcher", 1), ("import", 1), ("hand", 2), ("start", 3), ("log", 4), ("nachlese", 4)];
+pub const RANK: [(&str, i32); 8] = [
+    ("basetool", 0),
+    ("launcher", 1),
+    ("import", 1),
+    ("hand", 2),
+    // Read at the crafting terminal by the blueprint scan: the player's own act, as one ticked by hand.
+    ("scan", 2),
+    ("start", 3),
+    ("log", 4),
+    ("nachlese", 4),
+];
 
 /// VerseKit rebuilds these sources on its own after a reset.
 pub const RESTORABLE: [&str; 3] = ["log", "nachlese", "start"];
@@ -77,6 +86,12 @@ pub const FILE_NAME: &str = "bestand.json";
 
 /// The mark holding the highest blueprint count ever seen.
 pub const HIGH_WATER_FILE: &str = "hochwasser.json";
+
+/// Where the mark of the highest blueprint count lies: next to the second pointer, outside the data folder.
+pub fn high_water_path(paths: &Paths) -> String {
+    let flavor = paths.host.flavor;
+    flavor.join(&flavor.dirname(&paths.second_pointer()), HIGH_WATER_FILE)
+}
 
 /// A trailing parenthesis at the end of the name.
 static SUFFIX_RE: LazyLock<Regex> =
@@ -548,8 +563,7 @@ impl Collection<'_> {
     /// Where the highest blueprint count ever seen is stored: next to the
     /// second pointer, not in the data folder.
     pub fn high_water_file(&self) -> String {
-        let flavor = self.paths.host.flavor;
-        flavor.join(&flavor.dirname(&self.paths.second_pointer()), HIGH_WATER_FILE)
+        high_water_path(self.paths)
     }
 
     /// The stored mark: (high-water mark, folder). `Err` where Python raises
@@ -1225,6 +1239,9 @@ mod tests {
         assert!(c.save(&mut data));
         assert_eq!(c.check_shrinkage(&data), None);
         assert!(fs::read_to_string(c.high_water_file()).unwrap().contains("\"bauplaene\": 2"));
+        // The restore of a backup deletes the mark by this name: it must be the file the check wrote.
+        assert_eq!(high_water_path(&paths), c.high_water_file());
+        assert!(fs::metadata(high_water_path(&paths)).is_ok(), "the mark written by the check lies there");
         // A tie is not shrinkage.
         assert_eq!(c.check_shrinkage(&data), None);
         assert_eq!(c.shrinkage_state(), None);

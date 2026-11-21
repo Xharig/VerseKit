@@ -181,9 +181,20 @@ fn without_a_last_page_a_click_on_a_group_name_opens_the_page_used_most() {
     let _language = crate::language_lock();
     let stored = concat!(
         "{\"bereich_zuletzt\": {\"bauplaene\": \"hf_gibt_es_nicht\"}, ",
-        "\"bereich_zaehler\": {\"bauplaene\": {\"hf_liste\": 1, \"hf_fortschritt\": 4}}}"
+        "\"bereich_zaehler\": {\"bauplaene\": {\"hf_liste\": 1, \"hf_auftragslog\": 4}}}"
     );
-    assert_eq!(page_after_head_click("kopf-meist", stored, "hf_gruppe_bp"), "hf_fortschritt");
+    assert_eq!(page_after_head_click("kopf-meist", stored, "hf_gruppe_bp"), "hf_auftragslog");
+}
+
+#[test]
+fn a_last_page_that_became_a_view_opens_the_page_it_went_into() {
+    let _language = crate::language_lock();
+    // The progress was the page opened last (before it became a view of the list): the group opens the list.
+    let stored = "{\"bereich_zuletzt\": {\"bauplaene\": \"hf_fortschritt\"}}";
+    assert_eq!(page_after_head_click("kopf-alt-ansicht", stored, "hf_gruppe_bp"), "hf_liste");
+    // What was counted for the old page counts for the page: 1 + 4 against the 3 of the other page.
+    let stored = "{\"bereich_zaehler\": {\"bauplaene\": {\"hf_liste\": 1, \"hf_fortschritt\": 4, \"hf_auftragslog\": 3}}}";
+    assert_eq!(page_after_head_click("kopf-alt-zaehler", stored, "hf_gruppe_bp"), "hf_liste");
 }
 
 #[test]
@@ -193,14 +204,14 @@ fn a_page_opened_by_the_menu_is_the_one_the_group_name_opens_next_time_and_is_wr
     page.open_overview();
     let ctx = egui::Context::default();
     crate::install(&ctx);
-    click(&ctx, &mut page, &t("hf_fortschritt"));
-    assert_eq!(page.page_key(), "hf_fortschritt");
+    click(&ctx, &mut page, &t("hf_auftragslog"));
+    assert_eq!(page.page_key(), "hf_auftragslog");
     let file = || std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
     settle(&ctx, &mut page);
-    assert!(file().contains("\"bauplaene\": \"hf_fortschritt\""), "{}", file());
+    assert!(file().contains("\"bauplaene\": \"hf_auftragslog\""), "{}", file());
     page.open_overview();
     click(&ctx, &mut page, &t("hf_gruppe_bp").to_uppercase());
-    assert_eq!(page.page_key(), "hf_fortschritt", "the group name leads back to it");
+    assert_eq!(page.page_key(), "hf_auftragslog", "the group name leads back to it");
     let _ = std::fs::remove_dir_all(dir);
 }
 

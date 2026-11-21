@@ -1067,6 +1067,50 @@ fn the_switch_of_the_start_with_the_system_is_the_entry_and_says_what_the_entry_
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// ⚠⚠ The test build shows the start with the system of the installed program and changes nothing: the row says
+/// the state and why, no switch; a click that came through anyway leaves the entry as it was.
+#[test]
+fn the_test_build_shows_the_start_with_the_system_and_leaves_it_alone() {
+    use versekit_core::autostart::{self, Memory, NAME};
+    let _language = crate::language_lock();
+    language::set_thread_language(language::Choice::De);
+    let (mut page, dir) = real_page("autostart-testbau", "{}\n", &[]);
+    let installed = "\"C:\\Programs\\VerseKit\\versekit.exe\" \"--systemstart\"";
+    let shared = std::rc::Rc::new(Memory::with(NAME, installed));
+    struct Seen(std::rc::Rc<Memory>);
+    impl autostart::Store for Seen {
+        fn possible(&self) -> bool {
+            true
+        }
+        fn get(&self, name: &str) -> Option<String> {
+            autostart::Store::get(self.0.as_ref(), name)
+        }
+        fn put(&self, name: &str, command: &str) -> Result<(), String> {
+            autostart::Store::put(self.0.as_ref(), name, command)
+        }
+        fn remove(&self, name: &str) -> Result<(), String> {
+            autostart::Store::remove(self.0.as_ref(), name)
+        }
+    }
+    let test = "\"C:\\Users\\x\\VerseKit-Testfassung\\release\\versekit.exe\"".to_string();
+    page.use_autostart(autostart::for_build(true, Box::new(Seen(std::rc::Rc::clone(&shared)))), test);
+    assert!(page.autostart_on, "it shows the entry of the installed program");
+    let texts = look(&mut page, "hf_allgemein");
+    let said = language::tf("s_autostart_nur_anzeige", &[("0", language::Arg::from(language::t("e_an").as_str()))]);
+    assert!(shows(&texts, &said), "the state and the reason instead of a switch: {texts:?}");
+    for wanted in [false, true] {
+        page.change_autostart(wanted);
+    }
+    let entry = autostart::Store::get(shared.as_ref(), NAME);
+    assert_eq!(entry.as_deref(), Some(installed), "the entry stays: {:?}", shared.entries());
+    assert!(page.autostart_on);
+    // The build players get: the switch, no such line.
+    page.use_autostart(autostart::for_build(false, Box::new(Memory::with(NAME, installed))), String::new());
+    let texts = look(&mut page, "hf_allgemein");
+    assert!(!shows(&texts, &said), "{texts:?}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// ⚠⚠ On a copy of the data the switch of the start with the system holds (it jumped back: the command was
 /// empty), writes only into the copy, and its command starts the program on the copy.
 #[test]

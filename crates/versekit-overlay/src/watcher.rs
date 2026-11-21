@@ -69,9 +69,10 @@ pub enum News {
     Contracts(Vec<Line>),
     /// A contract is gone: the hint rows of it go too.
     ContractGone(String),
-    /// Something newly craftable in the game; `loud` for what the watch list waits for.
+    /// What one look of the catalog found newly craftable in the game, all of it: one sound for all of them, `loud`
+    /// when the watch list waits for one.
     Catalog {
-        row: Row,
+        rows: Vec<Row>,
         loud: bool,
     },
     /// A message for the system (title, text), shown by the icon next to the clock.
@@ -551,8 +552,8 @@ const JOURNAL_EVERY: Duration = Duration::from_secs(30);
 /// How often the way to start the game is looked for: the launcher can be installed or the start command entered while the overlay runs.
 pub const STARTER_EVERY: Duration = Duration::from_secs(20);
 
-/// The hint row for a test channel (PTU, EPTU, TECH-PREVIEW): its data are confidential by the terms of
-/// service. `told` is the channel the hint was said for; it is said again only when the channel changes.
+/// The hint row for a channel under a non-disclosure agreement (EPTU, TECH-PREVIEW; PTU is public and says nothing).
+/// `told` is the channel the hint was said for; it is said again only when the channel changes.
 fn channel_hint(told: &mut Option<String>, folder: Option<&str>) -> Option<Row> {
     let channel = folder.and_then(game_start::test_channel);
     if channel == *told {
@@ -657,7 +658,7 @@ impl Periodic {
             self.starter_known = Some(known);
             run.tell(News::Starter(known));
         }
-        // Data of a test build (PTU, EPTU, TECH-PREVIEW) are confidential by the terms of service: said once
+        // Data of a channel under a non-disclosure agreement (EPTU, TECH-PREVIEW) may not be shared: said once
         // for each channel the overlay reads (a hint row, asked for by the community).
         if let Some(row) = channel_hint(&mut self.channel_told, run.paths.game_folder().as_deref()) {
             run.tell(News::Row(row));
@@ -731,14 +732,26 @@ impl Periodic {
                 kind: versekit_core::blueprints::kind_readable(&b.kind),
             })
             .collect();
-        for found in self.watch.look(run.paths, &catalog.version, &items, &collection::now_text()) {
-            let loud = found.title.is_some();
-            let row = Row::Catalog { name: found.name, kind: found.kind, time: clock(), watch_title: found.title };
-            run.tell(News::Catalog { row, loud });
+        if let Some(news) = catalog_news(self.watch.look(run.paths, &catalog.version, &items, &collection::now_text())) {
+            run.tell(news);
             run.tell(News::Opens(Event::Catalog));
         }
         (!first).then_some(catalog)
     }
+}
+
+/// The news of one look of the catalog watch: every item found as a row in one message, and one sound for all of
+/// them (a rebuilt catalog may bring hundreds at once), loud when the watch list waits for one. `None` for nothing.
+fn catalog_news(found: Vec<versekit_core::catalog_watch::Found>) -> Option<News> {
+    if found.is_empty() {
+        return None;
+    }
+    let loud = found.iter().any(|f| f.title.is_some());
+    let rows = found
+        .into_iter()
+        .map(|f| Row::Catalog { name: f.name, kind: f.kind, time: clock(), watch_title: f.title })
+        .collect();
+    Some(News::Catalog { rows, loud })
 }
 
 /// The hint for a damaged settings file, once; reading it again finds nothing more.
@@ -1931,6 +1944,74 @@ mod tests {
         kinds
     }
 
+    /// A catalog built anew that brings many newly craftable items at once is one piece of news with all of them as
+    /// rows: one sound, not one for each. Loud only when the watch list waits for one of them.
+    #[test]
+    fn a_catalog_that_brings_many_new_items_makes_one_sound_for_all() {
+        language::set_thread_language(language::Choice::De);
+        let (home, paths) = home("katalog-ein-ton");
+        let names = BackRoute { paths: &paths, archive: &NoArchive };
+        let collection = Collection {
+            paths: &paths,
+            catalog: &collection::NoCatalog,
+            names: &names,
+            exports: &collection::NoExports,
+            clock: collection::now_text,
+        };
+        let (news, told) = std::sync::mpsc::channel();
+        let data = collection.load();
+        let run = Run {
+            paths: &paths,
+            collection,
+            data,
+            stamp: None,
+            seen: HashSet::new(),
+            meta: HashMap::new(),
+            pattern: regex::Regex::new("x").expect("pattern"),
+            news,
+            wake: Box::new(|| {}),
+            said: false,
+        };
+        let file = paths.app_file(catalog_cache::CACHE_FILE);
+        let write_catalog = |version: &str, names: &[&str]| {
+            let entries: Vec<String> =
+                names.iter().map(|n| format!(r#""{}": {{"n": "{n}", "a": "Cooler"}}"#, n.to_lowercase())).collect();
+            let text = format!(r#"{{"version": "{version}", "bauplaene": {{{}}}, "missionen": {{}}}}"#, entries.join(", "));
+            std::fs::create_dir_all(std::path::Path::new(&file).parent().expect("folder")).expect("folder made");
+            std::fs::write(&file, text).expect("catalog written");
+        };
+        // What one look tells: the catalog news as (rows, loud) and how many sounds the window makes of them.
+        let look = |periodic: &mut Periodic| {
+            periodic.catalog_next = Instant::now();
+            let _ = periodic.catalog(&run);
+            let mut catalog_news = Vec::new();
+            while let Ok(item) = told.try_recv() {
+                if let News::Catalog { rows, loud } = item {
+                    catalog_news.push((rows.len(), loud));
+                }
+            }
+            catalog_news
+        };
+        let mut periodic = Periodic::new(Duration::from_secs(3600));
+        // The base: nothing is new.
+        write_catalog("1", &["Alpha", "Beta", "Delta", "Epsilon"]);
+        assert!(look(&mut periodic).is_empty(), "the first look only sets the base");
+        // The rebuild brings three at once, none on the watch list: one news, three rows, quiet.
+        std::thread::sleep(Duration::from_millis(30));
+        write_catalog("2", &["Alpha", "Beta", "Delta", "Epsilon", "Gamma", "Zeta", "Eta"]);
+        assert_eq!(look(&mut periodic), [(3, false)], "one sound for all three");
+        // With one of them on the watch list the one sound is the loud one.
+        std::fs::write(
+            paths.app_file(watchlist::FILE),
+            r#"{"eintraege": [{"titel": "Gesucht", "muster": ["theta"]}]}"#,
+        )
+        .expect("watch list");
+        std::thread::sleep(Duration::from_millis(30));
+        write_catalog("3", &["Alpha", "Beta", "Delta", "Epsilon", "Gamma", "Zeta", "Eta", "Theta", "Iota"]);
+        assert_eq!(look(&mut periodic), [(2, true)], "loud for the one the watch list waits for");
+        let _ = std::fs::remove_dir_all(home);
+    }
+
     /// A job of the fabricator that is done opens the overlay by its own event (not by the refinery's), once, and
     /// makes no sound of the refinery.
     #[test]
@@ -2508,18 +2589,19 @@ mod tests {
         let mut told = None;
         assert!(channel_hint(&mut told, None).is_none());
         assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\LIVE")).is_none(), "LIVE says nothing");
-        let hint = channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\PTU")).expect("PTU is a test build");
-        let Row::Hint { text, .. } = hint else { panic!("a hint row") };
-        assert!(text.render().contains("PTU") && text.render().contains("vertraulich"), "{}", text.render());
-        assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\PTU")).is_none(), "said once");
-        assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\LIVE")).is_none());
-        // The channel under the terms of confidentiality is known to the test build only: the player build says
-        // nothing for it.
-        assert_eq!(
-            channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\EPTU")).is_some(),
-            versekit_core::edition::IS_TEST_BUILD,
-            "another test channel: said again"
-        );
+        assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\PTU")).is_none(), "PTU is public: no hint");
+        assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\HOTFIX")).is_none());
+        // The channels under an agreement are known to the test build only: the player build says nothing for them.
+        let test_build = versekit_core::edition::IS_TEST_BUILD;
+        let hint = channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\EPTU"));
+        assert_eq!(hint.is_some(), test_build, "EPTU is under an agreement");
+        if let Some(Row::Hint { text, .. }) = hint {
+            let said = text.render();
+            assert!(said.contains("EPTU") && said.contains("Verschwiegenheit"), "{said}");
+            assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\EPTU")).is_none(), "said once");
+            assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\LIVE")).is_none());
+            assert!(channel_hint(&mut told, Some("C:\\RSI\\StarCitizen\\TECH-PREVIEW")).is_some(), "another channel: said again");
+        }
     }
 
     /// The test build says so once in the overlay; the player build never.

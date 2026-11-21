@@ -107,7 +107,9 @@ pub(crate) fn collect(
     }
     let in_pools: HashSet<Guid> = pools.values().flat_map(|pool| pool.blueprints.iter().copied()).collect();
     let mut found = Found { pools: pools.len(), in_pools: in_pools.len(), pools_by_blueprint, ..Found::default() };
-    for &guid in &inputs.generators {
+    let count = versekit_core::build_progress::counter(inputs.generators.len());
+    for (at, &guid) in inputs.generators.iter().enumerate() {
+        count.at(at);
         let Some(tree) = trees.get(guid) else { continue };
         for handler in structs(Some(tree.root()), "generators") {
             for list in CONTRACT_LISTS {
@@ -155,6 +157,7 @@ pub(crate) fn collect(
             }
         }
     }
+    drop(count);
     for &guid in &inputs.scenarios {
         let Some(tree) = trees.get(guid) else { continue };
         scenario_sources(&tree, &pools, &mut found, trees, texts);
@@ -231,6 +234,78 @@ pub(crate) fn shown_keys(
         }
     }
     found
+}
+
+/// The amount of every reputation gain of every contract entry (by [`entry_key`]), read from the reward record each
+/// gain links to (`reputationAmount`), in the order the gains stand in the p4kx catalog: the results of the sub
+/// contract when it states any, else those of the contract, the ones that fire on success, each amount in stored
+/// order. `None` where the link or the record cannot be read.
+///
+/// ⚠ p4kx 0.4.2 takes the amount only from the records under `missionrewards_reputation/`; since 5.0 the gains of
+/// most contracts link to `factionreprewardvalues/` and `guildreprewardvalues/` (same record type, same field), so
+/// the catalog has `amount: null` for them. This reads the linked record, wherever it is.
+pub(crate) fn reward_amounts(trees: &mut Trees<'_, '_>, generators: &[Guid]) -> HashMap<String, Vec<Option<i64>>> {
+    let mut found = HashMap::new();
+    for &guid in generators {
+        let Some(tree) = trees.get(guid) else { continue };
+        for handler in structs(Some(tree.root()), "generators") {
+            for list in CONTRACT_LISTS {
+                for contract in structs(Some(handler), list) {
+                    let Some(id) = identity(contract) else { continue };
+                    for sub in std::iter::once(None).chain(structs(Some(contract), "subContracts").map(Some)) {
+                        let sub_id = match sub {
+                            Some(sub) => match identity(sub) {
+                                Some(sub_id) => Some(sub_id),
+                                None => continue,
+                            },
+                            None => None,
+                        };
+                        let block = sub
+                            .and_then(|sub| structure(Some(sub), "contractResults"))
+                            .filter(|block| !elements(Some(block), "contractResults").is_empty())
+                            .or_else(|| structure(Some(contract), "contractResults"));
+                        let mut amounts = Vec::new();
+                        for result in structs(block, "contractResults")
+                            .filter(|result| result.type_name() == LEGACY_REPUTATION && succeeds(result))
+                        {
+                            for amount in one_or_many(result, "contractResultReputationAmounts") {
+                                let read = reference(Some(amount), "reward")
+                                    .and_then(|reward| trees.get(reward))
+                                    .and_then(|record| integer(Some(record.root()), "reputationAmount"));
+                                amounts.push(read);
+                            }
+                        }
+                        if !amounts.is_empty() {
+                            let sub_text = sub_id.map(|sub| sub.to_string());
+                            found.entry(entry_key(&id.to_string(), sub_text.as_deref())).or_insert(amounts);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    found
+}
+
+/// The result type that grants reputation.
+const LEGACY_REPUTATION: &str = "ContractResult_LegacyReputation";
+
+/// Whether a result fires on success: its first `missionResults` flag is set.
+fn succeeds(result: &StructValue<'_>) -> bool {
+    match elements(Some(result), "missionResults").first() {
+        Some(Value::Bool(set)) => *set,
+        Some(Value::Struct(flag)) => boolean(Some(flag), "value").unwrap_or(false),
+        _ => false,
+    }
+}
+
+/// The structs of the field `name`: the elements of an array, or the one struct the field holds.
+fn one_or_many<'t, 'f>(parent: &'t StructValue<'f>, name: &str) -> Vec<&'t StructValue<'f>> {
+    match parent.field(name) {
+        Some(Value::Array(items)) => items.iter().filter_map(as_struct).collect(),
+        Some(Value::Struct(one)) => vec![one],
+        _ => Vec::new(),
+    }
 }
 
 /// The keys an entry with the title key `title` and the description key `description` shows in their place

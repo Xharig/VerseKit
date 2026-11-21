@@ -27,9 +27,10 @@
 //! - the cards of a row begin on one line (each is as tall as its content);
 //! - the height of a card stays the same over thirty frames (nothing grows by itself).
 //!
-//! Beyond the sample data come three states: the first entry of every list that opens a detail chosen, the
-//! pages of the updates with releases remembered (in a throwaway data folder), and the maps of the Contested
-//! Zones dragged far in every direction, after which the map still fills its frame as before.
+//! Beyond the sample data come these states: the first entry of every list that opens a detail chosen, the
+//! pages of the updates with releases remembered (in a throwaway data folder), the maps of the Contested
+//! Zones dragged far in every direction, after which the map still fills its frame as before, and the blueprint
+//! list with the foot bar while the catalogue is built, waits for the game or has ended.
 //!
 //! The finds of each part of the run are written to the temporary folder (`versekit-layout-guard`) in full.
 //! Every rule has a counter-check below that builds the fault and has to see it.
@@ -47,6 +48,7 @@ use versekit_core::language::{Choice, set_thread_language};
 use versekit_core::paths::{Host, Paths};
 use versekit_core::pypath::Flavor;
 use versekit_core::theme;
+use versekit_core::build_progress::{Snapshot, Step};
 use versekit_core::updater::{self, Asset, Cache, Release};
 use versekit_ui::sample::SamplePage;
 use versekit_ui::widgets::drawn_cards;
@@ -854,14 +856,27 @@ fn flight_page(dir: &Path) -> SamplePage {
     }
     let source = versekit_core::logsource::LogSource::new(&paths, versekit_core::logsource::LogSource::sources_of(&paths));
     versekit_core::flugbuch::catch_up(&source, &files);
-    versekit_core::location::remember(&paths, &vec![("123".to_string(), "Nyx_Levski".to_string())]);
+    let place = "Observation Platform on the far side of the moon with a name nobody can say in one breath";
+    versekit_core::location::remember(&paths, &vec![("123".to_string(), place.to_string())]);
     let contract = vec![
         ("name".to_string(), versekit_core::jsonio::Value::str("Retake the Outpost")),
         ("wann".to_string(), versekit_core::jsonio::Value::str("2026-10-02T10:20:00")),
         ("bis".to_string(), versekit_core::jsonio::Value::str("2026-10-02T10:30:00")),
         ("zustand".to_string(), versekit_core::jsonio::Value::str(versekit_core::mission_log::COMPLETED)),
     ];
-    versekit_core::mission_log::save(&paths, &[contract]);
+    // A contract with a long name and a place with a long name: their lines wrap, nothing is cut.
+    let long = vec![
+        (
+            "name".to_string(),
+            versekit_core::jsonio::Value::str(
+                "Retake the Outpost and hold it against every wave of the attackers until the relief arrives at last",
+            ),
+        ),
+        ("wann".to_string(), versekit_core::jsonio::Value::str("2026-10-02T10:22:00")),
+        ("bis".to_string(), versekit_core::jsonio::Value::str("2026-10-02T10:32:00")),
+        ("zustand".to_string(), versekit_core::jsonio::Value::str(versekit_core::mission_log::COMPLETED)),
+    ];
+    versekit_core::mission_log::save(&paths, &[contract, long]);
     let mut page = SamplePage::with_settings_using(paths, Arc::new(versekit_gamedata::list::Offline));
     page.go_to(FLIGHT_PAGE);
     page
@@ -885,6 +900,66 @@ fn flight_states(findings: &mut Vec<String>) {
                 let place = Place { key: FLIGHT_PAGE, points, window, english, scheme: "krt", what: "Flugbuch geladen".to_string() };
                 measure(&mut harness, window, watch, &place, findings);
             }
+        }
+    }
+}
+
+/// The page of the blueprint list, which shows the build of the catalogue over the list.
+const CATALOG_PAGE: &str = "hf_liste";
+
+/// A state of a build of the catalogue: its name, the build that runs, and how one ended (with its blueprints).
+type CatalogBuild = (&'static str, Option<Snapshot>, Option<Option<usize>>);
+
+/// The states of a build of the catalogue, each named: the longest step at its longest time, a wait for the game,
+/// and the two ends.
+fn catalog_builds() -> Vec<CatalogBuild> {
+    let at = |step, waiting| Snapshot { step, step_fraction: Some(0.99), fraction: 0.99, elapsed: 3600, waiting };
+    vec![
+        ("Katalog baut", Some(at(Step::Blueprints, false)), None),
+        ("Katalog wartet auf Spielende", Some(at(Step::Archive, true)), None),
+        ("Katalog fertig", None, Some(Some(54_000))),
+        ("Katalog fehlgeschlagen", None, Some(None)),
+    ]
+}
+
+/// The blueprint list and the foot bar while the catalogue is built, waits or has ended, through every size,
+/// window and language; every step once in the smallest window at the biggest size.
+fn catalog_states(findings: &mut Vec<String>) {
+    theme::set_thread_current("krt");
+    for english in [false, true] {
+        set_thread_language(if english { Choice::En } else { Choice::De });
+        for (what, seen, ended) in catalog_builds() {
+            let mut page = SamplePage::preview();
+            page.go_to(CATALOG_PAGE);
+            let mut harness = harness_of(page);
+            for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+                for (window, watch) in windows(points) {
+                    // The end shows for a few seconds: it is given anew, from now, before every window.
+                    let now = harness.ctx.input(|i| i.time);
+                    let end = ended.map(|blueprints| versekit_ui::catalog_progress::Ended { blueprints, at: now });
+                    harness.state_mut().page.show_catalog_build(seen.clone(), end);
+                    settle(&mut harness, points, window);
+                    let place =
+                        Place { key: CATALOG_PAGE, points, window, english, scheme: "krt", what: what.to_string() };
+                    measure(&mut harness, window, watch, &place, findings);
+                }
+            }
+        }
+        let mut harness = harness(CATALOG_PAGE);
+        let biggest = font_size::POINTS_RANGE.1;
+        for step in Step::ALL {
+            let seen = Snapshot { step, step_fraction: None, fraction: 0.5, elapsed: 3600, waiting: false };
+            harness.state_mut().page.show_catalog_build(Some(seen), None);
+            settle(&mut harness, biggest, smallest_window());
+            let place = Place {
+                key: CATALOG_PAGE,
+                points: biggest,
+                window: smallest_window(),
+                english,
+                scheme: "krt",
+                what: format!("Katalog-Schritt {step:?}"),
+            };
+            measure(&mut harness, smallest_window(), false, &place, findings);
         }
     }
 }
@@ -1095,6 +1170,9 @@ fn run_part(part: usize) {
         }
         if key == FLIGHT_PAGE {
             flight_states(&mut findings);
+        }
+        if key == CATALOG_PAGE {
+            catalog_states(&mut findings);
         }
         if key == MAP_PAGE {
             map_drags(&mut findings);

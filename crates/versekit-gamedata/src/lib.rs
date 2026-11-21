@@ -58,6 +58,7 @@ pub mod scmdb_catalog;
 pub mod ship_slots;
 pub mod ship_values;
 mod sources;
+pub mod stand_read;
 pub mod texts_watch;
 pub mod value_source;
 pub mod values;
@@ -342,7 +343,8 @@ impl GameData {
     /// `auftragsruf.json` (see [`contract_reputation::from_catalogs`]); `contracts` is the catalog of the contract
     /// generators ([`GameData::contract_catalog`]), `keys` the keys the entries show ([`Catalog::shown_keys`]),
     /// `offered` where they are offered ([`Catalog::offered`], for the regions, [`contract_reputation::regions`]),
-    /// `corrections` the known errors.
+    /// `corrections` the known errors, `amounts` the amounts of the gains read from the reward records
+    /// ([`Catalog::reward_amounts`]), for the gains whose amount the catalog does not have.
     ///
     /// # Errors
     ///
@@ -354,6 +356,7 @@ impl GameData {
         keys: &std::collections::HashMap<String, ShownKeys>,
         offered: &std::collections::HashMap<String, Offered>,
         corrections: &[corrections::Correction],
+        amounts: &contract_reputation::Amounts,
     ) -> Result<contract_reputation::Contracts, Error> {
         let catalog = |filter: &str| {
             self.catalog_of(filter).map_err(|error| match error {
@@ -366,7 +369,7 @@ impl GameData {
         let build = self.scmdb_build().unwrap_or_default();
         let failed = |source: serde_json::Error| Error::Reputation { source: Box::new(source) };
         let mut read =
-            contract_reputation::from_catalogs(contracts, keys, &factions, &reputation, corrections, &build)
+            contract_reputation::from_catalogs(contracts, keys, &factions, &reputation, corrections, &build, amounts)
                 .map_err(failed)?;
         let entries: serde_json::Value = serde_json::from_slice(contracts).map_err(failed)?;
         read.regions = contract_reputation::regions(&entries, keys, offered);
@@ -634,7 +637,7 @@ const CHANNELS: [(&str, &str); 5] =
     [("TECH-PREVIEW", "tech-preview"), ("EPTU", "eptu"), ("PTU", "ptu"), ("HOTFIX", "hotfix"), ("LIVE", "live")];
 
 /// The channel of a channel folder by the end of its name (`LIVE`, also a
-/// copy such as `Spieldaten LIVE`), `None` for any other folder.
+/// copy such as `Kopie LIVE`), `None` for any other folder.
 fn channel_of(folder: &str) -> Option<&'static str> {
     let upper = folder.trim().to_ascii_uppercase().replace('_', "-");
     CHANNELS
@@ -683,7 +686,7 @@ mod tests {
     #[test]
     fn the_channel_is_read_from_the_end_of_the_folder_name() {
         assert_eq!(channel_of("LIVE"), Some("live"));
-        assert_eq!(channel_of("Spieldaten LIVE"), Some("live"));
+        assert_eq!(channel_of("Kopie LIVE"), Some("live"));
         assert_eq!(channel_of("PTU"), Some("ptu"));
         // The two channels under the terms of confidentiality are known to the test build only.
         assert_eq!(channel_of("EPTU"), versekit_core::edition::IS_TEST_BUILD.then_some("eptu"));

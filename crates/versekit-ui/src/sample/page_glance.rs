@@ -332,11 +332,14 @@ pub(super) fn plan_glance(notes: &[Note], lang: Lang) -> Glance {
 
 /// What to farm: how many pieces are to be crafted and which materials are missing for them, the largest gap
 /// first. Where the recipes are not there yet a line says so.
-pub(super) fn farm_glance(page: &SamplePage, paths: &Paths, notes: &[Note], lang: Lang) -> Glance {
+pub(super) fn farm_glance(page: &SamplePage, paths: &Paths, fleet: Option<&Map>, lang: Lang) -> Glance {
     use versekit_gamedata::farm;
-    if notes.is_empty() {
+    let notes = fleet.map(notepad::notes).unwrap_or_default();
+    let ships = fleet.and_then(|f| f.iter().find(|(k, _)| k == "schiffe")).map(|(_, v)| v);
+    let no_ships = !matches!(ships, Some(Value::Array(list)) if !list.is_empty());
+    let Some(fleet) = fleet.filter(|_| !(notes.is_empty() && no_ships)) else {
         return glance(t_in(lang, "s_fl_nichts_geplant"), Vec::new());
-    }
+    };
     use crate::crafting_page::ValuesWait;
     let Some((values, book, data)) = page.crafting.parts() else {
         // What the page says in the same case: the values are read, reading failed, or there are none.
@@ -347,7 +350,13 @@ pub(super) fn farm_glance(page: &SamplePage, paths: &Paths, notes: &[Note], lang
         };
         return glance(t_in(lang, key), Vec::new()).line_tone(tone);
     };
-    let planned = farm::posts_of(values, book, notes);
+    // The same plan as the page: the notes and the parts on "build" of the ships in the hangar and on the wish list.
+    let erkul = versekit_core::erkul_slots::ErkulData::load(paths);
+    let slots = |ship: &Map, chosen: &Map| erkul.cart_slots(ship, chosen);
+    let planned = farm::planned_posts(fleet, values, book, Some(&slots));
+    if planned.is_empty() && notes.is_empty() {
+        return glance(t_in(lang, "s_fl_nichts_geplant"), Vec::new());
+    }
     let stock = stock::load(&paths.app_file(stock::RAW_FILE), "overview.farm");
     let list = farm::farm_list(values, book, &planned, &stock, data);
     if list.posts == 0 {
@@ -449,7 +458,7 @@ pub(super) fn shops_page(paths: &Paths, lang: Lang) -> Glance {
 pub(super) fn statistics_glance(key: &str, paths: &Paths, lang: Lang) -> Option<Glance> {
     use crate::statistics_page::{Page, Report};
     let page = Page::of(key)?;
-    // The flight log is no page that can be pinned: it has no tile.
+    // The flight log has no figures of its own on its tile: it shows its short explanation.
     if page == Page::Flight {
         return None;
     }
@@ -561,7 +570,7 @@ impl SamplePage {
             let notes = data.as_ref().map(notepad::notes).unwrap_or_default();
             out.insert("hf_herstellung", plan_glance(&notes, lang));
             if pinned("hf_farmliste") {
-                out.insert("hf_farmliste", farm_glance(self, paths, &notes, lang));
+                out.insert("hf_farmliste", farm_glance(self, paths, data.as_ref(), lang));
             }
         }
         if pinned("hf_staffellager") {
@@ -709,7 +718,8 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let paths = Paths::new(super::super::real_data::host_apart(&dir));
         // Nothing noted: the sentence of the page.
-        let none = farm_glance(&page, &paths, &[], Lang::De);
+        let none = farm_glance(&page, &paths, Some(&hangar::empty()), Lang::De);
+        assert_eq!(farm_glance(&page, &paths, None, Lang::De).line, none.line, "no fleet file is nothing noted");
         assert!(none.line.starts_with("Nichts vorgemerkt."), "{none:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -729,14 +739,19 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let paths = Paths::new(super::super::real_data::host_apart(&dir));
-        let tile = farm_glance(&page, &paths, &[note("Frostline", 2, "")], Lang::De);
+        let fleet = |note: Note| {
+            let mut data = hangar::empty();
+            assert!(notepad::restore(&mut data, &note));
+            data
+        };
+        let tile = farm_glance(&page, &paths, Some(&fleet(note("Frostline", 2, ""))), Lang::De);
         assert_eq!(tile.line_tone, Tone::Warn, "{tile:?}");
         assert!(tile.line.starts_with("Rohstoffe, die fehlen: "), "{tile:?}");
         assert_eq!(tile.details[0], "Zu bauen: 2");
         assert!(tile.details.len() > 1 && tile.details[1..].iter().all(|d| d.contains(" · fehlt: ")), "{tile:?}");
         assert!(tile.details[1].ends_with("SCU") || tile.details[1].ends_with("Stück"), "{tile:?}");
         // What is bought is not built: nothing left to do.
-        let bought = farm_glance(&page, &paths, &[note("Frostline", 2, "kaufen")], Lang::De);
+        let bought = farm_glance(&page, &paths, Some(&fleet(note("Frostline", 2, "kaufen"))), Lang::De);
         assert_eq!(bought.line, "Nichts mehr zu bauen: alles gekauft oder abgehakt.");
         let _ = std::fs::remove_dir_all(&dir);
     }

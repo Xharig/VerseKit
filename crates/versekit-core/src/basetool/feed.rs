@@ -168,6 +168,53 @@ pub fn resolve_refs(
     Ok(cache.iter().filter_map(|(k, v)| v.as_str().map(|bt| (k.clone(), bt.to_string()))).collect())
 }
 
+/// What `catalog/resolve` said to one reference.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Resolved {
+    /// The id and the name of the entry.
+    Found { bt: String, name: String },
+    /// `unmatched`, `ambiguous` or anything else, as said.
+    Not(String),
+}
+
+/// Asks `catalog/resolve` for a few references, without a cache (at most [`RESOLVE_MAX`]); one answer per
+/// reference, in order.
+pub fn resolve_now(conn: &Connection, kind: &str, refs: &[Value]) -> Result<Vec<Resolved>, ApiError> {
+    let refs = &refs[..refs.len().min(RESOLVE_MAX)];
+    let mut out = vec![Resolved::Not(String::new()); refs.len()];
+    if refs.is_empty() {
+        return Ok(out);
+    }
+    let body = Value::Object(vec![("kind".into(), Value::str(kind)), ("refs".into(), Value::Array(refs.to_vec()))]);
+    let answer = conn.request("POST", "/catalog/resolve", Some(&body), &[], None)?;
+    for result in list(&answer, "results") {
+        let Some(Value::Int(index)) = result.get("index") else { continue };
+        let Some(slot) = index.parse::<usize>().ok().and_then(|i| out.get_mut(i)) else { continue };
+        let status = result.get("status").and_then(Value::as_str).unwrap_or_default();
+        let found = result.get("ref");
+        let bt = found.and_then(|r| r.get("bt")).and_then(Value::as_str).filter(|b| !b.is_empty());
+        *slot = match (status, bt) {
+            ("resolved", Some(bt)) => Resolved::Found {
+                bt: bt.to_string(),
+                name: found.and_then(|r| r.get("name")).and_then(Value::as_str).unwrap_or_default().to_string(),
+            },
+            _ => Resolved::Not(status.to_string()),
+        };
+    }
+    Ok(out)
+}
+
+/// Whether the catalog confirms that `old` was folded into `new`: it resolves `old` to `new`, or it no longer
+/// knows `old` at all (`unmatched`). Anything else (still itself, another entry, no answer) is no merge.
+pub fn confirms_merge(conn: &Connection, kind: &str, old: &str, new: &str) -> Result<bool, ApiError> {
+    let reference = Value::Object(vec![("bt".into(), Value::str(old))]);
+    Ok(match resolve_now(conn, kind, &[reference])?.first() {
+        Some(Resolved::Found { bt, .. }) => bt == new,
+        Some(Resolved::Not(status)) => status == "unmatched",
+        None => false,
+    })
+}
+
 /// The storage locations of the Basetool, the only ones bookings may name:
 /// lower-case name → `{name, uex}`.
 #[derive(Clone, Debug, Default)]

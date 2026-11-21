@@ -56,6 +56,7 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use versekit_core::build_progress::{self as progress, Step};
 use versekit_core::catalog_cache::{self, Blueprint as ListBlueprint, CatalogCache, Mission, Place, Way};
 use versekit_core::injection::texts::UNCERTAIN;
 use versekit_core::injection::{item_stats, reputation};
@@ -629,8 +630,22 @@ impl Rebuild {
     }
 
     fn build_now(&self, paths: &Paths) -> Option<CatalogCache> {
+        // The caches still tell the build that is replaced now: a stand is made of them before they are written anew.
+        let recording = self.archive.as_deref().filter(|_| crate::stand_read::recording());
+        if let Some(archive) = recording {
+            crate::stand_read::keep_base(&self.host, archive, &self.cache_file);
+        }
+        // The run is seen by the window of this process and, through its file, by that of another; it ends with
+        // this function, and counts as worked only when a catalog comes out of it.
+        let mut run = progress::begin(Some(paths.app_file(progress::FILE)));
         let Some(built) = build(paths, self.archive.as_deref(), &*self.supply, &self.cache_file) else {
-            versekit_core::errors::record("list.rebuild", &"the game data and scmdb gave no blueprint catalog");
+            let at = run.snapshot().step;
+            let message = format!(
+                "the game data and scmdb gave no blueprint catalog (stopped at step {} of {}: {at:?})",
+                at.number(),
+                Step::count()
+            );
+            versekit_core::errors::record("list.rebuild", &message);
             return None;
         };
         // `scmdb` is the build whose catalog completed this one, `-` when scmdb
@@ -659,6 +674,11 @@ impl Rebuild {
                 }
             }
         }
+        // The stand of the new build is read in a thread of its own, after this build: it never makes the build wait.
+        if let Some(archive) = recording {
+            crate::stand_read::record_in_background(self.host.clone(), archive.to_path_buf());
+        }
+        run.succeeded();
         Some(corrected(paths, built.catalog))
     }
 
@@ -787,7 +807,7 @@ fn forget_unwritten(file: &str) {
 }
 
 /// Size and modification time of a file, `Null` when it is missing.
-fn file_stamp(path: &Path) -> Value {
+pub(crate) fn file_stamp(path: &Path) -> Value {
     let Ok(meta) = fs::metadata(path) else { return Value::Null };
     let modified = meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos());
     Value::Object(vec![
@@ -809,14 +829,9 @@ fn write_cache(file: &str, stamp: &Value, catalog: &CatalogCache, item_texts: &M
     write_cache_with(file, stamp, catalog, item_texts, &Map::new())
 }
 
-/// Writes the catalog with the text keys (`beschreibungen`) and the stock values (`werte`) of the items.
-fn write_cache_with(
-    file: &str,
-    stamp: &Value,
-    catalog: &CatalogCache,
-    item_texts: &Map,
-    item_values: &Map,
-) -> std::io::Result<()> {
+/// The content of the catalog file: the catalog with the text keys (`beschreibungen`) and the stock values (`werte`)
+/// of the items.
+pub fn cache_value(stamp: &Value, catalog: &CatalogCache, item_texts: &Map, item_values: &Map) -> Value {
     let mut data = catalog_cache::to_value(catalog);
     if let Value::Object(map) = &mut data {
         map.insert(0, ("quelle".into(), stamp.clone()));
@@ -827,6 +842,18 @@ fn write_cache_with(
             map.push((item_stats::CATALOG_KEY.into(), Value::Object(item_values.clone())));
         }
     }
+    data
+}
+
+/// Writes the catalog with the text keys (`beschreibungen`) and the stock values (`werte`) of the items.
+fn write_cache_with(
+    file: &str,
+    stamp: &Value,
+    catalog: &CatalogCache,
+    item_texts: &Map,
+    item_values: &Map,
+) -> std::io::Result<()> {
+    let data = cache_value(stamp, catalog, item_texts, item_values);
     jsonio::write_text_atomic(file, &jsonio::dumps(&data, None, false), jsonio::Newline::Native)
 }
 
@@ -1040,21 +1067,33 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
         (Some(Ok(_)), None) => None,
         _ => supply.current_build().ok(),
     };
+    progress::step(Step::Corrections);
     let (fixes, fixes_error) = supply.corrections(wanted.as_deref());
     let fixes_missing = fixes_error.is_some();
     let mut own_reputation = None;
     let mut own_stats = Map::new();
+    progress::step(Step::Texts);
     let read = game.and_then(Result::ok).map(|game| {
         let catalog = game.localization(Language::English).and_then(|texts| {
+            progress::step(Step::Contracts);
             let contracts = game.contract_catalog()?;
+            progress::step(Step::Places);
             // Without the templates only the places the contracts name themselves are known: scmdb adds the rest.
             let locations = game.location_catalog().unwrap_or_else(|error| {
                 versekit_core::errors::record("list.archive", &error);
                 Vec::new()
             });
+            progress::step(Step::Blueprints);
             let (catalog, stats) = game.blueprints_and_stats(&texts, &fixes, &contracts, &locations)?;
+            progress::step(Step::Reputation);
             own_reputation =
-                Some(game.contract_reputation(&contracts, &catalog.shown_keys, &catalog.offered, &fixes));
+                Some(game.contract_reputation(
+                    &contracts,
+                    &catalog.shown_keys,
+                    &catalog.offered,
+                    &fixes,
+                    &catalog.reward_amounts,
+                ));
             own_stats = stats;
             Ok(catalog)
         });
@@ -1063,6 +1102,7 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
         }
         catalog
     });
+    progress::step(Step::Scmdb);
     let theirs = wanted.as_deref().map(|build| supply.catalog(build, &fixes));
     let (their_catalog, their_error, their_reputation) = match theirs {
         Some(Ok(mut catalog)) => {
@@ -1072,6 +1112,7 @@ fn build(paths: &Paths, archive: Option<&Path>, supply: &dyn Supply, cache_file:
         Some(Err(error)) => (None, Some(error), None),
         None => (None, None, None),
     };
+    progress::step(Step::Save);
     keep_reputation(paths, own_reputation, their_reputation, version.as_deref().unwrap_or_default());
     let trouble = fixes_error.filter(|_| their_catalog.is_none()).or(their_error);
     let own = read.as_ref().and_then(|read| read.as_ref().ok()).filter(|catalog| !catalog.blueprints.is_empty());

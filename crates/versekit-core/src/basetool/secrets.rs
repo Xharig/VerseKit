@@ -188,15 +188,15 @@ impl SystemSecrets {
         tighten(&self.folder, 0o700)
     }
 
-    /// New file with `0600`, written to a side file first, then renamed.
+    /// New file with `0600`, written to a side file first, then renamed. The side file is this writer's own (process
+    /// and a counter in its name): two writers at once, in one process or in two, never take the same one.
     fn write_private(&self, path: &str, data: &[u8]) -> Result<(), SecretError> {
         self.ensure_folder()?;
-        let temp = format!("{path}.neu");
+        let temp = side_file(path);
         let failed = |e: std::io::Error| SecretError::new("SECRET_FAILED", e.to_string());
-        for (op, target) in [("remove", temp.as_str()), ("write", temp.as_str()), ("replace", path)] {
+        for (op, target) in [("write", temp.as_str()), ("replace", path)] {
             writeguard::check(op, target).map_err(failed)?;
         }
-        let _ = std::fs::remove_file(&temp);
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create_new(true);
         #[cfg(unix)]
@@ -206,12 +206,45 @@ impl SystemSecrets {
             file.write_all(data)?;
             file.sync_all()?;
             drop(file);
-            crate::jsonio::os_replace(&temp, path)
+            again_while_held(|| crate::jsonio::os_replace(&temp, path))
         })();
         if result.is_err() {
             let _ = std::fs::remove_file(&temp);
         }
         result.map_err(failed)
+    }
+}
+
+/// The side file a writer of `path` writes first: `<path>.<process>-<count>.neu`, its own in this process and in any
+/// other.
+fn side_file(path: &str) -> String {
+    static COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let count = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("{path}.{}-{count}.neu", std::process::id())
+}
+
+/// How often a file another process holds for a moment is asked again, and how long is waited between.
+const HELD_TRIES: u32 = 40;
+const HELD_PAUSE: std::time::Duration = std::time::Duration::from_millis(25);
+
+/// Whether Windows refused the file only because someone else has it open or is replacing it right now (denied
+/// access to a file that is being replaced, a sharing or lock violation); it is free again a moment later.
+fn held_by_another(e: &std::io::Error) -> bool {
+    cfg!(windows) && matches!(e.raw_os_error(), Some(5 | 32 | 33))
+}
+
+/// `step`, asked again for about a second while the file is held by another ([`held_by_another`]): the other
+/// process of the pair reads or replaces the same secret at the same moment.
+fn again_while_held<T>(mut step: impl FnMut() -> std::io::Result<T>) -> std::io::Result<T> {
+    let mut tries = 1;
+    loop {
+        match step() {
+            Err(e) if held_by_another(&e) && tries < HELD_TRIES => {
+                tries += 1;
+                std::thread::sleep(HELD_PAUSE);
+            }
+            other => return other,
+        }
     }
 }
 
@@ -357,7 +390,7 @@ impl SecretStore for SystemSecrets {
         }
         tighten(&self.folder, 0o700)?;
         tighten(&path, 0o600)?;
-        let data = match std::fs::read(&path) {
+        let data = match again_while_held(|| std::fs::read(&path)) {
             Ok(data) => data,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(SecretError::new("SECRET_FAILED", e.to_string())),
@@ -381,7 +414,7 @@ impl SecretStore for SystemSecrets {
             return Ok(());
         }
         writeguard::check("remove", &path).map_err(|e| SecretError::new("SECRET_FAILED", e.to_string()))?;
-        match std::fs::remove_file(&path) {
+        match again_while_held(|| std::fs::remove_file(&path)) {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(SecretError::new("SECRET_FAILED", format!("{name}: {e}"))),
@@ -561,6 +594,50 @@ mod tests {
         store.delete(REFRESH_SECRET).unwrap();
         assert!(!file.exists());
         assert_eq!(store.load(REFRESH_SECRET).unwrap(), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Overlay and main window are two stores on one folder: both save and read the same secret at the same moment,
+    /// many times. Every save and every reading works, and what is read is always one whole text that was saved.
+    #[test]
+    fn two_stores_that_save_and_read_the_same_secret_at_once_never_fail() {
+        let dir = scratch("together");
+        let vars = [(crate::envvars::ENV_SECRETS, dir.as_str()), (crate::envvars::ENV_SECRETS_FILE, "1")];
+        let host = Host::new(Flavor::native(), &vars, &dir);
+        let first = SystemSecrets::from_host(&host);
+        first.save(REFRESH_SECRET, "start").unwrap();
+        let texts: Vec<String> = (0..4).map(|n| format!("text-{n}-{}", "x".repeat(200 * n))).collect();
+        let failures = Mutex::new(Vec::new());
+        std::thread::scope(|scope| {
+            for (n, text) in texts.iter().enumerate() {
+                let (host, failures, texts) = (&host, &failures, &texts);
+                scope.spawn(move || {
+                    let store = SystemSecrets::from_host(host);
+                    for _ in 0..60 {
+                        let result = if n % 2 == 0 {
+                            store.save(REFRESH_SECRET, text).map(|()| None)
+                        } else {
+                            store.load(REFRESH_SECRET)
+                        };
+                        match result {
+                            Ok(Some(read)) if read != "start" && !texts.contains(&read) => {
+                                failures.lock().unwrap().push(format!("half a text: {}", read.len()));
+                            }
+                            Ok(_) => {}
+                            Err(e) => failures.lock().unwrap().push(format!("{}: {}", e.code, e.message)),
+                        }
+                    }
+                });
+            }
+        });
+        let failures = failures.into_inner().unwrap();
+        assert!(failures.is_empty(), "{} failures, first: {:?}", failures.len(), failures.first());
+        let left: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().into_owned()))
+            .filter(|name| name.ends_with(".neu"))
+            .collect();
+        assert!(left.is_empty(), "no side file stays: {left:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

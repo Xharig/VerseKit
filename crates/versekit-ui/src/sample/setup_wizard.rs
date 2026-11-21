@@ -1101,7 +1101,11 @@ impl SamplePage {
             ui.add_space(4.0);
             self.step_picture(ui, scheme, wizard, Step::Start);
         }
-        if self.autostart.possible() {
+        if self.autostart.possible() && !self.autostart.writable() {
+            // The test build shows the entry of the installed program and leaves it alone.
+            let name = t(if cfg!(windows) { "autostart_win" } else { "autostart_linux" });
+            Self::paragraph(ui, scheme, &format!("{name}: {}", super::autostart_shown(self.autostart_on)), true);
+        } else if self.autostart.possible() {
             let name = t(if cfg!(windows) { "autostart_win" } else { "autostart_linux" });
             let mut on = self.autostart_on;
             if Self::switch_row(ui, scheme, &name, &t("as_autostart_h"), &mut on) {
@@ -2465,6 +2469,9 @@ mod tests {
             [("hf_sichern", language::t("hf_einrichtung"), 1), ("hf_ueber", language::t("s_ub_einrichtung"), 0)];
         for (key, button, nth) in cases {
             bench.page.go_to(key);
+            bench.settle();
+            // The row stands at the foot of a long page.
+            bench.scroll_to_foot();
             let texts = bench.settle();
             assert!(!bench.page.setup_open(), "{key}: closed before the click");
             if key == "hf_sichern" {
@@ -2488,6 +2495,9 @@ mod tests {
         let (page, dir) = real_page("einrichtung-wieder-weg", "{\"einrichtung_fertig\": true}\n", &[]);
         let mut bench = Bench::new(page);
         bench.page.go_to("hf_sichern");
+        bench.settle();
+        // The row stands at the foot of a long page.
+        bench.scroll_to_foot();
         bench.click_nth(&language::t("hf_einrichtung"), 1);
         assert!(bench.page.setup_open());
         bench.frame(vec![egui::Event::Key {

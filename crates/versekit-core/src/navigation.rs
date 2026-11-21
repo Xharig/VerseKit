@@ -30,6 +30,16 @@ pub const COUNT_SETTING: &str = "bereich_zaehler";
 /// The page the window starts with, as a page key; absent or empty is the overview.
 pub const START_SETTING: &str = "startseite";
 
+/// Pages that became a view of another page: the stored name leads to the page that took over (a stored last page, a
+/// counter), the view itself is the business of the window.
+pub const MOVED_PAGES: [(&str, &str); 3] =
+    [("hf_farmliste", "hf_herstellung"), ("hf_fortschritt", "hf_liste"), ("hf_raffinerien", "hf_bergbau")];
+
+/// The page that took over from `page` when it became a view, else `page`.
+pub fn moved(page: &str) -> &str {
+    MOVED_PAGES.iter().find(|(old, _)| *old == page).map_or(page, |(_, to)| to)
+}
+
 /// The most a counter keeps: a page opened more often than this does not win by more.
 const MAX_COUNT: i64 = 1_000_000;
 
@@ -50,20 +60,24 @@ impl Visits {
         };
         let last = object(LAST_SETTING)
             .into_iter()
-            .filter_map(|(group, page)| Some((group, page.as_str().filter(|p| !p.is_empty())?.to_string())))
+            .filter_map(|(group, page)| Some((group, moved(page.as_str().filter(|p| !p.is_empty())?).to_string())))
             .collect();
         let counts = object(COUNT_SETTING)
             .into_iter()
             .filter_map(|(group, pages)| {
                 let Value::Object(pages) = pages else { return None };
-                let pages = pages
-                    .into_iter()
-                    .filter_map(|(page, n)| match n {
-                        Value::Int(n) => Some((page, n.parse::<i64>().ok()?.clamp(0, MAX_COUNT))),
-                        _ => None,
-                    })
-                    .collect();
-                Some((group, pages))
+                // A page that became a view counts with the page it went into.
+                let mut merged: Vec<(String, i64)> = Vec::new();
+                for (page, n) in pages {
+                    let Value::Int(n) = n else { continue };
+                    let Some(n) = n.parse::<i64>().ok().map(|n| n.clamp(0, MAX_COUNT)) else { continue };
+                    let page = moved(&page).to_string();
+                    match merged.iter_mut().find(|(p, _)| *p == page) {
+                        Some((_, total)) => *total = (*total + n).min(MAX_COUNT),
+                        None => merged.push((page, n)),
+                    }
+                }
+                Some((group, merged))
             })
             .collect();
         Visits { last, counts }

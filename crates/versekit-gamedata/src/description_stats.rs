@@ -309,7 +309,9 @@ pub fn read(forge: &DataForge<'_>, texts: &Localization) -> Map {
         .map(|record| record.guid())
         .collect();
     let mut all = Vec::new();
-    for guid in items {
+    let count = versekit_core::build_progress::counter(items.len());
+    for (at, guid) in items.into_iter().enumerate() {
+        count.at(at);
         let Some(tree) = trees.once(guid) else { continue };
         let localization =
             structure(structure(component(&tree, "SAttachableComponentParams"), "AttachDef"), "Localization");
@@ -318,6 +320,7 @@ pub fn read(forge: &DataForge<'_>, texts: &Localization) -> Map {
         let name = text_key(locale_key(localization, "Name"));
         all.push(Found { guid: guid.to_string().to_ascii_lowercase(), name, text, values });
     }
+    drop(count);
     let shown = |item: &Found| item_stats::shown_text_key(item.name.as_deref().unwrap_or(""), &item.text);
     let with_values: HashSet<String> = all.iter().filter(|item| item.values.is_some()).map(shown).collect();
     all.into_iter()

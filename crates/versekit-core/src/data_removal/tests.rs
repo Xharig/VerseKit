@@ -182,6 +182,18 @@ fn the_own_data_go_at_every_place_and_everything_else_stays() {
     put(&chosen.join("export").join("scmdb-import.json"), &export);
     put(&chosen.join("export").join("Ältere").join("scmdb-import-2026-09-13.json"), &export);
     put(&chosen.join("Patches").join("patch-4.3.json"), "{\"version\": \"4.3\", \"quelle\": \"erkul.games\"}");
+    // The own comparisons and the stands: by name and by what they hold. A stand is a zlib stream.
+    put(
+        &chosen.join("Patches").join("eigen-4.3.0-live.9.json"),
+        "{\"summary\":{\"added\":0},\"version\":\"4.3.0-LIVE.9\",\"quelle\":\"eigen\"}",
+    );
+    put(&chosen.join("Patches").join("eigen-4.3.0-live.9.json.4711-1.tmp"), "halb");
+    put(&chosen.join("Patches").join("eigen-fremd.json"), "{\"version\": \"fremd\", \"quelle\": \"anderes\"}");
+    fs::create_dir_all(chosen.join(crate::stands::FOLDER)).unwrap();
+    fs::write(chosen.join(crate::stands::FOLDER).join("LIVE_4.3.0-LIVE.9.stand"), [0x78, 0x9c, 1, 2, 3]).unwrap();
+    put(&chosen.join(crate::stands::FOLDER).join("PTU_5.0.0-PTU.1.stand.4711-2.tmp"), "halb");
+    put(&chosen.join(crate::stands::FOLDER).join("LIVE_mein.stand"), "fremd");
+    put(&chosen.join(crate::stands::FOLDER).join("Notizen.txt"), "fremd");
     put(&chosen.join("Intern").join("basetool-inst_7.json"), "{\"format\": 1, \"installation_id\": \"inst_7\"}");
     // Foreign files beside them, also in the own subfolders, and loose files with the program's names at the top
     // (the program writes none there).
@@ -246,8 +258,12 @@ fn the_own_data_go_at_every_place_and_everything_else_stays() {
             "Spiele/Daten/Intern/verknuepft@",
             "Spiele/Daten/Patches/",
             "Spiele/Daten/Patches/Lies mich.md",
+            "Spiele/Daten/Patches/eigen-fremd.json",
             "Spiele/Daten/Sicherungen/",
             "Spiele/Daten/Sicherungen/Steuer 2026.zip",
+            "Spiele/Daten/Staende/",
+            "Spiele/Daten/Staende/LIVE_mein.stand",
+            "Spiele/Daten/Staende/Notizen.txt",
             "Spiele/Daten/Urlaub.jpg",
             "Spiele/Daten/bestand.json",
             "Spiele/Daten/export/",
@@ -505,6 +521,47 @@ fn temporary_files_of_exports_and_patches_go_and_the_export_keys_count_in_any_or
 }
 
 #[test]
+fn an_own_comparison_is_the_programs_by_its_mark_and_a_stand_by_its_start() {
+    let dir = Dir::new("daten-loeschen-vergleich");
+    let nowhere = Path::new("gibt-es-nicht");
+    let patches = crate::patch_changes::FOLDER;
+    for name in ["eigen-4.3.0-LIVE.9.json.4711-1.tmp", "eigen-4.3.json.tmp"] {
+        assert!(owned_in_common(patches, false, name, nowhere), "{name}");
+    }
+    let own = dir.path().join("eigen-4.3.0-LIVE.9.json");
+    let head = r#"{"summary":{"added":1},"version":"4.3.0-LIVE.9","quelle":"eigen"}"#;
+    for (content, name, expected) in [
+        (head, "eigen-4.3.0-LIVE.9.json", true),
+        (head, "eigen-4.3.0-live.9.json", true),
+        (head, "eigen-4.4.0.json", false),
+        (r#"{"version":"4.3.0-LIVE.9","quelle":"erkul.games"}"#, "eigen-4.3.0-LIVE.9.json", false),
+        ("not json", "eigen-4.3.0-LIVE.9.json", false),
+    ] {
+        fs::write(&own, content).unwrap();
+        assert_eq!(owned_in_common(patches, false, name, &own), expected, "{content} as {name}");
+    }
+    // One over the limit of what is read as a whole: the start of the text says whose it is.
+    let padding = " ".repeat(usize::try_from(LARGEST_READ).unwrap());
+    fs::write(&own, format!("{{\"quelle\":\"anderes\"}}{padding}")).unwrap();
+    assert!(!owned_in_common(patches, false, "eigen-4.3.0-LIVE.9.json", &own), "a start that is not ours, too large to read");
+    fs::write(&own, format!("{{\"summary\":{{\"added\":1}}{padding},\"quelle\":\"eigen\"}}")).unwrap();
+    assert!(owned_in_common(patches, false, "eigen-4.3.0-LIVE.9.json", &own), "the start of an own comparison");
+    assert!(!owned_in_common(patches, true, "eigen-4.3.0-LIVE.9.json", &own), "not in a subfolder of it");
+
+    let folder = crate::stands::FOLDER;
+    let stand = dir.path().join("LIVE_4.3.0-LIVE.9.stand");
+    fs::write(&stand, [0x78, 0x9c, 5, 6]).unwrap();
+    assert!(owned_in_common(folder, false, "LIVE_4.3.0-LIVE.9.stand", &stand));
+    assert!(owned_in_common(folder, false, "PTU_5.stand.4711-2.tmp", nowhere));
+    fs::write(&stand, b"text").unwrap();
+    assert!(!owned_in_common(folder, false, "LIVE_4.3.0-LIVE.9.stand", &stand), "a file that is no zlib stream stays");
+    for name in ["Notizen.txt", "stand.stand", "LIVE_.json"] {
+        assert!(!owned_in_common(folder, false, name, &stand), "{name}");
+    }
+    assert!(!owned_in_common(folder, true, "LIVE_4.3.0-LIVE.9.stand", &stand));
+}
+
+#[test]
 fn a_known_name_goes_only_in_the_subfolder_the_program_puts_it_in() {
     let nowhere = Path::new("gibt-es-nicht");
     assert!(owned_named("Bauplaene", "bestand.json", nowhere));
@@ -579,7 +636,7 @@ fn a_data_folder_on_the_network_is_named_but_not_looked_into_or_touched() {
     let dir = Dir::new("daten-loeschen-netz");
     let root = dir.path();
     let paths = machine(root);
-    let share = r"\\server-den-es-nicht-gibt\freigabe\VerseKit";
+    let share = r"\\fs\vk\VerseKit";
     pointer_to(&paths.pointer_file(), share);
     assert!(on_network(share) && on_network("//server/freigabe"));
     assert!(!on_network(&root.to_string_lossy()));

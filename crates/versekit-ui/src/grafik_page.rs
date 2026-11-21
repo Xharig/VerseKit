@@ -91,21 +91,24 @@ struct Stamps {
     files: [(String, Stamp); 3],
 }
 
-fn locations(paths: &Paths) -> (Option<String>, [String; 3]) {
-    let folder = paths.game_folder();
-    let attributes = graphics::attribute_file(paths, None).unwrap_or_default();
-    let json = renderer::file(paths).unwrap_or_default();
+/// Where the files are: the game folder, `attributes.xml`, `GraphicsSettings.json` and `user.cfg`. `install` is the
+/// folder of another installation than the main one: its files are those of its folder, and the renderer file, which
+/// the game keeps by the version it started last and not by channel, is not offered for it.
+fn locations(paths: &Paths, install: Option<&str>) -> (Option<String>, [String; 3]) {
+    let folder = install.map(str::to_string).or_else(|| paths.game_folder());
+    let attributes = graphics::attribute_file(paths, install).unwrap_or_default();
+    let json = if install.is_some() { String::new() } else { renderer::file(paths).unwrap_or_default() };
     let cfg = folder.as_deref().map(|f| paths.host.flavor.join(f, usercfg::FILE)).unwrap_or_default();
     (folder, [attributes, json, cfg])
 }
 
-fn stamps(paths: &Paths) -> Stamps {
-    let (folder, files) = locations(paths);
+fn stamps(paths: &Paths, install: Option<&str>) -> Stamps {
+    let (folder, files) = locations(paths, install);
     Stamps { folder, files: files.map(|path| (path.clone(), stamp_of(&path))) }
 }
 
-fn read_files(paths: &Paths) -> Files {
-    let (folder, [attributes, ..]) = locations(paths);
+fn read_files(paths: &Paths, install: Option<&str>) -> Files {
+    let (folder, [attributes, ..]) = locations(paths, install);
     let text = (!attributes.is_empty())
         .then(|| std::fs::read(&attributes).ok())
         .flatten()
@@ -115,7 +118,7 @@ fn read_files(paths: &Paths) -> Files {
         switches: text.as_deref().map(graphics::read_text),
         levels: text.as_deref().map(graphics::levels_text).unwrap_or_default(),
         quality: text.as_deref().map(graphics::quality_text).unwrap_or_default(),
-        renderer: renderer::read(paths, None),
+        renderer: if install.is_some() { None } else { renderer::read(paths, None) },
         max_fps: value(MAX_FPS),
         idle_fps: value(IDLE_FPS),
         info: value(DISPLAY_INFO),
@@ -172,11 +175,14 @@ pub struct GrafikState {
     /// bar from the page below the head when the page scrolls, so the card of the head takes this width instead
     /// of the one it is offered, and the corner marks of all cards stand on one line.
     body_width: f32,
+    /// The installation shown and written: its folder, `None` for the main one.
+    install: Option<String>,
 }
 
 impl Default for GrafikState {
     fn default() -> GrafikState {
         GrafikState {
+            install: None,
             body_width: 0.0,
             started: false,
             discard_ask: false,
@@ -287,9 +293,14 @@ impl GrafikState {
             return;
         }
         self.looked_at = now;
-        let current = stamps(paths);
+        // An installation that is gone (uninstalled) is the main one again.
+        if self.install.is_some() && crate::install_picker::folder(paths, &self.install).is_none() {
+            self.install = None;
+            self.files = None;
+        }
+        let current = stamps(paths, self.install.as_deref());
         if self.files.is_none() || current != self.seen {
-            self.files = Some(read_files(paths));
+            self.files = Some(read_files(paths, self.install.as_deref()));
             self.seen = current;
             self.fps_stale = true;
         }
@@ -357,6 +368,10 @@ impl GrafikState {
             self.notice = Some(Said::fault(t("s_gr_fps_ungueltig")));
             return;
         }
+        if let Some(folder) = self.install.clone() {
+            self.store_side(paths, &folder);
+            return;
+        }
         match game_start::run_state(paths) {
             RunState::Running => {
                 // The game overwrites the files itself: kept, and written once it is over.
@@ -386,6 +401,40 @@ impl GrafikState {
                     // Written, but an old note stays: it would be written once more (the same, harmlessly).
                     Said::fault(t("s_gr_f_vormerken"))
                 } else if backups.is_empty() {
+                    Said::note(t("s_gr_nichts"))
+                } else {
+                    Said::note(tf("s_gr_ok", &[("0", Arg::from(backups.join(", ").as_str()))]))
+                });
+            }
+            Err(error) => self.notice = Some(Said::fault(error.reason())),
+        }
+    }
+
+    /// The button for another installation than the main one: written now, when the game is quiet. Nothing is kept
+    /// for the end of the game here (the note of kept changes belongs to the main installation), the player writes
+    /// again once the game has ended.
+    fn store_side(&mut self, paths: &Paths, folder: &str) {
+        match game_start::run_state(paths) {
+            RunState::Running => {
+                self.notice = Some(Said::fault(t("s_inst_seite_laeuft")));
+                return;
+            }
+            RunState::Unknown => {
+                self.notice = Some(Said::fault(WriteError::GameUnknown.reason()));
+                return;
+            }
+            RunState::Idle => {}
+        }
+        // Without an `attributes.xml` of its own the writing would fall back on the one of the main installation.
+        if !self.pending.attributes.is_empty() && graphics::attribute_file(paths, Some(folder)).is_none() {
+            self.notice = Some(Said::fault(t("s_fv_w_keine_datei")));
+            return;
+        }
+        match graphics_apply::apply_all(paths, Some(folder), &self.pending) {
+            Ok(backups) => {
+                self.pending = Changes::default();
+                self.invalidate();
+                self.notice = Some(if backups.is_empty() {
                     Said::note(t("s_gr_nichts"))
                 } else {
                     Said::note(tf("s_gr_ok", &[("0", Arg::from(backups.join(", ").as_str()))]))
@@ -498,6 +547,12 @@ pub fn show_head(ui: &mut Ui, scheme: &Scheme, state: &mut GrafikState, paths: &
         ui.set_max_width(if body_width > 0.0 { body_width.min(room) } else { room });
         ui.label(RichText::new(t("s_gr_lead")).small().color(color(scheme.sub)));
         ui.add_space(8.0);
+        // Changes belong to one installation: the choice waits until they are written or dropped.
+        let locked = !state.pending.is_empty();
+        if crate::install_picker::show(ui, scheme, paths, &mut state.install, locked) {
+            state.invalidate();
+            ui.ctx().request_repaint();
+        }
         let waiting = i64::try_from(state.pending.len()).unwrap_or(0);
         let one = waiting == 1;
         let text = match (state.queued, waiting) {
@@ -1277,6 +1332,59 @@ mod tests {
             .filter(|n| n.starts_with("attributes.xml.versekit-"))
             .collect();
         assert_eq!(copies.len(), 1, "{copies:?}");
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    /// A second installation (PTU) beside the one of the world, with its own `attributes.xml`.
+    fn add_ptu(bench: &Bench) -> String {
+        let ptu = bench.game.replace("/LIVE", "/PTU");
+        let profile = format!("{ptu}/USER/Client/0/Profiles/default");
+        std::fs::create_dir_all(&profile).expect("folder");
+        std::fs::write(format!("{profile}/attributes.xml"), ATTRIBUTES).expect("attributes");
+        ptu
+    }
+
+    #[test]
+    fn the_chosen_installation_is_written_and_the_main_one_is_left_alone() {
+        let _guard = setup();
+        let mut bench = Bench::new("ptu-schreibt", Some(7200));
+        let ptu = add_ptu(&bench);
+        bench.settle();
+        let names: Vec<String> = crate::install_picker::installs(&bench.paths).into_iter().map(|i| i.name).collect();
+        assert_eq!(names, ["LIVE", "PTU"]);
+        bench.click("PTU");
+        assert_eq!(bench.state.install.as_deref(), Some(ptu.as_str()));
+        bench.settle();
+        bench.click_named(egui::Role::CheckBox, &t("s_gr_vsync"));
+        // Changes wait for one installation: the choice is locked until they are written.
+        assert_eq!(bench.state.pending.len(), 1);
+        bench.click(&t("s_gr_schreiben"));
+        let said = bench.state.take_notice().expect("the answer");
+        assert!(!said.fault && said.text.contains("attributes.xml.versekit-"), "{said:?}");
+        let ptu_file = std::fs::read_to_string(format!("{ptu}/USER/Client/0/Profiles/default/attributes.xml")).unwrap();
+        assert!(ptu_file.contains("name=\"VSync\" value=\"0\""), "PTU written: {ptu_file}");
+        let live_file = bench.attributes();
+        assert!(live_file == ATTRIBUTES, "LIVE is as it was: {live_file}");
+        assert!(graphics_apply::queued(&bench.paths).is_empty(), "nothing is kept for another time");
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    #[test]
+    fn while_the_game_runs_nothing_is_written_or_kept_for_another_installation() {
+        let _guard = setup();
+        let mut bench = Bench::new("ptu-laeuft", Some(5));
+        let ptu = add_ptu(&bench);
+        bench.settle();
+        bench.click("PTU");
+        bench.settle();
+        bench.click_named(egui::Role::CheckBox, &t("s_gr_vsync"));
+        bench.click(&t("s_gr_schreiben"));
+        let said = bench.state.take_notice().expect("the answer");
+        assert!(said.fault && said.text == t("s_inst_seite_laeuft"), "{said:?}");
+        let ptu_file = std::fs::read_to_string(format!("{ptu}/USER/Client/0/Profiles/default/attributes.xml")).unwrap();
+        assert_eq!(ptu_file, ATTRIBUTES, "not written");
+        assert!(graphics_apply::queued(&bench.paths).is_empty() && !bench.state.queued, "not kept either");
+        assert_eq!(bench.state.pending.len(), 1, "the wish stays on the page");
         let _ = std::fs::remove_dir_all(&bench.home);
     }
 

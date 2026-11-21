@@ -241,6 +241,17 @@ pub trait Spawner: Send + Sync {
     fn spawn_program(&self, _command: &[String], _cwd: Option<&str>) -> Result<Box<dyn Running>, String> {
         Err("no programs".to_string())
     }
+
+    /// [`Spawner::spawn_program`] with the way the window opens. A spawner that cannot say how a window
+    /// opens starts it as it is (the default).
+    fn spawn_program_shown(
+        &self,
+        command: &[String],
+        cwd: Option<&str>,
+        _show: crate::start_programs::Show,
+    ) -> Result<Box<dyn Running>, String> {
+        self.spawn_program(command, cwd)
+    }
 }
 
 /// A program started by [`Spawner::spawn_program`].
@@ -286,6 +297,8 @@ impl Running for Child {
 pub struct StartedProgram {
     pub command: Vec<String>,
     pub cwd: Option<String>,
+    /// How the window was asked to open.
+    pub show: crate::start_programs::Show,
 }
 
 /// The handle the recorder hands out: it counts how often the program was asked to end.
@@ -353,6 +366,179 @@ impl Spawner for System {
         }
         run.spawn().map(|child| Box::new(Child(child)) as Box<dyn Running>).map_err(|e| e.to_string())
     }
+
+    fn spawn_program_shown(
+        &self,
+        command: &[String],
+        cwd: Option<&str>,
+        show: crate::start_programs::Show,
+    ) -> Result<Box<dyn Running>, String> {
+        #[cfg(windows)]
+        if show != crate::start_programs::Show::Normal {
+            return shown::spawn(command, cwd, show);
+        }
+        let _ = show;
+        self.spawn_program(command, cwd)
+    }
+}
+
+/// The start of a program with a show command for its first window (Windows only: the standard library has no
+/// way to set it).
+#[cfg(windows)]
+mod shown {
+    use std::os::windows::ffi::OsStrExt;
+
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows_sys::Win32::System::Threading::{
+        CreateProcessW, DETACHED_PROCESS, GetExitCodeProcess, PROCESS_INFORMATION, STARTF_USESHOWWINDOW, STARTUPINFOW,
+        TerminateProcess,
+    };
+
+    use super::Running;
+    use crate::start_programs::Show;
+
+    const STILL_ACTIVE: u32 = 259;
+    const SW_HIDE: u16 = 0;
+    const SW_SHOWMAXIMIZED: u16 = 3;
+    const SW_SHOWMINNOACTIVE: u16 = 7;
+
+    /// The handle of a started process.
+    struct Process(HANDLE);
+
+    // SAFETY: a process handle may be used and closed from any thread.
+    unsafe impl Send for Process {}
+
+    impl Running for Process {
+        fn is_running(&mut self) -> bool {
+            let mut code = 0u32;
+            // SAFETY: the handle is ours and open until `drop`.
+            unsafe { GetExitCodeProcess(self.0, &mut code) != 0 && code == STILL_ACTIVE }
+        }
+
+        fn terminate(&mut self) {
+            // SAFETY: the handle is ours and open until `drop`.
+            unsafe { TerminateProcess(self.0, 1) };
+        }
+    }
+
+    impl Drop for Process {
+        fn drop(&mut self) {
+            // SAFETY: closed once, here.
+            unsafe { CloseHandle(self.0) };
+        }
+    }
+
+    /// One argument as the command line of Windows wants it (quotes and backslashes before quotes).
+    fn quoted(arg: &str) -> String {
+        if !arg.is_empty() && !arg.contains([' ', '\t', '"']) {
+            return arg.to_string();
+        }
+        let mut out = String::from("\"");
+        let mut slashes = 0usize;
+        for c in arg.chars() {
+            match c {
+                '\\' => slashes += 1,
+                '"' => {
+                    out.push_str(&"\\".repeat(slashes * 2 + 1));
+                    out.push('"');
+                    slashes = 0;
+                }
+                _ => {
+                    out.push_str(&"\\".repeat(slashes));
+                    out.push(c);
+                    slashes = 0;
+                }
+            }
+        }
+        out.push_str(&"\\".repeat(slashes * 2));
+        out.push('"');
+        out
+    }
+
+    fn wide(text: &str) -> Vec<u16> {
+        std::ffi::OsStr::new(text).encode_wide().chain(std::iter::once(0)).collect()
+    }
+
+    pub(super) fn spawn(command: &[String], cwd: Option<&str>, show: Show) -> Result<Box<dyn Running>, String> {
+        if command.is_empty() {
+            return Err("empty command".to_string());
+        }
+        let mut line = wide(&command.iter().map(|a| quoted(a)).collect::<Vec<_>>().join(" "));
+        let folder = cwd.filter(|c| !c.is_empty()).map(wide);
+        // SAFETY: plain data, all zero is a valid start state.
+        let mut info: STARTUPINFOW = unsafe { std::mem::zeroed() };
+        info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+        info.dwFlags = STARTF_USESHOWWINDOW;
+        info.wShowWindow = match show {
+            Show::Hidden => SW_HIDE,
+            Show::Maximized => SW_SHOWMAXIMIZED,
+            _ => SW_SHOWMINNOACTIVE,
+        };
+        // SAFETY: plain data, filled by the call.
+        let mut made: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+        // SAFETY: `line` is a writable, zero-ended text; the folder is zero-ended or null; the structures live
+        // through the call.
+        let ok = unsafe {
+            CreateProcessW(
+                std::ptr::null(),
+                line.as_mut_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                0,
+                DETACHED_PROCESS,
+                std::ptr::null(),
+                folder.as_ref().map_or(std::ptr::null(), |f| f.as_ptr()),
+                &info,
+                &mut made,
+            )
+        };
+        if ok == 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        // SAFETY: the thread handle is ours and not needed.
+        unsafe { CloseHandle(made.hThread) };
+        Ok(Box::new(Process(made.hProcess)))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::quoted;
+        use crate::game_start::{Spawner, System};
+        use crate::start_programs::Show;
+
+        /// A console program started hidden runs without a window and ends by itself; one asked to end is gone.
+        #[test]
+        fn a_hidden_start_gives_a_handle_that_follows_the_process() {
+            let cmd = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into());
+            let quick = [cmd.clone(), "/c".into(), "exit".into(), "0".into()];
+            let mut done = System.spawn_program_shown(&quick, None, Show::Hidden).expect("started");
+            let mut waited = 0;
+            while done.is_running() && waited < 100 {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                waited += 1;
+            }
+            assert!(!done.is_running(), "ended by itself");
+            let slow = [cmd, "/c".into(), "ping".into(), "-n".into(), "30".into(), "127.0.0.1".into()];
+            let mut long = System.spawn_program_shown(&slow, None, Show::Minimized).expect("started");
+            assert!(long.is_running());
+            long.terminate();
+            let mut waited = 0;
+            while long.is_running() && waited < 100 {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                waited += 1;
+            }
+            assert!(!long.is_running(), "ended on request");
+        }
+
+        #[test]
+        fn arguments_are_quoted_as_the_command_line_of_windows_wants() {
+            assert_eq!(quoted("plain"), "plain");
+            assert_eq!(quoted("a b"), "\"a b\"");
+            assert_eq!(quoted(""), "\"\"");
+            assert_eq!(quoted("say \"x\""), "\"say \\\"x\\\"\"");
+            assert_eq!(quoted("C:\\dir with\\"), "\"C:\\dir with\\\\\"");
+        }
+    }
 }
 
 /// The self-check's and the tests' stand-in: starts nothing, writes down what would have started.
@@ -385,10 +571,20 @@ impl Spawner for Recorder {
     }
 
     fn spawn_program(&self, command: &[String], cwd: Option<&str>) -> Result<Box<dyn Running>, String> {
-        self.programs
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .push(StartedProgram { command: command.to_vec(), cwd: cwd.map(str::to_string) });
+        self.spawn_program_shown(command, cwd, crate::start_programs::Show::Normal)
+    }
+
+    fn spawn_program_shown(
+        &self,
+        command: &[String],
+        cwd: Option<&str>,
+        show: crate::start_programs::Show,
+    ) -> Result<Box<dyn Running>, String> {
+        self.programs.lock().unwrap_or_else(|e| e.into_inner()).push(StartedProgram {
+            command: command.to_vec(),
+            cwd: cwd.map(str::to_string),
+            show,
+        });
         Ok(Box::new(Recorded(self.ended.clone())))
     }
 }
@@ -615,17 +811,17 @@ pub fn run_state_with(paths: &Paths, process: Option<bool>) -> RunState {
     }
 }
 
-// The channels of the game that are test builds: what they hold is confidential by the terms of service.
-use crate::paths::TEST_CHANNELS;
+// The channels of the game whose content is under a non-disclosure agreement.
+use crate::paths::UNDER_AGREEMENT;
 
-/// The name of the test channel (`PTU`, `EPTU`, `TECH-PREVIEW`) the game folder is, or `None` for LIVE,
-/// HOTFIX and everything else. The folder is named like its channel.
+/// The name of the channel under an agreement (`EPTU`, `TECH-PREVIEW`) the game folder is, or `None` for LIVE,
+/// HOTFIX, PTU and everything else (PTU is public). The folder is named like its channel.
 ///
-/// ⚠ 4.12 shows nothing about this; the hint is asked for by the community (greluc): whoever reads data of a
-/// test build must know that the terms of service keep it confidential.
+/// The hint is asked for by the community (greluc): whoever reads data of such a channel must know that nothing of
+/// it may be shared.
 pub fn test_channel(folder: &str) -> Option<String> {
     let name = folder.trim_end_matches(['/', '\\']).rsplit(['/', '\\']).next()?.to_uppercase();
-    TEST_CHANNELS.contains(&name.as_str()).then_some(name)
+    UNDER_AGREEMENT.contains(&name.as_str()).then_some(name)
 }
 
 /// What a window knows about starting the game, looked up in a thread of its own and renewed now and
@@ -1086,10 +1282,10 @@ mod tests {
 
     #[test]
     fn the_test_channels_are_known_by_the_name_of_their_folder() {
-        // The two channels under the terms of confidentiality are known to the test build only.
+        // The two channels under an agreement are known to the test build only; PTU is public and says nothing.
         let secret = |name: &'static str| crate::edition::IS_TEST_BUILD.then_some(name);
         for (folder, channel) in [
-            ("C:\\Games\\Roberts Space Industries\\StarCitizen\\PTU", Some("PTU")),
+            ("C:\\Games\\Roberts Space Industries\\StarCitizen\\PTU", None),
             ("/home/me/Games/star-citizen/drive_c/RSI/StarCitizen/eptu/", secret("EPTU")),
             ("D:\\RSI\\StarCitizen\\TECH-PREVIEW", secret("TECH-PREVIEW")),
             ("C:\\RSI\\StarCitizen\\LIVE", None),

@@ -325,3 +325,189 @@ fn a_long_session_draws_only_the_lines_in_view() {
     let drawn = harness.query_all_by_label_contains("Angekommen:").count();
     assert!(drawn > 0 && drawn < 200, "{drawn} lines drawn of 2000");
 }
+
+/// The game is closed: the last session still lies in the `Game.log`, the one before it in `logbackups`.
+#[test]
+fn the_last_session_of_the_game_log_shows_although_the_game_is_closed() {
+    set_thread_language(Choice::De);
+    theme::set_thread_current("krt");
+    let (root, paths) = world("letzte");
+    let game = root.join("LIVE");
+    let backups = game.join("logbackups");
+    std::fs::create_dir_all(&backups).unwrap();
+    std::fs::write(backups.join("Game Build(1) 01 Oct 26 (10 00 00).log"), session_log(1, "123")).unwrap();
+    std::fs::write(game.join("Game.log"), session_log(2, "123")).unwrap();
+    let mut harness = harness(FlightState::of(&paths), 1100.0);
+    harness.state_mut().wait();
+    let view = harness.state().view.clone().expect("loaded");
+    assert_eq!(view.briefs.len(), 2, "the backup and the running log");
+    // The next start moves the log into the backups: it is no second session.
+    std::fs::rename(game.join("Game.log"), backups.join("Game Build(1) 02 Oct 26 (10 00 00).log")).unwrap();
+    std::fs::write(game.join("Game.log"), "").unwrap();
+    harness.state_mut().started = None;
+    harness.state_mut().start(&egui::Context::default(), 0.0);
+    harness.state_mut().wait();
+    assert_eq!(harness.state().view.clone().expect("loaded").briefs.len(), 2, "no double");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+// ---------------------------------------------------------------------------
+// The finishing touches: long lines wrap, the words, the own jumps
+// ---------------------------------------------------------------------------
+
+const LONG_CONTRACT: &str = "Retake the Outpost and hold it against every wave of the attackers until the relief arrives at last";
+const LONG_PLACE: &str = "Observation Platform on the far side of the moon with a name nobody can say in one breath";
+
+/// What the frame drew as text: each line with the number of its rows and whether the galley had to shorten it.
+fn drawn_texts(shapes: &[egui::epaint::ClippedShape]) -> Vec<(String, usize, bool)> {
+    fn collect(shape: &egui::epaint::Shape, into: &mut Vec<(String, usize, bool)>) {
+        match shape {
+            egui::epaint::Shape::Text(text) => {
+                into.push((text.galley.text().to_string(), text.galley.rows.len(), text.galley.elided));
+            }
+            egui::epaint::Shape::Vec(shapes) => shapes.iter().for_each(|shape| collect(shape, into)),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut out));
+    out
+}
+
+/// The page on files with a long contract and a long place name, drawn at `width`.
+fn draw_long(width: f32, language: Choice, tag: &str) -> (Vec<(String, usize, bool)>, f32) {
+    set_thread_language(language);
+    theme::set_thread_current("krt");
+    let (root, paths) = world(tag);
+    fill(&paths, &root);
+    location::remember(&paths, &vec![("123".to_string(), LONG_PLACE.to_string())]);
+    let contract = vec![
+        ("name".to_string(), Value::str(LONG_CONTRACT)),
+        ("wann".to_string(), Value::str("2026-10-02T10:20:00")),
+        ("bis".to_string(), Value::str("2026-10-02T10:30:00")),
+        ("zustand".to_string(), Value::str(mission_log::COMPLETED)),
+        ("bauplaene".to_string(), Value::Array(vec![Value::str(LONG_CONTRACT)])),
+    ];
+    mission_log::save(&paths, &[contract]);
+    let mut state = FlightState::of(&paths);
+    let ctx = egui::Context::default();
+    crate::install(&ctx);
+    let scheme = theme::current();
+    state.start(&ctx, 0.0);
+    state.wait();
+    let mut overflow = 0.0_f32;
+    let mut texts = Vec::new();
+    for _ in 0..4 {
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(width, 2400.0))),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| {
+            show(ui, scheme, &mut state);
+            overflow = overflow.max(ui.min_rect().width() - ui.max_rect().width());
+        });
+        texts = drawn_texts(&output.shapes);
+        output.textures_delta.clear();
+    }
+    let _ = std::fs::remove_dir_all(root);
+    (texts, overflow)
+}
+
+#[test]
+fn long_lines_wrap_and_nothing_is_cut_at_any_width_in_both_languages() {
+    for language in [Choice::De, Choice::En] {
+        for width in [380.0, 520.0, 900.0] {
+            let (texts, overflow) = draw_long(width, language, "lang");
+            assert!(overflow <= 0.5, "{language:?} at {width}: {overflow}");
+            let cut: Vec<&str> = texts.iter().filter(|(_, _, elided)| *elided).map(|(text, ..)| text.as_str()).collect();
+            assert!(cut.is_empty(), "{language:?} at {width}: shortened {cut:?}");
+            // The long lines are there whole.
+            for part in [LONG_CONTRACT, LONG_PLACE] {
+                assert!(texts.iter().any(|(text, ..)| text.contains(part)), "{language:?} at {width}: {part}");
+            }
+        }
+        // At the narrow width the long contract needs more than one row.
+        let (texts, _) = draw_long(380.0, language, "lang-schmal");
+        let rows = texts.iter().find(|(text, ..)| text.contains(LONG_CONTRACT)).map(|(_, rows, _)| *rows);
+        assert!(rows.is_some_and(|rows| rows > 1), "{language:?}: {rows:?}");
+    }
+    set_thread_language(Choice::Auto);
+}
+
+#[test]
+fn the_rows_of_the_timeline_are_as_tall_as_their_text() {
+    set_thread_language(Choice::De);
+    theme::set_thread_current("krt");
+    let ctx = egui::Context::default();
+    crate::install(&ctx);
+    let line = |text: &str| Entry::Line { time: "10:00:00".into(), icon: "map-pin", text: text.into(), tip: text.into() };
+    let mut heights = (0.0, 0.0, 0.0);
+    let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+        heights = (
+            entry_height(ui, &line("kurz"), 300.0, 60.0),
+            entry_height(ui, &line(LONG_CONTRACT), 300.0, 60.0),
+            entry_height(ui, &line(LONG_CONTRACT), 1500.0, 60.0),
+        );
+    });
+    assert!(heights.1 > heights.0 * 1.8, "the long line takes several rows: {heights:?}");
+    assert!((heights.2 - heights.0).abs() < 0.5, "wide enough, it is one row: {heights:?}");
+}
+
+#[test]
+fn the_hover_of_a_line_holds_the_whole_sentence() {
+    let (root, _, harness) = loaded("hover", 1100.0);
+    let view = harness.state().view.clone().expect("loaded");
+    let session = &view.book.sessions[1];
+    let rows = view.book.rows(session);
+    let contracts: Vec<_> = rows.iter().filter(|row| row.topic() == Topic::Contract).collect();
+    assert!(!contracts.is_empty());
+    for row in contracts {
+        let (text, tip) = row_text(&view.book, row, Lang::De);
+        assert_eq!(text, tip, "the hover shows what the line says");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn the_words_say_what_they_count() {
+    for (lang, found, deaths, one, many) in [
+        (Lang::De, "Erhaltene Baupläne", "Todesfälle (vermutet)", "1 Todesfall (vermutet)", "3 Todesfälle (vermutet)"),
+        (Lang::En, "Blueprints received", "Deaths (presumed)", "1 death (presumed)", "3 deaths (presumed)"),
+    ] {
+        let said = |key: &str| language::t_in(lang, key);
+        assert_eq!(said("s_flb_k_funde"), found);
+        assert_eq!(said("s_flb_t_find"), found, "the switch and the figure say the same");
+        assert_eq!(said("s_flb_k_tode"), deaths);
+        assert_eq!(said("s_flb_t_death"), deaths, "the switch and the figure say the same");
+        assert_eq!(said("s_flb_z_tod_eins"), one);
+        assert_eq!(language::tf_in(lang, "s_flb_z_tod", &[("n", Arg::from(3_i64))]), many);
+    }
+}
+
+/// A foreign ship arriving is no jump of the player, in the summary and in the list.
+#[test]
+fn the_jumps_of_the_summary_are_the_own_ones_only() {
+    set_thread_language(Choice::De);
+    theme::set_thread_current("krt");
+    let (root, paths) = world("fremd");
+    let logs = root.join("logs");
+    std::fs::create_dir_all(&logs).unwrap();
+    let foreign = "<2026-10-01T10:20:00.000Z> <Quantum Drive Arrived - Arrived at Final Destination> a | AEGS_Gladius_555555[900009]|b\n";
+    let quit = "<2026-10-01T10:40:00.000Z> <SystemQuit>";
+    let text = session_log(1, "123").replace(quit, &format!("{foreign}{quit}"));
+    assert!(text.contains("AEGS_Gladius"), "the foreign arrival is in the log");
+    let file = logs.join("Game-1.log");
+    std::fs::write(&file, text).unwrap();
+    let source = LogSource::new(&paths, LogSource::sources_of(&paths));
+    assert_eq!(flugbuch::catch_up(&source, &[file.to_str().unwrap().to_string()]), 1);
+    let mut harness = harness(FlightState::of(&paths), 1100.0);
+    harness.state_mut().wait();
+    harness.run_steps(3);
+    let view = harness.state().view.clone().expect("loaded");
+    assert_eq!(view.briefs[0].summary.jumps, 1, "the own jump only");
+    assert!(harness.query_all_by_label("Eigene Sprünge").count() >= 2, "the figure and the switch say that they are the own ones");
+    let session = &view.book.sessions[0];
+    let jump_rows = view.book.rows(session).iter().filter(|row| row.topic() == Topic::Jump).count();
+    assert_eq!(jump_rows, 1, "one line of a jump");
+    let _ = std::fs::remove_dir_all(root);
+}

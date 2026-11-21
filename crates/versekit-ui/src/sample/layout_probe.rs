@@ -22,6 +22,10 @@ use super::{NAV, SamplePage, TOP_PAGE};
 /// Pages the window opens that stand in no group of the sidebar.
 const OUTSIDE_THE_SIDEBAR: [&str; 3] = ["hf_wasistneu", "hf_diagnose", super::ASOP_PAGE];
 
+/// The views that were pages of their own: the keys still name them (a pinned tile, an old link), and opening one
+/// shows the view on the page that took over.
+const VIEW_PAGES: [&str; 3] = ["hf_fortschritt", "hf_farmliste", "hf_raffinerien"];
+
 impl SamplePage {
     /// The key of every page of the main window: the overview (empty key) first, then the page at the top
     /// of the sidebar, the pages of its groups in their order and the pages that only a link opens.
@@ -29,6 +33,7 @@ impl SamplePage {
         let mut keys = vec!["", TOP_PAGE.0];
         keys.extend(NAV.iter().flat_map(|(_, pages)| pages.iter().map(|(key, _)| *key)));
         keys.extend(OUTSIDE_THE_SIDEBAR);
+        keys.extend(VIEW_PAGES);
         keys
     }
 
@@ -40,6 +45,8 @@ impl SamplePage {
             "hf_auftragslog" => self.contract_view.choose_first(),
             "hf_herstellung" => self.crafting.choose_first(),
             "hf_bergbau" => self.mining.choose_first(),
+            // The made-up comparison of a test channel: the note of a reader that changed, a gap of every class.
+            "hf_patchaenderungen" => self.patch_changes.choose_test_comparison(),
             _ => false,
         }
     }

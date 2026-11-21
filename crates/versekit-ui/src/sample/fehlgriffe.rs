@@ -33,6 +33,21 @@ fn shows(texts: &[(String, Pos2)], part: &str) -> bool {
     texts.iter().any(|(text, _)| text.contains(part))
 }
 
+/// A click on the tab called `label`: it may bear the name of the page in the menu and of the title of the page.
+fn click_tab(bench: &mut Bench, label: &str) {
+    let texts = bench.settle();
+    let at = texts
+        .iter()
+        .filter(|(text, _)| text == label)
+        .map(|(_, at)| *at)
+        // Not the entry of the side bar (left of the page), and of the rest the lowest: the title of the page
+        // stands above its tabs.
+        .filter(|at| at.x > 200.0)
+        .max_by(|a, b| a.y.total_cmp(&b.y))
+        .unwrap_or_else(|| panic!("{label} is not shown: {texts:?}"));
+    bench.click_at(at);
+}
+
 /// How often the catalog was built by the stand-in below.
 static BUILT: AtomicUsize = AtomicUsize::new(0);
 
@@ -49,8 +64,19 @@ fn the_window_starts_on_the_overview_unless_a_page_is_chosen() {
     assert_eq!(page.page_key(), "", "as before");
     let _ = std::fs::remove_dir_all(dir);
 
-    let (page, dir) = real_page("start-gewaehlt", "{\"startseite\": \"hf_fortschritt\"}", &[]);
-    assert_eq!(page.page_key(), "hf_fortschritt");
+    let (page, dir) = real_page("start-gewaehlt", "{\"startseite\": \"hf_auftragslog\"}", &[]);
+    assert_eq!(page.page_key(), "hf_auftragslog");
+    let _ = std::fs::remove_dir_all(dir);
+
+    // A start page that is a view of a page now: the page, with the view that was the page.
+    let (page, dir) = real_page("start-ansicht", "{\"startseite\": \"hf_fortschritt\"}", &[]);
+    assert_eq!((page.page_key(), page.list_progress), ("hf_liste", true));
+    let _ = std::fs::remove_dir_all(dir);
+    let (page, dir) = real_page("start-ansicht-farm", "{\"startseite\": \"hf_farmliste\"}", &[]);
+    assert_eq!((page.page_key(), page.craft_farm), ("hf_herstellung", true));
+    let _ = std::fs::remove_dir_all(dir);
+    let (page, dir) = real_page("start-ansicht-raff", "{\"startseite\": \"hf_raffinerien\"}", &[]);
+    assert_eq!((page.page_key(), page.mining_refineries), ("hf_bergbau", true));
     let _ = std::fs::remove_dir_all(dir);
 
     let (page, dir) = real_page("start-unbekannt", "{\"startseite\": \"hf_gibt_es_nicht\"}", &[]);
@@ -61,12 +87,12 @@ fn the_window_starts_on_the_overview_unless_a_page_is_chosen() {
 #[test]
 fn a_chosen_page_that_is_hidden_is_not_started_on() {
     let _language = crate::language_lock();
-    let (mut page, dir) = real_page("start-versteckt", "{\"startseite\": \"hf_fortschritt\"}", &[]);
+    let (mut page, dir) = real_page("start-versteckt", "{\"startseite\": \"hf_auftragslog\"}", &[]);
     page.open_overview();
-    page.module_hidden.push("hf_fortschritt");
+    page.module_hidden.push("hf_auftragslog");
     page.apply_start_page();
     assert_eq!(page.page_key(), "", "the overview instead");
-    assert!(page.start_choices().iter().all(|(key, _)| key != "hf_fortschritt"), "and not offered");
+    assert!(page.start_choices().iter().all(|(key, _)| key != "hf_auftragslog"), "and not offered");
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -114,14 +140,14 @@ fn the_choice_of_the_start_page_is_a_row_of_the_general_page_and_is_written() {
     let menu = texts.iter().find(|(text, _)| *text == t("hf_gruppe_bp").to_uppercase()).expect("the menu").1.x + 100.0;
     let field = texts.iter().find(|(text, at)| *text == t("hf_uebersicht") && at.x > menu).expect("the field").1;
     bench.click_at(field);
-    let wanted = format!("{} › {}", t("hf_gruppe_bp"), t("hf_fortschritt"));
+    let wanted = format!("{} › {}", t("hf_gruppe_bp"), t("hf_auftragslog"));
     let list = bench.settle();
     let entry = list.iter().find(|(text, _)| *text == wanted).unwrap_or_else(|| panic!("{wanted}: {list:?}")).1;
     bench.click_at(entry);
     bench.settle();
-    assert_eq!(bench.page.start_page, "hf_fortschritt");
+    assert_eq!(bench.page.start_page, "hf_auftragslog");
     let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
-    assert!(file.contains("\"startseite\": \"hf_fortschritt\""), "{file}");
+    assert!(file.contains("\"startseite\": \"hf_auftragslog\""), "{file}");
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -169,32 +195,97 @@ fn the_button_on_the_blueprint_list_builds_the_catalog_again_and_tells_how_it_we
 }
 
 #[test]
-fn the_blueprint_list_and_the_progress_lead_to_each_other_by_a_button_and_not_by_tabs() {
+fn the_blueprint_list_and_its_progress_are_two_tabs_of_one_page() {
     let _language = crate::language_lock();
     let mut page = super::SamplePage::preview();
     page.go_to("hf_liste");
     let mut bench = Bench::new(page);
     let shown = bench.settle();
-    assert!(shown.iter().any(|(text, _)| *text == t("s_fg_pl_zum_fortschritt")), "{shown:?}");
-    assert!(!shown.iter().any(|(text, _)| *text == t("s_fg_pl_zur_liste")), "the list has the way to the progress");
-    bench.click(&t("s_fg_pl_zum_fortschritt"));
-    assert_eq!(bench.page.page_key(), "hf_fortschritt");
+    // The page is the list; both views are named by their tabs, and the old buttons that led across are gone.
+    assert!(shown.iter().any(|(text, _)| *text == t("hf_fortschritt")), "{shown:?}");
+    assert!(!shown.iter().any(|(text, _)| *text == t("s_fo_lead")), "the list shows no progress: {shown:?}");
+    click_tab(&mut bench, &t("hf_fortschritt"));
     let shown = bench.settle();
-    assert!(shown.iter().any(|(text, _)| *text == t("s_fg_pl_zur_liste")), "{shown:?}");
-    bench.click(&t("s_fg_pl_zur_liste"));
-    assert_eq!(bench.page.page_key(), "hf_liste");
+    assert_eq!((bench.page.page_key(), bench.page.list_progress), ("hf_liste", true));
+    assert!(shown.iter().any(|(text, _)| *text == t("s_fo_lead")), "{shown:?}");
+    // The tab of the list leads back, on the same page.
+    click_tab(&mut bench, &t("hf_liste"));
+    bench.settle();
+    assert_eq!((bench.page.page_key(), bench.page.list_progress), ("hf_liste", false));
 }
 
 #[test]
-fn the_farm_page_leads_to_the_crafting_page_where_the_plan_is_listed() {
+fn the_crafting_page_and_what_to_farm_are_two_tabs_of_one_page() {
     let _language = crate::language_lock();
     let mut page = super::SamplePage::preview();
-    page.go_to("hf_farmliste");
+    page.go_to("hf_herstellung");
+    let mut bench = Bench::new(page);
+    bench.settle();
+    click_tab(&mut bench, &t("hf_farmliste"));
+    let shown = bench.settle();
+    assert_eq!((bench.page.page_key(), bench.page.craft_farm), ("hf_herstellung", true));
+    assert!(!shown.iter().any(|(text, _)| *text == t("s_mz_titel")), "the card of the notes is gone: {shown:?}");
+    click_tab(&mut bench, &t("hf_herstellung"));
+    bench.settle();
+    assert!(!bench.page.craft_farm);
+}
+
+#[test]
+fn the_mining_page_and_the_refineries_are_two_tabs_of_one_page() {
+    let _language = crate::language_lock();
+    let mut page = super::SamplePage::preview();
+    page.go_to("hf_bergbau");
     let mut bench = Bench::new(page);
     let shown = bench.settle();
-    assert!(!shown.iter().any(|(text, _)| *text == t("s_mz_titel")), "the card of the notes is gone: {shown:?}");
-    bench.click(&t("s_fg_pl_zur_herstellung"));
-    assert_eq!(bench.page.page_key(), "hf_herstellung");
+    // The page is the mining; the refineries are named by their tab, their table stays away.
+    assert!(shown.iter().any(|(text, _)| *text == t("hf_raffinerien")), "{shown:?}");
+    assert!(!shown.iter().any(|(text, _)| *text == t("s_rf_lead")), "the mining shows no table: {shown:?}");
+    click_tab(&mut bench, &t("hf_raffinerien"));
+    let shown = bench.settle();
+    assert_eq!((bench.page.page_key(), bench.page.mining_refineries), ("hf_bergbau", true));
+    assert!(shown.iter().any(|(text, _)| *text == t("s_rf_lead")), "{shown:?}");
+    assert!(!shown.iter().any(|(text, _)| *text == t("s_bg_lead")), "the refineries show no mining: {shown:?}");
+    click_tab(&mut bench, &t("hf_bergbau"));
+    let shown = bench.settle();
+    assert_eq!((bench.page.page_key(), bench.page.mining_refineries), ("hf_bergbau", false));
+    assert!(shown.iter().any(|(text, _)| *text == t("s_bg_lead")), "{shown:?}");
+}
+
+#[test]
+fn a_jump_to_a_raw_material_shows_the_mining_even_when_the_refineries_were_left_open() {
+    let _language = crate::language_lock();
+    let mut page = super::SamplePage::preview();
+    page.go_to("hf_raffinerien");
+    let mut bench = Bench::new(page);
+    bench.settle();
+    assert_eq!((bench.page.page_key(), bench.page.mining_refineries), ("hf_bergbau", true));
+    // Another page leads to a material in mining: the mining comes up with it, not the table of the refineries.
+    let (to, group) = bench.page.jump_to_mining("Titanium");
+    assert_eq!((to.as_str(), group), ("hf_bergbau", "hf_gruppe_abbau"));
+    bench.page.go_to(&to);
+    let shown = bench.settle();
+    assert!(!bench.page.mining_refineries);
+    assert!(shown.iter().any(|(text, _)| *text == t("s_bg_lead")), "{shown:?}");
+}
+
+#[test]
+fn the_old_pages_of_the_progress_and_of_the_farm_list_open_their_view_and_the_choice_is_kept() {
+    let _language = crate::language_lock();
+    let mut page = super::SamplePage::preview();
+    page.go_to("hf_fortschritt");
+    let mut bench = Bench::new(page);
+    bench.settle();
+    assert_eq!((bench.page.page_key(), bench.page.list_progress), ("hf_liste", true));
+    bench.page.go_to("hf_farmliste");
+    bench.settle();
+    assert_eq!((bench.page.page_key(), bench.page.craft_farm), ("hf_herstellung", true));
+    bench.page.go_to("hf_raffinerien");
+    bench.settle();
+    assert_eq!((bench.page.page_key(), bench.page.mining_refineries), ("hf_bergbau", true));
+    // Back at the page by the menu: it shows the view it was left in.
+    bench.page.go_to("hf_liste");
+    bench.settle();
+    assert!(bench.page.list_progress);
 }
 
 /// A window on a page with what a screen reader sees of it, to click a switch by its name.

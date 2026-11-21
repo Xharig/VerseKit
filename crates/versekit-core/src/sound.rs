@@ -60,19 +60,81 @@ pub fn gain(percent: i64) -> f64 {
 /// The sample rate of [`tone`].
 const RATE: u32 = 22_050;
 
+/// One sound VerseKit makes: the two of the finds and one for each outcome of a scan by hotkey.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Cue {
+    /// A find, a refinery job that is done, news of the catalog: one short note.
+    Find,
+    /// A hit of the watch list: two rising notes.
+    Watch,
+    /// A scan key was pressed: a short quiet click.
+    Press,
+    /// A scan took what it read: three bright rising notes.
+    Done,
+    /// A scan read what was already there: one neutral note.
+    AlreadyThere,
+    /// A scan is not sure and asks: two short notes.
+    Ask,
+    /// A scan read nothing, the game was not in front, or it failed: two low falling notes.
+    Failed,
+}
+
+/// One note: its pitch in hertz (0 is a pause), its length in seconds and its loudness as a share of the full one.
+type Note = (f64, f64, f64);
+
+impl Cue {
+    /// The sounds of the scans by hotkey, in the order the settings list them.
+    pub const SCAN: [Cue; 5] = [Cue::Press, Cue::Done, Cue::AlreadyThere, Cue::Ask, Cue::Failed];
+
+    /// The notes of the sound.
+    pub fn notes(self) -> &'static [Note] {
+        match self {
+            Cue::Find => &[(880.0, 0.18, 1.0)],
+            Cue::Watch => &[(988.0, 0.14, 1.0), (1319.0, 0.22, 1.0)],
+            Cue::Press => &[(1500.0, 0.03, 0.35)],
+            Cue::Done => &[(784.0, 0.08, 1.0), (1047.0, 0.08, 1.0), (1568.0, 0.2, 1.0)],
+            Cue::AlreadyThere => &[(587.0, 0.16, 0.8)],
+            Cue::Ask => &[(880.0, 0.07, 0.8), (0.0, 0.07, 0.0), (880.0, 0.07, 0.8)],
+            Cue::Failed => &[(392.0, 0.12, 1.0), (262.0, 0.24, 1.0)],
+        }
+    }
+
+    /// The text key of the name of a sound of a scan; `None` for the sounds of the finds.
+    pub fn name_key(self) -> Option<&'static str> {
+        Some(match self {
+            Cue::Find | Cue::Watch => return None,
+            Cue::Press => "s_ton_taste",
+            Cue::Done => "s_ton_erfasst",
+            Cue::AlreadyThere => "s_ton_schon",
+            Cue::Ask => "s_ton_frage",
+            Cue::Failed => "s_ton_nichts",
+        })
+    }
+
+    /// How long the sound plays.
+    pub fn duration(self) -> std::time::Duration {
+        std::time::Duration::from_secs_f64(self.notes().iter().map(|note| note.1).sum())
+    }
+}
+
 /// The signal sound as a WAV file in memory (16 bit, mono): one short note, the loud one for a hit of the watch
 /// list is two rising notes. `percent` is the volume; at 0 the sound has no sample but silence.
 pub fn tone(loud: bool, percent: i64) -> Vec<u8> {
-    let notes: &[(f64, f64)] = if loud { &[(988.0, 0.14), (1319.0, 0.22)] } else { &[(880.0, 0.18)] };
+    wav(if loud { Cue::Watch } else { Cue::Find }, percent)
+}
+
+/// The sound `cue` as a WAV file in memory (16 bit, mono) at `percent` volume; at 0 it is silence.
+pub fn wav(cue: Cue, percent: i64) -> Vec<u8> {
     let amplitude = gain(percent) * 0.6 * f64::from(i16::MAX);
     let mut samples: Vec<i16> = Vec::new();
-    for &(hertz, seconds) in notes {
+    for &(hertz, seconds, level) in cue.notes() {
         let count = (seconds * f64::from(RATE)) as usize;
+        // A short rise and a longer fall, so the note does not click; a very short note takes a quarter and a half.
+        let (rise, fall) = (220.0_f64.min(count as f64 / 4.0), 1100.0_f64.min(count as f64 / 2.0));
         for n in 0..count {
             let t = n as f64 / f64::from(RATE);
-            // A short rise and a longer fall, so the note does not click.
-            let edge = (n as f64 / 220.0).min(1.0).min((count - n) as f64 / 1100.0);
-            samples.push((amplitude * edge * (std::f64::consts::TAU * hertz * t).sin()) as i16);
+            let edge = (n as f64 / rise).min(1.0).min((count - n) as f64 / fall);
+            samples.push((amplitude * level * edge * (std::f64::consts::TAU * hertz * t).sin()) as i16);
         }
     }
     let bytes = (samples.len() * 2) as u32;
@@ -166,6 +228,44 @@ pub fn play(loud: bool, percent: i64) {
     let Some(player) = player() else { return };
     let Some(command) = command(player, loud, percent, Path::is_file) else { return };
     crate::child::spawn_quiet(Command::new(&command[0]).args(&command[1..]));
+}
+
+/// The command that plays the WAV file `file` with `player`; the volume is in the file.
+pub fn file_command(player: &str, file: &Path) -> Vec<String> {
+    let file = file.to_string_lossy().into_owned();
+    if player == PLAYERS[0] { vec![player.to_string(), "-f".to_string(), file] } else { vec![player.to_string(), file] }
+}
+
+/// Plays `cue` at `percent` volume without waiting for it. The sounds of the finds are the ones of [`play`] outside
+/// Windows. Without a sound device or a player, or at 0 %, nothing happens.
+pub fn play_cue(cue: Cue, percent: i64) {
+    if percent <= 0 {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        let wav = wav(cue, percent);
+        let _ = std::thread::Builder::new().name("ton".into()).spawn(move || {
+            use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_MEMORY, SND_NODEFAULT, SND_SYNC};
+            // SAFETY: the memory holds a whole WAV file and stays alive until the call returns (SND_SYNC); no
+            // module, no resource. Without a device the call returns 0 and nothing plays.
+            unsafe { PlaySoundW(wav.as_ptr().cast(), std::ptr::null_mut(), SND_MEMORY | SND_SYNC | SND_NODEFAULT) };
+        });
+    }
+    #[cfg(not(windows))]
+    {
+        if matches!(cue, Cue::Find | Cue::Watch) {
+            play(cue == Cue::Watch, percent);
+            return;
+        }
+        let Some(player) = player() else { return };
+        let file = std::env::temp_dir().join(format!("versekit-ton-{cue:?}-{percent}.wav"));
+        if !file.is_file() && std::fs::write(&file, wav(cue, percent)).is_err() {
+            return;
+        }
+        let command = file_command(player, &file);
+        crate::child::spawn_quiet(Command::new(&command[0]).args(&command[1..]));
+    }
 }
 
 #[cfg(test)]
@@ -265,5 +365,82 @@ mod tests {
     #[test]
     fn the_loud_sound_is_another_one_than_the_normal_one() {
         assert_ne!(sound_of(true), sound_of(false));
+    }
+
+    /// The sounds of the finds as they were before the sounds of the scans came: the same bytes.
+    #[test]
+    fn the_sounds_of_the_finds_stay_as_they_were() {
+        let before = |notes: &[(f64, f64)], percent: i64| -> Vec<i16> {
+            let amplitude = gain(percent) * 0.6 * f64::from(i16::MAX);
+            let mut samples = Vec::new();
+            for &(hertz, seconds) in notes {
+                let count = (seconds * f64::from(RATE)) as usize;
+                for n in 0..count {
+                    let t = n as f64 / f64::from(RATE);
+                    let edge = (n as f64 / 220.0).min(1.0).min((count - n) as f64 / 1100.0);
+                    samples.push((amplitude * edge * (std::f64::consts::TAU * hertz * t).sin()) as i16);
+                }
+            }
+            samples
+        };
+        let samples =
+            |wav: Vec<u8>| -> Vec<i16> { wav[44..].as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect() };
+        for percent in [100, 70, 35] {
+            assert_eq!(samples(tone(false, percent)), before(&[(880.0, 0.18)], percent));
+            assert_eq!(samples(tone(true, percent)), before(&[(988.0, 0.14), (1319.0, 0.22)], percent));
+        }
+    }
+
+    #[test]
+    fn every_outcome_of_a_scan_has_a_sound_of_its_own_that_is_none_of_the_finds() {
+        let all = [Cue::Find, Cue::Watch, Cue::Press, Cue::Done, Cue::AlreadyThere, Cue::Ask, Cue::Failed];
+        for (i, a) in all.iter().enumerate() {
+            for b in &all[i + 1..] {
+                assert_ne!(a.notes(), b.notes(), "{a:?} and {b:?} sound the same");
+                assert_ne!(wav(*a, 70), wav(*b, 70), "{a:?} and {b:?}");
+            }
+        }
+        let pitches = |cue: Cue| -> Vec<f64> { cue.notes().iter().map(|n| n.0).filter(|h| *h > 0.0).collect() };
+        // Taken: bright and rising; nothing or a fault: low and falling.
+        let done = pitches(Cue::Done);
+        assert!(done.windows(2).all(|w| w[0] < w[1]) && done.len() >= 2, "{done:?}");
+        let failed = pitches(Cue::Failed);
+        assert!(failed.windows(2).all(|w| w[0] > w[1]) && failed.len() >= 2, "{failed:?}");
+        assert!(failed.iter().all(|h| *h < 500.0), "low: {failed:?}");
+        assert!(done.last().unwrap() > &1200.0, "bright: {done:?}");
+        // Already there: one note; a question: two short ones with a pause between.
+        assert_eq!(Cue::AlreadyThere.notes().len(), 1);
+        let ask = Cue::Ask.notes();
+        assert_eq!(pitches(Cue::Ask).len(), 2);
+        assert_eq!(ask[1].0, 0.0, "a pause between the two");
+        // The key: shorter and quieter than every outcome.
+        for cue in [Cue::Done, Cue::AlreadyThere, Cue::Ask, Cue::Failed] {
+            assert!(Cue::Press.duration() < cue.duration(), "{cue:?}");
+            assert!(loudest(&wav(Cue::Press, 100)) < loudest(&wav(cue, 100)), "{cue:?}");
+        }
+        assert!(Cue::Press.duration() <= std::time::Duration::from_millis(50));
+    }
+
+    #[test]
+    fn the_sounds_of_the_scans_have_names_and_get_quieter_with_the_slider() {
+        for cue in Cue::SCAN {
+            let key = cue.name_key().expect("a sound of a scan has a name");
+            assert!(key.starts_with("s_ton_"), "{key}");
+            let (full, half) = (loudest(&wav(cue, 100)), loudest(&wav(cue, 50)));
+            assert!(full > 0 && half < full / 3, "{cue:?}: {full} {half}");
+            assert_eq!(loudest(&wav(cue, 0)), 0, "{cue:?} at 0 %");
+            let data = u32::from_le_bytes(wav(cue, 70)[40..44].try_into().unwrap()) as f64;
+            let seconds = data / 2.0 / f64::from(RATE);
+            assert!((seconds - cue.duration().as_secs_f64()).abs() < 0.01, "{cue:?}: {seconds}");
+        }
+        assert_eq!((Cue::Find.name_key(), Cue::Watch.name_key()), (None, None));
+    }
+
+    #[test]
+    fn a_sound_of_a_scan_is_played_from_its_file_and_canberra_takes_it_as_a_file() {
+        let file = Path::new("/tmp/versekit-ton-Done-70.wav");
+        assert_eq!(file_command("canberra-gtk-play", file), ["canberra-gtk-play", "-f", "/tmp/versekit-ton-Done-70.wav"]);
+        assert_eq!(file_command("paplay", file), ["paplay", "/tmp/versekit-ton-Done-70.wav"]);
+        assert_eq!(file_command("pw-play", file), ["pw-play", "/tmp/versekit-ton-Done-70.wav"]);
     }
 }

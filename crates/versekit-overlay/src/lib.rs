@@ -66,8 +66,10 @@
 
 mod afk;
 mod app;
+mod blueprint;
 mod files;
 mod fps;
+mod notice;
 mod picture;
 #[cfg(windows)]
 mod probe;
@@ -473,6 +475,8 @@ pub fn run(args: Args) -> eframe::Result {
     // self-check write none. A program that set them up before (the program `versekit`) keeps its own.
     if let Some(paths) = paths.as_ref().filter(|_| args.probe.is_none()) {
         let own: &'static Paths = Box::leak(Box::new(paths.working_copy()));
+        // The player's own UEX token for the requests of the overlay; a copy of the data loads none.
+        versekit_core::uex_token::start(own);
         diagnostics::init_for(own, diagnostics::Role::Overlay, env!("CARGO_PKG_VERSION"));
     }
     trail_start_notes();

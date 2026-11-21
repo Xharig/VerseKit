@@ -34,6 +34,11 @@ use crate::sources::{ShownKeys, entry_key};
 /// The record path part that selects the faction reputation records.
 pub(crate) const FACTION_RECORDS: &str = "libs/foundry/records/factions/factionreputation/";
 
+/// The amounts of the reputation gains of every contract entry as the reward records state them, by
+/// [`crate::sources::entry_key`] ([`crate::sources::reward_amounts`]): what fills the gains whose amount the p4kx
+/// catalog does not have (`amount: null`).
+pub type Amounts = HashMap<String, Vec<Option<i64>>>;
+
 /// What the game data say of the contracts: whom each credits reputation ([`parties`]) and the terms of each title
 /// (`versekit_core::injection::terms::summarize` over [`terms`]).
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -58,13 +63,14 @@ pub fn from_catalogs(
     reputation: &[u8],
     corrections: &[crate::corrections::Correction],
     build: &str,
+    amounts: &Amounts,
 ) -> Result<Contracts, serde_json::Error> {
     let factions = names(&serde_json::from_slice(factions)?, "factionReputations");
     let reputation: Json = serde_json::from_slice(reputation)?;
     let scopes = names(&reputation, "reputationScopes");
     let contracts: Json = serde_json::from_slice(contracts)?;
     Ok(Contracts {
-        parties: parties(&contracts, keys, &factions, &scopes, &Fixes::new(corrections, build)),
+        parties: parties(&contracts, keys, &factions, &scopes, &Fixes::new(corrections, build), amounts),
         terms: versekit_core::injection::terms::summarize(&terms(&contracts, keys, &standings(&reputation), &factions)),
         regions: Map::new(),
     })
@@ -242,6 +248,7 @@ pub(crate) fn parties(
     factions: &HashMap<String, String>,
     scopes: &HashMap<String, String>,
     fixes: &Fixes,
+    amounts: &Amounts,
 ) -> Map {
     let name = |table: &HashMap<String, String>, guid: Option<&str>| {
         guid.and_then(|guid| table.get(&guid.to_ascii_lowercase())).cloned()
@@ -258,10 +265,20 @@ pub(crate) fn parties(
         let own = giver(contract).unwrap_or_default().to_ascii_lowercase();
         let wrong = fix.filter(|(meant, _)| own != meant.to_ascii_lowercase()).map(|_| own);
         let mut rows = Vec::new();
-        for gain in contract.get("reputationGains").and_then(Json::as_array).into_iter().flatten() {
-            let Some(amount) = gain.get("amount").and_then(Json::as_i64).filter(|amount| *amount != 0) else {
+        let gains: Vec<&Json> = contract.get("reputationGains").and_then(Json::as_array).into_iter().flatten().collect();
+        // The amounts read from the reward records, where the catalog has none (p4kx reads only some folders).
+        let read = contract
+            .get("guid")
+            .and_then(Json::as_str)
+            .and_then(|id| amounts.get(&entry_key(id, contract.get("subContractGuid").and_then(Json::as_str))))
+            .filter(|read| read.len() == gains.len());
+        for (at, gain) in gains.into_iter().enumerate() {
+            let amount = gain.get("amount").and_then(Json::as_i64).or_else(|| read.and_then(|read| read[at]));
+            // A gain whose amount is nowhere to be read stays a row without an amount: it is shown as unknown, never
+            // left out. An amount of zero is no gain.
+            if amount == Some(0) {
                 continue;
-            };
+            }
             let guid = gain.get("factionReputationGuid").and_then(Json::as_str);
             let faction = name(factions, guid);
             let kind = name(scopes, gain.get("scopeGuid").and_then(Json::as_str));
@@ -271,7 +288,7 @@ pub(crate) fn parties(
             let mut row: Map = vec![
                 ("wer".into(), Value::Str(faction.clone().unwrap_or_default())),
                 ("was".into(), Value::Str(kind.unwrap_or_default())),
-                ("wieviel".into(), Value::int(amount)),
+                ("wieviel".into(), amount.map_or(Value::Null, Value::int)),
             ];
             if let (Some(wrong), Some((meant, note))) = (&wrong, fix)
                 && guid.unwrap_or_default().to_ascii_lowercase() == *wrong
@@ -442,7 +459,7 @@ mod tests {
             entry("D", "@Twice", json!([gain("f1", "s1", 1)])),
             entry("E", "@twice", json!([gain("f2", "s1", 2), gain("f1", "s1", 4)])),
         ]));
-        let found = parties(&all, &HashMap::new(), &factions, &scopes, &Fixes::new(&[], "t"));
+        let found = parties(&all, &HashMap::new(), &factions, &scopes, &Fixes::new(&[], "t"), &Amounts::new());
         assert_eq!(
             jsonio::dumps(&Value::Object(found), None, false),
             concat!(
@@ -450,6 +467,52 @@ mod tests {
                 r#""twice": [{"wer": "Alpha", "was": "Standing", "wieviel": [1, 4]}]}"#
             )
         );
+    }
+
+    /// A gain whose amount the catalog does not have (`amount: null`, the reward record is in a folder p4kx does not
+    /// read) takes the amount read from the reward record; where that is not known either, the row stays, without an
+    /// amount, and is never left out.
+    #[test]
+    fn a_gain_without_an_amount_takes_the_one_of_its_reward_record_or_stays_unknown() {
+        let (factions, scopes) = tables();
+        let unset = |faction: &str| {
+            json!({"factionReputationGuid": faction, "factionReputationName": "x", "scopeGuid": "s1", "scopeName": "y", "amount": null})
+        };
+        let mut read = entry("A", "@read", json!([unset("f1"), gain("f2", "s1", 7)]));
+        read["guid"] = json!("AAAA");
+        let mut unread = entry("B", "@unread", json!([unset("f1")]));
+        unread["guid"] = json!("BBBB");
+        let mut other = entry("C", "@other", json!([unset("f1"), unset("f2")]));
+        other["guid"] = json!("CCCC");
+        let mut sub = entry("D", "@sub", json!([unset("f2")]));
+        sub["guid"] = json!("DDDD");
+        sub["subContractGuid"] = json!("EEEE");
+        let amounts: Amounts = [
+            (entry_key("aaaa", None), vec![Some(200), Some(7)]),
+            (entry_key("bbbb", None), vec![None]),
+            // Two gains in the catalog, one read: the order cannot be trusted, nothing is taken over.
+            (entry_key("cccc", None), vec![Some(5)]),
+            (entry_key("dddd", Some("eeee")), vec![Some(100)]),
+        ]
+        .into_iter()
+        .collect();
+        let all = catalog(json!([read, unread, other, sub]));
+        let found = parties(&all, &HashMap::new(), &factions, &scopes, &Fixes::new(&[], "t"), &amounts);
+        assert_eq!(
+            jsonio::dumps(&Value::Object(found), None, false),
+            concat!(
+                r#"{"read": [{"wer": "Alpha", "was": "Standing", "wieviel": 200}, {"wer": "Beta", "was": "Standing", "wieviel": 7}], "#,
+                r#""unread": [{"wer": "Alpha", "was": "Standing", "wieviel": null}], "#,
+                r#""other": [{"wer": "Alpha", "was": "Standing", "wieviel": null}, {"wer": "Beta", "was": "Standing", "wieviel": null}], "#,
+                r#""sub": [{"wer": "Beta", "was": "Standing", "wieviel": 100}]}"#
+            )
+        );
+        // What the catalog states is not touched by what was read.
+        let mut stated = entry("E", "@stated", json!([gain("f1", "s1", 50)]));
+        stated["guid"] = json!("FFFF");
+        let wrong: Amounts = [(entry_key("ffff", None), vec![Some(999)])].into_iter().collect();
+        let found = parties(&catalog(json!([stated])), &HashMap::new(), &factions, &scopes, &Fixes::new(&[], "t"), &wrong);
+        assert_eq!(jsonio::dumps(&Value::Object(found), None, false), r#"{"stated": [{"wer": "Alpha", "was": "Standing", "wieviel": 50}]}"#);
     }
 
     /// A fixed payout in aUEC is the reward; one in another currency, or none (a computed payout), is no reward.
@@ -510,7 +573,7 @@ mod tests {
         )]
         .into_iter()
         .collect();
-        let found = parties(&catalog(json!([one])), &keys, &factions, &scopes, &Fixes::new(&[], "t"));
+        let found = parties(&catalog(json!([one])), &keys, &factions, &scopes, &Fixes::new(&[], "t"), &Amounts::new());
         let titles: Vec<&str> = found.iter().map(|(k, _)| k.as_str()).collect();
         assert_eq!(titles, ["hockrow_blackbox_space_e_title_001", "hockrow_blackbox_space_e_title_002"]);
     }
@@ -601,7 +664,7 @@ mod tests {
             build: None,
             source: "test",
         };
-        let found = parties(&all, &HashMap::new(), &factions, &scopes, &Fixes::new(&[fix], "t"));
+        let found = parties(&all, &HashMap::new(), &factions, &scopes, &Fixes::new(&[fix], "t"), &Amounts::new());
         assert_eq!(
             jsonio::dumps(&Value::Object(found), None, false),
             concat!(

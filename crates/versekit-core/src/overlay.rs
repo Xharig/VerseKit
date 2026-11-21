@@ -56,19 +56,54 @@ pub const CONTRACTS_MAX_RANGE: (i64, i64) = (1, 50);
 /// Fewer blueprints caught up at once are shown one by one.
 pub const CAUGHT_UP_ROWS: usize = 10;
 /// The hotkey without a setting, the same on every system. Without Strg: under Wayland no program can keep a key
-/// from the game, and Strg alone makes the figure lie down. A hotkey the player saved stays.
-pub const DEFAULT_HOTKEY: &str = "Alt+Umschalt+V";
-/// The hotkey that reads the refinery terminal, without a setting (R for refinery), in the same way.
-pub const DEFAULT_SCAN_HOTKEY: &str = "Alt+Umschalt+R";
-/// The hotkey that puts the cursor into the handle search of the info bar, without a setting (H for handle). It is
-/// on until switched off ([`keys::HOTKEY_SEARCH_ON`]).
-pub const DEFAULT_SEARCH_HOTKEY: &str = "Alt+Umschalt+H";
-/// The hotkey that takes the picture of the game for the signature window at once, without a setting (B for Bild),
-/// in the same way. It is on until switched off ([`keys::HOTKEY_PICTURE_ON`]).
-pub const DEFAULT_PICTURE_HOTKEY: &str = "Alt+Umschalt+B";
-/// The hotkey that shows the main window and brings it to the front, without a setting (F for Fenster), in the same
-/// way. It is on until switched off ([`keys::HOTKEY_MAIN_ON`]).
-pub const DEFAULT_MAIN_HOTKEY: &str = "Alt+Umschalt+F";
+/// from the game, and Strg alone makes the figure lie down. The game binds Alt+F12 to nothing. A hotkey the player
+/// saved stays.
+pub const DEFAULT_HOTKEY: &str = "Alt+F12";
+/// The hotkey that reads the refinery terminal, without a setting, in the same way. At the refinery the player stands
+/// on foot, where the game binds F9 to nothing.
+pub const DEFAULT_SCAN_HOTKEY: &str = "F9";
+/// The hotkey that puts the cursor into the handle search of the info bar, without a setting. It is on until
+/// switched off ([`keys::HOTKEY_SEARCH_ON`]).
+pub const DEFAULT_SEARCH_HOTKEY: &str = "Alt+F8";
+/// The hotkey that takes the picture of the game for the signature window at once, without a setting, in the same
+/// way. It is on until switched off ([`keys::HOTKEY_PICTURE_ON`]).
+pub const DEFAULT_PICTURE_HOTKEY: &str = "Alt+F10";
+/// The hotkey that reads the name of the blueprint beside the mouse pointer at the crafting terminal, without a
+/// setting. The game binds F10 only in a ship (power up); at the terminal the player stands on foot, where the game
+/// binds it to nothing. It is on until switched off ([`keys::HOTKEY_BLUEPRINT_ON`]).
+pub const DEFAULT_BLUEPRINT_HOTKEY: &str = "F10";
+/// The hotkey that shows the main window and brings it to the front, without a setting, in the same way. It is on
+/// until switched off ([`keys::HOTKEY_MAIN_ON`]).
+pub const DEFAULT_MAIN_HOTKEY: &str = "Alt+F11";
+
+/// The first version whose hotkeys without a setting lie on the F keys.
+pub const F_KEYS_FROM: &str = "5.4.3";
+
+/// The hotkeys without a setting before [`F_KEYS_FROM`], by their setting.
+pub const OLD_DEFAULT_HOTKEYS: [(&str, &str); 5] = [
+    (keys::HOTKEY, "Alt+Umschalt+V"),
+    (keys::HOTKEY_SCAN, "Alt+Umschalt+R"),
+    (keys::HOTKEY_SEARCH, "Alt+Umschalt+H"),
+    (keys::HOTKEY_PICTURE, "Alt+Umschalt+B"),
+    (keys::HOTKEY_MAIN, "Alt+Umschalt+F"),
+];
+
+/// A player who used a version before [`F_KEYS_FROM`] keeps the hotkeys he had: each of [`OLD_DEFAULT_HOTKEYS`]
+/// without a setting is written with its old default. `previous` is the version that ran last, `None` for data of a
+/// version that did not note it (an old one too). Called on a change of version with data of one's own; the number of
+/// hotkeys written.
+pub fn keep_old_hotkeys(paths: &Paths, previous: Option<&str>) -> usize {
+    if previous.is_some_and(|version| !crate::version::is_newer(F_KEYS_FROM, version)) {
+        return 0;
+    }
+    let mut written = 0;
+    for (key, old) in OLD_DEFAULT_HOTKEYS {
+        if paths.setting(key).is_none() && paths.set_setting(key, Value::str(old)) {
+            written += 1;
+        }
+    }
+    written
+}
 /// The info bar stands over the running game while its setting is missing; a stored setting wins.
 pub const INFO_BAR_DEFAULT: bool = true;
 /// The info bar shows without the game too while its setting is missing; a stored setting wins (a player who
@@ -106,6 +141,9 @@ pub mod keys {
     /// The hotkey of the main window is registered (only a literal `false` switches it off).
     pub const HOTKEY_MAIN_ON: &str = "hotkey_hauptfenster_an";
     pub const HOTKEY_MAIN: &str = "hotkey_hauptfenster";
+    /// The hotkey of the blueprint scan is registered (only a literal `false` switches it off).
+    pub const HOTKEY_BLUEPRINT_ON: &str = "hotkey_bauplan_an";
+    pub const HOTKEY_BLUEPRINT: &str = "hotkey_bauplan";
     pub const CORNER: &str = "overlay_ecke";
     pub const BAR: &str = "overlay_leiste";
     pub const SOUND: &str = "signalton";
@@ -911,7 +949,7 @@ fn literal_false(paths: &Paths, key: &str) -> bool {
     paths.settings().iter().any(|(k, v)| k == key && *v == Value::Bool(false))
 }
 
-/// The five shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
+/// The six shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
 /// press would do both (5.2.1: the overlay and the picture of the game on Alt+Umschalt+B).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shortcut {
@@ -921,11 +959,16 @@ pub enum Shortcut {
     Picture,
     /// Shows the main window and brings it to the front.
     Main,
+    /// Reads the name of the blueprint beside the mouse pointer at the crafting terminal.
+    Blueprint,
 }
 
+/// How many shortcuts there are.
+pub const SHORTCUTS: usize = 6;
+
 impl Shortcut {
-    pub const ALL: [Shortcut; 5] =
-        [Shortcut::Overlay, Shortcut::Scan, Shortcut::Search, Shortcut::Picture, Shortcut::Main];
+    pub const ALL: [Shortcut; SHORTCUTS] =
+        [Shortcut::Overlay, Shortcut::Scan, Shortcut::Search, Shortcut::Picture, Shortcut::Main, Shortcut::Blueprint];
 
     /// Its name in the start trail, where it holds the key another one wanted.
     pub fn trail_name(self) -> &'static str {
@@ -935,6 +978,7 @@ impl Shortcut {
             Shortcut::Search => "Such-Hotkey",
             Shortcut::Picture => "Bild-Hotkey",
             Shortcut::Main => "Hauptfenster-Hotkey",
+            Shortcut::Blueprint => "Bauplan-Hotkey",
         }
     }
 
@@ -947,6 +991,7 @@ impl Shortcut {
             Shortcut::Search => "s_hk_kurz_suche",
             Shortcut::Picture => "s_hk_kurz_bild",
             Shortcut::Main => "s_hk_kurz_haupt",
+            Shortcut::Blueprint => "s_hk_kurz_bauplan",
         }
     }
 
@@ -958,6 +1003,7 @@ impl Shortcut {
             Shortcut::Search => (keys::HOTKEY_SEARCH, DEFAULT_SEARCH_HOTKEY, keys::HOTKEY_SEARCH_ON),
             Shortcut::Picture => (keys::HOTKEY_PICTURE, DEFAULT_PICTURE_HOTKEY, keys::HOTKEY_PICTURE_ON),
             Shortcut::Main => (keys::HOTKEY_MAIN, DEFAULT_MAIN_HOTKEY, keys::HOTKEY_MAIN_ON),
+            Shortcut::Blueprint => (keys::HOTKEY_BLUEPRINT, DEFAULT_BLUEPRINT_HOTKEY, keys::HOTKEY_BLUEPRINT_ON),
         }
     }
 }
@@ -979,15 +1025,18 @@ pub enum HotkeyChoice {
 }
 
 impl HotkeyChoice {
-    /// The five shortcuts in the order of [`Shortcut::ALL`], as the overlay registers them: each from its setting,
+    /// The shortcuts in the order of [`Shortcut::ALL`], as the overlay registers them: each from its setting,
     /// its default where none is set. A later one whose combination an earlier one holds is [`HotkeyChoice::Taken`];
     /// one left at its default takes the first of [`SPARE_HOTKEYS`] no other shortcut holds instead.
     ///
     /// ⚠ A setting equal to the default counts as left at the default: the settings page of 5.2.1 wrote every
     /// shortcut into the settings, the untouched ones with their default.
-    pub fn read_all(paths: &Paths) -> [HotkeyChoice; 5] {
-        // The refinery scan and the picture of the game are registered only where the screen can be read.
-        let registered = [true, crate::refinery_scan::screen::supported(), true, crate::screen_grab::supported(), true];
+    pub fn read_all(paths: &Paths) -> [HotkeyChoice; SHORTCUTS] {
+        // The refinery scan and the picture of the game are registered only where the screen can be read, the
+        // blueprint scan only where the recognition of the system reads letters.
+        let blueprint = crate::screen_grab::supported() && crate::win_ocr::supported();
+        let registered =
+            [true, crate::refinery_scan::screen::supported(), true, crate::screen_grab::supported(), true, blueprint];
         let read = Shortcut::ALL.map(|shortcut| {
             let (key, default, switch) = shortcut.setting();
             // The switch of the overlay's own shortcut is off only by a literal `false`, as the others.
@@ -1022,14 +1071,20 @@ impl HotkeyChoice {
 
     /// The hotkey of the picture of the game, [`DEFAULT_PICTURE_HOTKEY`] where none is set.
     pub fn read_picture(paths: &Paths) -> HotkeyChoice {
-        let [.., picture, _] = HotkeyChoice::read_all(paths);
+        let [_, _, _, picture, ..] = HotkeyChoice::read_all(paths);
         picture
     }
 
     /// The hotkey of the main window, [`DEFAULT_MAIN_HOTKEY`] where none is set.
     pub fn read_main(paths: &Paths) -> HotkeyChoice {
-        let [.., main] = HotkeyChoice::read_all(paths);
+        let [_, _, _, _, main, _] = HotkeyChoice::read_all(paths);
         main
+    }
+
+    /// The hotkey of the blueprint scan, [`DEFAULT_BLUEPRINT_HOTKEY`] where none is set.
+    pub fn read_blueprint(paths: &Paths) -> HotkeyChoice {
+        let [.., blueprint] = HotkeyChoice::read_all(paths);
+        blueprint
     }
 
     /// The combination that is registered; none where it is off, wrong or taken.
@@ -1051,7 +1106,10 @@ impl HotkeyChoice {
 
 /// The shortcuts as read (the order of [`Shortcut::ALL`], each with whether it is left at its default) as they are
 /// registered: see [`HotkeyChoice::read_all`]. Only one that is `registered` on this system holds its key.
-pub fn resolve(read: [(HotkeyChoice, bool); 5], registered: [bool; 5]) -> [HotkeyChoice; 5] {
+pub fn resolve(
+    read: [(HotkeyChoice, bool); SHORTCUTS],
+    registered: [bool; SHORTCUTS],
+) -> [HotkeyChoice; SHORTCUTS] {
     let wanted: Vec<Option<Hotkey>> =
         read.iter().zip(registered).map(|((choice, _), on)| choice.hotkey().filter(|_| on)).collect();
     let mut done: Vec<HotkeyChoice> = Vec::with_capacity(read.len());
@@ -1108,6 +1166,11 @@ pub fn main_hotkey_on(paths: &Paths) -> bool {
     !literal_false(paths, keys::HOTKEY_MAIN_ON)
 }
 
+/// Whether the hotkey of the blueprint scan is to be registered: off only by a literal `false` (`hotkey_bauplan_an`).
+pub fn blueprint_hotkey_on(paths: &Paths) -> bool {
+    !literal_false(paths, keys::HOTKEY_BLUEPRINT_ON)
+}
+
 /// One line of the start trail about a hotkey: its name and what came of its registration.
 fn trail_line(name: &str, choice: &HotkeyChoice, registered: Result<(), String>) -> String {
     match (choice, registered) {
@@ -1134,6 +1197,11 @@ pub fn picture_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String
 /// The line of the start trail about the hotkey of the main window, in the way of [`hotkey_trail`].
 pub fn main_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
     trail_line(Shortcut::Main.trail_name(), choice, registered)
+}
+
+/// The line of the start trail about the hotkey of the blueprint scan, in the way of [`hotkey_trail`].
+pub fn blueprint_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    trail_line(Shortcut::Blueprint.trail_name(), choice, registered)
 }
 
 /// The lines of the start trail about the hotkeys, as 4.12 writes them (`hotkey_anmelden`, `hotkey_scan_anmelden`):
@@ -1180,6 +1248,8 @@ pub struct Settings {
     pub picture_hotkey: Option<Hotkey>,
     /// The hotkey that shows the main window and brings it to the front.
     pub main_hotkey: Option<Hotkey>,
+    /// The hotkey that reads the name of the blueprint beside the mouse pointer at the crafting terminal.
+    pub blueprint_hotkey: Option<Hotkey>,
     pub layout: Layout,
     pub sound: bool,
     /// The volume of every sound in percent.
@@ -1244,6 +1314,7 @@ impl Default for Settings {
             search_hotkey: None,
             picture_hotkey: Hotkey::parse(DEFAULT_PICTURE_HOTKEY),
             main_hotkey: Hotkey::parse(DEFAULT_MAIN_HOTKEY),
+            blueprint_hotkey: Hotkey::parse(DEFAULT_BLUEPRINT_HOTKEY),
             layout: Layout::default(),
             sound: true,
             volume: crate::sound::VOLUME_DEFAULT,
@@ -1287,7 +1358,7 @@ impl Settings {
         let bar = paths.setting(keys::BAR);
         // Switched off only by a literal `false`, as 4.12 reads both.
         let off = |key: &str| literal_false(paths, key);
-        let [hotkey, scan_hotkey, search_hotkey, picture_hotkey, main_hotkey] =
+        let [hotkey, scan_hotkey, search_hotkey, picture_hotkey, main_hotkey, blueprint_hotkey] =
             HotkeyChoice::read_all(paths).map(|c| c.hotkey());
         // The overlay follows the clock of the main window the next time it reads its settings.
         crate::formats::apply_clock(paths);
@@ -1300,6 +1371,7 @@ impl Settings {
             search_hotkey,
             picture_hotkey,
             main_hotkey,
+            blueprint_hotkey,
             layout: Layout {
                 corner: Corner::from_setting(corner.as_deref()),
                 bar: BarSide::from_settings(bar.as_deref(), corner.as_deref()),
@@ -1491,6 +1563,11 @@ impl Rows {
     /// Takes away the hint rows of a contract that ended.
     pub fn remove_contract(&mut self, contract: &str) {
         self.list.retain(|r| !matches!(r, Row::Hint { contract: Some(c), .. } if c == contract));
+    }
+
+    /// Takes away the hint rows without a contract whose text `gone` names.
+    pub fn remove_hints(&mut self, gone: impl Fn(&Message) -> bool) {
+        self.list.retain(|r| !matches!(r, Row::Hint { text, contract: None } if gone(text)));
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Row> {
@@ -2039,6 +2116,13 @@ mod tests {
         rows.push(Row::Hint { text: Message::Plain("x".into()), contract: Some("A".into()) }, 5);
         rows.remove_contract("A");
         assert_eq!(rows.len(), 4);
+        // Only the hints without a contract whose text is named go; the others stay where they are.
+        rows.push(Row::Hint { text: Message::Plain("weg".into()), contract: None }, 9);
+        rows.push(Row::Hint { text: Message::Plain("bleibt".into()), contract: None }, 9);
+        rows.push(Row::Hint { text: Message::Plain("weg".into()), contract: Some("B".into()) }, 9);
+        rows.remove_hints(|text| text.render() == "weg");
+        assert_eq!(rows.len(), 6, "{rows:?}");
+        assert!(rows.iter().all(|r| !matches!(r, Row::Hint { text, contract: None } if text.render() == "weg")));
         rows.clear();
         assert!(rows.is_empty());
     }
@@ -2216,11 +2300,46 @@ mod tests {
     /// defaults have no Strg, and they are the same on every system.
     #[test]
     fn the_default_hotkeys_are_the_same_everywhere_and_without_strg() {
-        for (text, key) in [(DEFAULT_HOTKEY, "V"), (DEFAULT_SCAN_HOTKEY, "R")] {
+        let defaults = [
+            DEFAULT_HOTKEY,
+            DEFAULT_SCAN_HOTKEY,
+            DEFAULT_SEARCH_HOTKEY,
+            DEFAULT_PICTURE_HOTKEY,
+            DEFAULT_MAIN_HOTKEY,
+            DEFAULT_BLUEPRINT_HOTKEY,
+        ];
+        for text in defaults {
             let hotkey = Hotkey::parse(text).unwrap_or_else(|| panic!("{text}"));
-            assert!(!hotkey.ctrl && hotkey.alt && hotkey.shift, "{text}");
-            assert_eq!(hotkey.text(), format!("Alt+Umschalt+{key}"));
+            assert!(!hotkey.ctrl && !hotkey.shift, "{text}");
+            assert_eq!(hotkey.text(), text, "written as read");
         }
+        let unique: std::collections::HashSet<&str> = defaults.into_iter().collect();
+        assert_eq!(unique.len(), defaults.len(), "no two shortcuts share a default");
+    }
+
+    /// A player of a version before the F keys keeps the hotkeys he had; a hotkey he set stays, and a newer
+    /// version or a first start writes nothing.
+    #[test]
+    fn a_player_of_an_older_version_keeps_his_hotkeys() {
+        let (paths, dir) = events_paths("alte-tasten");
+        paths.set_setting(keys::HOTKEY_SCAN, Value::str("Strg+Alt+R"));
+        assert_eq!(keep_old_hotkeys(&paths, Some("5.4.2")), 4);
+        assert_eq!(HotkeyChoice::read(&paths).hotkey().map(Hotkey::text).as_deref(), Some("Alt+Umschalt+V"));
+        assert_eq!(paths.setting(keys::HOTKEY_SCAN).as_deref(), Some("Strg+Alt+R"), "set by the player: stays");
+        assert_eq!(paths.setting(keys::HOTKEY_MAIN).as_deref(), Some("Alt+Umschalt+F"));
+        assert_eq!(keep_old_hotkeys(&paths, Some("5.4.2")), 0, "written once");
+        let _ = std::fs::remove_dir_all(dir);
+
+        for previous in [Some(F_KEYS_FROM), Some("5.5.0")] {
+            let (paths, dir) = events_paths("neue-tasten");
+            assert_eq!(keep_old_hotkeys(&paths, previous), 0, "{previous:?}");
+            assert_eq!(HotkeyChoice::read(&paths).hotkey().map(Hotkey::text).as_deref(), Some(DEFAULT_HOTKEY));
+            let _ = std::fs::remove_dir_all(dir);
+        }
+        // Data of a version that did not note itself is old too.
+        let (paths, dir) = events_paths("ohne-version");
+        assert_eq!(keep_old_hotkeys(&paths, None), 5);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -2234,9 +2353,10 @@ mod tests {
         assert!(scan_hotkey_on(&paths));
         let scan = HotkeyChoice::read_scan(&paths);
         let main = format!("Hotkey: {DEFAULT_HOTKEY} angemeldet (ok)");
+        let scan_line = format!("Scan-Hotkey: {DEFAULT_SCAN_HOTKEY} angemeldet (ok)");
         assert_eq!(
             hotkey_trail(&HotkeyChoice::read(&paths), Ok(()), Some((&scan, Ok(())))),
-            [main.as_str(), "Scan-Hotkey: Alt+Umschalt+R angemeldet (ok)"]
+            [main.as_str(), scan_line.as_str()]
         );
         // Where the scan cannot read, the trail says nothing of it.
         assert_eq!(hotkey_trail(&HotkeyChoice::read(&paths), Ok(()), None), [main.as_str()]);
@@ -2301,10 +2421,10 @@ mod tests {
             assert_eq!(search_hotkey_on(&paths), on, "{value:?}");
         }
         let h = Hotkey::parse(DEFAULT_SEARCH_HOTKEY).unwrap();
-        assert!(!h.ctrl && h.alt && h.shift, "like the other defaults, without Strg");
+        assert!(!h.ctrl && !h.shift, "like the other defaults, without Strg");
         assert_eq!(Settings::read(&paths).search_hotkey, Some(h));
         let trail = search_hotkey_trail(&HotkeyChoice::read_search(&paths), Ok(()));
-        assert_eq!(trail, "Such-Hotkey: Alt+Umschalt+H angemeldet (ok)");
+        assert_eq!(trail, format!("Such-Hotkey: {DEFAULT_SEARCH_HOTKEY} angemeldet (ok)"));
         paths.set_setting(keys::HOTKEY_SEARCH, Value::str("Strg+F13"));
         assert_eq!(Settings::read(&paths).search_hotkey.map(Hotkey::text).as_deref(), Some("Strg+F13"));
         // F13 by itself (Kuehlwagen): taken, registered and said in the trail.
@@ -2326,11 +2446,11 @@ mod tests {
         let (paths, dir) = events_paths("bildtaste");
         assert!(picture_hotkey_on(&paths), "on without a setting");
         let h = Hotkey::parse(DEFAULT_PICTURE_HOTKEY).unwrap();
-        assert!(!h.ctrl && h.alt && h.shift, "like the other defaults, without Strg");
+        assert!(!h.ctrl && !h.shift, "like the other defaults, without Strg");
         assert_eq!(Settings::read(&paths).picture_hotkey, Some(h));
         assert_eq!(Settings::default().picture_hotkey, Some(h));
         let trail = picture_hotkey_trail(&HotkeyChoice::read_picture(&paths), Ok(()));
-        assert_eq!(trail, "Bild-Hotkey: Alt+Umschalt+B angemeldet (ok)");
+        assert_eq!(trail, format!("Bild-Hotkey: {DEFAULT_PICTURE_HOTKEY} angemeldet (ok)"));
         for (value, on) in [(Value::str("false"), true), (Value::int(0), true), (Value::Bool(false), false)] {
             paths.set_setting(keys::HOTKEY_PICTURE_ON, value.clone());
             assert_eq!(picture_hotkey_on(&paths), on, "{value:?}");
@@ -2354,12 +2474,12 @@ mod tests {
         let (paths, dir) = events_paths("haupttaste");
         assert!(main_hotkey_on(&paths), "on without a setting");
         let h = Hotkey::parse(DEFAULT_MAIN_HOTKEY).unwrap();
-        assert!(!h.ctrl && h.alt && h.shift, "like the other defaults, without Strg");
+        assert!(!h.ctrl && !h.shift, "like the other defaults, without Strg");
         assert_eq!(Settings::read(&paths).main_hotkey, Some(h));
         assert_eq!(Settings::default().main_hotkey, Some(h));
         assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Combination(h));
         let trail = main_hotkey_trail(&HotkeyChoice::read_main(&paths), Ok(()));
-        assert_eq!(trail, "Hauptfenster-Hotkey: Alt+Umschalt+F angemeldet (ok)");
+        assert_eq!(trail, format!("Hauptfenster-Hotkey: {DEFAULT_MAIN_HOTKEY} angemeldet (ok)"));
         for (value, on) in [(Value::str("false"), true), (Value::int(0), true), (Value::Bool(false), false)] {
             paths.set_setting(keys::HOTKEY_MAIN_ON, value.clone());
             assert_eq!(main_hotkey_on(&paths), on, "{value:?}");
@@ -2379,12 +2499,39 @@ mod tests {
         assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Taken(v, Shortcut::Overlay));
         assert_eq!(Settings::read(&paths).main_hotkey, None);
         let trail = main_hotkey_trail(&HotkeyChoice::read_main(&paths), Ok(()));
-        assert_eq!(trail, "Hauptfenster-Hotkey: Alt+Umschalt+V entfaellt (belegt durch Overlay-Hotkey)");
+        assert_eq!(trail, format!("Hauptfenster-Hotkey: {DEFAULT_HOTKEY} entfaellt (belegt durch Overlay-Hotkey)"));
         // Left at its default while the overlay was set to it: the first free spare instead.
         paths.set_setting(keys::HOTKEY_MAIN, Value::str(DEFAULT_MAIN_HOTKEY));
         paths.set_setting(keys::HOTKEY, Value::str(DEFAULT_MAIN_HOTKEY));
         let n = Hotkey::parse(SPARE_HOTKEYS[0]).unwrap();
         assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Combination(n));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The hotkey of the blueprint scan: F10 without a setting where the system reads letters, off by a literal
+    /// `false`, and it never takes the key of an earlier shortcut.
+    #[test]
+    fn the_hotkey_of_the_blueprint_scan_is_f10_and_holds_no_taken_key() {
+        let (paths, dir) = events_paths("bauplan-kuerzel");
+        let p = Hotkey::parse(DEFAULT_BLUEPRINT_HOTKEY).unwrap();
+        assert!(!p.ctrl && !p.alt && !p.shift, "a single key, without Strg");
+        assert_eq!(p.text(), "F10");
+        assert!(blueprint_hotkey_on(&paths));
+        assert_eq!(Settings::default().blueprint_hotkey, Some(p));
+        let reads = crate::screen_grab::supported() && crate::win_ocr::supported();
+        if reads {
+            assert_eq!(HotkeyChoice::read_blueprint(&paths), HotkeyChoice::Combination(p));
+            assert_eq!(Settings::read(&paths).blueprint_hotkey, Some(p));
+            let trail = blueprint_hotkey_trail(&HotkeyChoice::read_blueprint(&paths), Ok(()));
+            assert_eq!(trail, "Bauplan-Hotkey: F10 angemeldet (ok)");
+            paths.set_setting(keys::HOTKEY_BLUEPRINT, Value::str(DEFAULT_MAIN_HOTKEY));
+            let f = Hotkey::parse(DEFAULT_MAIN_HOTKEY).unwrap();
+            assert_eq!(HotkeyChoice::read_blueprint(&paths), HotkeyChoice::Taken(f, Shortcut::Main));
+        }
+        paths.set_setting(keys::HOTKEY_BLUEPRINT_ON, Value::Bool(false));
+        assert_eq!(HotkeyChoice::read_blueprint(&paths), HotkeyChoice::Off);
+        assert_eq!(Settings::read(&paths).blueprint_hotkey, None);
+        assert_eq!(Shortcut::Blueprint.short_key(), "s_hk_kurz_bauplan");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2394,27 +2541,27 @@ mod tests {
     #[test]
     fn no_key_is_registered_for_two_shortcuts() {
         let (paths, dir) = events_paths("doppelt");
-        let b = Hotkey::parse("Alt+Umschalt+B").unwrap();
+        let b = Hotkey::parse(DEFAULT_PICTURE_HOTKEY).unwrap();
         let n = Hotkey::parse(SPARE_HOTKEYS[0]).unwrap();
         // The case of 5.2.1: the overlay on the default of the picture, the picture left at its default.
-        paths.set_setting(keys::HOTKEY, Value::str("Alt+Umschalt+B"));
+        paths.set_setting(keys::HOTKEY, Value::str(DEFAULT_PICTURE_HOTKEY));
         let all = HotkeyChoice::read_all(&paths);
         assert_eq!(all[0], HotkeyChoice::Combination(b));
         assert_eq!(all[3], HotkeyChoice::Combination(n), "the spare instead of the default");
         assert_eq!(Settings::read(&paths).picture_hotkey, Some(n));
         assert_eq!(picture_hotkey_trail(&all[3], Ok(())), "Bild-Hotkey: Alt+Umschalt+N angemeldet (ok)");
         // The settings page of 5.2.1 wrote the default into the settings: it still counts as the default.
-        paths.set_setting(keys::HOTKEY_PICTURE, Value::str("Umschalt+Alt+B"));
+        paths.set_setting(keys::HOTKEY_PICTURE, Value::str(DEFAULT_PICTURE_HOTKEY));
         assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Combination(n));
         // A spare a later shortcut is set to is skipped, so the later one keeps it.
-        paths.set_setting(keys::HOTKEY_SCAN, Value::str("Alt+Umschalt+B"));
+        paths.set_setting(keys::HOTKEY_SCAN, Value::str(DEFAULT_PICTURE_HOTKEY));
         paths.set_setting(keys::HOTKEY_PICTURE, Value::str(SPARE_HOTKEYS[0]));
         let all = HotkeyChoice::read_all(&paths);
         assert_eq!(all[1], HotkeyChoice::Taken(b, Shortcut::Overlay), "set by the player: not moved, not registered");
         assert_eq!(all[3], HotkeyChoice::Combination(n));
         assert_eq!(Settings::read(&paths).scan_hotkey, None);
         let trail = hotkey_trail(&all[0], Ok(()), Some((&all[1], Ok(()))));
-        assert_eq!(trail[1], "Scan-Hotkey: Alt+Umschalt+B entfaellt (belegt durch Overlay-Hotkey)");
+        assert_eq!(trail[1], format!("Scan-Hotkey: {DEFAULT_PICTURE_HOTKEY} entfaellt (belegt durch Overlay-Hotkey)"));
         // The picture set by the player to the key of the search: taken, said so.
         paths.set_setting(keys::HOTKEY_SCAN, Value::str(DEFAULT_SCAN_HOTKEY));
         paths.set_setting(keys::HOTKEY_PICTURE, Value::str("Strg+F9"));
@@ -2429,7 +2576,7 @@ mod tests {
         assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Combination(f9));
         // Every default and every spare apart: nothing moves without a collision.
         let defaults = Shortcut::ALL.map(|s| (HotkeyChoice::Combination(Hotkey::parse(s.setting().1).unwrap()), true));
-        let fresh = resolve(defaults.clone(), [true; 5]);
+        let fresh = resolve(defaults.clone(), [true; SHORTCUTS]);
         assert_eq!(
             fresh.clone().map(|c| c.hotkey().map(Hotkey::text)),
             Shortcut::ALL.map(|s| Some(s.setting().1.to_string()))
@@ -2438,8 +2585,8 @@ mod tests {
         let mut read = defaults;
         read[1] = (HotkeyChoice::Combination(f9), false);
         read[2] = (HotkeyChoice::Combination(f9), false);
-        assert_eq!(resolve(read.clone(), [true; 5])[2], HotkeyChoice::Taken(f9, Shortcut::Scan));
-        assert_eq!(resolve(read, [true, false, true, true, true])[2], HotkeyChoice::Combination(f9));
+        assert_eq!(resolve(read.clone(), [true; SHORTCUTS])[2], HotkeyChoice::Taken(f9, Shortcut::Scan));
+        assert_eq!(resolve(read, [true, false, true, true, true, true])[2], HotkeyChoice::Combination(f9));
         let spares: Vec<Hotkey> = SPARE_HOTKEYS.iter().filter_map(|s| Hotkey::parse(s)).collect();
         assert_eq!(spares.len(), SPARE_HOTKEYS.len());
         assert!(fresh.iter().all(|c| !spares.contains(&c.hotkey().unwrap())));

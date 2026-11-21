@@ -416,13 +416,26 @@ fn names_or_fetch_with(paths: &Paths, game_folder: Option<&str>, tried: &AtomicB
     if !names.is_empty()
         && stamp.as_ref().is_none_or(|stamp| paths.setting(NAMES_STAMP).as_deref() == Some(stamp.as_str()))
     {
-        return names;
+        // The tags of the English original come with the names; names stored without them are read once more, but
+        // only when the archive may be read right now (asked as the reading asks, `GameData::open_file`): current
+        // names never wait for the game to close.
+        let readable = || {
+            folder.as_deref().is_some_and(|folder| {
+                let global = versekit_core::paths::global();
+                versekit_core::archive_lock::may_read_archive(global, Path::new(&archive_file(folder)))
+            })
+        };
+        if versekit_core::injection::specs::original_stored(paths) || !readable() {
+            return names;
+        }
     }
     if tried.swap(true, Ordering::SeqCst) {
         return names;
     }
     let Some(folder) = folder else { return names };
     let Ok(data) = read(ENGLISH, &folder) else { return names };
+    let text = decode_ignore(data.strip_prefix(BOM).unwrap_or(&data));
+    versekit_core::injection::specs::save_original(paths, &game_ini::py_splitlines(&text));
     if save_names(paths, &data) > 0
         && let Some(stamp) = stamp
     {
@@ -570,7 +583,16 @@ fn language_folder(paths: &Paths, note: &Map, source: &str) -> Option<String> {
             _ => Some(ENGLISH.to_string()),
         };
     }
-    game_ini::SOURCES.iter().find(|(name, _)| *name == source).map(|(_, language)| (*language).to_string())
+    game_ini::all_sources(paths).into_iter().find(|(name, _)| *name == source).map(|(_, language)| language)
+}
+
+/// The ids of all sources, the own address and the original texts last.
+fn all_source_ids(paths: &Paths) -> Vec<String> {
+    game_ini::all_sources(paths)
+        .into_iter()
+        .map(|(id, _)| id)
+        .chain([game_ini::CUSTOM.to_string(), ORIGINAL.to_string()])
+        .collect()
 }
 
 /// `_placed_by_us`: which sources this tool put into the language folder
@@ -582,27 +604,21 @@ fn language_folder(paths: &Paths, note: &Map, source: &str) -> Option<String> {
 fn placed_by_us(paths: &Paths, language: &str, channel: Option<&str>) -> Vec<String> {
     let Some(channel) = channel else {
         let note = read_note(paths);
-        return game_ini::SOURCES
-            .iter()
-            .map(|(name, _)| *name)
-            .chain([game_ini::CUSTOM, ORIGINAL])
+        return all_source_ids(paths)
+            .into_iter()
             .filter(|source| {
                 language_folder(paths, &note, source).as_deref() == Some(language) && installed(&note, source)
             })
-            .map(str::to_string)
             .collect();
     };
     // A side channel has its own notes (`source@CHANNEL`); those of the main
     // installation say nothing about its folder.
-    game_ini::SOURCES
-        .iter()
-        .map(|(name, _)| *name)
-        .chain([game_ini::CUSTOM, ORIGINAL])
+    all_source_ids(paths)
+        .into_iter()
         .filter(|source| {
             versekit_core::translation::installed(paths, source, Some(channel)).is_some()
                 && versekit_core::translation::language_folder(paths, source, Some(channel)) == language
         })
-        .map(str::to_string)
         .collect()
 }
 
@@ -677,8 +693,11 @@ fn write_original(paths: &Paths, target: &str, data: &[u8]) -> io::Result<()> {
 /// The file hides the texts in the archive. Only what the tool placed itself
 /// as "original" is touched, and only if no other own source (StarStrings,
 /// own address) holds the folder. Never fails.
+///
+/// ⚠ The archive is read before the game files are locked: the reading waits
+/// as long as the game runs, and a lock held over that wait stops every other
+/// writer of the game files, in this process and in the others.
 pub fn refresh_original(paths: &Paths, game_folder: Option<&str>) -> bool {
-    let _one_writer = versekit_core::injection::game_file_lock();
     match refresh_original_with(paths, game_folder, &read_from_archive) {
         Ok(written) => written,
         Err(error) => {
@@ -688,24 +707,37 @@ pub fn refresh_original(paths: &Paths, game_folder: Option<&str>) -> bool {
     }
 }
 
-fn refresh_original_with(paths: &Paths, game_folder: Option<&str>, read: ArchiveRead<'_>) -> io::Result<bool> {
+/// Where [`refresh_original`] writes and the archive state it writes for, or `None` when it leaves the file alone.
+fn refresh_due(paths: &Paths, game_folder: Option<&str>) -> Option<(String, String, String)> {
     if !installed(&read_note(paths), ORIGINAL) {
-        return Ok(false);
+        return None;
     }
     if placed_by_us(paths, ENGLISH, None).iter().any(|source| source != ORIGINAL) {
-        return Ok(false);
+        return None;
     }
-    let Some(folder) = resolve_folder(paths, game_folder) else { return Ok(false) };
+    let folder = resolve_folder(paths, game_folder)?;
     if side_channel(paths, &folder).is_some() {
         // The notes and the stamp belong to the main installation.
-        return Ok(false);
+        return None;
     }
-    let Some(stamp) = archive_stamp(&folder) else { return Ok(false) };
+    let stamp = archive_stamp(&folder)?;
     if paths.setting(ORIGINAL_STAMP).as_deref() == Some(stamp.as_str()) {
+        return None;
+    }
+    let target = target_ini(paths, ENGLISH, Some(&folder))?;
+    Some((folder, target, stamp))
+}
+
+fn refresh_original_with(paths: &Paths, game_folder: Option<&str>, read: ArchiveRead<'_>) -> io::Result<bool> {
+    let Some((folder, _, read_for)) = refresh_due(paths, game_folder) else { return Ok(false) };
+    let Ok(data) = read(ENGLISH, &folder) else { return Ok(false) };
+    let _one_writer = versekit_core::injection::game_file_lock();
+    // Asked again under the lock: another writer may have placed the file or another source meanwhile, and a patch
+    // during the reading makes the data read stale.
+    let Some((_, target, stamp)) = refresh_due(paths, game_folder) else { return Ok(false) };
+    if stamp != read_for {
         return Ok(false);
     }
-    let Some(target) = target_ini(paths, ENGLISH, Some(&folder)) else { return Ok(false) };
-    let Ok(data) = read(ENGLISH, &folder) else { return Ok(false) };
     write_original(paths, &target, &data)?;
     paths.set_setting(ORIGINAL_STAMP, Value::str(stamp));
     Ok(true)
@@ -738,7 +770,6 @@ pub fn fetch_original(
     set_language: bool,
     set_user_cfg: &dyn Fn(&str) -> bool,
 ) -> Result<FetchOutcome, FetchError> {
-    let _one_writer = versekit_core::injection::game_file_lock();
     fetch_original_with(paths, language, game_folder, set_language, set_user_cfg, &read_from_archive)
 }
 
@@ -755,9 +786,11 @@ fn fetch_original_with(
         return Err(FetchError::Read(ReadError::NoArchive));
     }
     let target = target_ini(paths, language, Some(&folder)).ok_or(FetchError::UnknownTarget)?;
+    // Read before the game files are locked (see `refresh_original`): the reading waits while the game runs.
+    let data = read(language, &folder).map_err(FetchError::Read)?;
+    let _one_writer = versekit_core::injection::game_file_lock();
     let channel = side_channel(paths, &folder);
     let replaced = placed_by_us(paths, language, channel.as_deref());
-    let data = read(language, &folder).map_err(FetchError::Read)?;
     write_original(paths, &target, &data).map_err(|error| FetchError::Write(error_text(&error)))?;
     if language == ENGLISH
         && channel.is_none()
@@ -878,7 +911,6 @@ fn gaps_mark(paths: &Paths, stamp: &str, target: &str) -> io::Result<String> {
 /// It looks only when archive or text file changed since the last time
 /// ([`GAPS_STAMP`]).
 pub fn fill_gaps(paths: &Paths, target: &str, game_folder: Option<&str>) -> usize {
-    let _one_writer = versekit_core::injection::game_file_lock();
     match fill_gaps_with(paths, target, game_folder, &read_from_archive) {
         Ok(count) => count,
         Err(error) => {
@@ -897,7 +929,16 @@ fn fill_gaps_with(paths: &Paths, target: &str, game_folder: Option<&str>, read: 
     if Some(gaps_mark(paths, &stamp, target)?) == paths.setting(GAPS_STAMP) {
         return Ok(0);
     }
+    // Read before the game files are locked (see `refresh_original`): the reading waits while the game runs.
     let Ok(original) = read(ENGLISH, &folder) else { return Ok(0) };
+    let _one_writer = versekit_core::injection::game_file_lock();
+    // Asked again under the lock: another writer may have changed the file meanwhile, or a patch the archive.
+    if !game_ini::is_file(target)
+        || archive_stamp(&folder).as_deref() != Some(stamp.as_str())
+        || Some(gaps_mark(paths, &stamp, target)?) == paths.setting(GAPS_STAMP)
+    {
+        return Ok(0);
+    }
     let current = fs::read(target)?;
     let lines = missing_lines(&original, &current);
     if !lines.is_empty() {
@@ -1108,6 +1149,30 @@ mod tests {
         let without = names_or_fetch_with(&fx.paths, Some(&fx.game), &AtomicBool::new(false), &counting);
         assert_eq!(without, patched);
         assert_eq!(count.get(), 1);
+    }
+
+    /// The names are read with the tags of the English original; names stored before the tags were read once more,
+    /// and only once.
+    #[test]
+    fn the_tags_of_the_english_original_come_with_the_names() {
+        use versekit_core::injection::specs;
+        let fx = Fixture::new("names-tags");
+        fx.archive(b"item_NamePOWR_A=Ginzel\nitem_DescPOWR_A=Size: 3\\nGrade: B\\nClass: Military\n");
+        names_or_fetch_with(&fx.paths, Some(&fx.game), &AtomicBool::new(false), &read_from_archive);
+        assert_eq!(specs::load_original(&fx.paths).get("item_namepowr_a").map(String::as_str), Some("(Mil/3/B)"));
+
+        // Names of an older version, stored without the tags: the archive is read once more.
+        fs::remove_file(fx.paths.app_file(specs::ORIGINAL_FILE)).unwrap();
+        let count = Cell::new(0);
+        let counting = |language: &str, folder: &str| {
+            count.set(count.get() + 1);
+            read_from_archive(language, folder)
+        };
+        names_or_fetch_with(&fx.paths, Some(&fx.game), &AtomicBool::new(false), &counting);
+        assert_eq!(count.get(), 1);
+        assert!(specs::original_stored(&fx.paths));
+        names_or_fetch_with(&fx.paths, Some(&fx.game), &AtomicBool::new(false), &counting);
+        assert_eq!(count.get(), 1, "stored now: not read again");
     }
 
     // ------------------------------------------------------ place names
@@ -1725,6 +1790,69 @@ mod tests {
         fx.paths.set_setting(ORIGINAL_STAMP, Value::str(archive_stamp(&fx.game).unwrap()));
         assert!(!refresh());
         assert_eq!(fs::read(&target).unwrap(), b"StarStrings <EM4>[BP]</EM4>\n");
+    }
+
+    /// Runs `work` with a reading of the archive that stops until told, and asks for the game files while it stops:
+    /// whether they could be had then, and the result of `work`. The reading of the `Data.p4k` waits as long as the
+    /// game runs; a writer that held the game files over it stopped every other writer, here and in the other
+    /// process, for the whole game.
+    fn free_while_reading<T: Send>(work: impl FnOnce(ArchiveRead<'_>) -> T + Send) -> (bool, T) {
+        use std::sync::mpsc;
+        use std::time::Duration;
+        let (reading_tx, reading_rx) = mpsc::channel::<()>();
+        let (go_tx, go_rx) = mpsc::channel::<()>();
+        let (reading_tx, go_rx) = (Mutex::new(reading_tx), Mutex::new(go_rx));
+        let stopping = |language: &str, folder: &str| {
+            let _ = reading_tx.lock().unwrap_or_else(|e| e.into_inner()).send(());
+            let _ = go_rx.lock().unwrap_or_else(|e| e.into_inner()).recv_timeout(Duration::from_secs(60));
+            read_from_archive(language, folder)
+        };
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| work(&stopping));
+            reading_rx.recv_timeout(Duration::from_secs(30)).expect("the archive is read");
+            let (took_tx, took_rx) = mpsc::channel::<()>();
+            scope.spawn(move || {
+                let _one_writer = injection::game_file_lock();
+                let _ = took_tx.send(());
+            });
+            let free = took_rx.recv_timeout(Duration::from_secs(5)).is_ok();
+            let _ = go_tx.send(());
+            (free, worker.join().expect("the work ends"))
+        })
+    }
+
+    #[test]
+    fn filling_the_gaps_does_not_hold_the_game_files_while_it_reads_the_archive() {
+        let fx = Fixture::new("gaps-free");
+        fx.archive(ORIGINAL_INI);
+        let target = format!("{}/global.ini", fx.root);
+        fx.put(&target, TRANSLATED_INI);
+        let (free, filled) = free_while_reading(|read| fill_gaps_with(&fx.paths, &target, Some(&fx.game), read));
+        assert!(free, "another writer gets the game files while the archive is read");
+        assert_eq!(filled.unwrap(), 2, "and the gaps are filled afterwards");
+    }
+
+    #[test]
+    fn renewing_the_original_does_not_hold_the_game_files_while_it_reads_the_archive() {
+        let fx = Fixture::new("refresh-free");
+        fx.archive(b"vehicle_NameNEU=New ship\n");
+        fx.put(&fx.english(), b"vehicle_NameALT=Old ship\n");
+        fx.note(r#"{"original": {"kennung": "Data.p4k"}}"#);
+        let (free, written) = free_while_reading(|read| refresh_original_with(&fx.paths, Some(&fx.game), read));
+        assert!(free, "another writer gets the game files while the archive is read");
+        assert!(written.unwrap(), "and the original is written afterwards");
+        assert_eq!(fs::read(fx.english()).unwrap(), b"vehicle_NameNEU=New ship\n");
+    }
+
+    #[test]
+    fn fetching_the_original_does_not_hold_the_game_files_while_it_reads_the_archive() {
+        let fx = Fixture::new("fetch-free");
+        fx.archive(b"original=Original text\n");
+        let (free, outcome) = free_while_reading(|read| {
+            fetch_original_with(&fx.paths, ENGLISH, Some(&fx.game), false, &no_language, read)
+        });
+        assert!(free, "another writer gets the game files while the archive is read");
+        assert_eq!(outcome, Ok(FetchOutcome::Written { bytes: b"original=Original text\n".len() }));
     }
 
     #[test]

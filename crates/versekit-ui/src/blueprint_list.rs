@@ -113,9 +113,24 @@ pub struct ListData {
     /// The build of the catalog from the game data, while it runs: the list
     /// shows what it has until the result is taken over by [`ListData::poll`].
     building: Option<Pending>,
+    /// How far the build of the catalogue stands, in this process or in another.
+    progress: crate::catalog_progress::BuildWatch,
+    /// How the last build of the list's own ended, for a few seconds.
+    ended: Option<crate::catalog_progress::Ended>,
     /// Time and size of `bestand.json` as last read, and when that was looked at ([`ListData::follow_collection`]).
     collection_seen: Option<(std::time::SystemTime, u64)>,
     collection_looked: Option<f64>,
+    /// The candidates of a blueprint read unsure at the crafting terminal, for the player to choose from; empty
+    /// without a question (`blueprint_scan::question`).
+    pub scan_question: Vec<String>,
+    /// How many questions of the blueprint scan wait behind the one shown.
+    pub scan_waiting: usize,
+    /// The question shown, with when it was, what was read and the picture around the pointer.
+    pub scan_asked: Option<versekit_core::blueprint_scan::Question>,
+    /// The last scans at the crafting terminal, newest first.
+    pub scans: Vec<versekit_core::blueprint_scan::ScanEntry>,
+    /// Every open question of the blueprint scan, oldest first.
+    pub scan_all: Vec<versekit_core::blueprint_scan::Question>,
     /// Where the catalog comes from, to take a newer one over ([`ListData::follow_catalog`]); `None` for a list
     /// with a catalog given.
     follow: Option<Follow>,
@@ -206,8 +221,15 @@ impl ListData {
             categories: Vec::new(),
             hide_no_way: false,
             building: None,
+            progress: crate::catalog_progress::BuildWatch::default(),
+            ended: None,
             collection_seen: None,
             collection_looked: None,
+            scan_question: Vec::new(),
+            scan_waiting: 0,
+            scan_asked: None,
+            scans: Vec::new(),
+            scan_all: Vec::new(),
             follow: None,
             org_blueprints: std::sync::Arc::default(),
         };
@@ -302,6 +324,21 @@ impl ListData {
         self.building.is_some()
     }
 
+    /// How far the build of the catalogue stands (by this process or another), while one works.
+    pub fn build_progress(&self) -> Option<&versekit_core::build_progress::Snapshot> {
+        self.progress.seen().filter(|seen| !seen.waiting)
+    }
+
+    /// Takes a state of the build from outside (a check, a picture) in place of the real one.
+    pub fn set_build_progress(&mut self, seen: Option<versekit_core::build_progress::Snapshot>) {
+        self.progress.set(seen);
+    }
+
+    /// How the last build of the list's own ended.
+    pub fn set_build_ended(&mut self, ended: Option<crate::catalog_progress::Ended>) {
+        self.ended = ended;
+    }
+
     /// Takes over a catalog built in the background; true when the list
     /// changed. Call it on every frame: it also has the build ask the window
     /// for a new frame when it is done.
@@ -313,6 +350,7 @@ impl ListData {
     /// Without a build running it follows the catalog ([`ListData::follow_catalog`]) every [`CATALOG_LOOK`] seconds.
     pub fn poll(&mut self, ctx: &egui::Context, state: &mut ListState) -> bool {
         let now = ctx.input(|i| i.time);
+        self.progress.poll(ctx, self.paths.as_ref());
         let Some(building) = &self.building else {
             if self.follow.is_some() {
                 ctx.request_repaint_after(std::time::Duration::from_secs_f64(CATALOG_LOOK));
@@ -327,6 +365,7 @@ impl ListData {
         ctx.request_repaint_after(std::time::Duration::from_millis(250));
         let list::Progress::Done(built) = building.poll() else { return false };
         self.building = None;
+        self.ended = Some(crate::catalog_progress::Ended { blueprints: built.as_ref().map(|c| c.blueprints.len()), at: now });
         self.build_ended(now, built.is_some());
         built.is_some_and(|catalog| self.replace_catalog(catalog, state))
     }
@@ -408,8 +447,74 @@ impl ListData {
         if changed {
             self.reload_have(&paths);
         }
+        // A question of the blueprint scan comes from the overlay too.
+        let asked = self.take_scan_questions(&paths);
         self.paths = Some(paths);
+        changed || asked
+    }
+
+    /// Takes the oldest open question of the blueprint scan, how many wait behind it and the last scans; true when
+    /// that changed.
+    fn take_scan_questions(&mut self, paths: &Paths) -> bool {
+        let all = versekit_core::blueprint_scan::questions(paths);
+        let scans = versekit_core::blueprint_scan::last_scans(paths, versekit_core::blueprint_scan::SCAN_LOG_MOST);
+        let changed = all != self.scan_all || scans != self.scans;
+        self.scan_waiting = all.len().saturating_sub(1);
+        self.scan_asked = all.first().cloned();
+        self.scan_question = self.scan_asked.as_ref().map(|q| q.candidates.clone()).unwrap_or_default();
+        self.scan_all = all;
+        self.scans = scans;
         changed
+    }
+
+    /// The player's answer to the open question at `index` (oldest first), as [`ListData::answer_scan`].
+    pub fn answer_scan_at(&mut self, index: usize, chosen: Option<&str>) {
+        let Some(paths) = self.paths.take() else {
+            if index < self.scan_all.len() {
+                self.scan_all.remove(index);
+            }
+            return;
+        };
+        match versekit_core::blueprint_scan::answer_at(&paths, index, chosen) {
+            Ok(()) => self.save_failed = false,
+            Err(error) => self.save_error("blueprint_list.answer_scan", &error),
+        }
+        self.reload_have(&paths);
+        self.take_scan_questions(&paths);
+        self.paths = Some(paths);
+    }
+
+    /// Drops every open question of the blueprint scan; nothing goes into the collection.
+    pub fn discard_scan_questions(&mut self) {
+        let Some(paths) = self.paths.take() else {
+            self.scan_question.clear();
+            self.scan_waiting = 0;
+            self.scan_asked = None;
+            self.scan_all.clear();
+            return;
+        };
+        if let Err(error) = versekit_core::blueprint_scan::discard_questions(&paths) {
+            self.save_error("blueprint_list.discard_scan_questions", &error);
+        }
+        self.take_scan_questions(&paths);
+        self.paths = Some(paths);
+    }
+
+    /// The player's answer to the question of the blueprint scan: the chosen blueprint into the collection, or none;
+    /// the question goes either way.
+    pub fn answer_scan(&mut self, chosen: Option<&str>) {
+        let Some(paths) = self.paths.take() else {
+            self.scan_question.clear();
+            self.scan_waiting = 0;
+            return;
+        };
+        match versekit_core::blueprint_scan::answer(&paths, chosen) {
+            Ok(()) => self.save_failed = false,
+            Err(error) => self.save_error("blueprint_list.answer_scan", &error),
+        }
+        self.reload_have(&paths);
+        self.take_scan_questions(&paths);
+        self.paths = Some(paths);
     }
 
     /// What one has and when it came, from the blueprints of a collection.
@@ -784,6 +889,8 @@ pub struct ListState {
     /// The blueprints (by key) that have a recipe on the crafting page: only
     /// those get the button to it. Set by the window.
     pub craftable: std::sync::Arc<HashSet<String>>,
+    /// A blueprint of the scans view was clicked: it stands in the search, the window goes to the list.
+    pub jump_from_scans: bool,
 }
 
 /// Where a jump into the list leads.
@@ -903,6 +1010,7 @@ fn source_key(source: &str) -> Option<&'static str> {
         "import" => Some("erhalten_q_import"),
         "launcher" => Some("erhalten_q_launcher"),
         "hand" => Some("erhalten_q_hand"),
+        "scan" => Some("erhalten_q_scan"),
         "start" => Some("erhalten_q_start"),
         _ => None,
     }
@@ -1158,25 +1266,56 @@ pub fn empty_notice(ui: &mut Ui, scheme: &Scheme, data: &ListData) -> bool {
     if !data.catalog.blueprints.is_empty() {
         return false;
     }
-    if data.is_building() {
+    if data.is_building() || data.progress.seen().is_some() {
         widgets::empty_state(ui, scheme, "clock", &t("kat_baut"));
-        ui.label(RichText::new(wait_hint(data)).small().color(color(scheme.sub)));
+        if let Some(seen) = data.build_progress() {
+            crate::catalog_progress::block(ui, scheme, seen);
+        }
+        let waits = data.progress.seen().is_some_and(|seen| seen.waiting);
+        let (hint, reason) = wait_hint(data);
+        if waits || reason {
+            // What the build waits for stands out: the catalogue is read once the game is closed.
+            crate::catalog_progress::waiting_line(ui, scheme, &t("kat_wartet_spiel"));
+        }
+        ui.label(RichText::new(hint).small().color(color(scheme.sub)));
     } else {
         no_catalog(ui, scheme);
+        build_ended_line(ui, scheme, data);
     }
     owned_without_catalog(ui, scheme, data);
     true
 }
 
+/// The line over a shown list while the catalogue is rebuilt (how far it is), else how the last build ended.
+fn build_state_line(ui: &mut Ui, scheme: &Scheme, data: &ListData) {
+    if let Some(seen) = data.progress.seen() {
+        if seen.waiting {
+            crate::catalog_progress::waiting_line(ui, scheme, &t("kat_wartet_spiel"));
+        } else {
+            crate::catalog_progress::strip(ui, scheme, seen);
+        }
+    } else {
+        build_ended_line(ui, scheme, data);
+    }
+}
+
+/// How the last build of the list's own ended, for a few seconds.
+fn build_ended_line(ui: &mut Ui, scheme: &Scheme, data: &ListData) {
+    if let Some(ended) = &data.ended {
+        crate::catalog_progress::ended(ui, scheme, ended);
+    }
+}
+
 /// What the build of the catalog waits for, as the hint under "is being built": the game that has to be closed, the
 /// launcher that has to finish; else the plain "takes a moment".
-fn wait_hint(data: &ListData) -> String {
+fn wait_hint(data: &ListData) -> (String, bool) {
     let reason = data.paths().and_then(|paths| {
         let archive: Option<std::path::PathBuf> =
             data.follow.as_ref().and_then(|follow| follow.archive.clone()).or_else(|| paths.archive_file().map(Into::into));
         versekit_core::archive_lock::wait_reason(paths, archive.as_deref())
     });
-    t(wait_hint_key(reason))
+    let game = matches!(reason, Some(versekit_core::archive_lock::WaitReason::GameRunning));
+    (t(wait_hint_key(reason)), game)
 }
 
 /// The text key of the hint for what is waited for.
@@ -1214,6 +1353,115 @@ fn owned_without_catalog(ui: &mut Ui, scheme: &Scheme, data: &ListData) {
     });
 }
 
+/// `13:53` for a Unix time, empty where it is not known.
+fn clock(at: i64) -> String {
+    versekit_core::formats::local_time(at).map_or(String::new(), |time| format!("{:02}:{:02}", time.hour, time.minute))
+}
+
+/// The picture of a question in the table of the scans view, at most this wide in points.
+const QUESTION_PICTURE: f32 = 300.0;
+
+/// The column of the text read in the table of the scans view, at most this wide in points.
+const READ_COLUMN: f32 = 220.0;
+
+/// The words of the outcome of a scan as the table of the last scans shows it.
+fn scan_outcome(what: &str) -> String {
+    t(match what {
+        "erfasst" => "s_bpscan_z_erfasst",
+        "schon" => "s_bpscan_z_schon",
+        "frage" => "s_bpscan_z_frage",
+        _ => "s_bpscan_z_keiner",
+    })
+}
+
+/// A heading of a column of the tables of the scans view.
+fn column_head(ui: &mut Ui, scheme: &Scheme, key: &str) {
+    ui.label(RichText::new(t(key)).strong().color(color(scheme.sub)));
+}
+
+/// The scans view of the blueprint list: the open questions of the blueprint scan as a table (time, the part of
+/// the screen with the name, what was read, a button per candidate and one for none of them) and the last scans as a
+/// table (time, blueprint, outcome); a click on a scanned blueprint looks for it in the list.
+pub fn show_scans(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut ListState) {
+    let mut chosen: Option<(usize, Option<String>)> = None;
+    let mut discard = false;
+    egui::ScrollArea::vertical().id_salt("bauplan-scans").auto_shrink([false, false]).show(ui, |ui| {
+        widgets::card_title(ui, scheme, &t("s_bpscan_fragen_kopf"));
+        if data.scan_all.is_empty() {
+            ui.label(RichText::new(t("s_bpscan_keine_fragen")).color(color(scheme.sub)));
+        } else {
+            ui.label(RichText::new(t("s_bpscan_frage")).color(color(scheme.sub)));
+            ui.add_space(4.0);
+            egui::Grid::new("bauplan-fragen").num_columns(4).striped(true).spacing([14.0, 8.0]).show(ui, |grid| {
+                for key in ["s_bpscan_sp_zeit", "s_bpscan_sp_bild", "s_bpscan_sp_gelesen", "s_bpscan_sp_wahl"] {
+                    column_head(grid, scheme, key);
+                }
+                grid.end_row();
+                for (i, asked) in data.scan_all.iter().enumerate() {
+                    grid.label(clock(asked.at));
+                    match &asked.picture {
+                        Some(picture) => {
+                            let uri = format!("bytes://bauplan-frage/{}-{i}-{}.png", asked.at, picture.len());
+                            grid.add(egui::Image::from_bytes(uri, picture.clone()).max_width(QUESTION_PICTURE));
+                        }
+                        None => {
+                            grid.label("–");
+                        }
+                    }
+                    grid.vertical(|cell| {
+                        cell.set_max_width(READ_COLUMN);
+                        cell.add(egui::Label::new(RichText::new(&asked.read).color(color(scheme.sub))).wrap());
+                    });
+                    grid.vertical(|cell| {
+                        for name in &asked.candidates {
+                            if cell.add(widgets::Button::new(name, ButtonKind::Normal, scheme)).clicked() {
+                                chosen = Some((i, Some(name.clone())));
+                            }
+                        }
+                        let word = t("s_bpscan_keiner_davon");
+                        if cell.add(widgets::Button::new(&word, ButtonKind::Normal, scheme)).clicked() {
+                            chosen = Some((i, None));
+                        }
+                    });
+                    grid.end_row();
+                }
+            });
+            ui.add_space(6.0);
+            let word = t("s_bpscan_alle_verwerfen");
+            discard = ui.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("x")).clicked();
+        }
+        ui.add_space(18.0);
+        widgets::card_title(ui, scheme, &t("s_bpscan_zuletzt"));
+        if data.scans.is_empty() {
+            ui.label(RichText::new(t("s_bpscan_keine_scans")).color(color(scheme.sub)));
+            return;
+        }
+        egui::Grid::new("bauplan-scans").num_columns(3).striped(true).spacing([14.0, 4.0]).show(ui, |grid| {
+            for key in ["s_bpscan_sp_zeit", "s_bpscan_sp_bauplan", "s_bpscan_sp_ergebnis"] {
+                column_head(grid, scheme, key);
+            }
+            grid.end_row();
+            for scan in &data.scans {
+                grid.label(clock(scan.at));
+                if scan.name.is_empty() {
+                    grid.label("–");
+                } else if grid.add(widgets::Button::new(&scan.name, ButtonKind::Normal, scheme)).clicked() {
+                    state.reset();
+                    state.search = scan.name.clone();
+                    state.jump_from_scans = true;
+                }
+                grid.label(scan_outcome(&scan.what));
+                grid.end_row();
+            }
+        });
+    });
+    if discard {
+        data.discard_scan_questions();
+    } else if let Some((index, chosen)) = chosen {
+        data.answer_scan_at(index, chosen.as_deref());
+    }
+}
+
 pub fn show(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut ListState) {
     show_at(ui, scheme, data, state, export::now_unix());
 }
@@ -1226,6 +1474,7 @@ pub fn show_at(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut Li
     if data.save_failed {
         ui.label(RichText::new(t("s_bp_speichern_fehler")).color(color(scheme.red_text())));
     }
+    build_state_line(ui, scheme, data);
     let total = data.catalog.blueprints.len();
     let mine = data.catalog.blueprints.iter().filter(|b| data.have.contains(&b.key)).count();
     let share = (100.0 * mine as f64 / total as f64).round_ties_even() as i64;
@@ -2516,7 +2765,7 @@ mod tests {
         // The state narrows the list to what the org has, and falls back when the data are gone.
         state.open = None;
         state.state = 7;
-        assert_eq!(shown_keys(&data, &state).into_iter().collect::<Vec<_>>(), [blueprint.key.clone()]);
+        assert_eq!(shown_keys(&data, &state).into_iter().collect::<Vec<_>>(), std::slice::from_ref(&blueprint.key));
         data.set_org_blueprints(std::sync::Arc::default());
         frame(&ctx, &mut data, &mut state);
         assert_eq!(state.state, 0, "without data a stored state of the org is not kept");
@@ -2737,6 +2986,70 @@ mod tests {
         }
         assert_eq!(data.catalog, new);
         assert!(ListData::load_from(&paths, None, None).is_none(), "nothing to show and nothing coming: no list");
+    }
+
+    /// How far the build stands is on the page where the player waits: in the empty list with the bar, the step
+    /// and the time; over a list that is shown meanwhile as one line; a build that waits for the game says only
+    /// that; at the end the result stands for a moment, a failure as a failure.
+    #[test]
+    fn the_list_shows_how_far_the_build_stands() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        use versekit_core::build_progress::{Snapshot, Step};
+
+        let paths = paths_with("fortschritt", &[]);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let (go, wait) = mpsc::channel::<()>();
+        let building = Pending::spawn(move || {
+            wait.recv_timeout(Duration::from_secs(5)).ok()?;
+            None
+        });
+        let mut data = ListData::load_from(&paths, None, building).expect("a list while it is built");
+        let mut state = ListState::default();
+        let at = |step, fraction, waiting| Snapshot { step, step_fraction: None, fraction, elapsed: 187, waiting };
+
+        // A build of another test in this process must not show here: the states below are given.
+        data.set_build_progress(None);
+        let none = frame(&ctx, &mut data, &mut state);
+        let step = |texts: &[String]| texts.iter().any(|t| t.contains(&t_de("kat_schritt_vertraege")));
+        assert!(!step(&none), "no build seen, no step: {none:?}");
+
+        data.set_build_progress(Some(at(Step::Contracts, 0.31, false)));
+        let empty = frame(&ctx, &mut data, &mut state);
+        assert!(empty.iter().any(|t| t == "Katalog: Schritt 4 von 9 · Aufträge lesen"), "{empty:?}");
+        assert!(empty.iter().any(|t| t == "31 %"), "the percent of the bar: {empty:?}");
+        assert!(empty.iter().any(|t| t == "seit 3:07"), "the time: {empty:?}");
+
+        data.set_build_progress(Some(at(Step::Archive, 0.0, true)));
+        let waiting = frame(&ctx, &mut data, &mut state);
+        assert!(!waiting.iter().any(|t| t.contains("Schritt 1 von 9")), "a wait is no work: {waiting:?}");
+        let hints = ["kat_baut_hilfe", "s_vk_wartet_spiel", "s_vk_wartet_launcher"].map(t_de);
+        assert!(waiting.iter().any(|t| hints.contains(t)), "{waiting:?}");
+        assert!(
+            waiting.iter().any(|t| t == "Der Katalog wird gelesen, sobald Star Citizen geschlossen ist."),
+            "the wait says what it waits for: {waiting:?}"
+        );
+
+        // A list that is shown while the new one is built has the line over it.
+        let mut shown = ListData::load_from(&paths, Some(sample_catalog()), None).expect("a list");
+        shown.set_build_progress(Some(at(Step::Reputation, 0.8, false)));
+        let over = frame(&ctx, &mut shown, &mut state);
+        assert!(over.iter().any(|t| *t == t_de("kat_fortschritt_kopf")), "{over:?}");
+        assert!(over.iter().any(|t| t.starts_with("Katalog: Schritt 7 von 9")), "{over:?}");
+        shown.set_build_progress(None);
+        let after = frame(&ctx, &mut shown, &mut state);
+        assert!(!after.iter().any(|t| *t == t_de("kat_fortschritt_kopf")), "no build, no line: {after:?}");
+
+        // The end: a catalogue is told with its size, none as a failure, and it goes after a while.
+        shown.set_build_ended(Some(crate::catalog_progress::Ended { blueprints: Some(540), at: 0.0 }));
+        let ready = frame(&ctx, &mut shown, &mut state);
+        assert!(ready.iter().any(|t| t == "Katalog fertig: 540 Baupläne."), "{ready:?}");
+        shown.set_build_ended(Some(crate::catalog_progress::Ended { blueprints: None, at: 0.0 }));
+        let failed = frame(&ctx, &mut shown, &mut state);
+        assert!(failed.iter().any(|t| *t == t_de("kat_fehler")), "{failed:?}");
+        go.send(()).ok();
     }
 
     /// Paths of a throwaway data folder with variables of the made-up machine.
@@ -3026,6 +3339,63 @@ mod tests {
         assert!(data.have.contains(&name_key(&name)), "the find stands in the list");
         assert!(data.received.contains_key(&name_key(&name)), "with its time");
         assert!(!data.follow_collection(2.0), "unchanged: not read again");
+    }
+
+    /// A blueprint the scan at the crafting terminal read unsure comes to the open list as a question; the choice
+    /// writes it into the collection with the source of the scan, and the question goes. None of them writes nothing.
+    #[test]
+    fn a_question_of_the_blueprint_scan_is_answered_in_the_list() {
+        let paths = empty_paths("bauplan-frage");
+        let mut data = ListData::load_with(&paths, sample_catalog());
+        let (first, second) = (data.catalog.blueprints[0].name.clone(), data.catalog.blueprints[1].name.clone());
+        assert!(data.scan_question.is_empty());
+        let ask = |names: &[String]| {
+            let question =
+                versekit_core::blueprint_scan::Question { candidates: names.to_vec(), at: 0, ..Default::default() };
+            versekit_core::blueprint_scan::ask(&paths, question).expect("ask");
+        };
+        ask(&[first.clone(), second.clone()]);
+        assert!(data.follow_collection(0.0), "the question comes");
+        assert_eq!(data.scan_question, [first.clone(), second.clone()]);
+        data.answer_scan(Some(&second));
+        assert!(data.scan_question.is_empty(), "answered: gone");
+        assert!(data.have.contains(&name_key(&second)) && !data.have.contains(&name_key(&first)));
+        assert_eq!(data.received.get(&name_key(&second)).map(|(_, s)| s.as_str()), Some("scan"));
+        ask(std::slice::from_ref(&first));
+        assert!(data.follow_collection(2.0));
+        data.answer_scan(None);
+        assert!(data.scan_question.is_empty() && !data.have.contains(&name_key(&first)), "none of them");
+
+        // Several questions wait one behind the other, oldest first; none is lost.
+        ask(std::slice::from_ref(&first));
+        ask(std::slice::from_ref(&second));
+        assert!(data.follow_collection(4.0));
+        assert_eq!((data.scan_question.clone(), data.scan_waiting), (vec![first.clone()], 1));
+        data.answer_scan(Some(&first));
+        assert_eq!((data.scan_question.clone(), data.scan_waiting), (vec![second.clone()], 0), "the next one");
+        data.answer_scan(None);
+
+        // In the table of the scans view any row can be answered, not only the oldest.
+        ask(std::slice::from_ref(&first));
+        ask(std::slice::from_ref(&second));
+        assert!(data.follow_collection(5.0));
+        data.answer_scan_at(1, Some(&second));
+        let left: Vec<_> = data.scan_all.iter().map(|q| q.candidates.clone()).collect();
+        assert_eq!(left, [vec![first.clone()]], "the second row is answered, the first waits");
+        data.answer_scan_at(0, None);
+        assert!(data.scan_all.is_empty());
+        // Every scan stands in the line of the last scans, one already there too.
+        let sure = versekit_core::blueprint_scan::Outcome {
+            certainty: versekit_core::blueprint_scan::Certainty::Sure,
+            name: Some(first.clone()),
+            candidates: vec![first.clone()],
+            lines: vec![first.clone()],
+            picture: None,
+        };
+        versekit_core::blueprint_scan::record(&paths, &sure).expect("record");
+        assert!(data.follow_collection(6.0));
+        assert_eq!(data.scans.first().map(|s| (s.what.as_str(), s.name.as_str())), Some(("schon", first.as_str())));
+        assert!(data.scan_question.is_empty());
     }
 
     /// Blueprints without a known way stay out of a catalog that comes later,

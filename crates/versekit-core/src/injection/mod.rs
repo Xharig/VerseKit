@@ -86,7 +86,8 @@ static GAME_FILES: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// The lock file the game files are shared through with the other processes of the run, once
 /// [`share_game_files_between_processes`] has set it.
-static GAME_FILES_SHARED: std::sync::RwLock<Option<jsonio::ProcessLock>> = std::sync::RwLock::new(None);
+/// Beside it the file of its holder note ([`holder_file`]).
+static GAME_FILES_SHARED: std::sync::RwLock<Option<(jsonio::ProcessLock, String)>> = std::sync::RwLock::new(None);
 
 /// How long a writer waits for another process that writes the game files: a run of the background holds them
 /// while it reads a file of megabytes and writes it back, so this is far longer than the wait for the JSON files.
@@ -108,13 +109,47 @@ pub fn set_game_files_wait(limit: std::time::Duration) {
 pub fn share_game_files_between_processes(lock_file: &str) -> bool {
     match jsonio::ProcessLock::open(lock_file) {
         Ok(lock) => {
-            *GAME_FILES_SHARED.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(lock);
+            *GAME_FILES_SHARED.write().unwrap_or_else(std::sync::PoisonError::into_inner) =
+                Some((lock, holder_file(lock_file)));
             true
         }
         Err(e) => {
             errors::record("injection.sperre", &format!("lock file {lock_file}: {e}"));
             false
         }
+    }
+}
+
+/// The note beside the lock file of the game files that names who holds them: `sperre-spiel-<key>-halter.lock`,
+/// named like a lock file, so the moves and backups of the data folder leave it alone as they leave the locks.
+pub fn holder_file(lock_file: &str) -> String {
+    format!("{}-halter.lock", lock_file.strip_suffix(".lock").unwrap_or(lock_file))
+}
+
+/// The line of the holder note: role of the process, its number, the second it took the lock (Unix time) and the
+/// place in the source that took it. Nothing of the player.
+fn holder_line(place: &std::panic::Location<'_>) -> String {
+    let role = crate::diagnostics::current().map_or("?", |(_, role)| role.name());
+    let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    format!("{role} {} {since} {}:{}", std::process::id(), place.file().replace('\\', "/"), place.line())
+}
+
+/// What the report of a lock waited for in vain says of its holder, from the line of [`holder_line`] and the time
+/// `now` (Unix seconds): `held by overlay (process 4711) for 135 s, taken at crates/…/game_text.rs:881`.
+pub fn holder_text(line: &str, now: u64) -> String {
+    let mut parts = line.split_whitespace();
+    match (parts.next(), parts.next(), parts.next().and_then(|s| s.parse::<u64>().ok()), parts.next()) {
+        (Some(role), Some(process), Some(since), Some(place)) => {
+            format!("held by {role} (process {process}) for {} s, taken at {place}", now.saturating_sub(since))
+        }
+        _ => "holder unknown".to_string(),
+    }
+}
+
+/// Writes or empties the holder note; quietly, it only serves the report.
+fn note_holder(file: &str, line: &str) {
+    if crate::writeguard::check("open-w", file).is_ok() {
+        let _ = std::fs::write(file, line);
     }
 }
 
@@ -128,25 +163,47 @@ pub struct GameFileGuard {
 impl Drop for GameFileGuard {
     fn drop(&mut self) {
         if self.shared
-            && let Some(lock) = GAME_FILES_SHARED.read().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref()
+            && let Some((lock, holder)) =
+                GAME_FILES_SHARED.read().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref()
         {
+            note_holder(holder, "");
             lock.release();
         }
     }
 }
 
 /// Hold this while reading and writing a game text file and its notes. With the lock shared it waits for another
-/// process at most [`GAME_FILES_WAIT`]: then it goes on without it and reports `injection.sperre`, so a stuck
-/// process never stops the other one for good.
+/// process at most [`GAME_FILES_WAIT`]: then it goes on without it and reports `injection.sperre` with the holder
+/// (role, process, since when, the place that took it), so a stuck process never stops the other one for good and
+/// the report names it.
+///
+/// ⚠ Never hold it over a wait of unknown length (reading the `Data.p4k` waits while the game runs, a download):
+/// read first, then lock, then ask again what may have changed meanwhile.
+#[track_caller]
 pub fn game_file_lock() -> GameFileGuard {
+    let place = std::panic::Location::caller();
     let threads = GAME_FILES.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let wait = std::time::Duration::from_millis(GAME_FILES_WAIT_MS.load(std::sync::atomic::Ordering::Relaxed));
     let shared = match GAME_FILES_SHARED.read().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref() {
         None => false,
-        Some(lock) => match lock.acquire(wait) {
-            jsonio::Taken::Held => true,
+        Some((lock, holder)) => match lock.acquire(wait) {
+            jsonio::Taken::Held => {
+                note_holder(holder, &holder_line(place));
+                true
+            }
             jsonio::Taken::TimedOut => {
-                errors::record("injection.sperre", &"another process held the game files too long");
+                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+                let line = std::fs::read_to_string(holder).unwrap_or_default();
+                errors::record(
+                    "injection.sperre",
+                    &format!(
+                        "another process held the game files longer than {} s ({}); wanted at {}:{}",
+                        wait.as_secs(),
+                        holder_text(&line, now),
+                        place.file().replace('\\', "/"),
+                        place.line()
+                    ),
+                );
                 false
             }
             jsonio::Taken::Unsupported(e) => {
@@ -192,6 +249,9 @@ pub struct Inputs {
     pub shops: item_info::Shops,
     /// The stored English names (`namen-original.json`).
     pub original_names: Vec<(String, String)>,
+    /// The tags of the English original by name key in lower case (`kurzzeichen-original.json`): they stand in where
+    /// a description gives none.
+    pub original_specs: HashMap<String, String>,
     /// The text keys of the crafted items from the catalog of the game data;
     /// empty for a catalog without them.
     pub item_texts: item_info::ItemTexts,
@@ -504,7 +564,9 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
     let name_suffix = if remove_only || !paths.setting_bool(SETTING_DETAILS, true) {
         HashMap::new()
     } else {
-        specs::build_table(&lines)
+        let mut table = specs::build_table(&lines);
+        specs::fill_from_original(&mut table, &lines, &inputs.original_specs);
+        table
     };
     let added_ships = if remove_only { Vec::new() } else { asop::added_ship_names(paths, ini, &lines, &origtext_old) };
     let own_ships: HashMap<String, (String, bool)> = if remove_only {
@@ -638,7 +700,7 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
     };
     // The titles a description belongs to: those the terms name for it; what they say counts only where they agree.
     let titles_of = |description: &str| contract_desc.get(&description.to_lowercase()).cloned().unwrap_or_default();
-    let reputation_of = |titles: &[String]| terms::agreed(titles, |t| reputation::line(table, t, words.gain_at));
+    let reputation_of = |titles: &[String]| terms::agreed(titles, |t| reputation::line(table, t, words.gain_at, words.gain_unknown));
     let region_of = |titles: &[String]| terms::agreed(titles, |t| reputation::region_line(table, t, words.region));
     let contract_block_for = |description: &str| {
         let titles = titles_of(description);
@@ -658,7 +720,7 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
     let block_for = |entry: &Map, description: &str| {
         let title = field(entry, "titel_key").filter(|v| truthy(Some(v))).map(py_str).unwrap_or_default();
         let known = !title.is_empty()
-            && (terms::entry_for(&table.terms, &title).is_some() || !reputation::line(table, &title, "x").is_empty());
+            && (terms::entry_for(&table.terms, &title).is_some() || !reputation::line(table, &title, "x", "x").is_empty());
         let titles = if known { vec![title] } else { titles_of(description) };
         let ctx = BlockContext {
             words: &words,
@@ -754,11 +816,17 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
     }
     changed += added_ships.len();
     // A description gets the block without the blank line it starts with;
-    // where the block has no item to speak of, nothing is written.
+    // where the block has no item to speak of, nothing is written. A name the
+    // file lacks gets the tag of the English original, as the names it has.
     let added_items: Vec<(&str, String)> = gaps
         .iter()
         .filter_map(|gap| match &gap.name {
-            Some(name) => Some((gap.key.as_str(), name.clone())),
+            Some(name) => {
+                let tag = (!name_suffix.is_empty())
+                    .then(|| inputs.original_specs.get(&gap.key.to_lowercase()))
+                    .flatten();
+                Some((gap.key.as_str(), tag.map_or_else(|| name.clone(), |tag| form::name_with_detail(name, tag))))
+            }
             None => {
                 item_block.get(&gap.key).map(|block| (gap.key.as_str(), block.trim_start_matches("\\n").to_string()))
             }

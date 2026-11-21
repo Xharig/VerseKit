@@ -33,13 +33,15 @@
 //! language line goes into a `user.cfg` for the first time, the old file is
 //! kept as `user.cfg.versekit-vorher`.
 
-use std::sync::LazyLock;
+use std::collections::BTreeMap;
+use std::sync::{LazyLock, Mutex};
 
 use crate::errors;
 use crate::game_ini;
 use crate::injection;
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::language::{self, Arg, Lang};
+use crate::luftwerft_list;
 use crate::net::{FetchError, Fresh, Net};
 use crate::paths::Paths;
 use crate::text::{decode_ignore, py_splitlines, py_strip};
@@ -170,12 +172,94 @@ pub static SOURCES: LazyLock<Vec<Source>> = LazyLock::new(|| {
         luftwerft("luftwerft_bar", "bavarian_(germany)", "s_sp_q_lw_bar", "de"),
         luftwerft("luftwerft_nl", "dutch_(netherlands)", "s_sp_q_lw_nl", "nl"),
         luftwerft("luftwerft_pt", "portuguese_(portugal)", "s_sp_q_lw_pt", "pt"),
+        luftwerft("luftwerft_ptbr", "portuguese_(brazil)", "s_sp_q_lw_ptbr", "br"),
     ]
 });
 
+/// The sources of the languages the kept list of Luftwerft adds, by id; made once and kept for the run.
+static EXTRA: LazyLock<Mutex<BTreeMap<String, &'static Source>>> = LazyLock::new(|| Mutex::new(BTreeMap::new()));
+
+fn leak(text: String) -> &'static str {
+    Box::leak(text.into_boxed_str())
+}
+
+/// Makes the sources of the languages the kept list of Luftwerft adds known to [`source`]. A language that is gone
+/// from the list stays known, so a choice of it keeps its name and its folder.
+pub fn register_extras(paths: &Paths) {
+    let entries = luftwerft_list::extras(paths);
+    if entries.is_empty() {
+        return;
+    }
+    let Ok(mut extra) = EXTRA.lock() else { return };
+    for entry in entries {
+        let id = luftwerft_list::id_of(&entry.folder);
+        if extra.contains_key(&id) {
+            continue;
+        }
+        let Some(live) = entry.live.clone() else { continue };
+        let made: &'static Source = Box::leak(Box::new(Source {
+            id: leak(id.clone()),
+            url: Some(live),
+            language: leak(entry.folder.clone()),
+            audio: Some("english"),
+            license: "siehe Projektseite",
+            page: "https://www.luftwerft.com/",
+            label: leak(luftwerft_list::name_of(&entry.folder)),
+            flag: "",
+            hint: Some("s_sp_hinweis_luftwerft"),
+            test: entry.ptu.clone().map(|url| Test { url: Some(url), ..Test::default() }),
+            ..Source::default()
+        }));
+        extra.insert(id, made);
+    }
+}
+
 /// A source by its id.
 pub fn source(id: &str) -> Option<&'static Source> {
-    SOURCES.iter().find(|s| s.id == id)
+    SOURCES.iter().find(|s| s.id == id).or_else(|| EXTRA.lock().ok().and_then(|extra| extra.get(id).copied()))
+}
+
+/// All sources: the fixed ones, then the languages the kept list of Luftwerft adds.
+pub fn sources_of(paths: &Paths) -> Vec<&'static Source> {
+    register_extras(paths);
+    let mut all: Vec<&'static Source> = SOURCES.iter().collect();
+    for entry in luftwerft_list::extras(paths) {
+        if let Some(found) = source(&luftwerft_list::id_of(&entry.folder)) {
+            all.push(found);
+        }
+    }
+    all
+}
+
+/// A source by its id as `paths` knows it: a language of the kept list of Luftwerft only where that list names it.
+fn source_in(paths: &Paths, id: &str) -> Option<&'static Source> {
+    if let Some(fixed) = SOURCES.iter().find(|s| s.id == id) {
+        return Some(fixed);
+    }
+    register_extras(paths);
+    let listed = luftwerft_list::extras(paths).iter().any(|entry| luftwerft_list::id_of(&entry.folder) == id);
+    if listed { source(id) } else { None }
+}
+
+/// The source chosen for a channel: the main installation (`None`) or a side channel.
+fn chosen_source(paths: &Paths, channel: Option<&str>) -> Option<String> {
+    match channel {
+        None => paths.setting(SETTING_SOURCE),
+        Some(channel) => {
+            channel_sources(paths).iter().find(|(k, _)| k == channel).and_then(|(_, v)| v.as_str()).map(str::to_string)
+        }
+    }
+}
+
+/// Is the list of Luftwerft kept and does it no longer name the language of this source for the channel? A choice
+/// of it stays; the page says so instead of switching by itself.
+pub fn delisted(paths: &Paths, source: &str, channel: Option<&str>) -> bool {
+    let Some(found) = source_in(paths, source) else { return false };
+    if !found.id.starts_with(luftwerft_list::ID_PREFIX) {
+        return false;
+    }
+    let test = channel.is_some_and(|c| TEST_CHANNELS.contains(&c));
+    luftwerft_list::lists(paths, found.language, test) == Some(false)
 }
 
 /// The key of a note: the bare source for the main installation,
@@ -280,7 +364,7 @@ pub fn spec(paths: &Paths, source: &str, channel: Option<&str>) -> Option<Spec> 
             hint: None,
         });
     }
-    let q = self::source(source)?;
+    let q = source_in(paths, source)?;
     let mut spec = Spec {
         source: q.id.into(),
         repo: owned(q.repo),
@@ -346,8 +430,10 @@ pub fn grouped_sources(paths: &Paths, channel: Option<&str>, with_original: bool
         Some((_, list)) => list.push(id.to_string()),
         None => by_language.push((language.to_string(), vec![id.to_string()])),
     };
-    for q in SOURCES.iter() {
-        if available(paths, q.id, channel) {
+    let kept = chosen_source(paths, channel);
+    for q in sources_of(paths) {
+        // A language Luftwerft no longer lists is offered only while it is the chosen one.
+        if available(paths, q.id, channel) && (kept.as_deref() == Some(q.id) || !delisted(paths, q.id, channel)) {
             // Bavarian is a German language: it stands in the row of German.
             let group = if q.language.starts_with("bavarian") { "german_(germany)" } else { q.language };
             push(group, q.id);
@@ -910,6 +996,9 @@ pub fn status_text(paths: &Paths, source: &str, channel: Option<&str>, lang: Lan
         if let Some(key) = key {
             parts.push(language::tf_in(lang, key, &[("0", Arg::from(when))]));
         }
+    }
+    if delisted(paths, source, channel) {
+        parts.push(language::t_in(lang, "s_sp_aus_liste"));
     }
     parts.join(" · ")
 }

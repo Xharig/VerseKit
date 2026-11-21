@@ -249,6 +249,37 @@ fn a_build_on_demand_asks_again_although_the_cache_is_current() {
     assert!(nothing.run().is_none());
 }
 
+/// The build tells how far it stands: it goes through every step in order, the readings of the records report
+/// their counts, nothing is left for the other process when it ends, and one that gives no catalogue ends as one
+/// that did not work.
+#[test]
+fn a_build_tells_its_steps_and_ends_clean() {
+    use versekit_core::build_progress::{self, Step};
+
+    let (paths, channel, cache) = case("list-progress");
+    let archive = channel.join("Data.p4k");
+    assert!(build_progress::take_ended().is_none(), "no run on this thread yet");
+    let built = list::rebuild_now_archive(&paths, Some(&archive), &cache, Fake::up()).run();
+    assert!(built.is_some());
+    let ended = build_progress::take_ended().expect("the run ended");
+    assert!(ended.worked, "a catalogue came out of it");
+    assert_eq!(ended.steps, Step::ALL, "every step, in the order of the build");
+    assert_eq!(
+        ended.readings, 7,
+        "contracts, places, three counted loops of the blueprints and two readings of the reputation"
+    );
+    assert!(ended.reports >= ended.readings, "each reading reported its records: {}", ended.reports);
+    assert!(ended.fraction >= 0.9 && ended.fraction < 1.0, "the last step stands at {}", ended.fraction);
+    assert!(!Path::new(&paths.app_file(build_progress::FILE)).exists(), "the file for the other process is gone");
+
+    // Nothing to build from: the run ends, told as one that did not work.
+    let nothing = list::rebuild_now_archive(&paths, None, &cache, Fake::down() as Arc<dyn Supply>).run();
+    assert!(nothing.is_none());
+    let failed = build_progress::take_ended().expect("the failed run ended too");
+    assert!(!failed.worked);
+    assert!(!Path::new(&paths.app_file(build_progress::FILE)).exists());
+}
+
 /// The red counter check of the test of the new user: a 4.12 cache next to
 /// the data must change nothing.
 #[test]

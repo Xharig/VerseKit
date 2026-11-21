@@ -287,28 +287,6 @@ impl OrgLink {
     }
 }
 
-/// Rows of an org for the tests of the pages that only receive the indexes of the window.
-#[cfg(test)]
-pub(crate) mod made_up {
-    use versekit_core::orgstd::data::{OrgBlueprint, OrgLot, Unit};
-
-    /// `quantity` SCU of `item` at quality 500, shared by nobody in particular.
-    pub fn lot(item: &str, quantity: f64, quality: u16) -> OrgLot {
-        OrgLot {
-            item: item.into(),
-            quantity,
-            unit: Unit::Scu,
-            quality: Some(quality),
-            location: String::new(),
-            member: String::new(),
-        }
-    }
-
-    pub fn blueprint(name: &str, holders: &[&str]) -> OrgBlueprint {
-        OrgBlueprint { name: name.into(), holders: holders.iter().map(|h| (*h).to_string()).collect() }
-    }
-}
-
 /// The line "In the org stock: …" under the own stock of a material.
 pub fn org_has_text(has: &OrgHas) -> String {
     let amount = amount_text(has.quantity, has.unit);
@@ -419,5 +397,27 @@ pub fn sample_data(now: u64) -> OrgData {
         stock: Slot { rows: Arc::new(stock), fetched_at: fetched, ..Slot::default() },
         blueprints: Slot { rows: Arc::new(blueprints), fetched_at: fetched, ..Slot::default() },
         orders: Slot { rows: Arc::new(orders), fetched_at: fetched, ..Slot::default() },
+    }
+}
+
+/// Rows of an org for the tests of the pages that only receive the indexes of the window.
+#[cfg(test)]
+pub(crate) mod made_up {
+    use versekit_core::orgstd::data::{OrgBlueprint, OrgLot, Unit};
+
+    /// `quantity` SCU of `item` at quality 500, shared by nobody in particular.
+    pub fn lot(item: &str, quantity: f64, quality: u16) -> OrgLot {
+        OrgLot {
+            item: item.into(),
+            quantity,
+            unit: Unit::Scu,
+            quality: Some(quality),
+            location: String::new(),
+            member: String::new(),
+        }
+    }
+
+    pub fn blueprint(name: &str, holders: &[&str]) -> OrgBlueprint {
+        OrgBlueprint { name: name.into(), holders: holders.iter().map(|h| (*h).to_string()).collect() }
     }
 }

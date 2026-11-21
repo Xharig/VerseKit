@@ -1754,7 +1754,7 @@ pub fn progress(ui: &mut Ui, scheme: &Scheme, fraction: f32, width: f32) -> Resp
         let label_width = line_galley(ui, "100 %", TextStyle::Body).size().x;
         let track_width = (width.min(ui.available_width()) - label_width - ui.spacing().item_spacing.x).max(20.0);
         let (rect, response) = ui.allocate_exact_size(vec2(track_width, PROGRESS_HEIGHT), Sense::hover());
-        let radius = CornerRadius::same(if scheme.square { 0 } else { (PROGRESS_HEIGHT / 2.0) as u8 });
+        let radius = CornerRadius::same(if scheme.square || scheme.flat_gauges { 0 } else { (PROGRESS_HEIGHT / 2.0) as u8 });
         ui.painter().rect_filled(rect, radius, color(scheme.track));
         let mut done = rect;
         done.set_width(rect.width() * fraction);
@@ -2312,7 +2312,7 @@ pub fn new_badge(ui: &mut Ui, scheme: &Scheme, text: &str) -> Response {
     let size = TextStyle::Small.resolve(ui.style()).size;
     let galley = ui.painter().layout_no_wrap(text.to_string(), crate::fonts::bold(size), color(scheme.bg));
     let (rect, response) = ui.allocate_exact_size(galley.size() + vec2(10.0, 4.0), Sense::hover());
-    let radius = CornerRadius::same(if scheme.square { 0 } else { 7 });
+    let radius = CornerRadius::same(if scheme.square || scheme.flat_gauges { 0 } else { 7 });
     ui.painter().rect_filled(rect, radius, color(scheme.accent));
     ui.painter().galley(rect.center() - galley.size() / 2.0, galley, color(scheme.bg));
     response
@@ -2540,6 +2540,8 @@ pub fn bar_action(
 pub struct Activity<'a> {
     pub text: &'a str,
     pub done: Option<f32>,
+    /// The name of the symbol before the line.
+    pub icon: &'a str,
 }
 
 /// Width of the progress track in the foot bar.
@@ -2570,13 +2572,13 @@ pub fn foot_bar(
     left.set_clip_rect(left_rect.intersect(ui.clip_rect()));
     match activity {
         Some(activity) => {
-            if let Some(image) = crate::icons::image("download", scheme.accent, BAR_ICON) {
+            if let Some(image) = crate::icons::image(activity.icon, scheme.accent, BAR_ICON) {
                 left.add(image);
             }
             if let Some(done) = activity.done {
                 let done = done.clamp(0.0, 1.0);
                 let (track, _) = left.allocate_exact_size(vec2(FOOT_TRACK, 4.0), Sense::hover());
-                let radius = CornerRadius::same(if scheme.square { 0 } else { 2 });
+                let radius = CornerRadius::same(if scheme.square || scheme.flat_gauges { 0 } else { 2 });
                 left.painter().rect_filled(track, radius, color(scheme.track));
                 let mut filled = track;
                 filled.set_width(track.width() * done);
@@ -3227,7 +3229,7 @@ pub fn scroll_area<R>(
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> ScrollAreaOutput<R> {
     let content_visuals = ui.visuals().clone();
-    let radius = CornerRadius::same(if scheme.square { 0 } else { (SCROLL_WIDTH / 2.0) as u8 });
+    let radius = CornerRadius::same(if scheme.square || scheme.flat_gauges { 0 } else { (SCROLL_WIDTH / 2.0) as u8 });
     ui.scope(|ui| {
         ui.spacing_mut().scroll = scroll_style();
         let v = ui.visuals_mut();
@@ -3285,19 +3287,9 @@ pub fn data_age(ui: &mut Ui, scheme: &Scheme, seconds: f64, exact: &str) -> Resp
 }
 
 /// A lasting state on a page, e.g. game folder found: a box with
-/// a bar in `tone` at the left, an icon, a bold sentence and a muted line.
+/// a bar in `tone` at the left, an icon, a bold sentence and a muted line; both wrap instead of being cut.
 pub fn status_box(ui: &mut Ui, scheme: &Scheme, tone: Color, icon: &str, head: &str, line: &str) -> Response {
-    status_box_in(ui, scheme, tone, icon, head, line, false)
-}
-
-/// [`status_box`] whose sentence and line wrap instead of being cut: for names that are not ours to shorten, such
-/// as the name of an org.
-pub fn status_box_wrapping(ui: &mut Ui, scheme: &Scheme, tone: Color, icon: &str, head: &str, line: &str) -> Response {
-    status_box_in(ui, scheme, tone, icon, head, line, true)
-}
-
-fn status_box_in(ui: &mut Ui, scheme: &Scheme, tone: Color, icon: &str, head: &str, line: &str, wrap: bool) -> Response {
-    let fit = |label: egui::Label| if wrap { label.wrap() } else { label.truncate() };
+    let fit = |label: egui::Label| label.wrap();
     let inner = Frame::new()
         .fill(color(scheme.surface))
         .stroke(Stroke::new(1.0, color(scheme.line)))
@@ -4307,7 +4299,7 @@ mod tests {
         crate::install(&ctx);
         let s = theme::by_id("original").expect("scheme");
         let long = "Spiel läuft · Stanton · 4.3.1 · ".repeat(20);
-        let loading = Activity { text: &long, done: Some(0.5) };
+        let loading = Activity { text: &long, done: Some(0.5), icon: "download" };
         // (bar, report, news, clicked, status) of the last frame.
         let state = std::cell::RefCell::new((Rect::NOTHING, Rect::NOTHING, Rect::NOTHING, false, Rect::NOTHING));
         let mut draw = |ui: &mut Ui| {
@@ -4349,7 +4341,8 @@ mod tests {
                     nav_entry(ui, s, "factory", "Herstellung", false, Some("NEU"));
                     nav_entry(ui, s, "star", "Wunschliste", true, None);
                 });
-                let loading = Activity { text: "Basetool-Daten werden geladen …", done: Some(0.42) };
+                let loading =
+                    Activity { text: "Basetool-Daten werden geladen …", done: Some(0.42), icon: "download" };
                 for activity in [None, Some(&loading)] {
                     foot_bar(ui, s, "Spiel läuft", activity, |ui| {
                         bar_action(ui, s, "bug", "Fehler melden", "Öffnet die Diagnose", true);

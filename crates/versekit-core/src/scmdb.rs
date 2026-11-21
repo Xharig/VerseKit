@@ -84,6 +84,8 @@ pub(crate) fn agent(user_agent: &str) -> ureq::Agent {
         .http_status_as_error(false)
         // Every address is https; a redirect must not lead to plain http.
         .https_only(true)
+        // A redirect never carries the `Authorization` header (the UEX token) to the next address.
+        .redirect_auth_headers(ureq::config::RedirectAuthHeaders::Never)
         .timeout_global(Some(TIMEOUT))
         .user_agent(user_agent)
         .tls_config(tls)
@@ -92,17 +94,31 @@ pub(crate) fn agent(user_agent: &str) -> ureq::Agent {
 }
 
 pub(crate) fn fetch_from(agent: &ureq::Agent, url: &str) -> Result<Vec<u8>, FetchError> {
-    let mut answer = agent.get(url).call().map_err(|error| FetchError::Failed(error.to_string()))?;
+    fetch_answer(agent, url, None).map_err(|(_, error)| error)
+}
+
+/// [`fetch_from`] with `Authorization: Bearer <bearer>` when `bearer` is given; a failure carries the HTTP status
+/// (0 where no answer came). The bearer never goes into an error text.
+pub(crate) fn fetch_answer(
+    agent: &ureq::Agent,
+    url: &str,
+    bearer: Option<&str>,
+) -> Result<Vec<u8>, (u16, FetchError)> {
+    let mut request = agent.get(url);
+    if let Some(bearer) = bearer {
+        request = request.header("Authorization", format!("Bearer {bearer}"));
+    }
+    let mut answer = request.call().map_err(|error| (0, FetchError::Failed(error.to_string())))?;
     match answer.status().as_u16() {
         200 => answer
             .body_mut()
             .with_config()
             .limit(BODY_LIMIT)
             .read_to_vec()
-            .map_err(|error| FetchError::Failed(error.to_string())),
-        403 => Err(FetchError::Refused),
-        404 => Err(FetchError::Missing),
-        status => Err(FetchError::Failed(format!("HTTP {status}"))),
+            .map_err(|error| (200, FetchError::Failed(error.to_string()))),
+        403 => Err((403, FetchError::Refused)),
+        404 => Err((404, FetchError::Missing)),
+        status => Err((status, FetchError::Failed(format!("HTTP {status}")))),
     }
 }
 

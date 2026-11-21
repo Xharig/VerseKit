@@ -72,6 +72,51 @@ impl When {
     }
 }
 
+/// How the window of a program opens (`fenster`). Only the start by the system honours it, and only for
+/// programs that follow the show command of their start (most do); on other systems it is kept and ignored.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Show {
+    /// As the program wants.
+    #[default]
+    Normal,
+    /// Minimized, without taking the focus.
+    Minimized,
+    /// Maximized.
+    Maximized,
+    /// Without a window.
+    Hidden,
+}
+
+impl Show {
+    /// Every mode, in the order of the page.
+    pub const ALL: [Show; 4] = [Show::Normal, Show::Minimized, Show::Maximized, Show::Hidden];
+
+    /// The word as it is stored.
+    pub fn stored(self) -> &'static str {
+        match self {
+            Show::Normal => "normal",
+            Show::Minimized => "minimiert",
+            Show::Maximized => "maximiert",
+            Show::Hidden => "versteckt",
+        }
+    }
+
+    /// An unknown word counts as `normal`.
+    pub fn of(word: &str) -> Show {
+        Show::ALL.into_iter().find(|s| s.stored() == word).unwrap_or(Show::Normal)
+    }
+
+    /// The key of the text on the page.
+    pub fn text_key(self) -> &'static str {
+        match self {
+            Show::Normal => "s_pg_fenster_normal",
+            Show::Minimized => "s_pg_fenster_min",
+            Show::Maximized => "s_pg_fenster_max",
+            Show::Hidden => "s_pg_fenster_weg",
+        }
+    }
+}
+
 /// One start program.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
@@ -87,6 +132,8 @@ pub struct Entry {
     pub wait: i64,
     /// End it again when the game ends (`beenden`).
     pub end: bool,
+    /// How its window opens (`fenster`).
+    pub show: Show,
 }
 
 impl Default for Entry {
@@ -99,6 +146,7 @@ impl Default for Entry {
             when: When::Launcher,
             wait: 0,
             end: false,
+            show: Show::Normal,
         }
     }
 }
@@ -165,6 +213,9 @@ pub fn entries(paths: &Paths) -> Vec<Entry> {
             if let Some(v) = item.get("beenden") {
                 entry.end = truthy(v);
             }
+            if let Some(v) = item.get("fenster") {
+                entry.show = Show::of(v.as_str().unwrap_or(""));
+            }
             Some(entry)
         })
         .collect()
@@ -183,6 +234,7 @@ pub fn save(paths: &Paths, items: &[Entry]) -> bool {
                 ("wann".into(), Value::str(e.when.stored())),
                 ("warten".into(), Value::int(e.wait)),
                 ("beenden".into(), Value::Bool(e.end)),
+                ("fenster".into(), Value::str(e.show.stored())),
             ];
             Value::Object(fields)
         })
@@ -371,9 +423,9 @@ pub fn launch(
         return Err(LaunchError::Missing(path));
     }
     let folder = flavor_dirname(&path, flavor);
-    let (command, end) = (command(entry, flavor), entry.end);
+    let (command, end, show) = (command(entry, flavor), entry.end, entry.show);
     let go = move || -> Result<(), LaunchError> {
-        match spawner.spawn_program(&command, folder.as_deref()) {
+        match spawner.spawn_program_shown(&command, folder.as_deref(), show) {
             Ok(process) => {
                 if end {
                     RUNNING.lock().unwrap_or_else(|e| e.into_inner()).push(process);
@@ -482,8 +534,9 @@ mod tests {
                 when: When::Game,
                 wait: 5,
                 end: true,
+                show: Show::Hidden,
             },
-            entry("/x/b", When::Replaces),
+            Entry { show: Show::Maximized, ..entry("/x/b", When::Replaces) },
         ];
         assert!(save(&paths, &items));
         assert_eq!(entries(&paths), items);
@@ -496,6 +549,24 @@ mod tests {
         assert_eq!(read.len(), 2);
         assert_eq!((read[0].file.as_str(), read[0].when, read[0].wait, read[0].on), ("/x/c", When::Launcher, 7, true));
         assert_eq!((read[1].name.as_str(), read[1].on), ("D", false));
+        assert_eq!((read[0].show, read[1].show), (Show::Normal, Show::Normal), "no word: as the program wants");
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn the_window_mode_of_an_entry_reaches_the_start_and_a_strange_word_means_normal() {
+        let home = scratch("fenster");
+        let recorder = Arc::new(Recorder::default());
+        let spawner: Arc<dyn Spawner> = recorder.clone();
+        let file = file_in(&home, "tool.exe");
+        for show in Show::ALL {
+            let item = Entry { show, ..entry(&file, When::Launcher) };
+            assert_eq!(launch(&item, spawner.clone(), Flavor::Posix, false), Ok(()));
+            assert_eq!(Show::of(show.stored()), show, "stored and read back");
+        }
+        let seen: Vec<Show> = recorder.program_calls().iter().map(|c| c.show).collect();
+        assert_eq!(seen, Show::ALL);
+        assert_eq!(Show::of("quer"), Show::Normal);
         let _ = std::fs::remove_dir_all(home);
     }
 

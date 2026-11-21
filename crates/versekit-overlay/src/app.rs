@@ -49,6 +49,7 @@ use versekit_core::overlay::{
 use versekit_core::overlay_control::{self, Control, Place};
 use versekit_core::paths::{Host, Paths};
 use versekit_core::shard::{self, Joins};
+use versekit_core::sound::Cue;
 use versekit_core::window_signal::{self, Role, Signal};
 use versekit_core::{font_size, jsonio::Value, location, screen, theme, writeguard};
 use versekit_ui::handle_search::HandleSearch;
@@ -78,7 +79,7 @@ mod os {
 
     #[cfg(windows)]
     pub use crate::win::{
-        allow_typing, beep, game_process, move_to, nudge_pointer, pointer, reassert_topmost, set_rect, set_region,
+        allow_typing, game_process, move_to, nudge_pointer, pointer, reassert_topmost, set_rect, set_region,
         window_rect,
     };
 
@@ -91,11 +92,6 @@ mod os {
         false
     }
 
-    /// The short sound of a find; `loud` for one that must not be missed.
-    #[cfg(not(windows))]
-    pub fn beep(loud: bool, volume: i64) {
-        versekit_core::sound::play(loud, volume);
-    }
     #[cfg(target_os = "macos")]
     pub fn set_region(_hwnd: isize, _r: Option<Rect>, _radius: i32) -> bool {
         false
@@ -166,6 +162,8 @@ const PAGE_WAIT: Duration = Duration::from_secs(60);
 /// How often the game and the location are looked at.
 const GAME_EVERY: Duration = Duration::from_secs(2);
 const LOCATION_EVERY: Duration = Duration::from_secs(10);
+/// How often it is asked whether the game is in front again while a hint row says it is not.
+const AWAY_ASK: Duration = Duration::from_millis(250);
 /// How often the open overlay reads the refinery jobs again (the time left counts on in between).
 const REFINERY_READ_EVERY: Duration = Duration::from_secs(15);
 /// A frame at least this often: pointer, click-through and the timers.
@@ -320,6 +318,19 @@ pub struct OverlayApp {
     pub contracts: Vec<ContractLine>,
     /// Messages for the system, not yet shown: (title, text).
     pub notices: Vec<(String, String)>,
+    /// The notice after a scan by hotkey, shown over the game for a moment ([`OverlayApp::show_scan_notice`]).
+    scan_notices: crate::notice::Notices,
+    /// The texts of the hint rows that say Star Citizen is not in front; they go once it is in front again.
+    away_hints: Vec<String>,
+    /// When it was last asked whether the game is in front for [`OverlayApp::away_hints`].
+    away_asked: Option<Instant>,
+    /// Is Star Citizen the window in front? The system's answer; a test sets its own.
+    game_in_front: fn() -> bool,
+    /// The area of the game while it is in front, for the notice over it. The system's answer; a test sets its own.
+    game_area: fn() -> Option<versekit_core::screen_grab::Area>,
+    /// The sounds played, in their order: a test hears none.
+    #[cfg(test)]
+    played: Vec<versekit_core::sound::Cue>,
     /// The icon next to the clock; under `--probe` its shell is a recorder.
     #[cfg(windows)]
     pub tray: Option<crate::tray::Tray>,
@@ -347,6 +358,8 @@ pub struct OverlayApp {
     /// The hotkey of the main window, read at every key, and its presses.
     main_hotkey: Arc<Mutex<Option<Hotkey>>>,
     main_presses: Receiver<()>,
+    /// The hotkey of the blueprint scan at the crafting terminal and the scan it started.
+    blueprint: crate::blueprint::BlueprintKey,
     /// The bridge to scmdb.net (`apply_scmdb`).
     scmdb: versekit_core::scmdb_bridge::Bridge,
     started: Instant,
@@ -916,6 +929,7 @@ impl OverlayApp {
             *self.picture.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.picture_hotkey;
             *self.search_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.search_hotkey;
             *self.main_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.main_hotkey;
+            *self.blueprint.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.blueprint_hotkey;
             let scmdb_changed = fresh.scmdb != self.settings.scmdb;
             let sizes = (self.settings.size_percent, fresh.size_percent);
             self.settings = fresh;
@@ -1089,11 +1103,14 @@ impl OverlayApp {
                 News::Contracts(lines) if lines.is_empty() && self.counter.as_deref() == Some("stand_haengt") => {}
                 News::Contracts(lines) => self.contracts = lines,
                 News::ContractGone(title) => self.rows.remove_contract(&title),
-                News::Catalog { row, loud } => {
-                    self.rows.push(row, self.settings.rows);
-                    // No opening and no flash: it is news from the catalog, not a find of the player.
+                News::Catalog { rows, loud } => {
+                    for row in rows {
+                        self.rows.push(row, self.settings.rows);
+                    }
+                    // No opening and no flash: it is news from the catalog, not a find of the player. One sound for
+                    // the whole look, however many it found.
                     if self.settings.sound {
-                        os::beep(loud, self.settings.volume);
+                        self.sound(if loud { Cue::Watch } else { Cue::Find });
                     }
                 }
                 News::System(title, text) => self.notices.push((title.to_string(), text.to_string())),
@@ -1101,11 +1118,11 @@ impl OverlayApp {
                     self.read_control_now();
                     self.opens_for(Event::Blueprint, now);
                     if self.settings.sound {
-                        os::beep(false, self.settings.volume);
+                        self.sound(Cue::Find);
                     }
                 }
                 // The sound of a refinery job that is done: its own switch, checked where it is told.
-                News::Beep => os::beep(false, self.settings.volume),
+                News::Beep => self.sound(Cue::Find),
                 // No sound: the blueprint has its own, the others open quietly.
                 News::Opens(event) => {
                     self.read_control_now();
@@ -1153,14 +1170,14 @@ impl OverlayApp {
         while self.hotkey_presses.try_recv().is_ok() {
             self.fold_by_hand(now);
         }
-        // The hotkey of the refinery scan: one reading at a time; the main window opens on what it read.
-        let (paths, sound) = (self.paths.as_ref().map(|p| Paths::new(p.host.clone())), self.settings.sound);
-        let volume = self.settings.volume;
+        // The hotkey of the refinery scan: one reading at a time; its notice over the game says what came of it, and
+        // the main window opens on what it read.
+        let paths = self.paths.as_ref().map(|p| Paths::new(p.host.clone()));
+        let (mut reading, mut pressed) = (false, false);
         let read = self.refinery.poll(|done| match paths {
             Some(paths) => {
-                if sound {
-                    os::beep(false, volume);
-                }
+                reading = true;
+                pressed = true;
                 let wake = || {
                     if let Some(ctx) = crate::CONTEXT.get() {
                         ctx.request_repaint();
@@ -1169,24 +1186,28 @@ impl OverlayApp {
                 crate::refinery::read_screen(paths, writeguard::state(), done, wake);
             }
             None => {
+                pressed = true;
                 let _ = done.send(crate::refinery::Outcome::NoGame);
             }
         });
-        match read.map(|outcome| outcome.hint()) {
-            Some(None) => self.open_main(Signal::OpenStockScan),
-            Some(Some(key)) => {
-                self.rows.push(Row::Hint { text: Phrase::new(key).into(), contract: None }, self.settings.rows)
+        self.key_pressed(pressed);
+        // The reading of the whole screen takes seconds: the player sees at once that it runs.
+        if reading && read.is_none() && self.args.probe.is_none() && (self.game_area)().is_some() {
+            self.show_scan_notice(&crate::refinery::Outcome::working());
+        }
+        if let Some(outcome) = read {
+            self.show_scan_notice(&outcome.notice());
+            if outcome.opens_main() {
+                self.open_main(Signal::OpenStockScan);
             }
-            None => {}
         }
         // The hotkey of the picture of the game: one grab at a time, kept for the main window; a hint row says what
         // came of it.
-        let (paths, sound) = (self.paths.as_ref().map(|p| Paths::new(p.host.clone())), self.settings.sound);
+        let paths = self.paths.as_ref().map(|p| Paths::new(p.host.clone()));
+        let mut pressed = false;
         let taken = self.picture.poll(|done| match paths {
             Some(paths) => {
-                if sound {
-                    os::beep(false, volume);
-                }
+                pressed = true;
                 let wake = || {
                     if let Some(ctx) = crate::CONTEXT.get() {
                         ctx.request_repaint();
@@ -1195,11 +1216,37 @@ impl OverlayApp {
                 crate::picture::take(paths, writeguard::state(), done, wake);
             }
             None => {
+                pressed = true;
                 let _ = done.send(crate::picture::Outcome::Failed);
             }
         });
+        self.key_pressed(pressed);
         if let Some(outcome) = taken {
-            self.rows.push(Row::Hint { text: Phrase::new(outcome.hint()).into(), contract: None }, self.settings.rows);
+            self.show_scan_notice(&outcome.notice());
+        }
+        // The hotkey of the blueprint scan: the name beside the pointer read where the pointer stands at the press,
+        // one scan at a time; its notice over the game says what came of it.
+        let paths = self.paths.as_ref().map(|p| Paths::new(p.host.clone()));
+        let mut pressed = false;
+        let scanned = self.blueprint.poll(|done| match paths {
+            Some(paths) => {
+                pressed = true;
+                let pointer = os::pointer().map(|p| (p.x, p.y));
+                let wake = || {
+                    if let Some(ctx) = crate::CONTEXT.get() {
+                        ctx.request_repaint();
+                    }
+                };
+                crate::blueprint::start(paths, pointer, writeguard::state(), done, wake);
+            }
+            None => {
+                pressed = true;
+                let _ = done.send(crate::blueprint::Outcome::NoGame);
+            }
+        });
+        self.key_pressed(pressed);
+        if let Some(outcome) = scanned {
+            self.show_scan_notice(&outcome.notice());
         }
         // The hotkey of the handle search: the info bar takes the keyboard and its field the cursor; without the bar
         // on the screen a hint row says where the search is.
@@ -1228,6 +1275,36 @@ impl OverlayApp {
         for phrase in hotkey_x11::take_told() {
             self.rows.push(Row::Hint { text: phrase.into(), contract: None }, self.settings.rows);
         }
+        self.clear_away_hints(Instant::now());
+    }
+
+    /// The hint rows that say Star Citizen is not in front go once it is in front again; asked at most four times a
+    /// second, and only while there is such a row.
+    fn clear_away_hints(&mut self, now: Instant) {
+        if self.away_hints.is_empty() || self.away_asked.is_some_and(|at| now.duration_since(at) < AWAY_ASK) {
+            return;
+        }
+        self.away_asked = Some(now);
+        if !(self.game_in_front)() {
+            return;
+        }
+        let gone = std::mem::take(&mut self.away_hints);
+        self.rows.remove_hints(|text| matches!(text, Message::Plain(text) if gone.contains(text)));
+    }
+
+    /// The click of a scan key that was pressed, if the sounds are on.
+    fn key_pressed(&mut self, pressed: bool) {
+        if pressed && self.settings.sound {
+            self.sound(Cue::Press);
+        }
+    }
+
+    /// Plays `cue` at the volume of the settings; a test only notes it.
+    fn sound(&mut self, cue: Cue) {
+        #[cfg(test)]
+        self.played.push(cue);
+        #[cfg(not(test))]
+        versekit_core::sound::play_cue(cue, self.settings.volume);
     }
 
     /// The player takes a contract out of the bar. The watcher keeps the ids in its file, so it stays
@@ -1747,6 +1824,31 @@ impl OverlayApp {
         }
     }
 
+    /// Shows the notice of a scan by hotkey (any scan: blueprint, refinery): its sound, if the sounds are on, and the
+    /// notice for a moment in the middle over the game while the game is in front. Without the game in front, or
+    /// without a window for it, the notice becomes a hint row of the overlay.
+    pub fn show_scan_notice(&mut self, notice: &versekit_core::scan_notice::Notice) {
+        if self.settings.sound
+            && let Some(cue) = notice.kind.sound()
+        {
+            self.sound(cue);
+        }
+        let game = if self.args.probe.is_none() { (self.game_area)() } else { None };
+        let shown = game.is_some_and(|area| self.scan_notices.show(notice, area, theme::current(), Instant::now()));
+        if !shown {
+            let text = if notice.detail.is_empty() {
+                notice.title.clone()
+            } else {
+                format!("{}: {}", notice.title, notice.detail)
+            };
+            // Said that the game is not in front: the row goes once it is.
+            if notice.away && !self.away_hints.contains(&text) {
+                self.away_hints.push(text.clone());
+            }
+            self.rows.push(Row::Hint { text: Message::Plain(text), contract: None }, self.settings.rows);
+        }
+    }
+
     pub fn open_main(&mut self, signal: Signal) {
         if self.counter.as_deref() == Some("uebersicht") {
             return;
@@ -2012,6 +2114,25 @@ impl OverlayApp {
         }
     }
 
+    /// While the start waits for the catalogue (no cache to take; the watcher builds it first), the line "Starting …"
+    /// tells how far the build stands; once the watcher says something else, that stays.
+    fn show_catalog_build(&mut self) {
+        let starting = matches!(&self.status, Message::Phrase(p) if p.key == "ov_starte" || p.key == "ov_starte_katalog");
+        if !starting {
+            return;
+        }
+        let seen = versekit_core::build_progress::snapshot().filter(|seen| !seen.waiting);
+        self.status = match seen {
+            Some(seen) => Phrase::new("ov_starte_katalog")
+                .with("0", seen.percent())
+                .with("1", seen.step.number())
+                .with("2", versekit_core::build_progress::Step::count())
+                .with("3", Phrase::new(seen.step.key()))
+                .into(),
+            None => Phrase::new("ov_starte").into(),
+        };
+    }
+
     /// One frame of the overlay.
     pub fn frame(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
@@ -2019,6 +2140,7 @@ impl OverlayApp {
         self.take_control();
         self.refresh_settings(&ctx);
         self.take_news();
+        self.show_catalog_build();
         if !std::mem::replace(&mut self.game_programs_checked, true) && self.game_real {
             self.game_programs(true);
         }
@@ -2196,6 +2318,9 @@ impl OverlayApp {
         });
         self.hint_window.step(&ctx, hint, pointer_now, symbol, scheme);
         self.remember_place();
+        if let Some(left) = self.scan_notices.expire(Instant::now()) {
+            ctx.request_repaint_after(left + Duration::from_millis(30));
+        }
         ctx.request_repaint_after(TICK);
     }
 
@@ -2487,6 +2612,7 @@ struct Parts {
     search_presses: Receiver<()>,
     main_hotkey: Arc<Mutex<Option<Hotkey>>>,
     main_presses: Receiver<()>,
+    blueprint: crate::blueprint::BlueprintKey,
     control: Option<Receiver<Control>>,
     start: Rect,
     /// A size or place was remembered: the first frame does not measure a default size.
@@ -2611,6 +2737,13 @@ impl OverlayApp {
             rows: if sample { OverlayApp::sample_rows() } else { Rows::default() },
             contracts: Vec::new(),
             notices: Vec::new(),
+            scan_notices: crate::notice::Notices::default(),
+            away_hints: Vec::new(),
+            away_asked: None,
+            game_in_front: versekit_core::screen_grab::foreground_is_game,
+            game_area: versekit_core::screen_grab::game_rect,
+            #[cfg(test)]
+            played: Vec::new(),
             #[cfg(windows)]
             tray: None,
             #[cfg(windows)]
@@ -2633,6 +2766,7 @@ impl OverlayApp {
             search_presses: p.search_presses,
             main_hotkey: p.main_hotkey,
             main_presses: p.main_presses,
+            blueprint: p.blueprint,
             scmdb: versekit_core::scmdb_bridge::Bridge::new(),
             started: Instant::now(),
             current: start,
@@ -3053,6 +3187,21 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             }
             #[cfg(target_os = "macos")]
             drop(main_tx);
+            // The hotkey of the blueprint scan reads letters with the recognition of Windows: only there.
+            let (blueprint_tx, blueprint_rx) = mpsc::channel();
+            let blueprint = crate::blueprint::BlueprintKey::new(settings.blueprint_hotkey, blueprint_rx);
+            #[cfg_attr(not(windows), allow(unused_mut))]
+            let mut blueprint_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() && versekit_core::screen_grab::supported() {
+                let ctx = cc.egui_ctx.clone();
+                blueprint_registered =
+                    crate::win::start_hotkeys(blueprint.hotkey.clone(), blueprint_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(not(windows))]
+            drop(blueprint_tx);
             if args.probe.is_none()
                 && let Some(choice) = &hotkey_choice
             {
@@ -3072,6 +3221,10 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     }
                     let main = overlay::HotkeyChoice::read_main(paths);
                     versekit_core::trail::step(&overlay::main_hotkey_trail(&main, main_registered));
+                    if cfg!(windows) {
+                        let blueprint = overlay::HotkeyChoice::read_blueprint(paths);
+                        versekit_core::trail::step(&overlay::blueprint_hotkey_trail(&blueprint, blueprint_registered));
+                    }
                 }
             }
             let mut app = OverlayApp::new(Parts {
@@ -3093,6 +3246,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 search_presses: search_rx,
                 main_hotkey,
                 main_presses: main_rx,
+                blueprint,
                 control: control_rx,
                 start,
                 remembered: remembered.is_some(),
@@ -3236,6 +3390,8 @@ mod tests {
         picture_key: Sender<()>,
         /// A press of the hotkey of the main window.
         main_key: Sender<()>,
+        /// A press of the hotkey of the blueprint scan.
+        blueprint_key: Sender<()>,
     }
 
     fn bench(args: Args, real_game: bool, paths: Option<Paths>) -> Bench {
@@ -3307,12 +3463,13 @@ mod tests {
         assert!(bench.app.launched.is_none(), "the presses were taken");
     }
 
-    /// The hotkey of the picture of the game: two quick presses are one grab, and a hint row says what came of it
-    /// (without own data there is no folder to keep it in).
+    /// The hotkey of the picture of the game: two quick presses are one grab, and its notice says what came of it,
+    /// as a hint row where the game is not in front (without own data there is no folder to keep it in).
     #[test]
     fn the_hotkey_of_the_picture_says_what_came_of_the_grab() {
         let mut bench = bench(Args::default(), false, None);
-        let hint = language::t("ov_hk_bild_fehler");
+        let failed = crate::picture::Outcome::Failed.notice();
+        let hint = format!("{}: {}", failed.title, failed.detail);
         let hints = |app: &OverlayApp| {
             app.rows.iter().filter(|row| matches!(row, Row::Hint { text, .. } if text.render() == hint)).count()
         };
@@ -3325,6 +3482,123 @@ mod tests {
         assert_eq!(hints(&bench.app), 1, "one hint for two quick presses");
         bench.app.take_news();
         assert_eq!(hints(&bench.app), 1, "told once");
+    }
+
+    /// A press of the hotkey of the blueprint scan without data says once that Star Citizen is not in front: without
+    /// the game in front its notice becomes a hint row, two quick presses one notice.
+    #[test]
+    fn the_hotkey_of_the_blueprint_scan_says_once_what_came_of_it() {
+        let mut bench = bench(Args::default(), false, None);
+        bench.app.settings.sound = false;
+        let hint = language::t("s_bpscan_kein_spiel");
+        let hints = |app: &OverlayApp| {
+            app.rows.iter().filter(|row| matches!(row, Row::Hint { text, .. } if text.render() == hint)).count()
+        };
+        bench.app.rows.clear();
+        bench.app.take_news();
+        assert_eq!(hints(&bench.app), 0, "no press, nothing");
+        bench.blueprint_key.send(()).unwrap();
+        bench.blueprint_key.send(()).unwrap();
+        bench.app.take_news();
+        assert_eq!(hints(&bench.app), 1, "one notice for two quick presses");
+        bench.app.take_news();
+        assert_eq!(hints(&bench.app), 1, "told once");
+        assert!(!bench.app.scan_notices.showing(), "no window without the game in front");
+    }
+
+    /// The hint row that Star Citizen is not in front goes by itself once it is in front again; the other hint rows
+    /// stay, and the row does not go while the game stays away.
+    #[test]
+    fn the_hint_that_the_game_is_not_in_front_goes_once_it_is() {
+        let mut bench = bench(Args::default(), false, None);
+        let away = |app: &OverlayApp| {
+            let texts = [language::t("s_bpscan_kein_spiel"), language::t("rf_hk_kein_spiel")];
+            app.rows.iter().filter(|row| matches!(row, Row::Hint { text, .. } if texts.contains(&text.render()))).count()
+        };
+        let other = Row::Hint { text: Message::Plain("Anderer Hinweis".into()), contract: None };
+        bench.app.rows.clear();
+        bench.app.rows.push(other.clone(), 9);
+        bench.app.show_scan_notice(&crate::blueprint::Outcome::NoGame.notice());
+        bench.app.show_scan_notice(&crate::refinery::Outcome::NoGame.notice());
+        bench.app.show_scan_notice(&crate::picture::Outcome::Failed.notice());
+        assert_eq!(away(&bench.app), 2, "{:?}", bench.app.rows);
+        let start = Instant::now();
+        bench.app.clear_away_hints(start);
+        assert_eq!(away(&bench.app), 2, "the game is still away: the rows stay");
+        bench.app.game_in_front = || true;
+        bench.app.clear_away_hints(start + Duration::from_millis(100));
+        assert_eq!(away(&bench.app), 2, "not asked again so soon");
+        bench.app.clear_away_hints(start + AWAY_ASK);
+        assert_eq!(away(&bench.app), 0, "in front again: gone, {:?}", bench.app.rows);
+        assert!(bench.app.rows.iter().any(|row| *row == other), "another hint stays");
+        let failed = crate::picture::Outcome::Failed.notice();
+        let failed = format!("{}: {}", failed.title, failed.detail);
+        assert!(bench.app.rows.iter().any(|row| matches!(row, Row::Hint { text, .. } if text.render() == failed)));
+        assert!(bench.app.away_hints.is_empty());
+        // Through the news of a frame, as the overlay runs (the moments above are made up: forgotten).
+        bench.app.away_asked = None;
+        bench.app.game_in_front = || false;
+        bench.blueprint_key.send(()).unwrap();
+        bench.app.take_news();
+        assert_eq!(away(&bench.app), 1);
+        bench.app.game_in_front = || true;
+        std::thread::sleep(AWAY_ASK);
+        bench.app.take_news();
+        assert_eq!(away(&bench.app), 0, "gone in the next frame with the game in front");
+    }
+
+    /// Each scan by hotkey clicks when its key is pressed and then plays the sound of what came of it: taken,
+    /// already there, a question, nothing or a fault, the game not in front. A reading that runs has no sound of its
+    /// own; without the sounds there is none.
+    #[test]
+    fn every_outcome_of_a_scan_has_its_own_sound() {
+        use versekit_core::blueprint_scan::Action;
+        let mut bench = bench(Args::default(), false, None);
+        let mut heard = |notice: versekit_core::scan_notice::Notice| {
+            bench.app.played.clear();
+            bench.app.show_scan_notice(&notice);
+            std::mem::take(&mut bench.app.played)
+        };
+        let found = crate::refinery::Found { materials: 2, unsure: 0, known: false };
+        assert_eq!(heard(crate::blueprint::Outcome::Done(Action::Add("Arclight".into())).notice()), [Cue::Done]);
+        assert_eq!(heard(crate::refinery::Outcome::Read(found).notice()), [Cue::Done]);
+        assert_eq!(heard(crate::picture::Outcome::Taken.notice()), [Cue::Done]);
+        let known = crate::refinery::Found { known: true, ..found };
+        assert_eq!(heard(crate::refinery::Outcome::Read(known).notice()), [Cue::AlreadyThere]);
+        let there = crate::blueprint::Outcome::Done(Action::AlreadyThere("Arclight".into()));
+        assert_eq!(heard(there.notice()), [Cue::AlreadyThere]);
+        let unsure = crate::refinery::Found { unsure: 1, ..found };
+        assert_eq!(heard(crate::refinery::Outcome::Read(unsure).notice()), [Cue::Ask]);
+        let confirm = crate::blueprint::Outcome::Done(Action::Confirm(vec!["Arclight".into(), "Arrowhead".into()]));
+        assert_eq!(heard(confirm.notice()), [Cue::Ask]);
+        let not_found = crate::blueprint::Outcome::Done(Action::NotFound);
+        assert_eq!(heard(not_found.notice()), [Cue::Failed]);
+        for nothing in [
+            crate::blueprint::Outcome::NoGame.notice(),
+            crate::blueprint::Outcome::Failed.notice(),
+            crate::refinery::Outcome::NoGame.notice(),
+            crate::refinery::Outcome::Read(crate::refinery::Found::default()).notice(),
+            crate::picture::Outcome::Failed.notice(),
+        ] {
+            assert_eq!(heard(nothing.clone()), [Cue::Failed], "{nothing:?}");
+        }
+        assert!(heard(crate::refinery::Outcome::working()).is_empty(), "the reading runs: no sound of its own");
+        // The key: a click first, then the outcome (without data: not in front).
+        bench.app.played.clear();
+        bench.blueprint_key.send(()).unwrap();
+        bench.app.take_news();
+        assert_eq!(bench.app.played, [Cue::Press, Cue::Failed]);
+        bench.app.played.clear();
+        bench.picture_key.send(()).unwrap();
+        bench.app.take_news();
+        assert_eq!(bench.app.played, [Cue::Press, Cue::Failed]);
+        // Sounds off: none at all.
+        bench.app.settings.sound = false;
+        bench.app.played.clear();
+        bench.blueprint_key.send(()).unwrap();
+        bench.app.take_news();
+        bench.app.show_scan_notice(&crate::picture::Outcome::Taken.notice());
+        assert!(bench.app.played.is_empty(), "{:?}", bench.app.played);
     }
 
     /// The jobs of the fabricator come to the open overlay while their switch is on, and the switch takes them away.
@@ -3374,6 +3648,7 @@ mod tests {
         let (search_key, search_rx) = mpsc::channel();
         let (picture_key, picture_rx) = mpsc::channel();
         let (main_key, main_rx) = mpsc::channel();
+        let (blueprint_key, blueprint_rx) = mpsc::channel();
         let file_settings = Settings::default();
         let forced_game = Arc::new(ForcedGame::new(args.game.then_some(true)));
         let app = OverlayApp::new(Parts {
@@ -3395,6 +3670,7 @@ mod tests {
             search_presses: search_rx,
             main_hotkey: Arc::new(Mutex::new(None)),
             main_presses: main_rx,
+            blueprint: crate::blueprint::BlueprintKey::new(None, blueprint_rx),
             control: Some(control_rx),
             start: Rect::new(10, 20, 540, 390),
             remembered: true,
@@ -3408,7 +3684,11 @@ mod tests {
             demand: Arc::new(Mutex::new(Vec::new())),
             bank: Arc::default(),
         });
-        Bench { app, news, game, control, search_key, picture_key, main_key }
+        // The game of whoever runs the test does not decide: not in front.
+        let mut app = app;
+        app.game_in_front = || false;
+        app.game_area = || None;
+        Bench { app, news, game, control, search_key, picture_key, main_key, blueprint_key }
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {

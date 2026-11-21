@@ -85,6 +85,12 @@ pub struct FovState {
     notice: Option<Said>,
     /// When the page was drawn last: a longer gap means it was left and is shown again.
     drawn_at: Option<f64>,
+    /// The installation shown and written: its folder, `None` for the main one.
+    install: Option<String>,
+    /// The fields for the game: width, height and the angle as the menu shows it, as typed.
+    typed: [String; 3],
+    /// The fields were filled from the file of the game (what is typed later is not overwritten).
+    typed_loaded: bool,
 }
 
 impl FovState {
@@ -102,6 +108,71 @@ impl FovState {
     pub fn invalidate(&mut self) {
         self.looked_at = None;
         self.distance_loaded = false;
+        self.typed_loaded = false;
+    }
+
+    /// The fields for the game from what the file says now: whole pixels and the angle of the menu with one place.
+    fn fill_typed(&mut self) {
+        let whole = |value: Option<f64>| value.filter(|v| *v > 0.0).map(|v| format!("{}", v.round() as i64));
+        let angle = fov::game_horizontal(&self.game).map(|a| formats::fixed(lang(), a, 1));
+        self.typed = [
+            whole(self.game.width).unwrap_or_default(),
+            whole(self.game.height).unwrap_or_default(),
+            angle.unwrap_or_default(),
+        ];
+        self.typed_loaded = true;
+    }
+
+    /// The numbers typed for the game as a change of the file: `Err` where one is no number. An empty field
+    /// leaves its line alone. The angle is the one of the menu (horizontal) and is converted with the resolution
+    /// it will have: the typed one, else the one in the file.
+    fn typed_change(&self) -> Result<fov::GameChange, ()> {
+        let number = |text: &str| -> Result<Option<f64>, ()> {
+            let text = text.trim().replace(',', ".");
+            if text.is_empty() {
+                return Ok(None);
+            }
+            text.parse::<f64>().ok().filter(|v| v.is_finite()).map(Some).ok_or(())
+        };
+        let whole = |text: &str| -> Result<Option<i64>, ()> {
+            match number(text)? {
+                Some(v) if v.fract() == 0.0 && v.abs() < 1e9 => Ok(Some(v as i64)),
+                Some(_) => Err(()),
+                None => Ok(None),
+            }
+        };
+        let (width, height) = (whole(&self.typed[0])?, whole(&self.typed[1])?);
+        let fov = match number(&self.typed[2])? {
+            None => None,
+            Some(horizontal) => {
+                let w = width.map(|w| w as f64).or(self.game.width).ok_or(())?;
+                let h = height.map(|h| h as f64).or(self.game.height).ok_or(())?;
+                if !(w > 0.0 && h > 0.0) {
+                    return Err(());
+                }
+                Some(fov::vertical_from_horizontal(horizontal, w / h).ok_or(())?)
+            }
+        };
+        Ok(fov::GameChange { fov, width, height })
+    }
+
+    /// The button: writes what is typed into the file of the chosen installation. The answer is in the notice.
+    fn write_game(&mut self, paths: &Paths) {
+        let Ok(change) = self.typed_change() else {
+            self.notice = Some(Said::fault(t("s_fv_w_eingabe")));
+            return;
+        };
+        self.notice = Some(match fov::write_game(paths, self.install.as_deref(), &change) {
+            Ok(Some(copy)) => {
+                let name = std::path::Path::new(&copy)
+                    .file_name()
+                    .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+                Said::note(tf("s_fv_w_ok", &[("0", Arg::from(name))]))
+            }
+            Ok(None) => Said::note(t("s_fv_w_ok_gleich")),
+            Err(error) => Said::fault(error.reason()),
+        });
+        self.invalidate();
     }
 
     fn refresh(&mut self, ui: &Ui, paths: &Paths) {
@@ -111,7 +182,15 @@ impl FovState {
         }
         self.looked_at = Some(now);
         self.calibration = fov::stored(paths);
-        self.game = fov::game_setting(paths, None);
+        // The installation chosen may be gone (uninstalled): then it is the main one again.
+        if self.install.is_some() && crate::install_picker::folder(paths, &self.install).is_none() {
+            self.install = None;
+            self.typed_loaded = false;
+        }
+        self.game = fov::game_setting(paths, self.install.as_deref());
+        if !self.typed_loaded {
+            self.fill_typed();
+        }
         if !self.distance_loaded {
             self.distance_text = self.calibration.distance_mm.map(fov::centimetres_text).unwrap_or_default();
             self.distance_loaded = true;
@@ -212,6 +291,10 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FovState, paths: &Pat
     state.refresh(ui, paths);
     ui.add(egui::Label::new(RichText::new(t("s_fv_lead")).small().color(color(scheme.sub))).wrap());
     ui.add_space(8.0);
+    if crate::install_picker::show(ui, scheme, paths, &mut state.install, false) {
+        state.invalidate();
+        ui.ctx().request_repaint();
+    }
 
     // One card for the screen: the explanation, the button for measuring, then the width and the distance (or the
     // sentence that nothing is measured yet).
@@ -275,17 +358,60 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FovState, paths: &Pat
         return;
     }
     let Some(width_mm) = width_mm else {
+        write_card(ui, scheme, state, paths, None);
         dialog(ui, scheme, state);
         return;
     };
 
+    let mut neutral = None;
     if let Some(distance_mm) = state.calibration.distance_mm
         && let Some(analysis) = fov::analyse(width_mm, distance_mm, &state.game)
     {
         ui.add_space(8.0);
         results(ui, scheme, &analysis);
+        neutral = (!analysis.unreachable).then_some(analysis.neutral);
     }
+    write_card(ui, scheme, state, paths, neutral);
     dialog(ui, scheme, state);
+}
+
+/// The card that writes resolution and field of view into the game: three fields, the neutral value as a help,
+/// and the button. Every field is named for screen readers.
+fn write_card(ui: &mut Ui, scheme: &Scheme, state: &mut FovState, paths: &Paths, neutral: Option<f64>) {
+    ui.add_space(8.0);
+    let mut write = false;
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_fv_w_titel"));
+        ui.add_space(4.0);
+        ui.add(egui::Label::new(RichText::new(t("s_fv_w_hilfe")).small().color(color(scheme.sub))).wrap());
+        ui.add_space(6.0);
+        let rows = [("s_fv_w_breite", "1920"), ("s_fv_w_hoehe", "1080"), ("s_fv_w_fov", "s_fv_w_fov_leer")];
+        for (i, (key, hint)) in rows.into_iter().enumerate() {
+            let name = t(key);
+            let hint = if i == 2 { t(hint) } else { hint.to_string() };
+            settings::setting_row(ui, scheme, &name, "", false, |row| {
+                let response = widgets::clearable_field(row, &mut state.typed[i], &hint, scheme, 110.0);
+                let (enabled, shown) = (response.enabled(), state.typed[i].clone());
+                response.widget_info(|| {
+                    let mut info = egui::WidgetInfo::labeled(egui::Role::TextInput, enabled, &name);
+                    info.current_text_value = Some(shown.clone());
+                    info
+                });
+            });
+        }
+        ui.horizontal_wrapped(|row| {
+            if let Some(value) = neutral {
+                let word = t("s_fv_w_neutral");
+                if row.add(widgets::Button::new(&word, ButtonKind::Normal, scheme)).clicked() {
+                    state.typed[2] = formats::fixed(lang(), value, 1);
+                }
+            }
+            write = row.add(widgets::Button::new(&t("s_fv_w_schreiben"), ButtonKind::Strong, scheme)).clicked();
+        });
+    });
+    if write {
+        state.write_game(paths);
+    }
 }
 
 /// The lines with what the numbers say, and the verdict in a box, all in one card.
@@ -576,7 +702,13 @@ mod tests {
             std::fs::write(format!("{profile}/attributes.xml"), file).expect("file");
         }
         std::fs::write(format!("{game}/Game.log"), "x").expect("log");
-        let vars = [("VERSEKIT_HOME", home.as_str()), ("HOME", home.as_str()), (ENV_INSTALL_DIR, game.as_str())];
+        // No look at the real processes: a game that runs on this machine must not decide a test.
+        let vars = [
+            ("VERSEKIT_HOME", home.as_str()),
+            ("HOME", home.as_str()),
+            (ENV_INSTALL_DIR, game.as_str()),
+            (versekit_core::game_start::ENV_NO_PROCESS, "1"),
+        ];
         (Paths::new(Host::new(Flavor::Posix, &vars, &home)), home)
     }
 
@@ -1104,6 +1236,109 @@ mod tests {
         bench.window = (true, Some(egui::vec2(1280.0, 800.0)));
         bench.click(&t("s_fv_neu_messen"));
         assert_eq!(bench.state.measure.as_ref().map(|m| m.card_px), Some(410));
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    /// The Game.log of the main installation `seconds` old: the game runs (small) or is quiet (large).
+    fn age_log(bench: &Bench, seconds: u64) {
+        let game = bench.paths.game_folder().expect("game folder");
+        let at = std::time::SystemTime::now() - std::time::Duration::from_secs(seconds);
+        std::fs::File::options()
+            .write(true)
+            .open(format!("{game}/Game.log"))
+            .and_then(|f| f.set_modified(at))
+            .expect("age");
+    }
+
+    fn attributes_of(game: &str) -> String {
+        std::fs::read_to_string(format!("{game}/USER/Client/0/Profiles/default/attributes.xml")).unwrap()
+    }
+
+    #[test]
+    fn the_fields_for_the_game_show_the_file_and_what_is_typed_is_written_with_a_copy() {
+        let _guard = setup();
+        let mut bench = Bench::new("schreiben", Some(FILE));
+        age_log(&bench, 7200);
+        bench.settle();
+        // The file has 54.7681 vertical at 2560 × 1440: the menu shows 85,3 horizontal.
+        assert_eq!(bench.state.typed, ["2560".to_string(), "1440".to_string(), "85,3".to_string()]);
+        bench.state.typed = ["1920".into(), "1080".into(), "100".into()];
+        bench.state.write_game(&bench.paths);
+        let said = bench.state.take_notice().expect("the answer");
+        assert!(!said.fault && said.text.contains("attributes.xml.versekit-"), "{said:?}");
+        let game = bench.paths.game_folder().unwrap();
+        let now = attributes_of(&game);
+        assert!(
+            now.contains("name=\"Width\" value=\"1920\"") && now.contains("name=\"Height\" value=\"1080\""),
+            "{now}"
+        );
+        // 100 degrees horizontal at 16:9 is 67.6 degrees vertical.
+        let vertical = fov::game_setting_text(&now).fov.unwrap();
+        assert!((vertical - 67.6).abs() < 0.1, "{vertical}");
+        assert_eq!(bench.state.typed[0], "1920", "the fields show the file again");
+        let copies: Vec<_> =
+            versekit_core::game_files::backups(&format!("{game}/USER/Client/0/Profiles/default/attributes.xml"));
+        assert_eq!(copies.len(), 1);
+        assert_eq!(std::fs::read_to_string(&copies[0]).unwrap(), FILE, "the copy holds what was there");
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    #[test]
+    fn nothing_is_written_while_the_game_runs_or_for_input_that_is_no_number() {
+        let _guard = setup();
+        let mut bench = Bench::new("laeuft", Some(FILE));
+        age_log(&bench, 3);
+        bench.settle();
+        let game = bench.paths.game_folder().unwrap();
+        bench.state.typed = ["1920".into(), "1080".into(), "".into()];
+        bench.state.write_game(&bench.paths);
+        let said = bench.state.take_notice().expect("the answer");
+        assert!(said.fault && said.text == versekit_core::game_files::WriteError::GameRuns.reason(), "{said:?}");
+        assert_eq!(attributes_of(&game), FILE, "the file is as it was");
+        assert!(
+            versekit_core::game_files::backups(&format!("{game}/USER/Client/0/Profiles/default/attributes.xml"))
+                .is_empty(),
+            "not even a copy"
+        );
+        age_log(&bench, 7200);
+        for typed in [["19x0", "1080", ""], ["1920.5", "1080", ""], ["1920", "1080", "abc"], ["100", "100", ""]] {
+            bench.state.typed = typed.map(String::from);
+            bench.state.write_game(&bench.paths);
+            let said = bench.state.take_notice().expect("the answer");
+            assert!(said.fault, "{typed:?} {said:?}");
+            assert_eq!(attributes_of(&game), FILE, "{typed:?}");
+        }
+        let _ = std::fs::remove_dir_all(&bench.home);
+    }
+
+    #[test]
+    fn the_chosen_installation_is_the_one_that_is_read_and_written() {
+        let _guard = setup();
+        let mut bench = Bench::new("ptu", Some(FILE));
+        age_log(&bench, 7200);
+        let home = bench.home.clone();
+        let ptu = format!("{home}/StarCitizen/PTU");
+        let profile = format!("{ptu}/USER/Client/0/Profiles/default");
+        std::fs::create_dir_all(&profile).unwrap();
+        let ptu_file = FILE.replace("2560", "3440");
+        std::fs::write(format!("{profile}/attributes.xml"), &ptu_file).unwrap();
+        let installs = crate::install_picker::installs(&bench.paths);
+        assert_eq!(installs.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(), ["LIVE", "PTU"], "{installs:?}");
+        bench.state.install = Some(ptu.clone());
+        bench.state.invalidate();
+        bench.settle();
+        assert_eq!(bench.state.typed[0], "3440", "the fields show the PTU");
+        bench.state.typed = ["2560".into(), "1440".into(), "".into()];
+        bench.state.write_game(&bench.paths);
+        assert!(!bench.state.take_notice().expect("answer").fault);
+        assert!(attributes_of(&ptu).contains("name=\"Width\" value=\"2560\""));
+        let live = bench.paths.game_folder().unwrap();
+        assert_eq!(attributes_of(&live), FILE, "LIVE is not touched");
+        // An installation that is gone is the main one again.
+        bench.state.install = Some(format!("{home}/StarCitizen/GONE"));
+        bench.state.invalidate();
+        bench.settle();
+        assert_eq!(bench.state.install, None);
         let _ = std::fs::remove_dir_all(&bench.home);
     }
 }

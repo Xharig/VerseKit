@@ -112,6 +112,7 @@ pub fn inputs(paths: &Paths, catalog: &str, version: &str) -> Inputs {
         ranks: ranks::load(paths),
         shops: shops(paths),
         original_names: original_names(paths),
+        original_specs: super::specs::load_original(paths),
         version: version.to_string(),
     }
 }

@@ -418,6 +418,13 @@ pub fn read_job(jobs: &[Map], materials: &[String], total: &str) -> Option<usize
     })
 }
 
+/// Whether a reading holds nothing new: every job of it with materials stands already in `stored` (the same
+/// materials and sum, not picked up, as [`read_job`] finds it). A reading without any job with materials is not.
+pub fn all_known(stored: &[Map], scanned: &[crate::refinery_scan::ScannedJob]) -> bool {
+    let read: Vec<_> = scanned.iter().filter(|job| !job.materials.is_empty()).collect();
+    !read.is_empty() && read.iter().all(|job| read_job(stored, &job.materials, &job.total).is_some())
+}
+
 /// The yield of a job was booked into the own stock: the job is picked up (and needs no message any more). `read`
 /// names the reading the field was filled from (materials and sum): that job counts first; without one, or when
 /// it is gone, the job is found by the materials booked. Gives whether a job was found. The stock itself is booked
@@ -625,6 +632,26 @@ mod tests {
         assert_eq!(read_job(&jobs, &names(&["Gold"]), "15"), None);
         // By the materials alone both fit: the one that ended first is taken.
         assert_eq!(booked_job(&jobs, &names(&["Gold", "Iron"])), Some(1));
+    }
+
+    #[test]
+    fn a_reading_is_known_when_every_job_of_it_stands_in_the_list_already() {
+        use crate::refinery_scan::State;
+        let stored = [
+            job(r#"{"materials": ["Gold", "Iron"], "total": "15", "ends": 100}"#),
+            job(r#"{"materials": ["Tin"], "total": "3", "ends": 50, "abgeholt": 40}"#),
+        ];
+        let running = |materials: &[&str], total: &str| scanned(materials, total, State::Running, Some(60));
+        assert!(all_known(&stored, &[running(&["gold", "IRON"], "15")]));
+        // A job with another sum, or one more job, is new; so is a job picked up already.
+        assert!(!all_known(&stored, &[running(&["Gold", "Iron"], "16")]));
+        assert!(!all_known(&stored, &[running(&["Gold", "Iron"], "15"), running(&["Quartz"], "2")]));
+        assert!(!all_known(&stored, &[running(&["Tin"], "3")]));
+        // Lines without a material do not count; a reading of nothing is not known.
+        assert!(all_known(&stored, &[running(&["Gold", "Iron"], "15"), running(&[], "1")]));
+        assert!(!all_known(&stored, &[]));
+        assert!(!all_known(&stored, &[running(&[], "1")]));
+        assert!(!all_known(&[], &[running(&["Gold"], "1")]));
     }
 
     #[test]

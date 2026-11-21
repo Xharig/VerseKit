@@ -68,20 +68,41 @@ pub struct Watch {
     mark: Option<String>,
 }
 
+/// The field of the remembered state with the game version of the catalog it was last compared with.
+pub const VERSION_FIELD: &str = "spielversion";
+
+#[cfg(test)]
 fn remembered(paths: &Paths) -> BTreeSet<String> {
-    match jsonio::read_json(&paths.app_file(SEEN_FILE)).ok().as_ref().and_then(|d| d.get("namen")) {
-        Some(Value::Array(items)) => items.iter().filter_map(Value::as_str).map(str::to_string).collect(),
-        _ => BTreeSet::new(),
-    }
+    remembered_with_version(paths).0
 }
 
+/// The remembered names and the game version they were last compared with (empty for a state without one).
+fn remembered_with_version(paths: &Paths) -> (BTreeSet<String>, String) {
+    let data = jsonio::read_json(&paths.app_file(SEEN_FILE)).ok();
+    let names = match data.as_ref().and_then(|d| d.get("namen")) {
+        Some(Value::Array(items)) => items.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+        _ => BTreeSet::new(),
+    };
+    let version = data.as_ref().and_then(|d| d.get(VERSION_FIELD)).and_then(Value::as_str).unwrap_or_default();
+    (names, version.to_string())
+}
+
+#[cfg(test)]
 fn remember(paths: &Paths, now: &BTreeSet<String>, stamp: &str) {
+    remember_version(paths, now, stamp, "");
+}
+
+fn remember_version(paths: &Paths, now: &BTreeSet<String>, stamp: &str, version: &str) {
     // Written under the write lock that every process of the program shares.
     let _lock = jsonio::lock_saves();
-    let data = Value::Object(vec![
+    let mut fields = vec![
         ("stand".into(), Value::str(stamp)),
         ("namen".into(), Value::Array(now.iter().map(|k| Value::str(k.as_str())).collect())),
-    ]);
+    ];
+    if !version.is_empty() {
+        fields.push((VERSION_FIELD.into(), Value::str(version)));
+    }
+    let data = Value::Object(fields);
     let target = paths.app_file(SEEN_FILE);
     let folder = crate::pypath::Flavor::native().dirname(&target);
     let _ = jsonio::make_dirs(&folder);
@@ -111,14 +132,17 @@ impl Watch {
         }
         let _lock = jsonio::lock_saves();
         let now: BTreeSet<String> = items.iter().map(|i| i.key.clone()).collect();
-        let known = remembered(paths);
+        let (known, known_version) = remembered_with_version(paths);
         // ⚠ The remembered state only grows: an item that one build of the catalog lacks (a special case, a source that
         // does not have it) and the next one has again was seen before and is not new a second time.
         let kept: BTreeSet<String> = known.union(&now).cloned().collect();
+        // A catalog built again for the game version it was last compared with brings no new game data: what it has
+        // more comes from the build (another source, a reader that finds more), so it only widens the base.
+        let same_game = !known_version.is_empty() && known_version == mark;
         let fresh = match catalog_new(&now, &known) {
-            Some(fresh) if !fresh.is_empty() => fresh,
+            Some(fresh) if !fresh.is_empty() && !same_game => fresh,
             _ => {
-                remember(paths, &kept, stamp);
+                remember_version(paths, &kept, stamp, mark);
                 return Vec::new();
             }
         };
@@ -132,7 +156,7 @@ impl Watch {
                 title: watchlist::matching(&list, &item.name),
             })
             .collect();
-        remember(paths, &kept, stamp);
+        remember_version(paths, &kept, stamp, mark);
         found
     }
 }
@@ -184,6 +208,46 @@ mod tests {
         assert!(watch.look(&paths, "5", &catalog(&["a", "b", "c", "x", "d"]), "5").is_empty());
         // The state only grows and is read in the same form as before.
         assert_eq!(remembered(&paths), set(&["a", "b", "c", "d", "x"]));
+    }
+
+    /// A catalog built again for the same game version (a fresh build after the game ended) beeped "newly craftable"
+    /// for what the new build found more. Only a new game version brings news; the same version only widens the base.
+    #[test]
+    fn a_catalog_built_again_for_the_same_game_version_tells_nothing_new() {
+        use crate::paths::Host;
+        use crate::pypath::Flavor;
+        let dir = crate::testdir::Dir::new("katalogwache-gleiche-version");
+        let home = dir.path().to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, home.as_str())], &home));
+        let item = |key: &str| Item { key: key.into(), name: key.to_uppercase(), kind: "Waffe".into() };
+        let catalog = |keys: &[&str]| -> Vec<Item> { keys.iter().map(|k| item(k)).collect() };
+        let names = |found: &[Found]| found.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
+        // The base for game version 4.3.1.
+        assert!(Watch::default().look(&paths, "4.3.1", &catalog(&["a", "b", "c"]), "1").is_empty());
+        assert_eq!(remembered_with_version(&paths).1, "4.3.1");
+        // The program starts again and the catalog is built again for 4.3.1 with one item more: no news.
+        let found = Watch::default().look(&paths, "4.3.1", &catalog(&["a", "b", "c", "d"]), "2");
+        assert!(found.is_empty(), "told as new without new game data: {:?}", names(&found));
+        assert_eq!(remembered(&paths), set(&["a", "b", "c", "d"]), "the base takes the item");
+        // Counter-check: a new game version with a new item tells it.
+        let found = Watch::default().look(&paths, "4.3.2", &catalog(&["a", "b", "c", "d", "e"]), "3");
+        assert_eq!(names(&found), ["E"]);
+        assert_eq!(remembered_with_version(&paths).1, "4.3.2");
+    }
+
+    /// A remembered state from before the game version was kept (no field) compares as before.
+    #[test]
+    fn a_state_without_a_game_version_compares_as_before() {
+        use crate::paths::Host;
+        use crate::pypath::Flavor;
+        let dir = crate::testdir::Dir::new("katalogwache-ohne-version");
+        let home = dir.path().to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::native(), &[(crate::envvars::ENV_HOME, home.as_str())], &home));
+        remember(&paths, &set(&["a", "b", "c"]), "1");
+        let item = |key: &str| Item { key: key.into(), name: key.to_uppercase(), kind: "Waffe".into() };
+        let items: Vec<Item> = ["a", "b", "c", "d"].iter().map(|k| item(k)).collect();
+        let found = Watch::default().look(&paths, "4.3.1", &items, "2");
+        assert_eq!(found.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(), ["D"]);
     }
 
     /// Two watches on the same data folder (overlay and main window): the second waits for the first one's write

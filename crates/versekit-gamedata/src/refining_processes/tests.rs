@@ -71,6 +71,25 @@ fn the_records_found_are_put_together_each_method_once_and_a_doubtful_one_left_o
     assert!(read.left_out[0].starts_with("XCR Reaction") && read.left_out[1].starts_with("Gaskin Process"));
 }
 
+/// A method left out for its line says what the line was, or that there was none: the report shows what the game
+/// data held instead of three levels.
+#[test]
+fn a_method_left_out_for_its_line_names_the_line() {
+    let read = gather_lines(vec![
+        ("Kazen Winnowing".into(), Some("Low Yield // Low Cost // Slightly Slow ".into())),
+        ("Cormack Method".into(), Some("Low Yield // Moderate Cost // Warp".into())),
+        ("XCR Reaction".into(), None),
+    ]);
+    assert_eq!(read.processes, [Process { name: "Kazen Winnowing".into(), levels: [1, 2, 3] }]);
+    assert_eq!(
+        read.left_out,
+        [
+            "Cormack Method: no line of three levels (line \"Low Yield // Moderate Cost // Warp\")",
+            "XCR Reaction: no line of three levels (no line)",
+        ]
+    );
+}
+
 #[test]
 fn a_reading_without_all_nine_never_replaces_the_file() {
     let dir = versekit_core::testdir::Dir::new("raffinerie-ganz");

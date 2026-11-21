@@ -360,6 +360,7 @@ pub fn contracts(folder: &str, merged: &str, stored: &str) -> Result<(), String>
         &read(&folder.join("reputation.json"))?,
         &list,
         &build,
+        &contract_reputation::Amounts::new(),
     )
     .map_err(|e| e.to_string())?;
     let theirs = contract_info::reputation(&merged_json, &build, &list, "");

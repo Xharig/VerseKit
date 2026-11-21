@@ -30,6 +30,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::basetool::area_support::{
     Posted, Stamp, pull_generic, put_object, send_unless_held, stamp_of, store_busy, store_ok, take_object, text_map,
+    texts,
 };
 use crate::basetool::connection::get;
 use crate::basetool::error::{ApiError, truthy};
@@ -194,6 +195,262 @@ fn places_of(map: &Map) -> Places {
     map.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
 }
 
+/// Where the merges stand in the state of the area: old `bt` in lower case → `{bt, name, item, names}`, `names`
+/// being the lookup keys (name in lower case or `uex:<number>`) that led to the old `bt`.
+pub const MERGED: &str = "merged";
+/// The materials and items the Basetool no longer takes in: `bt` in lower case → reason.
+pub const RETIRED_STATE: &str = "retired";
+/// The lots whose addition stayed back for that reason in the last pass: identifier → reason.
+pub const RETIRED_LOTS: &str = "retired_lots";
+/// The caches of resolved names: lookup key → `bt` (or a remembered miss).
+const CACHES: [&str; 3] = ["resolved", "resolved_items", "resolved_uex"];
+
+#[derive(Clone, Debug, Default)]
+struct MergeEntry {
+    bt: String,
+    name: String,
+    item: bool,
+    names: BTreeSet<String>,
+}
+
+fn merges(sub: &Map) -> BTreeMap<String, MergeEntry> {
+    let Some(Value::Object(entries)) = get(sub, MERGED) else { return BTreeMap::new() };
+    entries
+        .iter()
+        .filter_map(|(old, entry)| {
+            let bt = entry.get("bt").and_then(Value::as_str).filter(|b| !b.is_empty())?.to_string();
+            let names = match entry.get("names") {
+                Some(Value::Array(names)) => names.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+                _ => BTreeSet::new(),
+            };
+            Some((
+                old.to_lowercase(),
+                MergeEntry {
+                    bt,
+                    name: entry.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
+                    item: entry.get("item").is_some_and(truthy),
+                    names,
+                },
+            ))
+        })
+        .collect()
+}
+
+fn put_merges(sub: &mut Map, all: &BTreeMap<String, MergeEntry>) {
+    if all.is_empty() {
+        sub.retain(|(k, _)| k != MERGED);
+        return;
+    }
+    let entries: Map = all
+        .iter()
+        .map(|(old, e)| {
+            let entry = Value::Object(vec![
+                ("bt".into(), Value::str(&e.bt)),
+                ("name".into(), Value::str(&e.name)),
+                ("item".into(), Value::Bool(e.item)),
+                ("names".into(), Value::Array(e.names.iter().map(Value::str).collect())),
+            ]);
+            (old.clone(), entry)
+        })
+        .collect();
+    map_set(sub, MERGED, Value::Object(entries));
+}
+
+/// Points every cached name of a folded material at the new `bt`, remembers that name for moving its rows, and
+/// puts the new name into the cache. Changes nothing a second time.
+fn follow_caches(sub: &mut Map) {
+    let mut all = merges(sub);
+    if all.is_empty() {
+        return;
+    }
+    for cache_name in CACHES {
+        let mut cache = take_object(sub, cache_name);
+        for (key, value) in cache.iter_mut() {
+            let Value::Str(bt) = value else { continue };
+            if let Some(entry) = all.get_mut(&bt.to_lowercase()) {
+                *value = Value::str(&entry.bt);
+                entry.names.insert(key.clone());
+            }
+        }
+        put_object(sub, cache_name, cache);
+    }
+    for entry in all.values() {
+        let name = crate::text::py_strip(&entry.name).to_lowercase();
+        if name.is_empty() {
+            continue;
+        }
+        let cache_name = if entry.item { "resolved_items" } else { "resolved" };
+        let mut cache = take_object(sub, cache_name);
+        if !matches!(get(&cache, &name), Some(Value::Str(_))) {
+            map_set(&mut cache, &name, Value::str(&entry.bt));
+        }
+        put_object(sub, cache_name, cache);
+    }
+    put_merges(sub, &all);
+}
+
+/// The cache a lookup key belongs to.
+fn cache_of(lookup: &str, item: bool) -> &'static str {
+    if lookup.starts_with("uex:") {
+        "resolved_uex"
+    } else if item {
+        "resolved_items"
+    } else {
+        "resolved"
+    }
+}
+
+/// Takes a merge over: `old` (a `bt`) is `merge` from now on; a merge that led to `old` leads on to `merge`.
+/// `names` are lookup keys that led to `old` before and were forgotten since: they lead to `merge` again.
+fn learn_merge(sub: &mut Map, old: &str, merge: &stock_sync::Merge, names: &BTreeSet<String>) {
+    let old = old.to_lowercase();
+    if merge.bt.to_lowercase() == old {
+        return;
+    }
+    let mut all = merges(sub);
+    for entry in all.values_mut().filter(|e| e.bt.to_lowercase() == old) {
+        entry.bt = merge.bt.clone();
+        entry.name = merge.name.clone();
+        entry.item = merge.item;
+    }
+    let entry = all.entry(old.clone()).or_default();
+    entry.bt = merge.bt.clone();
+    entry.name = merge.name.clone();
+    entry.item = merge.item;
+    entry.names.extend(names.iter().cloned());
+    put_merges(sub, &all);
+    for name in names {
+        let cache_name = cache_of(name, merge.item);
+        let mut cache = take_object(sub, cache_name);
+        map_set(&mut cache, name, Value::str(&merge.bt));
+        put_object(sub, cache_name, cache);
+    }
+    let mut orphans = take_object(sub, ORPHANS);
+    orphans.retain(|(k, _)| *k != old);
+    put_orphans(sub, orphans);
+    follow_caches(sub);
+}
+
+/// `bt`s the Basetool answered with `unmatched` and the catalog did not lead anywhere yet: old `bt` in lower case →
+/// `{bt, item, names, at}`. Asked again once a day ([`feed::RESOLVE_AGAIN`]), as an old id may resolve to the entry
+/// it was folded into from a later release of the Basetool on, while its name never does.
+const ORPHANS: &str = "unmatched_ids";
+
+fn put_orphans(sub: &mut Map, orphans: Map) {
+    if orphans.is_empty() {
+        sub.retain(|(k, _)| k != ORPHANS);
+    } else {
+        put_object(sub, ORPHANS, orphans);
+    }
+}
+
+/// Forgets every name resolved to `bt` (they are asked anew by name at the next pass) and keeps `bt` with these
+/// names to ask for it again later.
+fn orphan_bt(sub: &mut Map, bt: &str, item: bool, now: f64) {
+    let lower = bt.to_lowercase();
+    let mut names: BTreeSet<String> = BTreeSet::new();
+    for cache_name in CACHES {
+        let mut cache = take_object(sub, cache_name);
+        cache.retain(|(key, value)| {
+            let hit = matches!(value, Value::Str(b) if b.to_lowercase() == lower);
+            if hit {
+                names.insert(key.clone());
+            }
+            !hit
+        });
+        put_object(sub, cache_name, cache);
+    }
+    let mut orphans = take_object(sub, ORPHANS);
+    if let Some(Value::Object(known)) = get(&orphans, &lower) {
+        names.extend(texts(known, "names"));
+    }
+    let entry = Value::Object(vec![
+        ("bt".into(), Value::str(bt)),
+        ("item".into(), Value::Bool(item)),
+        ("names".into(), Value::Array(names.iter().map(Value::str).collect())),
+        ("at".into(), Value::Float(now)),
+    ]);
+    map_set(&mut orphans, &lower, entry);
+    put_orphans(sub, orphans);
+}
+
+/// Asks the catalog again for the `bt`s kept by [`orphan_bt`] whose day is over.
+fn ask_orphans(pass: &Pass<'_>, sub: &mut Map) -> Result<(), ApiError> {
+    let kept = match get(sub, ORPHANS) {
+        Some(Value::Object(orphans)) => orphans.clone(),
+        _ => return Ok(()),
+    };
+    let due: Vec<(String, bool, BTreeSet<String>)> = kept
+        .iter()
+        .filter_map(|(_, entry)| {
+            let Value::Object(entry) = entry else { return None };
+            (pass.now - number(get(entry, "at")) >= feed::RESOLVE_AGAIN).then(|| {
+                (
+                    get(entry, "bt").and_then(Value::as_str).unwrap_or_default().to_string(),
+                    get(entry, "item").is_some_and(truthy),
+                    texts(entry, "names").into_iter().collect(),
+                )
+            })
+        })
+        .collect();
+    for (bt, item, names) in due.into_iter().filter(|(bt, _, _)| !bt.is_empty()) {
+        let kind = if item { "ITEM" } else { "MATERIAL" };
+        let reference = Value::Object(vec![("bt".into(), Value::str(&bt))]);
+        match feed::resolve_now(pass.conn, kind, &[reference])?.into_iter().next() {
+            Some(feed::Resolved::Found { bt: new, name }) if new.to_lowercase() != bt.to_lowercase() => {
+                learn_merge(sub, &bt, &stock_sync::Merge { bt: new, name, item }, &names);
+            }
+            _ => {
+                let mut orphans = take_object(sub, ORPHANS);
+                if let Some(Value::Object(entry)) =
+                    orphans.iter_mut().find(|(k, _)| *k == bt.to_lowercase()).map(|(_, v)| v)
+                {
+                    map_set(entry, "at", Value::Float(pass.now));
+                }
+                put_orphans(sub, orphans);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Lookup key of a row → the name it takes, for the rows of folded materials.
+fn renames_of(sub: &Map) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for entry in merges(sub).values().filter(|e| !crate::text::py_strip(&e.name).is_empty()) {
+        let own = crate::text::py_strip(&entry.name).to_lowercase();
+        for name in entry.names.iter().filter(|n| **n != own) {
+            out.insert(name.clone(), entry.name.clone());
+        }
+    }
+    out
+}
+
+/// Old `bt` → new `bt`, both in lower case, as the identifiers carry them.
+fn merged_bts(sub: &Map) -> BTreeMap<String, String> {
+    merges(sub).into_iter().map(|(old, e)| (old, e.bt.to_lowercase())).collect()
+}
+
+/// After a refused `unmatched`: the catalog is asked for the old `bt`. If it points to another entry now, that is
+/// a merge; otherwise the names resolved to it are asked again by name at the next pass, and the `bt` once a day.
+fn after_unmatched(pass: &Pass<'_>, sub: &mut Map, lots: &[(String, bool)]) -> Result<(), ApiError> {
+    let mut asked: BTreeSet<String> = BTreeSet::new();
+    for (bt, item) in lots {
+        if !asked.insert(bt.to_lowercase()) {
+            continue;
+        }
+        let kind = if *item { "ITEM" } else { "MATERIAL" };
+        let reference = Value::Object(vec![("bt".into(), Value::str(bt))]);
+        match feed::resolve_now(pass.conn, kind, &[reference])?.into_iter().next() {
+            Some(feed::Resolved::Found { bt: new, name }) if new.to_lowercase() != bt.to_lowercase() => {
+                learn_merge(sub, bt, &stock_sync::Merge { bt: new, name, item: *item }, &BTreeSet::new());
+            }
+            _ => orphan_bt(sub, bt, *item, pass.now),
+        }
+    }
+    Ok(())
+}
+
 /// The area: raw material stock and trade stock against the lots.
 pub struct StockArea;
 
@@ -205,7 +462,7 @@ impl StockArea {
         takes: &[(String, f64)],
         server: &BTreeMap<String, ServerLot>,
         resolver: &dyn Fn(&str) -> Option<String>,
-        (places, items): (&Places, &BTreeMap<String, bool>),
+        (places, items, renames): (&Places, &BTreeMap<String, bool>, &BTreeMap<String, String>),
         data: &StockData,
         stamps: &(Stamp, Stamp),
     ) -> Result<(), ApiError> {
@@ -225,6 +482,7 @@ impl StockArea {
             ) else {
                 return Err(store_busy("stock unreadable"));
             };
+            let (raw, trade, _renamed) = stock_sync::follow_merges(&raw, &trade, renames);
             let (mut raw, mut trade, _moved) = stock_sync::relocate(&raw, &trade, resolver, places, server, items);
             let (local, _skipped) =
                 stock_sync::local_lots(&raw, &trade, resolver, places, &|n| data.is_piece(n), items);
@@ -289,6 +547,16 @@ impl StockArea {
         let before = server_map(sub);
         let (server_raw, _resync) = pull_generic(pass.conn, sub, "/me/stock", "key")?;
         let mut server_raw = split_complete(pass, sub, server_raw)?;
+        // A material the Basetool folded into another: its lot went, the lot of the other came or grew by its
+        // amount. Taken over only when the catalog agrees.
+        for (old, merge) in stock_sync::merge_candidates(&before, &server_raw) {
+            let kind = if merge.item { "ITEM" } else { "MATERIAL" };
+            if feed::confirms_merge(pass.conn, kind, &old, &merge.bt)? {
+                learn_merge(sub, &old, &merge, &BTreeSet::new());
+            }
+        }
+        ask_orphans(pass, sub)?;
+        follow_caches(sub);
         let locations = pass.locations.get(pass.conn, pass.now)?.clone();
         let places = places_of(&locations);
         let paths: &Paths = pass.paths;
@@ -387,12 +655,31 @@ impl StockArea {
                 items.entry(bt).or_insert(true);
             }
         }
+        // Folded materials: every name that led to the old `bt` leads to the new one, the new name is known, and
+        // the new `bt` keeps whether it is an item.
+        let merged = merges(sub);
+        for bt in resolved.values_mut() {
+            if let Some(entry) = merged.get(&bt.to_lowercase()) {
+                *bt = entry.bt.clone();
+            }
+        }
+        for entry in merged.values() {
+            let name = crate::text::py_strip(&entry.name).to_lowercase();
+            if !name.is_empty() {
+                resolved.entry(name).or_insert_with(|| entry.bt.clone());
+            }
+            items.entry(entry.bt.clone()).or_insert(entry.item);
+        }
         map_set(sub, "items", Value::Object(items.iter().map(|(k, v)| (k.clone(), Value::Bool(*v))).collect()));
         sub.retain(|(k, _)| k != "commodity");
 
         let resolver = |name: &str| resolved.get(&crate::text::py_strip(name).to_lowercase()).cloned();
         let lots: Vec<&Value> = server_raw.values().collect();
         let mut server = stock_sync::server_lots(&lots);
+        // The rows of a folded material move to the new one before anything is compared: one row per lot.
+        let renames = renames_of(sub);
+        let to_new = merged_bts(sub);
+        let (raw, trade, renamed) = stock_sync::follow_merges(&raw, &trade, &renames);
         let (raw, trade, moved) = stock_sync::relocate(&raw, &trade, &resolver, &places, &server, &items);
         let (mut local, skipped) =
             stock_sync::local_lots(&raw, &trade, &resolver, &places, &|n| data.is_piece(n), &items);
@@ -402,26 +689,56 @@ impl StockArea {
                 map_set(material, "scRecord", Value::str(class.chars().take(200).collect::<String>()));
             }
         }
-        let decisions = text_map(sub, "decisions");
+        // The stand, the decisions and the open conflicts of a folded material count for the new one.
+        let decisions = stock_sync::rekey_keys(&text_map(sub, "decisions"), &to_new);
         let baseline: Option<BTreeMap<String, f64>> = match get(sub, "baseline") {
-            Some(Value::Object(inner)) => Some(inner.iter().map(|(k, v)| (k.clone(), number(Some(v)))).collect()),
+            Some(Value::Object(inner)) => Some(stock_sync::rekey_amounts(
+                &inner.iter().map(|(k, v)| (k.clone(), number(Some(v)))).collect(),
+                &to_new,
+            )),
             _ => None,
         };
         let open: BTreeSet<String> = match get(sub, "conflicts") {
-            Some(Value::Object(inner)) => inner.iter().map(|(k, _)| k.clone()).collect(),
+            Some(Value::Object(inner)) => {
+                let keys: BTreeMap<String, ()> = inner.iter().map(|(k, _)| (k.clone(), ())).collect();
+                stock_sync::rekey_keys(&keys, &to_new).into_keys().collect()
+            }
             _ => BTreeSet::new(),
         };
         let result = stock_sync::plan(&local, &server, baseline.as_ref(), &decisions, &open);
         let (result, guarded) = stock_sync::keep_unmapped(&result, &local, &server, &skipped);
+        // A material the Basetool no longer takes in: no addition goes out again (the sync button tries once more).
+        let mut retired = text_map(sub, RETIRED_STATE);
+        if pass.release_now.contains(ROUTE_STOCK) {
+            retired.clear();
+        }
+        let (result, held_retired) = stock_sync::hold_retired(&result, &retired);
         let overrides: BTreeSet<String> =
             decisions.iter().filter(|(_, v)| v.as_str() == "mine").map(|(k, _)| k.clone()).collect();
         let sets = stock_sync::change_sets(&result, &local, &server, 500, &overrides);
         let Posted { failed, applied, posted, paused, offers_reduced, offers_removed, waiting, .. } =
             send_unless_held(pass, ROUTE_STOCK, &sets)?;
-        let rejected: BTreeMap<String, String> = failed
-            .iter()
-            .map(|(key, kind, reason)| (key.clone(), if reason.is_empty() { kind.clone() } else { reason.clone() }))
-            .collect();
+        let mut retired_lots = held_retired;
+        let mut unmatched: Vec<(String, bool)> = Vec::new();
+        let mut rejected: BTreeMap<String, String> = BTreeMap::new();
+        for (key, kind, reason) in &failed {
+            if stock_sync::RETIRED.contains(&reason.as_str()) {
+                retired.insert(stock_sync::material_of(key).to_string(), reason.clone());
+                retired_lots.insert(key.clone(), reason.clone());
+                continue;
+            }
+            if kind == "unmatched" || reason == "UNMATCHED" {
+                let lot = local.get(key).map(|l| (&l.material, l.item)).or(server.get(key).map(|s| (&s.material, s.item)));
+                if let Some((material, item)) = lot
+                    && let Some(bt) = material.get("bt").and_then(Value::as_str).filter(|b| !b.is_empty())
+                {
+                    unmatched.push((bt.to_string(), item));
+                }
+            }
+            rejected.insert(key.clone(), if reason.is_empty() { kind.clone() } else { reason.clone() });
+        }
+        // `unmatched` for a `bt` that resolved before: the Basetool no longer knows it under that id.
+        after_unmatched(pass, sub, &unmatched)?;
 
         if applied > 0 {
             map_set(sub, "server", names_text(&server_raw));
@@ -430,8 +747,8 @@ impl StockArea {
             server = stock_sync::server_lots(&lots);
         }
 
-        if !result.take.is_empty() || moved > 0 {
-            Self::apply(pass, &result.take, &server, &resolver, (&places, &items), &data, &stamps)?;
+        if !result.take.is_empty() || moved > 0 || renamed > 0 {
+            Self::apply(pass, &result.take, &server, &resolver, (&places, &items, &renames), &data, &stamps)?;
         }
 
         let mut conflicts = result.conflicts.clone();
@@ -504,6 +821,8 @@ impl StockArea {
         map_set(sub, "conflict_names", Value::Object(names_of));
         map_set(sub, "decisions", Value::Object(kept_decisions));
         map_set(sub, "rejected", Value::Object(rejected.iter().map(|(k, v)| (k.clone(), Value::str(v))).collect()));
+        map_set(sub, RETIRED_STATE, Value::Object(retired.iter().map(|(k, v)| (k.clone(), Value::str(v))).collect()));
+        map_set(sub, RETIRED_LOTS, Value::Object(retired_lots.iter().map(|(k, v)| (k.clone(), Value::str(v))).collect()));
         map_set(
             sub,
             "skipped",
@@ -524,6 +843,8 @@ impl StockArea {
             ("moved", moved as i64),
             ("conflicts", conflicts.len() as i64),
             ("rejected", rejected.len() as i64),
+            ("retired", retired_lots.len() as i64),
+            ("merged", renamed as i64),
             ("skipped_location", distinct(&skipped.location)),
             ("skipped_material", distinct(&skipped.material)),
             ("guarded", guarded.len() as i64),

@@ -41,8 +41,8 @@ use crate::paths::Paths;
 pub const SWITCHABLE: [(&str, &[&str]); 8] = [
     ("basetool", &["k_basetool_verbindung", "hf_bedarf", "hf_bank"]),
     ("schiffe", &["hf_hangar"]),
-    ("werkstatt", &["hf_herstellung", "hf_farmliste"]),
-    ("bergbau", &["hf_bergbau", "hf_raffinerien"]),
+    ("werkstatt", &["hf_herstellung"]),
+    ("bergbau", &["hf_bergbau"]),
     ("bergung", &["hf_bergung"]),
     ("handel", &["hf_laeden", "hf_verkauf", "hf_routen"]),
     ("beschaffung", &["hf_einkaufsliste", "hf_contested"]),
@@ -215,18 +215,16 @@ mod tests {
         let home = scratch("werkstatt-bergbau");
         let paths = paths_in(&home);
         assert_eq!(group_of("hf_herstellung"), Some("werkstatt"));
-        assert_eq!(group_of("hf_farmliste"), Some("werkstatt"));
         assert_eq!(group_of("hf_bergbau"), Some("bergbau"));
-        assert_eq!(group_of("hf_raffinerien"), Some("bergbau"));
         // Crafting off, mining on: only the crafting pages go.
         assert!(set_enabled(&paths, "werkstatt", false) && set_enabled(&paths, "bergbau", true));
-        assert_eq!(hidden_pages(&paths), ["hf_herstellung", "hf_farmliste"]);
+        assert_eq!(hidden_pages(&paths), ["hf_herstellung"]);
         // Whoever had the old module off, before mining had a switch of its own, keeps mining off too.
         let old = scratch("werkstatt-alt");
         let before = paths_in(&old);
         assert!(before.set_setting("modul_werkstatt", Value::Bool(false)));
         assert!(!enabled(&before, "bergbau"));
-        assert_eq!(hidden_pages(&before), ["hf_herstellung", "hf_farmliste", "hf_bergbau", "hf_raffinerien"]);
+        assert_eq!(hidden_pages(&before), ["hf_herstellung", "hf_bergbau"]);
         // Mining switched on by itself stays on.
         assert!(set_enabled(&before, "bergbau", true));
         assert!(enabled(&before, "bergbau") && !enabled(&before, "werkstatt"));

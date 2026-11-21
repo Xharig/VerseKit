@@ -43,7 +43,7 @@ use versekit_gamedata::values::GameValues;
 
 use crate::color;
 use crate::crafting_page::{CraftingState, fixed};
-use crate::widgets::{self, ButtonKind};
+use crate::widgets;
 
 const LOOK_SECONDS: f64 = 1.0;
 const NOTES_FILE: &str = "hangar.json";
@@ -51,12 +51,8 @@ const NOTES_FILE: &str = "hangar.json";
 /// What a click asks of the window.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
-    /// Open the crafting page with this item.
-    ToCrafting(String),
     /// Show this material or place in mining.
     ToMining(String),
-    /// Open the crafting page, where the plan is listed.
-    ToCraftingPage,
 }
 
 /// The mining data of the sample: two made-up places where Iron and Gold lie, so the sample shows the places and a
@@ -258,8 +254,8 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
     // The first card: what is missing for the plan, with the notices of the page above it.
     let empty = widgets::card(ui, scheme, |ui| {
         widgets::card_title(ui, scheme, &head);
-        // The list of what is planned stands on the crafting page: one line says how much and leads there.
-        plan_line(ui, scheme, list.posts, &mut action);
+        // The list of what is planned stands in the other view of the page: one line says how much.
+        plan_line(ui, scheme, list.posts);
         if planned.is_empty() && notepad::notes(&state.notes).is_empty() {
             // One empty page with one way: the button of the crafting page.
             widgets::empty_state(ui, scheme, "diamond", &t("s_fl_nichts_geplant"));
@@ -316,25 +312,18 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut FarmState, crafting: 
     action
 }
 
-/// The line under the head of the first card: how many parts are planned and the way to the list of them. Without a
-/// part to craft (nothing planned, or all bought) only the way stands there; the card says the rest.
-fn plan_line(ui: &mut Ui, scheme: &Scheme, posts: i64, action: &mut Option<Action>) {
-    ui.horizontal_wrapped(|row| {
-        match posts {
-            0 => {}
-            1 => {
-                row.label(sub(scheme, t("s_fg_pl_farm_zeile_eins")));
-            }
-            n => {
-                row.label(sub(scheme, tf("s_fg_pl_farm_zeile", &[("n", Arg::from(n))])));
-            }
+/// The line under the head of the first card: how many parts are planned, and that the list of them stands in the
+/// other view of the page. Without a part to craft (nothing planned, or all bought) the card says the rest.
+fn plan_line(ui: &mut Ui, scheme: &Scheme, posts: i64) {
+    match posts {
+        0 => {}
+        1 => {
+            ui.label(sub(scheme, t("s_fg_pl_farm_zeile_eins")));
         }
-        let word = t("s_fg_pl_zur_herstellung");
-        let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("zap");
-        if row.add(button).on_hover_text(t("s_fg_pl_zur_herstellung_tip")).clicked() {
-            *action = Some(Action::ToCraftingPage);
+        n => {
+            ui.label(sub(scheme, tf("s_fg_pl_farm_zeile", &[("n", Arg::from(n))])));
         }
-    });
+    }
 }
 
 /// A name that leads somewhere: an accent link with the hand and a focus ring, like the other pages.
@@ -611,7 +600,7 @@ mod tests {
     }
 
     #[test]
-    fn the_page_names_the_missing_material_and_leaves_the_list_of_the_plan_to_the_crafting_page() {
+    fn the_view_names_the_missing_material_and_leaves_the_list_of_the_plan_to_the_crafting_view() {
         let _language = crate::language_lock();
         set_thread_language(Choice::De);
         let mut crafting = CraftingState::default();
@@ -620,10 +609,9 @@ mod tests {
         assert_eq!(over, 0.0);
         assert!(shown.contains(&tf("s_fl_kopf", &[("n", Arg::Int(3))])), "{shown:?}");
         assert!(shown.iter().any(|s| s.starts_with("Iron") && s.contains("fehlt") || s == "Iron"), "{shown:?}");
-        // No card of the plan any more, one line with the same number as the head and the way to the list.
+        // No card of the plan any more, one line with the same number as the head; the way to the list is the tab.
         assert!(!shown.contains(&t("s_mz_titel")) && !shown.contains(&t("s_mz_leer")), "{shown:?}");
         assert!(shown.contains(&tf("s_fg_pl_farm_zeile", &[("n", Arg::Int(3))])), "{shown:?}");
-        assert!(shown.contains(&t("s_fg_pl_zur_herstellung")), "{shown:?}");
     }
 
     #[test]
@@ -645,14 +633,13 @@ mod tests {
     }
 
     #[test]
-    fn the_empty_page_has_one_way_to_the_crafting_page() {
+    fn the_empty_view_says_one_thing() {
         let _language = crate::language_lock();
         set_thread_language(Choice::De);
         let mut crafting = CraftingState::default();
         let mut state = FarmState { notes: hangar::empty(), ..FarmState::default() };
         let (shown, _) = draw(&context(), &mut state, &mut crafting, 900.0);
         assert!(shown.contains(&t("s_fl_nichts_geplant")), "{shown:?}");
-        assert!(shown.contains(&t("s_fg_pl_zur_herstellung")), "the way to the list: {shown:?}");
         assert!(!shown.contains(&t("s_mz_leer")), "the old instruction of the notes is gone");
         assert!(
             !shown.iter().any(|s| s.contains("geplant.")),

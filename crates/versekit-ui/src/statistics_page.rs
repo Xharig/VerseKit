@@ -32,9 +32,9 @@ use std::time::Duration;
 
 use egui::{RichText, TextStyle, Ui};
 use versekit_core::formats;
+use versekit_core::{contract_rewards, mission_log};
 use versekit_core::language::{self, Arg, Lang, t, tf};
 use versekit_core::logsource::LogSource;
-use versekit_core::{contract_rewards, mission_log};
 use versekit_core::paths::{Host, Paths};
 use versekit_core::stats_report::{
     self as report, End, Evaluation, Missions, Names, Quantum, ReportNames, Session, Ships, Stability, Summary,
@@ -431,6 +431,8 @@ pub struct StatsState {
     /// The flight log: its own files, its own loading.
     flight: crate::flugbuch_page::FlightState,
     dialog: Option<file_dialog::Pending>,
+    /// The open save dialog is for the HTML report, not for the JSON file.
+    dialog_html: bool,
     /// Said by the last run or export, taken by the window.
     notice: Option<String>,
 }
@@ -451,6 +453,7 @@ impl StatsState {
             working: None,
             flight: crate::flugbuch_page::FlightState::sample(),
             dialog: None,
+            dialog_html: false,
             notice: None,
         }
     }
@@ -544,8 +547,9 @@ impl StatsState {
     }
 
     /// Hands the report to the export: asks where to save it.
-    fn ask_export(&mut self, ctx: &egui::Context) {
-        let name = format!("versekit-statistik-{}.json", today_text());
+    fn ask_export(&mut self, ctx: &egui::Context, html: bool) {
+        let extension = if html { "html" } else { "json" };
+        let name = format!("versekit-statistik-{}.{extension}", today_text());
         // The sample page writes nothing and opens no dialog: it only says so.
         let Some(host) = &self.host else {
             self.notice = Some(tf("s_sx_exportiert", &[("0", Arg::from(name))]));
@@ -559,8 +563,10 @@ impl StatsState {
         }
         .folder();
         let start = Some(start);
-        let filters: file_dialog::Filters = &[("JSON", &["json"])];
-        self.dialog = Some(file_dialog::save_file(ctx, &t("s_sx_export"), filters, start.as_deref(), &name));
+        let filters: file_dialog::Filters = if html { &[("HTML", &["html"])] } else { &[("JSON", &["json"])] };
+        let title = t(if html { "s_sx_export_html" } else { "s_sx_export" });
+        self.dialog_html = html;
+        self.dialog = Some(file_dialog::save_file(ctx, &title, filters, start.as_deref(), &name));
     }
 
     /// The answer of the save dialog: writes the file.
@@ -569,30 +575,51 @@ impl StatsState {
         self.dialog = None;
         // Cancelled: nothing is said.
         let Some(mut target) = answer.filter(|p| !p.is_empty()) else { return };
-        if !target.to_lowercase().ends_with(".json") {
-            target.push_str(".json");
+        let (html, extension) = if self.dialog_html { (true, ".html") } else { (false, ".json") };
+        if !target.to_lowercase().ends_with(extension) {
+            target.push_str(extension);
         }
-        self.write_export(&target);
+        if html {
+            self.write_export_html(&target);
+        } else {
+            self.write_export(&target);
+        }
+    }
+
+    /// Writes the statistics to `target` as the HTML report and says whether it worked.
+    fn write_export_html(&mut self, target: &str) {
+        let Some(value) = self.export_value() else { return };
+        self.notice = Some(self.export_notice(versekit_core::stats_html::write(target, &value), target));
     }
 
     /// Writes the statistics to `target` and says whether it worked.
     fn write_export(&mut self, target: &str) {
-        let Some(report) = &self.report else { return };
-        let value = report::export_value(
+        let Some(value) = self.export_value() else { return };
+        self.notice = Some(self.export_notice(report::export(target, &value), target));
+    }
+
+    /// What was written to `target` or why it was not.
+    fn export_notice(&self, done: bool, target: &str) -> String {
+        if done {
+            let name =
+                std::path::Path::new(target).file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+            tf("s_sx_exportiert", &[("0", Arg::from(name))])
+        } else {
+            t("s_sx_export_fehler")
+        }
+    }
+
+    /// The figures of the report as the export holds them.
+    fn export_value(&self) -> Option<versekit_core::jsonio::Value> {
+        let report = self.report.as_ref()?;
+        Some(report::export_value(
             &report.sessions,
             &report.spans,
             report.running,
             report.own.as_deref(),
             env!("CARGO_PKG_VERSION"),
             versekit_core::export::now_unix(),
-        );
-        self.notice = Some(if report::export(target, &value) {
-            let name =
-                std::path::Path::new(target).file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-            tf("s_sx_exportiert", &[("0", Arg::from(name))])
-        } else {
-            t("s_sx_export_fehler")
-        });
+        ))
     }
 
     /// The window takes what the pages said (to show in the corner).
@@ -973,7 +1000,8 @@ fn evaluation(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState) {
     // The evaluation always runs: it is said as a small heading, without a switch.
     crate::settings::subheading(ui, scheme, &t("s_sa_auto"), &t("s_sa_auto_h"));
     let export_name = t("s_sx_export");
-    let mut export = false;
+    let html_name = t("s_sx_export_html");
+    let (mut export, mut export_html) = (false, false);
     crate::settings::setting_row(
         ui,
         scheme,
@@ -984,8 +1012,20 @@ fn evaluation(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState) {
             export = row.add(widgets::Button::new(&export_name, ButtonKind::Normal, scheme)).clicked();
         },
     );
+    crate::settings::setting_row(
+        ui,
+        scheme,
+        html_name.trim_end_matches([' ', '…']),
+        &t("s_sx_export_html_h"),
+        false,
+        |row| {
+            export_html = row.add(widgets::Button::new(&html_name, ButtonKind::Normal, scheme)).clicked();
+        },
+    );
     if export {
-        state.ask_export(ui.ctx());
+        state.ask_export(ui.ctx(), false);
+    } else if export_html {
+        state.ask_export(ui.ctx(), true);
     }
 }
 
@@ -2175,6 +2215,22 @@ mod tests {
         assert_eq!(total.get("spielzeit"), Some(&Value::int(3 * 3600 + 1800)));
         // An unwritable target says so.
         state.write_export(root.join("gibt-es-nicht").join("x.json").to_str().unwrap());
+        assert_eq!(state.take_notice().as_deref(), Some("Statistik nicht gespeichert."));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn the_html_report_holds_the_figures_and_not_the_player() {
+        set_thread_language(Choice::De);
+        let (root, _, mut state) = real("export-html");
+        let target = root.join("bericht.html");
+        state.write_export_html(target.to_str().unwrap());
+        assert_eq!(state.take_notice().as_deref(), Some("Gespeichert: bericht.html"));
+        let text = std::fs::read_to_string(&target).unwrap();
+        assert!(text.starts_with("<!DOCTYPE html>") && text.contains("<table"), "a page");
+        assert!(!text.contains("Xharig") && !text.contains("Fremder"), "no account in the file");
+        assert!(text.contains("3 h 30 min"), "the playtime of the sessions: {text}");
+        state.write_export_html(root.join("gibt-es-nicht").join("x.html").to_str().unwrap());
         assert_eq!(state.take_notice().as_deref(), Some("Statistik nicht gespeichert."));
         let _ = std::fs::remove_dir_all(root);
     }

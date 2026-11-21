@@ -774,7 +774,7 @@ pub(crate) mod tests {
         assert!(shows(&texts, "Noch nichts eingelagert"), "an empty stock says so");
         // The refinery tile exists only where the terminal can be read.
         assert!(
-            shows(&texts, &language::tf("s_uv_raff_leer", &[("0", language::Arg::from("Alt+Umschalt+R"))]))
+            shows(&texts, &language::tf("s_uv_raff_leer", &[("0", language::Arg::from(versekit_core::overlay::DEFAULT_SCAN_HOTKEY))]))
                 || !cfg!(windows),
             "a tile without data says why: {texts:?}"
         );

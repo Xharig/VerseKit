@@ -438,7 +438,8 @@ pub fn run(args: &[String]) -> eframe::Result {
     // On the user's own data the switch for the start with the system writes the real entry; on a copy it
     // writes into the copy, with a command that starts the program on the copy; elsewhere there is none.
     if wiring.own {
-        page.use_autostart(Box::new(autostart::System), crate::autostart_command(&[]));
+        // The test build only shows the real entry (`autostart::real`).
+        page.use_autostart(autostart::real(), crate::autostart_command(&[]));
         // Only the player's own program updates itself; a copy of the data or a test run never replaces a file.
         page.use_updates(crate::updates::window_env(env!("CARGO_PKG_VERSION")));
     } else if !page.use_copy_autostart(

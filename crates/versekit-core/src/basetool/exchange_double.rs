@@ -233,6 +233,17 @@ struct World {
     orders: Vec<RefineryOrder>,
     order_log: Vec<Log>,
     bank: BankWorld,
+    /// Materials, items and ship types folded into another: old `bt` → new `bt`.
+    merged: Vec<(String, String)>,
+    /// The catalog resolves an old material id to the new one (from the release after the merges on), else it no
+    /// longer knows it (`unmatched`). Old ship type ids always resolve.
+    resolve_merged: bool,
+    /// Names of folded materials (lower case): no alias, they stay `ambiguous`.
+    old_names: Vec<String>,
+    /// Materials and items the Basetool no longer takes in (`bt`).
+    retired: Vec<String>,
+    /// Wiki ids (`scGuid`, lower case) → `bt`.
+    guids: Vec<(String, String)>,
 }
 
 /// The Kartellbank over there.
@@ -328,6 +339,11 @@ impl ExchangeDouble {
                 orders: Vec::new(),
                 order_log: Vec::new(),
                 bank: BankWorld { on: true, accounts: Vec::new(), requests: Vec::new(), log: Vec::new(), queue: None },
+                merged: Vec::new(),
+                resolve_merged: false,
+                old_names: Vec::new(),
+                retired: Vec::new(),
+                guids: Vec::new(),
             }),
         }
     }
@@ -680,6 +696,98 @@ impl ExchangeDouble {
     /// The lots over there.
     pub fn lots(&self) -> Vec<Lot> {
         self.world().lots.clone()
+    }
+
+    /// The Basetool folds the material `old` into `new` (both names it knows): `old` leaves the catalog, each of
+    /// its lots goes (a deletion mark in the feed) and its amount is added to the lot of `new` at the same place,
+    /// quality and "stolen" (made where there is none). Gives the old and the new `bt`.
+    pub fn merge_material(&self, old: &str, new: &str) -> (String, String) {
+        let mut world = self.world();
+        let find = |world: &World, name: &str| {
+            world.materials.iter().find(|(_, n, _)| lower(n) == lower(name)).cloned().expect("a known material")
+        };
+        let (old_bt, old_name, _) = find(&world, old);
+        let (new_bt, new_name, item) = find(&world, new);
+        world.materials.retain(|(b, _, _)| *b != old_bt);
+        world.merged.push((old_bt.clone(), new_bt.clone()));
+        world.old_names.push(lower(&old_name));
+        let gone: Vec<Lot> = world.lots.iter().filter(|l| l.bt == old_bt).cloned().collect();
+        world.lots.retain(|l| l.bt != old_bt);
+        for lot in gone {
+            let revision = world.bump();
+            world.lot_log.push(Log { revision, key: lot.key.clone(), gone_by: None });
+            let target = world.lots.iter().position(|l| {
+                l.bt == new_bt && lower(&l.place) == lower(&lot.place) && l.quality == lot.quality && l.stolen == lot.stolen
+            });
+            let revision = world.bump();
+            match target {
+                Some(at) => {
+                    world.lots[at].amount += lot.amount;
+                    let key = world.lots[at].key.clone();
+                    world.lot_log.push(Log { revision, key, gone_by: None });
+                }
+                None => {
+                    let key = format!("L{}", world.next);
+                    world.next += 1;
+                    world.lots.push(Lot { key: key.clone(), bt: new_bt.clone(), name: new_name.clone(), item, ..lot });
+                    world.lot_log.push(Log { revision, key, gone_by: None });
+                }
+            }
+        }
+        (old_bt, new_bt)
+    }
+
+    /// A material (or item) the catalog knows; `bt` is made from the name.
+    pub fn add_material(&self, name: &str, item: bool) -> String {
+        let mut world = self.world();
+        let bt = format!("bt-{}", lower(name).replace(' ', "-"));
+        if !world.materials.iter().any(|(b, _, _)| *b == bt) {
+            world.materials.push((bt.clone(), name.into(), item));
+        }
+        bt
+    }
+
+    /// From now on the catalog resolves the ids of folded materials to the new ones.
+    pub fn resolve_merged_ids(&self, on: bool) {
+        self.world().resolve_merged = on;
+    }
+
+    /// The Basetool no longer takes the material or item `name` in: an addition is refused with `MATERIAL_RETIRED`
+    /// (`ITEM_RETIRED`) unless the same send takes at least as much of it away elsewhere.
+    pub fn retire_material(&self, name: &str) {
+        let mut world = self.world();
+        let bt = world.materials.iter().find(|(_, n, _)| lower(n) == lower(name)).map(|(b, _, _)| b.clone());
+        world.retired.push(bt.unwrap_or_else(|| format!("bt-{}", lower(name))));
+    }
+
+    /// The catalog knows the material `name` by the wiki id `guid` as well.
+    pub fn add_guid(&self, guid: &str, name: &str) {
+        let mut world = self.world();
+        let bt = world.materials.iter().find(|(_, n, _)| lower(n) == lower(name)).map(|(b, _, _)| b.clone());
+        world.guids.push((lower(guid), bt.expect("a known material")));
+    }
+
+    /// The Basetool folds the ship type named `old` into the one named `new`: `old` leaves the catalog, its ships
+    /// keep their `shipId` and carry the new type (each with a new version).
+    pub fn merge_ship_type(&self, old: &str, new: &str) {
+        let mut world = self.world();
+        let bt_of = |world: &World, name: &str| {
+            world.ship_types.iter().find(|(_, n)| lower(n) == lower(name)).map(|(b, _)| b.clone()).expect("a type")
+        };
+        let (old_bt, new_bt) = (bt_of(&world, old), bt_of(&world, new));
+        let new_name = new.to_string();
+        world.ship_types.retain(|(b, _)| *b != old_bt);
+        world.merged.push((old_bt.clone(), new_bt.clone()));
+        let ids: Vec<String> = world.ships.iter().filter(|s| s.type_bt == old_bt).map(|s| s.id.clone()).collect();
+        for id in ids {
+            if let Some(at) = world.ships.iter().position(|s| s.id == id) {
+                world.ships[at].type_bt = new_bt.clone();
+                world.ships[at].type_name = new_name.clone();
+                world.ships[at].version += 1;
+            }
+            let revision = world.bump();
+            world.ship_log.push(Log { revision, key: id, gone_by: None });
+        }
     }
 
     /// A second name over there for a ship type it knows, as a variant it does not tell apart.
@@ -1327,11 +1435,26 @@ impl World {
             .map(|(index, reference)| {
                 let record = lower(&text_of(reference.get("scRecord")));
                 let by_record = self.records.iter().find(|(r, _)| kind == "ITEM" && *r == record).map(|(_, b)| b.as_str());
-                let by_bt = reference.get("bt").and_then(Value::as_str).or(by_record);
+                let guid = lower(&text_of(reference.get("scGuid")));
+                let by_guid = self.guids.iter().find(|(g, _)| !guid.is_empty() && *g == guid).map(|(_, b)| b.as_str());
+                // An old id of a folded entry: a ship type always resolves to the new one, a material only from
+                // the release after the merge on.
+                let by_bt = reference.get("bt").and_then(Value::as_str).map(|bt| {
+                    match self.merged.iter().find(|(old, _)| old == bt) {
+                        Some((_, new)) if kind == "SHIP_TYPE" || self.resolve_merged => new.as_str(),
+                        _ => bt,
+                    }
+                });
+                let by_bt = by_bt.or(by_guid).or(by_record);
                 let name = lower(&text_of(reference.get("name")));
                 let hits: Vec<&(String, String)> =
                     catalog.iter().filter(|(bt, n)| by_bt.map_or(lower(n) == name, |wanted| wanted == bt)).collect();
                 let mut pairs = vec![("index", Value::int(index as i64))];
+                if by_bt.is_none() && self.old_names.contains(&name) {
+                    // The name of a folded material is no alias.
+                    pairs.push(("status", Value::str("ambiguous")));
+                    return object(pairs);
+                }
                 match hits.as_slice() {
                     [(bt, n)] => pairs.extend([
                         ("status", Value::str("resolved")),
@@ -1431,9 +1554,38 @@ impl World {
         Ok(())
     }
 
+    /// What a change set adds to each retired material in all (additions less reductions).
+    fn retired_change(&self, body: &Value) -> Vec<(String, f64)> {
+        let mut out: Vec<(String, f64)> = Vec::new();
+        for op in ops_of(body).iter().filter(|op| text_of(op.get("op")) == "set-quantity") {
+            let bt = text_of(op.get("material").and_then(|m| m.get("bt")));
+            if !self.retired.contains(&bt) {
+                continue;
+            }
+            let place = text_of(op.get("location").and_then(|l| l.get("name")));
+            let quality = match op.get("quality") {
+                Some(Value::Int(n)) => n.parse().unwrap_or(0),
+                _ => 0,
+            };
+            let stolen = matches!(op.get("stolen"), Some(Value::Bool(true)));
+            let current = self
+                .lots
+                .iter()
+                .find(|l| l.bt == bt && lower(&l.place) == lower(&place) && l.quality == quality && l.stolen == stolen)
+                .map_or(0.0, |l| l.amount);
+            let change = amount_of(op.get("quantity").and_then(|q| q.get("amount"))) - current;
+            match out.iter_mut().find(|(b, _)| *b == bt) {
+                Some((_, sum)) => *sum += change,
+                None => out.push((bt, change)),
+            }
+        }
+        out
+    }
+
     fn change_stock(&mut self, body: &Value) -> Response {
         let (mut applied, mut unchanged) = (0, 0);
         let mut report = Vec::new();
+        let retired_change = self.retired_change(body);
         for (index, op) in ops_of(body).iter().enumerate() {
             let kind = text_of(op.get("op"));
             if kind == "share" || kind == "unshare" {
@@ -1448,7 +1600,15 @@ impl World {
                 continue;
             }
             let material = op.get("material");
-            let bt = text_of(material.and_then(|m| m.get("bt")));
+            let mut bt = text_of(material.and_then(|m| m.get("bt")));
+            // An old id of a folded material books nothing (no NOT_FOUND), until the catalog resolves it.
+            if let Some((_, new)) = self.merged.iter().find(|(old, _)| *old == bt) {
+                if !self.resolve_merged {
+                    report.push(failure(index, "unmatched", "UNMATCHED"));
+                    continue;
+                }
+                bt = new.clone();
+            }
             let named = lower(&text_of(material.and_then(|m| m.get("name"))));
             if let Some((_, reason)) = self.material_refusals.iter().find(|(name, _)| *name == named) {
                 report.push(failure(index, "rejected", reason));
@@ -1488,6 +1648,13 @@ impl World {
             if (current - quantity).abs() < 1e-9 {
                 unchanged += 1;
                 report.push(failure(index, "unchanged", ""));
+                continue;
+            }
+            let more_in = retired_change.iter().find(|(b, _)| *b == bt).is_some_and(|(_, sum)| *sum > 1e-9);
+            if quantity > current && more_in {
+                let item = self.materials.iter().any(|(b, _, i)| *b == bt && *i)
+                    || position.is_some_and(|at| self.lots[at].item);
+                report.push(failure(index, "rejected", if item { "ITEM_RETIRED" } else { "MATERIAL_RETIRED" }));
                 continue;
             }
             let revision = self.bump();
@@ -1571,7 +1738,10 @@ impl World {
                             report.push(failure(index, "rejected", "REMOVED_ELSEWHERE"));
                             continue;
                         }
-                        let type_bt = text_of(op.get("shipType").and_then(|t| t.get("bt")));
+                        let mut type_bt = text_of(op.get("shipType").and_then(|t| t.get("bt")));
+                        if let Some((_, new)) = self.merged.iter().find(|(old, _)| *old == type_bt) {
+                            type_bt = new.clone();
+                        }
                         let Some((_, type_name)) = self.ship_types.iter().find(|(b, _)| *b == type_bt).cloned() else {
                             report.push(failure(index, "rejected", "UNMATCHED"));
                             continue;

@@ -42,7 +42,7 @@ pub const MOVE_EXTENSIONS: [&str; 2] = [".json", ".txt"];
 
 /// The subfolders VerseKit makes itself. All of their content is ours,
 /// whatever the type of the file.
-pub const OWN_FOLDERS: [&str; 6] = ["Bauplaene", "Einstellungen", "Intern", "Diagnose", "Patches", "export"];
+pub const OWN_FOLDERS: [&str; 7] = ["Bauplaene", "Einstellungen", "Intern", "Diagnose", "Patches", "export", "Staende"];
 
 /// The name of the file written to find out whether a folder takes files.
 const PROBE_NAME: &str = ".schreibprobe";
@@ -624,6 +624,22 @@ mod tests {
         assert_eq!((copied, kept.len()), (1, 0));
         assert_eq!(fs::read_to_string(join(&target, "Intern/flugbuch.json")).unwrap(), "{\"sitzungen\": {}}");
         assert!(!Path::new(&join(&folder, "flugbuch.json")).exists() && !Path::new(&join(&folder, "Intern/flugbuch.json")).exists());
+    }
+
+    /// The stands and the own comparisons are own files: they go along with the data, in their own folders.
+    #[test]
+    fn the_stands_and_the_own_comparisons_go_along_with_the_data() {
+        let root = scratch("staende");
+        let p = machine(&root);
+        let folder = p.app_folder();
+        put(&join(&folder, &format!("{}/LIVE_4.10.0.stand", crate::stands::FOLDER)), "stand");
+        put(&join(&folder, "Patches/eigen-4.10.0.json"), "{}");
+        assert_eq!(rels(&p.storage_items(&folder)), ["Patches/eigen-4.10.0.json", "Staende/LIVE_4.10.0.stand"]);
+        let target = join(&root, "Neu");
+        let outcome = p.apply_storage_move(&target, Choice::TakeAlong);
+        let Outcome::Moved { copied, kept, .. } = outcome else { panic!("{outcome:?}") };
+        assert_eq!((copied, kept.len()), (2, 0));
+        assert_eq!(fs::read_to_string(join(&target, "Staende/LIVE_4.10.0.stand")).unwrap(), "stand");
     }
 
     #[test]

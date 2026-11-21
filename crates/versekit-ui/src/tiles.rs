@@ -501,7 +501,7 @@ pub fn bar_track(scheme: &Scheme) -> Color {
 }
 
 fn bar_radius(scheme: &Scheme) -> egui::CornerRadius {
-    egui::CornerRadius::same(if scheme.square { 0 } else { (BAR_HEIGHT / 2.0) as u8 })
+    egui::CornerRadius::same(if scheme.square || scheme.flat_gauges { 0 } else { (BAR_HEIGHT / 2.0) as u8 })
 }
 
 /// A thin bar as wide as the room, filled to `share` (0 to 1): the blueprints owned, the watch list found. It is

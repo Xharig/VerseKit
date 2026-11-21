@@ -79,6 +79,24 @@ test('falsche Ansicht oder unbekannte Kachel wird abgelehnt', async () => {
   }
 });
 
+test('die gewählte Übersetzung wird als Merkmal gezählt', async () => {
+  for (const tr of ['dymerz_de', 'luftwerft_ptbr', 'original', 'eigene', 'keine']) {
+    const e = env();
+    assert.equal((await worker.fetch(ping({ ...FULL, tr }), e)).status, 204, tr);
+    const merk = e.DB.calls.filter((c) => /INTO merkmale/.test(c.sql)).map((c) => c.args.slice(1).join('='));
+    assert.ok(merk.includes('tr=' + tr), tr);
+  }
+});
+
+test('eine Übersetzung, die keine Kennung ist (etwa eine Adresse), wird abgelehnt', async () => {
+  for (const tr of ['https://example.org/global.ini', 'Dymerz_DE', '', 'a'.repeat(41), 7, ['dymerz_de']]) {
+    const e = env();
+    const r = await worker.fetch(ping({ ...FULL, tr }), e);
+    assert.equal(r.status, 400, JSON.stringify(tr));
+    assert.equal(e.DB.calls.length, 0);
+  }
+});
+
 test('ältere Fassungen ohne Feld update werden weiter gezählt', async () => {
   const e = env();
   const { update, ...old } = FULL;

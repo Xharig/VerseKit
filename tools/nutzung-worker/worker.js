@@ -45,7 +45,10 @@ const MAX_MODULES = 12;
 const OVERLAY = ['immer', 'popup'];
 const VIEWS = ['karten', 'reiter'];
 const FIELDS = ['actions', 'alter', 'autostart', 'clicks', 'entry', 'game', 'misses', 'mods', 'os',
-                'overlay', 'pages', 'rc', 'tiles_off', 'ui', 'update', 'v', 'view'];
+                'overlay', 'pages', 'rc', 'tiles_off', 'tr', 'ui', 'update', 'v', 'view'];
+// Die gewählte Übersetzung als Kennung ihrer Quelle (`dymerz_de`, `luftwerft_nl`,
+// `original`, `eigene`, `keine`), nie eine Adresse.
+const SOURCE_RE = /^[a-z0-9_]{1,40}$/;
 // Alter der Installation in ganzen Tagen; alles ab 31 meldet das Programm als 31.
 export const MAX_AGE = 31;
 // Kanal-Kennzeichen an den Kurzlinks (`?ref=discord`). Alles andere wird verworfen.
@@ -111,6 +114,10 @@ export async function check(request) {
   if (d.overlay !== undefined) {
     if (!OVERLAY.includes(d.overlay)) throw { status: 400, text: 'overlay' };
     out.traits.push(['overlay', d.overlay]);
+  }
+  if (d.tr !== undefined) {
+    if (typeof d.tr !== 'string' || !SOURCE_RE.test(d.tr)) throw { status: 400, text: 'tr' };
+    out.traits.push(['tr', d.tr]);
   }
   if (d.mods !== undefined) {
     if (!Array.isArray(d.mods) || d.mods.length > MAX_MODULES) throw { status: 400, text: 'mods' };

@@ -66,8 +66,8 @@ pub const CHANNELS: [&str; 3] = ["LIVE", "HOTFIX", "PTU"];
 /// The one list of the channels, as the test build of the developer knows them.
 #[cfg(feature = "test-build")]
 pub const CHANNELS: [&str; 5] = ["LIVE", "HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
-/// The channels of [`CHANNELS`] that are test builds (what they hold is confidential by the terms of service, and a
-/// translation takes the test version of its source there).
+/// The channels of [`CHANNELS`] that are test builds (a translation takes the test version of its source there).
+/// PTU is public: only the channels of [`UNDER_AGREEMENT`] are confidential.
 #[cfg(not(feature = "test-build"))]
 pub const TEST_CHANNELS: [&str; 1] = ["PTU"];
 /// The test channels of the test build of the developer.
@@ -80,12 +80,13 @@ pub const FOLLOWS_LIVE: [&str; 2] = ["HOTFIX", "PTU"];
 /// The channels that can follow LIVE in the test build of the developer.
 #[cfg(feature = "test-build")]
 pub const FOLLOWS_LIVE: [&str; 4] = ["HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"];
-/// The test channels whose content is under the non-disclosure agreement of the Evocati besides the terms of service.
+/// The test channels whose content is under a non-disclosure agreement (EPTU, TECH-PREVIEW). Only what they hold is
+/// confidential: nothing of it is exported, copied or shown in the streamer mode.
 #[cfg(not(feature = "test-build"))]
 pub const UNDER_AGREEMENT: [&str; 0] = [];
 /// The test channels under the non-disclosure agreement, in the test build of the developer.
 #[cfg(feature = "test-build")]
-pub const UNDER_AGREEMENT: [&str; 1] = ["EPTU"];
+pub const UNDER_AGREEMENT: [&str; 2] = ["EPTU", "TECH-PREVIEW"];
 
 /// ⚠⚠ Only these two share a blueprint collection. The test environments
 /// run on separate save data; reading them too would claim a collection
@@ -2580,7 +2581,7 @@ mod tests {
         touch(&p.join_all(&real, &["LIVE", "Game.log"]), "");
         touch(&p.join_all(&real, &["PTU", "Game.log"]), "");
         assert_eq!(p.game_folder(), Some(p.join(&real, "LIVE")), "found without a copy given");
-        let copy = p.join_all(&home, &["Testumgebung", "Spieldaten LIVE"]);
+        let copy = p.join_all(&home, &["Testumgebung", "Kopie LIVE"]);
         fs::create_dir_all(&copy).unwrap();
         // The setting names a folder without a Game.log, which would ask the channel question.
         touch(&p.settings_file(), &object(&[("spiel_ordner", &p.join(&home, "leer"))]));
@@ -3142,7 +3143,7 @@ mod tests {
             assert_eq!(CHANNELS[..], ["LIVE", "HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"][..]);
             assert_eq!(TEST_CHANNELS[..], ["PTU", "EPTU", "TECH-PREVIEW"][..]);
             assert_eq!(FOLLOWS_LIVE[..], ["HOTFIX", "PTU", "EPTU", "TECH-PREVIEW"][..]);
-            assert_eq!(UNDER_AGREEMENT[..], ["EPTU"][..]);
+            assert_eq!(UNDER_AGREEMENT[..], ["EPTU", "TECH-PREVIEW"][..]);
         } else {
             assert_eq!(CHANNELS[..], ["LIVE", "HOTFIX", "PTU"][..]);
             assert_eq!(TEST_CHANNELS[..], ["PTU"][..]);

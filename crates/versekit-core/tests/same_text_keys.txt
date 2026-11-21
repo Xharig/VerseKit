@@ -4,6 +4,10 @@
 # reads this file: a new key with the same text in both languages must be translated or listed here,
 # and a key that no longer reads the same must leave.
 
+# The patch page: the kind of change "Text" and the source "Erkul" (a name) read the same in both languages.
+s_pv_art_text
+s_pv_quelle_erkul
+
 # An amount with the unit SCU, which the game writes the same in both languages.
 s_p9_menge
 s_p9_menge_n
@@ -74,6 +78,7 @@ s_sp_q_lw_bar
 s_tq_bayrisch_wip
 s_sp_q_lw_nl
 s_sp_q_lw_pt
+s_sp_q_lw_ptbr
 s_sp_q_pt
 s_sp_q_tr
 
@@ -212,3 +217,9 @@ s_ei_taste_num_plus
 
 # The short name of the overlay shortcut in the messages about a taken key: the word "Overlay" in both languages.
 s_hk_kurz_overlay
+
+# The choice of the installation (LIVE, PTU) on the pages Grafik and Blickwinkel: "Installation" in both languages.
+s_inst_titel
+
+# The tab of the blueprint list with the scans: the word "Scans" in both languages.
+s_bpscan_reiter

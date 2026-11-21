@@ -70,6 +70,49 @@ pub trait Store {
     fn approved(&self, _name: &str) -> bool {
         true
     }
+    /// May the program change the entries here? A store that only shows ([`ReadOnly`]) says no.
+    fn writable(&self) -> bool {
+        true
+    }
+}
+
+/// What a store that only shows answers to a write.
+pub const READ_ONLY: &str = "the start with the system is only shown here";
+
+/// A store that shows the entries of another and changes none: every write is refused, nothing is touched.
+pub struct ReadOnly(pub Box<dyn Store>);
+
+impl Store for ReadOnly {
+    fn possible(&self) -> bool {
+        self.0.possible()
+    }
+    fn get(&self, name: &str) -> Option<String> {
+        self.0.get(name)
+    }
+    fn put(&self, _name: &str, _command: &str) -> Result<(), String> {
+        Err(READ_ONLY.to_string())
+    }
+    fn remove(&self, _name: &str) -> Result<(), String> {
+        Err(READ_ONLY.to_string())
+    }
+    fn approved(&self, name: &str) -> bool {
+        self.0.approved(name)
+    }
+    fn writable(&self) -> bool {
+        false
+    }
+}
+
+/// The start with the system of this system for the program on the user's own data. ⚠ The test build only shows
+/// it: it runs from another folder than the installed program, and an entry it wrote or took over would start the
+/// test build at the next login instead of the installed one.
+pub fn real() -> Box<dyn Store> {
+    for_build(crate::edition::developer_build(), Box::new(System))
+}
+
+/// `store` as the build `test_build` may use it: as it is, or for the test build only to be shown ([`ReadOnly`]).
+pub fn for_build(test_build: bool, store: Box<dyn Store>) -> Box<dyn Store> {
+    if test_build { Box::new(ReadOnly(store)) } else { store }
 }
 
 /// The command of the entry for the program `program` on this system ([`command_for`]).
@@ -807,6 +850,72 @@ mod tests {
         let refusing = Memory { refuse_put: true, ..Memory::with(NAME, "\"C:/P/versekit.exe\"") };
         assert!(!add_system_start(&refusing), "a registry that takes nothing is no change");
         assert_eq!(refusing.get(NAME).as_deref(), Some("\"C:/P/versekit.exe\""));
+    }
+
+    /// ⚠⚠ The test build runs from another folder than the installed program: the real start with the system is
+    /// only shown to it. Neither the switch nor the takeovers of a start by hand change an entry.
+    #[test]
+    fn the_test_build_only_shows_the_start_with_the_system_and_changes_nothing() {
+        let installed = r#""C:\Users\Spieler\AppData\Local\Programs\VerseKit\versekit.exe""#;
+        let test = r#""C:\Users\Spieler\VerseKit-Testfassung\release\versekit.exe" "--systemstart""#;
+        let entries = |pairs: &[(&str, &str)]| -> Memory {
+            let memory = Memory::default();
+            for (name, command) in pairs {
+                memory.entries.borrow_mut().insert((*name).to_string(), (*command).to_string());
+            }
+            memory
+        };
+        // What the real store holds, behind the guard of each build: the installed entry without the switch, an
+        // entry of 4.12, one of the old program file.
+        let seen = |test_build: bool, memory: Memory| -> (BTreeMap<String, String>, bool, bool) {
+            let shared = std::rc::Rc::new(memory);
+            let store = for_build(test_build, Box::new(Shared(std::rc::Rc::clone(&shared))));
+            let changed = set_on(store.as_ref(), false, test).is_ok()
+                | set_on(store.as_ref(), true, test).is_ok()
+                | migrate(store.as_ref(), test)
+                | repoint(store.as_ref(), test)
+                | add_system_start(store.as_ref());
+            (shared.entries(), changed, store.writable())
+        };
+        let before = [(NAME, installed), (legacy::AUTOSTART_NAME, "\"old\"")];
+        let (after, changed, writable) = seen(true, entries(&before));
+        assert!(!changed && !writable, "the test build writes nothing");
+        assert_eq!(after, entries(&before).entries(), "the entries stay as they were");
+        let old_file = old_command();
+        let old = [(NAME, old_file.as_str())];
+        let (after, changed, _) = seen(true, entries(&old));
+        assert!(!changed && after == entries(&old).entries(), "the old program file is not pointed at the test build");
+        // It still shows what is there.
+        let shown = for_build(true, Box::new(Memory::with(NAME, installed)));
+        assert!(is_on(shown.as_ref()) && shown.possible());
+        assert_eq!(shown.get(NAME).as_deref(), Some(installed));
+        // The build players get writes as before.
+        let (after, changed, writable) = seen(false, entries(&before));
+        assert!(changed && writable);
+        assert_eq!(after.get(NAME).map(String::as_str), Some(test));
+        // This build: the guard follows the feature of the build, nothing else.
+        assert_eq!(real().writable(), !crate::edition::developer_build());
+    }
+
+    /// A memory store shared with the test, so it can look at what the guarded store did.
+    struct Shared(std::rc::Rc<Memory>);
+
+    impl Store for Shared {
+        fn possible(&self) -> bool {
+            self.0.possible()
+        }
+        fn get(&self, name: &str) -> Option<String> {
+            self.0.get(name)
+        }
+        fn put(&self, name: &str, command: &str) -> Result<(), String> {
+            self.0.put(name, command)
+        }
+        fn remove(&self, name: &str) -> Result<(), String> {
+            self.0.remove(name)
+        }
+        fn approved(&self, name: &str) -> bool {
+            self.0.approved(name)
+        }
     }
 
     /// The registry code, in a key of its own that has nothing to do with the start of programs

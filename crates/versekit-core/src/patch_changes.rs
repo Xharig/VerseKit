@@ -65,6 +65,26 @@ fn file(paths: &Paths, version: &str) -> String {
     paths.host.flavor.join(&folder(paths), &format!("patch-{}.json", safe_name(version)))
 }
 
+/// The start of the name of a patch file of erkul, and of a comparison of the own readers (`stand_diff`).
+const ERKUL_PREFIX: &str = "patch-";
+const OWN_PREFIX: &str = "eigen-";
+
+/// The file of the own comparison that brought `version`.
+pub(crate) fn own_file(paths: &Paths, version: &str) -> String {
+    paths.host.flavor.join(&folder(paths), &format!("{OWN_PREFIX}{}.json", safe_name(version)))
+}
+
+/// The same patch: the same version, or the same number before the build and the same build number (erkul writes
+/// `4.10.0-LIVE.12519617`, the game `4.10.0-live.12519617`).
+pub fn same_version(a: &str, b: &str) -> bool {
+    if a.eq_ignore_ascii_case(b) {
+        return true;
+    }
+    let build = |v: &str| v.rsplit('.').next().filter(|n| n.len() >= 5 && n.chars().all(|c| c.is_ascii_digit())).map(str::to_string);
+    let short = |v: &str| v.split('-').next().unwrap_or_default().to_string();
+    short(a) == short(b) && build(a).is_some() && build(a) == build(b)
+}
+
 /// A number of a summary; anything else counts as 0 (`_number`).
 fn count(value: Option<&Value>) -> i64 {
     match value {
@@ -151,30 +171,59 @@ fn read_file(file: &str) -> Option<Map> {
     }
 }
 
-/// The file names of the patch files.
-fn patch_files(paths: &Paths) -> Vec<String> {
+/// The file names of the files with `prefix`.
+fn files_with(paths: &Paths, prefix: &str) -> Vec<String> {
     let folder = folder(paths);
     let Ok(entries) = std::fs::read_dir(&folder) else { return Vec::new() };
     let mut names: Vec<String> = entries
         .filter_map(Result::ok)
         .filter_map(|e| e.file_name().to_str().map(str::to_string))
-        .filter(|name| name.starts_with("patch-") && name.ends_with(".json"))
+        .filter(|name| name.starts_with(prefix) && name.ends_with(".json"))
         .collect();
     names.sort();
     names
 }
 
-/// The versions kept here, newest first (`stored`).
+/// The file names of the patch files: those of erkul first, then the own comparisons.
+fn patch_files(paths: &Paths) -> Vec<String> {
+    let mut names = files_with(paths, ERKUL_PREFIX);
+    names.extend(files_with(paths, OWN_PREFIX));
+    names
+}
+
+/// An own comparison is one of the program and of a channel the program is built for: a file of another channel
+/// (copied in, or left by another build) is no patch of this one.
+fn own_ok(data: &Map) -> bool {
+    text(data, "quelle") == crate::stand_diff::SOURCE && crate::stands::built_in(&text(data, "kanal"))
+}
+
+/// The version of a file and whether it is an own comparison, or `None` for a file that is no patch.
+fn read_patch(paths: &Paths, name: &str) -> Option<(String, bool, Map)> {
+    let data = read_file(&paths.host.flavor.join(&folder(paths), name))?;
+    let own = name.starts_with(OWN_PREFIX);
+    let version = text(&data, "version");
+    (!version.is_empty() && (!own || own_ok(&data))).then_some((version, own, data))
+}
+
+/// The versions kept here, newest first (`stored`); a version both sources have is listed once.
 pub fn stored(paths: &Paths) -> Vec<String> {
-    let folder = folder(paths);
-    let mut versions: Vec<String> = patch_files(paths)
-        .iter()
-        .filter_map(|name| read_file(&paths.host.flavor.join(&folder, name)))
-        .map(|data| text(&data, "version"))
-        .filter(|v| !v.is_empty())
-        .collect();
+    let mut versions: Vec<String> = Vec::new();
+    for (version, ..) in patch_files(paths).iter().filter_map(|name| read_patch(paths, name)) {
+        if !versions.iter().any(|known| same_version(known, &version)) {
+            versions.push(version);
+        }
+    }
     newest_first(&mut versions, |v| v);
     versions
+}
+
+/// The versions of erkul's files kept here.
+fn stored_erkul(paths: &Paths) -> Vec<String> {
+    files_with(paths, ERKUL_PREFIX)
+        .iter()
+        .filter_map(|name| read_patch(paths, name))
+        .map(|(version, ..)| version)
+        .collect()
 }
 
 /// Name, size and time of every patch file: changes when one is added, goes or changes (`stamp`).
@@ -194,9 +243,32 @@ pub fn stamp(paths: &Paths) -> Vec<(String, u64, u128)> {
         .collect()
 }
 
-/// The changelog kept of a version (`load`).
+/// The changelog kept of a version (`load`): the own comparison where there is one, else erkul's.
 pub fn load(paths: &Paths, version: &str) -> Option<Map> {
-    read_file(&file(paths, version))
+    load_own(paths, version).or_else(|| load_erkul(paths, version))
+}
+
+/// The own comparison of a version.
+pub fn load_own(paths: &Paths, version: &str) -> Option<Map> {
+    let found = |data: Map| own_ok(&data).then_some(data);
+    read_file(&own_file(paths, version)).and_then(found).or_else(|| {
+        files_with(paths, OWN_PREFIX)
+            .iter()
+            .filter_map(|name| read_patch(paths, name))
+            .find(|(v, ..)| same_version(v, version))
+            .map(|(.., data)| data)
+    })
+}
+
+/// The patch of erkul kept for a version.
+pub fn load_erkul(paths: &Paths, version: &str) -> Option<Map> {
+    read_file(&file(paths, version)).or_else(|| {
+        files_with(paths, ERKUL_PREFIX)
+            .iter()
+            .filter_map(|name| read_patch(paths, name))
+            .find(|(v, ..)| same_version(v, version))
+            .map(|(.., data)| data)
+    })
 }
 
 /// Why fetching did not work.
@@ -214,7 +286,7 @@ pub enum Unreachable {
 ///
 /// [`Unreachable::Source`] when erkul's table of contents cannot be had (no net).
 pub fn sync(paths: &Paths, feed: &dyn Feed) -> Result<Vec<String>, Unreachable> {
-    let present: HashSet<String> = stored(paths).into_iter().collect();
+    let present: HashSet<String> = stored_erkul(paths).into_iter().collect();
     let offer = offered(feed).ok_or(Unreachable::Source)?;
     let mut new = Vec::new();
     for entry in offer {
@@ -241,7 +313,7 @@ pub fn sync(paths: &Paths, feed: &dyn Feed) -> Result<Vec<String>, Unreachable> 
 }
 
 /// JSON without spaces between the parts (`separators=(',', ':')`): nobody reads the file by hand.
-fn compact(value: &Value) -> String {
+pub fn compact(value: &Value) -> String {
     let mut out = String::new();
     write_compact(&mut out, value);
     out
@@ -289,6 +361,10 @@ pub struct Patch {
     pub at_source: bool,
     /// Kept here.
     pub kept: bool,
+    /// The own readers made a comparison of it (a file `eigen-…`), which is shown before erkul's.
+    pub own: bool,
+    /// The comparison is of a test channel: confidential, never exported or copied.
+    pub confidential: bool,
 }
 
 /// Everything there is to show, newest first (`overview`): what erkul offers and what is kept here, so a patch
@@ -305,6 +381,8 @@ pub fn overview(paths: &Paths, offered: &[Offered]) -> Vec<Patch> {
             empty: !entry.summary.has_content(),
             at_source: true,
             kept: false,
+            own: false,
+            confidential: false,
         };
         match combined.iter_mut().find(|p| p.version == entry.version) {
             Some(known) => *known = patch,
@@ -312,8 +390,12 @@ pub fn overview(paths: &Paths, offered: &[Offered]) -> Vec<Patch> {
         }
     }
     for version in stored(paths) {
-        if let Some(known) = combined.iter_mut().find(|p| p.version == version) {
+        let own = load_own(paths, &version);
+        let confidential = own.as_ref().is_some_and(marked_confidential);
+        if let Some(known) = combined.iter_mut().find(|p| same_version(&p.version, &version)) {
             known.kept = true;
+            known.own = own.is_some();
+            known.confidential = confidential;
             continue;
         }
         let data = load(paths, &version).unwrap_or_default();
@@ -324,6 +406,8 @@ pub fn overview(paths: &Paths, offered: &[Offered]) -> Vec<Patch> {
             empty: false,
             at_source: false,
             kept: true,
+            own: own.is_some(),
+            confidential,
             version,
         });
     }
@@ -400,6 +484,145 @@ pub fn changes(paths: &Paths, version: &str, wanted: Option<&str>) -> Vec<Change
         }
     }
     out
+}
+
+/// What only an own comparison says of one row: for how many entries it stands, which, and the kind of each field.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RowExtra {
+    pub count: usize,
+    pub examples: Vec<String>,
+    /// The reader changed, not the game.
+    pub reader_note: bool,
+    /// The kind of each field of the row by its path (`wert`, `text`, `form`).
+    pub kinds: Vec<(String, String)>,
+}
+
+/// The numbers of an area in an own comparison.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct AreaNumbers {
+    pub area: String,
+    pub old: i64,
+    pub new: i64,
+    pub added: i64,
+    pub removed: i64,
+    pub changed: i64,
+}
+
+/// A scale of an own comparison: levels and ceiling before and after (`None`: the scale was not there).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ScaleNumbers {
+    pub area: String,
+    pub old: Option<(i64, Option<i64>)>,
+    pub new: Option<(i64, Option<i64>)>,
+}
+
+/// A gap counter that grew.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct GapWarning {
+    pub name: String,
+    pub old: i64,
+    pub new: i64,
+    /// `bricht`, `sieht_anders_aus` or `neu_oder_geaendert`.
+    pub class: String,
+}
+
+/// What an own comparison has besides erkul's form (`stand_diff::to_patch`); empty for a patch of erkul.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct OwnExtras {
+    pub from: String,
+    pub channel: String,
+    pub reader_changed: bool,
+    pub confidential: bool,
+    pub counts: Vec<AreaNumbers>,
+    pub scales: Vec<ScaleNumbers>,
+    pub warnings: Vec<GapWarning>,
+    /// By area, fate (`+`, `-`, `~`) and id.
+    pub rows: BTreeMap<(String, char, String), RowExtra>,
+}
+
+/// An own comparison is confidential when it is marked so and its channel is one under an agreement. The channel
+/// decides, not the file alone: a comparison of PTU kept while PTU was still marked is no longer.
+fn marked_confidential(data: &Map) -> bool {
+    matches!(field(data, "vertraulich"), Some(Value::Bool(true))) && crate::stands::is_confidential(&text(data, "kanal"))
+}
+
+fn whole(value: Option<&Value>) -> i64 {
+    count(value)
+}
+
+fn scale_of(value: Option<&Value>) -> Option<(i64, Option<i64>)> {
+    let map = value?.as_object()?;
+    let ceiling = field(map, "decke").filter(|v| !matches!(v, Value::Null)).map(|v| count(Some(v)));
+    Some((count(field(map, "stufen")), ceiling))
+}
+
+/// The own comparison of a version with what erkul's form has no place for; `None` where there is none.
+pub fn own_extras(paths: &Paths, version: &str) -> Option<OwnExtras> {
+    let data = load_own(paths, version)?;
+    let list = |key: &str| match field(&data, key) {
+        Some(Value::Array(items)) => items.iter().filter_map(Value::as_object).collect::<Vec<_>>(),
+        _ => Vec::new(),
+    };
+    let mut extras = OwnExtras {
+        from: text(&data, "von"),
+        channel: text(&data, "kanal"),
+        reader_changed: matches!(field(&data, "leser_geaendert"), Some(Value::Bool(true))),
+        confidential: marked_confidential(&data),
+        ..OwnExtras::default()
+    };
+    for map in list("kennzahlen") {
+        extras.counts.push(AreaNumbers {
+            area: text(map, "bereich"),
+            old: whole(field(map, "alt")),
+            new: whole(field(map, "neu")),
+            added: whole(field(map, "hinzu")),
+            removed: whole(field(map, "weg")),
+            changed: whole(field(map, "geaendert")),
+        });
+    }
+    for map in list("skalen") {
+        extras.scales.push(ScaleNumbers {
+            area: text(map, "bereich"),
+            old: scale_of(field(map, "alt")),
+            new: scale_of(field(map, "neu")),
+        });
+    }
+    for map in list("warnungen") {
+        extras.warnings.push(GapWarning {
+            name: text(map, "name"),
+            old: whole(field(map, "alt")),
+            new: whole(field(map, "neu")),
+            class: text(map, "klasse"),
+        });
+    }
+    for category in list("categories") {
+        let area = text(category, "kind");
+        for (mark, key) in [('+', "added"), ('-', "removed"), ('~', "modified")] {
+            let Some(Value::Array(items)) = field(category, key) else { continue };
+            for item in items.iter().filter_map(Value::as_object) {
+                let examples = match field(item, "beispiele") {
+                    Some(Value::Array(list)) => list.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+                    _ => Vec::new(),
+                };
+                let kinds = match field(item, "changes") {
+                    Some(Value::Array(list)) => list
+                        .iter()
+                        .filter_map(Value::as_object)
+                        .map(|change| (text(change, "path"), text(change, "art")))
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                let row = RowExtra {
+                    count: usize::try_from(whole(field(item, "anzahl"))).unwrap_or(0).max(1),
+                    examples,
+                    reader_note: text(item, "hinweis") == "leser_geaendert",
+                    kinds,
+                };
+                extras.rows.insert((area.clone(), mark, text(item, "id")), row);
+            }
+        }
+    }
+    Some(extras)
 }
 
 /// The areas with changes and how many items each, the largest first (`categories`).

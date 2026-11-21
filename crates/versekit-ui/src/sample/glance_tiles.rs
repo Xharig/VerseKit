@@ -838,16 +838,16 @@ mod tests {
         let paths = Paths::new(super::super::real_data::host_apart(&dir));
         let line = |paths: &Paths| refinery_tile_with_scan(paths, DE, 0).line;
         let with = |key: &str| tf_in(DE, "s_uv_raff_leer", &[("0", Arg::from(key))]);
-        assert_eq!(line(&paths), with("Alt+Umschalt+R"), "the default");
+        assert_eq!(line(&paths), with(versekit_core::overlay::DEFAULT_SCAN_HOTKEY), "the default");
         // The overlay on the default of the scan: the scan moves aside, the tile says where to.
-        paths.set_setting(keys::HOTKEY, Value::str("Alt+Umschalt+R"));
+        paths.set_setting(keys::HOTKEY, Value::str(versekit_core::overlay::DEFAULT_SCAN_HOTKEY));
         assert_eq!(line(&paths), with(versekit_core::overlay::SPARE_HOTKEYS[0]));
         // Set by the player on the overlay's key: not registered, no key on the tile.
         paths.set_setting(keys::HOTKEY_SCAN, Value::str("Strg+F9"));
         paths.set_setting(keys::HOTKEY, Value::str("Strg+F9"));
         assert_eq!(line(&paths), t_in(DE, "s_uv_raff_leer_ohne"));
         // Off: no key either.
-        paths.set_setting(keys::HOTKEY, Value::str("Alt+Umschalt+V"));
+        paths.set_setting(keys::HOTKEY, Value::str(versekit_core::overlay::DEFAULT_HOTKEY));
         paths.set_setting(keys::HOTKEY_SCAN_ON, Value::Bool(false));
         assert_eq!(line(&paths), t_in(DE, "s_uv_raff_leer_ohne"));
         let _ = std::fs::remove_dir_all(dir);
@@ -1300,6 +1300,25 @@ mod tests {
         // The count of the note is what is built.
         note(&[("Frostline", 5)]);
         assert_eq!(farm_tile().details[0], "Zu bauen: 5");
+
+        // As on the page, a part on "build" of a ship in the hangar counts too, a bought one does not.
+        std::fs::write(
+            paths.app_file(versekit_core::ships::ERKUL_FILE),
+            r#"{"format": 4, "spielversion": "4.0", "hersteller": {}, "schiffe": {"testship": {"id": "test_ship", "name": "Test Ship",
+                "plaetze": [], "slots": [
+                {"pfad": "c1", "art": "Cooler", "groesse": 2, "werk": {"ref": "f-cooler", "name": "Factory Cooler"}},
+                {"pfad": "s1", "art": "PowerPlant", "groesse": 1}]}}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            paths.app_file(hangar::FILE),
+            r#"{"format": 1, "schiffe": [{"name": "Test Ship", "belegung": {
+                "s1": {"ref": "c", "name": "Grand Core", "weg": "bauen"},
+                "c1": {"ref": "a", "name": "Frostline", "weg": "kaufen"}}}],
+              "merkzettel": [{"name": "Frostline", "anzahl": 5, "weg": "bauen"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(farm_tile().details[0], "Zu bauen: 6", "the note and the part of the ship");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

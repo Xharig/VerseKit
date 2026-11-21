@@ -57,11 +57,11 @@ Unter Windows meldet Windows VerseKit jeden Tastendruck (Raw Input). Anders
 gehen Tastenkürzel im Spiel nicht, weil Star Citizen gewöhnliche Kürzel
 anderer Programme abschaltet. Das läuft, solange das Overlay läuft, auch ohne
 Anti-AFK. VerseKit vergleicht jeden Druck nur mit seinen eigenen Kürzeln (ab
-Werk Alt+Umschalt mit V, R, B, H oder F) und behält im Arbeitsspeicher nur,
+Werk Alt+F12, F9, Alt+F10, Alt+F8 und Alt+F11) und behält im Arbeitsspeicher nur,
 welche Tasten gerade gedrückt sind und wann zuletzt eine Eingabe kam. Was du
 tippst, wird weder gespeichert noch verschickt, und nichts wird abgefangen: Das
 Spiel bekommt dieselben Tasten. Unter Linux reserviert VerseKit nur seine
-eigenen Kürzel (V, H und F) und sieht andere Tasten nicht.
+eigenen Kürzel und sieht andere Tasten nicht.
 
 ### Bildschirm
 
@@ -74,8 +74,8 @@ Bildschirm nicht.
 |---|---|---|---|
 | Signatur-Scanner | nur eingeschaltet, ab Werk aus | zweimal je Sekunde den Bereich in der Mitte des Spielbilds, nach einem Fund nur um die Zahl | nur der Ausschnitt um die Zahl: angelernte bis 200 (`signatur-bilder`), unsichere bis 12 (`signatur-gemerkt`) |
 | Bildrate aus dem Spiel | nur eingeschaltet, ab Werk aus | alle drei Sekunden die rechte obere Ecke | nichts |
-| Raffinerie (Alt+Umschalt+R) | auf deinen Tastendruck | einmal das ganze Spielfenster | nur bei einer unsicheren Lesung die Tabelle, sonst das Spielbild verkleinert (höchstens 2560 Pixel breit), die letzten drei (`raffinerie-bilder`); dazu die Zahlenfelder, bis Mein Lager sie übernimmt (`raffinerie-lesung.json`) |
-| Spielbild für das Signatur-Fenster (Alt+Umschalt+B) | auf deinen Tastendruck | einmal das ganze Spielfenster | eine Datei, höchstens 1280 Pixel, das nächste Bild ersetzt sie (`Intern/signatur-spielbild.bin`) |
+| Raffinerie (F9) | auf deinen Tastendruck | einmal das ganze Spielfenster | nur bei einer unsicheren Lesung die Tabelle, sonst das Spielbild verkleinert (höchstens 2560 Pixel breit), die letzten drei (`raffinerie-bilder`); dazu die Zahlenfelder, bis Mein Lager sie übernimmt (`raffinerie-lesung.json`) |
+| Spielbild für das Signatur-Fenster (Alt+F10) | auf deinen Tastendruck | einmal das ganze Spielfenster | eine Datei, höchstens 1280 Pixel, das nächste Bild ersetzt sie (`Intern/signatur-spielbild.bin`) |
 
 Auf ganzen Spielbildern können dein Handle und dein aUEC-Stand zu sehen sein.
 Alle Bilder liegen im Datenordner und kommen mit in die Sicherungs-ZIP.
@@ -143,6 +143,7 @@ Einmal am Tag schickt VerseKit an `nutzung-versekit.xharig.com` genau diese Anga
 | Programmversion | `5.2.10` |
 | System | Windows oder Linux |
 | Sprache der Oberfläche und des Spiels | `de`, `en` |
+| welche Übersetzung du für LIVE gewählt hast, nur die Quelle, nie eine eigene Adresse | `dymerz_de`, `luftwerft_nl`, `eigene`, `keine` |
 | ob du Testversionen angeboten bekommst | ja / nein |
 | welche Bereiche eingeschaltet sind | Schiffe, Werkstatt, Handel, Basetool … |
 | wie das Overlay läuft | immer sichtbar / nur bei neuen Bauplänen |

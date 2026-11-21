@@ -33,6 +33,7 @@ pub mod basetool_page;
 pub mod blickwinkel_page;
 pub mod blueprint_list;
 pub mod blueprint_progress;
+pub mod catalog_progress;
 pub mod channel_question;
 pub mod close_writes;
 pub mod collection_tools;
@@ -58,6 +59,7 @@ pub mod fonts;
 pub mod gallery_page;
 pub mod game_texts_page;
 pub mod grafik_page;
+pub mod install_picker;
 pub mod handle_page;
 pub mod handle_pictures;
 pub mod handle_search;
@@ -263,12 +265,12 @@ pub fn color(c: Color) -> Color32 {
 
 /// Rounding of buttons, choice fields and menus.
 pub fn control_radius(scheme: &Scheme) -> CornerRadius {
-    CornerRadius::same(if scheme.square { SQUARE_CONTROL_RADIUS } else { CONTROL_RADIUS })
+    CornerRadius::same(if scheme.square { SQUARE_CONTROL_RADIUS } else { scheme.radius_control })
 }
 
 /// Rounding of boxes and windows; none in square schemes (corner brackets).
 pub fn box_radius(scheme: &Scheme) -> CornerRadius {
-    CornerRadius::same(if scheme.square { 0 } else { BOX_RADIUS })
+    CornerRadius::same(if scheme.square { 0 } else { scheme.radius_box })
 }
 
 /// The egui visuals of a scheme.
@@ -494,10 +496,10 @@ mod tests {
     }
 
     #[test]
-    fn square_schemes_round_only_controls() {
+    fn krt_rounds_like_design_system_3_and_the_others_as_before() {
         let krt = theme::by_id("krt").expect("krt exists");
-        assert_eq!(visuals(krt).widgets.inactive.corner_radius, CornerRadius::same(SQUARE_CONTROL_RADIUS));
-        assert_eq!(visuals(krt).window_corner_radius, CornerRadius::ZERO);
+        assert_eq!(visuals(krt).widgets.inactive.corner_radius, CornerRadius::same(6));
+        assert_eq!(visuals(krt).window_corner_radius, CornerRadius::same(10));
         let original = theme::by_id("original").expect("original exists");
         assert_eq!(visuals(original).widgets.inactive.corner_radius, CornerRadius::same(CONTROL_RADIUS));
     }

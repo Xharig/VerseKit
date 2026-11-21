@@ -381,6 +381,10 @@ impl Redactor {
         if target.chars().count() > 12 {
             text = text.replace(&target, "<meldeadresse>");
         }
+        // The player's UEX token, wherever it stands, also without `Bearer` before it.
+        if let Some(token) = crate::uex_token::secret_for_redaction() {
+            text = text.replace(&token, "<geheim>");
+        }
         let p = patterns()?;
         let text = p.webhook.replace_all(&text, NoExpand("<meldeadresse>"));
         let text = p.auth_header.replace_all(&text, "${1}<geheim>");

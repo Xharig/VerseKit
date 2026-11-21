@@ -54,6 +54,17 @@ fn text(value: &Value, key: &str) -> Result<String, String> {
     value.get(key).and_then(Value::as_str).map(str::to_string).ok_or_else(|| format!("{key} fehlt"))
 }
 
+/// The bytes of the remembered catalog state without the game version, which only the Rust side keeps: the field
+/// stands last, so its line goes together with the comma before it.
+fn without_game_version(bytes: Value) -> Value {
+    let Value::Str(text) = bytes else { return bytes };
+    let marker = format!("\"{}\"", versekit_core::catalog_watch::VERSION_FIELD);
+    let Some(at) = text.find(&marker) else { return Value::Str(text) };
+    let Some(comma) = text[..at].rfind(',') else { return Value::Str(text) };
+    let end = text[at..].find(['\r', '\n']).map_or(text.len(), |n| at + n);
+    Value::Str(format!("{}{}", &text[..comma], &text[end..]))
+}
+
 fn strs(items: &[String]) -> Value {
     Value::Array(items.iter().map(|s| Value::str(s.as_str())).collect())
 }
@@ -249,7 +260,7 @@ fn run_in(input: &Value, home: &str, game: &str, gegenprobe: bool, out: &str) ->
                     obj(vec![
                         ("merkliste", bytes_of(watchlist::FILE)),
                         ("raffinerie", bytes_of(refinery_jobs::FILE)),
-                        ("katalog", bytes_of(versekit_core::catalog_watch::SEEN_FILE)),
+                        ("katalog", without_game_version(bytes_of(versekit_core::catalog_watch::SEEN_FILE))),
                     ]),
                 ),
             ]));

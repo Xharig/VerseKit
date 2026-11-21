@@ -428,6 +428,31 @@ fn server_type(ship: &Value) -> Option<String> {
     type_key(ship.get("shipType").filter(|t| truthy(Some(t))).and_then(|t| t.get("bt")))
 }
 
+/// Ship types the feed shows folded into another: a ship over there that kept its `shipId` but carries another
+/// type now. `before` and `after` are the ships by `shipId` before and after fetching. Gives the old type `bt` →
+/// the new one; a type that went to two different ones is left out.
+///
+/// ⚠ The member may also have changed the type of one ship by hand; whoever takes this over asks the catalog first
+/// whether the old type is really gone or resolves to the new one.
+pub fn type_changes(before: &BTreeMap<String, Value>, after: &BTreeMap<String, Value>) -> BTreeMap<String, String> {
+    let text_type = |ship: &Value| match ship.get("shipType").and_then(|t| t.get("bt")) {
+        Some(Value::Str(bt)) if !bt.is_empty() => Some(bt.clone()),
+        _ => None,
+    };
+    let mut found: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (ship_id, now) in after {
+        let (Some(old), Some(new)) = (before.get(ship_id).and_then(text_type), text_type(now)) else { continue };
+        if old != new {
+            found.entry(old).or_default().insert(new);
+        }
+    }
+    found
+        .into_iter()
+        .filter(|(_, new)| new.len() == 1)
+        .filter_map(|(old, new)| Some((old, new.into_iter().next()?)))
+        .collect()
+}
+
 /// What is to be done, without doing it.
 ///
 /// `local` comes from [`local_ships`], `resolved` maps the identifier to the
@@ -746,6 +771,19 @@ mod tests {
     fn one_local(text: &str) -> BTreeMap<String, LocalShip> {
         let entry = entry(text);
         local_ships(&[&entry], &BTreeMap::new())
+    }
+
+    #[test]
+    fn a_ship_that_keeps_its_id_under_another_type_tells_a_folded_type() {
+        let typed = |id: &str, bt: &str| (id.to_string(), value(&format!(r#"{{"shipType": {{"bt": "{bt}"}}}}"#)));
+        let before: BTreeMap<String, Value> = [typed("s1", "bt-old"), typed("s2", "bt-old"), typed("s3", "bt-x")].into();
+        let after: BTreeMap<String, Value> = [typed("s1", "bt-new"), typed("s2", "bt-new"), typed("s3", "bt-x")].into();
+        assert_eq!(type_changes(&before, &after), BTreeMap::from([("bt-old".to_string(), "bt-new".to_string())]));
+        // Two different new types for one old one: no merge. A new ship or one gone: nothing.
+        let split: BTreeMap<String, Value> = [typed("s1", "bt-new"), typed("s2", "bt-other")].into();
+        assert!(type_changes(&before, &split).is_empty());
+        let fresh: BTreeMap<String, Value> = [typed("s9", "bt-new")].into();
+        assert!(type_changes(&before, &fresh).is_empty());
     }
 
     #[test]

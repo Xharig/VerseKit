@@ -514,7 +514,7 @@ fn strip(ui: &mut Ui, view: &View, out: &mut Output) {
     let s = view.scheme;
     let rect = ui.max_rect();
     out.strip = vec2(PAD + BAR_ICON + PAD, STRIP_HEIGHT);
-    let radius = if s.square { 0.0 } else { STRIP_HEIGHT / 2.0 };
+    let radius = if s.square || s.flat_gauges { 0.0 } else { STRIP_HEIGHT / 2.0 };
     ui.painter().rect(
         rect,
         radius,
@@ -2226,7 +2226,7 @@ mod tests {
         let status = Message::Plain("x".into());
         let mut lines = contract_lines();
         lines[2].count = 2;
-        for scheme in theme::schemes().into_iter().take(1) {
+        for scheme in theme::schemes().iter().take(1) {
             let mut v = view(scheme, &rows, &status, Shown::Open);
             v.contracts = &lines;
             let (out, _) = frame(&v, vec2(420.0, 400.0), None);

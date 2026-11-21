@@ -62,7 +62,6 @@ use windows_sys::Win32::Graphics::Gdi::{
     GetStockObject, GetWindowRgn, GetWindowRgnBox, HBRUSH, HDC, HGDIOBJ, HRGN, NULLREGION, PtInRegion, ReleaseDC,
     SIMPLEREGION, SelectObject, SetWindowRgn,
 };
-use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_MEMORY, SND_NODEFAULT, SND_SYNC};
 use windows_sys::Win32::Storage::Xps::{PRINT_WINDOW_FLAGS, PrintWindow};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::Threading::CreateMutexW;
@@ -677,21 +676,6 @@ pub fn pointer() -> Option<Pointer> {
 /// be read.
 pub fn game_process() -> Option<bool> {
     versekit_core::game_start::game_process()
-}
-
-/// The short sound on a find at `volume` percent; `loud` for one that must not be missed. The sound is made in
-/// memory ([`versekit_core::sound::tone`]) and played by a thread of its own, so nothing waits for it. At 0 % there
-/// is no sound.
-pub fn beep(loud: bool, volume: i64) {
-    if volume <= 0 {
-        return;
-    }
-    let wav = versekit_core::sound::tone(loud, volume);
-    std::thread::spawn(move || {
-        // SAFETY: the memory holds a whole WAV file and stays alive until the call returns (SND_SYNC); no
-        // module, no resource.
-        unsafe { PlaySoundW(wav.as_ptr().cast(), std::ptr::null_mut(), SND_MEMORY | SND_SYNC | SND_NODEFAULT) };
-    });
 }
 
 /// Shows a message box of the system without an owner window and waits until the player closes it.

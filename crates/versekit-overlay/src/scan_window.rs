@@ -163,8 +163,11 @@ pub fn metrics(font_px: i32) -> Metrics {
 unsafe fn width_of(dc: HDC, face: HFONT, text: &str) -> i32 {
     // SAFETY: the caller gives a valid device context; the font is selected for the call and given back.
     unsafe {
-        let old = SelectObject(dc, face);
         let letters = wide(text);
+        if letters.is_empty() {
+            return 0;
+        }
+        let old = SelectObject(dc, face);
         let mut size = SIZE { cx: 0, cy: 0 };
         GetTextExtentPoint32W(dc, letters.as_ptr(), letters.len() as i32, &mut size);
         SelectObject(dc, old);
@@ -392,6 +395,20 @@ fn card_region(w: i32, h: i32, content: Option<&Content>) -> windows_sys::Win32:
     }
 }
 
+/// Draws one line of `text` into `rect` of `dc`. An empty text draws nothing and is not handed to the system:
+/// `DrawTextW` reads the pointer of an empty text too, and the pointer of an empty buffer points nowhere.
+///
+/// # Safety
+/// `dc` is a valid device context.
+unsafe fn draw_line(dc: HDC, text: &str, rect: &mut RECT, flags: u32) {
+    let letters = wide(text);
+    if letters.is_empty() {
+        return;
+    }
+    // SAFETY: the caller gives a valid device context; the letters and the rectangle live during the call.
+    unsafe { DrawTextW(dc, letters.as_ptr(), letters.len() as i32, rect, flags) };
+}
+
 /// Draws the window into `dc` (the paint of the system, or the one a print asks for).
 fn draw(hwnd: HWND, dc: HDC) {
     let Some(inner) = inner_of(hwnd) else { return };
@@ -420,22 +437,19 @@ fn draw(hwnd: HWND, dc: HDC) {
                 let previous = SelectObject(memory, big);
                 SetTextColor(memory, content.text);
                 let mut at = RECT { left: 0, top: 0, right: w, bottom: h };
-                let letters = wide(&content.number);
-                DrawTextW(memory, letters.as_ptr(), letters.len() as i32, &mut at, flags);
+                draw_line(memory, &content.number, &mut at, flags);
                 SelectObject(memory, previous);
             } else {
                 let previous = SelectObject(memory, big);
                 let first = m.pad + FRAME;
                 SetTextColor(memory, if content.known { content.accent } else { content.text });
                 let mut top = RECT { left: 0, top: first, right: w, bottom: first + m.big_height };
-                let letters = wide(&content.material);
-                DrawTextW(memory, letters.as_ptr(), letters.len() as i32, &mut top, flags);
+                draw_line(memory, &content.material, &mut top, flags);
                 SelectObject(memory, small);
                 SetTextColor(memory, content.sub);
                 let from = first + m.big_height + m.gap;
                 let mut bottom = RECT { left: 0, top: from, right: w, bottom: from + m.small_height };
-                let letters = wide(&content.number);
-                DrawTextW(memory, letters.as_ptr(), letters.len() as i32, &mut bottom, flags);
+                draw_line(memory, &content.number, &mut bottom, flags);
                 SelectObject(memory, previous);
             }
             DeleteObject(big);

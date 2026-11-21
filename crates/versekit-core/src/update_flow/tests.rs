@@ -526,10 +526,10 @@ fn the_pause_starts_when_the_download_failed_not_when_the_round_began() {
     let release = release_of(&net.inner, &c.paths);
     let auto = Job { automatic: true, ..job(&c, &net, &never, &no_game) };
     run_quiet(&auto, &release);
-    // The download took 1.5 s: the pause counts from its end. Counted from the start of the round, 1.6 s later
-    // only 598.4 s would be left.
-    let left = update_run::download_pause_left(&c.paths, &release.version, auto.now + 1.6).unwrap_or_default();
-    assert!(left > update_run::PAUSE_FIRST - 1.0, "{left}");
+    // The download took at least 1.5 s: the pause counts from its end, so 30 s after the start of the round at least
+    // 571.5 s are left. Counted from the start of the round, only 570 s would be left.
+    let left = update_run::download_pause_left(&c.paths, &release.version, auto.now + 30.0).unwrap_or_default();
+    assert!(left > update_run::PAUSE_FIRST - 29.0, "{left}");
 }
 
 #[test]

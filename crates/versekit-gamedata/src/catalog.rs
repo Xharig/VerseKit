@@ -243,6 +243,9 @@ pub struct Catalog {
     /// The keys every contract entry shows where they differ from those it names, by
     /// [`crate::sources::entry_key`].
     pub shown_keys: HashMap<String, crate::sources::ShownKeys>,
+    /// The amount of every reputation gain of every contract entry, read from the reward record it links to, by
+    /// [`crate::sources::entry_key`] ([`crate::sources::reward_amounts`]).
+    pub reward_amounts: HashMap<String, Vec<Option<i64>>>,
     /// Where every contract entry is offered, by [`crate::sources::entry_key`]; also the entries that give no
     /// blueprint.
     pub offered: HashMap<String, Offered>,
@@ -310,7 +313,9 @@ pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFi
         scenario_tiers: found.scenario_tiers,
         ..Catalog::default()
     };
-    for guid in blueprints {
+    let count = versekit_core::build_progress::counter(blueprints.len());
+    for (at, guid) in blueprints.into_iter().enumerate() {
+        count.at(at);
         let Some(tree) = trees.get(guid) else { continue };
         let sources = by_blueprint.remove(&guid).unwrap_or_default();
         let mut entry = blueprint(&tree, sources, &mut trees, &mut items, texts, &fixes);
@@ -318,8 +323,10 @@ pub(crate) fn read(forge: &DataForge<'_>, texts: &Localization, fixes: CatalogFi
         entry.pools = pools_by_blueprint.remove(&guid).unwrap_or_default();
         catalog.blueprints.push(entry);
     }
+    drop(count);
     catalog.blueprints.sort_by_cached_key(|blueprint| blueprint.class_name.to_ascii_lowercase());
     catalog.shown_keys = sources::shown_keys(&mut trees, &inputs.generators, texts);
+    catalog.reward_amounts = sources::reward_amounts(&mut trees, &inputs.generators);
     catalog.offered = sources::offered(&mut trees, &inputs.stars, &inputs.star_map, facts, texts);
     catalog.failed = trees.into_failed();
     catalog.corrections = fixes.into_report();

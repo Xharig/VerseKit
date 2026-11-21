@@ -493,7 +493,9 @@ pub fn fallback_name(key: &str) -> Option<String> {
 pub fn foreign_text(key: &str, text: Option<&str>, texts: &ItemTexts) -> bool {
     let Some(text) = text else { return false };
     if texts.values().any(|known| known.name == key) {
-        return fallback_name(key).as_deref() != Some(text);
+        // The stand-in name may carry the tag we gave it.
+        let own = super::specs::strip_tag(text);
+        return fallback_name(key).as_deref() != Some(crate::text::py_rstrip(&own));
     }
     texts.values().any(|known| known.text == key) && !text.starts_with(&super::texts::rule())
 }

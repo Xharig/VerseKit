@@ -6,6 +6,252 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.5.0 - 2026-11-21
+
+> You now capture blueprints right at the crafting terminal: mouse on it, F10.
+> Plus a sound of its own for each scan result, default keys on the F keys,
+> backups per channel and by themselves, and "Changed game values" compares
+> two saved states by itself.
+
+### New
+
+- **A sound of its own for each scan result:** The blueprint scan, the
+  refinery scan and the game picture key now sound different for each result:
+  a quiet click on the press, then "Captured", "Already there", "Question" or
+  "Nothing recognised / error". Under Settings › Overlay › Sounds you can play
+  each sound with its name. The line "Star Citizen is not in front" goes away
+  by itself as soon as the game is in front again.
+- **Flight log: finishing touches:** Long lines in the timeline now wrap
+  instead of being cut off, at every text size and in both languages; the
+  timeline stays smooth. The flight log can be pinned to the start page like
+  the other pages. The words are sharper: "Blueprints received" and "Deaths
+  (presumed)" read the same on the figure and on the switch. "Own jumps" counts
+  only the jumps of your own ships.
+- **Backups with user.cfg and character templates, per channel:** A backup now
+  takes the controls, the game settings, the user.cfg and the character
+  templates of every installed channel (LIVE, PTU) along. When you restore,
+  profiles and templates come back on the first yes, the active bindings, the
+  game settings and the user.cfg only on a second one. What is replaced gets a
+  copy first, and your language lines in the user.cfg stay. Older backups are
+  restored as before.
+- **Preview before a restore:** Before the question you see how many files
+  would be replaced, be new or stay the same, for the data folder and for each
+  channel. On request the list shows every changed file.
+- **Automatic backups:** VerseKit makes a backup by itself at the first start
+  of the day and after every end of the game. On the page "Backup & reset" you
+  switch each of them off and set how many backups stay (1 to 50, 10 by
+  default). The newest always stays. A button opens the folder of the
+  automatic backups to restore one.
+- **Graphics and field of view per installation:** With LIVE and PTU
+  installed, you choose at the top of the "Graphics" and "Field of view"
+  pages which installation you see and change. Files are only written while
+  the game is closed, with a copy of the file beside it. The renderer still
+  applies to the version started last.
+- **Write resolution and field of view into the game:** On the "Field of
+  view" page you enter width, height and the field of view as the game menu
+  shows it. VerseKit converts it to the vertical value that is stored, makes
+  a copy of the settings file first and never writes while the game runs.
+  "Use the neutral value" fills in the angle that suits your screen.
+- **Window per start program:** Each start program can open minimized,
+  maximized or without a window. On Windows this applies to programs that
+  follow the window request of their start, most do.
+- **Rename languages:** In the translation list you give each language an
+  own name, for example "Deutsch (Crew)". Leaving it empty brings back the
+  usual name. Nothing is written into the game by this.
+- **Statistics as a report:** Besides saving a file, the statistics can be
+  saved as one HTML page to read, print or pass on, with figures, heat map
+  and sessions. It holds no player name and loads nothing from the network.
+- **Capture blueprints at the crafting terminal:** When a blueprint is missing
+  from your list, rest the mouse on it at the crafting terminal until its name
+  shows beside it and press F10. VerseKit reads the name, compares it
+  with the blueprint list and marks it as owned. For a moment the middle of
+  the screen says "Blueprint captured", "Already captured" or "No blueprint
+  recognised", with a sound. Anything not read with certainty is not marked:
+  the "Scans" tab of the blueprint list then shows a question as a table row,
+  with the time, the text read and a picture of the name, and you choose which
+  one it was; "Discard all" clears them. The tab shows how many questions are
+  open. Below stand the last scans with what came of them and their time; a
+  click looks for the blueprint in the list. The key is under Settings ›
+  Overlay. Windows only. Thanks to Luftwerft and Choopa for the tips.
+- **Usage counts the chosen translation:** The daily report now also names
+  which translation is chosen for LIVE, only as its source (such as "Dymerz
+  German"), never an own address. That way I can see which translations are
+  used. Switch it off in the settings as before.
+- **New default keys on the F keys:** On foot the F keys are free in the
+  game, so for new users the shortcuts now lie there: overlay Alt+F12,
+  refinery scan F9, blueprint scan F10, handle search Alt+F8, game picture
+  Alt+F10, main window Alt+F11. If you already use VerseKit, you keep your
+  current keys; change them under Settings › Overlay.
+- **In-game notice after the refinery scan:** After reading the refinery
+  terminal by shortcut, the middle of the screen briefly says what came of it:
+  "Refinery captured" with the number of materials, "Already captured" when
+  the job was in the list already, "Unsure" with the number of values you
+  should check, or "No refinery job recognised", with a short sound. While it
+  reads, the screen says "Reading the refinery …". My Inventory then opens with
+  what was read, only when something was read.
+- **In-game notice after the game picture:** The key for the game picture says
+  in the middle of the screen "Game picture taken" or why it did not work.
+- **Copy settings to other channels:** On the "Game" page you take graphics,
+  controls and your user.cfg from one channel to another, for example from
+  LIVE to the PTU. You choose source and target, tick what goes along and
+  confirm a question. What is replaced in the target gets a copy beside it
+  first, and the language lines of the target stay. This only works while the
+  game is closed, and afterwards you see what was copied.
+- **Routes: choose a destination:** Once you have a start there is a field
+  "Where to?". With a destination VerseKit shows the trips straight from A to
+  B, plus ways with a stop on the way as soon as there are any (from two
+  trips). A button swaps start and destination. Without a destination
+  everything stays as before. Requested by oGundalf.
+- **Own patch comparison:** On the "Changed game values" page, VerseKit
+  compares two game states itself. After every patch it saves the state in
+  the background, the last four per channel, 64 MB at most in total. You pick
+  two states and see what changed. Each line says in how many entries the
+  change appears, with up to three examples. A filter shows only one kind of
+  change: Value, Text, Shape, New or Gone.
+- **Figures and reputation scales:** For each area it shows how many entries
+  were there before and after, and how many are new, gone or changed.
+  Rebuilt reputation scales stand next to them.
+- **"Gaps" card:** It shows where VerseKit no longer finds or can no longer
+  read something after the patch. The gaps come in three classes: breaks,
+  looks different, new or changed.
+- **Texts are only counted:** The comparison counts changed texts in English
+  and German, but does not show them.
+- **Test channels:** Their comparisons stay local, are not exported and are
+  hidden in streamer mode.
+- **Your own UEX token (optional):** Under Settings → General → Requests to UEX you
+  can enter your own token from uexcorp.space (My Apps → create an application →
+  copy the bearer token). VerseKit then asks for prices, shops and ships in
+  your name. The token stays in your computer's secret store and is never shown. If
+  UEX refuses it, the setting tells you and everything keeps running without
+  it. Without a token nothing changes.
+- **All Luftwerft languages, new ones by themselves:** VerseKit reads the
+  language list of the SC Launch Configurator (Ammax, Choopa) and shows every
+  language named there under "Translation", for LIVE and PTU. New:
+  Português (Brasil). When Luftwerft adds a language, it appears without a new
+  VerseKit version. If a chosen language leaves the list, it stays chosen and
+  the page says so. Without a network the known languages stand. The two
+  Portuguese sources of Luftwerft are now named PT and BR, the one of Dymerz BR.
+
+### Improved
+
+- **Routes read top to bottom:** Every route is a card. A line on top shows
+  profit, start money, distance and number of runs, below it a small table with
+  one row per station (place, buy, amount, sell, profit of that leg). "Direct"
+  now shows the profit too. The button groups have headings, and the buttons
+  read "2 runs" instead of "2 stops". Units such as SCU and Gm and the stock
+  are explained on hover, and old prices warn with "Outdated".
+- **Reputation without a known amount is now shown:** When a contract gives
+  reputation but the game data do not state the amount, the reputation still
+  appears in the contract list and in the contract text, marked "amount
+  unknown". It no longer silently drops out. Where the data keep the amount
+  elsewhere, VerseKit reads it there.
+- **Thanks page:** The SC Launch Configurator entry now also thanks for the
+  tips for building the blueprint scan and improving the refinery scan.
+- **Merged materials and ship types in the Basetool:** When the Basetool merges
+  two entries, VerseKit follows. Your stock row takes the new name and joins an
+  existing row of the same lot; linked ships stay linked. No second row and no
+  second ship appear.
+- **Materials the Basetool no longer lists:** When a material can no longer be
+  booked in there, VerseKit stops sending the addition again and again and says
+  so at the row. Booking out and moving still work.
+- **Progress while the catalogue is built:** After a patch VerseKit rebuilds
+  the blueprint catalogue from the game data, and that takes a few minutes.
+  Now you see that it is working: a bar, the percent, "step 4 of 9" with the
+  name of the step, and the time. It shows in the foot bar of the main
+  window, in the blueprint list and in the overlay at its start. When
+  VerseKit only waits for the game to close, it says so and shows no bar.
+  When the catalogue is ready, a line tells how many blueprints it holds;
+  when the build fails, that is told too. Reported by moRy [KRT]
+- **Refineries as a tab of mining:** The table of the refineries is now a tab
+  of the "Mining" page, like "What to farm" in crafting. Switch between
+  "Mining" and "Refineries" at the top; the page remembers the tab. "Compare
+  all refineries" below an ore opens the tab, and pinned tiles and a chosen
+  start page lead there as before.
+- **Refinery scan recognises misread material names:** When the text
+  recognition reads a digit for a letter in a name, or "rn" for "m"
+  ("C0RUNDURN", "lR0N"), VerseKit compares a second time with those mix-ups
+  evened out. It takes a material only when it is then at most 15 % off and
+  clearly ahead of the next one; otherwise VerseKit leaves the row out instead
+  of guessing.
+
+### Fixed
+
+- **Item tags in every translation:** When VerseKit did not know a word of the
+  description (such as Dutch "Grootte"), part of the tag was missing,
+  "(Ind/1/B)" became "(Ind/–/B)". Items whose name the translation lacks (with
+  Dymerz, for example radars) got none at all. Now the English original fills
+  every gap. Checked with German, English, Dutch, French, Italian, Portuguese,
+  Spanish, Turkish and Bavarian.
+- **Translation, test channels:** When PTU follows the translation of LIVE, it
+  now says why language and source are grey there. When the translation of
+  LIVE does not exist for the test channel, the card says so instead of
+  silently staying with the old language.
+- **Notice boxes cut their text:** Long notices, such as "Good to know" on the
+  Translation page, now wrap.
+- **Refinery scan read only the place:** When the column heads were small or
+  misread, VerseKit did not find the table and read only "Levski". Now it
+  finds the table by garbled heads too. Thanks to J00ker for the report with a
+  picture.
+- **My Hangar: messages disappeared:** After the first import the "Add" part
+  folded, and the messages went with it, failures like "not saved" too. Now
+  they stand above the list, the part stays as you leave it, and "Remove" says
+  what was removed.
+- **The farm tile of the overview counted too little:** It only counted the
+  items noted in "Crafting", while the "What to farm" page also counts the
+  parts on "build" of the ships in the hangar and on the wish list. Now both
+  show the same.
+- **Flight log: the last session played was missing:** After the game was
+  closed, the flight log showed the last session only once the "Contracts"
+  page had been open. It now reads the logs itself when opened and on every
+  refresh, the current `Game.log` included.
+- **Anti-AFK wrongly said "administrator":** When a key press did not come
+  back at once, anti-AFK switched off and advised starting VerseKit as
+  administrator, even when the game did not run that way. Now the key press
+  gets a second chance, and anti-AFK keeps running when Windows saw the input.
+  The administrator hint only shows when the game really runs as
+  administrator; otherwise a message of its own says that the key press did
+  not arrive. The reason is in the error report.
+- **Stock stuck on an old material id:** When the Basetool no longer knew a
+  material under its old id after a merge, it refused the booking at every
+  sync. Now VerseKit asks again and books to the new material as soon as the
+  Basetool maps it.
+- **"Writing …" got stuck:** While the game still ran or had only just been
+  closed, VerseKit kept the game's language file locked while it waited for
+  the game data in the background. "Write names to the game" and "Insert
+  again" then waited for minutes or until a restart. Now the language file
+  stays free while VerseKit waits. Should something still hold it too long,
+  the error report names which part of VerseKit it is and since when.
+- **A string of beeps:** When a game update made many items craftable at
+  once, the overlay beeped for each of them. Now there is one sound for all of
+  them, and a loud one only when an item from the watchlist is among them
+  (Reported by Horthy).
+- **"Newly craftable" without a game update:** When VerseKit rebuilt the
+  catalog for the same game version, it reported some items as newly
+  craftable although nothing had changed in the game. Now it reports only
+  after a real game update.
+- **Refinery values in the error report:** When VerseKit could not read all
+  nine processing methods from the game data, the error report said so
+  several times in a row. Now it says so once, together with the line that
+  could not be read. The mining page keeps using its own table in that case,
+  as before (Reported by Horthy).
+- **PTU did not follow with "Same as LIVE":** If you had never flipped the
+  "Same as LIVE" switch yourself, it showed on, but only while PTU and LIVE
+  had the same translation. When you changed LIVE, to English for example, the
+  PTU stayed on the old language. Now VerseKit notes which channels follow
+  before the change, and the PTU follows.
+- **Basetool: "access denied" on the sign-in key:** When the overlay and the
+  main window read or wrote the stored key at the same moment, Windows could
+  deny one of them access, and the connection reported an error. Now each
+  window writes through a temporary file of its own and tries again briefly
+  while the other one holds the file.
+- **Tags like "(Mil/3/B)" in every game language:** VerseKit read size, grade
+  and class only from German and English descriptions. In French and other
+  languages the tags behind the names were missing. Now it also understands
+  the French details, and where a language is unknown, it takes the tag from
+  the game's English original. In English many weapons got the size of their
+  magazine or battery, like "(Bal/45/–)"; now they show only "(Bal)", as in
+  German.
+
 ## v5.4.2 - 2026-11-18
 
 > A follow-up to 5.4.1: own ship names get their name field back in the
@@ -108,6 +354,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   a ready org server to host yourself (own version line from 1.0.0, with an
   administration for the org's leadership) and the checking tool
   versekit-orgcheck.
+- **Own patch comparison (groundwork):** After every rebuild of the game data
+  VerseKit keeps the state of its lists (blueprints, contracts, recipes, items,
+  ships, parts, reputation), up to four per game channel and 64 MB together,
+  on your computer only. After the next patch it compares the new state with
+  the one before and files the changes under "Changed game values", in the form
+  the page already knows: old and new for each value. A change that hits many
+  entries alike is shown as one row with a count. The first state only lays the
+  groundwork; the comparison shows with the next patch. The states do not go
+  into the backup, the error reports or the exports. A view of its own with
+  figures and warnings follows.
 
 ### Improved
 

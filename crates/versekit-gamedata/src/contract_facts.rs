@@ -28,7 +28,7 @@ use std::time::SystemTime;
 
 use p4kx_archive::Archive;
 use p4kx_dataforge::Guid;
-use p4kx_export::{CatalogOptions, Filter};
+use p4kx_export::{CatalogOptions, CatalogPhase, CatalogProgress, Filter};
 use serde::Deserialize;
 
 use crate::location_targets::LocationTargets;
@@ -205,8 +205,21 @@ impl ContractFacts {
 /// When p4kx cannot read the DataForge or the texts of the archive.
 pub fn catalog_json(archive: &Archive, filter: Option<&str>) -> Result<Vec<u8>, p4kx_export::CatalogError> {
     let filter = filter.map(Filter::new);
-    let options = CatalogOptions { filter: filter.as_ref(), ..CatalogOptions::new(SystemTime::UNIX_EPOCH) };
-    p4kx_export::build_catalog(archive, &options).map(|built| built.into_parts().0)
+    // The build that asks (if one does) is told how many records the reading has checked.
+    let report = versekit_core::build_progress::reporter();
+    let count = |progress: CatalogProgress| {
+        let phase = usize::from(progress.phase != CatalogPhase::Crafting);
+        report.records(phase, progress.records_done, progress.records_total);
+    };
+    let options = CatalogOptions {
+        filter: filter.as_ref(),
+        progress: Some(&count),
+        ..CatalogOptions::new(SystemTime::UNIX_EPOCH)
+    };
+    report.reading_begins();
+    let built = p4kx_export::build_catalog(archive, &options).map(|built| built.into_parts().0);
+    report.reading_ends();
+    built
 }
 
 fn guid(text: &str) -> Option<Guid> {

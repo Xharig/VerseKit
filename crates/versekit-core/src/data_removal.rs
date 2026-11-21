@@ -63,19 +63,21 @@ pub const NAMED_FOLDERS: [&str; 4] = ["Bauplaene", "Einstellungen", "Intern", "D
 
 /// The own subfolders with a common name. In each only the files the program writes there go
 /// ([`owned_in_common`]); everything else stays.
-pub const COMMON_FOLDERS: [&str; 3] =
-    [crate::patch_changes::FOLDER, crate::export::FOLDER, crate::first_backup::FOLDER];
+pub const COMMON_FOLDERS: [&str; 4] =
+    [crate::patch_changes::FOLDER, crate::export::FOLDER, crate::first_backup::FOLDER, crate::stands::FOLDER];
 
 /// The subfolder of `Intern` every name the program writes there lies in.
 const INNER_PARENT: &str = "Intern";
 
 /// The folders the program makes in `Intern`, each with the form of the names of the files it writes into it
-/// (lower case): the backups before an update (`backup::write_before_update`), the taught images of the
+/// (lower case): the backups before an update (`backup::write_before_update`), the backups written by themselves
+/// (`backup_auto::write`), the taught images of the
 /// signature scanner (`signature_scan::save_sample`), the pictures kept for later (`signature_watch::keep_pending`),
 /// the pictures of handles (`handle_query::pictures::file_name`) and the kept pictures of the refinery
 /// (`refinery_scan::screen::keep`).
-pub const INNER_FOLDERS: [(&str, &str); 6] = [
+pub const INNER_FOLDERS: [(&str, &str); 7] = [
     (crate::backup::BEFORE_UPDATE_FOLDER, r"^vor-update-\d{4}-\d{2}-\d{2}-\d{6}-[^\\/]+\.zip(\.teil)?$"),
+    (crate::backup_auto::FOLDER, r"^auto-\d{4}-\d{2}-\d{2}-\d{6}-(start|spielende)-[^\\/]+\.zip(\.teil)?$"),
     (
         crate::backup::BEFORE_VERSION_CHANGE_FOLDER,
         r"^vor-versionswechsel-\d{4}-\d{2}-\d{2}-\d{6}-[^\\/]+\.zip(\.teil)?$",
@@ -112,6 +114,8 @@ pub const KNOWN_FILES: &[&str] = &[
     "auftragsruf.json",
     "basetool-anfragen.log",
     "bauplaene-gesehen.json",
+    "bauplan-rueckfrage.json",
+    "bauplan-scans.json",
     "bergung.json",
     "bericht.txt",
     "bestand.bak.json",
@@ -143,9 +147,11 @@ pub const KNOWN_FILES: &[&str] = &[
     "joystick-reihenfolge.json",
     "joystick-saetze.json",
     "katalog-cache.json",
+    "katalog-neubau-stand.json",
     "katalog-neubau.lock",
     "katalog-spieldaten.json",
     "konten-je-log.json",
+    "kurzzeichen-original.json",
     "laeden-katalog.json",
     "laeden.json",
     "lager-katalog.json",
@@ -153,6 +159,7 @@ pub const KNOWN_FILES: &[&str] = &[
     "lagerjournal.json",
     "lagervorschlaege.json",
     "logstand.json",
+    "luftwerft_sprachen.json",
     "merkliste.json",
     "mining-data.json",
     "namen-original.json",
@@ -299,7 +306,10 @@ fn temporary_of(lower: &str) -> Option<String> {
 /// ([`COMMON_FOLDERS`]), or into the folder of older exports in it (`inner`)?
 ///
 /// - `Patches`: `patch-<version>.json` whose content is a patch of erkul.games with that version
-///   (`patch_changes::file`), and its temporary files ([`temporary_of`]);
+///   (`patch_changes::file`), `eigen-<version>.json` whose content is an own comparison with that version
+///   (`stand_diff::write_patch`), and their temporary files ([`temporary_of`]);
+/// - `Staende`: `<channel>_<build>.stand`, a packed stand (`stands::file_name`) that starts as a zlib stream, and
+///   its temporary files; the channel is any name in letters, so no list of channels is written out here;
 /// - `export`: the four export files by their names, their temporary files ([`temporary_of`]), and in `Ältere` the
 ///   dated files of older versions (`<stem>-<YYYY-MM-DD>.json`); a file with content must carry the program's
 ///   mark (its tool name, or the exact keys of the Basetool and the contract export);
@@ -310,12 +320,16 @@ pub fn owned_in_common(folder: &str, inner: bool, name: &str, path: &Path) -> bo
     let temporary = temporary_of(&lower);
     if folder == crate::patch_changes::FOLDER {
         static PATCH: LazyLock<regex::Regex> = LazyLock::new(|| regex(r"^patch-([a-z0-9._-]+)\.json$"));
+        static OWN: LazyLock<regex::Regex> = LazyLock::new(|| regex(r"^eigen-([a-z0-9._-]+)\.json$"));
         if inner {
             return false;
         }
         // A temporary file of a patch file has no whole content to look at: its exact form is enough.
-        if temporary.as_deref().is_some_and(|base| PATCH.is_match(base)) {
+        if temporary.as_deref().is_some_and(|base| PATCH.is_match(base) || OWN.is_match(base)) {
             return true;
+        }
+        if let Some(version) = OWN.captures(&lower).map(|c| c[1].to_string()) {
+            return own_comparison_mark(path, &version);
         }
         let Some(version) = PATCH.captures(&lower).map(|c| c[1].to_string()) else { return false };
         return matches!(read_object(path), Some(map)
@@ -335,6 +349,16 @@ pub fn owned_in_common(folder: &str, inner: bool, name: &str, path: &Path) -> bo
         }
         return stems.iter().any(|stem| lower == format!("{stem}.json")) && export_mark(path);
     }
+    if folder == crate::stands::FOLDER {
+        static STAND: LazyLock<regex::Regex> = LazyLock::new(|| regex(r"^[a-z][a-z-]*_[a-z0-9._-]+\.stand$"));
+        if inner {
+            return false;
+        }
+        if temporary.as_deref().is_some_and(|base| STAND.is_match(base)) {
+            return true;
+        }
+        return STAND.is_match(&lower) && file_starts_with(path, &[0x78]);
+    }
     static FIRST: LazyLock<regex::Regex> = LazyLock::new(|| {
         let starts = [crate::backup::FILE_START, legacy::BACKUP_FILE_START]
             .map(|start| regex::escape(&start.to_lowercase()))
@@ -342,6 +366,28 @@ pub fn owned_in_common(folder: &str, inner: bool, name: &str, path: &Path) -> bo
         regex(&format!(r"^({starts})-vor-versekit-5-\d{{4}}-\d{{2}}-\d{{2}}-\d{{6}}(-\d+)?\.zip(\.teil)?$"))
     });
     folder == crate::first_backup::FOLDER && !inner && FIRST.is_match(&lower)
+}
+
+/// The file starts with `start` (a link is not read).
+fn file_starts_with(path: &Path, start: &[u8]) -> bool {
+    use std::io::Read;
+    if !is_real_file(&path.to_string_lossy()) {
+        return false;
+    }
+    let mut head = vec![0u8; start.len()];
+    fs::File::open(path).and_then(|mut file| file.read_exact(&mut head)).is_ok() && head == start
+}
+
+/// Is `path` an own comparison (`Patches/eigen-<version>.json`, `stand_diff::write_patch`) of `version`: its content
+/// says so under `quelle` and `version`. A file over [`LARGEST_READ`] is not read as a whole; the start of its text
+/// says whose it is (`to_patch` writes the summary first).
+fn own_comparison_mark(path: &Path, version: &str) -> bool {
+    if let Some(map) = read_object(path) {
+        return text_of(&map, "quelle") == Some(crate::stand_diff::SOURCE)
+            && text_of(&map, "version").is_some_and(|v| crate::patch_changes::safe_name(v).to_lowercase() == version);
+    }
+    fs::symlink_metadata(path).is_ok_and(|m| m.len() > LARGEST_READ)
+        && file_starts_with(path, br#"{"summary":{"added":"#)
 }
 
 /// The mark of an export file of the program: the tool name under `werkzeug` or `productName` (also the one of
