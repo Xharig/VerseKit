@@ -47,7 +47,7 @@ const VIEWS = ['karten', 'reiter'];
 const FIELDS = ['actions', 'alter', 'autostart', 'clicks', 'entry', 'game', 'misses', 'mods', 'os',
                 'overlay', 'pages', 'rc', 'tiles_off', 'tr', 'ui', 'update', 'v', 'view'];
 // Die gewählte Übersetzung als Kennung ihrer Quelle (`dymerz_de`, `luftwerft_nl`,
-// `original`, `eigene`, `keine`), nie eine Adresse.
+// `original`, `eigene`, `ungewaehlt`, `nicht_anfassen`; vor 5.6 `keine`), nie eine Adresse.
 const SOURCE_RE = /^[a-z0-9_]{1,40}$/;
 // Alter der Installation in ganzen Tagen; alles ab 31 meldet das Programm als 31.
 export const MAX_AGE = 31;

@@ -934,6 +934,8 @@ mod tests {
         assert_eq!(name_key("[CIV-S2-A] 7MA \"Lorica\""), "7ma 'lorica'");
         assert_eq!(name_key("[E-S1] FL-11 Cannon"), "fl-11 cannon");
         assert_eq!(name_key("[CIV-S3-A] Kragen"), "kragen");
+        assert_eq!(name_key("[CIV.S2.C] Graupel"), "graupel");
+        assert_eq!(name_key("[E.S1] FL-11 Cannon"), "fl-11 cannon");
         assert_eq!(name_key("[E-S1] "), "[e-s1]");
         assert_eq!(name_key("[Prototype] Helm"), "[prototype] helm");
     }

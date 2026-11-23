@@ -486,7 +486,7 @@ mod tests {
         let mut findings = Vec::new();
         for scheme in versekit_core::theme::schemes() {
             for lang in Lang::ALL {
-                for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                for points in crate::test_sizes() {
                     for width in [380.0, 880.0] {
                         let ctx = context();
                         crate::apply_size(&ctx, points);

@@ -342,6 +342,7 @@ pub fn terms(
                 lowest: rank(contract, "minStandingGuid"),
                 highest: rank(contract, "maxStandingGuid"),
                 reward: fixed_reward(contract),
+                reward_base: None,
                 giver: giver_name(contract, factions),
             };
             // Every title the game may show, with every description it may show.

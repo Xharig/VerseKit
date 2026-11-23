@@ -254,6 +254,15 @@ pub struct ScannerState {
     pub hotkey: Option<String>,
     /// Where a fetch takes its pictures from: the screen (the checks make one up).
     screen: fn() -> Box<dyn Source>,
+    /// The section of the digits taught.
+    own: own_digits::OwnView,
+    /// The pictures kept for their unsure number that show a signature pill, newest first, as last read, and when;
+    /// the files known to show one.
+    queue: Vec<(String, Frame)>,
+    queue_read: f64,
+    good: Vec<String>,
+    /// The counter that numbers the pictures taken by "Next image".
+    snapshots: u64,
 }
 
 /// A fetch while it runs: its thread, when it began and how long it lets pass before it grabs, and the switch that
@@ -292,6 +301,11 @@ impl Default for ScannerState {
             delay: game_picture::DEFAULT_DELAY,
             hotkey: None,
             screen: || Box::new(Screen),
+            own: own_digits::OwnView::default(),
+            queue: Vec::new(),
+            queue_read: f64::NEG_INFINITY,
+            good: Vec::new(),
+            snapshots: 0,
         }
     }
 }
@@ -524,18 +538,32 @@ impl ScannerState {
         Some(format!("{}/{}", base.trim_end_matches(['/', '\\']), signature_watch::PENDING_FOLDER))
     }
 
+    /// Reads the pictures kept again (at most every [`LOOK_SECONDS`], or at once with `force`): one without a
+    /// signature pill is deleted without a word, the others are looked at once.
+    fn read_queue(&mut self, now: f64, force: bool) {
+        if !force && now - self.queue_read < LOOK_SECONDS {
+            return;
+        }
+        self.queue_read = now;
+        let Some(folder) = self.pending_folder() else { return };
+        self.queue = signature_watch::pending_with_pill(&folder, &mut self.good);
+    }
+
+    /// The newest picture kept that was not set aside.
+    fn next_kept(&self) -> Option<&(String, Frame)> {
+        self.queue.iter().find(|(path, _)| !self.skipped.contains(path))
+    }
+
     /// Takes a picture while none stands: first the newest one kept for its unsure number, else the newest the
-    /// overlay left; what was set aside is not taken again.
+    /// overlay left; what was set aside is not taken again, and a picture without a signature pill is never shown.
     fn follow(&mut self, ui: &Ui) {
         let now = ui.input(|i| i.time);
+        self.read_queue(now, false);
         if self.frame.is_some() || now - self.looked_at < LOOK_SECONDS {
             return;
         }
         self.looked_at = now;
-        if let Some(folder) = self.pending_folder()
-            && let Some((path, frame)) =
-                signature_watch::pending(&folder).into_iter().find(|(path, _)| !self.skipped.contains(path))
-        {
+        if let Some((path, frame)) = self.next_kept().cloned() {
             self.pending = Some(path);
             self.frame = Some(frame);
             return;
@@ -545,17 +573,28 @@ impl ScannerState {
         if self.ignore == Some(fresh.number) {
             return;
         }
-        self.ignore = None;
-        self.frame = Some(fresh);
+        // Not looked at again: the number is set aside whether it shows a pill or not.
+        self.ignore = Some(fresh.number);
+        if fresh.shows_pill() {
+            self.frame = Some(fresh);
+        }
+    }
+
+    /// Which of the kept pictures stands (from 1, the newest first) and how many there are; `None` when the
+    /// picture standing is not a kept one.
+    fn kept_place(&self) -> Option<(usize, usize)> {
+        let path = self.pending.as_ref()?;
+        let at = self.queue.iter().position(|(p, _)| p == path)?;
+        Some((at + 1, self.queue.len()))
     }
 
     /// How many pictures wait that were kept for their unsure number.
     fn pending_count(&self) -> usize {
-        self.pending_folder().map_or(0, |folder| signature_watch::pending(&folder).len())
+        self.queue.len()
     }
 
-    /// Releases the picture that stands: the next one found is shown (a picture kept stays kept).
-    fn next(&mut self) {
+    /// Lets go of the picture that stands (a picture kept stays kept).
+    fn release(&mut self) {
         match self.pending.take() {
             Some(path) => self.skipped.push(path),
             None => self.ignore = self.frame.as_ref().map(|f| f.number),
@@ -566,12 +605,37 @@ impl ScannerState {
         self.texture = None;
     }
 
+    /// "Next image": the next picture kept, else one photograph of the game, taken only where the game is in front
+    /// and shows a signature pill. With the game not in front there is nothing: "No pictures kept any more".
+    fn next(&mut self, mining: &MiningData, now: f64) {
+        self.release();
+        self.read_queue(now, true);
+        if self.next_kept().is_some() {
+            return;
+        }
+        let Some((own, _, _)) = self.files() else { return };
+        let known = signature_scan::templates_by_variant(signature_scan::SHIPPED_TEMPLATES, &own);
+        let values = signature_scan::possible_values(mining);
+        self.snapshots += 1;
+        let number = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_or(self.snapshots, |d| d.as_millis() as u64 + self.snapshots);
+        let mut source = (self.screen)();
+        match signature_watch::snapshot(source.as_mut(), &known, &values, number) {
+            signature_watch::Snapshot::Got(frame) => self.frame = Some(frame),
+            signature_watch::Snapshot::NoGame => self.said = Some((vec![t("scan_keine_mehr")], false)),
+            signature_watch::Snapshot::Nothing => self.said = Some((vec![t("scan_nichts_im_bild")], false)),
+        }
+    }
+
     /// The picture that stands is not wanted: a kept one is gone for good.
     fn discard(&mut self) {
         if let Some(path) = self.pending.take() {
             signature_watch::drop_pending(&path);
+            self.good.retain(|p| *p != path);
+            self.queue.retain(|(p, _)| *p != path);
         }
-        self.next();
+        self.release();
     }
 
     /// The typed number is taught for the picture that stands; what came of it is said below.
@@ -593,8 +657,11 @@ impl ScannerState {
         // A picture kept is taught: it is done with.
         if let Some(path) = self.pending.take() {
             signature_watch::drop_pending(&path);
+            self.good.retain(|p| *p != path);
+            self.queue.retain(|(p, _)| *p != path);
         }
         self.taught = true;
+        self.own.stale();
         // The digits are new where the scanner would not have read them right before; all known means: enough.
         let digits: String = self.typed.chars().filter(char::is_ascii_digit).collect();
         let number = digits.parse::<u64>().map(signature_window::with_thousands).unwrap_or_default();
@@ -645,8 +712,12 @@ fn picture_zoom(size: (usize, usize), room: f32) -> f32 {
     whole.min(room.max(1.0) / w as f32)
 }
 
-/// The scanner on the page Mining, in a card of its own: the switch and, while it is on, the teaching of the digits.
-pub fn show_box(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, mining: &MiningData) {
+/// The page of the tab Signatur: the card with the switch and the state, below it, while the scanner is on, the card
+/// that teaches digits and the card of the digits and pictures taught. The addresses of the help on the website
+/// stand at the end.
+pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, mining: &MiningData) {
+    ui.label(RichText::new(t("s_sg_seite_lead")).color(color(scheme.sub)));
+    ui.add_space(8.0);
     widgets::card(ui, scheme, |ui| {
         widgets::card_title(ui, scheme, &t("s_bg_scan_kopf"));
         if !versekit_core::screen_grab::supported() {
@@ -662,16 +733,41 @@ pub fn show_box(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, mining: 
             widgets::hint(ui, scheme, &t("scan_wache_aus"));
             return;
         }
-        ui.add_space(6.0);
-        ui.label(RichText::new(t("s_bg_scan_anlernen")).strong());
+        let (pictures, patterns) = own_digits::counts(ui, state);
+        let line = tf("s_sg_stand_an", &[("0", Arg::from(pictures)), ("1", Arg::from(patterns))]);
+        ui.label(RichText::new(line).color(color(scheme.accent)));
+    });
+    if !state.on || !versekit_core::screen_grab::supported() {
+        return;
+    }
+    ui.add_space(10.0);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("s_bg_scan_anlernen"));
         show_teaching(ui, scheme, state, mining);
     });
+    ui.add_space(10.0);
+    widgets::card(ui, scheme, |ui| {
+        widgets::card_title(ui, scheme, &t("scan_eigene_titel"));
+        own_digits::show(ui, scheme, state);
+    });
+    ui.add_space(8.0);
+    ui.add(egui::Label::new(RichText::new(t("s_sg_faq_hilfe")).color(color(scheme.sub))).wrap());
+    if widgets::external_link(ui, scheme, &t("s_sg_faq_loeschen")).clicked() {
+        ui.ctx().open_url(egui::OpenUrl::new_tab(t("s_sg_faq_loeschen_url")));
+    }
+    if widgets::external_link(ui, scheme, &t("s_sg_faq_fenster")).clicked() {
+        ui.ctx().open_url(egui::OpenUrl::new_tab(t("s_sg_faq_fenster_url")));
+    }
 }
 
 /// The teaching of the digits: the picture that stands, the number typed for it and what came of it. On the page
 /// Mining and in the small window the overlay opens above the game.
 pub fn show_teaching(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, mining: &MiningData) {
     state.follow(ui);
+    // A kept picture says which of them it is: the count below goes down as each is taught or discarded.
+    if let Some((at, of)) = state.kept_place() {
+        widgets::hint(ui, scheme, &tf("s_sg_gemerkt_nr", &[("0", Arg::from(at)), ("1", Arg::from(of))]));
+    }
     if state.frame.is_none() {
         widgets::hint(ui, scheme, &t("scan_warte"));
     } else {
@@ -686,8 +782,10 @@ pub fn show_teaching(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, min
         ui.label(line);
         ui.add_space(4.0);
         ui.horizontal_wrapped(|row| {
-            row.label(t("scan_richtig"));
-            let field = row.add(widgets::text_field(&mut state.typed, "", scheme).desired_width(110.0));
+            let name = row.label(t("scan_richtig"));
+            let field = row
+                .add(widgets::text_field(&mut state.typed, &t("scan_richtig_h"), scheme).desired_width(150.0))
+                .labelled_by(name.id);
             let enter = field.lost_focus() && row.input(|i| i.key_pressed(Key::Enter));
             let go = row.add(widgets::Button::new(&t("scan_anlernen"), ButtonKind::Strong, scheme)).clicked();
             if go || enter {
@@ -698,9 +796,11 @@ pub fn show_teaching(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, min
     // Wraps instead of running past the edge of a narrow window.
     ui.horizontal_wrapped(|row| {
         if row.add(widgets::Button::new(&t("scan_naechstes"), ButtonKind::Normal, scheme)).clicked() {
-            state.next();
+            let now = row.input(|i| i.time);
+            state.next(mining, now);
         }
-        if state.pending.is_some()
+        // Also a picture that is no signature at all and was never kept: it is not offered again.
+        if state.frame.is_some()
             && row.add(widgets::Button::new(&t("s_sg_verwerfen"), ButtonKind::Normal, scheme)).clicked()
         {
             state.discard();
@@ -1057,6 +1157,8 @@ pub fn frame_model(
     response.on_hover_cursor(cursor).on_hover_text(t("s_sg_rahmen_tipp"));
     changed
 }
+
+mod own_digits;
 
 #[cfg(test)]
 mod tests;

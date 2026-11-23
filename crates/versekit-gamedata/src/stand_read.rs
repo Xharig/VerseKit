@@ -265,9 +265,10 @@ pub fn read_stand(game: &GameData, date: &str) -> Option<Stand> {
                     });
                     match game.blueprints_and_stats(&texts, &fixes, &contracts, &locations) {
                         Err(error) => lost(&mut failed, "catalog", &error),
-                        Ok((catalog, stats)) => {
+                        Ok((catalog, stats, names)) => {
                             let cached = list::from_game(&catalog, &build, None);
-                            let root = list::cache_value(&Value::Null, &cached, &list::item_texts(&catalog), &stats);
+                            let root =
+                                list::cache_value(&Value::Null, &cached, &list::item_texts(&catalog), &stats, &names);
                             add("katalog", &root);
                             match game.contract_reputation(
                                 &contracts,

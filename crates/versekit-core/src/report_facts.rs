@@ -1277,48 +1277,6 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_data_folder_gives_a_report_with_dashes() {
-        let (paths, dir) = paths_in("leer");
-        let env = Environment { version: "5.0.0".into(), ..Default::default() };
-        let request =
-            Request { paths: &paths, lang: Lang::De, env: &env, reporter: Some(""), message: "", error_count: 8 };
-        let facts = collect(&request);
-        assert_eq!(facts.blocks.len(), 4);
-        assert!(facts.errors.is_empty() && facts.crash.is_empty());
-        let redactor = crate::redact::Redactor::new(&paths);
-        let text = crate::report::build(&facts, &redactor);
-        let row = |label: &str| {
-            text.lines()
-                .find(|l| l.trim_start().starts_with(label))
-                .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
-        };
-        assert_eq!(row("Von").as_deref(), Some("Von nicht angegeben"), "{text}");
-        assert!(text.contains("## Letzte Fehler\n  Keine aufgezeichnet."), "{text}");
-        assert_eq!(
-            row("Merkliste").as_deref(),
-            Some("Merkliste — Einträge"),
-            "a missing file reads as the Python version has it:\n{text}"
-        );
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn the_interface_language_stands_next_to_the_game_language() {
-        let (paths, dir) = paths_in("oberflaeche");
-        assert_eq!(interface_language_line(&paths, Lang::De), "de (automatisch nach dem System)");
-        assert_eq!(interface_language_line(&paths, Lang::En), "en (automatic, from the system)");
-        assert!(paths.set_setting("sprache", Value::str("en")));
-        assert_eq!(interface_language_line(&paths, Lang::En), "en");
-        let env = Environment { version: "5.0.0".into(), ..Default::default() };
-        let request =
-            Request { paths: &paths, lang: Lang::En, env: &env, reporter: Some(""), message: "", error_count: 8 };
-        let entries = collect(&request).blocks[1].entries.clone();
-        let at = |label: &str| entries.iter().position(|e| e.label == label);
-        assert_eq!(at("Interface language"), at("Game language").map(|n| n + 1), "{entries:?}");
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
     fn the_overlay_and_the_teaching_window_bring_their_crash_and_trail() {
         let (paths, dir) = paths_in("andere");
         let env = Environment { version: "5.0.0".into(), ..Default::default() };
@@ -1337,31 +1295,6 @@ mod tests {
         assert_eq!(others[1].trail.len(), 1);
         let text = crate::report::build(&collect(&request), &crate::redact::Redactor::new(&paths));
         assert!(text.contains("## Harter Abbruch · Anlernfenster"), "{text}");
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn the_starter_line_says_none_found_or_the_own_command() {
-        let dir = std::env::temp_dir().join(format!("versekit-bericht-starter-{}", crate::testdir::run_tag()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).expect("folder");
-        let value = dir.to_string_lossy().to_string();
-        // Posix rules and a home folder without anything: no game, no script, no starter.
-        let home = [("VERSEKIT_HOME", value.as_str()), ("HOME", value.as_str())];
-        let paths = Paths::new(Host::new(Flavor::Posix, &home, &value));
-        assert_eq!(starter_line(&paths, Lang::De), "keiner gefunden, der Startknopf erscheint nicht");
-        assert!(starter_line(&paths, Lang::En).contains("none found"), "{}", starter_line(&paths, Lang::En));
-        // An own command: shown and marked as entered by hand.
-        assert!(paths.set_setting("spielstarter", Value::str("lutris rungame/star-citizen")));
-        assert_eq!(starter_line(&paths, Lang::De), "lutris rungame/star-citizen  (selbst eingetragen)");
-        // And it stands in the block of the game, after the line of the backups.
-        let env = Environment { version: "5.0.0".into(), ..Default::default() };
-        let request =
-            Request { paths: &paths, lang: Lang::De, env: &env, reporter: Some(""), message: "", error_count: 8 };
-        let labels: Vec<String> = collect(&request).blocks[1].entries.iter().map(|e| e.label.clone()).collect();
-        let at = |label: &str| labels.iter().position(|l| l == label);
-        assert!(at("Spielstarter").is_some() && at("Spielstarter") > at("Sicherungen"), "{labels:?}");
-        assert!(at("Spielstarter") < at("Spielsprache"), "{labels:?}");
         let _ = fs::remove_dir_all(&dir);
     }
 

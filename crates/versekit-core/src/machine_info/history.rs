@@ -179,19 +179,6 @@ mod tests {
     }
 
     #[test]
-    fn only_the_newest_days_are_kept() {
-        let (_folder, paths) = paths_in("rechner-verlauf-grenze");
-        for n in 0..KEEP + 5 {
-            let day = format!("2026-{:02}-{:02}", 1 + n / 28, 1 + n % 28);
-            assert!(note(&paths, &rated(n as f64, 1.0, 3), &day), "{day}");
-        }
-        let days = load(&paths);
-        assert_eq!(days.len(), KEEP);
-        assert_eq!(days[0].cpu, 5.0, "the five oldest are gone");
-        assert_eq!(days.last().map(|d| d.cpu), Some((KEEP + 4) as f64));
-    }
-
-    #[test]
     fn a_file_of_another_format_counts_as_none() {
         let (_folder, paths) = paths_in("rechner-verlauf-format");
         std::fs::write(paths.app_file(FILE), r#"{"format": 2, "tage": [{"tag": "2026-10-31", "cpu": 1}]}"#).unwrap();

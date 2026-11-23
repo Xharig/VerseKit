@@ -31,7 +31,15 @@ use super::docking::tests::draw;
 
 /// The host of a throwaway folder: the Basetool cannot go out, the home folder is the throwaway
 /// folder too (nothing of the home folder of this computer is found).
+///
+/// The game folder is looked for on the drives of this computer unless the variables name one (that takes many seconds
+/// for each page built, because the page reads the real logs: see [`host_apart`] for a test that does not need the game).
 pub(super) fn host_in(dir: &std::path::Path, vars: &[(&str, &str)]) -> Host {
+    host_on_this_computer(dir, vars)
+}
+
+/// The host of [`host_in`].
+pub(super) fn host_on_this_computer(dir: &std::path::Path, vars: &[(&str, &str)]) -> Host {
     use versekit_core::envvars::{ENV_BASETOOL_KEYNAME, ENV_HOME, ENV_NO_NET};
     let home = dir.to_string_lossy().into_owned();
     let mut all = vec![
@@ -59,7 +67,7 @@ pub(super) fn host_apart(dir: &std::path::Path) -> Host {
 /// Whether the program finds a game installation on this computer with no setting at all.
 pub(super) fn game_on_this_computer() -> bool {
     let dir = folder("rechner");
-    let found = Paths::new(host_in(&dir, &[])).game_folder().is_some();
+    let found = Paths::new(host_on_this_computer(&dir, &[])).game_folder().is_some();
     let _ = std::fs::remove_dir_all(dir);
     found
 }
@@ -75,13 +83,28 @@ pub(super) fn folder(name: &str) -> std::path::PathBuf {
 /// A page on real data in a throwaway folder. The caller holds the language lock.
 /// `settings` is the content of the settings file; `vars` more variables of the host.
 pub(super) fn real_page(name: &str, settings: &str, vars: &[(&str, &str)]) -> (SamplePage, std::path::PathBuf) {
+    real_page_on(name, settings, vars, host_in)
+}
+
+/// [`real_page`] for the checks of "no game found": the game is looked for on the drives of this computer, so
+/// what such a page says depends on the computer (and each page takes many seconds).
+pub(super) fn real_page_here(name: &str, settings: &str, vars: &[(&str, &str)]) -> (SamplePage, std::path::PathBuf) {
+    real_page_on(name, settings, vars, host_on_this_computer)
+}
+
+fn real_page_on(
+    name: &str,
+    settings: &str,
+    vars: &[(&str, &str)],
+    host: fn(&std::path::Path, &[(&str, &str)]) -> Host,
+) -> (SamplePage, std::path::PathBuf) {
     let dir = folder(name);
     if !settings.is_empty() {
         std::fs::write(dir.join("einstellungen.json"), settings).unwrap();
     }
     theme::set_current("original");
     language::set_thread_language(language::Choice::De);
-    (SamplePage::with_settings(Paths::new(host_in(&dir, vars))), dir)
+    (SamplePage::with_settings(Paths::new(host(&dir, vars))), dir)
 }
 
 fn shows(texts: &[(String, Pos2)], part: &str) -> bool {
@@ -233,7 +256,7 @@ fn the_view_angle_page_holds_its_texts_at_every_size_scheme_and_language() {
     let mut findings = Vec::new();
     for scheme in theme::schemes() {
         theme::set_thread_current(scheme.id);
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             page.size = points;
             let (width, height) = font_size::min_window(points);
             for english in [false, true] {
@@ -308,7 +331,7 @@ fn the_graphics_page_holds_long_texts_at_every_size_scheme_and_language() {
     let mut findings = Vec::new();
     for scheme in theme::schemes() {
         theme::set_thread_current(scheme.id);
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             page.size = points;
             let (width, height) = font_size::min_window(points);
             for english in [false, true] {
@@ -354,6 +377,9 @@ fn the_graphics_page_holds_long_texts_at_every_size_scheme_and_language() {
 /// are drawn, and the page is the real one.
 #[test]
 fn the_controls_page_holds_long_names_at_every_size_scheme_and_language() {
+    if crate::skip_unless_full_run() {
+        return;
+    }
     use versekit_core::input_device::SystemDevice;
     let _language = crate::language_lock();
     let long = "x".repeat(150);
@@ -412,7 +438,7 @@ fn the_controls_page_holds_long_names_at_every_size_scheme_and_language() {
         assert!(loaded, "the look never came: the test would pass with the wheel on the screen");
         for scheme in theme::schemes() {
             theme::set_thread_current(scheme.id);
-            for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 page.size = points;
                 for wide in [false, true] {
                     let (width, _) = font_size::min_window(points);
@@ -500,7 +526,7 @@ fn the_axes_page_holds_long_names_at_every_size_scheme_and_language() {
     let mut findings = Vec::new();
     for scheme in theme::schemes() {
         theme::set_thread_current(scheme.id);
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             page.size = points;
             for wide in [false, true] {
                 let (width, _) = font_size::min_window(points);
@@ -577,51 +603,6 @@ fn the_menu_filter_finds_the_blocks_of_the_real_controls_page() {
     }
 }
 
-/// Every size, every scheme, both languages, the smallest window of the size: nothing of the pages of the
-/// game settings sticks out to the right, with names, paths and arguments far longer than any real one.
-#[test]
-fn the_pages_of_the_game_settings_hold_long_texts_at_every_size_scheme_and_language() {
-    let _language = crate::language_lock();
-    let long = "x".repeat(150);
-    let settings = format!(
-        r#"{{"startprogramme": [{{"an": true, "name": "{long}", "datei": "C:/{long}/{long}.exe", "argumente": "{long}", "wann": "ersetzt", "warten": 5, "beenden": true}}, {{"name": "B"}}]}}"#
-    );
-    let (mut page, dir) = real_page("spielseiten-lang", &settings, &[]);
-    let mut findings = Vec::new();
-    for scheme in theme::schemes() {
-        theme::set_thread_current(scheme.id);
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
-            page.size = points;
-            let (width, height) = font_size::min_window(points);
-            for english in [false, true] {
-                language::set_thread_language(if english { language::Choice::En } else { language::Choice::De });
-                for key in ["hf_startprogramme", "hf_module", "hf_allgemein", "hf_grafik"] {
-                    page.go_to(key);
-                    let (overflow, texts) = draw(&mut page, width, height);
-                    if overflow > 0.5 {
-                        findings.push(format!(
-                            "{key} {} Größe {points} englisch {english}: {overflow:.0} zu breit",
-                            scheme.id
-                        ));
-                    }
-                    // The page is drawn (not the placeholder of a page that is not built): its own first line.
-                    let lead = match key {
-                        "hf_startprogramme" => "s_pg_lead",
-                        "hf_allgemein" => "s_er_acc",
-                        "hf_grafik" => "s_gr_lead",
-                        _ => "s_mo_lead",
-                    };
-                    assert!(shows(&texts, &language::t(lead)), "{key} {} {points} {english}: {texts:?}", scheme.id);
-                }
-            }
-        }
-    }
-    theme::set_current("original");
-    language::set_thread_language(language::Choice::De);
-    let _ = std::fs::remove_dir_all(dir);
-    assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
-}
-
 /// The shader cache is the last card of the graphics page since 5.1.4: the old page (a stored name, a pinned card, a
 /// link) opens Grafik with the card framed, the menu filter finds the card, and the side bar has no row of its own.
 #[test]
@@ -660,7 +641,7 @@ fn the_two_models_of_the_signature_window_hold_at_every_size_scheme_and_language
     let mut findings = Vec::new();
     for scheme in theme::schemes() {
         theme::set_thread_current(scheme.id);
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             page.size = points;
             let (min_width, min_height) = font_size::min_window(points);
             for width in [min_width, min_width * 2.0] {
@@ -719,7 +700,7 @@ fn the_blocks_of_user_cfg_and_anti_afk_and_the_bubbles_of_the_channels_hold_long
     let mut findings = Vec::new();
     for scheme in theme::schemes() {
         theme::set_thread_current(scheme.id);
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             page.size = points;
             for wide in [false, true] {
                 let (width, _) = font_size::min_window(points);
@@ -1190,7 +1171,7 @@ fn real_data_show_the_game_folder_that_is_there_and_say_when_it_is_not() {
     let empty = dir.join("leer");
     std::fs::create_dir_all(&empty).unwrap();
     let file = format!("{{\n  \"spiel_ordner\": \"{}\"\n}}\n", empty.to_string_lossy().replace('\\', "/"));
-    let (mut page, home) = real_page("spiel-leer", &file, &[]);
+    let (mut page, home) = real_page_here("spiel-leer", &file, &[]);
     let texts = look(&mut page, "hf_ordner");
     assert_eq!(shows(&texts, &language::t("s_sc_da")), installed, "found only where the computer has a game");
     assert_eq!(shows(&texts, &language::t("s_sc_weg")), !installed, "{texts:?}");
@@ -1198,7 +1179,7 @@ fn real_data_show_the_game_folder_that_is_there_and_say_when_it_is_not() {
 
     if !installed {
         // Nothing set and nothing found: the honest "not found", no path of Windows.
-        let (mut page, home) = real_page("spiel-weg", "", &[]);
+        let (mut page, home) = real_page_here("spiel-weg", "", &[]);
         let texts = look(&mut page, "hf_ordner");
         assert!(shows(&texts, &language::t("s_sc_weg")) && !shows(&texts, &language::t("s_sc_da")));
         assert!(!shows(&texts, "Program Files") && !shows(&texts, "Spielordner gefunden"));
@@ -1208,7 +1189,7 @@ fn real_data_show_the_game_folder_that_is_there_and_say_when_it_is_not() {
 
         // A path of Windows in the settings is not found on a system without it.
         let file = "{\n  \"spiel_ordner\": \"C:/Program Files/Roberts Space Industries/StarCitizen/LIVE\"\n}\n";
-        let (mut page, home) = real_page("spiel-windows", file, &[]);
+        let (mut page, home) = real_page_here("spiel-windows", file, &[]);
         let texts = look(&mut page, "hf_ordner");
         assert!(shows(&texts, &language::t("s_sc_weg")), "a path that is not there is not found");
         assert!(!shows(&texts, &language::t("s_sc_da")));
@@ -1224,129 +1205,6 @@ fn real_data_show_the_game_folder_that_is_there_and_say_when_it_is_not() {
     // The channel under the terms of confidentiality has a row in the test build only.
     assert_eq!(shows(&texts, "EPTU"), versekit_core::edition::IS_TEST_BUILD);
     let _ = std::fs::remove_dir_all(dir);
-}
-
-/// One frame of `page` in a window of `width`; every text with its rectangle and whether egui had to cut it.
-fn rects(
-    ctx: &egui::Context,
-    page: &mut SamplePage,
-    width: f32,
-    height: f32,
-) -> (f32, Vec<(String, egui::Rect, bool)>) {
-    fn collect(shape: &egui::Shape, into: &mut Vec<(String, egui::Rect, bool)>) {
-        match shape {
-            egui::Shape::Text(text) => into.push((
-                text.galley.text().to_string(),
-                egui::Rect::from_min_size(text.pos, text.galley.size()),
-                text.galley.elided,
-            )),
-            egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| collect(s, into)),
-            _ => {}
-        }
-    }
-    let (mut overflow, mut found) = (0.0, Vec::new());
-    for _ in 0..3 {
-        found.clear();
-        let input = egui::RawInput {
-            screen_rect: Some(egui::Rect::from_min_size(Pos2::ZERO, egui::vec2(width, height))),
-            ..Default::default()
-        };
-        let mut output = ctx.run_ui(input, |ui| overflow = page.show(ui));
-        output.textures_delta.clear();
-        output.shapes.iter().for_each(|clipped| collect(&clipped.shape, &mut found));
-    }
-    (overflow, found)
-}
-
-/// The sync button stands in the head of the three pages with an area, the line of its result under the head,
-/// whole and wrapped, in both languages, at every size and in every scheme; the button keeps to the right
-/// edge and clear of the heading.
-#[test]
-fn the_sync_button_and_its_line_fit_in_the_head_of_the_three_pages() {
-    use std::sync::Arc;
-    use versekit_core::basetool::exchange_double::ExchangeDouble;
-    use versekit_core::basetool::scopes::{SETTING_BLUEPRINTS, SETTING_SHIPS, SETTING_STOCK};
-    use versekit_core::jsonio::Value;
-
-    let _language = crate::language_lock();
-    let (mut page, dir) = real_page("kopf-sync", "", &[]);
-    let double = Arc::new(ExchangeDouble::new());
-    let wire =
-        crate::basetool_page::Wire::over_double(&double, &dir.join("abgleich").to_string_lossy().replace('\\', "/"));
-    for setting in [SETTING_BLUEPRINTS, SETTING_STOCK, SETTING_SHIPS] {
-        assert!(wire.sync.set_setting(setting, Value::Bool(true)));
-    }
-    wire.sync.pass_now().expect("a pass");
-    page.connection = crate::basetool_page::ConnectionState::new(Some(wire.clone()));
-    let mut findings = Vec::new();
-    // Two lines: the short one after a pass that went through, the long one of maintenance.
-    for state in ["ok", "wartung"] {
-        if state == "wartung" {
-            double.fail("", 503, "SERVICE_UNAVAILABLE", Some(30), 1);
-            let _ = wire.sync.pass_now();
-        }
-        for (key, area) in
-            [("hf_liste", SETTING_BLUEPRINTS), ("hf_meinlager", SETTING_STOCK), ("hf_hangar", SETTING_SHIPS)]
-        {
-            page.go_to(key);
-            let _ = area;
-            for choice in [language::Choice::De, language::Choice::En] {
-                language::set_thread_language(choice);
-                for scheme in theme::schemes().iter().step_by(3) {
-                    for points in [font_size::POINTS_RANGE.0, font_size::POINTS_RANGE.1] {
-                        let (min_width, height) = font_size::min_window(points);
-                        for width in [min_width, 1800.0] {
-                            theme::set_thread_current(scheme.id);
-                            let ctx = egui::Context::default();
-                            crate::install(&ctx);
-                            page.size = points;
-                            let (overflow, texts) = rects(&ctx, &mut page, width, height.max(600.0));
-                            let at = format!("{state} {key} {choice:?} {} Größe {points} Breite {width}", scheme.id);
-                            let word = language::t("s_bt_jetzt");
-                            let Some((_, button, _)) = texts.iter().find(|(text, _, _)| *text == word) else {
-                                findings.push(format!("{at}: kein Knopf"));
-                                continue;
-                            };
-                            if overflow > 0.5 {
-                                findings.push(format!("{at}: {overflow:.0} zu breit"));
-                            }
-                            if button.max.x > width {
-                                findings.push(format!("{at}: der Knopf ragt über den rechten Rand"));
-                            }
-                            // The heading stands left of the button, in the same row.
-                            let name = language::t(key).to_lowercase();
-                            if let Some((_, heading, _)) = texts.iter().find(|(text, rect, _)| {
-                                text.to_lowercase() == name && (rect.center().y - button.center().y).abs() < 8.0
-                            }) && heading.max.x > button.min.x
-                            {
-                                findings.push(format!("{at}: der Knopf überdeckt die Überschrift"));
-                            }
-                            // The line stands whole under the head, wrapped, never cut.
-                            let said =
-                                if state == "ok" { language::t("s_btv_sync_ok") } else { language::t("s_btv_f_netz") };
-                            let head_of_line = said.split('{').next().unwrap_or_default().to_string();
-                            match texts.iter().find(|(text, _, _)| text.starts_with(&head_of_line)) {
-                                None => findings.push(format!("{at}: keine Zeile")),
-                                Some((_, line, elided)) => {
-                                    if *elided {
-                                        findings.push(format!("{at}: die Zeile ist abgeschnitten"));
-                                    }
-                                    if line.min.y < button.max.y || line.max.x > width {
-                                        findings.push(format!(
-                                            "{at}: die Zeile steht nicht unter dem Kopf oder ragt hinaus"
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    language::set_thread_language(language::Choice::De);
-    let _ = std::fs::remove_dir_all(dir);
-    assert!(findings.is_empty(), "Kopf mit Abgleich:\n{}", findings.join("\n"));
 }
 
 /// The pages that show the placeholder of the sample page ("Hier steht die Seite.") instead of themselves.

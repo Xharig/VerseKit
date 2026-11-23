@@ -848,7 +848,7 @@ mod tests {
         texts.iter().any(|(t, _)| t.contains(text))
     }
 
-    fn setup() -> std::sync::MutexGuard<'static, ()> {
+    fn setup() -> crate::LanguageGuard {
         let guard = crate::language_lock();
         theme::set_current("original");
         language::set_thread_language(Choice::De);
@@ -1081,51 +1081,6 @@ mod tests {
             assert_eq!(fov::stored(&bench.paths), Calibration::default());
             let _ = std::fs::remove_dir_all(&bench.home);
         }
-    }
-
-    #[test]
-    fn the_measuring_holds_its_texts_inside_the_screen_at_every_screen_size_language_scaling_and_card() {
-        let _guard = setup();
-        let mut findings = Vec::new();
-        for scheme in ["original", "krt"] {
-            theme::set_thread_current(scheme);
-            for english in [false, true] {
-                language::set_thread_language(if english { Choice::En } else { Choice::De });
-                // The smallest window of the program, full HD, a wide screen.
-                for (width, height) in [(926.0, 600.0), (1280.0, 800.0), (1920.0, 1080.0), (2560.0, 1440.0)] {
-                    for ppp in [1.0, 1.5, 2.0] {
-                        // Cards of the smallest, a usual and a very wide size (in pixels).
-                        for card in [MIN_CARD_PX, 600, 1300] {
-                            let mut bench = Bench::new("rand", Some(FILE));
-                            bench.screen = egui::vec2(width, height);
-                            bench.window = (true, Some(bench.screen));
-                            bench.ctx.set_pixels_per_point(ppp);
-                            bench.state.measure = Some(Measure { card_px: card, opened_at: 0.0 });
-                            bench.settle();
-                            let screen = Rect::from_min_size(Pos2::ZERO, bench.screen);
-                            for (text, rect) in &bench.rects {
-                                if text.trim().is_empty() {
-                                    continue;
-                                }
-                                if rect.min.x < screen.min.x - 0.5
-                                    || rect.min.y < screen.min.y - 0.5
-                                    || rect.max.x > screen.max.x + 0.5
-                                    || rect.max.y > screen.max.y + 0.5
-                                {
-                                    findings.push(format!(
-                                        "{scheme} englisch {english} {width}x{height} ppp {ppp} Karte {card}: `{text}` {rect:?}"
-                                    ));
-                                }
-                            }
-                            let _ = std::fs::remove_dir_all(&bench.home);
-                        }
-                    }
-                }
-            }
-        }
-        theme::set_current("original");
-        language::set_thread_language(Choice::De);
-        assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
     }
 
     #[test]

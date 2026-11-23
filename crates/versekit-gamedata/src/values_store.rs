@@ -423,6 +423,8 @@ pub fn start(channel_folder: Option<&Path>, cache_file: &str, supply: Arc<dyn Su
             let slots_missing = missing_beside(crate::ship_slots::SHIPS_FILE);
             // The levels of the processing methods came with 5.2.1, the same way.
             let refining_missing = missing_beside(crate::refining_processes::FILE);
+            // The mining equipment came with the answer whether a rock cracks, the same way.
+            let mining_missing = missing_beside(versekit_core::mining_gear::FILE);
             // The parts of 5.2.1 carry the class names and what a paint requires: a file of an older format is
             // read again once, the same way.
             let parts_outdated = stamp.source == "archive"
@@ -458,6 +460,7 @@ pub fn start(channel_folder: Option<&Path>, cache_file: &str, supply: Arc<dyn Su
                 || scmdb_missing
                 || slots_missing
                 || refining_missing
+                || mining_missing
                 || parts_outdated
                 || ship_values_outdated
         }
@@ -675,9 +678,13 @@ impl Rebuild {
             Ok(bytes) => bytes,
             Err(error) => return versekit_core::errors::record("values.slots", error),
         };
-        match game.ship_slots_with(bytes) {
-            Ok((ships, parts)) => {
-                for (name, value) in [(crate::ship_slots::SHIPS_FILE, ships), (crate::ship_slots::PARTS_FILE, parts)] {
+        match game.slots_and_mining_with(bytes) {
+            Ok((ships, parts, mining)) => {
+                for (name, value) in [
+                    (crate::ship_slots::SHIPS_FILE, ships),
+                    (crate::ship_slots::PARTS_FILE, parts),
+                    (versekit_core::mining_gear::FILE, mining),
+                ] {
                     let file = folder.join(name).to_string_lossy().into_owned();
                     let text = jsonio::dumps(&value, None, false);
                     if let Err(error) = jsonio::write_text_atomic(&file, &text, Newline::Native)
@@ -853,6 +860,10 @@ mod tests {
         assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the processing methods are missing");
         assert!(start(Some(&dir), &file, Arc::new(Playing)).rebuild.is_none(), "but not while the game runs");
         fs::write(dir.join(crate::refining_processes::FILE), b"{}").unwrap();
+        // A cache from before the answer whether a rock cracks has no mining equipment beside it: read once.
+        assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "the mining equipment is missing");
+        assert!(start(Some(&dir), &file, Arc::new(Playing)).rebuild.is_none(), "but not while the game runs");
+        fs::write(dir.join(versekit_core::mining_gear::FILE), b"{}").unwrap();
         // The parts of an older format (5.2.0, without class names and what a paint requires) are read once again;
         // not while the game runs.
         let parts = dir.join(crate::ship_slots::PARTS_FILE);
@@ -873,6 +884,11 @@ mod tests {
             current.rebuild.is_none(),
             "same archive, scmdb filled, slots, parts, ship values and processing methods there"
         );
+        // The mining equipment alone missing makes the reading due as well.
+        let mining = dir.join(versekit_core::mining_gear::FILE);
+        fs::remove_file(&mining).unwrap();
+        assert!(start(Some(&dir), &file, Arc::new(Offline)).rebuild.is_some(), "only the mining equipment is missing");
+        fs::write(&mining, b"{}").unwrap();
         fs::write(&archive, b"archive of a new patch").unwrap();
         let changed = start(Some(&dir), &file, Arc::new(Offline));
         assert!(changed.values.is_some(), "the old values are shown while the new ones are read");

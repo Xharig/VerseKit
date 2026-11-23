@@ -137,7 +137,7 @@ Once a day VerseKit sends exactly these details to `nutzung-versekit.xharig.com`
 | Program version | `5.2.10` |
 | System | Windows or Linux |
 | Language of the interface and of the game | `de`, `en` |
-| which translation you chose for LIVE, only its source, never an own address | `dymerz_de`, `luftwerft_nl`, `eigene`, `keine` |
+| which translation you chose for LIVE, only its source, never an own address | `dymerz_de`, `luftwerft_nl`, `eigene`, `ungewaehlt`, `nicht_anfassen` |
 | whether you are offered test versions | yes / no |
 | which areas are switched on | Ships, Workshop, Trade, Basetool … |
 | how the overlay runs | always visible / only on new blueprints |

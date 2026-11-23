@@ -21,6 +21,7 @@
 //! game says what came of it ([`Outcome::notice`]); without the game in front, or when the reading fails, a hint row
 //! says so.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
@@ -38,6 +39,8 @@ pub struct Found {
     pub materials: usize,
     pub unsure: usize,
     pub known: bool,
+    /// The terminal was seen, but no table of a job on it.
+    pub covered: bool,
 }
 
 impl Found {
@@ -47,6 +50,7 @@ impl Found {
             materials: jobs.iter().map(|job| job.materials.len()).sum(),
             unsure: jobs.iter().map(|job| job.unsure.len()).sum(),
             known,
+            covered: jobs.iter().any(|job| job.covered),
         }
     }
 }
@@ -88,6 +92,9 @@ impl Outcome {
             }
         };
         match self {
+            Outcome::Read(found) if found.materials == 0 && found.covered => {
+                Notice::new(NoticeKind::Nothing, language::t_in(lang, "s_rfscan_t_verdeckt"), "")
+            }
             Outcome::Read(found) if found.materials == 0 => {
                 Notice::new(NoticeKind::Nothing, language::t_in(lang, "s_rfscan_t_keiner"), "")
             }
@@ -148,21 +155,32 @@ impl<T> KeyJob<T> {
         outcome
     }
 
-    #[cfg(test)]
+    /// Whether a job started by this key has not ended yet.
     pub fn running(&self) -> bool {
         self.running
     }
 }
 
 /// The reading of the hotkey: in a thread of its own, under the lock of the writes of the overlay. A missing
-/// language of the text recognition is no error of the program and is not recorded.
-pub fn read_screen(paths: Paths, guard: writeguard::State, done: Sender<Outcome>, wake: impl Fn() + Send + 'static) {
+/// language of the text recognition is no error of the program and is not recorded. `grabbed` is set once the
+/// picture is taken: only then does the overlay show that the reading runs, so its notice is never in the picture.
+pub fn read_screen(
+    paths: Paths,
+    guard: writeguard::State,
+    done: Sender<Outcome>,
+    grabbed: Arc<AtomicBool>,
+    wake: impl Fn() + Send + 'static,
+) {
     let refused = done.clone();
     let started = std::thread::Builder::new().name("raffinerie-hotkey".into()).spawn(move || {
         writeguard::adopt(&guard);
         // The list as it was before the reading keeps it: whether the jobs read were in it already.
         let before = versekit_core::refinery_jobs::load(&paths);
-        let outcome = match screen::scan_from_game(&paths) {
+        let taken = || {
+            grabbed.store(true, Ordering::SeqCst);
+            wake();
+        };
+        let outcome = match screen::scan_from_game_then(&paths, &taken) {
             Ok(Some((jobs, kept))) => {
                 if screen::hand_over(&paths, &jobs, kept) {
                     Outcome::Read(Found::of(&jobs, versekit_core::refinery_jobs::all_known(&before, &jobs)))
@@ -221,14 +239,52 @@ mod tests {
             remaining: Some(60),
             cells: Vec::new(),
             station: String::new(),
+            covered: false,
         }
+    }
+
+    /// The terminal seen without a table: the notice says it is too small or covered, not that there is no job.
+    #[test]
+    fn a_covered_terminal_has_its_own_notice() {
+        let mut seen = job(&[], &[]);
+        seen.covered = true;
+        let found = Found::of(&[seen], false);
+        assert!(found.covered);
+        let notice = Outcome::Read(found).notice_in(Lang::De);
+        assert_eq!((notice.kind, notice.title.as_str()), (NoticeKind::Nothing, "Terminal zu klein oder verdeckt"));
+        assert_eq!(Outcome::Read(found).notice_in(Lang::En).title, "Terminal too small or covered");
+        assert!(!Outcome::Read(found).opens_main());
+        // A table read beside a covered card counts as read.
+        let mut both = Found::of(&[job(&["Gold"], &[])], false);
+        both.covered = true;
+        assert_eq!(Outcome::Read(both).notice_in(Lang::De).kind, NoticeKind::Done);
+    }
+
+    /// Without the game in front nothing is grabbed: the flag that lets the notice "wird gelesen" show stays down.
+    #[test]
+    fn without_a_grab_the_notice_of_the_running_reading_is_not_let_out() {
+        let folder = versekit_core::testdir::fresh("overlay-raffinerie-abgriff");
+        let home = folder.to_string_lossy().into_owned();
+        let paths = Paths::new(versekit_core::paths::Host::new(
+            versekit_core::pypath::Flavor::native(),
+            &[(versekit_core::envvars::ENV_HOME, home.as_str())],
+            &home,
+        ));
+        let (tx, rx) = mpsc::channel();
+        let grabbed = Arc::new(AtomicBool::new(false));
+        if versekit_core::screen_grab::game_rect().is_none() {
+            read_screen(paths, writeguard::state(), tx, grabbed.clone(), || {});
+            assert_eq!(rx.recv_timeout(std::time::Duration::from_secs(20)), Ok(Outcome::NoGame));
+            assert!(!grabbed.load(Ordering::SeqCst));
+        }
+        let _ = std::fs::remove_dir_all(folder);
     }
 
     #[test]
     fn every_end_of_the_reading_has_its_notice_in_words() {
         let jobs = [job(&["Gold", "Iron"], &[]), job(&["Tin"], &[])];
         let found = Found::of(&jobs, false);
-        assert_eq!(found, Found { materials: 3, unsure: 0, known: false });
+        assert_eq!(found, Found { materials: 3, unsure: 0, known: false, covered: false });
         let notice = |found: Found, lang: Lang| {
             let n = Outcome::Read(found).notice_in(lang);
             (n.kind, n.title, n.detail)

@@ -1328,7 +1328,7 @@ mod tests {
         for lang in [Choice::De, Choice::En] {
             set_thread_language(lang);
             for names in [["Alpha", "Beta", "Gamma"], long] {
-                for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                for points in crate::test_sizes() {
                     for pixels in [880.0, 1920.0] {
                         let mut rig = rig_with_routes(names);
                         let zoom = versekit_core::font_size::zoom_factor(points);

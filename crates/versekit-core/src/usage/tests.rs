@@ -81,8 +81,9 @@ fn the_translation_goes_out_as_the_id_of_its_source() {
     assert_eq!(translation_code(Some("luftwerft_ptbr")), "luftwerft_ptbr");
     assert_eq!(translation_code(Some(crate::translation::ORIGINAL)), "original");
     assert_eq!(translation_code(Some(crate::translation::CUSTOM)), "eigene");
-    assert_eq!(translation_code(None), "keine");
-    assert_eq!(translation_code(Some("  ")), "keine");
+    assert_eq!(translation_code(None), "ungewaehlt", "never chosen");
+    assert_eq!(translation_code(Some("")), "nicht_anfassen", "`leave_alone` stores an empty choice");
+    assert_eq!(translation_code(Some("  ")), "nicht_anfassen");
     assert_eq!(translation_code(Some("https://example.org/global.ini")), "andere", "an address never goes out");
     assert_eq!(translation_code(Some(&"a".repeat(41))), "andere");
 }

@@ -746,6 +746,9 @@ pub(crate) mod tests {
         let (home, install) = (dir.to_string_lossy().into_owned(), game.to_string_lossy().into_owned());
         let host = Host::new(Flavor::native(), &[("VERSEKIT_HOME", &home), ("SC_INSTALL_DIR", &install)], &home);
         let mut page = SamplePage::with_settings(Paths::new(host));
+        // The progress of a catalogue build is one for the whole process: a test of another page that builds one
+        // would show its step in the foot bar of this window. This window is given "no build".
+        page.catalog_watch.set(None);
         // A machine where the game is not in the process list: the log alone tells it then.
         page.game_process = |_| Some(false);
         let (width, height) = font_size::BASE_MIN_SIZE;
@@ -761,7 +764,13 @@ pub(crate) mod tests {
             draw(page, width, height).1
         };
 
-        let texts = look(&mut page);
+        // The state of the game is read in a thread: drawn again until it stands there (a minute at most).
+        let end = std::time::Instant::now() + Duration::from_secs(60);
+        let mut texts = look(&mut page);
+        while !shows(&texts, &language::t("ov_spiel_an")) && std::time::Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(20));
+            texts = look(&mut page);
+        }
         let foot: Vec<&String> = texts.iter().map(|(text, _)| text).filter(|text| text.contains("·")).collect();
         assert!(shows(&texts, &language::t("ov_spiel_an")), "a fresh log: the game runs, foot {foot:?}");
         assert!(!shows(&texts, "Stanton · 4.10.3"), "no made-up game state");
@@ -785,6 +794,13 @@ pub(crate) mod tests {
         let texts = look(&mut page);
         assert!(!shows(&texts, super::super::glance::NOT_YET), "{key} is built");
         assert!(shows(&texts, &language::t("s_be_alle")), "{key} gives out the collection: {texts:?}");
+        // The tab Signature of the mining page is drawn by the mining page, not left as a page that comes later.
+        page.go_to("hf_bergbau");
+        page.mining.want_signature = true;
+        look(&mut page);
+        let texts = look(&mut page);
+        assert!(page.mining.shows_signature, "the tab Signature is open");
+        assert!(!shows(&texts, super::super::glance::NOT_YET), "the tab Signature is built: {texts:?}");
         assert!(!shows(&texts, "Laranite") && !shows(&texts, "Hier steht die Seite."), "{key}");
         // What is new reads the change log and shows no made-up version: the sample gallery stays away.
         page.go_to("hf_wasistneu");
@@ -819,6 +835,7 @@ pub(crate) mod tests {
 
         // Counter-check: the sample page keeps its made-up state.
         let mut sample = SamplePage::preview();
+        sample.catalog_watch.set(None);
         assert!(shows(&draw(&mut sample, width, height).1, "Basetool-Daten werden geladen"));
         let texts = look(&mut sample);
         let bar = format!("VerseKit {} ist da.", super::super::SAMPLE_UPDATE);
@@ -923,7 +940,7 @@ pub(crate) mod tests {
         let mut findings = Vec::new();
         for scheme in theme::schemes() {
             theme::set_thread_current(scheme.id);
-            for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 let (mut page, _) = window(true);
                 page.size = points;
                 for key in ["", "Erste Seite", "Zweite Seite"] {

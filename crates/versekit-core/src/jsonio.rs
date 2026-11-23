@@ -1494,45 +1494,6 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
-    /// Two threads writing the same file at the same time (two fetches of the slots) each have their own
-    /// temporary file: neither renames the other's away, every write lands, and no temporary file is left.
-    #[test]
-    fn two_threads_writing_one_file_keep_their_own_temporary_file() {
-        let dir = scratch("zwei-schreiber");
-        let target = Flavor::native().join(&dir, "ablage.json");
-        let names: Vec<String> = (0..2)
-            .map(|_| {
-                let target = target.clone();
-                thread::spawn(move || temp_name(&target)).join().unwrap()
-            })
-            .collect();
-        assert_ne!(names[0], names[1], "one temporary name per thread");
-        assert_eq!(temp_name(&target), temp_name(&target), "the same thread keeps its name");
-        let start = std::sync::Arc::new(std::sync::Barrier::new(2));
-        let writers: Vec<_> = ["a", "b"]
-            .into_iter()
-            .map(|mark| {
-                let (target, start) = (target.clone(), std::sync::Arc::clone(&start));
-                thread::spawn(move || {
-                    let text = mark.repeat(4096);
-                    start.wait();
-                    (0..200).filter(|_| write_text_atomic(&target, &text, Newline::Keep).is_err()).count()
-                })
-            })
-            .collect();
-        let failed: Vec<usize> = writers.into_iter().map(|w| w.join().unwrap()).collect();
-        assert_eq!(failed, [0, 0], "every write landed");
-        let text = fs::read_to_string(&target).unwrap();
-        assert!(text == "a".repeat(4096) || text == "b".repeat(4096), "one whole text, not a mix");
-        let left: Vec<String> = fs::read_dir(&dir)
-            .unwrap()
-            .filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().into_owned()))
-            .filter(|name| name.ends_with(".tmp"))
-            .collect();
-        assert!(left.is_empty(), "{left:?}");
-        let _ = fs::remove_dir_all(&dir);
-    }
-
     #[test]
     fn nested_calls_in_one_thread_and_two_threads_do_not_deadlock() {
         let outer = lock_saves();

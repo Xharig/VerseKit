@@ -788,11 +788,13 @@ fn merge_passes_with(
                 amount = decided;
             }
         }
+        // A quality too short to be real has lost a digit (`84` of 584): never sure, read anew at most.
+        quality = quality.filter(|q| plausible_quality(*q));
         if let Some(reread) = &checks.reread
             && (quality.is_none() || amount.is_none())
         {
             if quality.is_none() {
-                quality = reread(cluster.y, 0);
+                quality = reread(cluster.y, 0).filter(|q| plausible_quality(*q));
             }
             if amount.is_none() {
                 amount = reread(cluster.y, 1);
@@ -808,7 +810,8 @@ fn merge_passes_with(
                         .or_else(|| guess(&cluster.rows.iter().map(loose).collect::<Vec<_>>()))
                 };
                 if quality.is_none() {
-                    quality = best(&|r| r.quality, &|r| r.loose_quality);
+                    // Not even guessed: a quality too short stands as `?`.
+                    quality = best(&|r| r.quality, &|r| r.loose_quality).filter(|q| plausible_quality(*q));
                 }
                 if amount.is_none() {
                     amount = best(&|r| r.amount, &|r| r.loose_amount);
@@ -1254,11 +1257,9 @@ fn table_box(
             .filter(|w| (w.y - bottom).abs() < 3.0 * unit && left - unit <= w.x && w.x <= right + 4.0 * unit)
             .collect();
         line.sort_by(|a, b| a.x.total_cmp(&b.x));
-        for word in line {
-            if let Some(found) = first_decimal(&word.t) {
-                total = found.replace(',', ".");
-                break;
-            }
+        // The first word with a digit is the sum; read broken, there is none.
+        if let Some(word) = line.iter().find(|w| w.t.chars().any(|c| c.is_ascii_digit())) {
+            total = total_of(&word.t).unwrap_or_default();
         }
         bottom
     };
@@ -1270,13 +1271,6 @@ fn table_box(
         return None;
     }
     Some(Table { area: (x0, y0, x1 - x0, y1 - y0), total })
-}
-
-/// The first match of `\d+(?:[.,]\d+)?` in `text`.
-fn first_decimal(text: &str) -> Option<String> {
-    static PATTERN: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
-    let pattern = PATTERN.get_or_init(|| regex::Regex::new(r"\d+(?:[.,]\d+)?").expect("pattern"));
-    pattern.find(text).map(|m| m.as_str().to_string())
 }
 
 /// `find_table`: the part of the first yield table, or `None`.
@@ -1515,7 +1509,9 @@ fn cell_word<'a>(passes: &'a [Vec<Word>], y: f64, column: usize, tolerance: f64,
     })
 }
 
-/// `_cell_crop_at`: the word of a cell and its grey picture.
+/// `_cell_crop_at`: the word of a cell and its grey picture. The picture spans the frame of the word and the width
+/// of its column ([`column_span`]): a digit the recognition left out of the frame (the 5 of `584` read as `84`)
+/// still belongs to the cell.
 fn cell_crop_at<'a>(
     picture: &dyn Picture,
     passes: &'a [Vec<Word>],
@@ -1524,8 +1520,30 @@ fn cell_crop_at<'a>(
     centers: &[f64],
 ) -> Option<(&'a Word, digits::Gray)> {
     let word = cell_word(passes, y, column, tolerance(passes), centers)?;
-    let area = (word.x as i64, word.y as i64, word.w as i64, word.h as i64);
+    let (mut left, mut right) = (word.x, word.x + word.w);
+    if let Some((from, to)) = column_span(centers, column) {
+        left = left.min(from);
+        right = right.max(to);
+    }
+    let area = (left as i64, word.y as i64, (right - left).ceil() as i64, word.h as i64);
     cell_crop(picture, area).map(|crop| (word, crop))
+}
+
+/// The width of the column `column` around its middle: [`PLACE_WIDTH`] of the distance to the nearest other column.
+/// `None` without a second column to measure by.
+fn column_span(centers: &[f64], column: usize) -> Option<(f64, f64)> {
+    let x = *centers.get(column)?;
+    let gap = centers
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != column)
+        .map(|(_, other)| (other - x).abs())
+        .fold(f64::INFINITY, f64::min);
+    if !gap.is_finite() || gap <= 0.0 {
+        return None;
+    }
+    let half = PLACE_WIDTH * gap / 2.0;
+    Some((x - half, x + half))
 }
 
 /// `_confirmer`: decides every 0 and 8 of a value at the learned patterns. First the whole cell is read
@@ -1579,18 +1597,9 @@ fn cell_crop_by_place(
     column: usize,
     centers: &[f64],
 ) -> Option<digits::Gray> {
-    let x = *centers.get(column)?;
-    let gap = centers
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| *i != column)
-        .map(|(_, other)| (other - x).abs())
-        .fold(f64::INFINITY, f64::min);
-    if !gap.is_finite() || gap <= 0.0 {
-        return None;
-    }
-    let (width, height) = (PLACE_WIDTH * gap, PLACE_HEIGHT * tolerance(passes));
-    cell_crop(picture, ((x - width / 2.0) as i64, (y - height / 2.0) as i64, width as i64, height as i64))
+    let (left, right) = column_span(centers, column)?;
+    let height = PLACE_HEIGHT * tolerance(passes);
+    cell_crop(picture, (left as i64, (y - height / 2.0) as i64, (right - left) as i64, height as i64))
 }
 
 /// `_rereader`: reads a cell of an unsure row from the learned patterns alone. Where no reading gave a number in
@@ -1659,30 +1668,188 @@ pub struct ScannedJob {
     /// The storage location read at the top of the terminal ([`station`]), as the list writes it; empty when
     /// there was no sure hit.
     pub station: String,
+    /// The refinery terminal was seen, but no table of a job on it: too small on the screen or covered.
+    pub covered: bool,
+}
+
+/// Words only the refinery terminal shows (its title, the card of a job, the profile of the station), German and
+/// English, in the comparison form of [`station_parts`]: one of them read without a table means the terminal is
+/// there but its table could not be read.
+const TERMINAL_WORDS: [&str; 6] = ["RAFFINERIE", "REFINERY", "ARBEITSAUFTRAG", "WORKORDER", "STATIONPROFI", "PROFII"];
+
+/// Whether the words show the refinery terminal ([`TERMINAL_WORDS`], also split over two words of a row).
+fn terminal_seen(words: &[Word]) -> bool {
+    rows(words).iter().any(|line| {
+        let joined: String = line.iter().flat_map(|w| station_parts(&w.t)).collect();
+        TERMINAL_WORDS.iter().any(|key| joined.contains(&key.replace('L', "I")))
+    })
 }
 
 /// The lines of a reading joined to the lines that wait in the refinery field, when both show the same job
-/// scrolled: a list longer than the card shows seven lines, the next reading after scrolling the rest. They are
-/// the same job when they share a line. Each line stays as often as the one of the two that has it more often,
-/// the field's lines first, the new ones after. `(text, lines added)`, or `None` when they share no line.
-pub fn join_scrolled(before: &str, read: &str) -> Option<(String, usize)> {
-    let lines = |text: &str| -> Vec<String> {
-        text.lines().map(|l| py_strip(l).to_string()).filter(|l| !l.is_empty()).collect()
+/// scrolled, or read once more: a list longer than the card shows seven lines, the next reading after scrolling
+/// the rest. They are the same job when they hold the same materials in the same order (matched line by line), or
+/// share a line for sure (the same material with the same quality read). Lines are matched by material and
+/// quality: a `?` takes the value read, a value read otherwise is replaced by the newer one (and counted), and only
+/// a line of the reading that matches none of the field is added. `None` when it is another job.
+pub fn join_scrolled(before: &str, read: &str) -> Option<Joined> {
+    let lines = |text: &str| -> Vec<FieldLine> {
+        text.lines().map(py_strip).filter(|l| !l.is_empty()).map(FieldLine::of).collect()
     };
     let (mut joined, new) = (lines(before), lines(read));
-    if joined.is_empty() || !new.iter().any(|line| joined.contains(line)) {
+    if joined.is_empty() || new.is_empty() {
         return None;
     }
-    let mut added = 0;
-    for line in new.iter() {
-        let have = joined.iter().filter(|l| *l == line).count();
-        let want = new.iter().filter(|l| *l == line).count();
-        if have < want {
-            joined.push(line.clone());
-            added += 1;
+    // The same materials in the same order: the same list, line by line.
+    let names = |list: &[FieldLine]| list.iter().map(|l| l.material.as_ref().map(|m| m.to_lowercase())).collect::<Vec<_>>();
+    let same_list = names(&joined) == names(&new) && joined.iter().all(|l| l.material.is_some());
+    let mut pairs: Vec<Option<usize>> = vec![None; new.len()];
+    if same_list {
+        pairs = (0..new.len()).map(Some).collect();
+    } else {
+        let mut used = vec![false; joined.len()];
+        // First the lines alike in material and in a quality read on both sides (or the whole line alike), then those
+        // where one side has no quality, last a material that stands once on each side among the lines left.
+        for pass in 0..3 {
+            for (i, line) in new.iter().enumerate() {
+                if pairs[i].is_some() {
+                    continue;
+                }
+                let fits = |j: usize| {
+                    let old = &joined[j];
+                    match pass {
+                        0 => old.raw == line.raw || (old.same_material(line) && old.quality.is_some() && old.quality == line.quality),
+                        1 => old.same_material(line) && (old.quality.is_none() || line.quality.is_none()),
+                        _ => {
+                            let left_old = (0..joined.len()).filter(|&k| !used[k] && joined[k].same_material(line)).count();
+                            let left_new = (0..new.len()).filter(|&k| pairs[k].is_none() && new[k].same_material(line)).count();
+                            old.same_material(line) && left_old == 1 && left_new == 1
+                        }
+                    }
+                };
+                if let Some(j) = (0..joined.len()).find(|&j| !used[j] && fits(j)) {
+                    used[j] = true;
+                    pairs[i] = Some(j);
+                }
+            }
+            // The same job only when one line is alike for sure; else it is another job.
+            if pass == 0 && pairs.iter().all(Option::is_none) {
+                return None;
+            }
         }
     }
-    Some((joined.join("\n"), added))
+    let (mut added, mut replaced) = (0, 0);
+    for (line, pair) in new.into_iter().zip(pairs) {
+        match pair {
+            Some(j) => {
+                let (merged, changed) = joined[j].taken_over(&line);
+                replaced += usize::from(changed);
+                joined[j] = merged;
+            }
+            None => {
+                joined.push(line);
+                added += 1;
+            }
+        }
+    }
+    let text = joined.iter().map(|l| l.raw.clone()).collect::<Vec<_>>().join("\n");
+    Some(Joined { text, added, replaced })
+}
+
+/// One line of the refinery field as [`join_scrolled`] matches it: `Material Quality Amount [unit]`, `?` for a
+/// value not read. A line that does not read so is matched only as a whole.
+#[derive(Clone, Debug)]
+struct FieldLine {
+    raw: String,
+    material: Option<String>,
+    quality: Option<String>,
+    amount: Option<String>,
+    unit: String,
+}
+
+impl FieldLine {
+    fn of(line: &str) -> FieldLine {
+        let whole = FieldLine { raw: line.to_string(), material: None, quality: None, amount: None, unit: String::new() };
+        let mut parts: Vec<&str> = line.split_whitespace().collect();
+        let mut unit = String::new();
+        if parts.last().is_some_and(|p| p.eq_ignore_ascii_case("cscu") || p.eq_ignore_ascii_case("scu")) {
+            unit = parts.pop().unwrap_or_default().to_string();
+        }
+        if parts.len() < 3 {
+            return whole;
+        }
+        let value = |text: &str| -> Result<Option<String>, ()> {
+            if text == "?" {
+                Ok(None)
+            } else if text.chars().all(|c| c.is_ascii_digit() || c == '.' || c == ',') && text.chars().any(|c| c.is_ascii_digit()) {
+                Ok(Some(text.to_string()))
+            } else {
+                Err(())
+            }
+        };
+        let (Ok(quality), Ok(amount)) = (value(parts[parts.len() - 2]), value(parts[parts.len() - 1])) else {
+            return whole;
+        };
+        let material = parts[..parts.len() - 2].join(" ");
+        FieldLine { raw: line.to_string(), material: Some(material), quality, amount, unit }
+    }
+
+    fn same_material(&self, other: &FieldLine) -> bool {
+        matches!((&self.material, &other.material), (Some(a), Some(b)) if a.to_lowercase() == b.to_lowercase())
+    }
+
+    /// The line with the values of `newer` where it read them, its own where `newer` has `?`; and whether a value
+    /// read on both sides differed (the newer one stands).
+    fn taken_over(&self, newer: &FieldLine) -> (FieldLine, bool) {
+        let (Some(material), Some(_)) = (&self.material, &newer.material) else { return (newer.clone(), self.raw != newer.raw) };
+        let pick = |old: &Option<String>, new: &Option<String>| match (old, new) {
+            (Some(o), Some(n)) => (Some(n.clone()), o != n),
+            (o, None) => (o.clone(), false),
+            (None, n) => (n.clone(), false),
+        };
+        let (quality, q_changed) = pick(&self.quality, &newer.quality);
+        let (amount, a_changed) = pick(&self.amount, &newer.amount);
+        let unit = if newer.unit.is_empty() { self.unit.clone() } else { newer.unit.clone() };
+        let cell = |v: &Option<String>| v.clone().unwrap_or_else(|| "?".to_string());
+        let mut raw = format!("{material} {} {}", cell(&quality), cell(&amount));
+        if !unit.is_empty() {
+            raw = format!("{raw} {unit}");
+        }
+        (FieldLine { raw, material: Some(material.clone()), quality, amount, unit }, q_changed || a_changed)
+    }
+}
+
+/// What [`join_scrolled`] made of two readings of the same job.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Joined {
+    /// The lines for the field.
+    pub text: String,
+    /// Lines of a material the field had not got, added.
+    pub added: usize,
+    /// Lines whose value read differs from the one in the field: the newer reading stands.
+    pub replaced: usize,
+}
+
+/// Whether a quality read can be the quality of a refined material: 100 to 1000. A shorter one has lost a digit
+/// at the front far more often than it is real.
+pub fn plausible_quality(quality: Int) -> bool {
+    (MIN_QUALITY..=1000).contains(&quality)
+}
+
+/// The lowest quality [`plausible_quality`] lets stand: three places.
+pub const MIN_QUALITY: Int = 100;
+
+/// The sum under the table from one word, with a point (`12.76`), or `None`. Only a number standing whole: after
+/// it nothing, or the unit (`cSCU`, `SCU`). A number the recognition broke (`36.gæcu` for `36.93cSCU`) gives no
+/// sum rather than a wrong one.
+pub fn total_of(text: &str) -> Option<String> {
+    static PATTERN: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let pattern = PATTERN.get_or_init(|| regex::Regex::new(r"^\D*?(\d+(?:[.,]\d+)?)(.*)$").expect("pattern"));
+    let found = pattern.captures(py_strip(text))?;
+    let rest: String = found[2].chars().filter(|c| !py_isspace(*c)).collect::<String>().to_lowercase();
+    if !(rest.is_empty() || rest == "scu" || rest == "cscu") {
+        return None;
+    }
+    Some(found[1].replace(',', "."))
 }
 
 /// The words whose middle lies within `area`.
@@ -1722,8 +1889,10 @@ pub fn read_image(
     let at = station(&words, &index.places).unwrap_or_default();
     if tables.is_empty() {
         let kept = keep.as_mut().is_some_and(|keep| keep(Keep::Picture));
-        // A station read without a table still goes to the field of the place, in a job without lines.
-        let jobs = if at.is_empty() {
+        // A station read without a table still goes to the field of the place, in a job without lines; so does a
+        // terminal seen without a table, which says why nothing was read.
+        let covered = terminal_seen(&words);
+        let jobs = if at.is_empty() && !covered {
             Vec::new()
         } else {
             vec![ScannedJob {
@@ -1735,6 +1904,7 @@ pub fn read_image(
                 remaining: None,
                 cells: Vec::new(),
                 station: at,
+                covered,
             }]
         };
         return Ok((jobs, kept));
@@ -1772,6 +1942,7 @@ pub fn read_image(
             cells: unsure_cells(picture, &passes, &merged.details, index, searched),
             unsure: merged.unsure,
             station: at.clone(),
+            covered: false,
         });
     }
     Ok((jobs, kept))

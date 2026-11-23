@@ -583,6 +583,8 @@ pub struct Status {
     pub applied: bool,
     pub source: Option<String>,
     pub language: String,
+    /// The item names VerseKit formed for keys the game text lacks, as the last writing left them.
+    pub added_names: Vec<injection::names::Filled>,
 }
 
 /// `injection.status`.
@@ -590,7 +592,11 @@ pub fn status(paths: &Paths) -> Status {
     let choice = choice(paths);
     let exists = choice.path.as_deref().is_some_and(game_ini::is_file);
     let applied = exists && choice.path.as_deref().is_some_and(injection::is_applied);
-    Status { file: choice.path, applied, source: choice.source, language: choice.language }
+    let added_names = match choice.path.as_deref() {
+        Some(file) if exists => injection::added_names(paths, file),
+        _ => Vec::new(),
+    };
+    Status { file: choice.path, applied, source: choice.source, language: choice.language, added_names }
 }
 
 /// Whether the player confirmed a source once (`inj_bestaetigt`).

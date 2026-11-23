@@ -24,7 +24,7 @@ use versekit_core::pypath::Flavor;
 
 use super::*;
 
-fn german() -> std::sync::MutexGuard<'static, ()> {
+fn german() -> crate::LanguageGuard {
     let guard = crate::language_lock();
     set_thread_language(Choice::De);
     guard

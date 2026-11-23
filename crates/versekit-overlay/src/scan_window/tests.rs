@@ -57,6 +57,7 @@ fn content(material: &str, number: &str, font_px: i32) -> Content {
         material: material.into(),
         known: true,
         number: number.into(),
+        extra: Vec::new(),
         font_px,
         background: colorref(versekit_core::theme::Color::hex("#101418")),
         text: colorref(versekit_core::theme::Color::hex("#f0f0f0")),
@@ -85,7 +86,7 @@ fn the_window_is_layered_topmost_never_activated_and_lets_clicks_through() {
         style
     });
     for (flag, name) in [
-        (WS_EX_LAYERED, "layered (left out of the screen grab)"),
+        (WS_EX_LAYERED, "layered (its opacity)"),
         (WS_EX_TOPMOST, "topmost"),
         (WS_EX_NOACTIVATE, "never activated"),
         (WS_EX_TRANSPARENT, "clicks pass through"),
@@ -93,6 +94,25 @@ fn the_window_is_layered_topmost_never_activated_and_lets_clicks_through() {
     ] {
         assert!(style & flag != 0, "not {name}: {style:#x}");
     }
+}
+
+/// Levski, 22.11.2026: the notice stood in the picture the refinery scan read, over the terminal; layered does not
+/// keep a window out of `BitBlt`. The window asks to be left out of every grab where the system can; an older
+/// Windows (before build 19041) would black it out instead, there nothing is asked.
+#[test]
+fn the_window_leaves_itself_out_of_the_screen_grab_where_the_system_can() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE, WDA_NONE};
+    assert!(can_exclude_from_capture(Some("19041")) && can_exclude_from_capture(Some("26200")));
+    assert!(!can_exclude_from_capture(Some("18363")) && !can_exclude_from_capture(Some("")) && !can_exclude_from_capture(None));
+    let affinity = on_hidden_desktop(|| {
+        let window = ScanWindow::create().expect("window");
+        let mut affinity = u32::MAX;
+        // SAFETY: our own window; `affinity` lives during the call.
+        unsafe { GetWindowDisplayAffinity(window.hwnd() as HWND, &mut affinity) };
+        affinity
+    });
+    let here = can_exclude_from_capture(versekit_core::paths::windows_build_number().as_deref());
+    assert_eq!(affinity, if here { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }, "build allows it: {here}");
 }
 
 #[test]
@@ -156,6 +176,41 @@ fn a_drag_whose_mouse_is_taken_away_ends_with_the_window_where_it_stands() {
         unsafe { SendMessageW(hwnd, WM_CAPTURECHANGED, 0, 0) };
         assert_eq!(window.take_moved(), None);
     });
+}
+
+/// The lines of the rock stand below the number: each one makes the window a line higher, a long one wider, and
+/// what is drawn in the accent shows up in the picture of the window.
+#[test]
+fn the_lines_of_the_rock_make_the_window_higher_and_are_drawn() {
+    let plain = content("4× Quantainium", "12,680", 24);
+    let mut one = plain.clone();
+    one.extra = vec![("Aufbrechbar · gut · Gas 46 %".into(), one.accent)];
+    let mut two = one.clone();
+    two.extra.push(("Wert ca. 123.400 aUEC und noch ein langer Rest".into(), one.text));
+    let (a, b, c) = (measure(&plain), measure(&one), measure(&two));
+    assert!(b.1 > a.1 && c.1 > b.1, "{a:?} {b:?} {c:?}");
+    assert!(c.0 > b.0, "the longer line widens the window");
+    let accent_points = |content: Content| {
+        on_hidden_desktop(move || {
+            let window = ScanWindow::create().expect("window");
+            let (w, h) = window.set_content(content);
+            window.show_at((50, 50, w, h));
+            let (pw, ph, pixels) = window.snapshot().expect("snapshot");
+            let near = |p: u32| {
+                let (b, g, r) = (p & 0xFF, (p >> 8) & 0xFF, (p >> 16) & 0xFF);
+                r.abs_diff(0x9c) < 40 && g.abs_diff(0xe4) < 40 && b.abs_diff(0x30) < 60
+            };
+            // Below the number stand only the lines of the rock; the frame stays out.
+            (ph * 3 / 5..ph - 4)
+                .flat_map(|y| (4..pw - 4).map(move |x| (x, y)))
+                .filter(|&(x, y)| near(pixels[(y * pw + x) as usize]))
+                .count()
+        })
+    };
+    let mut grey = one.clone();
+    grey.extra[0].1 = grey.text;
+    assert!(accent_points(one) > 20, "the line of the rock in the accent");
+    assert!(accent_points(grey) < 5, "the same line in the plain colour");
 }
 
 #[test]

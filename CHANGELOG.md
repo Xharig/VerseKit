@@ -6,6 +6,93 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.0 - 2026-11-23
+
+> Neue Seite „Finanzen“ mit aUEC-Konto und Kontoauszug, ein Lager-Scan für
+> Mein Lager und ein Reiter „Signatur“ im Bergbau. Dazu „Lohnt sich der
+> Stein?“, eine neu gegliederte Ausstattung, Einzahlungen bei der Kartellbank
+> und eine Pinnadel auf jeder Seite.
+
+### Neu
+
+- **Finanzen als aUEC-Konto:** Unter Handel › Finanzen führt VerseKit euer
+  aUEC-Konto mit Kontostand und einem Kontoauszug mit Uhrzeit. Ihr könnt jeden
+  Eintrag korrigieren; Schiffsverkäufe stehen mit dem vollen Betrag darin.
+  Aufträge zählen mit ihrer Summe: feste Beträge ohne Zusatz, aus scmdb
+  geschätzte mit „ca.“, Quests ohne Bauplan ebenso. Aufträge, bei denen ihr
+  vorher einzahlt (etwa „Goods for the Getting“), stehen als Ausgabe mit dem
+  Zusatz „Einsatz (Buy-in)“. Aktuell haben 83 von 102 Aufträgen einen Betrag.
+- **Lager-Scan:** Unter Mein Lager › Lager-Scan liest VerseKit die Karten am
+  Lager-Terminal: Erzzeile, Ziffern und Namen von Bauplänen, Komponenten,
+  Rüstungen und FPS-Waffen. Was sicher gelesen ist, bucht ihr in Mein Lager
+  ein; was unsicher ist, fragt nach.
+- **Bergbau › Signatur:** Die eigenen Ziffern haben einen eigenen Reiter
+  „Signatur“. Ziffern klappen auf, die Bilder stehen als Kärtchen da, und
+  „Doppelte entfernen“ räumt gleiche Bilder weg. Verdächtige Ziffern stehen
+  gelb vorn. Unbrauchbare Muster lehnt VerseKit schon beim Anlernen ab. Eigene
+  Ziffern löscht ihr einzeln, „Bild verwerfen“ geht immer.
+- **Bergbau › Lohnt sich der Stein?:** Nach dem Scan zeigt VerseKit, ob sich
+  der Stein aufbrechen lässt, welches Gas passt und was er wert ist, mit der
+  Ausrüstung aus eurem Mein Hangar. Die Zeilen erscheinen auch im Overlay.
+  Wunsch von Shockwaffel.
+- **Fehlende Spielnamen:** Auf der Seite „Spiel“ steht eine Liste der Namen,
+  die im Spiel fehlen: 105 Lücken, 7 davon hat VerseKit selbst gebildet, die
+  übrigen bleiben bewusst leer.
+- **Kartellbank: Einzahlung beantragen:** Unter Kartellbank beantragt ihr eine
+  Einzahlung. Wird ein Antrag abgelehnt, steht bei „Meine Anträge“
+  „abgelehnt“ und „Grund: …“.
+- **Token bei UEX holen:** Unter Einstellungen › UEX öffnet der Knopf „Token
+  bei UEX holen“ direkt „Meine Apps“.
+- **Neue Antworten in der FAQ:** Die FAQ auf der Webseite hat eine
+  Tastentabelle, drei neue Fragen, den UEX-Token mit Bild und die
+  Signatur-Ziffern mit Bild.
+
+### Verbessert
+
+- **Mein Hangar › Ausstattung neu gegliedert:** Die Ausstattung hat Bereiche
+  und Blöcke je Teil, die Herkunft steht als Schild daneben, und das Raster
+  passt für alle Größen. Mischt ein Platz Herkünfte, steht „gemischt“. Feste
+  Erzbehälter brauchen nur eine Zeile, der Bergbau ist immer grün.
+- **Bergbau › Raffinerien:** Die Stufen der Raffinerien stammen jetzt aus den
+  Spieldaten von 4.10.3, etwa Ferron hoch und Kazen niedrig.
+- **Signatur: „Nächstes Bild“ mit Spiel vorn:** Die Taste nimmt nur auf, wenn
+  Star Citizen vorn ist, und nie ein Bild doppelt. Öffnet ihr das Overlay ohne
+  Werte, springt es zum Reiter „Signatur“.
+- **Einstellungen › Overlay:** Alle Tastenkürzel stehen in einer Karte, auch
+  F8 und Umschalt+F8 für den Lager-Scan.
+- **Pinnadel auf jeder Seite:** Finanzen, Kartellbank, Update & Über, die
+  Orga-Seiten und Signatur lassen sich an die Startseite heften. Die
+  Orga-Karten zeigen keine rohen Schlüssel mehr.
+- **Bauplan-Liste › Scans:** Das Bild der Rückfrage ist größer und wächst, wenn
+  ihr mit der Maus darüberfahrt. „SO Helix“ fragt nicht mehr nach, wenn drei
+  Lesungen gleich sind.
+- **Raffinerie-Scan:** Der Hinweis steht oben mittig und nicht mehr im Foto.
+  VerseKit gleicht ab, statt anzuhängen, und ein fertiger Auftrag steht
+  nicht mehr doppelt in Overlay und Seite.
+- **Danke-Seite:** Bushwick4711 ist richtig geschrieben.
+
+### Behoben
+
+- **Signatur las Tempo und Abstand:** Die Signatur verwechselte Zahlen mit
+  Tempo, Abstand oder Ringzahlen. Jetzt gehört zu jeder Zahl ein Ortszeichen.
+  Gemerkte Bilder zählen richtig („Gemerktes Bild 1 von 3“), und Verwerfen
+  geht immer. Gemeldet von Horthy.
+- **Klick auf „Signatur“ im Bergbau:** Der Reiter zeigte nur „Kommt mit dem
+  Bau dieser Seite“. Jetzt öffnet er die Seite.
+- **Übersicht fror ein:** Die Finanzen-Karte las bei jedem Aufruf neu und hielt
+  das Fenster bis zu neun Sekunden an. Jetzt merkt sich VerseKit das Gelesene,
+  die Übersicht öffnet in etwa einer Viertelsekunde und das Hauptfenster
+  bleibt bedienbar.
+- **Sprachpaket-Vorsilbe „[CIV.S2.C]“:** Namen mit dieser Vorsilbe wurden
+  nicht erkannt, 103 Baupläne blieben ohne Zuordnung. Jetzt werden sie
+  zugeordnet. Gemeldet von ottpossum.
+- **Raffinerie: Auftrag doppelt:** Derselbe fertige Auftrag stand zweimal in
+  der Liste (122 und 230 cSCU), und als Zustand blieb „abholen“. Jetzt steht
+  er einmal mit dem richtigen Stand da.
+- **Update-Suche: kurzer Serveraussetzer:** Antwortete der Update-Server
+  einmal nicht rechtzeitig (etwa HTTP 504), stand das als Fehler zum Melden
+  da. Jetzt ist es nur ein Hinweis, die nächste Suche holt es nach.
+
 ## v5.5.0 - 2026-11-21
 
 > Baupläne erfasst ihr jetzt direkt am Crafting-Terminal: Maus drauf, F10.
@@ -186,7 +273,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Kurzzeichen in allen Übersetzungen:** Kannte VerseKit ein Wort der
   Beschreibung nicht (etwa „Grootte“ auf Niederländisch), fehlte im Kurzzeichen
-  ein Teil, aus „(Ind/1/B)“ wurde „(Ind/–/B)“. Gegenstände, deren Name in der
+  ein Teil, aus „(Ind/1/B)“ wurde „(Ind/-/B)“. Gegenstände, deren Name in der
   Übersetzung fehlt (bei Dymerz etwa Radare), bekamen gar keins. Jetzt füllt
   das englische Original jede Lücke. Geprüft mit Deutsch, Englisch,
   Niederländisch, Französisch, Italienisch, Portugiesisch, Spanisch, Türkisch
@@ -261,7 +348,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Namen. Jetzt versteht es auch die französischen Angaben, und wo eine Sprache
   unbekannt ist, nimmt es das Kurzzeichen aus dem englischen Original des
   Spiels. Auf Englisch bekamen viele Waffen die Größe ihres Magazins oder
-  ihrer Batterie, etwa „(Bal/45/–)“; jetzt steht dort wie im Deutschen nur
+  ihrer Batterie, etwa „(Bal/45/-)“; jetzt steht dort wie im Deutschen nur
   „(Bal)“.
 
 ## v5.4.2 - 2026-11-18

@@ -165,9 +165,9 @@ pub(super) fn show_jobs(state: &mut StockState, jobs: Vec<ScannedJob>, kept: boo
     if jobs.len() <= 1 {
         let job = jobs.into_iter().next();
         state.scan.read_job = job.as_ref().map(|j| (j.materials.clone(), j.total.clone()));
-        let (text, unsure, cells, station) =
-            job.map_or_else(Default::default, |j| (j.text, j.unsure, j.cells, j.station));
-        result(state, &text, &unsure, kept, cells, &station);
+        let (text, unsure, cells, station, covered) =
+            job.map_or_else(Default::default, |j| (j.text, j.unsure, j.cells, j.station, j.covered));
+        result(state, &text, &unsure, kept, cells, &station, covered);
         return;
     }
     state.scan.reading = false;
@@ -178,28 +178,40 @@ pub(super) fn show_jobs(state: &mut StockState, jobs: Vec<ScannedJob>, kept: boo
 
 /// `lese_ergebnis`: what was read goes into the field; nothing is booked here. A station read at the top of the
 /// terminal that the list of places knows goes into the field of the place; without one the field keeps the
-/// place it held.
-fn result(state: &mut StockState, text: &str, unsure: &[String], kept: bool, cells: Vec<Cell>, station: &str) {
+/// place it held. `covered`: the terminal was seen, but no table of a job on it.
+fn result(
+    state: &mut StockState,
+    text: &str,
+    unsure: &[String],
+    kept: bool,
+    cells: Vec<Cell>,
+    station: &str,
+    covered: bool,
+) {
     state.scan.reading = false;
     let mut parts = Vec::new();
     if let Some(place) = state.data.official_place(station).filter(|p| !p.is_empty()) {
         parts.push(tf("s_rf_ort_gelesen", &[("0", Arg::from(place.clone()))]));
         state.refinery_place = place;
     }
-    // The same job read again after scrolling: its lines join those waiting in the field.
+    // The same job read again (after scrolling, or once more): its lines are matched with those waiting in the
+    // field, a `?` takes the value read, and only a material the field has not got is added.
     let joined = (!text.is_empty()).then(|| versekit_core::refinery_scan::join_scrolled(&state.refinery_text, text)).flatten();
-    if let Some((all, added)) = joined {
+    if let Some(versekit_core::refinery_scan::Joined { text: all, added, replaced }) = joined {
         let total = all.lines().count() as i64;
         state.refinery_text = all;
         state.scan.cells.extend(cells);
         parts.push(tf("s_rf_lesen_dazu", &[("0", Arg::Int(added as i64)), ("1", Arg::Int(total))]));
+        if replaced > 0 {
+            parts.push(tf("s_rf_lesen_ersetzt", &[("0", Arg::Int(replaced as i64))]));
+        }
     } else {
         state.scan.cells = cells;
         if !text.is_empty() {
             state.refinery_text = text.to_string();
             parts.push(tf("s_rf_lesen_fertig", &[("0", Arg::Int(text.lines().count() as i64))]));
         } else if unsure.is_empty() {
-            parts.push(t("s_rf_lesen_nichts"));
+            parts.push(t(if covered { "s_rf_lesen_verdeckt" } else { "s_rf_lesen_nichts" }));
         }
     }
     if !unsure.is_empty() {
@@ -287,7 +299,7 @@ pub(super) fn notes(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
         state.scan.choice.clear();
         state.scan.read_job = Some((job.materials.clone(), job.total.clone()));
         let kept = state.scan.kept;
-        result(state, &job.text, &job.unsure, kept, job.cells, &job.station);
+        result(state, &job.text, &job.unsure, kept, job.cells, &job.station, job.covered);
     }
 }
 
@@ -352,6 +364,7 @@ mod tests {
             remaining: None,
             cells: Vec::new(),
             station: String::new(),
+            covered: false,
         }
     }
 
@@ -394,7 +407,7 @@ mod tests {
         assert_eq!(state.refinery_place, "Area18", "nothing changes before a job is chosen");
         let chosen = state.scan.choice.swap_remove(1);
         state.scan.choice.clear();
-        result(&mut state, &chosen.text, &chosen.unsure, false, chosen.cells, &chosen.station);
+        result(&mut state, &chosen.text, &chosen.unsure, false, chosen.cells, &chosen.station, chosen.covered);
         assert_eq!(state.refinery_place, "Levski");
         let _ = std::fs::remove_dir_all(folder);
     }
@@ -437,6 +450,40 @@ mod tests {
         // Another job with no line in common takes the field over.
         show_jobs(&mut state, vec![job("Gold 553 122 cSCU", &[], &["Gold"], "1.22")], false);
         assert_eq!(state.refinery_text, "Gold 553 122 cSCU");
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
+    /// Levski, 22.11.2026: the same card read twice added the line of Borase a second time. Read again, the `?`
+    /// is filled and nothing is added; a value read otherwise replaces the old one and the message says so.
+    #[test]
+    fn the_same_job_read_again_fills_the_field_instead_of_adding_lines() {
+        let (mut state, _paths, folder) = page("lager-scan-nochmal");
+        let materials = ["Bexalite", "Bexalite", "Gold", "Borase"];
+        let first = "Bexalite 302 181 cSCU\nBexalite 632 16 cSCU\nGold 553 10 cSCU\nBorase ? 21 cSCU";
+        show_jobs(&mut state, vec![job(first, &["Borase"], &materials, "")], false);
+        let again = "Bexalite 302 181 cSCU\nBexalite 632 16 cSCU\nGold 553 10 cSCU\nBorase 584 21 cSCU";
+        show_jobs(&mut state, vec![job(again, &[], &materials, "")], false);
+        assert_eq!(state.refinery_text, again);
+        let (text, _) = state.scan.message.clone().expect("message");
+        assert!(text.contains("0 neu, zusammen 4 Zeilen") && !text.contains("Anders gelesen"), "{text}");
+        let other = "Bexalite 302 181 cSCU\nBexalite 632 16 cSCU\nGold 553 10 cSCU\nBorase 548 21 cSCU";
+        show_jobs(&mut state, vec![job(other, &[], &materials, "")], false);
+        assert_eq!(state.refinery_text, other);
+        let (text, _) = state.scan.message.clone().expect("message");
+        assert!(text.contains("Anders gelesen als zuvor: 1."), "{text}");
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
+    /// The terminal seen without a table of a job on it: the message says why, not that there is no job.
+    #[test]
+    fn a_terminal_without_a_readable_table_is_called_too_small_or_covered() {
+        let (mut state, _paths, folder) = page("lager-scan-verdeckt");
+        let mut seen = job("", &[], &[], "");
+        seen.covered = true;
+        show_jobs(&mut state, vec![seen], false);
+        let (text, tone) = state.scan.message.clone().expect("message");
+        assert_eq!(text, t("s_rf_lesen_verdeckt"));
+        assert_eq!(tone, Tone::Warn);
         let _ = std::fs::remove_dir_all(folder);
     }
 

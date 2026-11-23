@@ -376,7 +376,9 @@ mod tests {
             "refiningProcesses": [{"processName": {"en": "Dinyx Solventation"}, "refiningSpeed": "Slow",
                                    "refiningQuality": "Careful"},
                                   {"processName": {"en": "Gaskin Process"}, "refiningSpeed": "Fast",
-                                   "refiningQuality": "Normal"}]
+                                   "refiningQuality": "Normal"},
+                                  {"processName": {"en": "Kazen Winnowing"}, "refiningSpeed": "Fast",
+                                   "refiningQuality": "Careful"}]
         })
     }
 
@@ -435,10 +437,11 @@ mod tests {
     #[test]
     fn the_methods_are_compared_with_the_table_and_only_told() {
         let report = compare(&catalog(), &mining());
-        // Dinyx: careful, slow = the table's 3 and 0; Gaskin: the catalog says fast and normal, the table 3 and 1.
-        assert_eq!(report.methods_match, ["dinyx"]);
+        // Dinyx: careful, slow = the table's 3 and 0; Gaskin: fast and normal = the table's 2 and 3; Kazen: the
+        // made-up catalog says fast and careful, the table 1 and 2.
+        assert_eq!(report.methods_match, ["dinyx", "gaskin"]);
         assert_eq!(report.methods_differ.len(), 1, "{:?}", report.methods_differ);
-        assert!(report.methods_differ[0].starts_with("Gaskin Process"));
+        assert!(report.methods_differ[0].starts_with("Kazen Winnowing"));
         assert_eq!(report.differences(), 0, "the methods are not failures");
     }
 }

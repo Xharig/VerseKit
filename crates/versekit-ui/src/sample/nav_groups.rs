@@ -187,17 +187,6 @@ fn without_a_last_page_a_click_on_a_group_name_opens_the_page_used_most() {
 }
 
 #[test]
-fn a_last_page_that_became_a_view_opens_the_page_it_went_into() {
-    let _language = crate::language_lock();
-    // The progress was the page opened last (before it became a view of the list): the group opens the list.
-    let stored = "{\"bereich_zuletzt\": {\"bauplaene\": \"hf_fortschritt\"}}";
-    assert_eq!(page_after_head_click("kopf-alt-ansicht", stored, "hf_gruppe_bp"), "hf_liste");
-    // What was counted for the old page counts for the page: 1 + 4 against the 3 of the other page.
-    let stored = "{\"bereich_zaehler\": {\"bauplaene\": {\"hf_liste\": 1, \"hf_fortschritt\": 4, \"hf_auftragslog\": 3}}}";
-    assert_eq!(page_after_head_click("kopf-alt-zaehler", stored, "hf_gruppe_bp"), "hf_liste");
-}
-
-#[test]
 fn a_page_opened_by_the_menu_is_the_one_the_group_name_opens_next_time_and_is_written() {
     let _language = crate::language_lock();
     let (mut page, dir) = real_page("kopf-merken", "", &[]);

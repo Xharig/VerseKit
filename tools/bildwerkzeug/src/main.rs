@@ -435,6 +435,31 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
 
 /// What a page gets done before its picture, so that it shows what it is for: a search typed into its field.
 fn touch(name: &str, english: bool, s: &mut Shots) {
+    if name == "signatur" {
+        // The digit with the suspect pattern opened, the page scrolled to the cards of the pictures; the pointer
+        // rests on one card, whose bin shows.
+        let word = if english { "suspect" } else { "verdächtig" };
+        let head = s.harness.query_all_by_label_contains(word).next().map(|n| n.rect());
+        match head {
+            Some(head) => {
+                s.click(head.center());
+                s.steps(12);
+            }
+            None => println!("{name}: Kopf mit „{word}“ nicht gefunden"),
+        }
+        s.hover(pos2(800.0, 400.0));
+        s.harness.event(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: vec2(0.0, -330.0),
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Unknown,
+            modifiers: egui::Modifiers::NONE,
+        });
+        s.steps(12);
+        s.hover(pos2(500.0, 640.0));
+        s.steps(8);
+        return;
+    }
     if name == "hangarwerte" {
         // The page scrolled so that the card of the Cutlass Black stands in view (its name lies below the edge of
         // the window at first), then the pointer rests on its name: its base values in the hover.
@@ -626,7 +651,12 @@ fn touch(name: &str, english: bool, s: &mut Shots) {
                 s.hover(pos2(fold.center().x + 400.0, fold.center().y));
                 s.harness.event(egui::Event::MouseWheel {
                     unit: egui::MouseWheelUnit::Point,
-                    delta: vec2(0.0, -(fold.min.y - 346.0).max(0.0)),
+                    // `VERSEKIT_HANGAR_SCROLL`: points further down, to show the part of the list further below.
+                    delta: vec2(
+                        0.0,
+                        -((fold.min.y - 346.0).max(0.0)
+                            + std::env::var("VERSEKIT_HANGAR_SCROLL").ok().and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0)),
+                    ),
                     phase: egui::TouchPhase::Move,
                     source: egui::MouseWheelSource::Unknown,
                     modifiers: egui::Modifiers::NONE,
@@ -715,7 +745,7 @@ fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>,
         s.steps(12);
         touch(name, english, &mut s);
         // A picture of a hover keeps the pointer where it rests.
-        if name != "hangarwerte" {
+        if name != "hangarwerte" && name != "signatur" {
             s.harness.remove_cursor();
             s.steps(3);
         }
@@ -909,6 +939,13 @@ fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&s
         ("herstellung", "hf_herstellung"),
     ];
     let (tmp, host) = install::build(SETTINGS_OF_4_12, market);
+    // A hangar file of one's own in place of the made-up fleet (the loadout pictures of one ship).
+    if let Ok(file) = std::env::var("VERSEKIT_HANGAR_DATEI") {
+        let target = versekit_core::paths::Paths::new(host.clone()).app_file(versekit_core::hangar::FILE);
+        if let Err(e) = std::fs::copy(&file, &target) {
+            println!("Hangar-Datei {file} nicht übernommen: {e}");
+        }
+    }
     {
         // Three made-up jobs at the fabricator, entered a while ago: two run, one waits.
         let paths = versekit_core::paths::Paths::new(host.clone());
@@ -930,6 +967,59 @@ fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&s
         let paths = versekit_core::paths::Paths::new(host.clone());
         page_picture(dir, english, name, Some(key), SamplePage::with_settings(paths));
     }
+    let _ = std::fs::remove_dir_all(tmp);
+}
+
+/// The tab Signatur of the mining page on a made-up installation: the scanner on, a few pictures taught (several of
+/// one number among them) and one suspect pattern. Named `screenshot-signatur.png`, in English
+/// `screenshot-signatur-en.png`.
+fn signature_picture(dir: &str, english: bool) {
+    use versekit_core::jsonio::{self, Value};
+    use versekit_core::signature_scan::{self as scan, ByVariant, Gray, Variant};
+    const CROPS: &str = include_str!("../../../crates/versekit-core/tests/data/signatur-pruefbilder.json");
+    let (tmp, host) = install::build(SETTINGS_OF_4_12, None);
+    let paths = versekit_core::paths::Paths::new(host.clone());
+    paths.set_setting(versekit_core::signature_watch::SETTING, Value::Bool(true));
+    let files = scan::OwnFiles::in_folder(|name| paths.app_file(name));
+    let folder = std::path::Path::new(&files.shared).parent().map(|p| p.to_string_lossy().into_owned());
+    let samples = format!("{}/{}", folder.unwrap_or_default().trim_end_matches(['/', '\\']), scan::SAMPLE_FOLDER);
+    let file = jsonio::loads(CROPS).expect("Prüfbilder");
+    let Some(Value::Object(images)) = file.get("bilder") else { panic!("bilder") };
+    let mut taught = 0;
+    for (key, raster) in images {
+        let Value::Array(rows) = raster else { continue };
+        let (mut data, mut w) = (Vec::new(), 0);
+        for row in rows {
+            let Value::Array(row) = row else { continue };
+            w = row.len();
+            data.extend(row.iter().map(|v| if let Value::Int(v) = v { v.parse::<u8>().unwrap_or(0) } else { 0 }));
+        }
+        let number: String = key.split('#').next().unwrap_or("").chars().filter(char::is_ascii_digit).collect();
+        let gray = Gray::new(w, rows.len(), data);
+        let known = scan::templates_by_variant(scan::SHIPPED_TEMPLATES, &files);
+        let images = ByVariant::both(Some(gray));
+        if scan::learn_variants(&images, &number, Some(Variant::Green), &known, &files, &samples).is_ok() {
+            taught += 1;
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        if taught == 9 {
+            break;
+        }
+    }
+    // One pattern too wide for a digit, as a name or a speed leaves it.
+    let own_file = files.of(Variant::Green).to_string();
+    let mut file = scan::own::OwnFile::open(&own_file).expect("Muster");
+    let mut block = [0u8; scan::NORM_W * scan::NORM_H];
+    for y in 4..16 {
+        for x in 0..scan::NORM_W {
+            block[y * scan::NORM_W + x] = 1;
+        }
+    }
+    file.add(scan::own::Kind::Taught, '4', &block, None, 24);
+    file.save(&own_file).expect("speichern");
+    let mut page = SamplePage::with_settings(paths);
+    page.open_mining_tab(2);
+    page_picture(dir, english, "signatur", Some("hf_bergbau"), page);
     let _ = std::fs::remove_dir_all(tmp);
 }
 
@@ -1283,6 +1373,11 @@ fn main() {
 
     if what == "echt" {
         real_pictures(&dir, english, arg(4).as_deref(), market.as_deref());
+        return;
+    }
+
+    if what == "signatur" {
+        signature_picture(&dir, english);
         return;
     }
 

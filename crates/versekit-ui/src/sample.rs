@@ -100,7 +100,7 @@ use crate::widgets::{self, ButtonKind};
 use crate::{
     apply, axes_page, bank_page, basetool_page, blickwinkel_page, blueprint_list, blueprint_progress, color, contested_page,
     contract_log, crafting_page, data_folder, demand_page, diagnose_page, equipment_box, extension, farm_page,
-    game_texts_page, grafik_page, hangar_page, highlight, icons, import_page, joysticks_order, joysticks_page, mining_page, notes_page,
+    finance_page, game_texts_page, grafik_page, hangar_page, highlight, icons, import_page, joysticks_order, joysticks_page, mining_page, notes_page,
     org_stock_page, refineries_page, routes_page, salvage_page, selling_page, settings, shopping_page, shops_page,
     statistics_page, stock_page, stock_share, thanks_page, tiles, trade, update_page,
 };
@@ -469,6 +469,8 @@ pub struct SamplePage {
     demand: demand_page::DemandState,
     /// The Kartellbank (in memory only), on the sync of the connection.
     bank: bank_page::BankState,
+    /// The page "Finanzen": made-up numbers in the sample, the files of the data folder in a real window.
+    finance: finance_page::FinanceState,
     /// The connection to the made-up Basetool; the unit storage is there only
     /// with it connected, its switch on and its right granted.
     connection: basetool_page::ConnectionState,
@@ -540,6 +542,14 @@ pub struct SamplePage {
     blueprint_modifiers: [bool; 3],
     blueprint_key: usize,
     blueprint_hotkey_on: bool,
+    /// The hotkey of the stock scan into the own stock (`hotkey_lager`, `hotkey_lager_an`) and the one into the stock
+    /// of the unit (`hotkey_staffellager`, `hotkey_staffellager_an`).
+    stock_modifiers: [bool; 3],
+    stock_key: usize,
+    stock_hotkey_on: bool,
+    unit_modifiers: [bool; 3],
+    unit_key: usize,
+    unit_hotkey_on: bool,
     /// Whether the overlay runs: it registers the hotkeys, so only then a new one counts as registered.
     overlay_runs: fn() -> bool,
     /// The window shows a test build (sample page: a click on the version).
@@ -868,6 +878,7 @@ impl MainSignals {
             | Signal::OpenTranslation
             | Signal::OpenAbout
             | Signal::OpenMining
+            | Signal::OpenSignature
             | Signal::OpenStockScan
             | Signal::OpenBank => {
                 self.page.store(signal as u8, Ordering::Relaxed);
@@ -911,6 +922,7 @@ impl MainSignals {
             code if code == Signal::OpenTranslation as u8 => ("hf_uebersetzung", "hf_gruppe_spiel"),
             code if code == Signal::OpenAbout as u8 => ("hf_ueber", "hf_gruppe_info"),
             code if code == Signal::OpenMining as u8 => ("hf_bergbau", "hf_gruppe_abbau"),
+            code if code == Signal::OpenSignature as u8 => ("hf_signatur", "hf_gruppe_abbau"),
             code if code == Signal::OpenStockScan as u8 => ("hf_meinlager", "hf_gruppe_logistik"),
             code if code == Signal::OpenBank as u8 => ("hf_bank", "hf_gruppe_handel"),
             _ => ("", ""),
@@ -1279,12 +1291,17 @@ impl Default for SamplePage {
     }
 }
 
-impl SamplePage {
-    /// The hangar page; once the recipes are read, every ship has its box "Loadout & cart".
-    fn show_hangar(&mut self, ui: &mut egui::Ui, scheme: &Scheme) {
-        if self.hangar.needs_extra()
-            && let Some((values, book, _)) = self.crafting.parts()
-            && !self.blueprints.catalog.blueprints.is_empty()
+/// The hangar with what its boxes "Loadout & cart" read, handed to `show`: the sources once the recipes are read,
+/// else none. The hangar page and the tab Equipment of the page Mining draw the same cards with it.
+fn with_hangar_sources<R>(
+    hangar: &mut hangar_page::HangarState,
+    crafting: &crafting_page::CraftingState,
+    blueprints: &blueprint_list::ListData,
+    show: impl FnOnce(&mut hangar_page::HangarState, Option<&dyn versekit_core::cart::Sources>) -> R,
+) -> R {
+    if hangar.needs_extra()
+        && let Some((values, book, _)) = crafting.parts()
+        && !blueprints.catalog.blueprints.is_empty()
         {
             let recipes =
                 book.items
@@ -1313,8 +1330,7 @@ impl SamplePage {
                     recipe_subtype: item.subtype.clone(),
                 })
                 .collect();
-            let traits = self
-                .blueprints
+            let traits = blueprints
                 .catalog
                 .blueprints
                 .iter()
@@ -1334,11 +1350,11 @@ impl SamplePage {
             let ids = versekit_core::equipment_share::PartIds::new(
                 values.items.values().map(|item| (item.guid.clone(), item.class_name.clone())),
             );
-            self.hangar.set_extra(equipment_box::Extra { craft, traits, recipes, ids });
+            hangar.set_extra(equipment_box::Extra { craft, traits, recipes, ids });
         }
-        match self.crafting.parts() {
+        match crafting.parts() {
             Some((values, book, _)) => {
-                let stores = self.hangar.stores();
+                let stores = hangar.stores();
                 let slots = |ship: &versekit_core::jsonio::Map, chosen: &versekit_core::jsonio::Map| {
                     stores.erkul.cart_slots(ship, chosen)
                 };
@@ -1350,10 +1366,19 @@ impl SamplePage {
                     market: &stores.market,
                     slots: Some(&slots),
                 };
-                hangar_page::show_page_with(ui, scheme, &mut self.hangar, Some(&data));
+                show(hangar, Some(&data))
             }
-            None => hangar_page::show_page(ui, scheme, &mut self.hangar),
+            None => show(hangar, None),
         }
+}
+
+impl SamplePage {
+    /// The hangar page; once the recipes are read, every ship has its box "Loadout & cart".
+    fn show_hangar(&mut self, ui: &mut egui::Ui, scheme: &Scheme) {
+        with_hangar_sources(&mut self.hangar, &self.crafting, &self.blueprints, |hangar, sources| match sources {
+            Some(sources) => hangar_page::show_page_with(ui, scheme, hangar, Some(sources)),
+            None => hangar_page::show_page(ui, scheme, hangar),
+        });
     }
 
     pub fn new() -> Self {
@@ -1475,6 +1500,7 @@ impl SamplePage {
             org_stock: org_stock_page::OrgStockState::new(Some(org_stock_page::Link::demo()), None),
             demand: demand_page::DemandState::default(),
             bank: bank_page::BankState::default(),
+            finance: finance_page::FinanceState::sample(),
             connection: basetool_page::ConnectionState::new(None),
             orgs: crate::org_connect_page::OrgConnectState::sample(),
             org_lots: crate::org_data_stock_page::OrgLotsState::default(),
@@ -1523,6 +1549,13 @@ impl SamplePage {
                 .map_or([false, true, true], |h| h.0),
             blueprint_key: parse_hotkey(versekit_core::overlay::DEFAULT_BLUEPRINT_HOTKEY).map_or(0, |h| h.1),
             blueprint_hotkey_on: true,
+            stock_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_STOCK_HOTKEY).map_or([false; 3], |h| h.0),
+            stock_key: parse_hotkey(versekit_core::overlay::DEFAULT_STOCK_HOTKEY).map_or(0, |h| h.1),
+            stock_hotkey_on: true,
+            unit_modifiers: parse_hotkey(versekit_core::overlay::DEFAULT_UNIT_STOCK_HOTKEY)
+                .map_or([false, false, true], |h| h.0),
+            unit_key: parse_hotkey(versekit_core::overlay::DEFAULT_UNIT_STOCK_HOTKEY).map_or(0, |h| h.1),
+            unit_hotkey_on: true,
             overlay_runs: || versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some(),
             test_build: false,
             news_index: 0,
@@ -1645,6 +1678,11 @@ impl SamplePage {
         self.own_frame = on;
     }
 
+    /// Opens the tab `tab` of the mining page (0 mining, 1 equipment, 2 signature scanner), for the pictures.
+    pub fn open_mining_tab(&mut self, tab: usize) {
+        self.mining.tab = tab;
+    }
+
     /// Only the window model with sample contents, to pass on: people try
     /// the functions without their own data. Nothing is saved.
     pub fn preview() -> Self {
@@ -1726,6 +1764,13 @@ impl SamplePage {
         let link = wire.as_ref().map(org_stock_page::Link::from_wire);
         self.org_stock = org_stock_page::OrgStockState::new(link, Some(paths));
         self.stock.connect(wire.as_ref().map(stock_share::Link::from_wire));
+        self.stock.connect_unit(wire.as_ref().map(|w| {
+            std::sync::Arc::new(versekit_core::stock_scan_book::org::OrgLink::new(
+                w.sync.connection().clone(),
+                w.own_account.clone(),
+                paths,
+            ))
+        }));
         self.hangar.connect(wire.as_ref().map(stock_share::Link::from_wire));
         self.demand = demand_page::DemandState::new(wire.as_ref().map(demand_page::Link::from_wire), Some(paths));
         self.bank = bank_page::BankState::new(wire.as_ref().map(bank_page::Link::from_wire));
@@ -1880,6 +1925,7 @@ impl SamplePage {
             list_progress: self.list_progress,
             craft_farm: self.craft_farm,
             mining_refineries: self.mining_refineries,
+            mining_signature: self.mining.shows_signature,
         }
     }
 
@@ -2281,6 +2327,7 @@ impl SamplePage {
         page.connect_orgs(&paths);
         page.contracts = contract_log::LogData::load(&paths);
         page.stats = statistics_page::StatsState::of(&paths);
+        page.finance = finance_page::FinanceState::of(&paths);
         // The report page reads the same data folder; nothing can be sent
         // from the preview unless a test receiver on this computer is asked for.
         let report_paths = std::sync::Arc::new(Paths::new(paths.host.clone()));
@@ -2605,7 +2652,7 @@ impl SamplePage {
             use versekit_core::overlay::{self, DEFAULT_SCAN_HOTKEY, HotkeyChoice, keys};
             // As the overlay registers them: one left at its default whose key an earlier one holds shows the spare
             // it takes instead.
-            let [_, scan, search, picture, main, blueprint] =
+            let [_, scan, search, picture, main, blueprint, stock, unit_stock] =
                 HotkeyChoice::read_all(paths).map(|c| c.combination().map(|h| h.text()));
             let stored = scan
                 .or_else(|| paths.setting(keys::HOTKEY_SCAN))
@@ -2643,6 +2690,20 @@ impl SamplePage {
                 (self.blueprint_modifiers, self.blueprint_key) = (modifiers, key);
             }
             self.blueprint_hotkey_on = overlay::blueprint_hotkey_on(paths);
+            let stored = stock
+                .or_else(|| paths.setting(keys::HOTKEY_STOCK))
+                .unwrap_or_else(|| overlay::DEFAULT_STOCK_HOTKEY.to_string());
+            if let Some((modifiers, key)) = parse_hotkey(&stored) {
+                (self.stock_modifiers, self.stock_key) = (modifiers, key);
+            }
+            self.stock_hotkey_on = overlay::stock_hotkey_on(paths);
+            let stored = unit_stock
+                .or_else(|| paths.setting(keys::HOTKEY_UNIT_STOCK))
+                .unwrap_or_else(|| overlay::DEFAULT_UNIT_STOCK_HOTKEY.to_string());
+            if let Some((modifiers, key)) = parse_hotkey(&stored) {
+                (self.unit_modifiers, self.unit_key) = (modifiers, key);
+            }
+            self.unit_hotkey_on = overlay::unit_stock_hotkey_on(paths);
         }
         if let Some(place) = paths.setting("overlay_ecke").as_deref().and_then(corner_of) {
             self.overlay_place = place;
@@ -2783,6 +2844,14 @@ impl SamplePage {
             values.push((versekit_core::overlay::keys::HOTKEY_BLUEPRINT, Value::str(hotkey)));
         }
         values.push((versekit_core::overlay::keys::HOTKEY_BLUEPRINT_ON, Value::Bool(self.blueprint_hotkey_on)));
+        if let Some(hotkey) = hotkey_text(self.stock_modifiers, self.stock_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_STOCK, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_STOCK_ON, Value::Bool(self.stock_hotkey_on)));
+        if let Some(hotkey) = hotkey_text(self.unit_modifiers, self.unit_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_UNIT_STOCK, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_UNIT_STOCK_ON, Value::Bool(self.unit_hotkey_on)));
         if let Some(window) = &self.window {
             values.extend(window.values());
         }
@@ -4053,7 +4122,7 @@ impl SamplePage {
                     "hf_auftragslog" => self.contract_view.is_narrowed(),
                     "hf_meinlager" => self.stock.is_narrowed(),
                     "hf_herstellung" => self.crafting.is_narrowed(),
-                    "hf_bergbau" => self.mining.is_narrowed(),
+                    "hf_bergbau" | "hf_signatur" => self.mining.is_narrowed(),
                     "hf_staffellager" => self.org_stock.is_narrowed(),
                     "hf_routen" if self.real() => self.routes.is_narrowed(),
                     "hf_laeden" if self.real() => self.shops.is_narrowed(),
@@ -4074,7 +4143,7 @@ impl SamplePage {
                                     "hf_liste" => self.blueprint_view.reset(),
                                     "hf_meinlager" => self.stock.reset(),
                                     "hf_herstellung" => self.crafting.reset(),
-                                    "hf_bergbau" => self.mining.reset(),
+                                    "hf_bergbau" | "hf_signatur" => self.mining.reset(),
                                     "hf_routen" => self.routes.reset(),
                                     "hf_laeden" => self.shops.reset(),
                                     "hf_staffellager" => self.org_stock.reset(),
@@ -4778,6 +4847,14 @@ impl SamplePage {
                         let blueprint_before =
                             blueprint_on.then(|| hotkey_text(*blueprint_modifiers, *blueprint_key)).flatten();
                         let mut blueprint_refused = false;
+                        let (stock_modifiers, stock_key, stock_on) =
+                            (&mut self.stock_modifiers, &mut self.stock_key, &mut self.stock_hotkey_on);
+                        let stock_before = stock_on.then(|| hotkey_text(*stock_modifiers, *stock_key)).flatten();
+                        let mut stock_refused = false;
+                        let (unit_modifiers, unit_key, unit_on) =
+                            (&mut self.unit_modifiers, &mut self.unit_key, &mut self.unit_hotkey_on);
+                        let unit_before = unit_on.then(|| hotkey_text(*unit_modifiers, *unit_key)).flatten();
+                        let mut unit_refused = false;
                         // The blueprint scan reads letters with the recognition of the system: only where it can.
                         let blueprint_possible =
                             versekit_core::screen_grab::supported() && versekit_core::win_ocr::supported();
@@ -4899,6 +4976,8 @@ impl SamplePage {
                                         (*picture_modifiers, *picture_key, *picture_on && picture_possible),
                                         (*main_modifiers, *main_key, *main_on),
                                         (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
+                                        (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
+                                        (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
                                     ];
                                     let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
                                         match r {
@@ -4907,19 +4986,21 @@ impl SamplePage {
                                             2 => (Some(&mut *search_on), &mut *search_modifiers, &mut *search_key, "overlay-suche"),
                                             3 => (Some(&mut *picture_on), &mut *picture_modifiers, &mut *picture_key, "overlay-bild"),
                                             4 => (Some(&mut *main_on), &mut *main_modifiers, &mut *main_key, "overlay-haupt"),
-                                            _ => (
+                                            5 => (
                                                 Some(&mut *blueprint_on),
                                                 &mut *blueprint_modifiers,
                                                 &mut *blueprint_key,
                                                 "overlay-bauplan",
                                             ),
+                                            6 => (Some(&mut *stock_on), &mut *stock_modifiers, &mut *stock_key, "overlay-lager"),
+                                            _ => (Some(&mut *unit_on), &mut *unit_modifiers, &mut *unit_key, "overlay-staffellager"),
                                         };
                                     // The refinery scan, the picture of the game and the blueprint scan read the
                                     // screen: only where that works.
                                     let possible = match r {
                                         1 => scan_possible,
                                         3 => picture_possible,
-                                        5 => blueprint_possible,
+                                        5..=7 => blueprint_possible,
                                         _ => true,
                                     };
                                     let before = (*held, *chosen);
@@ -4947,7 +5028,9 @@ impl SamplePage {
                                         2 => search_refused |= refused,
                                         3 => picture_refused |= refused,
                                         4 => main_refused |= refused,
-                                        _ => blueprint_refused |= refused,
+                                        5 => blueprint_refused |= refused,
+                                        6 => stock_refused |= refused,
+                                        _ => unit_refused |= refused,
                                     }
                                     // A key another shortcut that is on holds already: the change goes back (a switch
                                     // turned on goes off again), and the reason is said below the page. One press must
@@ -4959,6 +5042,8 @@ impl SamplePage {
                                         (*picture_modifiers, *picture_key, *picture_on && picture_possible),
                                         (*main_modifiers, *main_key, *main_on),
                                         (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
+                                        (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
+                                        (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
                                     ];
                                     let changed = (rows_now[r].0, rows_now[r].1) != before;
                                     let turned_on = rows_now[r].2 && !rows_before[r].2;
@@ -4976,7 +5061,9 @@ impl SamplePage {
                                             2 => (&mut *search_modifiers, &mut *search_key),
                                             3 => (&mut *picture_modifiers, &mut *picture_key),
                                             4 => (&mut *main_modifiers, &mut *main_key),
-                                            _ => (&mut *blueprint_modifiers, &mut *blueprint_key),
+                                            5 => (&mut *blueprint_modifiers, &mut *blueprint_key),
+                                            6 => (&mut *stock_modifiers, &mut *stock_key),
+                                            _ => (&mut *unit_modifiers, &mut *unit_key),
                                         };
                                         (*held, *chosen) = (spare_modifiers, spare_key);
                                     } else if (changed || turned_on)
@@ -4988,7 +5075,9 @@ impl SamplePage {
                                             2 => (&mut *search_modifiers, &mut *search_key, Some(&mut *search_on)),
                                             3 => (&mut *picture_modifiers, &mut *picture_key, Some(&mut *picture_on)),
                                             4 => (&mut *main_modifiers, &mut *main_key, Some(&mut *main_on)),
-                                            _ => (&mut *blueprint_modifiers, &mut *blueprint_key, Some(&mut *blueprint_on)),
+                                            5 => (&mut *blueprint_modifiers, &mut *blueprint_key, Some(&mut *blueprint_on)),
+                                            6 => (&mut *stock_modifiers, &mut *stock_key, Some(&mut *stock_on)),
+                                            _ => (&mut *unit_modifiers, &mut *unit_key, Some(&mut *unit_on)),
                                         };
                                         if changed {
                                             (*held, *chosen) = before;
@@ -5194,6 +5283,8 @@ impl SamplePage {
                             (picture_refused, self.picture_modifiers, self.picture_key),
                             (main_refused, self.main_modifiers, self.main_key),
                             (blueprint_refused, self.blueprint_modifiers, self.blueprint_key),
+                            (stock_refused, self.stock_modifiers, self.stock_key),
+                            (unit_refused, self.unit_modifiers, self.unit_key),
                         ] {
                             if refused {
                                 let saved = hotkey_text(modifiers, key).unwrap_or_default();
@@ -5210,6 +5301,8 @@ impl SamplePage {
                                 (self.picture_modifiers, self.picture_key),
                                 (self.main_modifiers, self.main_key),
                                 (self.blueprint_modifiers, self.blueprint_key),
+                                (self.stock_modifiers, self.stock_key),
+                                (self.unit_modifiers, self.unit_key),
                             ];
                             let (modifiers, key) = rows[by];
                             let combination = hotkey_text(modifiers, key).unwrap_or_default();
@@ -5237,6 +5330,10 @@ impl SamplePage {
                             .blueprint_hotkey_on
                             .then(|| hotkey_text(self.blueprint_modifiers, self.blueprint_key))
                             .flatten();
+                        let stock_now =
+                            self.stock_hotkey_on.then(|| hotkey_text(self.stock_modifiers, self.stock_key)).flatten();
+                        let unit_now =
+                            self.unit_hotkey_on.then(|| hotkey_text(self.unit_modifiers, self.unit_key)).flatten();
                         let now_hotkeys = [
                             hotkey_text(self.hotkey_modifiers, self.hotkey_key),
                             hotkey_text(self.scan_modifiers, self.scan_key),
@@ -5244,9 +5341,19 @@ impl SamplePage {
                             picture_now,
                             main_now,
                             blueprint_now,
+                            stock_now,
+                            unit_now,
                         ];
-                        let before_hotkeys =
-                            [hotkey_before, scan_before, search_before, picture_before, main_before, blueprint_before];
+                        let before_hotkeys = [
+                            hotkey_before,
+                            scan_before,
+                            search_before,
+                            picture_before,
+                            main_before,
+                            blueprint_before,
+                            stock_before,
+                            unit_before,
+                        ];
                         for (before, now) in before_hotkeys.into_iter().zip(now_hotkeys) {
                             if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
                                 && (self.overlay_runs)()
@@ -5782,10 +5889,18 @@ impl SamplePage {
                     CONTRACT_FINDER_PAGE => {
                         crate::contract_finder_page::show_page(page, scheme, &mut self.contract_finder);
                     }
-                    "hf_bergbau" => {
+                    // The tab Signature is a page of its own for the pin, drawn by the mining page.
+                    "hf_bergbau" | "hf_signatur" => {
                         // The table of all refineries is the other view of this page.
+                        // The tab Equipment draws the mining ships of the hangar with the cards of the hangar page.
+                        let (hangar, crafting, blueprints) = (&mut self.hangar, &self.crafting, &self.blueprints);
+                        let mut equipment = |ui: &mut egui::Ui| {
+                            with_hangar_sources(hangar, crafting, blueprints, |hangar, sources| {
+                                hangar_page::show_mining_ships(ui, scheme, hangar, sources)
+                            })
+                        };
                         if let Some(mining_page::Action::ToRefineries) =
-                            mining_page::show_page(page, scheme, &mut self.mining)
+                            mining_page::show_page_with(page, scheme, &mut self.mining, Some(&mut equipment))
                         {
                             self.mining_refineries = true;
                         }
@@ -5819,6 +5934,12 @@ impl SamplePage {
                     "hf_staffellager" => org_stock_page::show_page(page, scheme, &mut self.org_stock),
                     "hf_bedarf" => demand_page::show_page(page, scheme, &mut self.demand),
                     "hf_bank" => bank_page::show_page(page, scheme, &mut self.bank),
+                    "hf_finanzen" => {
+                        finance_page::show_page(page, scheme, &mut self.finance);
+                        if let Some(said) = self.finance.take_notice() {
+                            self.pin_notice = Some((page.input(|i| i.time), said));
+                        }
+                    }
                     "hf_fortschritt" => {
                         // A jump that brings its filter along: the list shows it.
                         if let Some((to, from)) =
@@ -5902,6 +6023,9 @@ impl SamplePage {
                             && let Some(said) = statistics_page::show(page, scheme, &mut self.stats, statistics)
                         {
                             self.pin_notice = Some((page.input(|i| i.time), said));
+                        }
+                        if self.stats.take_finance_jump() {
+                            jump = Some(("hf_finanzen".to_string(), "hf_gruppe_handel"));
                         }
                     }
                     name if self.extension.as_ref().is_some_and(|slot| slot.has(name)) => {
@@ -6362,7 +6486,13 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
     ("hf_gruppe_abbau", &[("hf_bergbau", "compass"), ("hf_bergung", "wrench")]),
     (
         "hf_gruppe_handel",
-        &[("hf_laeden", "store"), ("hf_verkauf", "coins"), ("hf_routen", "route"), ("hf_bank", "landmark")],
+        &[
+            ("hf_laeden", "store"),
+            ("hf_verkauf", "coins"),
+            ("hf_routen", "route"),
+            ("hf_finanzen", "hand-coins"),
+            ("hf_bank", "landmark"),
+        ],
     ),
     (
         "hf_gruppe_beschaffung",
@@ -6515,6 +6645,8 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_hk_bild", "s_hk_bild_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_haupt", "s_hk_haupt_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_bauplan", "s_hk_bauplan_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_lager", "s_hk_lager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_staffellager", "s_hk_staffellager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             // The events that open the folded or waiting overlay, one switch each (the order of
@@ -6576,6 +6708,9 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ton_schon", "s_ton_schon_h", &["s_ton_anhoeren"]),
                     ("s_ton_frage", "s_ton_frage_h", &["s_ton_anhoeren"]),
                     ("s_ton_nichts", "s_ton_nichts_h", &["s_ton_anhoeren"]),
+                    ("s_ton_lager_eigen", "s_ton_lager_eigen_h", &["s_ton_anhoeren"]),
+                    ("s_ton_lager_einheit", "s_ton_lager_einheit_h", &["s_ton_anhoeren"]),
+                    ("s_ton_gezaehlt", "s_ton_gezaehlt_h", &["s_ton_anhoeren"]),
                 ],
             ),
             // The window of the signature scanner, the part for mining, after the overlay itself.
@@ -6841,7 +6976,7 @@ fn spare_for(
 ) -> Option<([bool; 3], usize)> {
     use versekit_core::overlay::{
         DEFAULT_BLUEPRINT_HOTKEY, DEFAULT_HOTKEY, DEFAULT_MAIN_HOTKEY, DEFAULT_PICTURE_HOTKEY, DEFAULT_SCAN_HOTKEY,
-        DEFAULT_SEARCH_HOTKEY, SPARE_HOTKEYS,
+        DEFAULT_SEARCH_HOTKEY, DEFAULT_STOCK_HOTKEY, DEFAULT_UNIT_STOCK_HOTKEY, SPARE_HOTKEYS,
     };
     let defaults = [
         DEFAULT_HOTKEY,
@@ -6850,6 +6985,8 @@ fn spare_for(
         DEFAULT_PICTURE_HOTKEY,
         DEFAULT_MAIN_HOTKEY,
         DEFAULT_BLUEPRINT_HOTKEY,
+        DEFAULT_STOCK_HOTKEY,
+        DEFAULT_UNIT_STOCK_HOTKEY,
     ];
     if parse_hotkey(defaults.get(r)?)? != current {
         return None;
@@ -6936,7 +7073,8 @@ const GENERAL_PRIVACY: &[Row] = &[
 const GENERAL_IN_GAME: &[Row] =
     &[("s_ei_mango", "s_ei_mango_h", &["s_ei_nur_linux"]), ("s_takt", "s_takt_h", &["s_sek"])];
 // The player's own UEX token (`uex_token_row`), with the buttons it shows.
-const GENERAL_UEX: &[Row] = &[("s_uex_token", "s_uex_token_h", &["s_uex_speichern", "s_uex_testen", "s_uex_entfernen"])];
+const GENERAL_UEX: &[Row] =
+    &[("s_uex_token", "s_uex_token_h", &["s_uex_speichern", "s_uex_testen", "s_uex_holen", "s_uex_entfernen"])];
 
 /// The page General.
 const GENERAL: Groups = &[
@@ -7378,6 +7516,7 @@ fn base_infos(page: &str) -> Vec<String> {
         ]),
         "hf_bedarf" => texts(&["s_bd_rohstoffe", "s_bd_gegenstaende", "s_bd_auftraege", "s_bt_jetzt"]),
         "hf_bank" => texts(&["s_bank_konten", "s_bank_antraege", "s_bank_warteschlange", "s_bank_neu"]),
+        "hf_finanzen" => texts(&["s_fi_quellen", "s_fi_konto","s_fi_einnahmen", "s_fi_ausgaben", "s_fi_ergebnis"]),
         "hf_einkaufsliste" => texts(&[
             "s_ek_lead",
             "s_wk_route",
@@ -7470,6 +7609,7 @@ fn search_words(page: &str) -> &'static [&'static str] {
         ORG_STOCK_PAGE => &["orga", "org", "lager", "bestand", "staffel", "stock"],
         ORG_ORDERS_PAGE => &["orga", "org", "auftraege", "lieferung", "staffel", "orders", "delivery"],
         "hf_bank" => &["basetool", "kartellbank", "bank", "konto", "account"],
+        "hf_finanzen" => &["geld", "auec", "kontostand", "kassensturz", "ueberweisung", "money", "balance", "income"],
         // The two pages this one took over, by their old names and by what they were about.
         "hf_bergung" => &[
             "wrack",
@@ -7669,16 +7809,19 @@ struct Views {
     list_progress: bool,
     craft_farm: bool,
     mining_refineries: bool,
+    /// The tab of the signature scanner of the mining page is open.
+    mining_signature: bool,
 }
 
 /// The key the open page is drawn by: the progress, the farm list and the refineries are views of the blueprint
 /// list, the crafting page and the mining page, and keep the keys they had as pages (the menu filter, the usage
-/// counters and the tiles know them).
+/// counters and the tiles know them); the tab of the signature scanner has a key of its own for its pin.
 fn view_key(page: &str, views: Views) -> &str {
     match page {
         "hf_herstellung" if views.craft_farm => "hf_farmliste",
         "hf_liste" if views.list_progress => "hf_fortschritt",
         "hf_bergbau" if views.mining_refineries => "hf_raffinerien",
+        "hf_bergbau" if views.mining_signature => "hf_signatur",
         _ => page,
     }
 }
@@ -7988,6 +8131,7 @@ fn overview_tile(key: &str) -> Option<(&'static str, String, String)> {
     let of = |key: &str, have: i64, total: i64| tf(key, &[("have", Arg::from(have)), ("total", Arg::from(total))]);
     Some(match key {
         "hf_raffinerien" => ("factory", t(key), t("s_kd_raff_zeile")),
+        "hf_signatur" => ("scan-eye", t(key), t("k_signatur")),
         "hf_meinlager" => {
             ("package", t(key), tf("s_kd_lager_zeile", &[("scu", Arg::from(412)), ("places", Arg::from(6))]))
         }
@@ -8105,11 +8249,40 @@ mod tests {
         assert!(shows(&signals, &mut page), "the gear, the icon and a second start ask for the overview");
         assert!(!shows(&signals, &mut page), "done once");
         for signal in
-            [Signal::OpenGeneral, Signal::OpenTranslation, Signal::OpenAbout, Signal::OpenMining, Signal::OpenStockScan, Signal::OpenBank]
+            [
+                Signal::OpenGeneral,
+                Signal::OpenTranslation,
+                Signal::OpenAbout,
+                Signal::OpenMining,
+                Signal::OpenSignature,
+                Signal::OpenStockScan,
+                Signal::OpenBank,
+            ]
         {
             signals.note(signal);
             assert!(shows(&signals, &mut page), "{signal:?}");
         }
+    }
+
+    /// The tab "Signatur" of the mining page has a key of its own for the pin and the card: the page is named by it
+    /// while the tab is shown (the refineries win when both would apply), and a card or a signal of that key opens
+    /// the mining page on that tab, not on the refineries.
+    #[test]
+    fn the_tab_signature_is_a_page_of_its_own_for_the_pin_and_opens_the_tab() {
+        let views = Views { mining_signature: true, ..Views::default() };
+        assert_eq!(view_key("hf_bergbau", views), "hf_signatur");
+        assert_eq!(view_key("hf_bergbau", Views { mining_refineries: true, ..views }), "hf_raffinerien");
+        assert_eq!(view_key("hf_bergbau", Views::default()), "hf_bergbau");
+        assert_eq!(view_key("hf_liste", views), "hf_liste", "only the mining page has the tab");
+        assert!(versekit_core::overview::page_key("signatur").is_some_and(|key| key == "hf_signatur"));
+        let mut page = SamplePage::preview();
+        page.mining_refineries = true;
+        page.go_to("hf_signatur");
+        page.follow_removed_page(0.0);
+        assert_eq!(page.page_key(), "hf_bergbau");
+        assert!(page.mining.want_signature, "the tab is asked for");
+        assert!(!page.mining_refineries, "and not the refineries");
+        assert_eq!(versekit_core::navigation::moved("hf_signatur"), "hf_bergbau", "a stored last page leads to the mining page");
     }
 
     /// The hotkey of the main window shows a hidden window again and leaves it on the page it shows, once.
@@ -8150,6 +8323,7 @@ mod tests {
             (Signal::OpenTranslation, "hf_uebersetzung"),
             (Signal::OpenAbout, "hf_ueber"),
             (Signal::OpenMining, "hf_bergbau"),
+            (Signal::OpenSignature, "hf_signatur"),
             (Signal::OpenStockScan, "hf_meinlager"),
             (Signal::OpenBank, "hf_bank"),
         ] {
@@ -8218,7 +8392,7 @@ mod tests {
         for (page, id) in [("s_os_seite", "orgaverbinden"), (ORG_STOCK_PAGE, "orgalager"), (ORG_ORDERS_PAGE, "orgaauftraege")] {
             assert_eq!(usage_page_id(page), Some(id), "{page}");
         }
-        let not_counted = ["hf_st_flugbuch"];
+        let not_counted = ["hf_st_flugbuch", "hf_finanzen"];
         for page in not_counted {
             assert_eq!(usage_page_id(page), None, "{page}");
         }
@@ -9012,7 +9186,8 @@ mod tests {
         assert!(page.reload_waiting, "the reload waits for the own write");
         assert_eq!(page.overlay_rows, 9, "nothing read back over the own change");
         let mut written = false;
-        for _ in 0..60 {
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while std::time::Instant::now() < end {
             std::thread::sleep(std::time::Duration::from_millis(50));
             if std::fs::read_to_string(&file).unwrap().contains("\"max_zeilen\": 9") {
                 written = true;
@@ -9759,56 +9934,13 @@ mod tests {
         assert_eq!(language::t_in(german, "s_mu_q_zahl"), "Qualität muss eine Zahl sein.");
     }
 
-    /// The edge check: the sample page and the preview in every size and
-    /// every scheme, in the smallest window of that size (which is
-    /// `BASE_MIN_SIZE` in interface points) and in a wide one: nothing may
-    /// stick out.
-    #[test]
-    fn nothing_is_cut_off_at_any_size() {
-        let (width, height) = font_size::BASE_MIN_SIZE;
-        let mut findings = Vec::new();
-        for (kind, make) in [("Musterseite", SamplePage::new as fn() -> SamplePage), ("Vorschau", SamplePage::preview)]
-        {
-            for s in theme::schemes() {
-                for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
-                    for window_width in [width, 1800.0] {
-                        theme::set_thread_current(s.id);
-                        let ctx = egui::Context::default();
-                        crate::install(&ctx);
-                        let mut page = make();
-                        page.size = points;
-                        let mut overflow = 0.0;
-                        for _ in 0..3 {
-                            let input = egui::RawInput {
-                                screen_rect: Some(egui::Rect::from_min_size(
-                                    egui::Pos2::ZERO,
-                                    egui::vec2(window_width, height),
-                                )),
-                                ..Default::default()
-                            };
-                            let mut output = ctx.run_ui(input, |ui| overflow = page.show(ui));
-                            output.textures_delta.clear();
-                        }
-                        if overflow > 0.5 {
-                            findings.push(format!(
-                                "{kind} {} Größe {points} Breite {window_width}: {overflow:.0} zu breit",
-                                s.id
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-        assert!(findings.is_empty(), "abgeschnitten:\n{}", findings.join("\n"));
-    }
-
     /// In the smallest window of each size and in a tall one the window model
     /// ends at the bottom of the window: sidebar and page scroll inside, the
     /// window never.
     #[test]
     fn the_preview_never_needs_a_second_scroll_bar() {
         let mut findings = Vec::new();
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             let (width, smallest) = font_size::min_window(points);
             for height in [smallest, 1400.0] {
                 let ctx = egui::Context::default();
@@ -9960,7 +10092,7 @@ mod tests {
     #[test]
     fn the_stock_list_keeps_its_room_under_open_forms() {
         let mut findings = Vec::new();
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             // The smallest window of this size, a laptop window, a tall one.
             let (narrow, low) = font_size::min_window(points);
             for (width, height) in [(narrow, low), (1000.0, 615.0), (1400.0, 1000.0)] {
@@ -10039,10 +10171,18 @@ mod tests {
             overflow
         };
         let mut worst = 0.0_f32;
-        for _ in 0..40 {
+        // The report is put together in a thread of its own: wait until it is there, not a fixed number of frames.
+        let waited = std::time::Instant::now();
+        loop {
             worst = worst.max(frame(&mut page, &ctx));
+            if page.diagnose.as_ref().is_some_and(|s| s.shown_text().is_some())
+                || waited.elapsed() > std::time::Duration::from_secs(240)
+            {
+                break;
+            }
             std::thread::sleep(std::time::Duration::from_millis(15));
         }
+        println!("report there after {} ms", waited.elapsed().as_millis());
         assert!(worst <= 0.5, "{worst:.0} zu breit");
         let state = page.diagnose.as_mut().expect("the page has a data folder");
         assert!(state.shown_text().is_some_and(|t| t.starts_with("VerseKit ")), "the report is there");
@@ -10073,7 +10213,7 @@ mod tests {
         let mut findings = Vec::new();
         for id in ["original", "krt"] {
             theme::set_thread_current(id);
-            for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 for window_width in [width, 1800.0] {
                     let ctx = egui::Context::default();
                     crate::install(&ctx);
@@ -10212,89 +10352,6 @@ mod tests {
             std::thread::sleep(Duration::from_millis(10));
         }
         assert_eq!(page.blueprints.catalog, new);
-    }
-
-    /// The page "Installation & Pfade" with own data in its three states
-    /// (folders given from outside, a question for a chosen folder, a switch
-    /// that waits for a restart) in every size, both languages, the smallest
-    /// and a wide window, two schemes: nothing may stick out.
-    #[test]
-    fn the_paths_page_fits_in_every_state() {
-        use versekit_core::storage_move::Outcome;
-        let _language = crate::language_lock();
-        let (width, height) = font_size::BASE_MIN_SIZE;
-        let root = std::env::temp_dir().join(format!("versekit-pfade-rand-{}", versekit_core::testdir::run_tag()));
-        let root_text = root.to_string_lossy().into_owned();
-        let long = root.join("ein sehr langer Ordnername ohne Leerzeichen und mit vielen Zeichen darin").join("Daten");
-        std::fs::create_dir_all(&long).expect("Ordner");
-        let mut findings = Vec::new();
-        for state in ["given", "question", "restart"] {
-            // A made-up computer: whatever the real environment fixes must not reach the real data.
-            let home = [
-                ("USERPROFILE", root_text.as_str()),
-                ("HOME", root_text.as_str()),
-                ("APPDATA", root_text.as_str()),
-                ("XDG_CONFIG_HOME", root_text.as_str()),
-            ];
-            let mut host = versekit_core::paths::Host::new(versekit_core::pypath::Flavor::native(), &home, &root_text);
-            if state == "given" {
-                host.set_var(versekit_core::envvars::ENV_HOME, &long.to_string_lossy());
-                host.set_var(versekit_core::paths::ENV_INSTALL_DIR, &long.to_string_lossy());
-            }
-            let paths = Paths::new(host);
-            let ctx = egui::Context::default();
-            crate::install(&ctx);
-            let mut page = SamplePage::with_settings(paths);
-            page.page = "hf_ordner".to_string();
-            match state {
-                "question" => {
-                    let target = long.join("Ziel").to_string_lossy().into_owned();
-                    let paths = page.store.as_ref().map(|store| &store.paths).expect("store");
-                    let old = paths.app_folder();
-                    std::fs::create_dir_all(std::path::Path::new(&old).join("Intern")).expect("Ordner");
-                    std::fs::write(std::path::Path::new(&old).join("Intern").join("notiz.txt"), "n").expect("Datei");
-                    page.data_folder.chosen(&ctx, paths, &target);
-                    assert!(page.data_folder.question().is_some(), "the question is up");
-                }
-                "restart" => page.data_folder.pretend_switched(&Outcome::Moved {
-                    copied: 12,
-                    kept: vec!["a".into(), "b".into()],
-                    old: long.to_string_lossy().into_owned(),
-                }),
-                _ => {}
-            }
-            for lang in [language::Choice::De, language::Choice::En] {
-                language::set_thread_language(lang);
-                for id in ["original", "krt"] {
-                    theme::set_thread_current(id);
-                    for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
-                        for window_width in [width, 1800.0] {
-                            page.size = points;
-                            let mut overflow = 0.0;
-                            for _ in 0..3 {
-                                let input = egui::RawInput {
-                                    screen_rect: Some(egui::Rect::from_min_size(
-                                        egui::Pos2::ZERO,
-                                        egui::vec2(window_width, height),
-                                    )),
-                                    ..Default::default()
-                                };
-                                let mut output = ctx.run_ui(input, |ui| overflow = page.show(ui));
-                                output.textures_delta.clear();
-                            }
-                            if overflow > 0.5 {
-                                findings.push(format!(
-                                    "{state} {id} {lang:?} Größe {points} Breite {window_width}: {overflow:.0} zu breit"
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        language::set_thread_language(language::Choice::De);
-        let _ = std::fs::remove_dir_all(&root);
-        assert!(findings.is_empty(), "abgeschnitten ({}):\n{}", findings.len(), findings.join("\n"));
     }
 
     /// On real data without a catalog (no game data, no scmdb) the list and

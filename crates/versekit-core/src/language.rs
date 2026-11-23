@@ -300,6 +300,12 @@ pub fn current() -> Lang {
 /// Switches the language for this run without saving it. Returns whether it
 /// changed (then the windows have to relabel themselves).
 pub fn set_language(choice: Choice) -> bool {
+    // A thread with a language of its own (a check, never the program) switches
+    // only that one: the language of the program and of the other threads stays.
+    if THREAD_LANGUAGE.with(std::cell::Cell::get) != 0 {
+        let value = resolve(choice, &paths::global().host).index() as u8 + 1;
+        return THREAD_LANGUAGE.with(|l| l.replace(value)) != value;
+    }
     let before = CURRENT.load(Ordering::Relaxed);
     store(resolve(choice, &paths::global().host));
     CURRENT.load(Ordering::Relaxed) != before

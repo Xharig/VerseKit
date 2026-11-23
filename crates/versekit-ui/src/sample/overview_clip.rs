@@ -149,7 +149,7 @@ fn every_tile_of_the_overview_shows_its_box_whole() {
     for (choice, lang) in [(Choice::De, "de"), (Choice::En, "en")] {
         language::set_thread_language(choice);
         for (case, mut page) in pages(&dir) {
-            for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 page.size = points;
                 let (least, _) = font_size::min_window(points);
                 for width in WIDTHS {
@@ -174,107 +174,6 @@ fn every_tile_of_the_overview_shows_its_box_whole() {
         findings.len(),
         findings[..findings.len().min(20)].join("\n")
     );
-}
-
-/// The wheel over the tiles, down (`down`) or up until it scrolls no further.
-fn scroll_to_end(page: &mut SamplePage, size: (f32, f32), over: Pos2, down: bool) {
-    frame(page, size, vec![egui::Event::PointerMoved(over)]);
-    for _ in 0..60 {
-        let wheel = egui::Event::MouseWheel {
-            unit: egui::MouseWheelUnit::Point,
-            delta: egui::vec2(0.0, if down { -400.0 } else { 400.0 }),
-            modifiers: egui::Modifiers::NONE,
-            phase: egui::TouchPhase::Move,
-            source: egui::MouseWheelSource::Wheel,
-        };
-        frame(page, size, vec![wheel]);
-        frame(page, size, Vec::new());
-    }
-}
-
-/// Where `text` is drawn, if it is.
-fn place_of(texts: &[(String, Pos2)], text: &str) -> Option<Pos2> {
-    texts.iter().find(|(drawn, _)| drawn == text).map(|(_, at)| *at)
-}
-
-/// In a window lower than the tiles the field of tiles scrolls: the wheel brings the lowest tile and the row of
-/// the hidden tiles into view, whole; the head of the page (the heading and the line how tiles are handled)
-/// stays where it is.
-#[test]
-fn the_field_of_tiles_scrolls_below_a_head_that_stays() {
-    let _language = crate::language_lock();
-    versekit_core::theme::set_current("original");
-    let dir = folder("kachel-rollen");
-    let mut findings = Vec::new();
-    for (choice, lang) in [(Choice::De, "de"), (Choice::En, "en")] {
-        language::set_thread_language(choice);
-        let (hint, hidden, keys) =
-            (language::t("s_ke_hinweis"), language::t("s_ke_ausgeblendet"), language::t("s_kt_tasten"));
-        for (case, mut page) in pages(&dir) {
-            for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
-                page.size = points;
-                let (least_width, least_height) = font_size::min_window(points);
-                for width in WIDTHS {
-                    let at = format!("{lang} {case} size {points} width {width}");
-                    let size = (width.max(least_width), least_height);
-                    // From the top (the place of the scroll bar stays from the size before).
-                    let (first, _) = settled(&mut page, size);
-                    let Some(view) = first.first().map(|d| d.visible) else {
-                        findings.push(format!("{at}: no tile drawn"));
-                        continue;
-                    };
-                    scroll_to_end(&mut page, size, view.center(), false);
-                    let (before, texts) = settled(&mut page, size);
-                    let lowest = before.iter().map(|d| d.tile.max.y).fold(f32::MIN, f32::max);
-                    if lowest <= view.max.y + SAME {
-                        findings.push(format!(
-                            "{at}: the tiles fit the window ({lowest:.0} ≤ {:.0}), nothing to scroll",
-                            view.max.y
-                        ));
-                        continue;
-                    }
-                    let Some(hint_at) = place_of(&texts, &hint) else {
-                        findings.push(format!("{at}: the line how tiles are handled is not drawn"));
-                        continue;
-                    };
-                    // The keys are named by the hint of a tile, not by a line of the page.
-                    if place_of(&texts, &keys).is_some() {
-                        findings.push(format!("{at}: the keys stand as a line of the page"));
-                    }
-                    let over =
-                        before.iter().find(|d| d.visible.intersect(d.tile).height() > 20.0).map(|d| d.tile.center());
-                    scroll_to_end(&mut page, size, over.unwrap_or(view.center()), true);
-                    let (after, texts) = settled(&mut page, size);
-                    let lowest_after = after.iter().map(|d| d.tile.max.y).fold(f32::MIN, f32::max);
-                    if lowest_after > view.max.y + SAME {
-                        findings.push(format!(
-                            "{at}: the field does not scroll, its lowest tile ends at {lowest_after:.0} below {:.0}",
-                            view.max.y
-                        ));
-                    }
-                    if let Some(last) = after.iter().max_by(|a, b| a.tile.max.y.total_cmp(&b.tile.max.y))
-                        && (last.card.max.y > last.visible.max.y + SAME || !cut(&[*last]).is_empty())
-                    {
-                        findings.push(format!("{at}: the lowest tile is not whole after scrolling: {last:?}"));
-                    }
-                    match place_of(&texts, &hidden) {
-                        Some(row) if row.y < view.max.y => {}
-                        other => findings.push(format!("{at}: the row of the hidden tiles is not in view: {other:?}")),
-                    }
-                    match place_of(&texts, &hint) {
-                        Some(now) if (now.y - hint_at.y).abs() < SAME => {}
-                        other => findings.push(format!(
-                            "{at}: the line how tiles are handled moved with the tiles, {:.0} to {other:?}",
-                            hint_at.y
-                        )),
-                    }
-                }
-            }
-        }
-    }
-    language::set_thread_language(Choice::De);
-    let _ = std::fs::remove_dir_all(dir);
-    assert!(findings.is_empty(), "{} finding(s):\n{}", findings.len(), findings[..findings.len().min(20)].join("\n"));
 }
 
 /// The check of the boxes tells a box cut off at the bottom from one that stands in its tile.

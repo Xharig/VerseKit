@@ -44,6 +44,7 @@ pub mod crafting_page;
 pub mod crafting_shop;
 pub mod data_folder;
 pub mod bank_page;
+pub mod finance_page;
 pub mod demand_page;
 pub mod detection_page;
 pub mod diagnose_page;
@@ -88,6 +89,7 @@ pub mod org_stock_page;
 pub mod overlay;
 pub mod refineries_page;
 pub mod renderer;
+pub mod rock_box;
 pub mod routes_page;
 pub mod salvage_page;
 pub mod sample;
@@ -336,13 +338,54 @@ pub fn apply(ctx: &egui::Context, scheme: &Scheme) {
     ctx.set_visuals_of(Theme::Light, v);
 }
 
-/// Tests that switch the language, or compare a shown text with the one the
-/// language file gives, hold this lock: the language is one for the whole
-/// process, and tests run side by side.
+/// What a test that switches the language, or compares a shown text with the
+/// one the language file gives, holds. The language and the scheme are one for
+/// the whole process while tests run side by side, so the test gets a language
+/// and a scheme of its own, for its thread only (German, the first scheme):
+/// whatever it switches afterwards (`set_language`, `set_current`) changes only
+/// those, and no test waits for another. Before this, one lock for all of them
+/// made 600 tests queue up behind each other.
 #[cfg(test)]
-pub(crate) fn language_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+pub(crate) struct LanguageGuard;
+
+/// Whether the tests go through every size and language (`VERSEKIT_TESTS_VOLL=1`, set for the check before a
+/// release). Without it a fixed sample runs, see [`test_sizes`].
+#[cfg(test)]
+pub(crate) fn full_run() -> bool {
+    std::env::var("VERSEKIT_TESTS_VOLL").is_ok_and(|value| value == "1")
+}
+
+/// A test that costs minutes (it goes through every page or every size) runs in the full run only. In any other run
+/// it says so and ends at once, so the quick run before a commit does not wait for it.
+#[cfg(test)]
+pub(crate) fn skip_unless_full_run() -> bool {
+    if full_run() {
+        return false;
+    }
+    eprintln!("skipped: runs only with VERSEKIT_TESTS_VOLL=1 (the check before a release)");
+    true
+}
+
+/// The sizes of the text a test goes through: every one in the full run, else both ends and one in between. The
+/// one in between is fixed by the name of the test (the same at every run, different from test to test), so no size
+/// is left out by all the tests.
+#[cfg(test)]
+pub(crate) fn test_sizes() -> Vec<i64> {
+    let (low, high) = versekit_core::font_size::POINTS_RANGE;
+    if full_run() {
+        return (low..=high).collect();
+    }
+    let name = std::thread::current().name().unwrap_or("").bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(u64::from(b)));
+    let between = low + 1 + (name % (high - low - 1).max(1) as u64) as i64;
+    vec![low, between, high]
+}
+
+/// Gives the test its own language and scheme (see [`LanguageGuard`]).
+#[cfg(test)]
+pub(crate) fn language_lock() -> LanguageGuard {
+    versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+    versekit_core::theme::set_thread_current(versekit_core::theme::schemes()[0].id);
+    LanguageGuard
 }
 
 #[cfg(test)]

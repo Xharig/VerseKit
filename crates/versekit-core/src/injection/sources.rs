@@ -106,6 +106,7 @@ pub fn inputs(paths: &Paths, catalog: &str, version: &str) -> Inputs {
         missions: missions_of(catalog.as_ref()),
         item_texts: catalog.as_ref().map(item_info::item_texts_from_catalog).unwrap_or_default(),
         item_stats: catalog.as_ref().map(super::item_stats::from_catalog).unwrap_or_default(),
+        name_needs: catalog.as_ref().map(super::names::needs_from_catalog).unwrap_or_default(),
         items: items(paths, &owned),
         owned,
         reputation: reputation::load(paths),

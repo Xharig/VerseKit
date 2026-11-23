@@ -44,7 +44,7 @@ pub const SWITCHABLE: [(&str, &[&str]); 8] = [
     ("werkstatt", &["hf_herstellung"]),
     ("bergbau", &["hf_bergbau"]),
     ("bergung", &["hf_bergung"]),
-    ("handel", &["hf_laeden", "hf_verkauf", "hf_routen"]),
+    ("handel", &["hf_laeden", "hf_verkauf", "hf_routen", "hf_finanzen"]),
     ("beschaffung", &["hf_einkaufsliste", "hf_contested"]),
     (
         "statistiken",
@@ -140,7 +140,7 @@ mod tests {
         assert!(hidden_pages(&paths).is_empty(), "rule 1: all on");
         assert!(set_enabled(&paths, "handel", false));
         assert!(!enabled(&paths, "handel") && enabled(&paths, "schiffe"));
-        assert_eq!(hidden_pages(&paths), ["hf_laeden", "hf_verkauf", "hf_routen"]);
+        assert_eq!(hidden_pages(&paths), ["hf_laeden", "hf_verkauf", "hf_routen", "hf_finanzen"]);
         assert!(set_enabled(&paths, "basetool", false));
         let hidden = hidden_pages(&paths);
         assert!(hidden.contains(&"hf_staffellager") && hidden.contains(&"k_basetool_verbindung"), "{hidden:?}");

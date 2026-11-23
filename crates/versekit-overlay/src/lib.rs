@@ -67,6 +67,7 @@
 mod afk;
 mod app;
 mod blueprint;
+mod stock_keys;
 mod files;
 mod fps;
 mod notice;

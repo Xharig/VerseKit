@@ -307,7 +307,7 @@ mod tests {
         }
     }
 
-    fn setup() -> std::sync::MutexGuard<'static, ()> {
+    fn setup() -> crate::LanguageGuard {
         let guard = crate::language_lock();
         theme::set_current("original");
         language::set_thread_language(Language::De);

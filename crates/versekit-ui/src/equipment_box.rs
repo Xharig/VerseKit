@@ -49,6 +49,8 @@ use crate::farm_page::row_button;
 use crate::shopping_page::{Stores, cell, plain, route_block, saved_order, spread, sub, text_width, total_block};
 use crate::widgets::{self, ButtonKind};
 
+mod blocks;
+
 /// The width of the column that names the way in a cart item.
 const WAY_WIDTH: f32 = 130.0;
 
@@ -220,8 +222,6 @@ pub struct EquipmentState {
     pub(crate) said: Option<(String, String, bool)>,
     /// The box whose list of the equipments of other ships of the same type is open.
     pub(crate) borrowing: Option<String>,
-    /// The groups of slots opened into a line for each slot, by the field of the group.
-    pub(crate) open_groups: std::collections::HashSet<String>,
 }
 
 /// What the box draws from.
@@ -632,6 +632,7 @@ fn entry_text(choice: &Choice, catalog: &HashMap<&str, (&str, &str)>) -> String 
 }
 
 /// "2 × Ship weapon S3", with the mount the slots sit in before it: "Nose Turret: 2 × Ship weapon S3".
+#[cfg(test)]
 fn group_title(group: &Group) -> String {
     let size = group.size.map_or(String::new(), |s| format!(" S{s}"));
     let kind = if group.kind.is_empty() { t("s_wk_platz") } else { kind_word(&group.kind) };
@@ -642,6 +643,7 @@ fn group_title(group: &Group) -> String {
     }
 }
 
+#[cfg(test)]
 /// The titles of the lines: [`group_title`], and where several lines would read alike (the four gimbal mounts of a
 /// turret, the radars of the Mole) a number after each, in the order of the lines: "Radar S2 (1)", "… (2)".
 fn titles(groups: &[Group]) -> Vec<String> {
@@ -899,46 +901,6 @@ fn group_choices(
     listed
 }
 
-/// The slots of the ship, one line per group: the name of the slot, a field that is list and search in one
-/// with the stock part at the top, and the way back to the stock part where an own part sits; below an own
-/// part how it was got (from the `active` equipment).
-#[allow(clippy::too_many_arguments)]
-fn slot_list(
-    ui: &mut Ui,
-    scheme: &Scheme,
-    ctx: &Ctx,
-    state: &mut EquipmentState,
-    key: &str,
-    groups: &[Group],
-    active: Option<&Equipment>,
-    actions: &mut Vec<Action>,
-) {
-    ui.label(widgets::bold(ui, t("s_wk_auslegung"), egui::TextStyle::Body));
-    let stacked = stacked_lines(ui);
-    let catalog: HashMap<&str, (&str, &str)> =
-        ctx.stores.catalog.iter().map(|p| (p.code.as_str(), (p.grade.as_str(), p.class.as_str()))).collect();
-    let line_of = LineOf { scheme, ctx, stacked, catalog: &catalog, active };
-    for (group, title) in groups.iter().zip(titles(groups)) {
-        let id = format!("equipment-pick-{key}-{}", group.paths[0]);
-        // A group of several slots opens below its line into a line for each slot; at the start it is shut.
-        let open = (group.paths.len() > 1).then(|| state.open_groups.contains(&id));
-        if group_line(ui, &line_of, state, &id, group, (&title, &title), open, actions) && !state.open_groups.remove(&id) {
-            state.open_groups.insert(id.clone());
-        }
-        // Opened: a line for each slot right below, in the same columns as every other line; its name says the
-        // group too, for the screen reader.
-        if open == Some(true) {
-            for at in 0..group.paths.len() {
-                let one = group.single(at);
-                let slot_id = format!("equipment-slot-{key}-{}", one.paths[0]);
-                let slot_title = tf("s_wk_platz_n", &[("n", Arg::from((at + 1).to_string()))]);
-                let spoken = format!("{title}, {slot_title}");
-                group_line(ui, &line_of, state, &slot_id, &one, (&slot_title, &spoken), None, actions);
-            }
-        }
-    }
-}
-
 /// What every line of the slot list draws from.
 struct LineOf<'a> {
     scheme: &'a Scheme,
@@ -946,162 +908,6 @@ struct LineOf<'a> {
     stacked: bool,
     catalog: &'a HashMap<&'a str, (&'a str, &'a str)>,
     active: Option<&'a Equipment>,
-}
-
-/// One line of the slot list: the field that is list and search in one with the stock part at the top and
-/// "leave empty" at the end, the way back to the stock part, and for a group of several slots the arrow that
-/// opens it (`open` says whether it is open); a line without the arrow keeps its place free, so that field and
-/// buttons stand at the same edges in every line. What the slots hold differs: the field says "mixed: …".
-/// `names` is the name shown and the one for the screen reader. True when the arrow was clicked.
-#[allow(clippy::too_many_arguments)]
-fn group_line(
-    ui: &mut Ui,
-    of: &LineOf,
-    state: &mut EquipmentState,
-    id: &str,
-    group: &Group,
-    names: (&str, &str),
-    open: Option<bool>,
-    actions: &mut Vec<Action>,
-) -> bool {
-    if group.slot.fixed {
-        fixed_line(ui, of, id, group, names);
-        return false;
-    }
-    let (title, spoken) = names;
-    let (scheme, ctx, catalog) = (of.scheme, of.ctx, of.catalog);
-    let own = group
-        .own
-        .as_ref()
-        .filter(|(reference, _)| Some(reference.as_str()) != group.factory.as_ref().map(|(r, _)| r.as_str()));
-    let listed = group_choices(ctx, state, id, group, catalog);
-    let (choices, entries) = (&listed.0, &listed.1);
-    let stock = usize::from(group.factory.is_some());
-    // The end of the list: leave the slots empty. Where the factory fits nothing they are empty already.
-    let leave_empty = (stock > 0 || own.is_some()).then(|| t("s_wk_leer_lassen"));
-    let mut all: Vec<String> = entries.to_vec();
-    all.extend(leave_empty.iter().cloned());
-    // The part that sits in the slots, as its line in the list reads.
-    let shown = match (group.common(), own) {
-        (None, _) => mixed_text(group),
-        (Some(Fill::Empty), _) => t("s_wk_leer"),
-        (_, Some((reference, name))) => match choices.iter().position(|c| same_part(c, reference, name)) {
-            Some(at) => entries[at].clone(),
-            None => {
-                let label = catalog.get(reference.as_str()).map_or(String::new(), |(g, c)| part_label(g, c, false));
-                if label.is_empty() { name.clone() } else { format!("{name}  ·  {label}") }
-            }
-        },
-        _ if stock > 0 => entries[0].clone(),
-        _ => String::new(),
-    };
-    // Back to the stock part goes where any slot of the line holds something else.
-    let factory_ref = group.factory.as_ref().map(|(r, _)| r.as_str());
-    let reset = group.fills.iter().any(|f| match f {
-        Fill::Stock => false,
-        Fill::Own(reference, _) => Some(reference.as_str()) != factory_ref,
-        Fill::Empty => true,
-    });
-    let field = Field {
-        id,
-        name: &format!("{spoken}: {}", t("s_p9_hg_auswaehlen")),
-        hint: &t(if stock > 0 { "s_pl_teil" } else { "s_wk_ab_werk_leer" }),
-        // No part at all, or none that holds what was typed.
-        empty: &t(if entries.is_empty() { "s_p9_hg_keine_auswahl" } else { "s_mu_auswahl_leer" }),
-    };
-    let mut toggled = false;
-    line(ui, scheme, of.stacked, title, |row| {
-        let width = (row.available_width() - button_room(row, 2)).max(1.0);
-        let (picked, _) = select(row, scheme, state, &field, &shown, &all, width);
-        match picked {
-            Some(at) if at == entries.len() => {
-                if group.common() != Some(&Fill::Empty) {
-                    actions.push(Action::Empty { paths: group.paths.clone() });
-                }
-            }
-            // The stock part is "back to the stock part".
-            Some(0) if stock > 0 => {
-                if reset {
-                    actions.push(Action::Clear { paths: group.paths.clone() });
-                }
-            }
-            Some(at) => {
-                // The part that sits there already stays as it is, with its way, tick and quality.
-                if let Some(choice) = choices.get(at)
-                    && !own.is_some_and(|(reference, name)| sits(choice, reference, name))
-                {
-                    actions.push(Action::SetPart {
-                        paths: group.paths.clone(),
-                        reference: choice.reference.clone(),
-                        name: choice.name.clone(),
-                    });
-                }
-            }
-            None => {}
-        }
-        // The button keeps its place; at the stock part it is off, with the reason on hover.
-        let meaning = t(match (reset, stock > 0) {
-            (true, _) => "s_wk_auf_werk",
-            (false, true) => "s_wk_nichts_zurueck",
-            (false, false) => "s_wk_nichts_zurueck_leer",
-        });
-        if row_button(row, scheme, "undo-2", &meaning, spoken, reset) {
-            actions.push(Action::Clear { paths: group.paths.clone() });
-        }
-        match open {
-            Some(open) => {
-                let (icon, meaning) = if open {
-                    ("chevron-down", t("s_wk_zuklappen"))
-                } else {
-                    ("chevron-right", t("s_wk_aufklappen"))
-                };
-                toggled = row_button(row, scheme, icon, &meaning, spoken, true);
-            }
-            // The place of the arrow stays free.
-            None => {
-                row.allocate_exact_size(egui::vec2(widgets::ICON_BUTTON_SIZE, widgets::ICON_BUTTON_SIZE), egui::Sense::hover());
-            }
-        }
-    });
-    // A port the game data give no size (one right on the ship, empty at the factory): every part of its kind.
-    if group.size.is_none() && group.kind != "Paints" {
-        ui.add(egui::Label::new(sub(scheme, t("s_wk_groesse_offen"))).wrap());
-    }
-    if let Some((reference, name)) = own {
-        let part = Part { reference, name, stacked: of.stacked };
-        slot_details(ui, scheme, ctx, state, id, group, &part, of.active, actions);
-    }
-    toggled
-}
-
-/// The line of a fixed slot: its factory part in a field that is off, with the reason on hover, and the button
-/// off in its place, so that the line stands at the same edges as every other one. It has nothing to open.
-fn fixed_line(ui: &mut Ui, of: &LineOf, id: &str, group: &Group, names: (&str, &str)) {
-    let (title, spoken) = names;
-    let part = match &group.factory {
-        Some((reference, name)) => {
-            let label = of.catalog.get(reference.as_str()).map_or(String::new(), |(g, c)| part_label(g, c, false));
-            if label.is_empty() { name.clone() } else { format!("{name}  ·  {label}") }
-        }
-        None => mixed_text(group),
-    };
-    let shown = tf("s_wk_fest_teil", &[("name", Arg::from(part))]);
-    let reason = t("s_wk_fest_tip");
-    let name = format!("{spoken}: {shown}");
-    line(ui, of.scheme, of.stacked, title, |row| {
-        let width = (row.available_width() - button_room(row, 2)).max(1.0);
-        let height = row.spacing().interact_size.y;
-        let mut text = shown.clone();
-        let field = row.add_enabled_ui(false, |inner| {
-            inner.allocate_ui(egui::vec2(width, height), |inner| {
-                widgets::SelectField::new(id, &name, "", "", of.scheme).show::<String>(inner, &mut text, &[]);
-            });
-        });
-        // egui shows no tooltip on a disabled widget by itself: the reason has to be asked for.
-        field.response.on_disabled_hover_text(&reason);
-        row_button(row, of.scheme, "undo-2", &reason, spoken, false);
-        row.allocate_exact_size(egui::vec2(widgets::ICON_BUTTON_SIZE, widgets::ICON_BUTTON_SIZE), egui::Sense::hover());
-    });
 }
 
 /// Whether the lines of the box put their name above instead of beside them: one choice for the whole box,
@@ -1192,101 +998,6 @@ struct Part<'a> {
     reference: &'a str,
     name: &'a str,
     stacked: bool,
-}
-
-/// Below a slot with an own part: how it was got, and for a built one its blueprint and the quality per
-/// recipe slot (0 to 1000, 500 when none is set, as on the crafting page).
-#[allow(clippy::too_many_arguments)]
-fn slot_details(
-    ui: &mut Ui,
-    scheme: &Scheme,
-    ctx: &Ctx,
-    state: &mut EquipmentState,
-    id: &str,
-    group: &Group,
-    part: &Part,
-    active: Option<&Equipment>,
-    actions: &mut Vec<Action>,
-) {
-    let slot = active.and_then(|e| e.slot(&group.paths[0]));
-    let acquisition = slot.map_or(Acquisition::Unknown, |s| s.acquisition);
-    let label = t("s_wk_herkunft");
-    let words: Vec<String> = WAYS.iter().map(|a| acquisition_word(*a)).collect();
-    let field_id = format!("{id}-herkunft");
-    let field = Field {
-        id: &field_id,
-        name: &format!("{}: {label}", part.name),
-        hint: &t("s_wk_herkunft_ph"),
-        empty: &t("s_mu_auswahl_leer"),
-    };
-    line(ui, scheme, part.stacked, &label, |row| {
-        let width = (row.available_width() - button_room(row, 1)).max(1.0);
-        let (picked, _) = select(row, scheme, state, &field, &acquisition_word(acquisition), &words, width);
-        if let Some(way) = picked.map(|at| WAYS[at])
-            && way != acquisition
-        {
-            let blueprint = (way == Acquisition::Crafted)
-                .then(|| recipe_for(ctx.extra, part.reference, part.name).map(|r| r.blueprint.clone()))
-                .flatten();
-            actions.push(Action::Acquire { paths: group.paths.clone(), acquisition: way, blueprint });
-        }
-    });
-    if acquisition != Acquisition::Crafted {
-        return;
-    }
-    let recipe = recipe_for(ctx.extra, part.reference, part.name);
-    line(ui, scheme, part.stacked, &t("s_wk_bauplan"), |row| {
-        let text = recipe.map_or_else(|| t("s_wk_bauplan_fehlt"), |r| r.basis.clone());
-        row.add(egui::Label::new(text).wrap());
-    });
-    let Some(recipe) = recipe else { return };
-    for recipe_slot in &recipe.slots {
-        let current = slot.map_or(equipment::BASE_QUALITY, |s| s.quality_at(recipe_slot));
-        let name = tf("s_wk_qualitaet", &[("slot", Arg::from(recipe_slot.clone()))]);
-        let number_id = format!("{id}-qualitaet-{recipe_slot}");
-        line(ui, scheme, part.stacked, &name, |row| {
-            let gap = row.spacing().item_spacing.x;
-            let margin = egui::Margin::symmetric(4, 2);
-            let box_width = text_width(row, "1000", egui::TextStyle::Body, false) + margin.sum().x + 2.0;
-            let width = (row.available_width() - box_width - gap - button_room(row, 1)).max(40.0);
-            let mut value = i64::from(current);
-            let response = row.add(widgets::Slider::new(&mut value, 0, 1000, scheme).width(width).on_release());
-            let shown = widgets::Slider::shown(row, &response).unwrap_or(value);
-            let enabled = response.enabled();
-            response.widget_info(|| egui::WidgetInfo::slider(enabled, shown as f64, &name));
-            // The number beside the slider: what is typed stays in a buffer until the field is left.
-            let mut text = state.numbers.get(&number_id).cloned().unwrap_or_else(|| shown.to_string());
-            let field = widgets::text_field(&mut text, "", scheme)
-                .id_salt(&number_id)
-                .margin(margin)
-                .align(egui::Align2::RIGHT_CENTER)
-                .desired_width(box_width);
-            let typed = row.add(field);
-            let (typed_enabled, typed_text) = (typed.enabled(), text.clone());
-            typed.widget_info(|| {
-                let mut info = egui::WidgetInfo::labeled(egui::Role::TextInput, typed_enabled, &name);
-                info.current_text_value = Some(typed_text.clone());
-                info
-            });
-            if typed.has_focus() || typed.changed() {
-                state.numbers.insert(number_id.clone(), text.clone());
-            }
-            if typed.lost_focus() {
-                state.numbers.remove(&number_id);
-                let escape = row.input(|i| i.key_pressed(egui::Key::Escape));
-                if !escape
-                    && let Some(number) = quality_number(&text)
-                    && number != current
-                {
-                    actions.push(Action::Quality { paths: group.paths.clone(), slot: recipe_slot.clone(), value: number });
-                }
-            }
-            if response.changed() {
-                let value = u16::try_from(value.clamp(0, 1000)).unwrap_or(equipment::BASE_QUALITY);
-                actions.push(Action::Quality { paths: group.paths.clone(), slot: recipe_slot.clone(), value });
-            }
-        });
-    }
 }
 
 /// The quality a typed text stands for: digits only, 0 to 1000.
@@ -1575,25 +1286,32 @@ fn borrow_panel(ui: &mut Ui, scheme: &Scheme, ctx: &Ctx, state: &mut EquipmentSt
 }
 
 /// Share the active equipment as a code, put a code in, and the same for every equipment of the ship as a file.
-fn share_bar(ui: &mut Ui, scheme: &Scheme, ctx: &Ctx, state: &mut EquipmentState, entry: &Map, key: &str, actions: &mut Vec<Action>) {
+#[allow(clippy::too_many_arguments)]
+fn share_bar(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    ctx: &Ctx,
+    state: &mut EquipmentState,
+    entry: &Map,
+    key: &str,
+    to_get: usize,
+    actions: &mut Vec<Action>,
+) {
     let ship = field_text(entry, "name");
     let button = |row: &mut Ui, word: &str, icon: &str, spoken: &str, tip: &str| {
         let spoken = tf(spoken, &[("schiff", Arg::from(ship))]);
         row.add(widgets::Button::new(word, ButtonKind::Normal, scheme).icon(icon).spoken(&spoken)).on_hover_text(t(tip)).clicked()
     };
     ui.horizontal_wrapped(|row| {
+        row.label(widgets::bold(row, ship.to_string(), egui::TextStyle::Body));
+        let count = if to_get == 0 {
+            sub(scheme, t("s_wk_zu_besorgen_keins"))
+        } else {
+            RichText::new(tf("s_wk_zu_besorgen", &[("n", Arg::from(to_get))])).small().color(color(scheme.yellow))
+        };
+        row.label(count);
         if button(row, &t("s_wk_teilen"), "share-2", "s_wk_teilen_fuer", "s_wk_teilen_tip") {
             actions.push(Action::Share { key: key.to_string() });
-        }
-        if button(row, &t("s_wk_einfuegen"), "clipboard-paste", "s_wk_einfuegen_fuer", "s_wk_einfuegen_tip") {
-            let open = state.pasting.as_ref().is_some_and(|p| p.key == key);
-            state.pasting = (!open).then(|| Pasting { key: key.to_string(), text: String::new() });
-        }
-        if button(row, &t("s_wk_datei_speichern"), "save", "s_wk_datei_speichern_fuer", "s_wk_datei_speichern_tip") {
-            actions.push(Action::SaveFile { key: key.to_string() });
-        }
-        if button(row, &t("s_wk_datei_oeffnen"), "folder-open", "s_wk_datei_oeffnen_fuer", "s_wk_datei_oeffnen_tip") {
-            actions.push(Action::OpenFile { key: key.to_string() });
         }
         if ctx.others.is_some()
             && button(row, &t("s_wk_uebernehmen"), "copy", "s_wk_uebernehmen_fuer", "s_wk_uebernehmen_tip")
@@ -1601,6 +1319,34 @@ fn share_bar(ui: &mut Ui, scheme: &Scheme, ctx: &Ctx, state: &mut EquipmentState
             let open = state.borrowing.as_deref() == Some(key);
             state.borrowing = (!open).then(|| key.to_string());
         }
+        // What is seldom needed stands in the menu.
+        let more = widgets::icon_button(row, scheme, "ellipsis", &t("s_wk_mehr"));
+        let menu_frame = egui::Frame::new()
+            .fill(color(scheme.field))
+            .stroke(egui::Stroke::new(1.0, color(scheme.accent)))
+            .corner_radius(crate::control_radius(scheme))
+            .inner_margin(egui::Margin::same(4));
+        egui::Popup::menu(&more).id(row.make_persistent_id(("equipment-menu", key))).frame(menu_frame).show(|menu| {
+            let mut entry_button = |word: &str, icon: &str, spoken: &str, tip: &str| {
+                let spoken = tf(spoken, &[("schiff", Arg::from(ship))]);
+                let clicked =
+                    menu.add(widgets::Button::new(word, ButtonKind::Normal, scheme).icon(icon).spoken(&spoken).wide()).on_hover_text(t(tip)).clicked();
+                if clicked {
+                    menu.close();
+                }
+                clicked
+            };
+            if entry_button(&t("s_wk_einfuegen"), "clipboard-paste", "s_wk_einfuegen_fuer", "s_wk_einfuegen_tip") {
+                let open = state.pasting.as_ref().is_some_and(|p| p.key == key);
+                state.pasting = (!open).then(|| Pasting { key: key.to_string(), text: String::new() });
+            }
+            if entry_button(&t("s_wk_datei_speichern"), "save", "s_wk_datei_speichern_fuer", "s_wk_datei_speichern_tip") {
+                actions.push(Action::SaveFile { key: key.to_string() });
+            }
+            if entry_button(&t("s_wk_datei_oeffnen"), "folder-open", "s_wk_datei_oeffnen_fuer", "s_wk_datei_oeffnen_tip") {
+                actions.push(Action::OpenFile { key: key.to_string() });
+            }
+        });
     });
     borrow_panel(ui, scheme, ctx, state, entry, key, actions);
     if let Some((_, said, bad)) = state.said.as_ref().filter(|(k, _, _)| k == key) {
@@ -1671,21 +1417,24 @@ pub(crate) fn show(
             return;
         }
         let all = equipment::read_all(entry, &[]);
-        loadout_bar(inner, scheme, state, &all, key, &mut actions);
-        share_bar(inner, scheme, ctx, state, entry, key, &mut actions);
-        inner.add_space(4.0);
         let readable = readable_plan(&chosen, ctx.stores, &ctx.extra.craft);
-        let grouped = groups(slots, &readable);
-        slot_list(inner, scheme, ctx, state, key, &grouped, all.active(), &mut actions);
-        let named = match readable {
+        let named = match &readable {
             std::borrow::Cow::Owned(plan) => {
                 let mut named = entry.clone();
-                versekit_core::jsonio::map_set(&mut named, "belegung", Value::Object(plan));
+                versekit_core::jsonio::map_set(&mut named, "belegung", Value::Object(plan.clone()));
                 std::borrow::Cow::Owned(named)
             }
             std::borrow::Cow::Borrowed(_) => std::borrow::Cow::Borrowed(entry),
         };
         let (situation, lines) = lines_of(&named, wishlist, ctx.sources);
+        let to_get: usize = lines.iter().filter(|l| !l.done).map(|l| usize::try_from(l.count.max(1)).unwrap_or(1)).sum();
+        share_bar(inner, scheme, ctx, state, entry, key, to_get, &mut actions);
+        loadout_bar(inner, scheme, state, &all, key, &mut actions);
+        inner.add_space(4.0);
+        let holders: std::collections::HashSet<String> =
+            slots.iter().filter(|slot| holds_slots(&slots, slot)).map(|slot| slot.path.clone()).collect();
+        let grouped = groups(slots, &readable);
+        blocks::slot_list(inner, scheme, ctx, state, key, grouped, &holders, all.active(), &mut actions);
         state.missing.extend(cart::missing_prices(&lines));
         inner.add_space(6.0);
         match situation {
@@ -1713,6 +1462,7 @@ pub(crate) fn show(
 
 #[cfg(test)]
 mod tests {
+    use super::blocks::same_for_all;
     use super::*;
 
     fn entry(json: &str) -> Map {
@@ -1940,8 +1690,11 @@ mod tests {
         let mut state = EquipmentState::default();
         let shown = drawn(&stores, &ship, &mut state);
         assert!(!shown.iter().any(|s| s.contains("id:5566")), "{shown:?}");
-        assert!(shown.contains(&"SNS-R7X: Batterie S2".to_string()), "{shown:?}");
-        assert!(shown.contains(&"Radar: Batterie S2".to_string()), "{shown:?}");
+        // The radar planned by the identifier of the shop is named; each radar is a block with its battery below it.
+        let at = |text: &str| shown.iter().position(|s| s == text).unwrap_or_else(|| panic!("{text}: {shown:?}"));
+        assert!(at("Radar 1 S2") < at("SNS-R7X") && at("SNS-R7X") < at("Batterie S2"), "{shown:?}");
+        assert!(at("Radar 2 S2") > at("Batterie S2"), "{shown:?}");
+        assert_eq!(shown.iter().filter(|s| *s == "Batterie S2").count(), 2, "{shown:?}");
         assert!(!shown.iter().any(|s| s.contains("2 × Radar")), "each radar holds its battery: {shown:?}");
         assert_eq!(part_name(&stores, &[], "id:5566"), "SNS-R7X");
         assert_eq!(part_name(&stores, &[], "id:1"), "id:1", "unknown everywhere: the identifier");
@@ -2176,22 +1929,17 @@ mod tests {
         let mut state = EquipmentState::default();
         let shown = drawn(&Stores::empty(), &ship, &mut state);
         assert!(shown.contains(&t("s_wk_keine_daten")), "{shown:?}");
-        assert!(!shown.contains(&t("s_wk_auslegung")), "{shown:?}");
+        assert!(!shown.contains(&t("s_wk_bereich_systeme")), "{shown:?}");
         // With the stored slots: the group of the three coolers with what is in them, opened the own choice and the
         // factory part, the cart.
         let paths = folder("box");
         let stores = Stores::load(&paths);
         let mut state = EquipmentState::default();
-        let closed = drawn(&stores, &ship, &mut state);
-        let mixed = tf("s_wk_gemischt", &[("liste", Arg::from("1 × New Cooler, 2 × Factory Cooler"))]);
-        assert!(closed.contains(&"3 × Kühler S1".to_string()) && closed.contains(&mixed), "{closed:?}");
-        assert!(!closed.contains(&tf("s_wk_platz_n", &[("n", Arg::from("1"))])), "shut at the start: {closed:?}");
-        state.open_groups.insert("equipment-pick-key-c1".into());
         let shown = drawn(&stores, &ship, &mut state);
-        assert!(shown.contains(&t("s_wk_auslegung")), "{shown:?}");
+        assert!(shown.contains(&t("s_wk_bereich_systeme")), "the area has its heading: {shown:?}");
         assert!(shown.contains(&"3 × Kühler S1".to_string()), "c1 to c3 stand in one mount: {shown:?}");
         for n in ["1", "2", "3"] {
-            assert!(shown.contains(&tf("s_wk_platz_n", &[("n", Arg::from(n))])), "slot {n} has a line: {shown:?}");
+            assert!(shown.contains(&format!("Kühler {n} S1")), "slot {n} has its block: {shown:?}");
         }
         let stock = tf("s_wk_ab_werk", &[("name", Arg::from("Factory Cooler"))]);
         assert!(shown.contains(&stock) && shown.contains(&"New Cooler".to_string()), "{shown:?}");
@@ -2218,18 +1966,20 @@ mod tests {
     #[test]
     fn the_box_sticks_out_nowhere_and_no_text_lies_on_another_in_both_languages() {
         use versekit_core::language::{Choice as Lang, set_thread_language};
-        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<(String, egui::Rect)>) {
+        // What stands outside the clip rectangle of its layer (a long name in a field) is not seen.
+        fn texts(shape: &egui::epaint::Shape, clip: egui::Rect, out: &mut Vec<(String, egui::Rect)>) {
             match shape {
                 // Row by row: the box of a text of several lines also holds the room beside its last line.
                 egui::epaint::Shape::Text(text) => {
                     for placed in &text.galley.rows {
                         let line = placed.row.text().to_string();
                         if !line.trim().is_empty() {
-                            out.push((line, placed.rect_without_leading_space().translate(text.pos.to_vec2())));
+                            let seen = placed.rect_without_leading_space().translate(text.pos.to_vec2()).intersect(clip);
+                            out.push((line, seen));
                         }
                     }
                 }
-                egui::epaint::Shape::Vec(shapes) => shapes.iter().for_each(|shape| texts(shape, out)),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().for_each(|shape| texts(shape, clip, out)),
                 _ => {}
             }
         }
@@ -2259,7 +2009,7 @@ mod tests {
         let mut findings = Vec::new();
         for lang in [Lang::De, Lang::En] {
             set_thread_language(lang);
-            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 for width in [380.0_f32, 520.0, 900.0] {
                     // 0: as it is, 1: the list of the coolers open, 2: renaming to a name another one has, 3: a code
                     // pasted with its preview, the list of another ship's loadouts open, a sentence said and every
@@ -2272,8 +2022,6 @@ mod tests {
                         ctx.all_styles_mut(|style| style.animation_time = 0.0);
                         let extra = Extra { recipes: recipes.clone(), ..Extra::default() };
                         let mut state = EquipmentState { open_all: true, ..EquipmentState::default() };
-                        // The coolers opened into a line each: the own part with its details stands there.
-                        state.open_groups.insert("equipment-pick-key-c1".into());
                         if mode == 2 {
                             state.renaming = Some(Renaming {
                                 key: "key".into(),
@@ -2290,7 +2038,6 @@ mod tests {
                             });
                             state.borrowing = Some("key".into());
                             state.said = Some(("key".into(), "Gespeichert: Eine-sehr-lange-Datei-mit-Namen.txt".into(), false));
-                            state.open_groups.insert("equipment-pick-key-hardpoint_weapon_nose/hardpoint_weapon_S1_left".into());
                             ctx.enable_accesskit();
                         }
                         // The right edges of the buttons back to the stock part, line by line.
@@ -2306,7 +2053,7 @@ mod tests {
                                 origin: PartOrigin::Craftable,
                                 size: Some(1),
                             };
-                            preset_coolers(&mut state, &stores, &extra, vec![long]);
+                            preset_coolers(&mut state, &stores, &extra, "c3", vec![long]);
                             ctx.enable_accesskit();
                         }
                         let (mut over, mut lines, mut field) = (0.0_f32, Vec::new(), None);
@@ -2359,7 +2106,7 @@ mod tests {
                                         .find(|(_, n)| {
                                             n.role() == egui::accesskit::Role::ComboBox
                                                 && n.label().is_some_and(|l| {
-                                                    l.starts_with(&format!("3 × {} S1: ", t("s_wr_art_cooler")))
+                                                    l.starts_with(&format!("{} 3 S1: ", t("s_wr_art_cooler")))
                                                 })
                                         })
                                         .and_then(|(_, n)| n.bounds())
@@ -2368,7 +2115,7 @@ mod tests {
                                 assert!(field.is_some(), "the field of the coolers is named");
                             }
                             lines.clear();
-                            output.shapes.iter().for_each(|clipped| texts(&clipped.shape, &mut lines));
+                            output.shapes.iter().for_each(|clipped| texts(&clipped.shape, clipped.clip_rect, &mut lines));
                             if let Some(update) = &output.platform_output.accesskit_update {
                                 list = update
                                     .nodes
@@ -2387,7 +2134,7 @@ mod tests {
                         }
                         let at = format!("{lang:?} Größe {points} Breite {width} Fall {mode}");
                         let drawn = |want: &str| lines.iter().any(|(line, _)| line.contains(want));
-                        if !drawn("Emitter Housing") || !drawn(&t("s_wk_herkunft")) {
+                        if !drawn("Emitter Housing") || !drawn(&t("s_wk_alle_gleich")) {
                             findings.push(format!("{at}: Herkunft oder Regler fehlen"));
                         }
                         if mode == 2 && !drawn(&t("s_wk_ausst_doppelt")) {
@@ -2445,6 +2192,81 @@ mod tests {
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
+    #[test]
+    fn the_grid_sticks_out_nowhere_and_no_text_lies_on_another_in_every_size_and_both_languages() {
+        use versekit_core::language::{Choice as Lang, set_thread_language};
+        fn texts(shape: &egui::epaint::Shape, clip: egui::Rect, out: &mut Vec<(String, egui::Rect)>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => {
+                    for placed in &text.galley.rows {
+                        let line = placed.row.text().to_string();
+                        if !line.trim().is_empty() {
+                            let seen = placed.rect_without_leading_space().translate(text.pos.to_vec2()).intersect(clip);
+                            out.push((line, seen));
+                        }
+                    }
+                }
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().for_each(|shape| texts(shape, clip, out)),
+                _ => {}
+            }
+        }
+        let _language = crate::language_lock();
+        // Eight ore pods: one of another part, one left empty, so that a frame is drawn as well.
+        let plan = r#"{"pod_3": {"ref": "x", "name": "Other Pod With A Long Name", "weg": "kaufen"}, "pod_5": {"ref": "", "name": "", "leer": true}}"#;
+        let (stores, ship, _) = mole_bench("raster-rand", plan);
+        let scheme = versekit_core::theme::current();
+        let mut findings = Vec::new();
+        for lang in [Lang::De, Lang::En] {
+            set_thread_language(lang);
+            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                for width in [380.0_f32, 520.0, 900.0] {
+                    let ctx = egui::Context::default();
+                    crate::install(&ctx);
+                    crate::apply_size(&ctx, points);
+                    ctx.all_styles_mut(|style| style.animation_time = 0.0);
+                    let extra = Extra::default();
+                    let mut state = EquipmentState { open_all: true, ..EquipmentState::default() };
+                    let (mut over, mut lines) = (0.0_f32, Vec::new());
+                    for _ in 0..4 {
+                        let mut output = ctx.run_ui(
+                            egui::RawInput {
+                                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 4000.0))),
+                                ..Default::default()
+                            },
+                            |ui| {
+                                let box_ctx = Ctx { stores: &stores, extra: &extra, sources: &Fake, paths: None, others: None };
+                                show(ui, scheme, &box_ctx, &mut state, &ship, "key", false);
+                                over = (ui.min_rect().right() - ui.ctx().content_rect().right()).max(0.0);
+                            },
+                        );
+                        output.textures_delta.clear();
+                        lines.clear();
+                        output.shapes.iter().for_each(|clipped| texts(&clipped.shape, clipped.clip_rect, &mut lines));
+                    }
+                    let at = format!("{lang:?} Größe {points} Breite {width}");
+                    if !lines.iter().any(|(line, _)| line == "8") {
+                        findings.push(format!("{at}: das Raster mit seinen Nummern fehlt"));
+                    }
+                    if over > 0.5 {
+                        findings.push(format!("{at}: {over:.0} zu breit"));
+                    }
+                    'pairs: for (i, (a, ra)) in lines.iter().enumerate() {
+                        for (b, rb) in &lines[i + 1..] {
+                            let both = ra.intersect(*rb);
+                            if both.width() > 1.0 && both.height() > 1.0 {
+                                findings.push(format!("{at}: {a:?} liegt auf {b:?}"));
+                                break 'pairs;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        set_thread_language(Lang::De);
+        remove_bench("raster-rand");
+        assert!(findings.is_empty(), "{}", findings.join("\n"));
+    }
+
     /// The box with a built shield, drawn frame by frame in one context.
     struct QualityBench {
         ctx: egui::Context,
@@ -2486,11 +2308,12 @@ mod tests {
                 ..Default::default()
             };
             let mut action = None;
-            let output = self.ctx.run_ui(input, |ui| {
+            let mut output = self.ctx.run_ui(input, |ui| {
                 let scheme = versekit_core::theme::current();
                 let box_ctx = Ctx { stores: &self.stores, extra: &self.extra, sources: &Fake, paths: None, others: None };
                 action = show(ui, scheme, &box_ctx, &mut self.state, &self.ship, "key", false);
             });
+            output.textures_delta.clear();
             let fields = output
                 .platform_output
                 .accesskit_update
@@ -2646,7 +2469,7 @@ mod tests {
 
     /// Puts `parts` into the list of the two coolers alike (`c2`, `c3` of the test ship), the stock cooler at the
     /// top, as the box keeps a list it worked out.
-    fn preset_coolers(state: &mut EquipmentState, stores: &Stores, extra: &Extra, parts: Vec<Choice>) {
+    fn preset_coolers(state: &mut EquipmentState, stores: &Stores, extra: &Extra, slot: &str, parts: Vec<Choice>) {
         let mark = sources_mark(&Ctx { stores, extra, sources: &Fake, paths: None, others: None });
         let list = stock_first(parts, Some(&("f-cooler".into(), "Factory Cooler".into())));
         let entries = list
@@ -2657,7 +2480,7 @@ mod tests {
                 if i == 0 { tf("s_wk_ab_werk", &[("name", Arg::from(text))]) } else { text }
             })
             .collect();
-        let key = format!("equipment-pick-key-c1|Cooler|Some(1)|f-cooler|{:?}", versekit_core::language::current());
+        let key = format!("equipment-slot-key-{slot}|Cooler|Some(1)|f-cooler|{:?}", versekit_core::language::current());
         state.lists.insert(key, (mark, std::rc::Rc::new((list, entries))));
     }
 
@@ -2990,53 +2813,385 @@ mod tests {
         );
     }
 
-    #[test]
-    fn the_arrow_of_a_group_opens_a_line_for_each_slot_and_shuts_it_again() {
-        let _language = crate::language_lock();
-        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
-        use egui::accesskit::Role;
-        let paths = folder("pfeil");
-        let stores = Stores::load(&paths);
-        let ship = entry(r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {}}"#);
+    /// The slots of a Mole-like ship: three mining heads (the first with three module slots, the others with two),
+    /// eight ore pods, a cooler and a shield.
+    const MOLE_SLOTS: &str = r#",
+        {"pfad": "cab_front/head", "art": "WeaponMining", "groesse": 2, "werk": {"ref": "helix", "name": "Helix II"}},
+        {"pfad": "cab_front/head/m1", "art": "MiningModifier", "groesse": 1, "werk": {"ref": "focus", "name": "Focus III"}},
+        {"pfad": "cab_front/head/m2", "art": "MiningModifier", "groesse": 1, "werk": {"ref": "rieger", "name": "Rieger-C3"}},
+        {"pfad": "cab_front/head/m3", "art": "MiningModifier", "groesse": 1, "werk": {"ref": "rieger", "name": "Rieger-C3"}},
+        {"pfad": "cab_left/head", "art": "WeaponMining", "groesse": 2, "werk": {"ref": "helix", "name": "Helix II"}},
+        {"pfad": "cab_left/head/m1", "art": "MiningModifier", "groesse": 1, "werk": {"ref": "fltr", "name": "FLTR-XL"}},
+        {"pfad": "cab_left/head/m2", "art": "MiningModifier", "groesse": 1, "werk": {"ref": "fltr", "name": "FLTR-XL"}},
+        {"pfad": "cab_right/head", "art": "WeaponMining", "groesse": 2, "werk": {"ref": "helix", "name": "Helix II"}},
+        {"pfad": "cab_right/head/m1", "art": "MiningModifier", "groesse": 1, "werk": {"ref": "focus", "name": "Focus III"}},
+        {"pfad": "cab_right/head/m2", "art": "MiningModifier", "groesse": 1, "werk": {"ref": "focus", "name": "Focus III"}},
+        {"pfad": "pod_1", "art": "Container", "groesse": 1, "werk": {"ref": "pod", "name": "Argo Ore Pod"}},
+        {"pfad": "pod_2", "art": "Container", "groesse": 1, "werk": {"ref": "pod", "name": "Argo Ore Pod"}},
+        {"pfad": "pod_3", "art": "Container", "groesse": 1, "werk": {"ref": "pod", "name": "Argo Ore Pod"}},
+        {"pfad": "pod_4", "art": "Container", "groesse": 1, "werk": {"ref": "pod", "name": "Argo Ore Pod"}},
+        {"pfad": "pod_5", "art": "Container", "groesse": 1, "werk": {"ref": "pod", "name": "Argo Ore Pod"}},
+        {"pfad": "pod_6", "art": "Container", "groesse": 1, "werk": {"ref": "pod", "name": "Argo Ore Pod"}},
+        {"pfad": "pod_7", "art": "Container", "groesse": 1, "werk": {"ref": "pod", "name": "Argo Ore Pod"}},
+        {"pfad": "pod_8", "art": "Container", "groesse": 1, "werk": {"ref": "pod", "name": "Argo Ore Pod"}}"#;
+
+    /// The names of the nodes of one frame by role, with their bounds, for the screen reader.
+    fn nodes_of(
+        ctx: &egui::Context,
+        stores: &Stores,
+        ship: &Map,
+        state: &mut EquipmentState,
+        role: egui::accesskit::Role,
+        width: f32,
+    ) -> Vec<(String, egui::Rect)> {
+        let extra = Extra::default();
+        let scheme = versekit_core::theme::current();
+        let mut found = Vec::new();
+        for _ in 0..3 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 3000.0))),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                state.open_all = true;
+                let box_ctx = Ctx { stores, extra: &extra, sources: &Fake, paths: None, others: None };
+                show(ui, scheme, &box_ctx, state, ship, "key", false);
+            });
+            output.textures_delta.clear();
+            found = output
+                .platform_output
+                .accesskit_update
+                .map(|update| {
+                    update
+                        .nodes
+                        .iter()
+                        .filter(|(_, n)| n.role() == role)
+                        .filter_map(|(_, n)| {
+                            let b = n.bounds()?;
+                            let rect =
+                                egui::Rect::from_min_max(egui::pos2(b.x0 as f32, b.y0 as f32), egui::pos2(b.x1 as f32, b.y1 as f32));
+                            Some((n.label()?.to_string(), rect))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+        }
+        found
+    }
+
+    fn mole_bench(dir: &str, plan: &str) -> (Stores, Map, egui::Context) {
+        let stores = Stores::load(&folder_with(dir, MOLE_SLOTS));
+        let ship = entry(&format!(r#"{{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {plan}}}"#));
         let ctx = egui::Context::default();
         crate::install(&ctx);
         ctx.all_styles_mut(|style| style.animation_time = 0.0);
         ctx.enable_accesskit();
-        let mut state = EquipmentState::default();
-        let id = "equipment-pick-key-c1";
-        // The arrow is named for the screen reader by its group and what it does.
-        let open = format!("3 × Kühler S1: {}", t("s_wk_aufklappen"));
-        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::Button, &open), None);
-        assert!(state.open_groups.contains(id), "opened");
-        let shown = drawn(&stores, &ship, &mut state);
-        assert!(shown.contains(&tf("s_wk_platz_n", &[("n", Arg::from("3"))])), "{shown:?}");
-        let shut = format!("3 × Kühler S1: {}", t("s_wk_zuklappen"));
-        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::Button, &shut), None);
-        assert!(!state.open_groups.contains(id), "shut again");
-        // A slot alone has no arrow: there is nothing to open.
-        let shield = format!("Schildgenerator S2: {}", t("s_wk_aufklappen"));
-        assert!(!drawn_nodes(&ctx, &stores, &ship, &mut state).iter().any(|l| l.starts_with(&shield)));
+        (stores, ship, ctx)
+    }
+
+    fn remove_bench(dir: &str) {
         let _ = std::fs::remove_dir_all(
-            std::env::temp_dir().join(format!("versekit-ausstattung-{}-pfeil", versekit_core::testdir::run_tag())),
+            std::env::temp_dir().join(format!("versekit-ausstattung-{}-{dir}", versekit_core::testdir::run_tag())),
         );
     }
 
-    /// The names of all nodes of one frame of the box, for the screen reader.
-    fn drawn_nodes(ctx: &egui::Context, stores: &Stores, ship: &Map, state: &mut EquipmentState) -> Vec<String> {
+    #[test]
+    fn the_slots_stand_in_the_areas_of_the_game_each_part_a_block_with_its_slots_below_it() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let (stores, ship, _) = mole_bench("bereiche", "{}");
+        let mut state = EquipmentState::default();
+        let shown = drawn(&stores, &ship, &mut state);
+        let at = |text: &str| shown.iter().position(|s| s == text).unwrap_or_else(|| panic!("{text:?} is not drawn: {shown:?}"));
+        // The areas in the order of the game, the ones without a slot left out.
+        let (systems, mining, cargo) = (at("Systeme"), at("Bergbau"), at("Fracht"));
+        assert!(systems < mining && mining < cargo, "{shown:?}");
+        for none in ["Antrieb", "Avionik", "Waffen", "Sonstiges"] {
+            assert!(!shown.iter().any(|s| s == none), "{none} has no slot: {shown:?}");
+        }
+        // Each head is a block of its own, no line of "3 ×" heads; the modules stand below their head.
+        assert!(!shown.iter().any(|s| s.contains("3 × Bergbaukopf")), "{shown:?}");
+        let heads: Vec<usize> = (1..=3).map(|n| at(&format!("Bergbaukopf {n} S2"))).collect();
+        assert!(heads.windows(2).all(|w| w[0] < w[1]));
+        let modules = shown.iter().position(|s| s == "3 × Bergbau-Modul S1").expect("the three modules of the first head");
+        assert!(heads[0] < modules && modules < heads[1], "the modules of head 1 stand below it: {shown:?}");
+        assert!(shown.iter().any(|s| s == "2 × Bergbau-Modul S1"), "{shown:?}");
+        // The box has no line of "origin": a small tag stands in the line of the slot.
+        assert!(!shown.iter().any(|s| *s == t("s_wk_herkunft")), "{shown:?}");
+        assert!(shown.iter().any(|s| *s == t("s_wk_ab_werk_schild")), "{shown:?}");
+        remove_bench("bereiche");
+    }
+
+    #[test]
+    fn many_alike_slots_stand_in_a_grid_four_in_a_row_and_a_few_in_lines() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        use egui::accesskit::Role;
+        let (stores, ship, ctx) = mole_bench("raster", "{}");
+        let mut state = EquipmentState::default();
+        let fields = nodes_of(&ctx, &stores, &ship, &mut state, Role::ComboBox, 900.0);
+        let mut pods: Vec<egui::Rect> =
+            fields.iter().filter(|(name, _)| name.starts_with("Behälter S1, Platz")).map(|(_, rect)| *rect).collect();
+        pods.sort_by(|a, b| (a.min.y.round(), a.min.x).partial_cmp(&(b.min.y.round(), b.min.x)).expect("numbers"));
+        assert_eq!(pods.len(), 8, "{fields:?}");
+        let same = |a: f32, b: f32| (a - b).abs() < 1.0;
+        assert!(pods[..4].iter().all(|r| same(r.min.y, pods[0].min.y)), "four in the first row: {pods:?}");
+        assert!(pods[4..].iter().all(|r| same(r.min.y, pods[4].min.y)) && pods[4].min.y > pods[0].min.y + 10.0, "{pods:?}");
+        assert!(pods[..3].iter().zip(&pods[1..4]).all(|(a, b)| a.min.x < b.min.x), "{pods:?}");
+        assert!(same(pods[4].min.x, pods[0].min.x), "the second row starts where the first does: {pods:?}");
+        // Three modules are a line each, not a grid: they stand below one another.
+        let modules: Vec<egui::Rect> =
+            fields.iter().filter(|(name, _)| name.starts_with("Bergbaukopf 1 S2: Bergbau-Modul S1, Platz")).map(|(_, r)| *r).collect();
+        assert_eq!(modules.len(), 3, "{:?}", fields.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>());
+        assert!(modules.windows(2).all(|w| w[1].min.y > w[0].max.y - 1.0), "{modules:?}");
+        // A narrow window has fewer in a row, never a slot cut off.
+        let narrow = nodes_of(&ctx, &stores, &ship, &mut state, Role::ComboBox, 380.0);
+        let first_row: Vec<&egui::Rect> =
+            narrow.iter().filter(|(n, _)| n.starts_with("Behälter S1, Platz")).map(|(_, r)| r).collect();
+        assert_eq!(first_row.len(), 8);
+        assert!(first_row.iter().all(|r| r.max.x <= 380.0), "{first_row:?}");
+        remove_bench("raster");
+    }
+
+    #[test]
+    fn all_the_same_puts_the_part_of_the_first_slot_into_the_others() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        use egui::accesskit::Role;
+        let slots = vec![slot("a", "Cooler", 1, "f"), slot("b", "Cooler", 1, "f"), slot("c", "Cooler", 1, "f")];
+        let lines = |chosen: &str| groups(slots.clone(), &entry(chosen));
+        // The first holds another part: the others get it.
+        let own = lines(r#"{"a": {"ref": "o", "name": "Other"}}"#);
+        assert_eq!(
+            same_for_all(&own[0]),
+            Some(Action::SetPart { paths: vec!["b".into(), "c".into()], reference: "o".into(), name: "Other".into() })
+        );
+        // The first holds the stock part and another the own one: the others go back to the stock part.
+        let back = lines(r#"{"c": {"ref": "o", "name": "Other"}}"#);
+        assert_eq!(same_for_all(&back[0]), Some(Action::Clear { paths: vec!["b".into(), "c".into()] }));
+        // The first is left empty: the others are left empty.
+        let empty = lines(r#"{"a": {"ref": "", "name": "", "leer": true}}"#);
+        assert_eq!(same_for_all(&empty[0]), Some(Action::Empty { paths: vec!["b".into(), "c".into()] }));
+        // All alike already: nothing to do, and the button is off.
+        assert_eq!(same_for_all(&lines("{}")[0]), None);
+        // The button in the box asks for the same thing.
+        let (stores, ship, ctx) = mole_bench("alle-gleich", r#"{"pod_1": {"ref": "x", "name": "Other Pod", "weg": "kaufen"}}"#);
+        let mut state = EquipmentState::default();
+        let asked = click_node(&ctx, &stores, &ship, &mut state, Role::Button, "Alle gleich: 8 × Behälter S1");
+        let others: Vec<String> = (2..=8).map(|n| format!("pod_{n}")).collect();
+        assert_eq!(asked, Some(Action::SetPart { paths: others, reference: "x".into(), name: "Other Pod".into() }));
+        remove_bench("alle-gleich");
+    }
+
+    #[test]
+    fn the_origin_is_a_small_tag_in_the_line_of_the_slot_and_the_tag_of_a_part_of_the_player_changes_it() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        use egui::accesskit::Role;
+        let (stores, ship, ctx) = mole_bench(
+            "schild",
+            r#"{"cab_left/head": {"ref": "hofstede", "name": "Hofstede-S2"}},
+                "ausstattungen": [{"name": "Standard", "active": true, "slots": [
+                    {"portPath": "cab_left/head", "itemGuid": "hofstede", "acquisition": "unknown"}]}]"#,
+        );
+        let mut state = EquipmentState::default();
+        // The part of the player's is "to get" until the way it was got is said; the others come from the factory.
+        let shown = drawn(&stores, &ship, &mut state);
+        assert_eq!(shown.iter().filter(|s| **s == t("s_wk_hk_unknown")).count(), 1, "{shown:?}");
+        assert!(shown.iter().filter(|s| **s == t("s_wk_ab_werk_schild")).count() >= 10, "{shown:?}");
+        // The tag opens the list of the ways; a pick asks for it.
+        let tag = format!("Bergbaukopf 3 S2: {}: {}", t("s_wk_herkunft"), t("s_wk_hk_unknown"));
+        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::Button, &tag), None);
+        let asked = click_node(&ctx, &stores, &ship, &mut state, Role::Button, &format!("Hofstede-S2: {}", t("s_wk_hk_purchased")));
+        assert_eq!(
+            asked,
+            Some(Action::Acquire { paths: vec!["cab_left/head".into()], acquisition: Acquisition::Purchased, blueprint: None })
+        );
+        remove_bench("schild");
+    }
+
+    #[test]
+    fn a_head_is_changed_alone_never_with_the_other_heads_of_its_ship() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let slots: Vec<SlotInfo> = ["front", "left", "right"]
+            .iter()
+            .map(|cab| named(&format!("cab_{cab}/head"), "WeaponMining", 2, "Helix II"))
+            .chain(["front", "left", "right"].iter().map(|cab| named(&format!("cab_{cab}/head/m1"), "MiningModifier", 1, "Focus III")))
+            .collect();
+        let holders: std::collections::HashSet<String> =
+            slots.iter().filter(|slot| holds_slots(&slots, slot)).map(|slot| slot.path.clone()).collect();
+        let (nodes, roots) = blocks::forest(groups(slots, &Map::new()), &holders, &|_| false);
+        assert_eq!(roots.len(), 3);
+        for id in roots {
+            let head = nodes[id].head.as_ref().expect("a part");
+            assert_eq!(head.paths.len(), 1, "a block holds the one head");
+        }
+    }
+
+    /// A fighter with two different shields, two guns in a nose turret and two cargo grids.
+    const FIGHTER_SLOTS: &str = r#",
+        {"pfad": "s2", "art": "Shield", "groesse": 2, "werk": {"ref": "beta", "name": "Beta Shield"}},
+        {"pfad": "hardpoint_weapon_nose", "art": "Turret", "groesse": 3, "werk": {"ref": "nose", "name": "Nose Turret"}},
+        {"pfad": "hardpoint_weapon_nose/left", "art": "WeaponGun", "groesse": 3, "werk": {"ref": "cf", "name": "CF-337"}},
+        {"pfad": "hardpoint_weapon_nose/right", "art": "WeaponGun", "groesse": 3, "werk": {"ref": "cf", "name": "CF-337"}},
+        {"pfad": "cargo_1", "art": "Container", "groesse": 2, "werk": {"ref": "grid", "name": "Cargo Grid"}},
+        {"pfad": "cargo_2", "art": "Container", "groesse": 2, "werk": {"ref": "grid", "name": "Cargo Grid"}}"#;
+
+    #[test]
+    fn slots_that_stand_alike_are_numbered_blocks_under_a_line_that_says_mixed_or_all_alike() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let stores = Stores::load(&folder_with("kampfschiff", FIGHTER_SLOTS));
+        let ship = entry(r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {}}"#);
+        let mut state = EquipmentState::default();
+        let shown = drawn(&stores, &ship, &mut state);
+        let at = |text: &str| shown.iter().position(|s| s == text).unwrap_or_else(|| panic!("{text:?}: {shown:?}"));
+        // The two shields hold different parts (none and the Beta): a line that says "mixed" over a block each.
+        let line = at("2 × Schildgenerator S2");
+        let (first, second) = (at("Schildgenerator 1 S2"), at("Schildgenerator 2 S2"));
+        assert!(line < first && first < second, "{shown:?}");
+        assert!(shown[line + 1] == t("s_wk_marke_gemischt"), "the mark stands by the line: {shown:?}");
+        // The three coolers hold the same part: "all alike"; the guns of the turret are rows in its block.
+        let coolers = at("3 × Kühler S1");
+        assert_eq!(shown[coolers + 1], t("s_wk_marke_gleich"), "{shown:?}");
+        for number in 1..=3 {
+            at(&format!("Kühler {number} S1"));
+        }
+        assert!(at("Geschützturm S3") < at("2 × Schiffswaffe S3") && at("2 × Schiffswaffe S3") < at("Fracht"), "{shown:?}");
+        // The areas of a fighter: systems, weapons, cargo, in the order of the game.
+        assert!(at("Systeme") < at("Waffen") && at("Waffen") < at("Fracht"), "{shown:?}");
+        assert!(at("2 × Behälter S2") > at("Fracht"), "{shown:?}");
+        // Another part in the second shield: still two blocks, each with a tag of its own.
+        let own = entry(
+            r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {
+                "s1": {"ref": "x", "name": "Other Shield", "weg": "kaufen"}}}"#,
+        );
+        let shown = drawn(&stores, &own, &mut state);
+        assert!(shown.iter().any(|s| s == "Other Shield") && shown.iter().any(|s| s.contains("Beta Shield")), "{shown:?}");
+        remove_bench("kampfschiff");
+    }
+
+    /// How many rectangles with a frame of the given width and colour a frame of the box draws.
+    fn framed(ctx: &egui::Context, stores: &Stores, ship: &Map, state: &mut EquipmentState, width: f32, colour: egui::Color32) -> usize {
+        fn count(shape: &egui::epaint::Shape, width: f32, colour: egui::Color32) -> usize {
+            match shape {
+                egui::epaint::Shape::Rect(rect) => usize::from((rect.stroke.width - width).abs() < 0.01 && rect.stroke.color == colour),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().map(|s| count(s, width, colour)).sum(),
+                _ => 0,
+            }
+        }
         let extra = Extra::default();
         let scheme = versekit_core::theme::current();
-        let input = egui::RawInput {
-            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 2000.0))),
-            ..Default::default()
+        let mut found = 0;
+        for _ in 0..3 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 3000.0))),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                state.open_all = true;
+                let box_ctx = Ctx { stores, extra: &extra, sources: &Fake, paths: None, others: None };
+                show(ui, scheme, &box_ctx, state, ship, "key", false);
+            });
+            output.textures_delta.clear();
+            found = output.shapes.iter().map(|clipped| count(&clipped.shape, width, colour)).sum();
+        }
+        found
+    }
+
+    #[test]
+    fn in_the_grid_every_slot_has_its_number_and_a_slot_that_differs_from_most_has_a_coloured_frame() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let tint = blocks::mixed_tone(versekit_core::theme::current());
+        let (stores, ship, ctx) = mole_bench("raster-rahmen", "{}");
+        let mut state = EquipmentState::default();
+        let shown = drawn(&stores, &ship, &mut state);
+        for number in 1..=8 {
+            assert!(shown.iter().filter(|s| **s == number.to_string()).count() >= 1, "slot {number} has its number: {shown:?}");
+        }
+        assert_eq!(framed(&ctx, &stores, &ship, &mut state, 1.5, tint), 0, "all alike: no frame");
+        // One slot with another part and one left empty: the two are framed, the six others are not.
+        let plan = r#"{"pod_3": {"ref": "x", "name": "Other Pod", "weg": "kaufen"}, "pod_5": {"ref": "", "name": "", "leer": true}}"#;
+        let (stores, ship, ctx) = mole_bench("raster-rahmen2", plan);
+        let mut state = EquipmentState::default();
+        assert_eq!(framed(&ctx, &stores, &ship, &mut state, 1.5, tint), 2, "the slots that differ");
+        remove_bench("raster-rahmen");
+        remove_bench("raster-rahmen2");
+    }
+
+    #[test]
+    fn slots_the_game_fixes_stand_alike_in_one_line_and_the_others_stay_a_grid() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        // Three fixed pods besides the eight that can be changed.
+        let fixed: String = (1..=3)
+            .map(|n| {
+                format!(
+                    r#",
+        {{"pfad": "stored_pod_{n}", "art": "Container", "groesse": 1, "werk": {{"ref": "misc", "name": "MISC Ore Pod"}}, "fest": true}}"#
+                )
+            })
+            .collect();
+        let stores = Stores::load(&folder_with("fest-eine-zeile", &format!("{MOLE_SLOTS}{fixed}")));
+        let ship = entry(r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {}}"#);
+        let mut state = EquipmentState::default();
+        let shown = drawn(&stores, &ship, &mut state);
+        assert!(shown.iter().any(|s| s == "3 × Behälter S1"), "one line for the three fixed pods: {shown:?}");
+        assert_eq!(shown.iter().filter(|s| s.contains("MISC Ore Pod")).count(), 1, "the fixed part is said once: {shown:?}");
+        assert!(!shown.iter().any(|s| s == "Behälter 2 S1"), "no line for each fixed pod: {shown:?}");
+        // The pods that can be changed stay in the grid, each with its number.
+        assert!(shown.iter().any(|s| s == "8 × Behälter S1"), "{shown:?}");
+        for number in 1..=8 {
+            assert!(shown.iter().any(|s| *s == number.to_string()), "pod {number} has its number: {shown:?}");
+        }
+        remove_bench("fest-eine-zeile");
+    }
+
+    #[test]
+    fn mining_and_weapons_have_edges_that_differ_in_every_scheme() {
+        use blocks::{Area, edge_color};
+        let distance = |a: egui::Color32, b: egui::Color32| {
+            let d = |x: u8, y: u8| f64::from(x) - f64::from(y);
+            (d(a.r(), b.r()).powi(2) + d(a.g(), b.g()).powi(2) + d(a.b(), b.b()).powi(2)).sqrt()
         };
-        let mut output = ctx.run_ui(input, |ui| {
-            state.open_all = true;
-            let box_ctx = Ctx { stores, extra: &extra, sources: &Fake, paths: None, others: None };
-            show(ui, scheme, &box_ctx, state, ship, "key", false);
-        });
-        output.textures_delta.clear();
-        let update = output.platform_output.accesskit_update.expect("accesskit is on");
-        update.nodes.iter().filter_map(|(_, n)| n.label().map(|l| l.to_string())).collect()
+        let first = edge_color(&versekit_core::theme::schemes()[0], Area::Mining);
+        assert!(versekit_core::theme::schemes().len() > 3);
+        for scheme in versekit_core::theme::schemes() {
+            let mining = edge_color(scheme, Area::Mining);
+            assert_eq!(mining, first, "{}: the edge of mining does not depend on the scheme", scheme.id);
+            for other in [Area::Weapons, Area::Cargo, Area::Systems] {
+                let gap = distance(mining, edge_color(scheme, other));
+                assert!(gap > 60.0, "{}: mining and {other:?} are only {gap:.0} apart", scheme.id);
+            }
+        }
+    }
+
+    #[test]
+    fn the_header_says_how_much_is_left_to_get_and_the_seldom_buttons_stand_in_the_menu() {
+        let _language = crate::language_lock();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        use egui::accesskit::Role;
+        let (stores, _, ctx) = mole_bench("kopf", "{}");
+        let ship = entry(
+            r#"{"name": "Test Ship", "hersteller": "", "kurz": "test_ship", "belegung": {
+                "c1": {"ref": "new-cooler", "name": "New Cooler", "weg": "kaufen"},
+                "s1": {"ref": "new-shield", "name": "New Shield", "weg": "bauen"}}}"#,
+        );
+        let mut state = EquipmentState::default();
+        let shown = drawn(&stores, &ship, &mut state);
+        assert!(shown.contains(&tf("s_wk_zu_besorgen", &[("n", Arg::Int(2))])), "{shown:?}");
+        assert!(shown.contains(&"Test Ship".to_string()), "{shown:?}");
+        // Share is a button of the header, the file and the paste field are in the menu behind "…".
+        let buttons = nodes_of(&ctx, &stores, &ship, &mut state, Role::Button, 900.0);
+        let named_for = |key: &str| tf(key, &[("schiff", Arg::from("Test Ship"))]);
+        assert!(buttons.iter().any(|(n, _)| *n == named_for("s_wk_teilen_fuer")), "{buttons:?}");
+        assert!(!buttons.iter().any(|(n, _)| *n == named_for("s_wk_datei_speichern_fuer")), "{buttons:?}");
+        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::Button, &t("s_wk_mehr")), None);
+        let asked = click_node(&ctx, &stores, &ship, &mut state, Role::Button, &named_for("s_wk_datei_speichern_fuer"));
+        assert_eq!(asked, Some(Action::SaveFile { key: "key".into() }));
+        remove_bench("kopf");
     }
 
     #[test]
@@ -3055,28 +3210,22 @@ mod tests {
         ctx.all_styles_mut(|style| style.animation_time = 0.0);
         ctx.enable_accesskit();
         let mut state = EquipmentState::default();
-        // The three coolers of one mount: their list holds a part besides the stock one, and it goes into all three.
-        preset_coolers(&mut state, &stores, &Extra::default(), vec![choice("Arctic", "arctic")]);
-        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, "3 × Kühler S1"), None);
+        // The first of the three coolers: its list holds a part besides the stock one, and it goes into that slot only.
+        preset_coolers(&mut state, &stores, &Extra::default(), "c1", vec![choice("Arctic", "arctic")]);
+        let first = "Kühler 1 S1".to_string();
+        assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, &format!("{first}:")), None);
         let set = click_node(&ctx, &stores, &ship, &mut state, Role::ListBoxOption, "Arctic");
         assert_eq!(
             set,
-            Some(Action::SetPart {
-                paths: vec!["c1".into(), "c2".into(), "c3".into()],
-                reference: "arctic".into(),
-                name: "Arctic".into()
-            })
+            Some(Action::SetPart { paths: vec!["c1".into()], reference: "arctic".into(), name: "Arctic".into() })
         );
-        // Opened, the slot with an own part has its own line: the stock part at the top of its list takes it back.
+        // The slot with an own part: the stock part at the top of its list takes it back.
         // (A new window: the list of the line above is still open and would lie over the lines below.)
         let ctx = egui::Context::default();
         crate::install(&ctx);
         ctx.all_styles_mut(|style| style.animation_time = 0.0);
         ctx.enable_accesskit();
         state.editing = None;
-        state.open_groups.insert("equipment-pick-key-c1".into());
-        // Its name for the screen reader says the group too: two open groups have no field of the same name.
-        let first = format!("3 × Kühler S1, {}", tf("s_wk_platz_n", &[("n", Arg::from("1"))]));
         assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, &format!("{first}:")), None);
         let stock = tf("s_wk_ab_werk", &[("name", Arg::from("Factory Cooler"))]);
         let back = click_node(&ctx, &stores, &ship, &mut state, Role::ListBoxOption, &stock);
@@ -3087,7 +3236,7 @@ mod tests {
         ctx.all_styles_mut(|style| style.animation_time = 0.0);
         ctx.enable_accesskit();
         state.editing = None;
-        let second = format!("3 × Kühler S1, {}", tf("s_wk_platz_n", &[("n", Arg::from("2"))]));
+        let second = "Kühler 2 S1".to_string();
         assert_eq!(click_node(&ctx, &stores, &ship, &mut state, Role::ComboBox, &format!("{second}:")), None);
         let empty = click_node(&ctx, &stores, &ship, &mut state, Role::ListBoxOption, &t("s_wk_leer_lassen"));
         assert_eq!(empty, Some(Action::Empty { paths: vec!["c2".into()] }));
@@ -3262,10 +3411,8 @@ mod tests {
         let mut state = EquipmentState::default();
         let (texts, buttons, action) = box_frames(&stores, &extra, &ship, &mut state, Vec::new());
         assert_eq!(action, None);
-        for word in ["s_wk_teilen_fuer", "s_wk_einfuegen_fuer", "s_wk_datei_speichern_fuer", "s_wk_datei_oeffnen_fuer"] {
-            let name = tf(word, &[("schiff", Arg::from("Test Ship"))]);
-            assert!(buttons.iter().any(|(n, _)| *n == name), "{name}: {buttons:?}");
-        }
+        let name = tf("s_wk_teilen_fuer", &[("schiff", Arg::from("Test Ship"))]);
+        assert!(buttons.iter().any(|(n, _)| *n == name), "{name}: {buttons:?}");
         assert!(!texts.is_empty());
         // Share is asked of the page.
         let share = tf("s_wk_teilen_fuer", &[("schiff", Arg::from("Test Ship"))]);

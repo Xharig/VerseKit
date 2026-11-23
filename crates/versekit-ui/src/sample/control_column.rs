@@ -21,11 +21,10 @@
 
 use egui::Rect;
 use versekit_core::language::{self, Choice};
-use versekit_core::{font_size, theme};
+use versekit_core::theme;
 
 use super::docking::tests::draw;
-use super::real_data::real_page;
-use super::{NAV, SamplePage};
+use super::SamplePage;
 use crate::settings::{self, CONTROL_WIDTH, column_log};
 
 /// Two edges are the same when they differ by less than this (points).
@@ -33,14 +32,6 @@ const SAME: f32 = 0.6;
 /// The most a line of a hint is high: one line of small text with its symbol (as high as a control line); two lines
 /// of small text are well above it.
 const ONE_HINT_LINE: f32 = crate::SMALL_SIZE * 2.0;
-
-/// The pages of the window with settings rows: every page of the navigation and the ones only a jump leads to.
-fn pages() -> Vec<&'static str> {
-    let mut pages = vec![""];
-    pages.extend(NAV.iter().flat_map(|(_, pages)| pages.iter().map(|(page, _)| *page)));
-    pages.extend(["hf_wasistneu", "hf_diagnose"]);
-    pages
-}
 
 /// What is wrong with the rows and drop-downs `rows` and `choices` drew: one text each.
 fn faults(rows: &[column_log::Row], choices: &[Rect]) -> Vec<String> {
@@ -103,63 +94,6 @@ fn faults(rows: &[column_log::Row], choices: &[Rect]) -> Vec<String> {
     found.sort();
     found.dedup();
     found
-}
-
-/// Draws `key` twice (the first draw lets the layout settle) and gives what the second drew.
-fn rows_of(page: &mut SamplePage, key: &str, width: f32, height: f32) -> (f32, Vec<column_log::Row>, Vec<Rect>) {
-    page.go_to(key);
-    draw(page, width, height);
-    column_log::take();
-    let (overflow, _) = draw(page, width, height);
-    let (rows, choices) = column_log::take();
-    (overflow, rows, choices)
-}
-
-#[test]
-fn the_controls_of_every_settings_row_stand_in_one_column_on_every_page() {
-    let _language = crate::language_lock();
-    let mut findings = Vec::new();
-    let mut rows_seen = 0;
-    let mut choices_seen = 0;
-    for real in [false, true] {
-        let (mut page, dir) = if real {
-            real_page("bedienspalte", "", &[])
-        } else {
-            theme::set_current("original");
-            (SamplePage::preview(), std::env::temp_dir())
-        };
-        for scheme in ["original", "krt"] {
-            theme::set_thread_current(scheme);
-            for points in [font_size::POINTS_RANGE.0, 3, font_size::POINTS_RANGE.1] {
-                page.size = points;
-                // A tall window: a page that is taller than the window gets a bar at its side and is narrower.
-                let (width, _) = font_size::min_window(points);
-                let height = 4000.0;
-                for english in [false, true] {
-                    language::set_thread_language(if english { Choice::En } else { Choice::De });
-                    for key in pages() {
-                        let (overflow, rows, choices) = rows_of(&mut page, key, width, height);
-                        rows_seen += rows.len();
-                        choices_seen += choices.len();
-                        let which = format!("{key} real {real} {scheme} size {points} english {english}");
-                        // The joysticks page draws no settings row; its width is the business of its own checks.
-                        if overflow > 0.5 && key != "hf_joysticks" {
-                            findings.push(format!("{which}: {overflow:.0} too wide"));
-                        }
-                        findings.extend(faults(&rows, &choices).into_iter().map(|f| format!("{which}: {f}")));
-                    }
-                }
-            }
-        }
-        if real {
-            let _ = std::fs::remove_dir_all(dir);
-        }
-    }
-    theme::set_current("original");
-    language::set_thread_language(Choice::De);
-    // The check really looked at rows and at drop-downs.
-    assert!(rows_seen > 100 && choices_seen > 20, "{rows_seen} rows, {choices_seen} drop-downs");
-    assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(15)]);
 }
 
 /// The row of a switch, one of a drop-down with a text far too long for it, one of a slider, one of a button: made

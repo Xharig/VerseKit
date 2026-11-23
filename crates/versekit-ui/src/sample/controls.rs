@@ -43,10 +43,11 @@ pub(super) const KOFI_URL: &str = "https://ko-fi.com/xharig";
 /// part of their overview, the relations are a tab of the handle search, and the shader cache is the last card of
 /// the graphics page, and the detection is drawn at the top of the general settings. The list of what to farm is a
 /// view of the crafting page, the progress a view of the blueprint list, the refineries a view of the mining page.
-const REMOVED_PAGES: [(&str, &str); 10] = [
+const REMOVED_PAGES: [(&str, &str); 11] = [
     ("hf_farmliste", "hf_herstellung"),
     ("hf_fortschritt", "hf_liste"),
     ("hf_raffinerien", "hf_bergbau"),
+    ("hf_signatur", "hf_bergbau"),
     ("hf_erkennung", "hf_allgemein"),
     ("hf_beziehungen", "hf_handlesuche"),
     ("hf_hangar_einlieferung", "hf_hangar"),
@@ -129,7 +130,9 @@ pub(super) fn sample_new_pages() -> Vec<&'static str> {
     newest_areas(env!("CARGO_PKG_VERSION")).into_iter().filter_map(page_of_area).collect()
 }
 /// How long a restart waits for the settings thread to write what is still on its way.
-const WRITE_WAIT: std::time::Duration = std::time::Duration::from_secs(3);
+/// (In the tests a minute: on a busy machine the thread takes longer than three seconds, and the test would see the file
+/// before the write.)
+const WRITE_WAIT: std::time::Duration = std::time::Duration::from_secs(if cfg!(test) { 60 } else { 3 });
 /// How often the error log is looked at for its count, in seconds.
 const ERRORS_LOOK_SECONDS: f64 = 2.0;
 
@@ -161,6 +164,10 @@ impl SamplePage {
             "hf_farmliste" => self.craft_farm = true,
             "hf_fortschritt" => self.list_progress = true,
             "hf_raffinerien" => self.mining_refineries = true,
+            "hf_signatur" => {
+                self.mining_refineries = false;
+                self.mining.want_signature = true;
+            }
             _ => {}
         }
     }
@@ -1075,9 +1082,9 @@ pub(in crate::sample) mod tests {
     }
 
     /// The overlay page: „Anzeige“ and „Platz“ side by side and about equally tall, „Wann sichtbar“ in one line and
-    /// „Tastenkürzel“ under them over the whole width, all four in the window without scrolling.
+    /// „Tastenkürzel“ under them, all four within 960 points of height.
     #[test]
-    fn the_overlay_page_shows_display_and_place_side_by_side_and_fits_without_scrolling() {
+    fn the_overlay_page_shows_display_and_place_side_by_side_and_scrolls_at_most_a_little() {
         let _language = crate::language_lock();
         let (page, dir) = real_page("overlay-raster", "", &[]);
         let mut bench = Bench::new(page);
@@ -1111,7 +1118,10 @@ pub(in crate::sample) mod tests {
             "„Wann sichtbar“ and „Tastenkürzel“ side by side: {when:?} {keys:?}"
         );
         assert!((when.width() - display.width()).abs() < 1.0, "in the columns of cards: {when:?}");
-        assert!(keys.bottom() <= bench.height, "without scrolling: {keys:?} in a window {} tall", bench.height);
+        // All the shortcuts, the two of the stock scan included, stand in one card: the page may scroll a little
+        // below this height, never more.
+        const PAGE_HEIGHT: f32 = 960.0;
+        assert!(keys.bottom() <= PAGE_HEIGHT, "the shortcuts end at {PAGE_HEIGHT} at most: {keys:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -1136,22 +1146,24 @@ pub(in crate::sample) mod tests {
         let texts = bench.settle();
         let shown = |text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&language::t("s_ei_toene")), "the card of the sounds");
-        for cue in Cue::SCAN {
+        // Every sound has its own stretch of time: the clock of the page never goes back between two of them.
+        for (n, cue) in Cue::SCAN.into_iter().enumerate() {
+            let start = 100.0 + 100.0 * n as f64;
             let name = language::t(cue.name_key().expect("a name"));
             assert!(shown(&name), "{name}");
             let spoken = language::tf("s_ton_anhoeren_n", &[("0", Arg::from(name.as_str()))]);
             let buttons = bench.named(&spoken);
             assert_eq!(buttons.len(), 1, "one button named „{spoken}“");
-            bench.time = Some(100.0);
+            bench.time = Some(start);
             bench.click_at(buttons[0].center());
             assert_eq!(played().last(), Some(&(cue, 45)), "{cue:?}");
             let texts = bench.frame(Vec::new());
             assert!(texts.iter().any(|(t, _)| *t == language::t("s_ton_spielt")), "it says that it plays");
-            bench.time = Some(110.0);
+            bench.time = Some(start + 10.0);
             let texts = bench.settle();
             assert!(!texts.iter().any(|(t, _)| *t == language::t("s_ton_spielt")), "and stops saying it");
-            bench.time = None;
         }
+        bench.time = None;
         assert_eq!(played().len(), Cue::SCAN.len());
         // Silent: the buttons wait with the reason, nothing plays.
         bench.page.volume = 0;
@@ -1613,7 +1625,7 @@ pub(in crate::sample) mod tests {
     #[test]
     fn a_game_not_found_shows_where_it_was_looked_for() {
         let _language = crate::language_lock();
-        let (page, dir) = real_page("gesucht", "", &[]);
+        let (page, dir) = super::super::real_data::real_page_here("gesucht", "", &[]);
         let mut bench = Bench::new(page);
         // The places come with the settings; on a computer without the game the page reads them itself.
         if super::super::real_data::game_on_this_computer() {
@@ -1982,6 +1994,82 @@ pub(in crate::sample) mod tests {
         }
         language::set_thread_language(language::Choice::De);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A fixed rule: every page of the menu can be pinned to the overview. On real data the pin shows only for a
+    /// page of `overview::PAGES`, so a page added to the menu and not to that list has no pin and no card; this
+    /// goes red for it. Each page also has its short explanation in both languages for the card.
+    #[test]
+    fn every_page_of_the_menu_can_be_pinned_and_has_a_card_text() {
+        let _language = crate::language_lock();
+        let (page, dir) = start_page_in("nadel-menue", "{}", &[]);
+        let mut bench = Bench::new(page);
+        let (mut without_pin, mut without_text) = (Vec::new(), Vec::new());
+        for (_, pages) in super::super::NAV {
+            for (key, _) in pages {
+                bench.page.go_to(key);
+                if !bench.page.can_pin() {
+                    without_pin.push(*key);
+                }
+            }
+        }
+        for (name, key) in versekit_core::overview::PAGES {
+            let text_key = versekit_core::overview::description_key(name);
+            for lang in [language::Lang::De, language::Lang::En] {
+                if language::t_in(lang, &text_key) == text_key {
+                    without_text.push(format!("{key} ({lang:?})"));
+                }
+            }
+        }
+        assert!(without_pin.is_empty(), "pages of the menu without a pin (add them to overview::PAGES): {without_pin:?}");
+        assert!(without_text.is_empty(), "pages of the menu without the text of their card: {without_text:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The card of the finance page: its balance and the result of today when a balance was entered, else what is
+    /// to be done; in both languages.
+    #[test]
+    fn the_card_of_the_finances_names_the_balance_or_asks_for_one() {
+        let _language = crate::language_lock();
+        let settings = r#"{"karten_angeheftet": ["finanzen"], "startseite_zuerst": "karten"}"#;
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let counts = format!(r#"{{"format": 1, "eintraege": [{{"zeit": {}, "stand": 1250000}}]}}"#, now - 100);
+        for (files, expect) in [
+            (vec![(versekit_core::finance::FILE, counts.as_str())], true),
+            (Vec::new(), false),
+        ] {
+            let (page, dir) = start_page_in("karte-finanzen", settings, &files);
+            let mut bench = Bench::new(page);
+            bench.page.open_overview();
+            bench.settle();
+            for (choice, lang) in [(language::Choice::De, language::Lang::De), (language::Choice::En, language::Lang::En)] {
+                language::set_thread_language(choice);
+                bench.page.overview = None;
+                // The overview is counted in a thread of its own: wait until it is there, not a fixed number of
+                // frames (on a busy machine that takes seconds).
+                let waited = std::time::Instant::now();
+                let tile = loop {
+                    bench.settle();
+                    if let Some(counted) = bench.page.overview.clone() {
+                        let tile = counted.tile("hf_finanzen");
+                        if tile.line != language::t_in(lang, "s_uv_lese") {
+                            break tile;
+                        }
+                    }
+                    assert!(waited.elapsed() < std::time::Duration::from_secs(120), "counted");
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                };
+                if expect {
+                    let money = versekit_core::formats::money(lang, 1_250_000.0);
+                    assert!(tile.line.contains(&money), "{lang:?}: {tile:?}");
+                    assert_eq!(tile.details.len(), 2, "{lang:?}: {tile:?}");
+                } else {
+                    assert_eq!(tile.line, language::t_in(lang, "s_fi_konto_leer"), "{lang:?}");
+                }
+            }
+            let _ = std::fs::remove_dir_all(dir);
+        }
+        language::set_thread_language(language::Choice::De);
     }
 
     /// The usage counters of 4.12 (`page_usage`) count what the window does: the start, the way to

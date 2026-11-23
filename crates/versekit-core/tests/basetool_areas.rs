@@ -87,6 +87,12 @@ fn build(name: &str, switches: &[&str], on_names: Option<Arc<dyn Fn() + Send + S
     Bench { dir: data, paths, double, sync, skew }
 }
 
+/// The moment the clocks of all benches start at: the real time, taken once for the whole run.
+fn start_time() -> f64 {
+    static START: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    *START.get_or_init(|| system_clock()())
+}
+
 /// A sync over the files of `paths` and the stand-in, as the program makes it at its start.
 fn sync_for(
     paths: &Arc<Paths>,
@@ -98,8 +104,10 @@ fn sync_for(
     let units = OrgUnitsArea::default();
     let host = Arc::new(FileBlueprintHost::new(paths.clone(), Arc::new(NoCatalog)));
     let clock: versekit_core::basetool::connection::Clock = {
-        let (base, skew) = (system_clock(), skew.clone());
-        Arc::new(move || base() + skew.load(Ordering::SeqCst) as f64)
+        // A clock that stands still until the test sets it on (`later`): the time that really goes by while a
+        // busy machine runs the test must not end a wait the test means to be still on.
+        let (base, skew) = (start_time(), skew.clone());
+        Arc::new(move || base + skew.load(Ordering::SeqCst) as f64)
     };
     let mut ships = ShipArea::new(units.units.clone());
     ships.on_names = on_names;

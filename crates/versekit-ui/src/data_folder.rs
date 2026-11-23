@@ -446,7 +446,7 @@ mod tests {
     use versekit_core::paths::Host;
     use versekit_core::pypath::Flavor;
 
-    fn german() -> std::sync::MutexGuard<'static, ()> {
+    fn german() -> crate::LanguageGuard {
         let guard = crate::language_lock();
         set_thread_language(LangChoice::De);
         guard

@@ -1346,7 +1346,7 @@ impl Reading {
 
 /// Reads the signature in a crop.
 pub fn read(raster: &Gray, known: &Templates, values: &[u64]) -> Reading {
-    read_in(raster, known, values, false)
+    read_in(raster, known, values, false, &[])
 }
 
 /// A row of a crop counts as bright ground at a threshold when at least this share of its points is brighter.
@@ -1367,7 +1367,9 @@ fn without_ground(raster: &Gray, threshold: u8) -> Gray {
 }
 
 /// [`read`]; with `ground` the rows of bright ground are left out at every threshold ([`without_ground`]).
-fn read_in(raster: &Gray, known: &Templates, values: &[u64], ground: bool) -> Reading {
+///
+/// `sisters` are the other grey images of the same place: the location symbol is looked for in them too.
+fn read_in(raster: &Gray, known: &Templates, values: &[u64], ground: bool, sisters: &[&Gray]) -> Reading {
     let mut result = Reading::silent();
     if raster.w == 0 || raster.h == 0 {
         return result;
@@ -1386,6 +1388,16 @@ fn read_in(raster: &Gray, known: &Templates, values: &[u64], ground: bool) -> Re
             })
             .clone()
     };
+    // ⚠ A value counts only beside the location symbol ([`has_locator`]): a speed, a distance or a heading in its
+    // ring is never a signature, however well its digits fit (the report of 22.11.2026).
+    let legacy = LEGACY_ROWS.load(Ordering::Relaxed);
+    let pinned = |digits: &[Box4], boxes: &mut dyn FnMut(u8) -> Vec<Box4>| {
+        legacy
+            || row_box(digits).is_some_and(|row| {
+                levels.iter().any(|&t| locator_in(&boxes(t), row))
+                    || sisters.iter().any(|sister| locator_beside(sister, row, ground))
+            })
+    };
     let mut best: Option<(f64, u64, u8, Vec<Box4>)> = None;
     let mut fallback: Option<(u8, Vec<Box4>)> = None;
     // ⚠ Two passes: first the usual cut, and ONLY when that reads nothing the fallback cuts. So the fallback
@@ -1403,6 +1415,7 @@ fn read_in(raster: &Gray, known: &Templates, values: &[u64], ground: bool) -> Re
                 let (value, distance) = match_values(&patterns, known, values);
                 if let Some(value) = value
                     && best.as_ref().is_none_or(|b| distance < b.0)
+                    && pinned(&digits, &mut boxes)
                 {
                     best = Some((distance, value, threshold, digits));
                 } else if best.is_none() && result.distance > distance {
@@ -1423,6 +1436,7 @@ fn read_in(raster: &Gray, known: &Templates, values: &[u64], ground: bool) -> Re
             let (value, distance) = match_values(&patterns, known, values);
             if let Some(value) = value
                 && best.as_ref().is_none_or(|b| distance < b.0)
+                && pinned(digits, &mut boxes)
             {
                 best = Some((distance, value, threshold, digits.clone()));
             }
@@ -1465,35 +1479,108 @@ const SYMBOL_REACH: f64 = 1.2;
 const SYMBOL_JOIN: f64 = 0.6;
 /// The size of the location symbol in heights of a digit: width, height, and the widest it may be against its height.
 const SYMBOL_WIDTH: (f64, f64) = (0.7, 2.0);
-const SYMBOL_HEIGHT: (f64, f64) = (1.15, 2.5);
+const SYMBOL_HEIGHT: (f64, f64) = (1.1, 2.5);
 const SYMBOL_ASPECT: f64 = 1.5;
+/// The symbol stands apart from the first digit by at least this many heights of a digit.
+///
+/// ⚠ The feature that tells the symbol from other figures beside a number: measured on every crop with a known
+/// answer, the symbol stands 0.45 to 1.2 heights away; the ring around a heading (`085`), the bar before a speed
+/// (`959M/S`) and the picture beside a distance (`25.9m`) of the report of 22.11.2026 touch the number or stand at
+/// most 0.2 heights from it.
+const SYMBOL_GAP: f64 = 0.4;
+/// How far the symbol may reach above the top and below the base line of the row, in heights of a digit. Measured:
+/// at most 0.6 above and 0.67 below; the ring of a heading reaches 1.1 above, the bar of a speed 1.1 below.
+const SYMBOL_ABOVE: f64 = 0.8;
+const SYMBOL_BELOW: f64 = 0.75;
 
 /// Does the row of digits of the reading stand in a signature box: with the location symbol left of the first
-/// digit? A symbol is a compact figure taller than a digit, close to the row; words of letters, a distance with
-/// its unit or a label are not, so such a picture is never offered for teaching.
+/// digit? A symbol is a compact figure taller than a digit, apart from the row but close to it, reaching a little
+/// above and below it; words of letters, a distance with its unit, a speed, a heading in its ring or a label are
+/// not, so such a number is neither read nor offered for teaching.
+///
+/// Looked for at every threshold of the crop ([`thresholds`]), not only at the one the digits stand at: at a high
+/// threshold the thin outline of the symbol falls apart.
 pub fn has_locator(raster: &Gray, reading: &Reading) -> bool {
-    let (Some(threshold), Some(first)) = (reading.threshold, reading.digits.first()) else {
+    has_locator_in(&[raster], reading)
+}
+
+/// [`has_locator`] in any of several grey images of the same place: in one of them the symbol may stand out
+/// where in the other it fades into the ground of the pill (the frame of the report of 10.11.2026: in the green
+/// channel the symbol is gone, in the brightest it stands).
+pub fn has_locator_in(rasters: &[&Gray], reading: &Reading) -> bool {
+    let (Some(threshold), Some(row)) = (reading.threshold, row_box(&reading.digits)) else {
         return false;
     };
-    let top = reading.digits.iter().map(|d| d[1]).min().unwrap_or(first[1]);
-    let bottom = reading.digits.iter().map(|d| d[3]).max().unwrap_or(first[3]);
-    let left = reading.digits.iter().map(|d| d[0]).min().unwrap_or(first[0]);
+    rasters.iter().any(|raster| {
+        locator_in(&components(raster, threshold), row) || locator_beside(raster, row, false)
+    })
+}
+
+/// Whether a picture shows a signature pill at all: a row of digits with the location symbol before it, in any of
+/// the grey images of the place. Only such a picture is offered for teaching and taught; a speed, a distance, a
+/// heading in its ring or a picture of something else is not.
+pub fn has_pill(rasters: &[&Gray]) -> bool {
+    rasters.iter().any(|raster| {
+        thresholds(raster).into_iter().any(|t| {
+            [false, true].into_iter().any(|ground| {
+                let boxes = if ground { components(&without_ground(raster, t), t) } else { components(raster, t) };
+                digit_rows(&boxes, raster, t, false).into_iter().any(|digits| {
+                    let row = row_box(&digits);
+                    has_locator_in(rasters, &Reading { digits, threshold: Some(t), ..Reading::silent() })
+                        || row.is_some_and(|b| rasters.iter().any(|r| locator_beside(r, b, true)))
+                })
+            })
+        })
+    })
+}
+
+/// Whether the location symbol stands left of the row `row` in `raster` at any of its thresholds; with `ground` the
+/// rows of bright ground left out ([`without_ground`]).
+fn locator_beside(raster: &Gray, row: Box4, ground: bool) -> bool {
+    thresholds(raster).into_iter().any(|t| {
+        let boxes = if ground { components(&without_ground(raster, t), t) } else { components(raster, t) };
+        locator_in(&boxes, row)
+    })
+}
+
+/// Whether the parts `boxes` (of one threshold) hold the location symbol left of the row `row` ([`has_locator`]).
+fn locator_in(boxes: &[Box4], row: Box4) -> bool {
+    let Some(figure) = figure_in(boxes, row) else { return false };
+    let height = f64::from(row[3] - row[1] + 1);
+    let (w, h) = (f64::from(figure[2] - figure[0] + 1), f64::from(figure[3] - figure[1] + 1));
+    (SYMBOL_WIDTH.0 * height..=SYMBOL_WIDTH.1 * height).contains(&w)
+        && (SYMBOL_HEIGHT.0 * height..=SYMBOL_HEIGHT.1 * height).contains(&h)
+        && w <= SYMBOL_ASPECT * h
+        && f64::from(row[0] - figure[2] - 1) >= SYMBOL_GAP * height
+        && f64::from(row[1] - figure[1]) <= SYMBOL_ABOVE * height
+        && f64::from(figure[3] - row[3]) <= SYMBOL_BELOW * height
+}
+
+/// The box around the digit areas of a row.
+pub(crate) fn row_box(digits: &[Box4]) -> Option<Box4> {
+    let first = digits.first()?;
+    Some(digits.iter().fold(*first, |b, d| [b[0].min(d[0]), b[1].min(d[1]), b[2].max(d[2]), b[3].max(d[3])]))
+}
+
+/// The figure left of the row `row` that could be the location symbol: the nearest of the parts `boxes` left of the
+/// first digit, grown by every part close to it.
+pub(crate) fn figure_in(boxes: &[Box4], row: Box4) -> Option<Box4> {
+    let [left, top, _, bottom] = row;
     let height = f64::from(bottom - top + 1);
     if height < 1.0 {
-        return false;
+        return None;
     }
     let near = |gap: i32| f64::from(gap) <= SYMBOL_JOIN * height;
     // The parts of the symbol: left of the digits and touching the height of the row.
-    let mut parts: Vec<Box4> = components(raster, threshold)
-        .into_iter()
+    let mut parts: Vec<Box4> = boxes
+        .iter()
+        .copied()
         .filter(|b| b[2] < left && b[3] >= top - height as i32 && b[1] <= bottom + height as i32)
         .collect();
     parts.sort_by_key(|b| std::cmp::Reverse(b[2]));
-    let Some(nearest) = parts.first().copied() else {
-        return false;
-    };
+    let nearest = parts.first().copied()?;
     if f64::from(left - nearest[2] - 1) > SYMBOL_REACH * height {
-        return false;
+        return None;
     }
     // Grow the figure by every part that lies close to it.
     let mut figure = nearest;
@@ -1518,10 +1605,7 @@ pub fn has_locator(raster: &Gray, reading: &Reading) -> bool {
             break;
         }
     }
-    let (w, h) = (f64::from(figure[2] - figure[0] + 1), f64::from(figure[3] - figure[1] + 1));
-    (SYMBOL_WIDTH.0 * height..=SYMBOL_WIDTH.1 * height).contains(&w)
-        && (SYMBOL_HEIGHT.0 * height..=SYMBOL_HEIGHT.1 * height).contains(&h)
-        && w <= SYMBOL_ASPECT * h
+    Some(figure)
 }
 
 // ------------------------------------------------------------ finding the pill
@@ -1714,7 +1798,9 @@ fn read_variants_in(images: &Images, known: &ByVariant<Templates>, values: &[u64
     let mut chosen: Option<(Reading, Variant)> = None;
     for variant in VARIANTS {
         let Some(raster) = images.get(variant) else { continue };
-        let reading = read_in(raster, known.get(variant), values, ground);
+        let sisters: Vec<&Gray> =
+            VARIANTS.into_iter().filter(|v| *v != variant).filter_map(|v| images.get(v).as_ref()).collect();
+        let reading = read_in(raster, known.get(variant), values, ground, &sisters);
         if chosen.as_ref().is_none_or(|(current, _)| safer(&reading, current)) {
             chosen = Some((reading, variant));
         }
@@ -1819,13 +1905,17 @@ pub fn learn(
     own_file: &str,
     sample_folder: &str,
 ) -> Result<Tally, &'static str> {
-    learn_into(raster, typed, known, own_file, Some(sample_folder))
+    let name = sample_name(&typed_digits(typed).iter().collect::<String>());
+    let tally = learn_into(raster, typed, known, own_file, Some(&name))?;
+    save_sample_as(sample_folder, raster, &name);
+    Ok(tally)
 }
 
 /// Teaches the same place from each grey image, each into its own file; the image of the number is kept once.
 ///
 /// Returns the outcome of the grey image `first` (else the first present) if it worked there, else of the first
 /// where it worked, else of the first tried. `known` holds the templates of each grey image as they were before.
+/// Every template stored names the image kept ([`own::OwnFile`]), so that forgetting the image forgets them too.
 pub fn learn_variants(
     images: &Images,
     typed: &str,
@@ -1843,84 +1933,138 @@ pub fn learn_variants(
     if order.is_empty() {
         return Err("anlernen_anzahl");
     }
-    let outcomes: Vec<Result<Tally, &'static str>> =
-        order.iter().map(|&(v, raster)| learn_into(raster, typed, known.get(v), files.of(v), None)).collect();
+    let number: String = typed_digits(typed).iter().collect();
+    // A picture nearly like one kept for the same number teaches nothing new.
+    if order.iter().any(|(_, raster)| own::duplicate_of(sample_folder, &number, raster).is_some()) {
+        return Err("anlernen_schon");
+    }
+    let name = sample_name(&number);
+    let outcomes: Vec<Result<Tally, &'static str>> = order
+        .iter()
+        .map(|&(v, raster)| learn_into(raster, typed, known.get(v), files.of(v), Some(&name)))
+        .collect();
     let kept = outcomes.iter().position(Result::is_ok);
     if let Some(at) = kept {
-        let digits: String = typed.chars().filter(char::is_ascii_digit).collect();
-        save_sample(sample_folder, order[at].1, &digits);
+        save_sample_as(sample_folder, order[at].1, &name);
     }
     outcomes.into_iter().nth(kept.unwrap_or(0)).unwrap_or(Err("anlernen_anzahl"))
 }
 
-/// [`learn`] without keeping the image when `sample_folder` is `None`.
+/// The digits of a typed number, the separators left out.
+fn typed_digits(typed: &str) -> Vec<char> {
+    typed.chars().filter(char::is_ascii_digit).collect()
+}
+
+/// Where a crop taught as a number has its digits: the patterns, their areas and the threshold they stand at.
+pub(crate) struct Lesson {
+    pub digits: Vec<char>,
+    pub patterns: Vec<Pattern>,
+    pub boxes: Vec<Box4>,
+    pub threshold: u8,
+}
+
+/// Finds the row of the crop that holds as many digits as the typed number, the one whose places look most like
+/// the typed digits. With `pin` only a row beside the location symbol counts ([`has_locator`]): a speed, a distance
+/// or a heading has digits of another type, and taught as a signature they poison every later reading.
+pub(crate) fn lesson(raster: &Gray, typed: &str, pin: bool) -> Result<Lesson, &'static str> {
+    let digits = typed_digits(typed);
+    if digits.len() < 2 {
+        return Err("anlernen_leer");
+    }
+    let mut unpinned = false;
+    let mut candidates: Vec<(usize, Vec<Pattern>, Vec<Box4>, u8)> = Vec::new();
+    // ⚠ As the search does: first the crop as it is, and only when that gives no row the rows of bright ground
+    // left out ([`without_ground`]). A pill right above a bright planet is read by the second look; without it here
+    // the picture offered could not be taught (the report of 22.11.2026: "8,000" above a bright ground).
+    for (ground, variants) in [(false, false), (false, true), (true, false), (true, true)] {
+        if !candidates.is_empty() {
+            break;
+        }
+        for threshold in thresholds(raster) {
+            let boxes =
+                if ground { components(&without_ground(raster, threshold), threshold) } else { components(raster, threshold) };
+            for row in digit_rows(&boxes, raster, threshold, variants) {
+                if row.len() != digits.len() {
+                    continue;
+                }
+                let reading = Reading { digits: row.clone(), threshold: Some(threshold), ..Reading::silent() };
+                if pin && !has_locator(raster, &reading) && !row_box(&row).is_some_and(|b| locator_beside(raster, b, true)) {
+                    unpinned = true;
+                    continue;
+                }
+                let patterns: Vec<Pattern> = row.iter().map(|&b| normalize(raster, b, threshold)).collect();
+                let fitting = patterns.iter().zip(&digits).filter(|(p, d)| plausible_template(**d, p)).count();
+                candidates.push((fitting, patterns, row, threshold));
+            }
+        }
+    }
+    if candidates.is_empty() {
+        return Err(if unpinned { "anlernen_ortszeichen" } else { "anlernen_anzahl" });
+    }
+    // Stable: the first of the equally fitting stays first.
+    candidates.sort_by_key(|c| std::cmp::Reverse(c.0));
+    let (_, patterns, boxes, threshold) = candidates.swap_remove(0);
+    Ok(Lesson { digits, patterns, boxes, threshold })
+}
+
+/// One place of a lesson that looks like its digit: (place from 0, digit, pattern, the derived patterns).
+pub(crate) type Taught = (usize, char, Pattern, Vec<Pattern>);
+
+/// What a lesson stores: every place that looks like its digit with its derived patterns (the same box cut at the
+/// nearest other thresholds, a brighter or darker type of a second grab, and [`derived_patterns`]), and the places
+/// (from 1) that do not and are left out.
+pub(crate) fn lesson_patterns(raster: &Gray, lesson: &Lesson) -> (Vec<Taught>, Vec<usize>) {
+    let other_thresholds: Vec<u8> = {
+        let mut others: Vec<u8> = thresholds(raster).into_iter().filter(|t| *t != lesson.threshold).collect();
+        others.sort_by_key(|t| (i32::from(*t) - i32::from(lesson.threshold)).abs());
+        others.truncate(DERIVED_THRESHOLDS);
+        others
+    };
+    let (mut taught, mut unclear) = (Vec::new(), Vec::new());
+    for (place, (pattern, &digit)) in lesson.patterns.iter().zip(&lesson.digits).enumerate() {
+        if !plausible_template(digit, pattern) {
+            unclear.push(place + 1);
+            continue;
+        }
+        let mut variants: Vec<Pattern> =
+            other_thresholds.iter().map(|&t| normalize(raster, lesson.boxes[place], t)).collect();
+        variants.extend(derived_patterns(digit, pattern));
+        taught.push((place, digit, *pattern, keep_new(digit, &fill(pattern), variants)));
+    }
+    (taught, unclear)
+}
+
+/// The places of a lesson fit to be taught, and the places (from 1) that are not: too wide, in two parts, or
+/// clearly another digit ([`own::problem`]).
+fn split_usable(taught: Vec<Taught>, shipped: &Templates) -> (Vec<Taught>, Vec<usize>) {
+    let (usable, unusable): (Vec<Taught>, Vec<Taught>) =
+        taught.into_iter().partition(|(_, digit, pattern, _)| own::problem(*digit, pattern, shipped, true).is_none());
+    (usable, unusable.iter().map(|(place, ..)| place + 1).collect())
+}
+
+/// [`learn`] into one file, every template stored with the name of the image kept as its source (`None`: none).
 fn learn_into(
     raster: &Gray,
     typed: &str,
     known: &Templates,
     own_file: &str,
-    sample_folder: Option<&str>,
+    source: Option<&str>,
 ) -> Result<Tally, &'static str> {
-    let typed_digits: Vec<char> = typed.chars().filter(|c| c.is_ascii_digit()).collect();
-    if typed_digits.len() < 2 {
-        return Err("anlernen_leer");
-    }
-    let mut candidates: Vec<(usize, Vec<Pattern>, Vec<Box4>, u8)> = Vec::new();
-    for variants in [false, true] {
-        if !candidates.is_empty() {
-            break;
-        }
-        for threshold in thresholds(raster) {
-            for digits in digit_rows(&components(raster, threshold), raster, threshold, variants) {
-                if digits.len() == typed_digits.len() {
-                    let patterns: Vec<Pattern> = digits.iter().map(|&b| normalize(raster, b, threshold)).collect();
-                    let fitting =
-                        patterns.iter().zip(&typed_digits).filter(|(p, d)| plausible_template(**d, p)).count();
-                    candidates.push((fitting, patterns, digits, threshold));
-                }
-            }
-        }
-    }
-    if candidates.is_empty() {
-        return Err("anlernen_anzahl");
-    }
-    // Stable: the first of the equally fitting stays first.
-    candidates.sort_by_key(|c| std::cmp::Reverse(c.0));
-    let (_, patterns, boxes, used_threshold) = candidates.swap_remove(0);
-    // The same boxes cut at the nearest other thresholds: brighter or darker type of a second grab.
-    let other_thresholds: Vec<u8> = {
-        let mut others: Vec<u8> = thresholds(raster).into_iter().filter(|t| *t != used_threshold).collect();
-        others.sort_by_key(|t| (i32::from(*t) - i32::from(used_threshold)).abs());
-        others.truncate(DERIVED_THRESHOLDS);
-        others
-    };
-
+    let lesson = lesson(raster, typed, true)?;
     // Only a file that is not there starts empty: a file that cannot be read (locked, not JSON) would be
     // replaced by the one set of this teaching and lose everything taught before.
-    let (mut own, mut derived_own) = match jsonio::read_json(own_file) {
-        Ok(Value::Object(map)) => {
-            let field = |name: &str| {
-                map.iter()
-                    .find(|(k, _)| k == name)
-                    .and_then(|(_, v)| if let Value::Object(m) = v { Some(m.clone()) } else { None })
-                    .unwrap_or_default()
-            };
-            (field("ziffern"), field("abgeleitet"))
-        }
-        Err(jsonio::ReadError::NotFound) => (Vec::new(), Vec::new()),
-        Ok(_) | Err(_) => return Err("anlernen_lesen"),
-    };
-    let columns = digit_table(&patterns, known);
-    let mut tally = Tally { found: patterns.len(), ..Tally::default() };
-    for (position, (pattern, &digit)) in patterns.iter().zip(&typed_digits).enumerate() {
-        let position = position + 1;
-        if !plausible_template(digit, pattern) {
-            tally.unclear.push(position);
-            continue;
-        }
+    let mut file = own::OwnFile::open(own_file).map_err(|_| "anlernen_lesen")?;
+    let columns = digit_table(&lesson.patterns, known);
+    let (taught, mut unclear) = lesson_patterns(raster, &lesson);
+    // A place that is too wide, in two parts or nearer another digit is not stored.
+    let (taught, unusable) = split_usable(taught, &templates(SHIPPED_TEMPLATES, ""));
+    unclear.extend(unusable);
+    unclear.sort_unstable();
+    let mut tally = Tally { found: lesson.patterns.len(), unclear, ..Tally::default() };
+    for (place, digit, pattern, derived) in taught {
         // ⚠ `known` means the digit would have been read right BEFORE teaching. Bit equality does not do:
         // with small type the same digit looks different in every grab.
-        let column = &columns[position - 1];
+        let column = &columns[place];
         let mut best: Option<(char, f64)> = None;
         for &(d, x) in column {
             if best.is_none_or(|(_, b)| x < b) {
@@ -1932,62 +2076,12 @@ fn learn_into(
         } else {
             tally.new += 1;
         }
-        let key = digit.to_string();
-        let slot = match own.iter().position(|(k, _)| *k == key) {
-            Some(at) => at,
-            None => {
-                own.push((key.clone(), Value::Array(Vec::new())));
-                own.len() - 1
-            }
-        };
-        let list = match &mut own[slot].1 {
-            Value::Array(list) => list,
-            other => {
-                *other = Value::Array(Vec::new());
-                let Value::Array(list) = other else { unreachable!() };
-                list
-            }
-        };
-        let value = Value::Array(pattern.iter().map(|&v| Value::int(i64::from(v))).collect());
-        if !list.contains(&value) {
-            list.push(value);
-            let excess = list.len().saturating_sub(MAX_OWN_PER_DIGIT);
-            list.drain(..excess);
-        }
-        let mut variants: Vec<Pattern> =
-            other_thresholds.iter().map(|&t| normalize(raster, boxes[position - 1], t)).collect();
-        variants.extend(derived_patterns(digit, pattern));
-        for variant in keep_new(digit, &fill(pattern), variants) {
-            let slot = match derived_own.iter().position(|(k, _)| *k == key) {
-                Some(at) => at,
-                None => {
-                    derived_own.push((key.clone(), Value::Array(Vec::new())));
-                    derived_own.len() - 1
-                }
-            };
-            let Value::Array(list) = &mut derived_own[slot].1 else { continue };
-            let value = Value::Array(variant.iter().map(|&v| Value::int(i64::from(v))).collect());
-            if !list.contains(&value) {
-                list.push(value);
-                let excess = list.len().saturating_sub(MAX_DERIVED_PER_DIGIT);
-                list.drain(..excess);
-            }
+        file.add(own::Kind::Taught, digit, &pattern, source, MAX_OWN_PER_DIGIT);
+        for variant in derived {
+            file.add(own::Kind::Derived, digit, &variant, source, MAX_DERIVED_PER_DIGIT);
         }
     }
-    let file = Value::Object(vec![
-        ("format".into(), Value::int(1)),
-        ("raster".into(), Value::Array(vec![Value::int(NORM_W as i64), Value::int(NORM_H as i64)])),
-        ("ziffern".into(), Value::Object(own)),
-        ("abgeleitet".into(), Value::Object(derived_own)),
-    ]);
-    if let Some(folder) = std::path::Path::new(own_file).parent() {
-        let _ = jsonio::make_dirs(&folder.to_string_lossy());
-    }
-    jsonio::write_text_atomic(own_file, &jsonio::dumps(&file, None, false), Newline::Keep)
-        .map_err(|_| "anlernen_speichern")?;
-    if let Some(folder) = sample_folder {
-        save_sample(folder, raster, &typed_digits.iter().collect::<String>());
-    }
+    file.save(own_file).map_err(|_| "anlernen_speichern")?;
     Ok(tally)
 }
 
@@ -2047,12 +2141,21 @@ pub fn samples(folder: &str) -> Vec<String> {
 /// Stores the taught image with the right number: `<number>_<time>.png`, at most `SAMPLE_LIMIT`, the oldest go
 /// first. Only the crop around the number, nothing of the rest of the screen.
 pub fn save_sample(folder: &str, raster: &Gray, number: &str) -> bool {
+    save_sample_as(folder, raster, &sample_name(number))
+}
+
+/// The file name a taught image of `number` gets now: `<number>_<time>.png`.
+pub fn sample_name(number: &str) -> String {
+    let millis =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_millis()).unwrap_or(0);
+    format!("{number}_{}-{millis:03}.png", jsonio::time_stamp())
+}
+
+/// [`save_sample`] under the name `name` ([`sample_name`]).
+pub fn save_sample_as(folder: &str, raster: &Gray, name: &str) -> bool {
     if jsonio::make_dirs(folder).is_err() {
         return false;
     }
-    let millis =
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_millis()).unwrap_or(0);
-    let name = format!("{number}_{}-{millis:03}.png", jsonio::time_stamp());
     let path = format!("{}/{name}", folder.trim_end_matches(['/', '\\']));
     if jsonio::write_new(&path, &png_bytes(raster)).is_err() {
         return false;
@@ -2102,6 +2205,8 @@ pub fn sample_archive(name: &str, sample_folder: &str, files: &OwnFiles, refiner
     }
     builder.finish().ok()
 }
+
+pub mod own;
 
 #[cfg(test)]
 mod tests;

@@ -6,6 +6,91 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.0 - 2026-11-23
+
+> A new "Finances" page with an aUEC account and statement, a stock scan
+> for My Inventory and a "Signature" tab in Mining. Plus "Does the rock pay?",
+> a rearranged loadout, deposits at the Cartel Bank and a pin on every page.
+
+### New
+
+- **Finances as an aUEC account:** Under Trade › Finances VerseKit keeps your
+  aUEC account with a balance and a statement with times. You can correct
+  every entry; ship sales appear with the full amount. Contracts count with
+  their total: fixed amounts plain, amounts estimated from scmdb with "ca.",
+  quests without a blueprint likewise. Contracts where you pay in first (such
+  as "Goods for the Getting") show as an expense marked "Stake (buy-in)".
+  Right now 83 of 102 contracts have an amount.
+- **Stock scan:** Under My Inventory › Stock scan VerseKit reads the
+  cards at the storage terminal: ore line, digits and names of blueprints,
+  components, armor and FPS weapons. What is read with certainty you book into
+  My Inventory; what is unsure asks you.
+- **Mining › Signature:** Your own digits have a tab of their own,
+  "Signature". Digits unfold, the pictures show as cards, and "Remove
+  duplicates" clears identical pictures. Suspicious digits show in yellow at
+  the front. VerseKit rejects unusable patterns when you teach it. You delete
+  your own digits one by one, and "Discard picture" always works.
+- **Mining › Does the rock pay?:** After the scan VerseKit shows whether the
+  rock can be broken open, which gas fits and what it is worth, using the
+  equipment from your My hangar. The lines also appear in the overlay. Wish
+  of Shockwaffel.
+- **Missing game names:** On the "Game" page a list shows the names that are
+  missing in the game: 105 gaps, 7 of them built by VerseKit itself, the rest
+  deliberately left empty.
+- **Cartel Bank: request a deposit:** Under Cartel Bank you request a deposit.
+  If a request is rejected, "My requests" shows "rejected" and "Reason: ...".
+- **Get a token at UEX:** Under Settings › UEX the button "Get a token at UEX"
+  opens "My Apps" directly.
+- **New answers in the FAQ:** The FAQ on the website has a key table, three
+  new questions, the UEX token with a picture and the signature digits with a
+  picture.
+
+### Improved
+
+- **My hangar › Loadout rearranged:** The loadout has areas and blocks per
+  part, the origin shows as a badge beside it, and the grid fits all sizes.
+  If a slot mixes origins it says "mixed". Fixed ore containers need only one
+  line, mining is always green.
+- **Mining › Refineries:** The refinery tiers now come from the game data of
+  4.10.3, for example Ferron high and Kazen low.
+- **Signature: "Next picture" with the game in front:** The key only records
+  when Star Citizen is in front, and never a picture twice. If you open the
+  overlay without values, it jumps to the "Signature" tab.
+- **Settings › Overlay:** All key bindings are in one card, F8 and Shift+F8
+  for the stock scan included.
+- **A pin on every page:** Finances, Cartel Bank, Update & About, the
+  organization pages and Signature can be pinned to the start page. The
+  organization cards no longer show raw keys.
+- **Blueprint list › Scans:** The picture of the question is larger and grows
+  when you move the mouse over it. "SO Helix" no longer asks when three
+  readings are equal.
+- **Refinery scan:** The hint sits at the top centre and no longer in the
+  photo. VerseKit compares instead of appending, and a finished order no
+  longer appears twice in overlay and page.
+- **Thanks page:** Bushwick4711 is spelled correctly.
+
+### Fixed
+
+- **Signature read speed and distance:** The signature mixed numbers up with
+  speed, distance or ring counts. Now every number needs a location mark.
+  Remembered pictures count correctly ("Remembered picture 1 of 3"), and
+  discarding always works. Reported by Horthy.
+- **Click on "Signature" in Mining:** The tab only said "Comes with the build
+  of this page". Now it opens the page.
+- **Overview froze:** The Finances card re-read everything on each visit and
+  stopped the window for up to nine seconds. Now VerseKit remembers what it
+  read, the overview opens in about a quarter of a second and the main window
+  stays usable.
+- **Language pack prefix "[CIV.S2.C]":** Names with this prefix were not
+  recognised, 103 blueprints stayed unmatched. Now they are matched. Reported
+  by ottpossum.
+- **Refinery: order twice:** The same finished order was in the list twice
+  (122 and 230 cSCU), and its state stayed "collect". Now it is there once
+  with the right state.
+- **Update check: a brief server hiccup:** When the update server did not
+  answer in time once (e.g. HTTP 504), it stood as an error to report. Now it
+  is only a note, and the next check catches up.
+
 ## v5.5.0 - 2026-11-21
 
 > You now capture blueprints right at the crafting terminal: mouse on it, F10.
@@ -178,7 +263,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Item tags in every translation:** When VerseKit did not know a word of the
   description (such as Dutch "Grootte"), part of the tag was missing,
-  "(Ind/1/B)" became "(Ind/–/B)". Items whose name the translation lacks (with
+  "(Ind/1/B)" became "(Ind/-/B)". Items whose name the translation lacks (with
   Dymerz, for example radars) got none at all. Now the English original fills
   every gap. Checked with German, English, Dutch, French, Italian, Portuguese,
   Spanish, Turkish and Bavarian.
@@ -249,7 +334,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   languages the tags behind the names were missing. Now it also understands
   the French details, and where a language is unknown, it takes the tag from
   the game's English original. In English many weapons got the size of their
-  magazine or battery, like "(Bal/45/–)"; now they show only "(Bal)", as in
+  magazine or battery, like "(Bal/45/-)"; now they show only "(Bal)", as in
   German.
 
 ## v5.4.2 - 2026-11-18

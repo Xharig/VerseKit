@@ -571,7 +571,7 @@ mod tests {
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
             set_thread_language(lang);
-            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 for width in [380.0, 520.0, 900.0] {
                     let ctx = context();
                     crate::apply_size(&ctx, points);

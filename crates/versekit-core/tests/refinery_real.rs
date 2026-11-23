@@ -41,15 +41,19 @@ fn size_of(name: &str) -> Option<(i64, i64)> {
 fn every_kept_picture_of_the_terminal_gives_its_lines() {
     let Some(folder) = std::env::var_os("VERSEKIT_REFINERY_RAW") else { return };
     let materials: Vec<String> =
-        ["Iron", "Quantainium", "Laranite", "Tungsten", "Corundum", "Titanium", "Quartz", "Ouratite", "Agricium"]
-            .map(String::from)
-            .to_vec();
+        [
+            "Iron", "Quantainium", "Laranite", "Tungsten", "Corundum", "Titanium", "Quartz", "Ouratite", "Agricium",
+            "Bexalite", "Gold", "Borase", "Torite",
+        ]
+        .map(String::from)
+        .to_vec();
     let places: Vec<String> =
         ["ARC-L1 Wide Forest Station", "CRU-L1 Ambitious Dream Station", "HUR-L1 Green Glade Station", "Levski"]
             .map(String::from)
             .to_vec();
     let index = Index::new(&materials, |_| false).with_places(&places);
-    let learned = Digits::default();
+    // The digits a new player reads with (the shipped ones), as the hotkey does.
+    let learned = Digits::default().completed_by(Digits::shipped());
     let mut names: Vec<String> = std::fs::read_dir(&folder)
         .expect("the folder")
         .flatten()
@@ -111,8 +115,8 @@ fn every_kept_picture_of_the_terminal_gives_its_lines() {
         }
         for job in &jobs {
             println!(
-                "total {:?} state {:?} remaining {:?} unsure {:?} station {:?}\n{}",
-                job.total, job.state, job.remaining, job.unsure, job.station, job.text
+                "total {:?} state {:?} remaining {:?} unsure {:?} station {:?} covered {}\n{}",
+                job.total, job.state, job.remaining, job.unsure, job.station, job.covered, job.text
             );
         }
         if !jobs.iter().any(|j| !j.text.trim().is_empty()) {

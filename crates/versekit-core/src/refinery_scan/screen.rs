@@ -125,11 +125,30 @@ pub fn index(paths: &Paths) -> Index {
     Index::of(&StockData::load(|name| paths.app_file(name)))
 }
 
-/// `read_screen`: the area of the game grabbed and read, `(jobs, kept)`. A reading that stays empty or unsure
-/// keeps a picture: the part of the table, or the whole picture at most [`KEEP_MAX_WIDTH`] wide when no table
-/// was found.
+/// `read_screen`: the area of the game grabbed and read, `(jobs, kept)`, the jobs taken into the store of the jobs
+/// ([`remember`]). The button of the page and the hotkey of the overlay go this one way. A reading that stays empty
+/// or unsure keeps a picture: the part of the table, or the whole picture at most [`KEEP_MAX_WIDTH`] wide when no
+/// table was found.
 pub fn read_screen(paths: &Paths, rect: screen_grab::Area) -> Result<(Vec<ScannedJob>, bool), ScanError> {
+    read_screen_then(paths, rect, &|| {})
+}
+
+/// [`read_screen`], telling `grabbed` once the picture is taken, before it is read: only then may a notice show
+/// that the reading runs, else it stands in the picture over the terminal.
+pub fn read_screen_then(
+    paths: &Paths,
+    rect: screen_grab::Area,
+    grabbed: &dyn Fn(),
+) -> Result<(Vec<ScannedJob>, bool), ScanError> {
     let raw = screen_grab::grab_raw(rect).map_err(|e| ScanError::new(Reason::Grab, e.key()))?;
+    grabbed();
+    let read = read_grabbed(paths, rect, raw)?;
+    remember(paths, &read.0);
+    Ok(read)
+}
+
+/// The grabbed picture `raw` of `rect` read.
+fn read_grabbed(paths: &Paths, rect: screen_grab::Area, raw: Vec<u8>) -> Result<(Vec<ScannedJob>, bool), ScanError> {
     let bitmap = Bitmap { width: i64::from(rect.2), height: i64::from(rect.3), raw };
     let size = (bitmap.width, bitmap.height);
     let mut keep_one = |what: Keep| {
@@ -153,10 +172,13 @@ fn clamped(area: Area, size: (i64, i64)) -> Area {
 /// `scan_from_game`: read while Star Citizen is in front, without waiting; `None` when it is not. The jobs with
 /// a time left go into the store of the jobs.
 pub fn scan_from_game(paths: &Paths) -> Result<Option<(Vec<ScannedJob>, bool)>, ScanError> {
+    scan_from_game_then(paths, &|| {})
+}
+
+/// [`scan_from_game`], telling `grabbed` as [`read_screen_then`] does.
+pub fn scan_from_game_then(paths: &Paths, grabbed: &dyn Fn()) -> Result<Option<(Vec<ScannedJob>, bool)>, ScanError> {
     let Some(rect) = screen_grab::game_rect() else { return Ok(None) };
-    let read = read_screen(paths, rect)?;
-    remember(paths, &read.0);
-    Ok(Some(read))
+    read_screen_then(paths, rect, grabbed).map(Some)
 }
 
 /// The jobs of a reading into the store of the jobs (`refinery_jobs.remember`).
@@ -213,6 +235,7 @@ pub fn reading_value(jobs: &[ScannedJob], kept: bool) -> Value {
                 ),
             ),
             ("station".into(), Value::str(j.station.clone())),
+            ("verdeckt".into(), Value::Bool(j.covered)),
         ])
     };
     Value::Object(vec![
@@ -265,6 +288,7 @@ pub fn reading_of(value: &Value) -> Option<(Vec<ScannedJob>, bool)> {
             remaining: number(item, "remaining"),
             cells,
             station: text(item, "station").unwrap_or_default(),
+            covered: item.get("verdeckt") == Some(&Value::Bool(true)),
         });
     }
     Some((jobs, value.get("aufgehoben") == Some(&Value::Bool(true))))
@@ -310,6 +334,7 @@ mod tests {
                 crop: Gray { width: 2, height: 2, gray: vec![0, 255, 30, 7] },
             }],
             station: "ARC-L1 Wide Forest Station".into(),
+            covered: true,
         }];
         let value = reading_value(&jobs, true);
         let text = jsonio::dumps(&value, None, false);

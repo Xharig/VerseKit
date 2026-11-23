@@ -149,19 +149,65 @@ fn number(value: &Value) -> Option<f64> {
     }
 }
 
-/// All kept jobs: objects with a number as `ends`.
+/// All kept jobs: objects with a number as `ends`; jobs that are one (see [`join_doubles`]) come as one.
 pub fn load(paths: &Paths) -> Vec<Map> {
     let Ok(Value::Object(data)) = jsonio::read_json(&paths.app_file(FILE)) else { return Vec::new() };
     match data.iter().find(|(k, _)| k == "auftraege") {
-        Some((_, Value::Array(jobs))) => jobs
-            .iter()
-            .filter_map(|j| match j {
-                Value::Object(map) if map.iter().any(|(k, v)| k == "ends" && number(v).is_some()) => Some(map.clone()),
-                _ => None,
-            })
-            .collect(),
+        Some((_, Value::Array(jobs))) => join_doubles(
+            jobs.iter()
+                .filter_map(|j| match j {
+                    Value::Object(map) if map.iter().any(|(k, v)| k == "ends" && number(v).is_some()) => {
+                        Some(map.clone())
+                    }
+                    _ => None,
+                })
+                .collect(),
+            crate::export::now_unix() as f64,
+        ),
         _ => Vec::new(),
     }
+}
+
+/// Jobs that are done at `now`, share their materials (in any order, without case) and their place (or have none
+/// on one side) are one job read twice (22.11.2026: a wrong sum, then the right one, both booked): the newer one
+/// (the later end) wins and keeps the pickup, the key and the place of the older one when it has none of its own.
+/// Running jobs are never joined.
+pub fn join_doubles(jobs: Vec<Map>, now: f64) -> Vec<Map> {
+    let sorted = |job: &Map| {
+        let materials = job.iter().find(|(k, _)| k == "materials").map(|(_, v)| v);
+        let mut list = key_of(materials, None).0;
+        list.sort();
+        list
+    };
+    let mut kept: Vec<Map> = Vec::new();
+    for job in jobs {
+        let (materials, place) = (sorted(&job), text(&job, PLACE));
+        let twin = if materials.is_empty() || ends_of(&job) > now {
+            None
+        } else {
+            kept.iter().position(|known| {
+                let there = text(known, PLACE);
+                ends_of(known) <= now
+                    && sorted(known) == materials
+                    && (there.is_empty() || place.is_empty() || there.eq_ignore_ascii_case(&place))
+            })
+        };
+        let Some(i) = twin else {
+            kept.push(job);
+            continue;
+        };
+        let (mut winner, loser) =
+            if ends_of(&job) >= ends_of(&kept[i]) { (job, kept[i].clone()) } else { (kept[i].clone(), job) };
+        for field in [PICKED_UP, KEY, PLACE] {
+            if !winner.iter().any(|(k, _)| k == field)
+                && let Some((_, value)) = loser.iter().find(|(k, _)| k == field)
+            {
+                winner.push((field.to_string(), value.clone()));
+            }
+        }
+        kept[i] = winner;
+    }
+    kept
 }
 
 fn save(paths: &Paths, jobs: &[Map]) -> bool {
@@ -215,6 +261,44 @@ fn key_of(materials: Option<&Value>, total: Option<&Value>) -> (Vec<String>, Val
     (materials, total)
 }
 
+/// The kept job that is the one of a reading with the materials `materials` (lower case) at `place` without
+/// looking at the sum: the same materials (in any order), at no other place. With `ends` (a running card) it must
+/// end within [`SAME_JOB_SEC`] of it and not be picked up (a running job of the same materials is a new one);
+/// without (a done card) the one whose end lies nearest to `now`, a picked up one (its yield is booked, the card
+/// stays at the terminal until fetched) only when no other fits.
+fn same_materials(
+    by_key: &[((Vec<String>, Value), Map)],
+    materials: &[String],
+    place: &str,
+    ends: Option<f64>,
+    now: f64,
+) -> Option<usize> {
+    let sorted = |list: &[String]| {
+        let mut list = list.to_vec();
+        list.sort();
+        list
+    };
+    let wanted = sorted(materials);
+    if wanted.is_empty() {
+        return None;
+    }
+    by_key
+        .iter()
+        .enumerate()
+        .filter(|(_, (key, job))| {
+            let there = text(job, PLACE);
+            sorted(&key.0) == wanted
+                && (ends.is_none() || !picked_up(job))
+                && (there.is_empty() || place.is_empty() || there.eq_ignore_ascii_case(place))
+                && ends.is_none_or(|ends| (ends_of(job) - ends).abs() <= SAME_JOB_SEC)
+        })
+        .min_by(|(_, (_, a)), (_, (_, b))| {
+            let at = ends.unwrap_or(now);
+            picked_up(a).cmp(&picked_up(b)).then_with(|| (ends_of(a) - at).abs().total_cmp(&(ends_of(b) - at).abs()))
+        })
+        .map(|(i, _)| i)
+}
+
 fn ends_of(job: &Map) -> f64 {
     job.iter().find(|(k, _)| k == "ends").and_then(|(_, v)| number(v)).unwrap_or(f64::INFINITY)
 }
@@ -242,13 +326,17 @@ pub fn merge(stored: &[Map], scanned: &[crate::refinery_scan::ScannedJob], now: 
         if key.0.is_empty() {
             continue;
         }
+        let place = crate::text::py_strip(&job.station).to_string();
+        // The sum is shown, not a part of the job: it grows while the job runs. The same job is the one with the
+        // same materials and sum, else the one with the same materials at the same place that ends with it.
+        let found = slot(&by_key, &key).or_else(|| same_materials(&by_key, &key.0, &place, job.remaining.map(|r| now + r as f64), now));
         match (job.remaining, job.state) {
             (Some(remaining), state) if state != State::Done => {
                 let ends = now + remaining as f64;
                 // The same job read again after scrolling: it ends at the same time and shares at least two
                 // materials (a list long enough to scroll holds several). Its materials are joined, its sum is the
                 // newer one.
-                let scrolled = slot(&by_key, &key).is_none().then(|| {
+                let scrolled = found.is_none().then(|| {
                     by_key.iter().position(|(k, known)| {
                         let shared = k.0.iter().filter(|m| key.0.contains(m)).count();
                         (ends_of(known) - ends).abs() <= SAME_JOB_SEC && shared >= 2
@@ -269,7 +357,7 @@ pub fn merge(stored: &[Map], scanned: &[crate::refinery_scan::ScannedJob], now: 
                     ("ends".to_string(), Value::Float(ends)),
                 ];
                 let key = key_of(Some(&materials), Some(&Value::str(job.total.clone())));
-                let known = slot(&by_key, &key).or(scrolled.flatten());
+                let known = found.or(scrolled.flatten());
                 // What the sync needs: the place and the lines read now, joined to those of the job read before,
                 // and what the job carried for the Basetool. A reading without place or lines adds no field.
                 let before = known.map(|i| by_key[i].1.clone()).unwrap_or_default();
@@ -282,7 +370,6 @@ pub fn merge(stored: &[Map], scanned: &[crate::refinery_scan::ScannedJob], now: 
                 if !lines.is_empty() {
                     entry.push((GOODS.to_string(), goods_value(&lines)));
                 }
-                let place = crate::text::py_strip(&job.station).to_string();
                 if !place.is_empty() {
                     entry.push((PLACE.to_string(), Value::str(place)));
                 }
@@ -298,15 +385,36 @@ pub fn merge(stored: &[Map], scanned: &[crate::refinery_scan::ScannedJob], now: 
                     None => by_key.push((key, entry)),
                 }
             }
-            (_, State::Done) => {
-                if let Some(i) = slot(&by_key, &key) {
+            (_, State::Done) => match found {
+                Some(i) => {
                     let known = &mut by_key[i].1;
                     if now < ends_of(known) {
                         map_set(known, "ends", Value::Float(now));
                     }
                     map_set(known, "notified", Value::Bool(true));
+                    if truthy(Some(&Value::str(job.total.clone()))) {
+                        map_set(known, "total", Value::str(job.total.clone()));
+                    }
                 }
-            }
+                // A card first read when it is done (never seen running): kept as a job that is over, with its
+                // lines and place, so the pickup and the sync find it.
+                None => {
+                    let mut entry = vec![
+                        ("materials".to_string(), Value::Array(job.materials.iter().map(|m| Value::str(m.clone())).collect())),
+                        ("total".to_string(), Value::str(job.total.clone())),
+                        ("ends".to_string(), Value::Float(now)),
+                        ("notified".to_string(), Value::Bool(true)),
+                    ];
+                    let lines = goods_of_text(&job.text);
+                    if !lines.is_empty() {
+                        entry.push((GOODS.to_string(), goods_value(&lines)));
+                    }
+                    if !place.is_empty() {
+                        entry.push((PLACE.to_string(), Value::str(place)));
+                    }
+                    by_key.push((key, entry));
+                }
+            },
             _ => {}
         }
     }
@@ -405,21 +513,28 @@ pub fn booked_job(jobs: &[Map], booked: &[String]) -> Option<usize> {
     best.map(|(index, ..)| index)
 }
 
-/// The job a reading of the terminal stands for: the same materials (without case) and the same sum, not picked up.
+/// The job a reading of the terminal stands for: the same materials (without case), not picked up; of several the
+/// one with the same sum, else the one that ended first. The sum only decides between jobs: it grows while a job
+/// runs, so a reading of the same job may show another one.
 pub fn read_job(jobs: &[Map], materials: &[String], total: &str) -> Option<usize> {
     let key = key_of(
         Some(&Value::Array(materials.iter().map(|m| Value::str(m.clone())).collect())),
         Some(&Value::str(total)),
     );
-    jobs.iter().position(|job| {
+    let own = |job: &Map| {
         let get = |name: &str| job.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
-        let own = key_of(get("materials").as_ref(), get("total").as_ref());
-        !picked_up(job) && own.0 == key.0 && jsonio::py_eq_value(&own.1, &key.1)
-    })
+        key_of(get("materials").as_ref(), get("total").as_ref())
+    };
+    let fitting: Vec<usize> = (0..jobs.len()).filter(|&i| !picked_up(&jobs[i]) && own(&jobs[i]).0 == key.0).collect();
+    fitting
+        .iter()
+        .copied()
+        .find(|&i| jsonio::py_eq_value(&own(&jobs[i]).1, &key.1))
+        .or_else(|| fitting.iter().copied().min_by(|&a, &b| ends_of(&jobs[a]).total_cmp(&ends_of(&jobs[b]))))
 }
 
 /// Whether a reading holds nothing new: every job of it with materials stands already in `stored` (the same
-/// materials and sum, not picked up, as [`read_job`] finds it). A reading without any job with materials is not.
+/// materials, not picked up, as [`read_job`] finds it). A reading without any job with materials is not.
 pub fn all_known(stored: &[Map], scanned: &[crate::refinery_scan::ScannedJob]) -> bool {
     let read: Vec<_> = scanned.iter().filter(|job| !job.materials.is_empty()).collect();
     !read.is_empty() && read.iter().all(|job| read_job(stored, &job.materials, &job.total).is_some())
@@ -505,6 +620,7 @@ mod tests {
             remaining,
             cells: Vec::new(),
             station: String::new(),
+            covered: false,
         }
     }
 
@@ -534,6 +650,100 @@ mod tests {
         assert_eq!(other.len(), 2);
     }
 
+    /// Levski, 22.11.2026: the sum under a running card grows while it runs (122, later 230 cSCU). The sum is shown,
+    /// not a part of what makes the job: a job of one material read again with a larger sum stays one job, and the
+    /// card read as done marks it done.
+    #[test]
+    fn a_growing_sum_keeps_the_job_and_the_done_card_finds_it() {
+        use crate::refinery_scan::State;
+        let now = 1_000_000.0;
+        let first = merge(&[], &[scanned(&["Gold"], "1.22", State::Running, Some(600))], now);
+        let grown = merge(&first, &[scanned(&["Gold"], "2.30", State::Running, Some(540))], now + 60.0);
+        assert_eq!(grown.len(), 1, "{grown:?}");
+        assert_eq!(text(&grown[0], "total"), "2.30", "the newest sum is shown");
+        let done = merge(&grown, &[scanned(&["Gold"], "230", State::Done, None)], now + 700.0);
+        assert_eq!(done.len(), 1, "{done:?}");
+        assert!(done[0].iter().any(|(k, v)| k == "notified" && *v == Value::Bool(true)), "{done:?}");
+        // Known with another sum: still this job.
+        assert!(all_known(&grown, &[scanned(&["gold"], "1.80", State::Running, Some(500))]));
+        let names = vec!["Gold".to_string()];
+        assert_eq!(read_job(&grown, &names, "230"), Some(0));
+        // A job of the same material that ends far apart is another one.
+        let later = merge(&grown, &[scanned(&["Gold"], "0.40", State::Running, Some(9000))], now + 60.0);
+        assert_eq!(later.len(), 2);
+    }
+
+    /// Levski, 22.11.2026: the first reading (122) was booked, the card read again (230): the same job, not a second.
+    #[test]
+    fn a_done_card_read_again_belongs_to_the_booked_job_and_a_running_one_stays_new() {
+        use crate::refinery_scan::State;
+        let now = 1_795_380_000.0;
+        let stored = [job(
+            r#"{"materials": ["Bexalite", "Bexalite", "Gold", "Borase"], "total": "122", "ends": 1795330508.8,
+                "ort": "Levski", "abgeholt": 1795330036.0, "notified": true}"#,
+        )];
+        let mut done = scanned(&["Bexalite", "Bexalite", "Gold", "Borase"], "230", State::Done, None);
+        done.station = "Levski".into();
+        let jobs = merge(&stored, &[done.clone()], now);
+        assert_eq!(jobs.len(), 1, "{jobs:?}");
+        assert_eq!(text(&jobs[0], "total"), "230", "the new reading");
+        assert!(picked_up(&jobs[0]), "still booked");
+        // Another place is another job.
+        done.station = "Port Tressler".into();
+        assert_eq!(merge(&stored, &[done], now).len(), 2);
+        // A job still running with the same materials is a job of its own.
+        let running = scanned(&["Bexalite", "Bexalite", "Gold", "Borase"], "230", State::Running, Some(600));
+        assert_eq!(merge(&stored, &[running], now).len(), 2);
+    }
+
+    #[test]
+    fn doubles_of_done_jobs_in_the_saved_data_become_one_and_the_newer_wins() {
+        let now = 1_795_380_000.0;
+        let first = job(
+            r#"{"materials": ["Bexalite", "Bexalite", "Gold", "Borase"], "total": "122", "ends": 1795330508.8,
+                "ort": "Levski", "abgeholt": 1795330036.0}"#,
+        );
+        let second = job(
+            r#"{"materials": ["Borase", "Gold", "bexalite", "Bexalite"], "total": "230", "ends": 1795379273.7,
+                "ort": "Levski", "schluessel": "vk-rf-6ec1", "abgeholt": 1795379466.0}"#,
+        );
+        for jobs in [vec![first.clone(), second.clone()], vec![second.clone(), first.clone()]] {
+            let one = join_doubles(jobs, now);
+            assert_eq!(one.len(), 1, "{one:?}");
+            assert_eq!(text(&one[0], "total"), "230");
+            assert_eq!(text(&one[0], KEY), "vk-rf-6ec1");
+            assert!(picked_up(&one[0]));
+        }
+        // Another place, a running job and a job without materials are not joined.
+        let mut elsewhere = second.clone();
+        map_set(&mut elsewhere, PLACE, Value::str("Port Tressler"));
+        assert_eq!(join_doubles(vec![first.clone(), elsewhere], now).len(), 2);
+        let mut running = second.clone();
+        map_set(&mut running, "ends", Value::Float(now + 60.0));
+        assert_eq!(join_doubles(vec![first, running], now).len(), 2);
+    }
+
+    /// A card read only when it is done already (never seen running) is kept as a job that is over: the pickup
+    /// and the sync find it.
+    #[test]
+    fn a_card_first_read_as_done_is_kept_as_over() {
+        use crate::refinery_scan::State;
+        let now = 1_000_000.0;
+        let mut done = scanned(&["Bexalite", "Gold", "Borase"], "230", State::Done, None);
+        done.text = "Bexalite 302 181 cSCU\nGold 553 10 cSCU\nBorase 584 21 cSCU".into();
+        done.station = "Levski".into();
+        let jobs = merge(&[], &[done.clone()], now);
+        assert_eq!(jobs.len(), 1, "{jobs:?}");
+        assert_eq!(ends(&jobs[0]), now);
+        assert!(jobs[0].iter().any(|(k, v)| k == "notified" && *v == Value::Bool(true)));
+        assert_eq!(text(&jobs[0], PLACE), "Levski");
+        assert_eq!(goods(&jobs[0]).len(), 3);
+        // Read again a minute later: still one job, its end stays.
+        let again = merge(&jobs, &[done], now + 60.0);
+        assert_eq!(again.len(), 1);
+        assert_eq!(ends(&again[0]), now);
+    }
+
     #[test]
     fn a_scan_sets_the_end_replaces_it_marks_done_and_forgets_after_a_day() {
         use crate::refinery_scan::State;
@@ -549,16 +759,10 @@ mod tests {
         let done = merge(&again, &[scanned(&["Gold", "Iron"], "12.76", State::Done, None)], now + 120.0);
         assert_eq!(ends(&done[0]), now + 120.0);
         assert!(done[0].iter().any(|(k, v)| k == "notified" && *v == Value::Bool(true)));
-        // Done and unknown, or without materials: nothing new.
-        assert_eq!(
-            merge(
-                &done,
-                &[scanned(&["Quarz"], "", State::Done, None), scanned(&[], "1", State::Running, Some(5))],
-                now
-            )
-            .len(),
-            1
-        );
+        // Without materials: nothing new. A done card never seen running is kept as over (it was dropped before,
+        // and the pickup did not find it).
+        assert_eq!(merge(&done, &[scanned(&[], "1", State::Running, Some(5))], now).len(), 1);
+        assert_eq!(merge(&done, &[scanned(&["Quarz"], "", State::Done, None)], now).len(), 2);
         // A day after its end it falls out; the list stands by the end.
         assert!(merge(&done, &[], now + 120.0 + KEEP_DONE_SEC + 1.0).is_empty());
         let two = merge(
@@ -643,8 +847,8 @@ mod tests {
         ];
         let running = |materials: &[&str], total: &str| scanned(materials, total, State::Running, Some(60));
         assert!(all_known(&stored, &[running(&["gold", "IRON"], "15")]));
-        // A job with another sum, or one more job, is new; so is a job picked up already.
-        assert!(!all_known(&stored, &[running(&["Gold", "Iron"], "16")]));
+        // Another sum is the same job grown; one more job is new, so is a job picked up already.
+        assert!(all_known(&stored, &[running(&["Gold", "Iron"], "16")]));
         assert!(!all_known(&stored, &[running(&["Gold", "Iron"], "15"), running(&["Quartz"], "2")]));
         assert!(!all_known(&stored, &[running(&["Tin"], "3")]));
         // Lines without a material do not count; a reading of nothing is not known.

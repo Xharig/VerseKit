@@ -151,6 +151,9 @@ pub enum Signal {
     Show = 13,
     /// Show the page "Kartellbank" (a click on a bank line of the overlay).
     OpenBank = 14,
+    /// Show the tab "Signatur" of the page "Mining" (the teaching of the digits, where the overlay cannot start the
+    /// small window).
+    OpenSignature = 15,
 }
 
 impl Signal {
@@ -170,6 +173,7 @@ impl Signal {
             12 => Some(Signal::DemandWanted),
             13 => Some(Signal::Show),
             14 => Some(Signal::OpenBank),
+            15 => Some(Signal::OpenSignature),
             _ => None,
         }
     }
@@ -769,11 +773,12 @@ mod tests {
             Signal::DemandWanted,
             Signal::Show,
             Signal::OpenBank,
+            Signal::OpenSignature,
         ] {
             assert_eq!(Signal::from_code(signal as usize), Some(signal));
         }
         assert_eq!(Signal::from_code(0), None);
-        assert_eq!(Signal::from_code(15), None);
+        assert_eq!(Signal::from_code(16), None);
     }
 
     /// A handing over goes as one message and back whole; anything cut, too long, of an unknown kind or without the
@@ -900,6 +905,7 @@ mod tests {
             Signal::DemandWanted,
             Signal::Show,
             Signal::OpenBank,
+            Signal::OpenSignature,
         ];
         let mut bytes = std::collections::HashSet::new();
         for asked in all.map(Asked::Signal).into_iter().chain([Asked::Close]) {

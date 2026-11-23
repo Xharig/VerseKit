@@ -136,6 +136,7 @@ impl Bench {
             remaining: Some(seconds),
             cells: Vec::new(),
             station: REFINERIES[0].into(),
+            covered: false,
         };
         refinery_jobs::remember(&self.paths, &[job], now());
     }

@@ -32,8 +32,12 @@ pub const START_SETTING: &str = "startseite";
 
 /// Pages that became a view of another page: the stored name leads to the page that took over (a stored last page, a
 /// counter), the view itself is the business of the window.
-pub const MOVED_PAGES: [(&str, &str); 3] =
-    [("hf_farmliste", "hf_herstellung"), ("hf_fortschritt", "hf_liste"), ("hf_raffinerien", "hf_bergbau")];
+pub const MOVED_PAGES: [(&str, &str); 4] = [
+    ("hf_farmliste", "hf_herstellung"),
+    ("hf_fortschritt", "hf_liste"),
+    ("hf_raffinerien", "hf_bergbau"),
+    ("hf_signatur", "hf_bergbau"),
+];
 
 /// The page that took over from `page` when it became a view, else `page`.
 pub fn moved(page: &str) -> &str {

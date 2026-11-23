@@ -40,6 +40,7 @@
 pub mod form;
 pub mod item_info;
 pub mod item_stats;
+pub mod names;
 pub mod ranks;
 pub mod reputation;
 pub mod sources;
@@ -258,6 +259,9 @@ pub struct Inputs {
     /// The stock values of weapons and components from the catalog of the game
     /// data; empty for a catalog without them.
     pub item_stats: Vec<item_stats::ItemStats>,
+    /// The name keys the game data ask for and the English original lacks (`names::FILE_KEY`); empty for a catalog
+    /// without them.
+    pub name_needs: Vec<names::NameNeed>,
     /// The version the menu line names (empty: none).
     pub version: String,
 }
@@ -426,12 +430,53 @@ fn same_file(paths: &Paths, a: &str, b: &str) -> bool {
 
 /// `injection.save_origtext`, into the note of `ini`'s channel.
 pub fn save_origtext(paths: &Paths, texts: Map, ini: &str) -> bool {
-    let data = vec![
+    save_origtext_with(paths, texts, ini, &[])
+}
+
+/// [`save_origtext`] with the names formed for keys the game text lacks ([`names`]): the note keeps them for the
+/// report and to tell them from a name the game supplies later.
+fn save_origtext_with(paths: &Paths, texts: Map, ini: &str, added: &[names::Filled]) -> bool {
+    let mut data = vec![
         ("datei".to_string(), Value::str(ini)),
         ("stand".to_string(), Value::str(now_stamp())),
         ("texte".to_string(), Value::Object(texts)),
     ];
+    if !added.is_empty() {
+        let list = added
+            .iter()
+            .map(|n| {
+                Value::Object(vec![
+                    ("k".to_string(), Value::str(n.key.as_str())),
+                    ("t".to_string(), Value::str(n.text.as_str())),
+                    ("w".to_string(), Value::str(n.how.code())),
+                    ("v".to_string(), Value::str(n.from.as_str())),
+                ])
+            })
+            .collect();
+        data.push((NAMES_NOTE.to_string(), Value::Array(list)));
+    }
     write_note_at(&origtext_path(paths, ini), data, "injection.save_origtext")
+}
+
+/// The field of the note that keeps the formed names.
+const NAMES_NOTE: &str = "namen";
+
+/// The names VerseKit formed for keys the game text lacks in the file `ini`, as the last writing left them; empty
+/// after removing and for a file without any.
+pub fn added_names(paths: &Paths, ini: &str) -> Vec<names::Filled> {
+    let note = origtext_at(&origtext_path(paths, ini));
+    let Some(Value::Array(list)) = field(&note, NAMES_NOTE) else { return Vec::new() };
+    list.iter()
+        .filter_map(|entry| {
+            let text = |name: &str| entry.get(name).and_then(Value::as_str).map(str::to_string);
+            Some(names::Filled {
+                key: text("k")?,
+                text: text("t")?,
+                how: names::How::from_code(&text("w")?)?,
+                from: text("v").unwrap_or_default(),
+            })
+        })
+        .collect()
 }
 
 // ----------------------------------------------------- recognising
@@ -616,6 +661,18 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
             .collect();
         item_info::missing_texts(&present, &inputs.items, &inputs.item_texts, item_info::enabled(paths))
     };
+    // Names the game data ask for and the English original lacks, formed from related names of this file. A name
+    // the file holds a text of the game's own for since is no addition of ours any more and stays.
+    let (filled, foreign_names) = if remove_only || (inputs.name_needs.is_empty() && origtext_old.is_empty()) {
+        (Vec::new(), HashSet::new())
+    } else {
+        let handled: HashSet<String> = gaps.iter().map(|gap| gap.key.to_lowercase()).collect();
+        let recorded = added_names(paths, ini);
+        formed_names(&lines, &origtext_old, fallback, &inputs.name_needs, &recorded, &handled)
+    };
+    if !foreign_names.is_empty() {
+        origtext_old.retain(|(key, _)| !foreign_names.contains(key));
+    }
     let item_lines: Vec<String>;
     let item_source: &[String] = if gaps.is_empty() {
         &lines
@@ -837,14 +894,81 @@ pub fn apply_texts(paths: &Paths, ini: &str, language: &str, inputs: &Inputs, re
         map_set(&mut origtext_new, key, Value::str(ADDED));
     }
     changed += added_items.len();
+    for name in &filled {
+        let tag = (!name_suffix.is_empty()).then(|| inputs.original_specs.get(&name.key.to_lowercase())).flatten();
+        let text = tag.map_or_else(|| name.text.clone(), |tag| form::name_with_detail(&name.text, tag));
+        new.push(format!("{}={text}", name.key));
+        map_set(&mut origtext_new, &name.key, Value::str(ADDED));
+    }
+    changed += filled.len();
 
     let mut out = new.iter().map(|line| form::single_line(line)).collect::<Vec<_>>().join("\n");
     out.push('\n');
     if let Err(error) = write_game_file(ini, out.as_bytes()) {
         return Outcome::WriteFailed(error.to_string());
     }
-    save_origtext(paths, origtext_new, ini);
+    save_origtext_with(paths, origtext_new, ini, &filled);
     Outcome::Done(changed)
+}
+
+/// The names to form for the keys of `needs` ([`names`]) and the keys among our earlier additions that the game has a
+/// text of its own for now. `recorded` are the names the last writing added; `handled` the keys (lower case) another
+/// addition already takes care of.
+///
+/// Relatives are read from the original texts of the lines (what a tag or a block of ours was added to), without the
+/// tag; the lines of our own earlier names count as absent, so a name is worked out afresh every time.
+fn formed_names(
+    lines: &[String],
+    origtext_old: &Map,
+    fallback: Fallback,
+    needs: &[names::NameNeed],
+    recorded: &[names::Filled],
+    handled: &HashSet<String>,
+) -> (Vec<names::Filled>, HashSet<String>) {
+    let ours: HashMap<String, &names::Filled> = recorded
+        .iter()
+        .filter(|name| matches!(field(origtext_old, &name.key), Some(Value::Str(s)) if s == ADDED))
+        .map(|name| (name.key.to_lowercase(), name))
+        .collect();
+    let held: HashMap<String, (&str, &str)> = lines
+        .iter()
+        .filter_map(|line| form::split_line(line))
+        .map(|(key, _, text)| (key.to_lowercase(), (key, text)))
+        .collect();
+    let derive = |skip: &HashSet<String>| -> Vec<names::Filled> {
+        let mut present: HashSet<String> = handled.clone();
+        let mut relatives: HashMap<String, (String, String)> = HashMap::new();
+        for (lower, (key, text)) in &held {
+            if skip.contains(lower) {
+                continue;
+            }
+            present.insert(lower.clone());
+            if lower.starts_with("item_name") && !text.is_empty() {
+                let original = strip_old(text, key, origtext_old, fallback);
+                if original == ADDED {
+                    continue;
+                }
+                let plain = crate::text::py_strip(&specs::strip_tag(&original)).to_string();
+                if !plain.is_empty() {
+                    relatives.insert(lower.clone(), ((*key).to_string(), plain));
+                }
+            }
+        }
+        names::fill(&relatives, &present, needs)
+    };
+    let first = derive(&ours.keys().cloned().collect());
+    // A line that holds neither what we wrote nor what we would write now holds the game's own text.
+    let foreign: HashSet<String> = ours
+        .iter()
+        .filter_map(|(lower, name)| {
+            let (key, text) = held.get(lower)?;
+            let shown = crate::text::py_strip(&specs::strip_tag(text)).to_string();
+            let now = first.iter().find(|f| f.key.to_lowercase() == *lower).map(|f| f.text.as_str());
+            (shown != name.text && Some(shown.as_str()) != now).then(|| (*key).to_string())
+        })
+        .collect();
+    let skip: HashSet<String> = ours.keys().filter(|lower| !held.get(*lower).is_some_and(|(key, _)| foreign.contains(*key))).cloned().collect();
+    (derive(&skip), foreign)
 }
 
 /// `injection.remove_texts`: take every addition back.

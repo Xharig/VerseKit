@@ -24,7 +24,7 @@ const OUTSIDE_THE_SIDEBAR: [&str; 3] = ["hf_wasistneu", "hf_diagnose", super::AS
 
 /// The views that were pages of their own: the keys still name them (a pinned tile, an old link), and opening one
 /// shows the view on the page that took over.
-const VIEW_PAGES: [&str; 3] = ["hf_fortschritt", "hf_farmliste", "hf_raffinerien"];
+const VIEW_PAGES: [&str; 4] = ["hf_fortschritt", "hf_farmliste", "hf_raffinerien", "hf_signatur"];
 
 impl SamplePage {
     /// The key of every page of the main window: the overview (empty key) first, then the page at the top

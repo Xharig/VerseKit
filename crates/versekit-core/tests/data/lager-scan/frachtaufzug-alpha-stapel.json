@@ -1,0 +1,2563 @@
+[
+  {
+    "datei": "ScreenShot-2026-11-22_02-45-56-13E.jpg",
+    "zeiger": [
+      2827,
+      666
+    ],
+    "name": "Arclight Pistol",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-45-56-304.jpg",
+    "zeiger": [
+      3045,
+      657
+    ],
+    "name": "Boomtube Rocket Launcher",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-45-57-658.jpg",
+    "zeiger": [
+      3247,
+      702
+    ],
+    "name": "TBF-4 \"Balefire\" Combat Knife",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-45-59-DDB.jpg",
+    "zeiger": [
+      3001,
+      1172
+    ],
+    "name": "FS-9 \"Stoneface\" LMG",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-01-439.jpg",
+    "zeiger": [
+      2817,
+      722
+    ],
+    "name": "S-38 \"One Empire\" Pistol",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-02-A16.jpg",
+    "zeiger": [
+      2910,
+      954
+    ],
+    "name": "Sawtooth \"Sunspike\" Combat Knife",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-06-7DE.jpg",
+    "zeiger": [
+      3241,
+      899
+    ],
+    "name": "Demeco \"Ultraviolet\" LMG",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-07-CD1.jpg",
+    "zeiger": [
+      3239,
+      1002
+    ],
+    "name": "Sizi Knife",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-09-63A.jpg",
+    "zeiger": [
+      3195,
+      1132
+    ],
+    "name": "P8-AR \"CitizenCon 2954\" Rifle",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-10-762.jpg",
+    "zeiger": [
+      2892,
+      1135
+    ],
+    "name": "F55 \"Alpine Sunset\" LMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-11-DD6.jpg",
+    "zeiger": [
+      3245,
+      761
+    ],
+    "name": "Quartz \"microTech\" Energy SMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-12-09B.jpg",
+    "zeiger": [
+      3142,
+      1024
+    ],
+    "name": "Pulse \"microTech\" Laser Pistol",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-12-1D5.jpg",
+    "zeiger": [
+      2837,
+      1005
+    ],
+    "name": "Prism \"Hurston\" Laser Shotgun",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-12-F3E.jpg",
+    "zeiger": [
+      3244,
+      827
+    ],
+    "name": "Pulse \"Crusader\" Laser Pistol",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-13-57C.jpg",
+    "zeiger": [
+      3001,
+      842
+    ],
+    "name": "Prism \"microTech\" Laser Shotgun",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-14-95A.jpg",
+    "zeiger": [
+      2837,
+      1018
+    ],
+    "name": "Quartz \"Hurston\" Energy SMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-16-141.jpg",
+    "zeiger": [
+      3244,
+      820
+    ],
+    "name": "VCK-1 \"Payback\" Blade",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-16-F56.jpg",
+    "zeiger": [
+      3102,
+      754
+    ],
+    "name": "Prism \"Crusader\" Laser Shotgun",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-17-424.jpg",
+    "zeiger": [
+      3237,
+      976
+    ],
+    "name": "Pulverizer \"Payback\" LMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-17-5DE.jpg",
+    "zeiger": [
+      2867,
+      979
+    ],
+    "name": "Prism \"ArcCorp\" Laser Shotgun",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-19-B2C.jpg",
+    "zeiger": [
+      2836,
+      826
+    ],
+    "name": "Killshot \"Payback\" Rifle",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-19-DB7.jpg",
+    "zeiger": [
+      3196,
+      845
+    ],
+    "name": "Pulse \"ArcCorp\" Laser Pistol",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-20-162.jpg",
+    "zeiger": [
+      2848,
+      1017
+    ],
+    "name": "Quartz \"Arccorp\" Energy SMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-22-637.jpg",
+    "zeiger": [
+      2970,
+      727
+    ],
+    "name": "Parallax \"Arccorp\" Energy Assault Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-23-9FB.jpg",
+    "zeiger": [
+      3034,
+      940
+    ],
+    "name": "Pulse \"Piconalia\" Laser Pistol",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-24-0B9.jpg",
+    "zeiger": [
+      3236,
+      1127
+    ],
+    "name": "Orange QuikFlarePro",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-24-E2E.jpg",
+    "zeiger": [
+      3239,
+      944
+    ],
+    "name": "Yellow QuikFlarePro",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-25-47F.jpg",
+    "zeiger": [
+      2718,
+      1130
+    ],
+    "name": "Cyan QuikFlarePro",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-26-8E3.jpg",
+    "zeiger": [
+      2816,
+      876
+    ],
+    "name": "Quartz \"Piconalia\" Energy SMG",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-27-B02.jpg",
+    "zeiger": [
+      3243,
+      864
+    ],
+    "name": "Red QuikFlarePro",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-27-C92.jpg",
+    "zeiger": [
+      3242,
+      893
+    ],
+    "name": "Green QuikFlarePro",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-28-00A.jpg",
+    "zeiger": [
+      2718,
+      1040
+    ],
+    "name": "Eyaja Knife",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-28-E63.jpg",
+    "zeiger": [
+      3031,
+      1053
+    ],
+    "name": "Fresnel \"Shadow Gild\" Energy LMG",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-30-5C2.jpg",
+    "zeiger": [
+      2868,
+      841
+    ],
+    "name": "F55 \"Deadlock\" LMG",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-30-718.jpg",
+    "zeiger": [
+      2908,
+      1011
+    ],
+    "name": "A03 \"Red Alert\" Sniper Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-30-862.jpg",
+    "zeiger": [
+      3204,
+      1017
+    ],
+    "name": "Ravager-212 \"Red Alert\" Twin Shotgun",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-32-067.jpg",
+    "zeiger": [
+      2732,
+      775
+    ],
+    "name": "ParaMed \"AA Support\" Medical Device",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-32-D8B.jpg",
+    "zeiger": [
+      3245,
+      764
+    ],
+    "name": "Paramed \"Cyanosis\" Medical Device",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-32-F00.jpg",
+    "zeiger": [
+      3071,
+      772
+    ],
+    "name": "P8-SC \"Red Alert\" SMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-33-1BC.jpg",
+    "zeiger": [
+      2683,
+      979
+    ],
+    "name": "OT8-RF \"HighSec\" (8x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-33-36A.jpg",
+    "zeiger": [
+      3038,
+      972
+    ],
+    "name": "P4-AR \"Star Kitten\" Rifle",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-34-7E1.jpg",
+    "zeiger": [
+      2873,
+      690
+    ],
+    "name": "Gallant \"Red Alert\" Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-35-C58.jpg",
+    "zeiger": [
+      2904,
+      904
+    ],
+    "name": "Gallant \"Conviction Camo\" Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-38-5AE.jpg",
+    "zeiger": [
+      3179,
+      868
+    ],
+    "name": "P4-AR \"SecondWind\" Rifle",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-39-872.jpg",
+    "zeiger": [
+      3285,
+      957
+    ],
+    "name": "P8AR Akuma Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-40-DB4.jpg",
+    "zeiger": [
+      2908,
+      869
+    ],
+    "name": "A03 Akuma Sniper Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-41-226.jpg",
+    "zeiger": [
+      2686,
+      1054
+    ],
+    "name": "LH86 Akuma Pistol",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-43-829.jpg",
+    "zeiger": [
+      3141,
+      809
+    ],
+    "name": "LH86 Akuma Pistol",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-43-ADF.jpg",
+    "zeiger": [
+      2924,
+      1015
+    ],
+    "name": "Atzkav \"Starwalker\" Sniper Rifle",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-44-EE6.jpg",
+    "zeiger": [
+      2947,
+      738
+    ],
+    "name": "A03 Akuma Sniper Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-45-1AB.jpg",
+    "zeiger": [
+      3176,
+      976
+    ],
+    "name": "FSK-8 Combat Knife",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-45-2E4.jpg",
+    "zeiger": [
+      2911,
+      971
+    ],
+    "name": "Veil Flash Hider2",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-46-454.jpg",
+    "zeiger": [
+      2676,
+      964
+    ],
+    "name": "PT2 (2x Holographic)",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-47-A59.jpg",
+    "zeiger": [
+      3220,
+      783
+    ],
+    "name": "Lux Flashlight",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-48-BD3.jpg",
+    "zeiger": [
+      3246,
+      766
+    ],
+    "name": "ParaMed Medical Device",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-48-D37.jpg",
+    "zeiger": [
+      3240,
+      994
+    ],
+    "name": "Sion \"Tweaker\" Compensator1",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-48-EC7.jpg",
+    "zeiger": [
+      3085,
+      1019
+    ],
+    "name": "P8-AR Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-49-049.jpg",
+    "zeiger": [
+      2718,
+      1000
+    ],
+    "name": "Omarof \"Deadeye\" (16x Telescopic)",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-50-44E.jpg",
+    "zeiger": [
+      2817,
+      813
+    ],
+    "name": "Tacit Suppressor3",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-50-5A7.jpg",
+    "zeiger": [
+      3029,
+      813
+    ],
+    "name": "Sion Compensator3",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-51-709.jpg",
+    "zeiger": [
+      3245,
+      834
+    ],
+    "name": "Sion Compensator2",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-51-877.jpg",
+    "zeiger": [
+      3244,
+      832
+    ],
+    "name": "ParaMed \"Oxide\" Medical Device",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-51-9F5.jpg",
+    "zeiger": [
+      3239,
+      1027
+    ],
+    "name": "Tacit Suppressor1",
+    "menge": 8,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-52-B7A.jpg",
+    "zeiger": [
+      3195,
+      1043
+    ],
+    "name": "EE16 (16x Telescopic)",
+    "menge": 8,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-53-147.jpg",
+    "zeiger": [
+      2673,
+      1031
+    ],
+    "name": "Emod Stabilizer3",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-53-FDD.jpg",
+    "zeiger": [
+      2925,
+      1052
+    ],
+    "name": "Omarof (16x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-54-5B3.jpg",
+    "zeiger": [
+      2886,
+      762
+    ],
+    "name": "Boomtube Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-55-969.jpg",
+    "zeiger": [
+      3239,
+      986
+    ],
+    "name": "Gamma Plus (3x Holographic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-56-B1A.jpg",
+    "zeiger": [
+      3098,
+      994
+    ],
+    "name": "Gamma \"Black Op\" (1x Holographic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-56-C74.jpg",
+    "zeiger": [
+      2806,
+      971
+    ],
+    "name": "Pulverizer LMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-57-176.jpg",
+    "zeiger": [
+      3164,
+      874
+    ],
+    "name": "Gamma Plus \"Lumen\" (3x Holographic)",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-57-FF3.jpg",
+    "zeiger": [
+      2809,
+      868
+    ],
+    "name": "Boomtube \"Mean Green\" Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-58-2DB.jpg",
+    "zeiger": [
+      3238,
+      1099
+    ],
+    "name": "Boomtube Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-58-491.jpg",
+    "zeiger": [
+      2883,
+      1095
+    ],
+    "name": "Boomtube Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-46-59-A12.jpg",
+    "zeiger": [
+      2904,
+      924
+    ],
+    "name": "Boomtube \"Mean Green\" Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-00-D45.jpg",
+    "zeiger": [
+      2989,
+      840
+    ],
+    "name": "Boomtube Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-01-1BC.jpg",
+    "zeiger": [
+      3201,
+      1040
+    ],
+    "name": "Boomtube \"Ruby\" Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-01-EAA.jpg",
+    "zeiger": [
+      2720,
+      826
+    ],
+    "name": "Theta Pro (8x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-02-5B2.jpg",
+    "zeiger": [
+      3144,
+      895
+    ],
+    "name": "Animus Missile Launcher",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-03-746.jpg",
+    "zeiger": [
+      2736,
+      892
+    ],
+    "name": "PT1 (1x Holographic)",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-03-8C1.jpg",
+    "zeiger": [
+      2818,
+      1076
+    ],
+    "name": "Scourge Railgun",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-04-A23.jpg",
+    "zeiger": [
+      3136,
+      1077
+    ],
+    "name": "FarSight \"Thunderstrike\" (8x Telescopic)",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-05-152.jpg",
+    "zeiger": [
+      3109,
+      1134
+    ],
+    "name": "Tau Plus \"Scorched\" (4x Telescopic)",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-05-DD2.jpg",
+    "zeiger": [
+      3166,
+      913
+    ],
+    "name": "ParaMed \"AA Support\" Medical Device",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-05-F58.jpg",
+    "zeiger": [
+      2903,
+      930
+    ],
+    "name": "FS-9 \"Stoneface\" LMG",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-07-667.jpg",
+    "zeiger": [
+      2857,
+      950
+    ],
+    "name": "Killshot Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-07-7E2.jpg",
+    "zeiger": [
+      3237,
+      961
+    ],
+    "name": "GP-33 MOD Grenade Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-09-DC9.jpg",
+    "zeiger": [
+      2923,
+      830
+    ],
+    "name": "GP-33 MOD Grenade Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-10-3E1.jpg",
+    "zeiger": [
+      3196,
+      844
+    ],
+    "name": "Veil Flash Hider3",
+    "menge": 3,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-11-59F.jpg",
+    "zeiger": [
+      2856,
+      835
+    ],
+    "name": "FS-9 \"Stoneface\" LMG",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-13-E1E.jpg",
+    "zeiger": [
+      2831,
+      737
+    ],
+    "name": "CQ7 \"Blacklist\" Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-13-F7B.jpg",
+    "zeiger": [
+      2654,
+      858
+    ],
+    "name": "ParaMed Medical Device",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-14-15F.jpg",
+    "zeiger": [
+      2977,
+      954
+    ],
+    "name": "Escalate Stabilizer2",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-14-30C.jpg",
+    "zeiger": [
+      3205,
+      929
+    ],
+    "name": "Vera Compensator3",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-15-4C1.jpg",
+    "zeiger": [
+      3242,
+      938
+    ],
+    "name": "Gamma Plus LL (3x Holographic)",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-16-AFD.jpg",
+    "zeiger": [
+      2903,
+      679
+    ],
+    "name": "Torrent Compensator3",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-16-C65.jpg",
+    "zeiger": [
+      2709,
+      657
+    ],
+    "name": "Omarof \"Mirage\" (16x Telescopic)",
+    "menge": 3.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-17-E01.jpg",
+    "zeiger": [
+      2733,
+      840
+    ],
+    "name": "Touchstone (8x Monitor)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-17-F6D.jpg",
+    "zeiger": [
+      2997,
+      879
+    ],
+    "name": "Vera Compensator1",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-18-0EC.jpg",
+    "zeiger": [
+      3193,
+      899
+    ],
+    "name": "Emod \"Tweaker\" Stabilizer2",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-18-267.jpg",
+    "zeiger": [
+      3243,
+      909
+    ],
+    "name": "Stoic Suppressor1",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-18-40A.jpg",
+    "zeiger": [
+      3237,
+      1106
+    ],
+    "name": "Emod Stabilizer2",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-19-5A7.jpg",
+    "zeiger": [
+      3171,
+      1105
+    ],
+    "name": "OT8-RF (8x Telescopic)",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-19-71E.jpg",
+    "zeiger": [
+      2826,
+      1095
+    ],
+    "name": "Scourge Railgun",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-21-DFA.jpg",
+    "zeiger": [
+      2979,
+      799
+    ],
+    "name": "Gamma Duo (2x Holographic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-21-F7C.jpg",
+    "zeiger": [
+      3191,
+      817
+    ],
+    "name": "Stark Compensator3",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-22-155.jpg",
+    "zeiger": [
+      3245,
+      831
+    ],
+    "name": "Omarof \"Venom\" (16x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-22-323.jpg",
+    "zeiger": [
+      3239,
+      1049
+    ],
+    "name": "Boomtube Rocket Launcher",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-23-4C4.jpg",
+    "zeiger": [
+      2885,
+      1047
+    ],
+    "name": "Emod Stabilizer1",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-23-616.jpg",
+    "zeiger": [
+      2644,
+      1045
+    ],
+    "name": "LH86 Pistol",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-24-A7E.jpg",
+    "zeiger": [
+      2804,
+      761
+    ],
+    "name": "CQ7 Rifle",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-28-9E4.jpg",
+    "zeiger": [
+      2967,
+      759
+    ],
+    "name": "CQ7 Rifle",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-29-E33.jpg",
+    "zeiger": [
+      3247,
+      747
+    ],
+    "name": "Paramed \"Cyanosis\" Medical Device",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-30-087.jpg",
+    "zeiger": [
+      3233,
+      985
+    ],
+    "name": "Vendetta \"Darkstalker\" HMG",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-30-248.jpg",
+    "zeiger": [
+      2839,
+      987
+    ],
+    "name": "Vendetta \"SteelTek\" HMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-34-1B7.jpg",
+    "zeiger": [
+      2910,
+      711
+    ],
+    "name": "Arlington Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-36-8AD.jpg",
+    "zeiger": [
+      2715,
+      907
+    ],
+    "name": "Tracer Laser Pointer Orange",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-37-C3C.jpg",
+    "zeiger": [
+      2712,
+      748
+    ],
+    "name": "FocalWave-10 (1x Holographic)",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-37-DCC.jpg",
+    "zeiger": [
+      3021,
+      737
+    ],
+    "name": "PT3 \"Deadfall\" (3x Holographic)",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-38-208.jpg",
+    "zeiger": [
+      2897,
+      936
+    ],
+    "name": "Pulverizer LMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-38-F58.jpg",
+    "zeiger": [
+      3201,
+      837
+    ],
+    "name": "Brightspot Flashlight Purple",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-39-563.jpg",
+    "zeiger": [
+      2787,
+      831
+    ],
+    "name": "Theta Pro LL (8x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-40-7FA.jpg",
+    "zeiger": [
+      3243,
+      890
+    ],
+    "name": "Arlington Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-40-967.jpg",
+    "zeiger": [
+      3238,
+      1077
+    ],
+    "name": "EE04 (4x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-41-C0C.jpg",
+    "zeiger": [
+      2748,
+      1054
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-43-3B3.jpg",
+    "zeiger": [
+      2692,
+      882
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-43-56A.jpg",
+    "zeiger": [
+      2643,
+      825
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-44-6FC.jpg",
+    "zeiger": [
+      2693,
+      925
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-44-851.jpg",
+    "zeiger": [
+      2768,
+      897
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-44-9A2.jpg",
+    "zeiger": [
+      2699,
+      824
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-45-C3E.jpg",
+    "zeiger": [
+      2901,
+      700
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-45-DC0.jpg",
+    "zeiger": [
+      2998,
+      625
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-46-063.jpg",
+    "zeiger": [
+      2964,
+      746
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-47-46-F16.jpg",
+    "zeiger": [
+      2913,
+      704
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-36-3F3.jpg",
+    "zeiger": [
+      3238,
+      1069
+    ],
+    "name": "Scorch Plasma Grenade",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-37-589.jpg",
+    "zeiger": [
+      3167,
+      1070
+    ],
+    "name": "Scorch Plasma Grenade",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-37-6DD.jpg",
+    "zeiger": [
+      2923,
+      1058
+    ],
+    "name": "Scorch Plasma Grenade",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-37-84A.jpg",
+    "zeiger": [
+      2709,
+      1039
+    ],
+    "name": "Stark Compensator2",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-38-B33.jpg",
+    "zeiger": [
+      2954,
+      818
+    ],
+    "name": "Scorch Plasma Grenade",
+    "menge": 7.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-39-E34.jpg",
+    "zeiger": [
+      3246,
+      784
+    ],
+    "name": "Stoic Suppressor2",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-39-F7F.jpg",
+    "zeiger": [
+      3252,
+      590
+    ],
+    "name": "Tau Plus LL (4x Telescopic)",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-40-0F6.jpg",
+    "zeiger": [
+      3185,
+      627
+    ],
+    "name": "EE16 (16x Telescopic)",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-40-25D.jpg",
+    "zeiger": [
+      2925,
+      626
+    ],
+    "name": "HG-2 Jaeger (2x Holographic)",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-40-3AA.jpg",
+    "zeiger": [
+      2721,
+      598
+    ],
+    "name": "FieldLite Flashlight",
+    "menge": 3.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-41-862.jpg",
+    "zeiger": [
+      2778,
+      771
+    ],
+    "name": "Quell Suppressor2",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-42-9AF.jpg",
+    "zeiger": [
+      2931,
+      771
+    ],
+    "name": "Tau Plus (4x Telescopic)",
+    "menge": 4,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-43-022.jpg",
+    "zeiger": [
+      2946,
+      803
+    ],
+    "name": "Tau Plus (4x Telescopic)",
+    "menge": 4.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-43-CE3.jpg",
+    "zeiger": [
+      3246,
+      790
+    ],
+    "name": "Gamma LL (1x Holographic)",
+    "menge": 4,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-43-E86.jpg",
+    "zeiger": [
+      3218,
+      812
+    ],
+    "name": "PT3 (3X Holographic)",
+    "menge": 4,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-44-1AF.jpg",
+    "zeiger": [
+      2723,
+      779
+    ],
+    "name": "Quell Suppressor2",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-46-BC8.jpg",
+    "zeiger": [
+      3247,
+      752
+    ],
+    "name": "Torrent Compensator1",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-47-D78.jpg",
+    "zeiger": [
+      3092,
+      759
+    ],
+    "name": "Fresnel \"Icebox\" Energy LMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-47-F2B.jpg",
+    "zeiger": [
+      2768,
+      711
+    ],
+    "name": "ParaMed Medical Device",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-49-771.jpg",
+    "zeiger": [
+      3244,
+      868
+    ],
+    "name": "Boomtube Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-50-927.jpg",
+    "zeiger": [
+      2829,
+      846
+    ],
+    "name": "VCK-1 Blade",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-50-A9E.jpg",
+    "zeiger": [
+      2723,
+      775
+    ],
+    "name": "Quell Suppressor3",
+    "menge": 2.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-51-BF9.jpg",
+    "zeiger": [
+      2795,
+      591
+    ],
+    "name": "GP-33 MOD Grenade Launcher",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-51-D78.jpg",
+    "zeiger": [
+      3157,
+      619
+    ],
+    "name": "ParaMed \"Amalgam\" Medical Device",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-51-EE8.jpg",
+    "zeiger": [
+      3252,
+      582
+    ],
+    "name": "250-E Laser Pointer",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-53-449.jpg",
+    "zeiger": [
+      3230,
+      900
+    ],
+    "name": "GP-33 MOD Grenade Launcher",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-53-5A1.jpg",
+    "zeiger": [
+      2876,
+      766
+    ],
+    "name": "GP-33 MOD Grenade Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-54-839.jpg",
+    "zeiger": [
+      3225,
+      673
+    ],
+    "name": "Scourge Railgun",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-55-BEC.jpg",
+    "zeiger": [
+      3163,
+      965
+    ],
+    "name": "FarSight \"Landslide\" (8x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-55-D48.jpg",
+    "zeiger": [
+      2893,
+      965
+    ],
+    "name": "Omarof \"Igniter\" (16x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-56-140.jpg",
+    "zeiger": [
+      3120,
+      718
+    ],
+    "name": "Sion \"Tweaker\" Compensator2",
+    "menge": 4,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-56-2E2.jpg",
+    "zeiger": [
+      3248,
+      671
+    ],
+    "name": "Emod \"Scorched\" Stabilizer1",
+    "menge": 4,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-56-FE8.jpg",
+    "zeiger": [
+      2759,
+      709
+    ],
+    "name": "Boomtube \"Ruby\" Rocket Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-59-BC9.jpg",
+    "zeiger": [
+      2854,
+      678
+    ],
+    "name": "Scourge \"Desert Shadow\" Railgun",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-48-59-D1D.jpg",
+    "zeiger": [
+      3204,
+      700
+    ],
+    "name": "ParaMed Medical Device",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-00-160.jpg",
+    "zeiger": [
+      3241,
+      924
+    ],
+    "name": "GP-33 MOD Grenade Launcher",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-01-467.jpg",
+    "zeiger": [
+      2695,
+      637
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-01-5CA.jpg",
+    "zeiger": [
+      3059,
+      656
+    ],
+    "name": "Arlington Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-02-737.jpg",
+    "zeiger": [
+      3249,
+      667
+    ],
+    "name": "EE04 (4x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-03-B6C.jpg",
+    "zeiger": [
+      3245,
+      835
+    ],
+    "name": "Arlington Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-03-CD4.jpg",
+    "zeiger": [
+      2953,
+      842
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-03-E52.jpg",
+    "zeiger": [
+      2714,
+      745
+    ],
+    "name": "Theta Pro LL (8x Telescopic)",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-04-0D0.jpg",
+    "zeiger": [
+      3251,
+      619
+    ],
+    "name": "Arlington Rifle",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-04-F98.jpg",
+    "zeiger": [
+      2937,
+      610
+    ],
+    "name": "Pulverizer LMG",
+    "menge": 1.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-30-432.jpg",
+    "zeiger": [
+      2955,
+      880
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-30-55A.jpg",
+    "zeiger": [
+      2916,
+      818
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-31-817.jpg",
+    "zeiger": [
+      2929,
+      747
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-31-94F.jpg",
+    "zeiger": [
+      2857,
+      787
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-31-AC7.jpg",
+    "zeiger": [
+      2944,
+      841
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-32-C2D.jpg",
+    "zeiger": [
+      2917,
+      870
+    ],
+    "name": "EE08 (8x Telescopic)",
+    "menge": 17,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-32-D8B.jpg",
+    "zeiger": [
+      2730,
+      964
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-32-ED4.jpg",
+    "zeiger": [
+      2639,
+      1051
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-33-144.jpg",
+    "zeiger": [
+      2781,
+      994
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-33-218.jpg",
+    "zeiger": [
+      2785,
+      976
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-33-328.jpg",
+    "zeiger": [
+      2791,
+      960
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-33-FEE.jpg",
+    "zeiger": [
+      2692,
+      1072
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-34-451.jpg",
+    "zeiger": [
+      2753,
+      954
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-34-593.jpg",
+    "zeiger": [
+      2802,
+      950
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-34-6CC.jpg",
+    "zeiger": [
+      2696,
+      970
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-35-7B1.jpg",
+    "zeiger": [
+      2665,
+      1008
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-35-88E.jpg",
+    "zeiger": [
+      2657,
+      1044
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-35-9C6.jpg",
+    "zeiger": [
+      2606,
+      1116
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  },
+  {
+    "datei": "ScreenShot-2026-11-22_02-49-35-B1F.jpg",
+    "zeiger": [
+      2703,
+      1095
+    ],
+    "name": "Tracer Laser Pointer Green",
+    "menge": 12.0,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-alpha-stapel"
+  }
+]

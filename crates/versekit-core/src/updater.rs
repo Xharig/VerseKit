@@ -238,6 +238,15 @@ pub struct Checked {
     pub rate_limited: bool,
 }
 
+/// A failure that passes by itself: the limit of GitHub, a refusal, or a busy server (HTTP 5xx, e.g. 504).
+fn only_waiting(error: &FetchError) -> bool {
+    match error {
+        FetchError::RateLimited(_) | FetchError::Refused => true,
+        FetchError::Failed(text) => text.strip_prefix("HTTP 5").is_some_and(|rest| rest.len() == 2),
+        _ => false,
+    }
+}
+
 /// Is there something new for `own`? GitHub is asked at most every [`MIN_INTERVAL`] seconds (`force` asks
 /// anyway); in between, and without the net, what is remembered counts. ⚠ `VERSEKIT_NO_NET` forbids asking, not
 /// showing what is already known.
@@ -251,13 +260,13 @@ pub fn check(net: &dyn Net, paths: &Paths, own: &str, force: bool, at: f64) -> C
         for source in sources(own) {
             match net
                 .get(source)
-                .map_err(|e| (matches!(e, FetchError::RateLimited(_) | FetchError::Refused), e.to_string()))
+                .map_err(|e| (only_waiting(&e), e.to_string()))
                 .and_then(|body| {
                     releases_from_api(&body).ok_or_else(|| (false, "the answer is no list of releases".to_string()))
                 }) {
                 Ok(releases) => found.get_or_insert_with(Vec::new).extend(releases),
                 Err((waiting, error)) => {
-                    // Waiting for the limit of GitHub is a note, not an error the player is asked to report.
+                    // Waiting for the limit or a busy server is a note, not an error the player is asked to report.
                     if waiting {
                         errors::note("updater.check", &error);
                     } else {

@@ -28,8 +28,10 @@
 //! computation the picture is compressed and washed out, and with digits nine points wide that is the end of
 //! every reading. The grabbing thread switches itself to DPI aware for the length of the call.
 //!
-//! ⚠ A layered window (the result window of the scanner) is left out of the picture: `BitBlt` without
-//! `CAPTUREBLT` does not take layered windows along. That is wanted: the window must not photograph itself.
+//! ⚠ A layered window is NOT left out of the picture: with the desktop composed by DWM, `BitBlt` of the screen takes
+//! every window along, layered or not (Levski, 22.11.2026: the notice of the refinery scan stood in the picture over
+//! the terminal). A window that must not photograph itself asks for `WDA_EXCLUDEFROMCAPTURE`
+//! (`versekit_overlay::scan_window`), and a notice is shown only after the grab.
 //!
 //! The result is BGRA bytes, top row first.
 

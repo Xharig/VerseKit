@@ -33,6 +33,9 @@ use crate::settings::CONTROL_WIDTH;
 use crate::trade::{Job, Polled};
 use crate::widgets::{self, ButtonKind};
 
+/// The page of UEX where a signed-in player creates an app and copies its token.
+const APPS_URL: &str = "https://uexcorp.space/api/apps";
+
 /// What a click in the row asks for.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Wish {
@@ -122,6 +125,11 @@ impl UexTokenRow {
             let button = widgets::Button::new(&test, ButtonKind::Normal, scheme).blocked(blocked);
             if column.add(button).clicked() && blocked.is_none() {
                 wish = Some(Wish::Test);
+            }
+            let get = t("s_uex_holen");
+            let button = widgets::Button::new(&get, ButtonKind::Normal, scheme).icon("external-link");
+            if column.add(button).on_hover_text(APPS_URL).clicked() && !versekit_core::browser::open_in_browser(APPS_URL) {
+                self.said = Some((tf("s_uex_holen_nein", &[("0", Arg::from(APPS_URL))]), true));
             }
             if let Some((text, bad)) = self.status() {
                 let tint = if bad { scheme.red } else { scheme.sub };

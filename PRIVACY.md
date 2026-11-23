@@ -143,7 +143,7 @@ Einmal am Tag schickt VerseKit an `nutzung-versekit.xharig.com` genau diese Anga
 | Programmversion | `5.2.10` |
 | System | Windows oder Linux |
 | Sprache der Oberfläche und des Spiels | `de`, `en` |
-| welche Übersetzung du für LIVE gewählt hast, nur die Quelle, nie eine eigene Adresse | `dymerz_de`, `luftwerft_nl`, `eigene`, `keine` |
+| welche Übersetzung du für LIVE gewählt hast, nur die Quelle, nie eine eigene Adresse | `dymerz_de`, `luftwerft_nl`, `eigene`, `ungewaehlt`, `nicht_anfassen` |
 | ob du Testversionen angeboten bekommst | ja / nein |
 | welche Bereiche eingeschaltet sind | Schiffe, Werkstatt, Handel, Basetool … |
 | wie das Overlay läuft | immer sichtbar / nur bei neuen Bauplänen |

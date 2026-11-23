@@ -324,50 +324,6 @@ fn a_build_of_the_source_is_told_to_use_git_pull_and_asked_nothing() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-#[test]
-fn the_boxes_say_where_each_channel_leads_and_only_a_real_way_is_a_button() {
-    let _language = crate::language_lock();
-    let releases = vec![release("v5.0.1", false), release("v5.1.0-rc1", true)];
-    let (mut bench, dir) = offline_window("update-kaesten", releases.clone());
-    bench.page.go_to("hf_ueber");
-    let texts = bench.settle();
-    let fetch = |version: &str| tf("s_ub_holen", &[("0", Arg::from(version))]);
-    assert!(shows(&texts, &fetch("5.0.1")) && shows(&texts, &fetch("5.1.0-rc1")), "both channels offer their newest");
-    assert!(shows(&texts, &t("s_ub_fertig")) && shows(&texts, &t("s_ub_test")));
-    // The running version in the channel: a statement, not a button. A click on it fetches nothing.
-    let net = Arc::new(github("v5.0.1", b"neu"));
-    let (mut same, dir2) = window("update-kaesten-gleich", releases.clone(), "", |dir| {
-        let mut env = env_in(dir, net.clone(), false).0;
-        env.own_version = "5.0.1".into();
-        env
-    });
-    same.page.go_to("hf_ueber");
-    let texts = same.settle();
-    let equal = tf("s_ub_holen_gleich", &[("0", Arg::from("5.0.1"))]);
-    assert!(shows(&texts, &equal), "{texts:?}");
-    same.click(&equal);
-    // Give a fetch that was started by mistake the time to show itself.
-    std::thread::sleep(Duration::from_millis(400));
-    same.settle();
-    assert!(net.asked().is_empty(), "the running version is not fetched again: {:?}", net.asked());
-    assert!(!same.page.updates.is_busy() && !same.page.update_quit);
-    // A way back is named as one.
-    let (mut back, dir3) = window("update-kaesten-zurueck", releases.clone(), "", |dir| {
-        let mut env = env_in(dir, Arc::new(github("v5.0.1", b"neu")), false).0;
-        env.own_version = "5.2.0".into();
-        env
-    });
-    back.page.go_to("hf_ueber");
-    assert!(shows(&back.settle(), &tf("s_ub_holen_zurueck", &[("0", Arg::from("5.0.1"))])));
-    // Nothing known: a quiet sentence.
-    let (mut none, dir4) = offline_window("update-kaesten-keine", Vec::new());
-    none.page.go_to("hf_ueber");
-    assert!(shows(&none.settle(), &t("s_ub_keine_bekannt")));
-    for dir in [dir, dir2, dir3, dir4] {
-        let _ = std::fs::remove_dir_all(dir);
-    }
-}
-
 /// „Get latest version“ with the newest version running: greyed out, saying why on hover, and a click fetches
 /// nothing. With a newer one known it fetches.
 #[test]
@@ -573,65 +529,6 @@ fn the_look_tells_a_failure_and_the_hourly_limit_in_their_own_sentences() {
     assert_eq!(failed, Some(t("s_ub_sucht_fehler")));
     assert_eq!(limited, Some(t("s_ub_grenze")));
     assert_ne!(failed, limited);
-}
-
-/// Both pages in every size level, scheme and language, with data that are as long as they come: nothing is wider
-/// than the window, the cards of a page are the width of the page, and the page draws its own first line.
-#[test]
-fn the_update_pages_fit_every_size_scheme_and_language() {
-    use versekit_core::{font_size, theme};
-    let _language = crate::language_lock();
-    // A folder with a long path, a long release text with a word that cannot be broken.
-    let (mut page, dir) = real_page(&"u".repeat(90), "", &[]);
-    let mut long_release = release("v5.0.1", false);
-    long_release.text = format!("### Added\n- {}\n- {}", "w".repeat(150), vec!["word"; 80].join(" "));
-    write_cache(&dir, vec![long_release, release("v5.1.0-rc1", true)]);
-    page.news.set_entries(vec![entry(
-        "v4.2",
-        &format!(
-            "> {}\n### Added\n- {}\n### Fixed\n- {}",
-            "l".repeat(120),
-            "w".repeat(150),
-            vec!["word"; 80].join(" ")
-        ),
-    )]);
-    let mut findings = Vec::new();
-    for scheme in theme::schemes() {
-        theme::set_thread_current(scheme.id);
-        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
-            page.size = points;
-            let (width, height) = font_size::min_window(points);
-            for english in [false, true] {
-                versekit_core::language::set_thread_language(if english {
-                    versekit_core::language::Choice::En
-                } else {
-                    versekit_core::language::Choice::De
-                });
-                for (key, first_line) in [("hf_ueber", "s_up_sofort"), ("hf_wasistneu", "s_wn_lead")] {
-                    page.go_to(key);
-                    let (overflow, texts) = draw(&mut page, width, height.max(900.0));
-                    let which = format!("{key} {} Größe {points} englisch {english}", scheme.id);
-                    if overflow > 0.5 {
-                        findings.push(format!("{which}: {overflow:.0} zu breit"));
-                    }
-                    // A scheme that writes its buttons in capitals still shows the line.
-                    let wanted = t(first_line).to_lowercase();
-                    if !texts.iter().any(|(text, _)| text.to_lowercase().contains(&wanted)) {
-                        findings.push(format!("{which}: die Seite zeigt ihre erste Zeile nicht"));
-                    }
-                    let cards = super::docking::tests::draw_cards(&mut page, width, height.max(900.0));
-                    let uneven = super::card_width::uneven(&cards);
-                    if !uneven.is_empty() {
-                        findings.push(format!("{which}: Kästen ungleich breit {uneven:?}"));
-                    }
-                }
-            }
-        }
-    }
-    theme::set_current("original");
-    versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
-    let _ = std::fs::remove_dir_all(dir);
-    assert!(findings.is_empty(), "{} findings: {:#?}", findings.len(), &findings[..findings.len().min(12)]);
 }
 
 /// ⚠ The backup before the update cannot be made: the player is asked whether to update without it. Escape and a

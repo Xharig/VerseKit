@@ -397,6 +397,43 @@ fn a_name_that_begins_longer_ones_read_whole_in_every_pass_is_sure() {
     assert_ne!(combine(&close).certainty, Certainty::Sure, "read with a fault");
 }
 
+/// `SO Helix (-/O/B)` read three times at the terminal against the catalog's `S0 Helix` (a zero, no size, grade A):
+/// the name is the whole of one blueprint and the size agrees, only the grade letter differs. That is no reason to
+/// ask; a different size or class, a line in capitals, a pass that read nothing, or a longer name still do.
+#[test]
+fn a_whole_name_read_in_every_pass_with_only_the_grade_off_is_sure() {
+    let mut names = Names::new();
+    names.add(entry("S0 Helix", None, None, Some('A')));
+    names.add(entry("Helix I Mining Laser", None, Some(1), Some('A')));
+    names.add(entry("Helix II Mining Laser", None, Some(2), Some('A')));
+    names.add(entry("Arrow", Some("Mil"), Some(1), Some('A')));
+    let read = |line: &str| match_line(line, &names);
+
+    let every = vec![read("SO Helix (-/O/B)"), read("SO Helix (-/O/B)"), read("SO Helix (-/O/B)")];
+    let outcome = combine(&every);
+    assert_eq!((outcome.certainty, outcome.name.as_deref()), (Certainty::Sure, Some("S0 Helix")), "{every:?}");
+    assert_eq!(decide(&outcome, |_| false), Action::Add("S0 Helix".into()));
+
+    // The same reading with the grade of the catalog was sure all along.
+    let agreeing = vec![read("SO Helix (-/O/A)"), read("SO Helix (-/O/A)"), read("SO Helix (-/O/A)")];
+    assert_eq!(combine(&agreeing).certainty, Certainty::Sure);
+
+    // What still asks.
+    assert_eq!(combine(&every[..2]).certainty, Certainty::Likely, "two passes only");
+    let one_empty = vec![read("SO Helix (-/O/B)"), read("SO Helix (-/O/B)"), read("")];
+    assert_eq!(combine(&one_empty).certainty, Certainty::Likely, "a pass read nothing");
+    let size = vec![read("SO Helix (-/2/B)"), read("SO Helix (-/2/B)"), read("SO Helix (-/2/B)")];
+    assert_eq!(combine(&size).certainty, Certainty::Likely, "another size");
+    let capitals = vec![read("SO HELIX (-/O/B)"), read("SO HELIX (-/O/B)"), read("SO HELIX (-/O/B)")];
+    assert_ne!(combine(&capitals).certainty, Certainty::Sure, "a line in capitals");
+    let close = vec![read("SO Helox (-/O/B)"), read("SO Helox (-/O/B)"), read("SO Helox (-/O/B)")];
+    assert_ne!(combine(&close).certainty, Certainty::Sure, "read with a fault");
+    let wrong_class = vec![read("Arrow (Ind/1/B)"), read("Arrow (Ind/1/B)"), read("Arrow (Ind/1/B)")];
+    assert_eq!(combine(&wrong_class).certainty, Certainty::Likely, "another class");
+    let mixed = vec![read("SO Helix (-/O/B)"), read("SO Helix (-/O/C)"), read("SO Helix (-/O/B)")];
+    assert_eq!(combine(&mixed).certainty, Certainty::Likely, "the grade changes from pass to pass");
+}
+
 /// Questions wait one behind the other, oldest first; the same candidates twice in a row are asked once; a file of
 /// the former kind with one question is read as one.
 #[test]
@@ -546,50 +583,6 @@ fn the_name_beside_the_pointer_wins_over_one_further_away() {
     let mut close = at("Sedulity (Ind/2/B)", 1020.0, 515.0);
     close.extend(at("GammaMax (Sth/2/B)", 1020.0, 545.0));
     assert_eq!(nearest_of_lines(&close, pointer, &names).certainty, Certainty::Unclear);
-}
-
-/// Every scan goes into the list of the last scans with what came of it, newest first, the oldest going beyond
-/// the most kept; a sure scan of a blueprint one has already is in it too.
-#[test]
-fn every_scan_is_noted_with_what_came_of_it() {
-    let dir = crate::testdir::Dir::new("bauplan-scans");
-    let home = dir.path().to_string_lossy().into_owned();
-    let vars = [(crate::envvars::ENV_HOME, home.as_str()), (crate::envvars::ENV_NO_NET, "1")];
-    let paths = crate::paths::Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home));
-    assert!(last_scans(&paths, 5).is_empty());
-    let sure = |name: &str| Outcome {
-        certainty: Certainty::Sure,
-        name: Some(name.into()),
-        candidates: vec![name.into()],
-        lines: vec![name.into()],
-        picture: None,
-    };
-    assert_eq!(record(&paths, &sure("Arrowhead")).unwrap(), Action::Add("Arrowhead".into()));
-    assert_eq!(record(&paths, &sure("Arrowhead")).unwrap(), Action::AlreadyThere("Arrowhead".into()));
-    assert_eq!(record(&paths, &Outcome::nothing()).unwrap(), Action::NotFound);
-    let seen: Vec<(String, String)> = last_scans(&paths, 5).into_iter().map(|e| (e.what, e.name)).collect();
-    assert_eq!(
-        seen,
-        [("keiner".into(), String::new()), ("schon".into(), "Arrowhead".into()), ("erfasst".into(), "Arrowhead".into())]
-    );
-    for _ in 0..SCAN_LOG_MOST {
-        record(&paths, &Outcome::nothing()).unwrap();
-    }
-    assert_eq!(last_scans(&paths, 100).len(), SCAN_LOG_MOST, "the oldest go");
-
-    // A sure scan settles a recent question that had it among its candidates; an old one and another stay.
-    let now = crate::export::now_unix();
-    let asked = |names: &[&str], at: i64| Question {
-        candidates: names.iter().map(|n| n.to_string()).collect(),
-        at,
-        ..Question::default()
-    };
-    ask(&paths, asked(&["Adrenaline", "Airwolf"], now - 10)).unwrap();
-    ask(&paths, asked(&["Airwolf", "Sunstone"], now - SETTLE_SECONDS - 60)).unwrap();
-    ask(&paths, asked(&["Hiro", "Purgatory"], now - 5)).unwrap();
-    record(&paths, &sure("Airwolf")).unwrap();
-    let left: Vec<Vec<String>> = questions(&paths).into_iter().map(|q| q.candidates).collect();
-    assert_eq!(left, [vec!["Airwolf".to_string(), "Sunstone".to_string()], vec!["Hiro".into(), "Purgatory".into()]]);
 }
 
 #[test]

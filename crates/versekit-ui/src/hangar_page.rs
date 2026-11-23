@@ -2121,6 +2121,40 @@ fn head_card(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, adding_open:
 
 /// The heading with the ship count and one striped row per ship.
 fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Option<&dyn CartSources>) {
+    ship_list_of(ui, scheme, state, sources, None);
+}
+
+/// The mining ships of the hangar, for the tab Equipment of the page Mining: the same cards as on this page (slots
+/// and cart, every change saved into the hangar), only the ships with a mining head. Without one: a hint and the
+/// part to enter a ship by hand, which enters it into the hangar. Gives the mining ships.
+pub fn show_mining_ships(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    state: &mut HangarState,
+    sources: Option<&dyn CartSources>,
+) -> Vec<versekit_core::mining_gear::HangarShip> {
+    state.follow(ui);
+    let mining = versekit_core::mining_gear::hangar_ships(&state.held.data, &state.stores.erkul);
+    if mining.is_empty() {
+        widgets::hint(ui, scheme, &t("s_stein_kein_schiff"));
+        ui.add_space(GAP);
+        message_line(ui, scheme, state);
+        hand_part(ui, scheme, state);
+        return mining;
+    }
+    let only: Vec<usize> = mining.iter().map(|ship| ship.index).collect();
+    ship_list_of(ui, scheme, state, sources, Some(&only));
+    mining
+}
+
+/// The list of the own ships; `only`: just the ships at these places of the hangar, without the search.
+fn ship_list_of(
+    ui: &mut Ui,
+    scheme: &Scheme,
+    state: &mut HangarState,
+    sources: Option<&dyn CartSources>,
+    only: Option<&[usize]>,
+) {
     state.fill_slots();
     let ships = hangar::ships(&state.held.data);
     // The fixed search, or else the ship being entered.
@@ -2152,12 +2186,17 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
     let shown: Vec<usize> = order
         .into_iter()
         .map(|(i, _)| i)
-        .filter(|&i| {
-            matches(ships[i], &search)
-                || names.own_name(hangar::field_text(ships[i], "name")).to_lowercase().contains(&wanted)
+        .filter(|&i| match only {
+            Some(only) => only.contains(&i),
+            None => {
+                matches(ships[i], &search)
+                    || names.own_name(hangar::field_text(ships[i], "name")).to_lowercase().contains(&wanted)
+            }
         })
         .collect();
-    let head = if search.is_empty() || ships.is_empty() {
+    let head = if only.is_some() {
+        tf("s_stein_hangar_schiffe", &[("n", Arg::from(shown.len()))])
+    } else if search.is_empty() || ships.is_empty() {
         tf("s_hg_meine", &[("n", Arg::from(ships.len()))])
     } else {
         tf("s_hg_meine_gefiltert", &[("n", Arg::from(shown.len())), ("alle", Arg::from(ships.len()))])
@@ -2179,6 +2218,16 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
         version => tf("s_hg_quelle", &[("version", Arg::from(version))]),
     };
     small(ui, &source, scheme.sub);
+    // The in-game names belong to the hangar page, not to the mining ships of another page.
+    if only.is_none() {
+        names_foot(ui, scheme, state);
+    }
+    ui.add_space(4.0);
+    ship_cards(ui, scheme, state, sources, &shown);
+}
+
+/// The foot of the in-game names: the note without a language file, else the button that writes them into the game.
+fn names_foot(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
     if state.names.without_language_file() {
         small(ui, &t("s_hgn_keine_ini"), scheme.gold);
     } else if state.names.can_write() {
@@ -2198,7 +2247,11 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
         }
     }
     state.names.footer(ui, scheme);
-    ui.add_space(4.0);
+}
+
+/// One card per ship of `shown` (places among the ships of the hangar), and what a card asked applied.
+fn ship_cards(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Option<&dyn CartSources>, shown: &[usize]) {
+    let ships = hangar::ships(&state.held.data);
     let mut chosen: Option<(usize, RowAction)> = None;
     let mut names = std::mem::take(&mut state.names);
     let mut equipment = std::mem::take(&mut state.equipment);
@@ -2211,7 +2264,7 @@ fn ship_list(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState, sources: Opt
         // two points narrower than the other boxes of the page.
         list.set_width(list.available_width());
         let width = list.available_width();
-        for &i in &shown {
+        for &i in shown {
             // A card out of sight only takes its room, at the height it last had.
             if let Some(&height) = state.heights.get(&i) {
                 let rect = egui::Rect::from_min_size(list.cursor().min, egui::vec2(width, height));
@@ -3113,7 +3166,7 @@ mod tests {
         let mut findings = Vec::new();
         for lang in [Lang::De, Lang::En] {
             set_thread_language(lang);
-            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 for width in [380.0_f32, 520.0, 900.0] {
                     let ctx = egui::Context::default();
                     crate::install(&ctx);
@@ -3875,7 +3928,7 @@ mod tests {
         steady();
         let scheme = versekit_core::theme::current();
         let mut findings = Vec::new();
-        for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             // With the fleet analysis closed and open.
             for (width, open) in [380.0, 520.0, 900.0].into_iter().flat_map(|w| [(w, false), (w, true)]) {
                 let ctx = egui::Context::default();
@@ -4565,7 +4618,7 @@ mod tests {
                 t("s_hg_werte_preis"),
                 price,
             ];
-            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 for width in [380.0, 1100.0] {
                     let ctx = egui::Context::default();
                     crate::install(&ctx);

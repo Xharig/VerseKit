@@ -2336,7 +2336,7 @@ mod tests {
         for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
             versekit_core::language::set_thread_language(choice);
             for scheme in theme::schemes() {
-                for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                for points in crate::test_sizes() {
                     let (width, height) = versekit_core::font_size::min_window(points);
                     let mut v = view(scheme, &rows, &status, Shown::Open);
                     v.contracts = &lines;

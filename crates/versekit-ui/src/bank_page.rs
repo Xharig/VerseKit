@@ -47,8 +47,8 @@ use versekit_core::theme::Scheme;
 use crate::color;
 use crate::widgets::{self, ButtonKind};
 
-/// The kinds a new request may have here. ⚠ No deposit: the contract does not say how a deposit names its account.
-pub const OFFERED: [Kind; 2] = [Kind::Withdrawal, Kind::Transfer];
+/// The kinds a new request may have here. A deposit names the account it goes to as `sourceAccountId`.
+pub const OFFERED: [Kind; 3] = [Kind::Withdrawal, Kind::Deposit, Kind::Transfer];
 
 /// The application id requests raised through VerseKit carry in `client`.
 const OWN_CLIENT: &str = "versekit";
@@ -778,7 +778,7 @@ fn form(ui: &mut Ui, scheme: &Scheme, state: &mut BankState, data: &Bank) {
                 }
             }
         });
-        // A withdrawal or transfer only from an account the member may ask from.
+        // A request only on an account the member may ask on: a deposit goes to it, the others come from it.
         let sources: Vec<&Account> = data.accounts.iter().filter(|a| a.requestable).collect();
         let shown = sources.iter().find(|a| a.id == form.account).map(|a| a.label()).unwrap_or_default();
         let name = t("s_bank_konto");

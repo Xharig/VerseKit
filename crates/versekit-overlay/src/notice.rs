@@ -49,14 +49,21 @@ impl Notices {
                 self.window = ScanWindow::create();
             }
             let Some(window) = &self.window else { return false };
+            // The stock of the unit stands in gold, in the frame and (where taken) in the title; everything else in the
+            // accent of the scheme.
+            let tint = match notice.target {
+                Some(versekit_core::scan_notice::Target::Unit) => scheme.gold,
+                _ => scheme.accent,
+            };
             let content = Content {
                 material: notice.shown_title(),
                 known: notice.kind.accent(),
                 number: notice.detail.clone(),
+                extra: Vec::new(),
                 font_px: versekit_core::scan_notice::font_px(area.3),
                 background: colorref(scheme.surface),
                 text: colorref(scheme.fg),
-                accent: colorref(scheme.accent),
+                accent: colorref(tint),
                 sub: colorref(scheme.sub),
                 line: colorref(scheme.line),
                 radius: i32::from(versekit_ui::box_radius(scheme).nw),

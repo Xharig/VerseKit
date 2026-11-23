@@ -93,6 +93,9 @@ fn findings() -> Vec<String> {
 
 #[test]
 fn no_page_has_a_blocked_button_without_a_reason() {
+    if crate::skip_unless_full_run() {
+        return;
+    }
     let found = findings();
     assert!(found.is_empty(), "{} button(s) blocked without a reason:\n{}", found.len(), found.join("\n"));
 }

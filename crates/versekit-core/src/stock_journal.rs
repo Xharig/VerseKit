@@ -67,6 +67,9 @@ use regex::Regex;
 pub mod names;
 pub mod spending;
 pub mod suggestions;
+pub mod transfers;
+
+pub use transfers::Transfer;
 
 use crate::jsonio::{self, Map, Value, map_set};
 use crate::location;
@@ -82,8 +85,9 @@ use crate::text::decode_replace;
 
 pub const FILE: &str = "lagerjournal.json";
 /// 2 holds the sales (`verkaeufe`), 3 also the sales at a commodity terminal (`nachweis`), 4 also those without
-/// usable boxes; an older journal reads every log once more.
-pub const FORMAT: i64 = 4;
+/// usable boxes, 5 also the transfers between players (`ueberweisungen`); an older journal reads every log once
+/// more.
+pub const FORMAT: i64 = 5;
 /// A request at a commodity terminal that equals one this many seconds before it, still unproven, is the same sale.
 pub const REPEAT_SECONDS: i64 = 120;
 /// The list of the boxes before a request counts when it is at most this old.
@@ -254,6 +258,7 @@ pub enum Event {
     Purchase(Purchase),
     Sale(Sale),
     Movement(Movement),
+    Transfer(Transfer),
 }
 
 static QUEUED: LazyLock<Regex> = LazyLock::new(|| {
@@ -322,6 +327,8 @@ static MARKERS: LazyLock<Regex> = LazyLock::new(|| {
         "AddPlayerCommodityItem",
         "RmShopFlowResponse",
         "<Update Inventory Location>",
+        "Added notification \"",
+        " aUEC",
     ];
     let escaped: Vec<String> = literals.iter().map(|l| regex::escape(l)).collect();
     Regex::new(&escaped.join("|")).expect("built from escaped parts")
@@ -428,6 +435,10 @@ struct Reading {
     /// The recent requests at a commodity terminal.
     asked: Vec<Asked>,
     odd: Odd,
+    /// The first line of a transfer notification seen last, waiting for its amount: its stamp and its way.
+    transfer_head: Option<(String, bool)>,
+    /// The index into `events` of the last transfer.
+    last_transfer: Option<usize>,
 }
 
 /// The sell requests at a commodity terminal of a log that do not have the usual form.
@@ -482,7 +493,24 @@ impl Reading {
             && let Some((_, now)) = location::change_in(line)
         {
             self.landing = Some(now).filter(|n| n != location::NOWHERE);
+        } else if line.contains("Added notification \"") {
+            self.transfer_head = transfers::head(line).map(|incoming| (time_of(line).to_string(), incoming));
+        } else if let Some((stamp, incoming)) = self.transfer_head.take_if(|(stamp, _)| time_of(line) == stamp.as_str())
+            && let Some(amount) = transfers::amount(line)
+            && let Some(time) = seconds(&stamp)
+        {
+            self.transfer(Transfer { time, incoming, amount });
         }
+    }
+
+    /// Keeps a transfer unless the one before it is the same one (the game notifies twice).
+    fn transfer(&mut self, transfer: Transfer) {
+        let same = |index: &usize| matches!(&self.events[*index].0, Event::Transfer(last) if *last == transfer);
+        if self.last_transfer.as_ref().is_some_and(same) {
+            return;
+        }
+        self.last_transfer = Some(self.events.len());
+        self.events.push((Event::Transfer(transfer), None));
     }
 
     fn queued(&mut self, line: &str, own: &dyn Fn(&str) -> bool) {
@@ -918,7 +946,7 @@ impl Movement {
 }
 
 /// The session entry of one log's text and its events: `von`, `bis` (seconds, UTC), `kaeufe`, `verkaeufe`,
-/// `bewegungen`.
+/// `bewegungen`, `ueberweisungen`.
 /// `None` without an event, or when the stamps make no session.
 pub fn session_entry(text: &str, events: &[Event]) -> Option<Map> {
     if events.is_empty() {
@@ -941,11 +969,13 @@ fn entry_between(first: Option<&str>, last: Option<&str>, events: &[Event]) -> O
     let mut bought = Vec::new();
     let mut sold = Vec::new();
     let mut moved = Vec::new();
+    let mut transferred = Vec::new();
     for event in events {
         match event {
             Event::Purchase(purchase) => bought.push(purchase.to_value()),
             Event::Sale(sale) => sold.push(sale.to_value()),
             Event::Movement(movement) => moved.push(movement.to_value()),
+            Event::Transfer(transfer) => transferred.push(transfer.to_value()),
         }
     }
     Some(vec![
@@ -954,6 +984,7 @@ fn entry_between(first: Option<&str>, last: Option<&str>, events: &[Event]) -> O
         ("kaeufe".into(), Value::Array(bought)),
         ("verkaeufe".into(), Value::Array(sold)),
         ("bewegungen".into(), Value::Array(moved)),
+        ("ueberweisungen".into(), Value::Array(transferred)),
     ])
 }
 
@@ -1039,6 +1070,7 @@ pub struct Session {
     pub purchases: Vec<Purchase>,
     pub sales: Vec<Sale>,
     pub movements: Vec<Movement>,
+    pub transfers: Vec<Transfer>,
 }
 
 /// The sessions of the journal, oldest first.
@@ -1056,6 +1088,7 @@ pub fn sessions(data: &Map) -> Vec<Session> {
                 purchases: list("kaeufe").iter().filter_map(Deal::from_value).collect(),
                 sales: list("verkaeufe").iter().filter_map(Deal::from_value).collect(),
                 movements: list("bewegungen").iter().filter_map(Movement::from_value).collect(),
+                transfers: list("ueberweisungen").iter().filter_map(Transfer::from_value).collect(),
             })
         })
         .collect();
@@ -2163,8 +2196,34 @@ mod tests {
             let sold: Vec<(&str, Proof)> = after[0].sales.iter().map(|s| (s.class.as_str(), s.proof)).collect();
             assert_eq!(sold, [("mag", Proof::Answer), ("", Proof::Requested)]);
             assert_eq!(number(get(&load(&setup.paths), "format")), Some(FORMAT as f64));
-            assert_eq!(FORMAT, 4);
+            assert_eq!(FORMAT, 5);
             assert_eq!(catch_up(&src, std::slice::from_ref(&file)), 0);
+        }
+
+        #[test]
+        fn a_journal_of_format_4_reads_its_logs_again_and_gets_the_transfers() {
+            let setup = Setup::new("format4");
+            let notification = |first: &str, amount: &str| {
+                at(
+                    5,
+                    &format!(
+                        "[Notice] <SHUDEvent_OnNotification> Added notification \"{first}\n<2026-10-01T10:00:05.000Z> {amount} aUEC\n\
+                         <2026-10-01T10:00:05.000Z>  : \" [7] to queue. New queue size: 1, MissionId: [0], ObjectiveId: []"
+                    ),
+                )
+            };
+            let text = [login(WHO), notification("Du hast Bob gesendet:", "1,200,000")].concat();
+            let file = setup.log("a.log", &text);
+            let size = fs::metadata(&file).expect("log").len();
+            // The journal as format 4 left it: the log read, no transfers in it.
+            let old = format!(r#"{{"format": 4, "sitzungen": {{}}, "gelesen": {{"a.log": {size}}}}}"#);
+            fs::write(setup.paths.app_file(FILE), old).expect("file");
+            let src = LogSource::new(&setup.paths, LogSource::sources_of(&setup.paths));
+            assert_eq!(catch_up(&src, std::slice::from_ref(&file)), 1, "read again");
+            let after = setup.sessions();
+            let moved: Vec<(bool, i64)> = after[0].transfers.iter().map(|t| (t.incoming, t.amount)).collect();
+            assert_eq!(moved, [(false, 1_200_000)]);
+            assert_eq!(catch_up(&src, std::slice::from_ref(&file)), 0, "read once");
         }
 
         #[test]

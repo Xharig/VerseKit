@@ -483,17 +483,56 @@ fn heads_read_into_one_word_are_cut_apart_and_the_table_is_found() {
 fn a_job_read_before_and_after_scrolling_is_one_list_and_another_job_is_none() {
     let first = "Iron 664 551 cSCU\nIron 710 98 cSCU\nQuantainium 344 70 cSCU\nLaranite 698 106 cSCU";
     let second = "Iron 710 98 cSCU\nQuantainium 344 70 cSCU\nLaranite 698 106 cSCU\nTungsten 530 35 cSCU";
-    let (joined, added) = join_scrolled(first, second).expect("the same job");
-    assert_eq!(joined, format!("{first}\nTungsten 530 35 cSCU"));
-    assert_eq!(added, 1);
+    let joined = join_scrolled(first, second).expect("the same job");
+    assert_eq!(joined.text, format!("{first}\nTungsten 530 35 cSCU"));
+    assert_eq!(joined.added, 1);
     // Read twice without scrolling: nothing comes twice.
-    assert_eq!(join_scrolled(first, first), Some((first.to_string(), 0)));
+    assert_eq!(join_scrolled(first, first), Some(Joined { text: first.to_string(), added: 0, replaced: 0 }));
     // Two equal lines in the new reading stay two.
-    let (twice, _) = join_scrolled("Iron 664 551 cSCU", "Iron 664 551 cSCU\nIron 664 551 cSCU").expect("same");
-    assert_eq!(twice, "Iron 664 551 cSCU\nIron 664 551 cSCU");
+    let twice = join_scrolled("Iron 664 551 cSCU", "Iron 664 551 cSCU\nIron 664 551 cSCU").expect("same");
+    assert_eq!(twice.text, "Iron 664 551 cSCU\nIron 664 551 cSCU");
     // No line in common, or an empty field: another job, it replaces.
     assert_eq!(join_scrolled(first, "Gold 553 122 cSCU"), None);
     assert_eq!(join_scrolled("", second), None);
+}
+
+/// The sum under the table only as the terminal writes it: a number with or without its unit. A number the
+/// recognition broke (`36.gæcu` for `36.93cSCU`) gives no sum rather than a wrong one.
+#[test]
+fn the_sum_is_read_whole_or_not_at_all() {
+    assert_eq!(total_of("12.76").as_deref(), Some("12.76"));
+    assert_eq!(total_of("230").as_deref(), Some("230"));
+    assert_eq!(total_of("36.93cSCU").as_deref(), Some("36.93"));
+    assert_eq!(total_of("36,93").as_deref(), Some("36.93"));
+    assert_eq!(total_of("4.5SCU").as_deref(), Some("4.5"));
+    assert_eq!(total_of("36.gæcu"), None);
+    assert_eq!(total_of("3g.93"), None);
+    assert_eq!(total_of("cSCU"), None);
+}
+
+/// Levski, 22.11.2026: the same card read twice, the second time with the quality of Borase read; the line of
+/// Borase was added a second time instead of filling the `?`. Lines are matched by material and quality: a `?`
+/// takes the value read, the same materials in the same order are the same list, and only a material the field
+/// has not got is added.
+#[test]
+fn a_job_read_again_fills_its_unread_values_instead_of_adding_lines() {
+    let before = "Bexalite 302 181 cSCU\nBexalite 632 16 cSCU\nGold 553 10 cSCU\nBorase ? 21 cSCU";
+    let again = "Bexalite 302 181 cSCU\nBexalite 632 ? cSCU\nGold 553 10 cSCU\nBorase 584 21 cSCU";
+    let joined = join_scrolled(before, again).expect("the same job");
+    assert_eq!(joined.text, "Bexalite 302 181 cSCU\nBexalite 632 16 cSCU\nGold 553 10 cSCU\nBorase 584 21 cSCU");
+    assert_eq!((joined.added, joined.replaced), (0, 0));
+    // The same materials in the same order with a value read otherwise: the newer reading stands, and it is said.
+    let other = "Bexalite 302 181 cSCU\nBexalite 632 16 cSCU\nGold 553 10 cSCU\nBorase 84 21 cSCU";
+    let joined = join_scrolled(other, again).expect("the same list");
+    assert_eq!(joined.text, "Bexalite 302 181 cSCU\nBexalite 632 16 cSCU\nGold 553 10 cSCU\nBorase 584 21 cSCU");
+    assert_eq!((joined.added, joined.replaced), (0, 1));
+    // Scrolled on: only the material the field has not got joins.
+    let scrolled = join_scrolled(before, "Gold 553 10 cSCU\nBorase 584 21 cSCU\nTin 120 7 cSCU").expect("scrolled");
+    assert_eq!(
+        scrolled.text,
+        "Bexalite 302 181 cSCU\nBexalite 632 16 cSCU\nGold 553 10 cSCU\nBorase 584 21 cSCU\nTin 120 7 cSCU"
+    );
+    assert_eq!((scrolled.added, scrolled.replaced), (1, 0));
 }
 
 /// The text recognition of the tests: the words of `words` that lie wholly in the part of each job.
@@ -543,6 +582,31 @@ fn a_picture_with_two_cards_gives_two_jobs_and_keeps_what_was_unsure() {
     assert_eq!(asked.len(), 2);
     assert_eq!(asked[0], Keep::Picture);
     assert!(matches!(asked[1], Keep::Table(_)));
+}
+
+/// Levski, 22.11.2026: the terminal stood on the screen, but its table was not read (covered by the notice).
+/// The reading says so: a job without lines that is marked covered; a picture without the terminal gives none.
+#[test]
+fn a_terminal_seen_without_a_table_is_said_to_be_covered() {
+    let index = index_of(&["Gold"]);
+    let terminal = vec![
+        sized("LEVSKI", 1500.0, 200.0, 80.0, 14.0),
+        sized("RAFFINERIEZENTRUM", 2000.0, 200.0, 240.0, 20.0),
+        sized("ARBEITSAUFTRAG", 1900.0, 270.0, 90.0, 9.0),
+        sized("GOLD", 1910.0, 400.0, 40.0, 9.0),
+    ];
+    let mut ocr = FakeOcr { words: terminal, calls: 0 };
+    let (jobs, _) = read_image((5120, 1440), None, &mut ocr, &index, &Digits::default(), None).expect("read");
+    assert_eq!(jobs.len(), 1, "{jobs:?}");
+    assert!(jobs[0].covered && jobs[0].text.is_empty() && jobs[0].materials.is_empty());
+    let mut hangar = FakeOcr { words: vec![word("HANGAR", 10.0, 10.0)], calls: 0 };
+    let (jobs, _) = read_image((5120, 1440), None, &mut hangar, &index, &Digits::default(), None).expect("read");
+    assert!(jobs.is_empty());
+    // A table read is never covered.
+    let mut sure = FakeOcr { words: wide_screen(true), calls: 0 };
+    let (jobs, _) = read_image((5120, 1440), None, &mut sure, &index_of(&["Gold", "Tungsten"]), &Digits::default(), None)
+        .expect("read");
+    assert!(!jobs[0].covered);
 }
 
 #[test]
@@ -835,6 +899,65 @@ fn a_confusable_value_is_confirmed_at_the_learned_digits_of_the_picture() {
     let none = Digits::default();
     let checks = Checks { confirm: Some(confirmer(&picture, &passes, &none, &index, None)), reread: None };
     assert!(merge_passes(&passes, &index, None, &checks, false).found.is_empty());
+}
+
+/// Digits of every kind learned from drawn cells.
+fn every_digit() -> Digits {
+    let mut learned = Digits::default();
+    let typed = [("Gold".to_string(), Some(808.0), None), ("Iron".to_string(), Some(800.0), None)];
+    learn_into(&mut learned, &[cell("Gold", "888", "808"), cell("Iron", "888", "800")], &typed);
+    for text in ["1234", "5678", "9012", "3456", "7890"] {
+        learn_into(&mut learned, &[cell("Gold", text, text)], &[("Gold".to_string(), text.parse().ok(), None)]);
+    }
+    learned
+}
+
+/// Levski, 22.11.2026: the terminal shows Borase at 584, every reading read only `84` (the frame of the word left
+/// the 5 out), and the check at the learned digits looked at the frame of the word alone, so `84` stood as sure.
+/// The cell is read over the width of its column: the 5 belongs to it.
+#[test]
+fn a_digit_outside_the_frame_of_the_word_is_read_over_the_width_of_the_column() {
+    let index = Index::new(&["Borase".to_string()], |_| false);
+    let quality = drawn("584");
+    let h = quality.height as f64;
+    let (width, height) = (400usize, 100usize);
+    let mut gray = vec![32u8; width * height];
+    for y in 0..quality.height {
+        for x in 0..quality.width {
+            gray[(50 + y) * width + 100 + x] = quality.gray[y * quality.width + x];
+        }
+    }
+    let picture = GrayPicture { width: width as i64, height: height as i64, gray };
+    // One digit of the test font is 24 pixels wide: the word `84` begins where the 8 does.
+    let words = vec![
+        sized("UALITAT", 110.0, 0.0, 60.0, h),
+        sized("AUSBEUTE", 235.0, 0.0, 60.0, h),
+        sized("Borase", 0.0, 50.0, 40.0, h),
+        sized("84", 124.0, 50.0, quality.width as f64 - 24.0, h),
+        sized("21", 255.0, 50.0, 30.0, h),
+    ];
+    let learned = every_digit();
+    let passes = vec![words.clone(), words.clone(), words.clone(), words];
+    let checks = Checks {
+        confirm: Some(confirmer(&picture, &passes, &learned, &index, None)),
+        reread: Some(rereader(&picture, &passes, &learned, &index, None)),
+    };
+    let merged = merge_passes(&passes, &index, None, &checks, true);
+    assert_eq!(merged.found, found(&[("Borase", 584, 21)]), "never 84 as sure");
+    assert!(merged.unsure.is_empty(), "{merged:?}");
+}
+
+/// A quality with fewer places than a quality can plausibly have (`53` of 553: the first digit lost) is never
+/// sure, also where no 0 or 8 asks for a check; not even as the guess of an unsure row.
+#[test]
+fn a_quality_too_short_to_be_plausible_stays_unsure() {
+    let index = index_of(&["Gold", "Bexalite"]);
+    let reading = table(&[("BEXALITE", Some(312), Some(171), None), ("GOLD", Some(53), Some(17), None)]);
+    let passes = vec![reading.clone(), reading.clone(), reading];
+    let merged = merge_passes(&passes, &index, None, &Checks::default(), true);
+    assert_eq!(merged.unsure, vec!["Gold"]);
+    assert_eq!(as_text(&merged.found, &index), "Bexalite 312 171 cSCU\nGold ? 17 cSCU");
+    assert!(!plausible_quality(53) && !plausible_quality(1001) && plausible_quality(302) && plausible_quality(1000));
 }
 
 #[test]

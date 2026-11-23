@@ -157,6 +157,14 @@ Sample Repeater
 Titanium (Ore)
 Titanium rock
 
+# Mining heads and modules of the sample of the mining equipment, as the game names them, and a head with its
+# modules as the card lists them (names and commas, no wording).
+Focus III
+Helix II Mining Laser
+Helix II Mining Laser: Focus III, Rieger-C3, Rieger-C3
+Hofstede-S2 Mining Laser
+Hofstede-S2 Mining Laser: Focus III, Focus III
+
 # The name of the site of the mining data, as a link.
 scmdb.net
 

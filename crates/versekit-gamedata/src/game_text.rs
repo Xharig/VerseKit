@@ -720,6 +720,10 @@ fn refresh_due(paths: &Paths, game_folder: Option<&str>) -> Option<(String, Stri
         // The notes and the stamp belong to the main installation.
         return None;
     }
+    if translation::only_looks(paths, &folder) {
+        // A test run never writes into the game folder: no attempt, so no refused write to record.
+        return None;
+    }
     let stamp = archive_stamp(&folder)?;
     if paths.setting(ORIGINAL_STAMP).as_deref() == Some(stamp.as_str()) {
         return None;
@@ -1790,6 +1794,26 @@ mod tests {
         fx.paths.set_setting(ORIGINAL_STAMP, Value::str(archive_stamp(&fx.game).unwrap()));
         assert!(!refresh());
         assert_eq!(fs::read(&target).unwrap(), b"StarStrings <EM4>[BP]</EM4>\n");
+    }
+
+    #[test]
+    fn a_test_run_does_not_even_try_to_renew_the_original_in_the_game_folder() {
+        use versekit_core::writeguard;
+        let fx = Fixture::new("refresh-locked");
+        fx.archive(b"vehicle_NameNEU=New ship\n");
+        let target = fx.english();
+        fx.put(&target, b"vehicle_NameALT=Old ship\n");
+        fx.note(r#"{"original": {"kennung": "Data.p4k"}}"#);
+        writeguard::take_denied();
+        writeguard::deny(true);
+        let written = refresh_original(&fx.paths, Some(&fx.game));
+        let denied = writeguard::take_denied();
+        writeguard::deny(false);
+        assert!(!written);
+        assert!(denied.is_empty(), "a refused write was tried: {denied:?}");
+        assert!(fs::read_to_string(&target).unwrap().starts_with("vehicle_NameALT"));
+        // Counter-check: without the lock the same state is renewed.
+        assert!(refresh_original(&fx.paths, Some(&fx.game)));
     }
 
     /// Runs `work` with a reading of the archive that stops until told, and asks for the game files while it stops:

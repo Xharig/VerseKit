@@ -21,8 +21,8 @@
 //!
 //! The levels of the methods come from the game data where the reading of the values kept them ([`Methods`],
 //! [`GAME_FILE`], read from the line the terminal shows below each method); otherwise from the table written down
-//! by hand ([`METHODS`]), where for Pyrometric Chromalysis and Dinyx Solventation they are the ones the costs and
-//! times of a run show. A bigger level is better for the player on every axis, also for the costs (3 is "low
+//! by hand ([`METHODS`]), which holds the levels of the game data of 4.10.3 (the same as those of 4.10.2) and is
+//! only the fallback: a file of the game data that fits always takes its place. A bigger level is better for the player on every axis, also for the costs (3 is "low
 //! costs").
 
 use crate::jsonio::Value;
@@ -31,7 +31,7 @@ use crate::stock_data::lower;
 
 /// The game version the levels of the table were read in, and when; the page names them while it shows the table.
 pub const PATCH: &str = "4.10";
-pub const READ_ON: &str = "2026-09-03";
+pub const READ_ON: &str = "2026-11-22";
 
 /// The three axes, in the order of the choice on the page.
 pub const AXES: [&str; 3] = ["ertrag", "kosten", "tempo"];
@@ -40,12 +40,12 @@ pub const AXES: [&str; 3] = ["ertrag", "kosten", "tempo"];
 /// levels of yield, speed and cost advantage.
 pub const METHODS: [(&str, &str, [u8; 3]); 9] = [
     ("pyrometric", "Pyrometric Chromalysis", [3, 3, 1]),
-    ("gaskin", "Gaskin Process", [3, 1, 2]),
+    ("gaskin", "Gaskin Process", [2, 3, 1]),
     ("dinyx", "Dinyx Solventation", [3, 0, 3]),
-    ("ferron", "Ferron Exchange", [2, 1, 3]),
-    ("kazen", "Kazen Winnowing", [2, 2, 2]),
-    ("thermonatic", "Thermonatic Deposition", [2, 3, 1]),
-    ("electro", "Electrostarolysis", [1, 2, 3]),
+    ("ferron", "Ferron Exchange", [3, 1, 2]),
+    ("kazen", "Kazen Winnowing", [1, 2, 3]),
+    ("thermonatic", "Thermonatic Deposition", [2, 1, 3]),
+    ("electro", "Electrostarolysis", [2, 2, 2]),
     ("cormack", "Cormack Method", [1, 3, 2]),
     ("xcr", "XCR Reaction", [1, 3, 1]),
 ];
@@ -456,11 +456,11 @@ mod tests {
         assert_eq!(best, "dinyx");
         assert_eq!(
             all,
-            ["dinyx", "gaskin", "pyrometric", "ferron", "kazen", "thermonatic", "electro", "cormack", "xcr"]
+            ["dinyx", "ferron", "pyrometric", "thermonatic", "electro", "gaskin", "kazen", "cormack", "xcr"]
         );
         assert_eq!(recommend(Some("tempo"), None).0, "pyrometric");
         assert_eq!(recommend(Some("tempo"), Some("kosten")).0, "cormack");
-        assert_eq!(recommend(Some("kosten"), Some("tempo")).0, "electro");
+        assert_eq!(recommend(Some("kosten"), Some("tempo")).0, "kazen");
         // A second axis equal to the first adds nothing; "then" alone leads.
         assert_eq!(recommend(Some("tempo"), Some("tempo")), recommend(Some("tempo"), None));
         assert_eq!(recommend(None, Some("tempo")), recommend(Some("tempo"), None));
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn a_method_beaten_on_every_axis_is_named_with_the_one_that_beats_it() {
-        assert_eq!(dominated(), [("thermonatic", "pyrometric"), ("xcr", "pyrometric")]);
+        assert_eq!(dominated(), [("gaskin", "pyrometric"), ("xcr", "pyrometric")]);
         // Yield and costs make nine different cells: every pair names one method.
         let mut cells: Vec<(u8, u8)> =
             METHODS.iter().map(|(k, _, _)| (level(k, "ertrag"), level(k, "kosten"))).collect();
@@ -573,10 +573,31 @@ mod tests {
         METHODS.iter().map(|(_, name, levels)| (*name, *levels)).collect()
     }
 
+    /// The table is the fallback and must say what the game data say: the levels of the game data of 4.10.3 (LIVE,
+    /// build 13220821), read from the terminal text of every method, the same as those of 4.10.2.
+    #[test]
+    fn the_table_holds_the_levels_of_the_game_data_of_4_10_3() {
+        let game: [(&str, [u8; 3]); 9] = [
+            ("Pyrometric Chromalysis", [3, 3, 1]),
+            ("Gaskin Process", [2, 3, 1]),
+            ("Dinyx Solventation", [3, 0, 3]),
+            ("Ferron Exchange", [3, 1, 2]),
+            ("Kazen Winnowing", [1, 2, 3]),
+            ("Thermonatic Deposition", [2, 1, 3]),
+            ("Electrostarolysis", [2, 2, 2]),
+            ("Cormack Method", [1, 3, 2]),
+            ("XCR Reaction", [1, 3, 1]),
+        ];
+        assert_eq!(table_levels(), game);
+        let read = Methods::from_game_text(&game_text(&game)).expect("all nine");
+        assert!(read.differing_from_table().is_empty(), "the file of the game and the table agree");
+    }
+
     #[test]
     fn the_levels_read_from_the_game_take_the_place_of_the_table() {
         let mut read = table_levels();
-        // As in the game data of 4.10.2: the levels of Ferron Exchange and Kazen Winnowing exchanged.
+        // A made-up change of the game: the levels of Ferron Exchange and Kazen Winnowing exchanged (the table holds
+        // the levels of the game data of 4.10.3, which the file normally repeats; it leads where it differs).
         let (ferron, kazen) = (read[3].1, read[4].1);
         (read[3].1, read[4].1) = (kazen, ferron);
         let methods = Methods::from_game_text(&game_text(&read)).expect("all nine");
@@ -584,7 +605,7 @@ mod tests {
         assert_eq!(methods.level("ferron", "ertrag"), kazen[0]);
         assert_eq!(methods.differing_from_table(), ["ferron", "kazen"]);
         assert_eq!(Methods::table().differing_from_table(), Vec::<&str>::new());
-        // The order follows the levels read: of the moderate yields Ferron came first by its low costs, now Kazen.
+        // The order follows the levels read: Ferron leads Kazen by its high yield, with the levels exchanged Kazen does.
         let place = |order: &[&str], key: &str| order.iter().position(|k| *k == key).expect(key);
         let (_, table_order) = recommend(None, None);
         let (_, read_order) = methods.recommend(None, None);

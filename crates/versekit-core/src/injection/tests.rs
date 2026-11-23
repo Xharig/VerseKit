@@ -581,6 +581,7 @@ fn with_terms() -> Inputs {
                 lowest: Some(("Neutral".into(), 0)),
                 highest: Some(("Top Rank".into(), 95250)),
                 reward: None,
+                reward_base: None,
                 giver: None,
             },
         ),
@@ -618,7 +619,7 @@ fn every_contract_with_known_terms_gets_a_block_and_it_goes_again() {
         concat!(
             "TestGang_Raid_E_desc_001=Take the ship.\\n\\n",
             "---------------------------------------------------------\\n\\n<EM4>AUFTRAGSANGABEN</EM4>\\n\\n",
-            "<EM4># Max. Reputation: Top Rank (95.250 XP)</EM4>\\n# Wartezeit: 45 Minuten (±10)\\n# Wartezeit nach Abbruch: 45 Minuten\\n# Buy-in: 13.500 aUEC\\n",
+            "<EM4># Max. Reputation: Top Rank (95.250 XP)</EM4>\\n# Wartezeit: 45 Minuten (±10)\\n# Wartezeit nach Abbruch: 45 Minuten\\n# Einsatz (Buy-in): 13.500 aUEC\\n",
             "# Mission teilbar: Nein\\n# Wieder annehmbar: nach Abbruch Ja, nach Fehlschlag Nein\\n",
             "<EM4># Ruf: Test Gang +50 Standing</EM4>\\n# Region: Pyro\\n\\n",
             "Angaben aus den Spieldaten · eingefügt von VerseKit"
@@ -627,7 +628,7 @@ fn every_contract_with_known_terms_gets_a_block_and_it_goes_again() {
     assert_eq!(line("Other_desc_001="), "Other_desc_001=Nothing known.");
     // The blueprint block names what it lacked, without the cooldown twice.
     let bounty = line("Bounty_desc_001=");
-    assert!(bounty.contains("\\n# Buy-in: 500 aUEC\\n"), "{bounty}");
+    assert!(bounty.contains("\\n# Einsatz (Buy-in): 500 aUEC\\n"), "{bounty}");
     assert!(!bounty.contains("# Wartezeit: 30"), "{bounty}");
     assert!(is_applied(&fx.ini));
 
@@ -821,4 +822,131 @@ fn a_block_with_the_old_name_in_its_heading_is_found_and_taken_out() {
         apply_texts(&fx.paths, &fx.ini, language, &inputs(&[]), false);
         assert!(!fx.text().contains("VERSE-KIT"), "{language}: nothing of the old heading stays: {}", fx.text());
     }
+}
+
+// ------------------------------------------------------------- names the game text lacks
+
+/// The names of a file that gives relatives to the names below: an edition of the Verdict, magazines of two kinds of
+/// ammunition, a shotgun with its short name.
+const NAME_GAME: &str = "item_Nameksar_lmg_energy_01_store01=Verdict \"Derivation\" LMG\n\
+item_Nameklwe_lmg_energy_01_mag=Demeco LMG Battery (100 cap)\n\
+item_Namevolt_lmg_energy_01_mag=Fresnel Energy LMG Battery (165 Cap)\n\
+item_Namevolt_rifle_energy_01_mag=Parallax Rifle Battery (80 Cap)\n\
+item_Namebehr_rifle_ballistic_01_mag=P4-AR Magazine (40 cap)\n\
+item_Namegmni_rifle_ballistic_01_mag=S71 Rifle Magazine (30 cap)\n\
+item_Namebehr_pistol_ballistic_01_mag=S-38 Magazine (20 cap)\n\
+item_Nameglsn_shotgun_ballistic_01=Salvation Shotgun\n\
+item_Nameglsn_shotgun_ballistic_01_short=Salvation Shotgun\n";
+
+fn need(key: &str, short_of: Option<&str>, kind: &str, capacity: Option<i64>) -> names::NameNeed {
+    names::NameNeed { key: key.into(), short_of: short_of.map(str::to_string), kind: kind.into(), capacity }
+}
+
+/// What the game data ask for: the base and the short name of the Verdict, its battery, the shotgun's magazine, an
+/// item with no relative and a test item the catalog never lists.
+fn name_inputs() -> Inputs {
+    Inputs {
+        name_needs: vec![
+            need("item_Nameksar_lmg_energy_01", None, "WeaponPersonal/Medium", None),
+            need("item_Nameksar_lmg_energy_01_short", Some("item_Nameksar_lmg_energy_01"), "WeaponPersonal/Medium", None),
+            need("item_Nameksar_lmg_energy_01_mag", None, "WeaponAttachment/Magazine", Some(75)),
+            need("item_Nameglsn_shotgun_ballistic_01_mag", None, "WeaponAttachment/Magazine", Some(12)),
+            need("item_Nameasad_rifle_energy_01", None, "WeaponPersonal/Medium", None),
+            need("item_Nameasad_rifle_energy_01_mag", None, "WeaponAttachment/Magazine", Some(30)),
+        ],
+        ..inputs(&[])
+    }
+}
+
+#[test]
+fn a_name_the_game_text_lacks_is_formed_from_related_names_and_taken_back() {
+    let fx = Fixture::new("names", "english", NAME_GAME);
+    let inputs = name_inputs();
+    assert!(matches!(apply_texts(&fx.paths, &fx.ini, "english", &inputs, false), Outcome::Done(_)));
+    let text = fx.text();
+    assert!(text.contains("\nitem_Nameksar_lmg_energy_01=Verdict LMG\n"), "{text}");
+    assert!(text.contains("\nitem_Nameksar_lmg_energy_01_short=Verdict LMG\n"), "{text}");
+    assert!(text.contains("\nitem_Nameksar_lmg_energy_01_mag=Verdict LMG Battery (75 Cap)\n"), "{text}");
+    assert!(text.contains("\nitem_Nameglsn_shotgun_ballistic_01_mag=Salvation Shotgun Magazine (12 cap)\n"), "{text}");
+    // Better none than a wrong one: no relative, no name.
+    assert!(!text.contains("item_Nameasad_rifle_energy_01"), "{text}");
+    // The report names every formed key and how.
+    let added = added_names(&fx.paths, &fx.ini);
+    assert_eq!(added.len(), 4, "{added:?}");
+    let how = |key: &str| added.iter().find(|n| n.key == key).map(|n| (n.how, n.from.as_str()));
+    assert_eq!(how("item_Nameksar_lmg_energy_01"), Some((names::How::Base, "item_Nameksar_lmg_energy_01_store01")));
+    assert_eq!(how("item_Nameksar_lmg_energy_01_mag"), Some((names::How::Magazine, "item_Nameksar_lmg_energy_01")));
+    assert_eq!(how("item_Nameksar_lmg_energy_01_short"), Some((names::How::Short, "item_Nameksar_lmg_energy_01")));
+    // A second run writes nothing twice.
+    apply_texts(&fx.paths, &fx.ini, "english", &inputs, false);
+    assert_eq!(fx.text(), text);
+    assert_eq!(text.matches("item_Nameksar_lmg_energy_01=").count(), 1);
+    // Removing restores the file and empties the report.
+    remove_texts(&fx.paths, &fx.ini, "english");
+    assert_eq!(fx.text(), NAME_GAME);
+    assert!(added_names(&fx.paths, &fx.ini).is_empty());
+}
+
+/// Taking the texts back forms no names, even where the game data still ask for them.
+#[test]
+fn removing_forms_no_names_even_with_needs_at_hand() {
+    let fx = Fixture::new("names-remove", "english", NAME_GAME);
+    let inputs = name_inputs();
+    apply_texts(&fx.paths, &fx.ini, "english", &inputs, false);
+    assert!(!added_names(&fx.paths, &fx.ini).is_empty());
+    assert!(matches!(apply_texts(&fx.paths, &fx.ini, "english", &inputs, true), Outcome::Done(_)));
+    assert_eq!(fx.text(), NAME_GAME);
+    assert!(added_names(&fx.paths, &fx.ini).is_empty());
+}
+
+/// The name a line already has wins: nothing is written for it, whatever the game data ask.
+#[test]
+fn a_name_the_file_has_is_never_replaced() {
+    let game = format!("{NAME_GAME}item_Nameksar_lmg_energy_01=Echter Name\n");
+    let fx = Fixture::new("names-has", "english", &game);
+    apply_texts(&fx.paths, &fx.ini, "english", &name_inputs(), false);
+    let text = fx.text();
+    assert!(text.contains("\nitem_Nameksar_lmg_energy_01=Echter Name\n"), "{text}");
+    assert!(!text.contains("=Verdict LMG\n"), "no name of ours for a key that has one: {text}");
+    // The battery now takes the game's own name of the weapon.
+    assert!(text.contains("\nitem_Nameksar_lmg_energy_01_mag=Echter Name Battery (75 Cap)\n"), "{text}");
+}
+
+/// CIG adds the name later: what we wrote before goes away and the game's text stays, however the patch came.
+#[test]
+fn a_name_the_game_supplies_later_ends_the_stand_in() {
+    let fx = Fixture::new("names-later", "english", NAME_GAME);
+    let inputs = name_inputs();
+    apply_texts(&fx.paths, &fx.ini, "english", &inputs, false);
+    // The patch rewrites the lines: the base name now has a text of its own, the battery none of ours any more.
+    let patched = fx.text().replace("item_Nameksar_lmg_energy_01=Verdict LMG\n", "item_Nameksar_lmg_energy_01=Verdict (Original)\n");
+    fs::write(&fx.ini, &patched).unwrap();
+    // The catalog does not list the base name any more.
+    let later = Inputs {
+        name_needs: inputs.name_needs.iter().filter(|n| n.key != "item_Nameksar_lmg_energy_01").cloned().collect(),
+        ..inputs
+    };
+    apply_texts(&fx.paths, &fx.ini, "english", &later, false);
+    let text = fx.text();
+    assert!(text.contains("\nitem_Nameksar_lmg_energy_01=Verdict (Original)\n"), "the game's own name stays: {text}");
+    assert_eq!(text.matches("item_Nameksar_lmg_energy_01=").count(), 1);
+    assert!(added_names(&fx.paths, &fx.ini).iter().all(|n| n.key != "item_Nameksar_lmg_energy_01"));
+    // Taking everything back leaves the game's name where it is.
+    remove_texts(&fx.paths, &fx.ini, "english");
+    assert!(fx.text().contains("\nitem_Nameksar_lmg_energy_01=Verdict (Original)\n"));
+}
+
+/// The words come from the file: a German translation names its magazines its own way.
+#[test]
+fn the_words_of_the_language_of_the_file_are_used() {
+    let german = "item_Nameksar_lmg_energy_01_store01=Verdict „Ableitung“ LMG\n\
+item_Nameklwe_lmg_energy_01_mag=Demeco LMG Energiezelle (100 Schuss)\n\
+item_Namevolt_lmg_energy_01_mag=Fresnel LMG Energiezelle (165 Schuss)\n";
+    let fx = Fixture::new("names-german", "german_(germany)", german);
+    apply_texts(&fx.paths, &fx.ini, "german_(germany)", &name_inputs(), false);
+    let text = fx.text();
+    assert!(text.contains("\nitem_Nameksar_lmg_energy_01=Verdict LMG\n"), "{text}");
+    assert!(text.contains("\nitem_Nameksar_lmg_energy_01_mag=Verdict LMG Energiezelle (75 Schuss)\n"), "{text}");
+    // No second magazine of the ballistic kind in this file: no word, no name.
+    assert!(!text.contains("item_Nameglsn_shotgun_ballistic_01_mag"), "{text}");
 }

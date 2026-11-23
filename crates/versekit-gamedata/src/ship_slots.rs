@@ -584,6 +584,143 @@ pub fn parts_file(catalogs: &Catalogs) -> Value {
     ])
 }
 
+/// A number of the catalog as a value of the file; `null` stays `null`.
+fn float(value: &Json) -> Value {
+    value.as_f64().map_or(Value::Null, |x| Value::Float((x * 10_000.0).round() / 10_000.0))
+}
+
+/// A number of the catalog, or `fallback` where it is not set.
+fn float_or(value: &Json, fallback: f64) -> Value {
+    match float(value) {
+        Value::Null => Value::Float(fallback),
+        set => set,
+    }
+}
+
+/// A change in percent of a block of mining modifiers (`resistance`, `instability`); not set counts as none.
+fn percent(modifiers: &Json, key: &str) -> Value {
+    float_or(&modifiers[key], 0.0)
+}
+
+/// The further changes of a block of mining modifiers and its filter, as the file keeps them; not set stays `null`.
+fn more(modifiers: &Json, filter: &Json) -> Vec<(&'static str, Value)> {
+    vec![
+        ("fenster", float(&modifiers["optimalChargeWindowSize"])),
+        ("laderate", float(&modifiers["optimalChargeWindowRate"])),
+        ("ueberladung", float(&modifiers["catastrophicChargeWindowRate"])),
+        ("splitter", float(&modifiers["shatterDamage"])),
+        ("clustering", float(&modifiers["clusterFactor"])),
+        ("filter", float(filter)),
+    ]
+}
+
+/// The power factor a module gives the cracking beam: the multiplier of its first fire action, where it has one.
+fn power_factor(block: &Json) -> Value {
+    block["fireActionModifiers"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|m| m["fireActionIndex"].as_i64().unwrap_or(0) == 0)
+        .map_or(Value::Float(1.0), |m| float_or(&m["damageMultiplier"], 1.0))
+}
+
+/// The mining equipment of the parts ([`versekit_core::mining_gear::FILE`]): every laser head with the power of
+/// its cracking beam (`ElectricArc`), its changes and its module slots, every module and every gadget with theirs.
+pub fn mining_file(catalogs: &Catalogs) -> Value {
+    let (mut heads, mut modules, mut gadgets) = (Vec::new(), Vec::new(), Vec::new());
+    let mut guids: Vec<&String> = catalogs.items.keys().collect();
+    guids.sort();
+    for guid in guids {
+        let item = &catalogs.items[guid];
+        let stats = &item["stats"];
+        let named = |extra: Vec<(&str, Value)>| {
+            let mut entry: Map = vec![
+                ("ref".to_string(), Value::str(guid)),
+                ("name".to_string(), Value::str(part_name(item))),
+                ("klasse".to_string(), Value::str(item["className"].as_str().unwrap_or_default())),
+            ];
+            entry.extend(extra.into_iter().map(|(k, v)| (k.to_string(), v)));
+            Value::Object(entry)
+        };
+        let laser = &stats["miningLaser"];
+        if laser.is_object() {
+            let beam_of = |hit: &str| {
+                stats["weapon"]["fireActions"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find(|action| action["hitType"].as_str() == Some(hit))
+            };
+            let beam = beam_of("ElectricArc");
+            // A tool without power (the multi-tool of the AI in 4.10) cracks nothing and is no head to choose.
+            let Some(power) =
+                beam.map(|b| float(&b["damagePerSecond"]["energy"])).filter(|p| matches!(p, Value::Float(x) if *x > 0.0))
+            else {
+                continue;
+            };
+            let beam = beam.unwrap_or(&Json::Null);
+            let ports = catalogs.loadouts.get(guid).and_then(|l| l["ports"].as_array()).cloned().unwrap_or_default();
+            let slots = ports
+                .iter()
+                .filter(|port| {
+                    port["types"].as_array().into_iter().flatten().any(|t| t["type"].as_str() == Some("MiningModifier"))
+                })
+                .count();
+            let modifiers = &laser["modifiers"];
+            let mut values = vec![
+                ("groesse", int(&item["size"]).map_or(Value::Null, Value::int)),
+                ("leistung", power),
+                ("drossel_min", float(&laser["throttleMinimum"])),
+                ("extraktion", beam_of("Extraction").map_or(Value::Null, |b| float(&b["damagePerSecond"]["energy"]))),
+                ("reichweite_voll", float(&beam["fullDamageRange"])),
+                ("reichweite_null", float(&beam["zeroDamageRange"])),
+                ("widerstand", percent(modifiers, "resistance")),
+                ("instabilitaet", percent(modifiers, "instability")),
+                ("plaetze", Value::int(slots as i64)),
+            ];
+            values.extend(more(modifiers, &laser["filterModifier"]));
+            heads.push(named(values));
+            continue;
+        }
+        let block = &stats["miningModifier"];
+        if !block.is_object() {
+            continue;
+        }
+        if block["rock"].is_object() {
+            // A base entity without a name of its own (`..._MiningBase`) is no gadget a player holds.
+            if english(&item["name"]).trim().is_empty() {
+                continue;
+            }
+            let modifiers = &block["rock"]["modifiers"];
+            let mut values =
+                vec![("widerstand", percent(modifiers, "resistance")), ("instabilitaet", percent(modifiers, "instability"))];
+            values.extend(more(modifiers, &block["filter"]["filterModifier"]));
+            gadgets.push(named(values));
+        } else if block["laser"].is_object() || block["fireActionModifiers"].as_array().is_some_and(|a| !a.is_empty()) {
+            let modifiers = &block["laser"]["modifiers"];
+            let active = block["activationMethod"].as_str() == Some("ActivateOnDemand");
+            let mut values = vec![
+                ("aktiv", Value::Bool(active)),
+                ("ladungen", int(&block["charges"]).filter(|c| *c >= 0).map_or(Value::Null, Value::int)),
+                ("dauer", float(&block["laser"]["lifetime"])),
+                ("leistung", power_factor(block)),
+                ("widerstand", percent(modifiers, "resistance")),
+                ("instabilitaet", percent(modifiers, "instability")),
+            ];
+            values.extend(more(modifiers, &block["filter"]["filterModifier"]));
+            modules.push(named(values));
+        }
+    }
+    Value::Object(vec![
+        ("format".to_string(), Value::int(versekit_core::mining_gear::FORMAT)),
+        ("spielversion".to_string(), Value::str(&catalogs.build)),
+        ("quelle".to_string(), Value::str("spieldaten")),
+        ("koepfe".to_string(), Value::Array(heads)),
+        ("module".to_string(), Value::Array(modules)),
+        ("gadgets".to_string(), Value::Array(gadgets)),
+    ])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -844,5 +981,64 @@ mod tests {
         let plain = [port("grid", vec![]), port("door", vec![]), port("unknown", vec![])];
         assert_eq!(cargo_outside_grids(&catalogs, &plain), Some(0.0));
         assert_eq!(cargo_outside_grids(&catalogs, &[]), Some(0.0));
+    }
+
+    /// A made-up catalog with a laser head (two module ports, an extraction beam beside the cracking one), an active
+    /// and a passive module, a gadget and an item without mining values.
+    #[test]
+    fn the_mining_file_holds_heads_modules_and_gadgets_with_their_values() {
+        let catalog: Json = serde_json::from_str(r#"{
+            "items": [
+              {"guid": "head", "className": "Mining_Laser_S1", "name": {"en": "Helix I"}, "type": "WeaponMining", "size": 1,
+               "stats": {"miningLaser": {"throttleMinimum": 0.2, "filterModifier": 40,
+                                         "modifiers": {"resistance": -30, "instability": null, "optimalChargeWindowSize": -20}},
+                         "weapon": {"fireActions": [
+                           {"hitType": "Extraction", "damagePerSecond": {"energy": 1295}},
+                           {"hitType": "ElectricArc", "damagePerSecond": {"energy": 3150},
+                            "fullDamageRange": 40, "zeroDamageRange": 45}]}}},
+              {"guid": "surge", "className": "mining_modules_active_surge", "name": {"en": "Surge"}, "type": "MiningModifier",
+               "stats": {"miningModifier": {"activationMethod": "ActivateOnDemand", "charges": 5,
+                         "laser": {"lifetime": 15, "modifiers": {"resistance": -15}},
+                         "fireActionModifiers": [{"fireActionIndex": 0, "damageMultiplier": 1.5}]}}},
+              {"guid": "focus", "className": "mining_modules_passive_focus", "name": {"en": "Focus III"}, "type": "MiningModifier",
+               "stats": {"miningModifier": {"activationMethod": "ActivateOnAttach", "charges": -1,
+                         "laser": {"lifetime": null, "modifiers": {"instability": 10}}, "fireActionModifiers": []}}},
+              {"guid": "sabir", "className": "mining_gadget_sabir", "name": {"en": "Sabir"}, "type": "Gadget",
+               "stats": {"miningModifier": {"rock": {"modifiers": {"resistance": -50, "instability": 15}}, "fireActionModifiers": []}}},
+              {"guid": "base", "className": "behr_ltp_kinetic_01_MiningBase", "name": {"en": ""}, "type": "Gadget",
+               "stats": {"miningModifier": {"rock": {"modifiers": {"resistance": -10}}, "fireActionModifiers": []}}},
+              {"guid": "seat", "className": "Seat", "name": {"en": "Seat"}, "type": "Seat"},
+              {"guid": "tool", "className": "multitool_cutter_AI", "name": {"en": "Multi-Tool"}, "type": "WeaponPersonal",
+               "stats": {"miningLaser": {"throttleMinimum": 0.001},
+                         "weapon": {"fireActions": [{"hitType": "ElectricArc", "damagePerSecond": {"energy": 0}}]}}}
+            ],
+            "loadouts": [{"entityGuid": "head", "ports": [
+              {"name": "module_1", "types": [{"type": "MiningModifier"}]},
+              {"name": "module_2", "types": [{"type": "MiningModifier"}]},
+              {"name": "light", "types": [{"type": "Light"}]}]}]
+        }"#).unwrap();
+        let mut catalogs = Catalogs::default();
+        catalogs.add(&catalog);
+        let file = mining_file(&catalogs);
+        let gear = versekit_core::mining_gear::Gear::from_values(Some(&file), None);
+        let head = gear.head("head").expect("the head");
+        assert_eq!((head.name.as_str(), head.size, head.power, head.slots), ("Helix I", 1, 3150.0, 2));
+        assert_eq!((head.resistance, head.instability), (-30.0, 0.0), "not set counts as no change");
+        assert_eq!((head.throttle_min, head.extraction), (Some(0.2), Some(1295.0)));
+        assert_eq!((head.range_full, head.range_zero), (Some(40.0), Some(45.0)), "the ranges of the cracking beam");
+        assert_eq!((head.more.window, head.more.filter, head.more.rate), (Some(-20.0), Some(40.0), None));
+        let surge = gear.module("surge").expect("the active module");
+        assert!(surge.active);
+        assert_eq!((surge.charges, surge.lifetime, surge.power, surge.resistance), (Some(5), Some(15.0), 1.5, -15.0));
+        let focus = gear.module("focus").expect("the passive module");
+        assert_eq!((focus.active, focus.charges, focus.lifetime, focus.power), (false, None, None, 1.0));
+        assert_eq!(gear.gadget("sabir").map(|g| (g.resistance, g.instability)), Some((-50.0, 15.0)));
+        assert_eq!((gear.heads.len(), gear.modules.len(), gear.gadgets.len()), (1, 2, 1), "the seat is no mining part, a tool without power no head");
+        // The reader skips a head without power as well: the file itself must not hold it.
+        let written = match file.get("koepfe") {
+            Some(versekit_core::jsonio::Value::Array(heads)) => heads.len(),
+            _ => 0,
+        };
+        assert_eq!(written, 1, "a tool without power is not written as a head");
     }
 }

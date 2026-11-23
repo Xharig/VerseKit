@@ -32,7 +32,7 @@ denselben Pfaden mehr stehen — Weiterleitungsregeln laufen vor Workern.
 |---|---|---|
 | `v`, `os` | Programmversion, System | `tage` (mit Land) |
 | `ui`, `game` | Sprache der Oberfläche und des Spiels | `merkmale` |
-| `tr` | gewählte Übersetzung von LIVE als Kennung der Quelle (`dymerz_de`, `original`, `eigene`, `keine`), nie eine Adresse | `merkmale` |
+| `tr` | gewählte Übersetzung von LIVE als Kennung der Quelle (`dymerz_de`, `original`, `eigene`, `ungewaehlt` = nie gewählt, `nicht_anfassen`; vor 5.6 `keine` für beides), nie eine Adresse | `merkmale` |
 | `rc`, `autostart`, `update` | Testversionen, Autostart, Auto-Update (ja/nein) | `merkmale` |
 | `mods`, `overlay` | eingeschaltete Bereiche, Overlay-Betrieb | `merkmale` |
 | `pages` | Aufrufe je Seite, `{"liste": 12}` | `seiten` |

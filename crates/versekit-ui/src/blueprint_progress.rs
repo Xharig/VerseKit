@@ -360,7 +360,7 @@ mod tests {
         let data = ListData::sample();
         let scheme = versekit_core::theme::current();
         let mut findings = Vec::new();
-        for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             for width in [420.0, 520.0, 900.0] {
                 let ctx = egui::Context::default();
                 crate::install(&ctx);

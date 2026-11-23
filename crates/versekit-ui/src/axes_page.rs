@@ -2071,7 +2071,7 @@ mod tests {
         bench.curve.len() == want.len() && bench.curve.iter().zip(&want).all(|(a, b)| (*a - *b).length() < 1e-3)
     }
 
-    fn setup() -> std::sync::MutexGuard<'static, ()> {
+    fn setup() -> crate::LanguageGuard {
         let guard = crate::language_lock();
         theme::set_current("original");
         language::set_thread_language(Choice::De);

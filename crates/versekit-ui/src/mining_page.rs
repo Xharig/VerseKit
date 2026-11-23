@@ -93,6 +93,14 @@ pub struct MiningState {
     said: Option<(String, bool)>,
     /// The signature scanner: its switch, the teaching of the digits and the place of its window.
     pub scanner: crate::scanner_ui::ScannerState,
+    /// The card "Does the rock pay?": the equipment the answer above the signature is computed with.
+    pub rock: crate::rock_box::RockBox,
+    /// The tab shown ([`TABS`]).
+    pub tab: usize,
+    /// Whether the tab of the signature scanner was drawn last (the window names the page by it: its own pin).
+    pub shows_signature: bool,
+    /// A request to open the tab of the signature scanner at the next drawing (a pinned card, a jump).
+    pub want_signature: bool,
 }
 
 /// What a fetch of the mining data ended with: the sentence and whether it went wrong.
@@ -167,6 +175,10 @@ impl Default for MiningState {
             fetch: None,
             said: None,
             scanner: crate::scanner_ui::ScannerState::default(),
+            rock: crate::rock_box::RockBox::default(),
+            tab: 0,
+            shows_signature: false,
+            want_signature: false,
         }
     }
 }
@@ -177,6 +189,7 @@ impl MiningState {
         let mut state = MiningState {
             paths: Some(Paths::new(paths.host.clone())),
             scanner: crate::scanner_ui::ScannerState::with_files(paths),
+            rock: crate::rock_box::RockBox::with_files(paths),
             ..MiningState::default()
         };
         state.reload();
@@ -474,19 +487,79 @@ fn share_at(place: &OrePlace, tool: Option<&str>) -> (f64, u8, bool) {
 
 /// Draws the page.
 pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState) -> Option<Action> {
+    show_page_with(ui, scheme, state, None)
+}
+
+/// The tabs of the page: mining, the equipment of the mining ships, and the signature scanner.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Tab {
+    Mining,
+    Equipment,
+    Signature,
+}
+
+impl Tab {
+    /// The text key of its name.
+    fn key(self) -> &'static str {
+        match self {
+            Tab::Mining => "s_bg_reiter_bergbau",
+            Tab::Equipment => "s_bg_reiter_ausruestung",
+            Tab::Signature => "s_bg_reiter_signatur",
+        }
+    }
+}
+
+/// What draws the mining ships of the hangar with the cards of the hangar page, and gives them.
+pub type Equipment<'a> = &'a mut dyn FnMut(&mut Ui) -> Vec<versekit_core::mining_gear::HangarShip>;
+
+/// The page; with `equipment` (the program with its data) it has the tab of the mining ships' equipment.
+pub fn show_page_with(ui: &mut Ui, scheme: &Scheme, state: &mut MiningState, equipment: Option<Equipment<'_>>) -> Option<Action> {
     state.follow(ui);
     state.poll_fetch();
+    let mut equipment = equipment;
+    let was_signature = std::mem::take(&mut state.shows_signature);
+    if state.real() {
+        // Mining, the equipment (with the program and its data) and the signature scanner, in this order.
+        let mut tabs = vec![Tab::Mining];
+        if equipment.is_some() {
+            tabs.push(Tab::Equipment);
+        }
+        tabs.push(Tab::Signature);
+        let labels: Vec<String> = tabs.iter().map(|tab| t(tab.key())).collect();
+        if std::mem::take(&mut state.want_signature) {
+            state.tab = tabs.iter().position(|tab| *tab == Tab::Signature).unwrap_or(0);
+        }
+        state.tab = state.tab.min(tabs.len() - 1);
+        widgets::tab_bar(ui, scheme, &labels.iter().map(String::as_str).collect::<Vec<_>>(), &mut state.tab);
+        ui.add_space(8.0);
+        state.shows_signature = tabs[state.tab] == Tab::Signature;
+        if state.shows_signature != was_signature {
+            // The head of the window names the page by the tab: it draws again with the new name.
+            ui.ctx().request_repaint();
+        }
+        match tabs[state.tab] {
+            Tab::Mining => {}
+            Tab::Equipment => {
+                let now = ui.input(|i| i.time);
+                let ships = equipment.as_mut().map(|equipment| equipment(ui)).unwrap_or_default();
+                ui.add_space(10.0);
+                if crate::rock_box::show_box(ui, scheme, &mut state.rock, &ships, state.scanner.on, now) {
+                    state.tab = tabs.iter().position(|tab| *tab == Tab::Signature).unwrap_or(0);
+                }
+                return None;
+            }
+            Tab::Signature => {
+                crate::scanner_ui::show_page(ui, scheme, &mut state.scanner, &state.mining);
+                return None;
+            }
+        }
+    }
     let mut action = None;
     ui.label(sub(scheme, t("s_bg_lead")));
     ui.add_space(8.0);
     // The methods need no mining data: they stand there without it.
     method_box(ui, scheme, state);
     ui.add_space(10.0);
-    // The scanner needs no mining data either: the base signatures it knows by itself.
-    if state.real() {
-        crate::scanner_ui::show_box(ui, scheme, &mut state.scanner, &state.mining);
-        ui.add_space(10.0);
-    }
     if state.mining.is_empty() {
         widgets::card(ui, scheme, |ui| {
             widgets::card_title(ui, scheme, &t("s_bg_daten_kopf"));

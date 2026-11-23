@@ -27,8 +27,12 @@
 
 use std::time::{Duration, Instant};
 
+use versekit_core::commodity_prices::Prices;
 use versekit_core::language::{Phrase, t};
 use versekit_core::mining_data::{self, MiningData};
+use versekit_core::mining_gear::{self, Choice, Gear};
+use versekit_core::rock_crack::Loadout;
+use versekit_core::rock_watch;
 use versekit_core::overlay::ScanHits;
 use versekit_core::paths::Paths;
 use versekit_core::signature_scan::{self, ByVariant};
@@ -55,6 +59,30 @@ pub const LEARN: &str = "anlernen";
 const MINING_RELOAD: Duration = Duration::from_secs(60);
 /// The picture for teaching is written at most this often.
 const FRAME_EVERY: Duration = Duration::from_secs(1);
+
+/// The equipment, the choice and the prices are read again this often: the page Mining changes the choice.
+const GEAR_RELOAD: Duration = Duration::from_secs(5);
+
+/// What the lines of the rock are computed with.
+struct Mining {
+    loadout: Loadout,
+    prices: Prices,
+    show: (bool, bool),
+}
+
+impl Mining {
+    fn read(paths: &Paths) -> Mining {
+        let gear = Gear::load(paths);
+        Mining {
+            loadout: Choice::read(paths).loadout(&gear),
+            prices: Prices::load(paths),
+            show: (
+                paths.setting_bool(mining_gear::keys::SHOW_VERDICT, true),
+                paths.setting_bool(mining_gear::keys::SHOW_WORTH, true),
+            ),
+        }
+    }
+}
 
 /// What a step of the frame found out for the overlay.
 #[derive(Debug, Default, PartialEq)]
@@ -105,6 +133,19 @@ pub struct Scanner {
     /// seen to change: teaching in the main window reaches the watch through them.
     own_stamp: [Option<std::time::SystemTime>; 3],
     own_checked: Option<Instant>,
+    /// The watch of the panel of the scanned rock: runs while the signature watch runs.
+    rock: Option<rock_watch::Watch>,
+    rock_seen: u64,
+    /// The places of the rock's panel kept in the settings, handed to the watch at its start, and the last one
+    /// stored.
+    rock_places: Vec<(String, [i64; 4])>,
+    rock_place_stored: Option<(String, [i64; 4])>,
+    /// What the rock gives, as shown below the number and in the overlay line.
+    rock_lines: Vec<rock_watch::Line>,
+    /// The equipment of the game data, the player's choice, the prices and the switches of the lines, read again
+    /// every [`GEAR_RELOAD`].
+    gear: Option<Mining>,
+    gear_at: Option<Instant>,
     #[cfg(windows)]
     window: Option<ScanWindow>,
     /// The frame that shows the area read, and when it goes.
@@ -158,6 +199,16 @@ impl Scanner {
             counts_at: None,
             own_stamp: [None; 3],
             own_checked: None,
+            rock: None,
+            rock_seen: 0,
+            rock_places: paths.map_or_else(Vec::new, |p| {
+                let settings = p.settings();
+                rock_watch::places_of(settings.iter().find(|(k, _)| k == rock_watch::PLACES).map(|(_, v)| v))
+            }),
+            rock_place_stored: None,
+            rock_lines: Vec::new(),
+            gear: None,
+            gear_at: None,
             #[cfg(windows)]
             window: None,
             #[cfg(windows)]
@@ -188,11 +239,31 @@ impl Scanner {
     }
 
     /// Takes the settings: starts or ends the watch, moves the window where the layout says.
-    pub fn apply(&mut self, on: bool, layout: Layout, hint: &Hint, lock_open: bool, wake: impl Fn() + Send + 'static) {
-        self.apply_from(on, layout, hint, lock_open, wake, || Box::new(Screen));
+    /// With the watch of the signature the one of the rock's panel starts: only here, on the real screen, and only
+    /// on Windows (its recognition is the one of the system).
+    pub fn apply(
+        &mut self,
+        on: bool,
+        layout: Layout,
+        hint: &Hint,
+        lock_open: bool,
+        wake: impl Fn() + Send + Sync + 'static,
+    ) {
+        let wake = std::sync::Arc::new(wake);
+        let signature_wake = wake.clone();
+        self.apply_from(on, layout, hint, lock_open, move || signature_wake(), || Box::new(Screen));
+        if self.active && self.watch.is_some() && self.rock.is_none() && versekit_core::win_ocr::supported() {
+            self.rock = rock_watch::Watch::start(
+                Box::new(Screen),
+                rock_watch::system_reader(),
+                self.rock_places.clone(),
+                move || wake(),
+            );
+        }
     }
 
-    /// As [`Scanner::apply`], with the pictures from `source` (the checks make up a screen).
+    /// As [`Scanner::apply`], with the pictures from `source` (the checks make up a screen) and without the watch of
+    /// the rock's panel.
     pub fn apply_from(
         &mut self,
         on: bool,
@@ -219,6 +290,7 @@ impl Scanner {
             }
         } else if !on && let Some(watch) = self.watch.take() {
             watch.stop();
+            self.stop_rock();
             self.hide();
         }
         // Only what the settings say anew is handed on: what the watch learned itself stands until the
@@ -300,6 +372,55 @@ impl Scanner {
         }
     }
 
+    fn stop_rock(&mut self) {
+        if let Some(rock) = self.rock.take() {
+            rock.stop();
+        }
+        self.rock_lines.clear();
+        self.rock_seen = 0;
+    }
+
+    /// Follows the watch of the rock's panel: tells it whether the player mines (a signature is shown), reads the
+    /// equipment, the choice and the prices again now and then, and makes the lines of the rock. A change of the
+    /// lines places the window anew at the next step. Gives the setting to store when the panel was found in a new
+    /// place.
+    pub fn follow_rock(&mut self, paths: Option<&Paths>) -> Option<(&'static str, versekit_core::jsonio::Value)> {
+        let Some(rock) = &self.rock else { return None };
+        rock.set_mining(self.shown.is_some());
+        let state = rock.state();
+        // A place the search found is kept for the next start: handed back to be stored.
+        let mut store = None;
+        if let Some(place) = &state.place
+            && self.rock_place_stored.as_ref() != Some(place)
+        {
+            let value = rock_watch::places_value(self.rock_places.clone(), &place.0, place.1);
+            self.rock_places = rock_watch::places_of(Some(&value));
+            self.rock_place_stored = Some(place.clone());
+            store = Some((rock_watch::PLACES, value));
+        }
+        let due = self.gear_at.is_none_or(|at| at.elapsed() >= GEAR_RELOAD);
+        if due && let Some(paths) = paths {
+            self.gear = Some(Mining::read(paths));
+            self.gear_at = Some(Instant::now());
+            self.rock_seen = 0;
+        }
+        if state.version == self.rock_seen {
+            return store;
+        }
+        self.rock_seen = state.version;
+        let lines = self.gear.as_ref().map_or_else(Vec::new, |mining| {
+            rock_watch::lines(&state, &mining.loadout, |name| mining.prices.price(name).map(|p| p.sell), mining.show)
+        });
+        if lines != self.rock_lines {
+            self.rock_lines = lines;
+            #[cfg(windows)]
+            {
+                self.place_again = true;
+            }
+        }
+        store
+    }
+
     fn hide(&mut self) {
         self.clear_at = None;
         self.shown = None;
@@ -367,7 +488,14 @@ impl Scanner {
         if !self.layout.overlay_line && !forced && !no_window {
             return None;
         }
-        self.shown.as_ref().map(|text| t("ov_signatur").replace("{0}", &text.line()))
+        self.shown.as_ref().map(|text| {
+            let mut line = t("ov_signatur").replace("{0}", &text.line());
+            for rock in &self.rock_lines {
+                line.push('\n');
+                line.push_str(&rock.text);
+            }
+            line
+        })
     }
 
     /// The names of the data behind the signature shown now; empty while none is shown.
@@ -515,6 +643,11 @@ impl Scanner {
             material: text.material.clone(),
             known: text.known,
             number: text.number.clone(),
+            extra: self
+                .rock_lines
+                .iter()
+                .map(|line| (line.text.clone(), colorref(if line.good { scheme.accent } else { scheme.fg })))
+                .collect(),
             font_px: self.layout.size.font_px(game.3),
             background: colorref(scheme.surface),
             text: colorref(scheme.fg),
@@ -538,6 +671,7 @@ impl Scanner {
         if let Some(watch) = self.watch.take() {
             watch.stop();
         }
+        self.stop_rock();
         self.hide();
     }
 }

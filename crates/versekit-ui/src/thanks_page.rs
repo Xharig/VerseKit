@@ -289,13 +289,17 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ThanksState) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use std::cell::RefCell;
     use versekit_core::language::{Choice, set_thread_language};
 
-    static OPENED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    // Each test thread keeps the addresses it opened, so tests running side by side never see each other's.
+    thread_local! {
+        static OPENED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    }
 
     fn record(url: &str) -> bool {
-        OPENED.lock().map(|mut list| list.push(url.to_string())).is_ok()
+        OPENED.with_borrow_mut(|list| list.push(url.to_string()));
+        true
     }
 
     fn refuse(_url: &str) -> bool {
@@ -303,7 +307,7 @@ mod tests {
     }
 
     /// German and held: the language is one for the whole process.
-    fn german() -> std::sync::MutexGuard<'static, ()> {
+    fn german() -> crate::LanguageGuard {
         let guard = crate::language_lock();
         set_thread_language(Choice::De);
         guard
@@ -383,9 +387,9 @@ mod tests {
             .find(|(role, text, _)| *role == Role::Link && text == "Xharig")
             .map(|(_, _, at)| *at)
             .expect("the author's name is a link");
-        let before = OPENED.lock().map(|list| list.len()).unwrap_or(0);
+        let before = OPENED.with_borrow(|list| list.len());
         frame(&ctx, &mut state, click(at));
-        let opened = OPENED.lock().map(|list| list[before..].to_vec()).unwrap_or_default();
+        let opened = OPENED.with_borrow(|list| list[before..].to_vec());
         assert!(opened.iter().any(|url| url == RSI_PROFILE), "opened: {opened:?}");
     }
 
@@ -487,10 +491,10 @@ mod tests {
             .find(|(role, text, _)| *role == Role::Link && text == url)
             .map(|(_, _, at)| *at)
             .expect("the address of the exporter is a link");
-        OPENED.lock().map(|mut list| list.clear()).ok();
+        OPENED.with_borrow_mut(|list| list.clear());
         frame(&ctx, &mut state, click(at));
         let nodes = frame(&ctx, &mut state, Vec::new());
-        assert_eq!(OPENED.lock().map(|l| l.clone()).unwrap_or_default(), vec![url.to_string()]);
+        assert_eq!(OPENED.with_borrow(|list| list.clone()), vec![url.to_string()]);
         let said = tf("s_ub_auf", &[("0", Arg::from(url))]);
         assert!(nodes.iter().any(|(_, text, _)| *text == said), "{said}");
         // A browser that does not start: the page names the address instead.

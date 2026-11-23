@@ -1,0 +1,1629 @@
+[
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-19-603.jpg",
+    "zeiger": [
+      2739,
+      670
+    ],
+    "name": "Sovereign IP-10",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-20-B02.jpg",
+    "zeiger": [
+      3209,
+      683
+    ],
+    "name": "XL-1",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-21-06D.jpg",
+    "zeiger": [
+      2887,
+      867
+    ],
+    "name": "Deadbolt V Cannon",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-23-5E7.jpg",
+    "zeiger": [
+      3298,
+      896
+    ],
+    "name": "Deadbolt V Cannon",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-24-B90.jpg",
+    "zeiger": [
+      3276,
+      1141
+    ],
+    "name": "Permafrost",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-27-7AD.jpg",
+    "zeiger": [
+      2803,
+      757
+    ],
+    "name": "Deadbolt V Cannon",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-30-1B9.jpg",
+    "zeiger": [
+      3243,
+      975
+    ],
+    "name": "Glacier",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-32-A44.jpg",
+    "zeiger": [
+      3311,
+      906
+    ],
+    "name": "NDB-30 Repeater",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-33-EF9.jpg",
+    "zeiger": [
+      2976,
+      911
+    ],
+    "name": "NDB-30 Repeater",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-34-345.jpg",
+    "zeiger": [
+      2813,
+      680
+    ],
+    "name": "Ardor-2 Salvaged Repeater",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-37-BC0.jpg",
+    "zeiger": [
+      3323,
+      1040
+    ],
+    "name": "Deadbolt II Cannon",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-37-F54.jpg",
+    "zeiger": [
+      2907,
+      1034
+    ],
+    "name": "Deadbolt II Cannon",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-38-30D.jpg",
+    "zeiger": [
+      3217,
+      855
+    ],
+    "name": "V880",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-40-95C.jpg",
+    "zeiger": [
+      3297,
+      724
+    ],
+    "name": "V880",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-42-2E0.jpg",
+    "zeiger": [
+      3127,
+      721
+    ],
+    "name": "V880",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-46-210.jpg",
+    "zeiger": [
+      3313,
+      931
+    ],
+    "name": "Pontes",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-46-EC4.jpg",
+    "zeiger": [
+      3242,
+      939
+    ],
+    "name": "SuperDrive",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-47-60B.jpg",
+    "zeiger": [
+      2966,
+      928
+    ],
+    "name": "Epier",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-48-8F7.jpg",
+    "zeiger": [
+      2723,
+      916
+    ],
+    "name": "Galaxy Stock Module",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-52-7CA.jpg",
+    "zeiger": [
+      2877,
+      889
+    ],
+    "name": "CF-337 Panther Repeater",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-56-860.jpg",
+    "zeiger": [
+      2745,
+      900
+    ],
+    "name": "Odyssey II Undersuit Alpha",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-57-CBC.jpg",
+    "zeiger": [
+      2999,
+      926
+    ],
+    "name": "Odyssey II Racing Helmet Alpha",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-16-58-137.jpg",
+    "zeiger": [
+      3252,
+      907
+    ],
+    "name": "VariPuck S2 Gimbal Mount",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-01-A1F.jpg",
+    "zeiger": [
+      2711,
+      753
+    ],
+    "name": "Arden-SL Core Balefire",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-02-F44.jpg",
+    "zeiger": [
+      3226,
+      764
+    ],
+    "name": "Arden-SL Legs Balefire",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-06-F7F.jpg",
+    "zeiger": [
+      3092,
+      672
+    ],
+    "name": "Boomtube Rocket Launcher",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-10-CA5.jpg",
+    "zeiger": [
+      3311,
+      901
+    ],
+    "name": "Cuesta Shoes",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-11-413.jpg",
+    "zeiger": [
+      2944,
+      700
+    ],
+    "name": "Parasite Replica Helmet",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-13-853.jpg",
+    "zeiger": [
+      3214,
+      709
+    ],
+    "name": "TBF-4 \"Balefire\" Combat Knife",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-15-2FF.jpg",
+    "zeiger": [
+      2973,
+      923
+    ],
+    "name": "Novikov \"Expo\" Helmet",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-20-38F.jpg",
+    "zeiger": [
+      3300,
+      762
+    ],
+    "name": "Cataby Backpack MPUV-1C Edition",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-21-B15.jpg",
+    "zeiger": [
+      3309,
+      871
+    ],
+    "name": "Arclight \"Glimmer\" Pistol",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-26-BB5.jpg",
+    "zeiger": [
+      2735,
+      906
+    ],
+    "name": "Falston Jumpsuit",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-27-151.jpg",
+    "zeiger": [
+      2984,
+      946
+    ],
+    "name": "ParaMed \"Oxide\" Medical Device",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-30-CE5.jpg",
+    "zeiger": [
+      2972,
+      834
+    ],
+    "name": "Good Gift Sweater",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-31-185.jpg",
+    "zeiger": [
+      2988,
+      1036
+    ],
+    "name": "Cutlass T-Shirt",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-40-2D5.jpg",
+    "zeiger": [
+      3194,
+      691
+    ],
+    "name": "Njakte Knife",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-43-E1A.jpg",
+    "zeiger": [
+      3173,
+      874
+    ],
+    "name": "CF-117 Bulldog Repeater",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-44-28E.jpg",
+    "zeiger": [
+      3306,
+      846
+    ],
+    "name": "Novikov \"Expo\" Exploration Suit",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-50-8B8.jpg",
+    "zeiger": [
+      3291,
+      786
+    ],
+    "name": "CF-227 Badger Repeater",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-17-51-F08.jpg",
+    "zeiger": [
+      2868,
+      987
+    ],
+    "name": "CF-227 Badger Repeater",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-34-52A.jpg",
+    "zeiger": [
+      2935,
+      800
+    ],
+    "name": "Aslarite",
+    "menge": 0.017,
+    "einheit": "scu",
+    "qualitaet": 575,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-36-DB6.jpg",
+    "zeiger": [
+      2693,
+      1042
+    ],
+    "name": "Titanium",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 295,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-37-1B2.jpg",
+    "zeiger": [
+      2935,
+      1027
+    ],
+    "name": "Titanium",
+    "menge": 0.404,
+    "einheit": "scu",
+    "qualitaet": 295,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-38-5DE.jpg",
+    "zeiger": [
+      3214,
+      1043
+    ],
+    "name": "Titanium",
+    "menge": 0.552,
+    "einheit": "scu",
+    "qualitaet": 516,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-39-970.jpg",
+    "zeiger": [
+      3319,
+      1037
+    ],
+    "name": "Titanium",
+    "menge": 0.728,
+    "einheit": "scu",
+    "qualitaet": 622,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-41-1AB.jpg",
+    "zeiger": [
+      3329,
+      1131
+    ],
+    "name": "Titanium",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 295,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-42-6BC.jpg",
+    "zeiger": [
+      3259,
+      1132
+    ],
+    "name": "Agricium",
+    "menge": 0.145,
+    "einheit": "scu",
+    "qualitaet": 588,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-43-B77.jpg",
+    "zeiger": [
+      3009,
+      1134
+    ],
+    "name": "Agricium",
+    "menge": 0.079,
+    "einheit": "scu",
+    "qualitaet": 346,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-48-E29.jpg",
+    "zeiger": [
+      3298,
+      743
+    ],
+    "name": "Pressurized Ice",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 322,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-49-13D.jpg",
+    "zeiger": [
+      3212,
+      764
+    ],
+    "name": "Titanium",
+    "menge": 0.813,
+    "einheit": "scu",
+    "qualitaet": 622,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-50-404.jpg",
+    "zeiger": [
+      2961,
+      765
+    ],
+    "name": "Titanium",
+    "menge": 0.443,
+    "einheit": "scu",
+    "qualitaet": 516,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-51-706.jpg",
+    "zeiger": [
+      2708,
+      762
+    ],
+    "name": "Titanium",
+    "menge": 0.629,
+    "einheit": "scu",
+    "qualitaet": 295,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-53-FBD.jpg",
+    "zeiger": [
+      3249,
+      992
+    ],
+    "name": "Pressurized Ice",
+    "menge": 1,
+    "einheit": "scu",
+    "qualitaet": 714,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-56-B89.jpg",
+    "zeiger": [
+      3224,
+      782
+    ],
+    "name": "Agricium",
+    "menge": 0.137,
+    "einheit": "scu",
+    "qualitaet": 667,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-56-E0B.jpg",
+    "zeiger": [
+      2951,
+      780
+    ],
+    "name": "Agricium",
+    "menge": 0.298,
+    "einheit": "scu",
+    "qualitaet": 588,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-57-187.jpg",
+    "zeiger": [
+      2764,
+      783
+    ],
+    "name": "Aslarite",
+    "menge": 0.253,
+    "einheit": "scu",
+    "qualitaet": 575,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-18-59-733.jpg",
+    "zeiger": [
+      3019,
+      1027
+    ],
+    "name": "Ouratite",
+    "menge": 0.214,
+    "einheit": "scu",
+    "qualitaet": 310,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-00-A48.jpg",
+    "zeiger": [
+      3248,
+      1033
+    ],
+    "name": "Ouratite",
+    "menge": 0.414,
+    "einheit": "scu",
+    "qualitaet": 523,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-00-CE9.jpg",
+    "zeiger": [
+      3321,
+      1035
+    ],
+    "name": "Ouratite",
+    "menge": 0.367,
+    "einheit": "scu",
+    "qualitaet": 779,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-02-2B0.jpg",
+    "zeiger": [
+      3297,
+      719
+    ],
+    "name": "Aslarite",
+    "menge": 0.166,
+    "einheit": "scu",
+    "qualitaet": 602,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-02-58D.jpg",
+    "zeiger": [
+      3241,
+      735
+    ],
+    "name": "Aslarite",
+    "menge": 0.592,
+    "einheit": "scu",
+    "qualitaet": 287,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-03-81D.jpg",
+    "zeiger": [
+      2954,
+      714
+    ],
+    "name": "Aslarite",
+    "menge": 2,
+    "einheit": "scu",
+    "qualitaet": 287,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-04-B12.jpg",
+    "zeiger": [
+      2719,
+      787
+    ],
+    "name": "Aslarite",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 287,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-04-D7E.jpg",
+    "zeiger": [
+      2718,
+      916
+    ],
+    "name": "Aslarite",
+    "menge": 0.243,
+    "einheit": "scu",
+    "qualitaet": 741,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-06-1F7.jpg",
+    "zeiger": [
+      3270,
+      958
+    ],
+    "name": "Agricium",
+    "menge": 0.346,
+    "einheit": "scu",
+    "qualitaet": 588,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-06-498.jpg",
+    "zeiger": [
+      3316,
+      962
+    ],
+    "name": "Agricium",
+    "menge": 0.471,
+    "einheit": "scu",
+    "qualitaet": 667,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-08-BAD.jpg",
+    "zeiger": [
+      3300,
+      762
+    ],
+    "name": "Taranite",
+    "menge": 0.046,
+    "einheit": "scu",
+    "qualitaet": 525,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-09-E96.jpg",
+    "zeiger": [
+      3255,
+      823
+    ],
+    "name": "Stileron",
+    "menge": 0.094,
+    "einheit": "scu",
+    "qualitaet": 874,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-10-164.jpg",
+    "zeiger": [
+      2912,
+      821
+    ],
+    "name": "Stileron",
+    "menge": 0.438,
+    "einheit": "scu",
+    "qualitaet": 330,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-10-362.jpg",
+    "zeiger": [
+      2712,
+      762
+    ],
+    "name": "Agricium",
+    "menge": 0.136,
+    "einheit": "scu",
+    "qualitaet": 796,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-11-60F.jpg",
+    "zeiger": [
+      2749,
+      959
+    ],
+    "name": "Ouratite",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 310,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-12-AE4.jpg",
+    "zeiger": [
+      3251,
+      992
+    ],
+    "name": "Ouratite",
+    "menge": 0.093,
+    "einheit": "scu",
+    "qualitaet": 523,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-13-CE9.jpg",
+    "zeiger": [
+      3306,
+      980
+    ],
+    "name": "Ouratite",
+    "menge": 0.396,
+    "einheit": "scu",
+    "qualitaet": 779,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-15-7C5.jpg",
+    "zeiger": [
+      3302,
+      782
+    ],
+    "name": "Gold",
+    "menge": 16,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-16-A8E.jpg",
+    "zeiger": [
+      3216,
+      782
+    ],
+    "name": "Gold",
+    "menge": 16,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-17-D69.jpg",
+    "zeiger": [
+      2985,
+      792
+    ],
+    "name": "Agricium",
+    "menge": 0.02,
+    "einheit": "scu",
+    "qualitaet": 588,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-17-FE1.jpg",
+    "zeiger": [
+      2759,
+      796
+    ],
+    "name": "Agricium",
+    "menge": 1,
+    "einheit": "scu",
+    "qualitaet": 588,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-18-2BD.jpg",
+    "zeiger": [
+      2742,
+      1010
+    ],
+    "name": "Gold",
+    "menge": 16,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-19-835.jpg",
+    "zeiger": [
+      3257,
+      1009
+    ],
+    "name": "Gold",
+    "menge": 16,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-20-BCE.jpg",
+    "zeiger": [
+      3319,
+      1006
+    ],
+    "name": "Gold",
+    "menge": 16,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-26-173.jpg",
+    "zeiger": [
+      3299,
+      889
+    ],
+    "name": "Lindinium",
+    "menge": 2,
+    "einheit": "scu",
+    "qualitaet": 585,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-29-BD9.jpg",
+    "zeiger": [
+      3003,
+      1092
+    ],
+    "name": "Lindinium",
+    "menge": 0.719,
+    "einheit": "scu",
+    "qualitaet": 585,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-29-E77.jpg",
+    "zeiger": [
+      3275,
+      1103
+    ],
+    "name": "Tungsten",
+    "menge": 2,
+    "einheit": "scu",
+    "qualitaet": 530,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-30-0C5.jpg",
+    "zeiger": [
+      3326,
+      1099
+    ],
+    "name": "Tungsten",
+    "menge": 0.347,
+    "einheit": "scu",
+    "qualitaet": 530,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-32-950.jpg",
+    "zeiger": [
+      2727,
+      696
+    ],
+    "name": "Savrilium",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 322,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-33-E9F.jpg",
+    "zeiger": [
+      3253,
+      718
+    ],
+    "name": "Savrilium",
+    "menge": 1,
+    "einheit": "scu",
+    "qualitaet": 905,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-34-125.jpg",
+    "zeiger": [
+      3267,
+      713
+    ],
+    "name": "Savrilium",
+    "menge": 0.83,
+    "einheit": "scu",
+    "qualitaet": 905,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-35-383.jpg",
+    "zeiger": [
+      3313,
+      919
+    ],
+    "name": "Ouratite",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 523,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-35-5EE.jpg",
+    "zeiger": [
+      3273,
+      912
+    ],
+    "name": "Ouratite",
+    "menge": 0.846,
+    "einheit": "scu",
+    "qualitaet": 310,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-36-880.jpg",
+    "zeiger": [
+      2989,
+      938
+    ],
+    "name": "Ouratite",
+    "menge": 1,
+    "einheit": "scu",
+    "qualitaet": 310,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-37-AF2.jpg",
+    "zeiger": [
+      2735,
+      920
+    ],
+    "name": "Ouratite",
+    "menge": 2,
+    "einheit": "scu",
+    "qualitaet": 310,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-38-010.jpg",
+    "zeiger": [
+      3021,
+      1104
+    ],
+    "name": "Ouratite",
+    "menge": 1,
+    "einheit": "scu",
+    "qualitaet": 523,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-38-24A.jpg",
+    "zeiger": [
+      3250,
+      1127
+    ],
+    "name": "Ouratite",
+    "menge": 0.98,
+    "einheit": "scu",
+    "qualitaet": 523,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-39-4D7.jpg",
+    "zeiger": [
+      3330,
+      1150
+    ],
+    "name": "Ouratite",
+    "menge": 0.701,
+    "einheit": "scu",
+    "qualitaet": 779,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-45-B8F.jpg",
+    "zeiger": [
+      2976,
+      1088
+    ],
+    "name": "Copper",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-47-276.jpg",
+    "zeiger": [
+      3248,
+      1047
+    ],
+    "name": "Construction Pieces",
+    "menge": 8,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-48-5CA.jpg",
+    "zeiger": [
+      3232,
+      816
+    ],
+    "name": "Construction Pieces",
+    "menge": 8,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-48-918.jpg",
+    "zeiger": [
+      2981,
+      829
+    ],
+    "name": "Medical Supplies",
+    "menge": 8,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-50-ED8.jpg",
+    "zeiger": [
+      3322,
+      1047
+    ],
+    "name": "Construction Pieces",
+    "menge": 8,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-52-74E.jpg",
+    "zeiger": [
+      2962,
+      982
+    ],
+    "name": "Construction Pieces",
+    "menge": 8,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-53-B2C.jpg",
+    "zeiger": [
+      3254,
+      1006
+    ],
+    "name": "Construction Pieces",
+    "menge": 8,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-56-4FC.jpg",
+    "zeiger": [
+      3260,
+      914
+    ],
+    "name": "Cryopod (Vanduul)",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-57-9C1.jpg",
+    "zeiger": [
+      3028,
+      943
+    ],
+    "name": "Cryopod (Vanduul)",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-19-59-0F0.jpg",
+    "zeiger": [
+      2962,
+      743
+    ],
+    "name": "Uncut SLAM",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-20-00-7F0.jpg",
+    "zeiger": [
+      3260,
+      968
+    ],
+    "name": "Neograph",
+    "menge": 1,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-20-03-3C7.jpg",
+    "zeiger": [
+      3302,
+      787
+    ],
+    "name": "Fresh Food",
+    "menge": 4,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-20-06-D54.jpg",
+    "zeiger": [
+      2983,
+      1014
+    ],
+    "name": "RCMBNT-XTL-2",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-20-09-AA4.jpg",
+    "zeiger": [
+      2691,
+      566
+    ],
+    "name": "Neograph",
+    "menge": 1,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-20-15-0F3.jpg",
+    "zeiger": [
+      3019,
+      1059
+    ],
+    "name": "Silicon",
+    "menge": 0.063,
+    "einheit": "scu",
+    "qualitaet": 672,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-20-16-50E.jpg",
+    "zeiger": [
+      2721,
+      1060
+    ],
+    "name": "Medical Supplies",
+    "menge": 8,
+    "einheit": "scu",
+    "qualitaet": 0,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-23-27-001.jpg",
+    "zeiger": [
+      3455,
+      679
+    ],
+    "name": null,
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "munition",
+    "schluessel": "item_Nameksar_lmg_energy_01_mag",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-23-40-3AE.jpg",
+    "zeiger": [
+      3011,
+      868
+    ],
+    "name": "Ripper SMG Battery (60 Cap)",
+    "menge": 4,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "munition",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-23-43-E23.jpg",
+    "zeiger": [
+      3302,
+      786
+    ],
+    "name": "Fresnel Energy LMG Battery (165 Cap)",
+    "menge": 3,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "munition",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-23-45-51E.jpg",
+    "zeiger": [
+      3233,
+      763
+    ],
+    "name": "Parallax Rifle Battery (80 Cap)",
+    "menge": 3,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "munition",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-23-47-B42.jpg",
+    "zeiger": [
+      2746,
+      990
+    ],
+    "name": "Demeco LMG Battery (100 Cap)",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "munition",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-23-50-7C8.jpg",
+    "zeiger": [
+      2733,
+      1059
+    ],
+    "name": "Pulse Laser Pistol Battery (60 Cap)",
+    "menge": 4,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "munition",
+    "gruppe": "frachtaufzug-nyx-de"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-29-36-070.jpg",
+    "zeiger": [
+      2721,
+      646
+    ],
+    "name": "Sovereign IP-10",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "komponente",
+    "gruppe": "frachtaufzug-nyx-en"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-29-37-5ED.jpg",
+    "zeiger": [
+      2842,
+      873
+    ],
+    "name": "Deadbolt V Cannon",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-en"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-29-44-DCA.jpg",
+    "zeiger": [
+      3265,
+      883
+    ],
+    "name": "Mantis GT-220 Gatling",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "schiffswaffe",
+    "gruppe": "frachtaufzug-nyx-en"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-29-50-8FB.jpg",
+    "zeiger": [
+      2968,
+      1055
+    ],
+    "name": "Fieldsbury Dark Bear Helmet Lime",
+    "menge": 1,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "gegenstand",
+    "gruppe": "frachtaufzug-nyx-en"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-29-57-263.jpg",
+    "zeiger": [
+      3241,
+      679
+    ],
+    "name": "Aslarite",
+    "menge": 0.041,
+    "einheit": "scu",
+    "qualitaet": 602,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-en"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-29-59-860.jpg",
+    "zeiger": [
+      2956,
+      689
+    ],
+    "name": "Aslarite",
+    "menge": 0.017,
+    "einheit": "scu",
+    "qualitaet": 575,
+    "art": "ware",
+    "gruppe": "frachtaufzug-nyx-en"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-30-08-D75.jpg",
+    "zeiger": [
+      3457,
+      721
+    ],
+    "name": null,
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "munition",
+    "schluessel": "item_Nameksar_lmg_energy_01_mag",
+    "gruppe": "frachtaufzug-nyx-en"
+  },
+  {
+    "datei": "ScreenShot-2026-11-21_03-30-09-25C.jpg",
+    "zeiger": [
+      2976,
+      930
+    ],
+    "name": "Deadrig Shotgun Magazine (8 Cap)",
+    "menge": 2,
+    "einheit": "stueck",
+    "qualitaet": null,
+    "art": "munition",
+    "gruppe": "frachtaufzug-nyx-en"
+  }
+]

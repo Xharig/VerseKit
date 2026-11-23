@@ -88,7 +88,7 @@ pub const ONE_AREA_SETTING: &str = "uebersicht_ein_bereich";
 
 /// The pages that can be pinned: (page name of 4.12, text key of its name in
 /// v5) (`cards.PAGES`).
-pub const PAGES: [(&str, &str); 45] = [
+pub const PAGES: [(&str, &str); 49] = [
     ("liste", "hf_liste"),
     ("fortschritt", "hf_fortschritt"),
     ("auftragslog", "hf_auftragslog"),
@@ -103,11 +103,14 @@ pub const PAGES: [(&str, &str); 45] = [
     ("meinlager", "hf_meinlager"),
     ("bergbau", "hf_bergbau"),
     ("raffinerien", "hf_raffinerien"),
+    ("signatur", "hf_signatur"),
     ("bergung", "hf_bergung"),
     ("laeden", "hf_laeden"),
     ("verkauf", "hf_verkauf"),
     ("routen", "hf_routen"),
-    ("statistik", "hf_st_uebersicht"),
+    ("finanzen", "hf_finanzen"),
+    ("bank", "hf_bank"),
+    ("statistik","hf_st_uebersicht"),
     ("statistik_schiffe", "hf_st_schiffe"),
     ("statistik_auftraege", "hf_st_auftraege"),
     ("statistik_quantum", "hf_st_quantum"),
@@ -130,6 +133,7 @@ pub const PAGES: [(&str, &str); 45] = [
     ("patchaenderungen", "hf_patchaenderungen"),
     ("serverstatus", "hf_serverstatus"),
     ("danke", "hf_danke"),
+    ("ueber", "hf_ueber"),
     ("handlesuche", "hf_handlesuche"),
     ("orgalager", "s_ol_seite"),
     ("orgaauftraege", "s_oa_seite"),
@@ -632,9 +636,15 @@ pub fn job_ends(job: &Map) -> f64 {
 }
 
 /// The refinery jobs as (running, done), each by its end; done ones older
-/// than a day fall away (`refinery_jobs.current`).
+/// than a day fall away (`refinery_jobs.current`), so do done ones whose yield is booked already (nothing waits
+/// for them any more).
 pub fn refinery_current(jobs: &[Map], now: f64) -> (Vec<Map>, Vec<Map>) {
-    let mut kept: Vec<Map> = jobs.iter().filter(|j| now - job_ends(j) <= KEEP_DONE_SEC).cloned().collect();
+    let mut kept: Vec<Map> = jobs
+        .iter()
+        .filter(|j| now - job_ends(j) <= KEEP_DONE_SEC)
+        .filter(|j| job_ends(j) > now || !crate::refinery_jobs::picked_up(j))
+        .cloned()
+        .collect();
     kept.sort_by(|a, b| job_ends(a).total_cmp(&job_ends(b)));
     kept.into_iter().partition(|j| job_ends(j) > now)
 }

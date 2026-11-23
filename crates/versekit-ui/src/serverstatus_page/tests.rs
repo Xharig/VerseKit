@@ -38,7 +38,7 @@ fn index() -> String {
     format!("{}/index.json", serverstatus::BASE)
 }
 
-fn german() -> std::sync::MutexGuard<'static, ()> {
+fn german() -> crate::LanguageGuard {
     let guard = crate::language_lock();
     set_thread_language(Choice::De);
     guard

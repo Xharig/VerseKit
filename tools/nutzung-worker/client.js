@@ -55,7 +55,8 @@ const langName = (c) => ({ de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es
 const TR_LANG = { de: 'Deutsch', en: 'Englisch', fr: 'Französisch', it: 'Italienisch', es: 'Spanisch',
   pt: 'Portugiesisch (PT)', ptbr: 'Portugiesisch (BR)', tr: 'Türkisch', bar: 'Bayrisch', nl: 'Niederländisch' };
 const TR_FIXED = { starstrings: 'Englisch · StarStrings', original: 'Englisch · aus dem Spiel',
-  eigene: 'eigene Adresse', keine: 'keine Übersetzung', andere: 'andere' };
+  eigene: 'eigene Adresse', ungewaehlt: 'nie gewählt', nicht_anfassen: 'Nicht anfassen',
+  keine: 'keine (vor 5.6)', andere: 'andere' };
 const trName = (c) => {
   if (TR_FIXED[c]) return TR_FIXED[c];
   const m = /^(dymerz|luftwerft)_(.+)$/.exec(c);
@@ -492,39 +493,68 @@ function render(d, span) {
   const rel = d.downloads.filter((r) => !r.vorab && (r.windows + r.linux > 0 || r === newest))
     .map((r) => ({ ...r, gesamt: r.windows + r.linux })).concat(gone)
     .sort((a, b) => String(b.am).localeCompare(String(a.am)));
-  const SHOWN = 5;
-  let open = false;
-  try { open = localStorage.getItem('dl-alle') === '1'; } catch (e) { open = false; }
+  // Oben die neueste Version einzeln, darunter je Reihe (5.5, 5.4 …) eine Zeile
+  // mit der Summe, zugeklappt; ein Klick zeigt ihre Versionen. Alles vor 5.0 ist
+  // eine Reihe. Welche Reihen offen sind, merkt sich der Browser (nur bequem).
+  const series = (tag) => { const p = String(tag).replace(/^v/, '').split('.');
+    const major = parseInt(p[0], 10), minor = parseInt(p[1], 10);
+    return major >= 5 && minor >= 0 ? major + '.' + minor : 'vor 5.0'; };
+  const groups = [];
+  for (const r of rel) {
+    const key = series(r.tag);
+    let g = groups.find((x) => x.key === key);
+    if (!g) { g = { key, rows: [], windows: 0, linux: 0, gesamt: 0 }; groups.push(g); }
+    g.rows.push(r); g.windows += r.windows; g.linux += r.linux; g.gesamt += r.gesamt;
+  }
+  // „vor 5.0“ immer zuletzt, die übrigen bleiben neueste zuerst.
+  groups.sort((a, b) => (a.key === 'vor 5.0') - (b.key === 'vor 5.0'));
+  let opened = [];
+  try { opened = JSON.parse(localStorage.getItem('dl-reihen') || '[]'); } catch (e) { opened = []; }
+  if (!Array.isArray(opened)) opened = [];
   const dlCard = card('Downloads je Version (neueste zuerst)', 'halb');
   zusammen(dlCard, rel.length ? rel[0].tag + ': ' + rel[0].gesamt + ' Downloads' : '');
-  const dlMax = Math.max(1, ...rel.map((r) => r.gesamt));
-  const extra = [];
+  const dlMax = Math.max(1, ...groups.map((g) => g.gesamt), ...rel.map((r) => r.gesamt));
   const dlList = $('div', { class: 'liste versionen' });
-  for (const [i, r] of rel.entries()) {
+  const bar = (label, r, inner) => {
     const seg = (n, color) => { const f = $('div', { class: 'fill' }); f.style.width = ((n / dlMax) * 100).toFixed(1) + '%'; f.style.background = color; return f; };
     // Bei übernommenen Altdaten ist die Aufteilung unbekannt: dann ein grauer
     // Balken für den Rest, statt eine Aufteilung zu erfinden.
     const rest = Math.max(0, r.gesamt - r.windows - r.linux);
     const split = r.windows + r.linux > 0 ? '  (' + r.windows + ' Windows · ' + r.linux + ' Linux)' : '';
     const line = $('div', { class: 'bar' }, [
-      $('span', { text: r.tag + ' · ' + short(String(r.am)) + (r.weg ? ' · gelöscht' : '') }),
+      $('span', { text: label }),
       $('div', { class: 'track stack' }, [seg(r.windows, C_WIN), seg(r.linux, C_LIN), seg(rest, 'var(--leise)')]),
       $('span', { class: 'n', text: r.gesamt + split })]);
-    if (i >= SHOWN) { extra.push(line); line.hidden = !open; }
-    dlList.appendChild(line);
+    if (inner) line.style.paddingLeft = '1.4em';
+    return line;
+  };
+  const single = (r, inner) => bar(r.tag + ' · ' + short(String(r.am)) + (r.weg ? ' · gelöscht' : ''), r, inner);
+  if (rel.length) dlList.appendChild(single(rel[0], false));
+  for (const g of groups) {
+    const open = opened.includes(g.key);
+    const word = g.key === 'vor 5.0' ? 'vor 5.0' : g.key;
+    const label = (o) => (o ? '▾ ' : '▸ ') + word + ' · ' + g.rows.length + (g.rows.length === 1 ? ' Version' : ' Versionen');
+    const head = bar(label(open), g, false);
+    head.setAttribute('role', 'button');
+    head.setAttribute('tabindex', '0');
+    head.setAttribute('aria-expanded', String(open));
+    head.style.cursor = 'pointer';
+    const kids = g.rows.map((r) => { const l = single(r, true); l.hidden = !open; return l; });
+    const toggle = () => {
+      const now = head.getAttribute('aria-expanded') !== 'true';
+      head.setAttribute('aria-expanded', String(now));
+      head.firstChild.textContent = label(now);
+      for (const k of kids) k.hidden = !now;
+      opened = now ? opened.concat(g.key) : opened.filter((x) => x !== g.key);
+      try { localStorage.setItem('dl-reihen', JSON.stringify(opened)); } catch (e) { /* nur bequem */ }
+    };
+    head.addEventListener('click', toggle);
+    head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    dlList.appendChild(head);
+    for (const k of kids) dlList.appendChild(k);
   }
   dlCard.appendChild(dlList);
   if (!rel.length) dlCard.appendChild($('div', { class: 'empty', text: 'Noch keine Daten.' }));
-  if (extra.length) {
-    const label = (o) => (o ? 'Nur die letzten ' + SHOWN : 'Alle Versionen zeigen (' + rel.length + ')');
-    const b = foldButton(dlCard, label, () => {
-      open = !open;
-      for (const x of extra) x.hidden = !open;
-      try { localStorage.setItem('dl-alle', open ? '1' : '0'); } catch (e) { /* nur bequem */ }
-      return open;
-    });
-    b.textContent = label(open); b.setAttribute('aria-expanded', String(open));
-  }
   dlCard.appendChild(legend([{ name: 'Windows', color: C_WIN }, { name: 'Linux', color: C_LIN }]));
   if (d.downloads_stand) {
     const at = new Date(d.downloads_stand).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -611,7 +641,13 @@ function render(d, span) {
 
   klein('Sprache des Spiels (Durchschnitt 7 Tage)', share('game').map(([c, v]) => [langName(c), v]), pct);
   // Die gewählte Übersetzung von LIVE, ab 5.5.0: Sprache und Quelle, damit ungenutzte Quellen auffallen.
-  klein('Übersetzung (Durchschnitt 7 Tage, ab 5.5.0)', share('tr').map(([c, v]) => [trName(c), v]), pct);
+  // Ab 5.6 getrennt: „nie gewählt“ (Einstellung fehlt) und „Nicht anfassen“ (bewusst leer); 5.5 meldete beides als „keine“.
+  // Geteilt nur durch die Meldungen, die eine Übersetzung nennen: ältere Fassungen
+  // melden keine, sonst wirkten die Anteile zu klein, solange nicht alle aktualisiert haben.
+  const trRows = share('tr');
+  const trBase = trRows.reduce((a, r) => a + r[1], 0);
+  const trPct = (v) => trBase ? Math.round((v / trBase) * 100) + ' %' : NONE;
+  klein('Übersetzung (Durchschnitt 7 Tage, ab 5.5.0, getrennt ab 5.6)', trRows.map(([c, v]) => [trName(c), v]), trPct);
   // Jedes Modul steht da, auch eins, das niemand an hat (0 %): sonst fiele ein ganz abgeschaltetes nicht auf.
   // Bergbau und Beschaffung melden erst Fassungen ab 5.1.1, ältere zählen sie unter Herstellung und Schiffe.
   const mods = Object.fromEntries(share('mod'));
@@ -622,8 +658,7 @@ function render(d, span) {
     ['Testversionen an', (share('rc').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Autostart an', (share('autostart').find((x) => x[0] === 'ja') || [0, 0])[1]],
     ['Auto-Update an', (share('update').find((x) => x[0] === 'ja') || [0, 0])[1]],
-    ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v]),
-    ...share('ansicht').map(([c, v]) => [c === 'karten' ? 'Kartenansicht' : 'Reiteransicht', v])], pct);
+    ...share('overlay').map(([c, v]) => ['Overlay ' + (NAMES.overlay[c] || c), v])], pct);
 
   // Seiten des Hauptfensters und Handlungen über den gewählten Zeitraum:
   // breite Blöcke unter den kleinen, damit die zwei Dreierreihen geschlossen bleiben.

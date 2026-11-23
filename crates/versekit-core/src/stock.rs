@@ -608,6 +608,47 @@ pub fn trade_change(
     Ok(())
 }
 
+// ------------------------------------------------------------ set by a scan
+
+/// The entry of `material` of this quality at `place` in the material stock, `None` where there is none.
+pub fn find_raw(entries: &[Value], material: &str, quality: Option<i64>, place: &str) -> Option<usize> {
+    entries.iter().position(|e| same_material_stack(material, quality, place, e))
+}
+
+/// Appends a material entry; whatever lies at the place is not looked at.
+pub fn push_raw(entries: &mut Vec<Value>, material: &str, amount: f64, quality: Option<i64>, place: &str) {
+    entries.push(object(vec![
+        ("material", Value::str(py_strip(material))),
+        ("menge", Value::Float(amount)),
+        ("qualitaet", quality_value(quality)),
+        ("ort", Value::str(py_strip(place))),
+    ]));
+}
+
+/// The entry of the goods or item `name` at `place` in the trade stock (names and places without case), the
+/// stolen ones left out; `pieces` for an item. `None` where there is none.
+pub fn find_trade(entries: &[Value], name: &str, place: &str, pieces: bool) -> Option<usize> {
+    use crate::stock_data::lower;
+    let fold = |s: &str| lower(py_strip(s));
+    entries.iter().position(|e| {
+        is_pieces(e) == pieces
+            && !truthy(get(e, "gestohlen"))
+            && fold(text_of(get(e, "ware"))) == fold(name)
+            && fold(text_of(get(e, "ort"))) == fold(place)
+    })
+}
+
+/// Sets the amount of the entry at `index` and leaves everything else of it as it is; `false` without that entry.
+pub fn set_amount(entries: &mut [Value], index: usize, amount: f64) -> bool {
+    match entries.get_mut(index) {
+        Some(entry) => {
+            set(entry, "menge", Value::Float(amount));
+            true
+        }
+        None => false,
+    }
+}
+
 /// Remove the goods, keep the items; the number removed
 /// (`trade_cargo.clear_goods`).
 pub fn clear_goods(entries: &mut Vec<Value>) -> usize {

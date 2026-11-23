@@ -51,12 +51,39 @@ pub struct Terms {
     pub highest: Option<(String, i64)>,
     /// The payout in aUEC where the game data state it as a fixed amount; `None` for a payout the game computes.
     pub reward: Option<i64>,
+    /// The payout in aUEC scmdb's file lists for the contract (`rewardUEC`): a base value of a payout the game may
+    /// compute, no fixed amount.
+    pub reward_base: Option<i64>,
     /// The English name of the faction that gives the contract, where the game data name one.
     pub giver: Option<String>,
 }
 
 /// The field of an entry with the faction that gives every contract of the title.
 pub const GIVER: &str = "auftraggeber";
+
+/// The field of an entry with the lowest payout scmdb lists for the title, where the game data state no fixed one.
+pub const REWARD_BASE: &str = "belohnung_ca";
+
+/// `own` (the terms of the game data by title key) with the base payouts of `theirs` (the terms of scmdb's file):
+/// an entry of `own` that has no `belohnung` and no `belohnung_ca` gets the `belohnung_ca` of the same title in
+/// `theirs`. Nothing else of `theirs` is taken, and no entry is added: a title the game data have no terms for stays
+/// without.
+pub fn with_base_rewards(own: Map, theirs: &Map) -> Map {
+    own.into_iter()
+        .map(|(title, value)| {
+            let Value::Object(mut entry) = value else { return (title, value) };
+            let has = |entry: &Map, name: &str| entry.iter().any(|(k, _)| k == name);
+            if !has(&entry, "belohnung")
+                && !has(&entry, REWARD_BASE)
+                && let Some(Value::Object(other)) = theirs.iter().find(|(k, _)| *k == title).map(|(_, v)| v)
+                && let Some((_, base)) = other.iter().find(|(k, _)| k == REWARD_BASE)
+            {
+                entry.push((REWARD_BASE.to_string(), base.clone()));
+            }
+            (title, Value::Object(entry))
+        })
+        .collect()
+}
 
 /// The entries of `contracts` (title key as the game data name it, terms) by title key without `@` in lower case, in
 /// the order the titles first occur; every title has one, an empty one when nothing is known of it.
@@ -115,6 +142,12 @@ fn entry_of(list: &[&Terms]) -> Map {
         let (low, high) = (rewards.iter().min().copied().unwrap_or(0), rewards.iter().max().copied().unwrap_or(0));
         let value = if low == high { Value::int(high) } else { Value::Array(vec![Value::int(low), Value::int(high)]) };
         entry.push(("belohnung".to_string(), value));
+    }
+    // The base value of scmdb only where every contract of the title lists one: its lowest, which the title pays at
+    // least (the game may compute more).
+    let bases: Option<Vec<i64>> = list.iter().map(|t| t.reward_base.filter(|b| *b > 0)).collect();
+    if let Some(low) = bases.and_then(|b| b.into_iter().min()) {
+        entry.push((REWARD_BASE.to_string(), Value::int(low)));
     }
     let flags = [
         ("teilbar", list.iter().map(|t| t.shareable).collect::<Vec<_>>()),
@@ -178,6 +211,21 @@ fn flag(entry: &Map, name: &str) -> Option<bool> {
     }
 }
 
+/// The payout an entry states: a fixed one as it is, a span `[min, max]` and the base value of scmdb (`belohnung_ca`)
+/// as their lowest amount behind "ca."; `None` where it states none.
+fn payout(entry: &Map, words: &Words) -> Option<String> {
+    let digits = |n: i128| group_digits(n, words.separator);
+    let about = |n: i128| format!("{} {}", words.approx, digits(n));
+    match get(entry, "belohnung") {
+        Some(Value::Array(pair)) if pair.len() == 2 => {
+            let (a, b) = (number(&pair[0])?, number(&pair[1])?);
+            Some(about(a.min(b)))
+        }
+        Some(other) => number(other).filter(|n| *n > 0).map(digits),
+        None => get(entry, REWARD_BASE).and_then(number).filter(|n| *n > 0).map(about),
+    }
+}
+
 /// The lines of an entry, each `# …` (the ranks marked like in the blueprint block). `skip_known` leaves out the
 /// ranks, the cooldown and whether it can be shared, which the blueprint block names already. The lowest rank is
 /// named only when it needs reputation.
@@ -204,6 +252,9 @@ pub fn lines(entry: &Map, words: &Words, skip_known: bool) -> Vec<String> {
     }
     if let Some(text) = get(entry, "warte_abbruch").and_then(|v| minutes(v, words)) {
         out.push(format!("# {}: {text}{}", words.cooldown_abandoned, spread("warte_abbruch")));
+    }
+    if !skip_known && let Some(text) = payout(entry, words) {
+        out.push(format!("# {}: {text} aUEC", words.payout));
     }
     if let Some(text) = get(entry, "buyin").and_then(|v| amount(v, words)) {
         out.push(format!("# {}: {text} aUEC", words.buy_in));
@@ -268,6 +319,7 @@ mod tests {
             lowest: None,
             highest: None,
             reward: None,
+            reward_base: None,
             giver: None,
         }
     }
@@ -307,6 +359,28 @@ mod tests {
         );
     }
 
+    /// The block of a contract without blueprints names the payout: a fixed one plain, a base value of scmdb or a span
+    /// behind "ca."; no payout, no line; the blueprint block (`skip_known`) leaves it to its own `uec` line.
+    #[test]
+    fn the_payout_line_is_plain_where_fixed_and_approximate_where_it_is_only_a_guide() {
+        let entry = |text: &str| {
+            let value = jsonio::loads(text).expect("json");
+            value.as_object().cloned().expect("object")
+        };
+        let de = words_for("german_(germany)", true);
+        let en = words_for("english", true);
+        let line = |text: &str, words: &Words, skip: bool| {
+            lines(&entry(text), words, skip).into_iter().find(|l| l.contains("aUEC") && !l.contains("uy-in"))
+        };
+        assert_eq!(line(r#"{"belohnung": 134500}"#, &de, false).as_deref(), Some("# Belohnung: 134.500 aUEC"));
+        assert_eq!(line(r#"{"belohnung_ca": 34000}"#, &de, false).as_deref(), Some("# Belohnung: ca. 34.000 aUEC"));
+        assert_eq!(line(r#"{"belohnung_ca": 34000}"#, &en, false).as_deref(), Some("# Payout: approx. 34,000 aUEC"));
+        assert_eq!(line(r#"{"belohnung": [1000, 3000]}"#, &de, false).as_deref(), Some("# Belohnung: ca. 1.000 aUEC"));
+        assert_eq!(line(r#"{"belohnung": 5000, "belohnung_ca": 100}"#, &de, false).as_deref(), Some("# Belohnung: 5.000 aUEC"));
+        assert_eq!(line(r#"{"warte": 15}"#, &de, false), None, "no payout, no line");
+        assert_eq!(line(r#"{"belohnung_ca": 34000}"#, &de, true), None, "the blueprint block has its own line");
+    }
+
     /// A fixed payout stands in the entry; a title with a computed one, or with both, has none.
     #[test]
     fn the_payout_stands_only_where_it_is_fixed() {
@@ -324,6 +398,37 @@ mod tests {
         assert_eq!(reward("computed"), None);
         assert_eq!(reward("mixed"), None);
         assert_eq!(reward("tiers"), Some(Value::Array(vec![Value::int(1_000), Value::int(3_000)])));
+    }
+
+    /// The base payout of scmdb is the lowest of the variants and stands only where every variant lists one; the
+    /// game data's entry takes it only where it has no payout of its own.
+    #[test]
+    fn the_base_payout_of_scmdb_is_the_lowest_and_joins_only_an_entry_without_a_payout() {
+        let base = |reward_base: Option<i64>| Terms { reward_base, ..Terms::default() };
+        let theirs = summarize(&[
+            ("spread".into(), base(Some(34_000))),
+            ("spread".into(), base(Some(37_750))),
+            ("gap".into(), base(Some(5_000))),
+            ("gap".into(), base(None)),
+            ("fixed".into(), base(Some(9_000))),
+            ("only_theirs".into(), base(Some(1_000))),
+        ]);
+        let own = summarize(&[
+            ("spread".into(), Terms { cooldown: Some(15), ..Terms::default() }),
+            ("gap".into(), Terms { cooldown: Some(15), ..Terms::default() }),
+            ("fixed".into(), Terms { reward: Some(100), ..Terms::default() }),
+            ("computed".into(), Terms { cooldown: Some(15), ..Terms::default() }),
+        ]);
+        let joined = with_base_rewards(own, &theirs);
+        let field = |title: &str, name: &str| {
+            entry_for(&joined, title).and_then(|e| e.iter().find(|(k, _)| k == name)).map(|(_, v)| v.clone())
+        };
+        assert_eq!(field("spread", REWARD_BASE), Some(Value::int(34_000)), "the lowest of the variants");
+        assert_eq!(field("gap", REWARD_BASE), None, "a variant without a base value leaves none");
+        assert_eq!(field("fixed", REWARD_BASE), None, "a fixed payout needs no base value");
+        assert_eq!(field("fixed", "belohnung"), Some(Value::int(100)));
+        assert_eq!(field("computed", REWARD_BASE), None, "scmdb lists nothing for it");
+        assert!(entry_for(&joined, "only_theirs").is_none(), "no entry is added for a title the game data lack");
     }
 
     #[test]
@@ -414,7 +519,7 @@ mod tests {
             [
                 "# Wartezeit: 45 Minuten",
                 "# Wartezeit nach Abbruch: 1 Minute",
-                "# Buy-in: 13.500 aUEC",
+                "# Einsatz (Buy-in): 13.500 aUEC",
                 "# Mission teilbar: Nein",
                 "# Wieder annehmbar: nach Abbruch Ja, nach Fehlschlag Nein",
             ]
@@ -423,7 +528,7 @@ mod tests {
             lines(entry, &words_for("english", true), true),
             [
                 "# Cooldown after abandoning: 1 minute",
-                "# Buy-in: 13,500 aUEC",
+                "# Stake (buy-in): 13,500 aUEC",
                 "# Can be taken again: after abandoning Yes, after failing No",
             ]
         );

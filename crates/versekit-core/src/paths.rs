@@ -2420,10 +2420,11 @@ static CLASS_CODE_PREFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Type, size and grade in brackets as a prefix: `[civ-s2-a] 7ma 'lorica'`,
-/// `[e-s1] fl-11 cannon`. A size (`-s1`) is required, so bracketed words
+/// `[e-s1] fl-11 cannon`, also with dots as language packs write them
+/// (`[civ.s2.c] graupel`). A size (`-s1`) is required, so bracketed words
 /// like `[prototype]` stay part of the name.
 static BRACKET_CODE_PREFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(r"\A{PY_SPACE}*\[[a-z]{{1,5}}-s\d{{1,2}}(?:-[a-d])?\]{PY_SPACE}+")).expect("fester Ausdruck")
+    Regex::new(&format!(r"\A{PY_SPACE}*\[[a-z]{{1,5}}[-.]s\d{{1,2}}(?:[-.][a-d])?\]{PY_SPACE}+")).expect("fester Ausdruck")
 });
 
 /// Quantity in parentheses: `(16 cap)`, `(16 Schuss)`; the number is kept.
@@ -2866,10 +2867,9 @@ mod tests {
         let started = Instant::now();
         assert!(p.settings().is_empty());
         assert!(started.elapsed() >= SETTINGS_LOCK_PAUSE * (SETTINGS_LOCK_TRIES - 1), "es wurde gewartet");
-        // Only one attempt the second time.
-        let started = Instant::now();
+        // Only one attempt the second time: the file is remembered as still locked, which allows a single read.
+        assert_eq!(p.state().still_locked.as_deref(), Some(target.as_str()), "the lock is remembered");
         assert!(p.settings().is_empty());
-        assert!(started.elapsed() < SETTINGS_LOCK_PAUSE);
         assert!(!p.set_setting("sprache", Value::str("en")));
         drop(lock);
         assert_eq!(p.setting("sprache").as_deref(), Some("de"));

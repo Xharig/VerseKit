@@ -173,7 +173,9 @@ fn the_page_asks_for_data_when_it_opens_and_never_on_a_clock() {
     };
     draw(&mut state);
     let start = std::time::Instant::now();
-    while hub.working() && start.elapsed() < std::time::Duration::from_secs(10) {
+    // The request runs on a thread of its own; under a loaded machine (many tests, a build beside) ten seconds were
+    // too few now and then.
+    while hub.working() && start.elapsed() < std::time::Duration::from_secs(60) {
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     assert_eq!(count.load(Ordering::SeqCst), 1, "one request when the page opens");

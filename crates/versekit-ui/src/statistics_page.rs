@@ -53,7 +53,7 @@ use crate::widgets::{self, ButtonKind, RankTone};
 use crate::{color, file_dialog};
 
 /// Narrowest a tile gets before the tiles stack.
-const TILE_MIN: f32 = 170.0;
+pub(crate) const TILE_MIN: f32 = 170.0;
 /// How often the open page reads the running log again (seconds).
 const REFRESH_SECONDS: f64 = 300.0;
 /// What stands for a value that is not there (no date, no file).
@@ -354,6 +354,29 @@ fn deals_of(paths: &Paths) -> Deals {
     deals
 }
 
+/// The completed contracts of the mission log with the moment they ended (or were accepted, without an end) and
+/// the fixed reward of the catalog for their title, where there is one.
+pub(crate) fn completed_contracts(
+    log: &[versekit_core::jsonio::Map],
+    rewards: &contract_rewards::Rewards,
+) -> Vec<versekit_core::finance::Contract> {
+    log.iter()
+        .map(mission_log::Mission::of)
+        .filter(|m| m.state == mission_log::COMPLETED)
+        .filter_map(|m| {
+            let time = report::log_seconds(if m.until.is_empty() { &m.when } else { &m.until })?;
+            let reward = rewards.reward_of_title(&m.name);
+            Some(versekit_core::finance::Contract {
+                time,
+                name: mission_log::clean(&m.name),
+                reward,
+                taken: report::log_seconds(&m.when).unwrap_or(0),
+                cost: rewards.cost_of_title(&m.name),
+            })
+        })
+        .collect()
+}
+
 /// The completed contracts of the mission log, counted by the moment they ended (or were accepted, without an
 /// end); and of them those whose title leads to a fixed reward of the catalog, with these rewards summed.
 fn contracts_done(
@@ -361,17 +384,10 @@ fn contracts_done(
     rewards: &contract_rewards::Rewards,
     now: i64,
 ) -> (Counted, Summed) {
-    let done: Vec<(i64, Option<i64>)> = log
-        .iter()
-        .map(mission_log::Mission::of)
-        .filter(|m| m.state == mission_log::COMPLETED)
-        .filter_map(|m| {
-            let moment = report::log_seconds(if m.until.is_empty() { &m.when } else { &m.until })?;
-            Some((moment, rewards.of_title(&m.name)))
-        })
-        .collect();
-    let paid = done.iter().filter_map(|(moment, reward)| reward.map(|r| (*moment, r as f64)));
-    (counted(done.iter().map(|(moment, _)| *moment), now, &local_day), summed(paid, now, &local_day))
+    let done = completed_contracts(log, rewards);
+    // Only an exact reward counts here: "at least" of variants is no fixed reward.
+    let paid = done.iter().filter_map(|c| c.reward.filter(|r| !r.approx).map(|r| (c.time, r.amount as f64)));
+    (counted(done.iter().map(|c| c.time), now, &local_day), summed(paid, now, &local_day))
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +451,8 @@ pub struct StatsState {
     dialog_html: bool,
     /// Said by the last run or export, taken by the window.
     notice: Option<String>,
+    /// The button of the balance asked for the page "Finanzen"; taken by the window.
+    finance_jump: bool,
 }
 
 impl StatsState {
@@ -455,6 +473,7 @@ impl StatsState {
             dialog: None,
             dialog_html: false,
             notice: None,
+            finance_jump: false,
         }
     }
 
@@ -627,6 +646,11 @@ impl StatsState {
         self.notice.take()
     }
 
+    /// Whether the page asked for the page "Finanzen" since the last call.
+    pub fn take_finance_jump(&mut self) -> bool {
+        std::mem::take(&mut self.finance_jump)
+    }
+
     /// Waits for the run on, for tests.
     #[cfg(test)]
     pub(crate) fn wait(&mut self) {
@@ -738,28 +762,28 @@ fn today_text() -> String {
 // Drawing blocks
 // ---------------------------------------------------------------------------
 
-fn count(n: i64) -> String {
+pub(crate) fn count(n: i64) -> String {
     formats::count(language::current(), n)
 }
 
-fn small(ui: &mut Ui, scheme: &Scheme, text: &str) {
+pub(crate) fn small(ui: &mut Ui, scheme: &Scheme, text: &str) {
     ui.add(egui::Label::new(RichText::new(text).small().color(color(scheme.sub))).wrap());
 }
 
 /// One figure of a tile: its title, the number, a line below.
-struct Tile {
+pub(crate) struct Tile {
     title: String,
     value: String,
     below: String,
 }
 
-fn tile(title: impl Into<String>, value: impl Into<String>, below: impl Into<String>) -> Tile {
+pub(crate) fn tile(title: impl Into<String>, value: impl Into<String>, below: impl Into<String>) -> Tile {
     Tile { title: title.into(), value: value.into(), below: below.into() }
 }
 
 /// Figures without a frame, each of equal width, `columns` side by side; under each other when the page is too
 /// narrow. The line of the next [`section`] (or [`rule`]) parts them from what follows.
-fn tiles(ui: &mut Ui, scheme: &Scheme, items: &[Tile], columns: usize) {
+pub(crate) fn tiles(ui: &mut Ui, scheme: &Scheme, items: &[Tile], columns: usize) {
     for (row, chunk) in items.chunks(columns).enumerate() {
         if row > 0 {
             ui.add_space(GAP);
@@ -786,7 +810,7 @@ fn tiles(ui: &mut Ui, scheme: &Scheme, items: &[Tile], columns: usize) {
 
 /// The line that parts two blocks of a page: the one above the head of a [`section`], and below figures that no
 /// section follows.
-fn rule(ui: &mut Ui, scheme: &Scheme) {
+pub(crate) fn rule(ui: &mut Ui, scheme: &Scheme) {
     ui.add_space(14.0);
     let (line, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
     ui.painter().rect_filled(line, 0.0, color(scheme.line));
@@ -794,7 +818,7 @@ fn rule(ui: &mut Ui, scheme: &Scheme) {
 }
 
 /// The head of a section: a line, the title, at the right a sum.
-fn section(ui: &mut Ui, scheme: &Scheme, title: &str, right: &str) {
+pub(crate) fn section(ui: &mut Ui, scheme: &Scheme, title: &str, right: &str) {
     rule(ui, scheme);
     ui.horizontal(|ui| {
         ui.add(egui::Label::new(RichText::new(title).strong()).wrap());
@@ -827,7 +851,7 @@ fn times(n: i64) -> String {
 }
 
 /// One cell of a table: text and its color (the usual if none).
-type Cell = (String, Option<Color>);
+pub(crate) type Cell = (String, Option<Color>);
 
 /// The room to the left and right of the text of a cell of a table.
 const CELL_PAD: f32 = 8.0;
@@ -842,7 +866,7 @@ const ROW_HEIGHT: f32 = 22.0;
 /// cut with "…".
 ///
 /// `numbers` marks the columns of numbers: they stand at the right.
-fn table(ui: &mut Ui, id: &str, headers: &[String], rows: &[Vec<Cell>], numbers: &[bool]) {
+pub(crate) fn table(ui: &mut Ui, id: &str, headers: &[String], rows: &[Vec<Cell>], numbers: &[bool]) {
     let at_right = |column: usize| numbers.get(column).copied().unwrap_or(false);
     let one_line = |text: &str, strong: bool| {
         let rich = if strong { RichText::new(text).strong() } else { RichText::new(text) };
@@ -904,7 +928,7 @@ fn table(ui: &mut Ui, id: &str, headers: &[String], rows: &[Vec<Cell>], numbers:
 ///
 /// Folded up: the explanations are long, and who knows the figures does not
 /// want to read them with every look.
-fn notes(ui: &mut Ui, scheme: &Scheme, key: &str) {
+pub(crate) fn notes(ui: &mut Ui, scheme: &Scheme, key: &str) {
     ui.add_space(GAP);
     widgets::collapsing(&t("s_sx_zahlen")).default_open(false).show(ui, |ui| small(ui, scheme, &t(key)));
     ui.add_space(GAP);
@@ -919,7 +943,7 @@ fn day(lang: Lang, seconds: i64) -> String {
     report::local_day(lang, seconds)
 }
 
-fn moment(lang: Lang, seconds: i64) -> String {
+pub(crate) fn moment(lang: Lang, seconds: i64) -> String {
     report::local_moment(lang, seconds)
 }
 
@@ -1122,7 +1146,7 @@ fn overview(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, report: &Repor
     // The breakdown of the income below the buttons of the evaluation, which keep their place.
     sales_shares(ui, scheme, &report.income_goods, lang, Split::Goods);
     sales_shares(ui, scheme, &report.income_places, lang, Split::Places);
-    balance(ui, scheme, report, lang);
+    balance(ui, scheme, state, report, lang);
     notes(ui, scheme, "s_sx_hinweis");
 }
 
@@ -1211,7 +1235,7 @@ fn sales_shares(ui: &mut Ui, scheme: &Scheme, shares: &[Share], lang: Lang, spli
 }
 
 /// A sum of money with its sign: a plus before a gain.
-fn signed_money(lang: Lang, value: f64) -> String {
+pub(crate) fn signed_money(lang: Lang, value: f64) -> String {
     let text = formats::money(lang, value);
     if value.round() > 0.0 { format!("+{text}") } else { text }
 }
@@ -1219,7 +1243,7 @@ fn signed_money(lang: Lang, value: f64) -> String {
 /// "Einnahmen und Ausgaben": the sales and the fixed contract rewards of the catalog minus the purchases today, in
 /// a week and in all, the completed contracts by number, and what of the income is only requested or only
 /// stated by the catalog. Nothing is drawn without a deal or a reward.
-fn balance(ui: &mut Ui, scheme: &Scheme, report: &Report, lang: Lang) {
+fn balance(ui: &mut Ui, scheme: &Scheme, state: &mut StatsState, report: &Report, lang: Lang) {
     let (spent, sold, paid) = (&report.spending, &report.income, &report.contracts_paid);
     if spent.is_empty() && sold.is_empty() && paid.count.total == 0 {
         return;
@@ -1275,6 +1299,10 @@ fn balance(ui: &mut Ui, scheme: &Scheme, report: &Report, lang: Lang) {
         small(ui, scheme, &line);
     } else {
         small(ui, scheme, &t("s_lj_auftraege_ohne_betrag"));
+    }
+    ui.add_space(GAP);
+    if ui.add(widgets::Button::new(&t("s_fi_zur_seite"), ButtonKind::Normal, scheme)).clicked() {
+        state.finance_jump = true;
     }
 }
 

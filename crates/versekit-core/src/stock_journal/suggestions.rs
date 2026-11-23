@@ -479,11 +479,11 @@ mod tests {
     }
 
     fn session(start: i64, purchases: Vec<Purchase>) -> Session {
-        Session { start, purchases, sales: Vec::new(), movements: Vec::new() }
+        Session { start, purchases, sales: Vec::new(), movements: Vec::new(), transfers: Vec::new() }
     }
 
     fn sold(start: i64, sales: Vec<Sale>) -> Session {
-        Session { start, purchases: Vec::new(), sales, movements: Vec::new() }
+        Session { start, purchases: Vec::new(), sales, movements: Vec::new(), transfers: Vec::new() }
     }
 
     /// An item stack of the stock.
@@ -526,7 +526,13 @@ mod tests {
     #[test]
     fn a_sale_and_a_purchase_of_the_same_moment_have_their_own_keys() {
         let deal = purchase(150, "mag", 1, 10.0, Some("1"));
-        let both = Session { start: 100, purchases: vec![deal.clone()], sales: vec![deal], movements: Vec::new() };
+        let both = Session {
+            start: 100,
+            purchases: vec![deal.clone()],
+            sales: vec![deal],
+            movements: Vec::new(),
+            transfers: Vec::new(),
+        };
         let found = open(std::slice::from_ref(&both), &Decisions::default());
         assert_eq!(found.list.len(), 2);
         assert_ne!(found.list[0].key, found.list[1].key);
@@ -682,6 +688,7 @@ mod tests {
             purchases: vec![purchase(150, "mag", 3, 30.0, Some("1"))],
             sales: vec![purchase(160, "mag", 2, 40.0, Some("1")), purchase(140, "mult", 1, 5.0, Some("1"))],
             movements: Vec::new(),
+            transfers: Vec::new(),
         };
         let found = open(&[both], &Decisions::default());
         assert_eq!(found.list.len(), 3);
@@ -1016,7 +1023,13 @@ mod tests {
             amount: 1,
             ok: Some(true),
         };
-        let sessions = [Session { start: 100, purchases: Vec::new(), sales: Vec::new(), movements: vec![moved] }];
+        let sessions = [Session {
+            start: 100,
+            purchases: Vec::new(),
+            sales: Vec::new(),
+            movements: vec![moved],
+            transfers: Vec::new(),
+        }];
         assert!(open(&sessions, &Decisions::default()).list.is_empty());
     }
 }

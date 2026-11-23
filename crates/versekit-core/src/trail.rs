@@ -241,6 +241,11 @@ pub fn step(text: &str) {
     }
 }
 
+/// Writes that the part `part` of a count of the overview took `ms` milliseconds.
+pub fn slow_overview_part(part: &str, ms: u128) {
+    step(&format!("Übersicht langsam: {part} ({ms} ms)"));
+}
+
 /// A frame that held the window longer than this many seconds is written down.
 pub const HANG_SECONDS: f64 = 2.0;
 /// The name of the overview, the page without a key.

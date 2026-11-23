@@ -26,6 +26,8 @@ use super::*;
 
 const PICTURES: &str = include_str!("../../../versekit-core/tests/data/signatur-pruefbilder.json");
 
+mod own_digits;
+
 /// The first real crop of the test pictures with its number.
 fn crop() -> (u64, Gray) {
     let file = jsonio::loads(PICTURES).unwrap();
@@ -309,10 +311,10 @@ fn the_picture_of_the_overlay_is_taken_while_none_stands_and_the_next_one_is_a_n
     follow(&mut state, 2.0);
     assert_eq!(state.frame.as_ref().map(|f| f.number), Some(4));
     // "Next image": the one that stood is set aside, the file still holds 5.
-    state.next();
+    state.release();
     follow(&mut state, 3.0);
     assert_eq!(state.frame.as_ref().map(|f| f.number), Some(5));
-    state.next();
+    state.release();
     follow(&mut state, 4.0);
     assert!(state.frame.is_none(), "5 was set aside, nothing newer yet");
     assert!(signature_watch::write_last_frame(&file, &Frame::new(crop, None, 6)));
@@ -1111,7 +1113,7 @@ fn the_box_shows_the_switch_and_only_while_it_is_on_the_teaching() {
     let draw = |state: &mut ScannerState| {
         let mut shown = Vec::new();
         for _ in 0..2 {
-            let mut out = ctx.run_ui(input(vec![], 0.0), |ui| show_box(ui, scheme, state, &mining));
+            let mut out = ctx.run_ui(input(vec![], 0.0), |ui| show_page(ui, scheme, state, &mining));
             out.textures_delta.clear();
             shown = texts(&out.shapes);
         }
@@ -1163,13 +1165,14 @@ fn a_picture_kept_for_an_unsure_number_comes_first_is_taught_away_and_can_be_dis
     assert!(signature_watch::keep_pending(&folder, &Frame::new(shade(1), None, 1)));
     std::thread::sleep(std::time::Duration::from_millis(3));
     assert!(signature_watch::keep_pending(&folder, &Frame::new(shade(2), None, 2)));
+    state.read_queue(0.0, true);
     assert_eq!(state.pending_count(), 2);
     follow(&mut state, 0.0);
     assert_eq!(state.frame.as_ref().map(|f| f.number), Some(2), "the newest kept picture");
     assert!(state.pending.is_some());
 
     // Set aside: the other kept one follows, the file stays.
-    state.next();
+    state.release();
     follow(&mut state, 1.0);
     assert_eq!(state.frame.as_ref().map(|f| f.number), Some(1));
     assert_eq!(state.pending_count(), 2);
@@ -1182,7 +1185,7 @@ fn a_picture_kept_for_an_unsure_number_comes_first_is_taught_away_and_can_be_dis
     assert!(state.pending.is_none());
 
     // Taught: a kept picture is done with, and the window may close.
-    state.next();
+    state.release();
     state.skipped.clear();
     follow(&mut state, 3.0);
     assert_eq!(state.frame.as_ref().map(|f| f.number), Some(2));

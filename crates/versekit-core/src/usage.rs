@@ -354,16 +354,18 @@ pub fn game_code(folder: Option<&str>) -> String {
 }
 
 /// The translation chosen for the main installation as the id of its source (`dymerz_de`, `luftwerft_nl`,
-/// `original`, `eigene` for an own address, never the address), `keine` without one. An id that is not a plain
-/// word of letters, digits and `_` counts as `andere`.
+/// `original`, `eigene` for an own address, never the address). No choice yet (the setting is missing) goes out as
+/// `ungewaehlt`, "Nicht anfassen" (the setting is empty, see `game_texts::leave_alone`) as `nicht_anfassen`; before
+/// 5.6 both were `keine`, which the receiver still takes. An id that is not a plain word of letters, digits and `_`
+/// counts as `andere`.
 pub fn translation_code(source: Option<&str>) -> String {
-    let source = source.map(str::trim).filter(|s| !s.is_empty());
-    match source {
-        None => "keine".into(),
-        Some(id) if id.len() <= 40 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') => {
+    let Some(source) = source else { return "ungewaehlt".into() };
+    match source.trim() {
+        "" => "nicht_anfassen".into(),
+        id if id.len() <= 40 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') => {
             id.into()
         }
-        Some(_) => "andere".into(),
+        _ => "andere".into(),
     }
 }
 

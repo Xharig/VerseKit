@@ -77,6 +77,12 @@ pub enum Cue {
     Ask,
     /// A scan read nothing, the game was not in front, or it failed: two low falling notes.
     Failed,
+    /// A stock scan took what it read into the own stock ("Mein Lager"): three rising notes, the last one high.
+    StockOwn,
+    /// A stock scan took what it read into the stock of the unit: two equal low notes and a higher one.
+    StockUnit,
+    /// A stock scan met a tile it counted already: two quick equal notes.
+    Counted,
 }
 
 /// One note: its pitch in hertz (0 is a pause), its length in seconds and its loudness as a share of the full one.
@@ -84,7 +90,16 @@ type Note = (f64, f64, f64);
 
 impl Cue {
     /// The sounds of the scans by hotkey, in the order the settings list them.
-    pub const SCAN: [Cue; 5] = [Cue::Press, Cue::Done, Cue::AlreadyThere, Cue::Ask, Cue::Failed];
+    pub const SCAN: [Cue; 8] = [
+        Cue::Press,
+        Cue::Done,
+        Cue::AlreadyThere,
+        Cue::Ask,
+        Cue::Failed,
+        Cue::StockOwn,
+        Cue::StockUnit,
+        Cue::Counted,
+    ];
 
     /// The notes of the sound.
     pub fn notes(self) -> &'static [Note] {
@@ -96,6 +111,9 @@ impl Cue {
             Cue::AlreadyThere => &[(587.0, 0.16, 0.8)],
             Cue::Ask => &[(880.0, 0.07, 0.8), (0.0, 0.07, 0.0), (880.0, 0.07, 0.8)],
             Cue::Failed => &[(392.0, 0.12, 1.0), (262.0, 0.24, 1.0)],
+            Cue::StockOwn => &[(659.0, 0.08, 1.0), (880.0, 0.08, 1.0), (1319.0, 0.2, 1.0)],
+            Cue::StockUnit => &[(523.0, 0.09, 1.0), (523.0, 0.09, 1.0), (784.0, 0.2, 1.0)],
+            Cue::Counted => &[(740.0, 0.06, 0.8), (740.0, 0.06, 0.8)],
         }
     }
 
@@ -108,6 +126,9 @@ impl Cue {
             Cue::AlreadyThere => "s_ton_schon",
             Cue::Ask => "s_ton_frage",
             Cue::Failed => "s_ton_nichts",
+            Cue::StockOwn => "s_ton_lager_eigen",
+            Cue::StockUnit => "s_ton_lager_einheit",
+            Cue::Counted => "s_ton_gezaehlt",
         })
     }
 
@@ -393,7 +414,18 @@ mod tests {
 
     #[test]
     fn every_outcome_of_a_scan_has_a_sound_of_its_own_that_is_none_of_the_finds() {
-        let all = [Cue::Find, Cue::Watch, Cue::Press, Cue::Done, Cue::AlreadyThere, Cue::Ask, Cue::Failed];
+        let all = [
+            Cue::Find,
+            Cue::Watch,
+            Cue::Press,
+            Cue::Done,
+            Cue::AlreadyThere,
+            Cue::Ask,
+            Cue::Failed,
+            Cue::StockOwn,
+            Cue::StockUnit,
+            Cue::Counted,
+        ];
         for (i, a) in all.iter().enumerate() {
             for b in &all[i + 1..] {
                 assert_ne!(a.notes(), b.notes(), "{a:?} and {b:?} sound the same");
@@ -414,7 +446,7 @@ mod tests {
         assert_eq!(pitches(Cue::Ask).len(), 2);
         assert_eq!(ask[1].0, 0.0, "a pause between the two");
         // The key: shorter and quieter than every outcome.
-        for cue in [Cue::Done, Cue::AlreadyThere, Cue::Ask, Cue::Failed] {
+        for cue in [Cue::Done, Cue::AlreadyThere, Cue::Ask, Cue::Failed, Cue::StockOwn, Cue::StockUnit, Cue::Counted] {
             assert!(Cue::Press.duration() < cue.duration(), "{cue:?}");
             assert!(loudest(&wav(Cue::Press, 100)) < loudest(&wav(cue, 100)), "{cue:?}");
         }

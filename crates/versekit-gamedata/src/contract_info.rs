@@ -418,8 +418,9 @@ pub fn terms(merged: &Json) -> Vec<(String, Terms)> {
                 description: non_empty(contract.get("descriptionLocKey")),
                 lowest: rank(contract, "minStanding"),
                 highest: rank(contract, "maxStanding"),
-                // scmdb's file does not tell a fixed payout from a computed one.
+                // scmdb's file does not tell a fixed payout from a computed one: its `rewardUEC` is only a base value.
                 reward: None,
+                reward_base: whole(contract.get("rewardUEC")).filter(|amount| *amount > 0),
                 giver: None,
             };
             Some((title, terms))
@@ -621,6 +622,33 @@ mod tests {
             "personalCooldownTime": 45,
             "blueprintRewards": rewards,
         })
+    }
+
+    #[test]
+    fn scmdbs_reward_is_a_base_value_of_the_terms_and_no_fixed_payout() {
+        let all = merged(vec![
+            contract("a", 0, 34_000, &[]),
+            contract("a", 100, 37_750, &[]),
+            with(contract("bare", 0, 0, &[]), "rewardUEC", Json::Null),
+        ]);
+        let found: Vec<(String, Option<i64>, Option<i64>)> =
+            terms(&all).into_iter().map(|(title, t)| (title, t.reward, t.reward_base)).collect();
+        assert_eq!(
+            found,
+            vec![
+                ("a_title".to_string(), None, Some(34_000)),
+                ("a_title".to_string(), None, Some(37_750)),
+                ("bare_title".to_string(), None, None),
+            ]
+        );
+        let table = reputation(&all, "t-1", &[], "").terms;
+        let base = |title: &str| {
+            versekit_core::injection::terms::entry_for(&table, title)
+                .and_then(|e| e.iter().find(|(k, _)| k == "belohnung_ca"))
+                .map(|(_, v)| v.clone())
+        };
+        assert_eq!(base("a_title"), Some(Value::int(34_000)), "the lowest of the variants");
+        assert_eq!(base("bare_title"), None);
     }
 
     fn with(mut contract: Json, key: &str, value: Json) -> Json {

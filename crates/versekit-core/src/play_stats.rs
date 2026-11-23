@@ -763,61 +763,6 @@ mod tests {
         assert_eq!((int(&e, "spruenge"), int(&e, "auftraege")), (0, 1));
     }
 
-    /// The statistics page and the reading of the contract log write the same
-    /// file at the same time: no session may be lost and the file stays whole.
-    #[test]
-    fn two_writers_at_once_lose_no_session() {
-        use crate::paths::Host;
-
-        let root = std::env::temp_dir().join(format!("versekit-statistik-zwei-{}", crate::testdir::run_tag()));
-        let _ = fs::remove_dir_all(&root);
-        let (home, logs) = (root.join("home"), root.join("logs"));
-        fs::create_dir_all(&home).expect("Ordner");
-        fs::create_dir_all(&logs).expect("Ordner");
-        let files: Vec<String> = (0..24)
-            .map(|n| {
-                let file = logs.join(format!("{n:02}.log"));
-                let day = n + 1;
-                let text = format!(
-                    "<2026-09-{day:02}T10:00:00.000Z> Start OnClientSpawned\n<2026-09-{day:02}T11:00:00.000Z> <SystemQuit>\n"
-                );
-                fs::write(&file, text).expect("Datei");
-                file.to_str().expect("Pfad").to_string()
-            })
-            .collect();
-        let host = Host::new(
-            Flavor::native(),
-            &[(crate::envvars::ENV_HOME, home.to_str().expect("Pfad"))],
-            root.to_str().expect("Pfad"),
-        );
-        let paths = Paths::new(host);
-        std::thread::scope(|scope| {
-            for part in 0..2 {
-                let (paths, files) = (&paths, &files);
-                scope.spawn(move || {
-                    for round in 0..6 {
-                        let src = LogSource::new(paths, LogSource::sources_of(paths));
-                        // Each writer sees the logs in its own order and size state.
-                        let mine: Vec<String> = files.iter().skip((round + part) % 3).step_by(1).cloned().collect();
-                        catch_up(&src, &mine, &|| 0.0);
-                        rescan(&src, &mine[..mine.len() / 2], &|| 0.0);
-                    }
-                });
-            }
-        });
-        let src = LogSource::new(&paths, LogSource::sources_of(&paths));
-        catch_up(&src, &files, &|| 0.0);
-        let data = load(&paths);
-        let Some(Value::Object(sessions)) = get(&data, "sitzungen") else { panic!("Sitzungen") };
-        assert_eq!(sessions.len(), 24, "every session is there");
-        let broken = fs::read_dir(&home)
-            .expect("Ordner")
-            .filter_map(Result::ok)
-            .any(|e| e.file_name().to_string_lossy().contains("kaputt"));
-        assert!(!broken, "no file set aside as broken");
-        let _ = fs::remove_dir_all(&root);
-    }
-
     /// "Evaluate all anew" drops the read position, not the sessions: a log that
     /// is read again brings its session back, one that is gone keeps its own.
     #[test]

@@ -457,7 +457,7 @@ mod tests {
         {"ware": "FS-9 LMG", "menge": 1.0, "ort": "Area18", "gestohlen": false, "stueck": true},
         {"ware": "Laranite", "menge": 32.0, "ort": "Seraphim Station", "gestohlen": false, "einkauf": 2650.0}]}"#;
 
-    fn setup() -> std::sync::MutexGuard<'static, ()> {
+    fn setup() -> crate::LanguageGuard {
         let guard = crate::language_lock();
         theme::set_current("original");
         language::set_thread_language(Choice::De);
@@ -712,7 +712,7 @@ mod tests {
         let mut findings = Vec::new();
         for choice in [Choice::De, Choice::En] {
             language::set_thread_language(choice);
-            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 for (width, asking, report) in
                     [380.0, 520.0, 900.0].into_iter().flat_map(|w| [(w, false, false), (w, true, true)])
                 {

@@ -208,11 +208,13 @@ impl SamplePage {
             return;
         }
         // The storage as the files hold it now, not as the storage page last read it.
+        let mut lap = super::glance_tiles::Lap::start();
         if tiles_wanted {
             self.stock.follow_files();
             // And the unit storage as the sync brought it, not as the page saw it last.
             self.org_stock.follow_store();
         }
+        lap.lap("lager_nachlesen");
         let Some(store) = &self.store else { return };
         let mut tiles = HashMap::new();
         if self.start.is_none() {
@@ -229,11 +231,13 @@ impl SamplePage {
         let week = week(&sessions, now_s);
         tiles.insert("spielzeit", play_tile(&sessions, &week, lang));
         let head = Some(head(&sessions, playtime::session_now(&store.paths), lang));
+        lap.lap("spielzeit");
         // On real data, while the overview is open, the tiles of 4.12 and the pinned pages.
         let mut ticking = false;
         let mut hangar_ticking = false;
         if tiles_wanted {
             tiles.extend(self.tiles_of_4_12(&store.paths, lang, now_s));
+            lap = super::glance_tiles::Lap::start();
             let jobs = versekit_core::refinery_jobs::load(&store.paths);
             ticking = !versekit_core::overview::refinery_current(&jobs, now_s as f64).0.is_empty();
             // The tile of the Executive Hangar counts while it stands on the board, shown or pinned as a page.
@@ -241,6 +245,7 @@ impl SamplePage {
                 .tiles
                 .iter()
                 .any(|tile| !tile.hidden && (tile.key == "executive_hangar" || tile.key == "hf_contested"));
+            lap.lap("raffinerie_auftraege");
         }
         self.overview = Some(Overview {
             at: now,

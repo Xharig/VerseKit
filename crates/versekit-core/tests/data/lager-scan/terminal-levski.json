@@ -1,0 +1,730 @@
+[
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-18-BCB.jpg",
+  "zeiger": [
+   3299,
+   438
+  ],
+  "name": "Deadbolt V Cannon",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-20-0C1.jpg",
+  "zeiger": [
+   3569,
+   433
+  ],
+  "name": "Deadbolt V Cannon",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-21-4AA.jpg",
+  "zeiger": [
+   3488,
+   561
+  ],
+  "name": "M7A Cannon",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-21-7E2.jpg",
+  "zeiger": [
+   3488,
+   561
+  ],
+  "name": "M7A Cannon",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-23-D98.jpg",
+  "zeiger": [
+   3490,
+   689
+  ],
+  "name": "M7A Cannon",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-24-297.jpg",
+  "zeiger": [
+   3489,
+   817
+  ],
+  "name": "M7A Cannon",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-26-937.jpg",
+  "zeiger": [
+   3422,
+   943
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-27-EBC.jpg",
+  "zeiger": [
+   3276,
+   941
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-29-46A.jpg",
+  "zeiger": [
+   3164,
+   940
+  ],
+  "name": "FR-76",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-30-A66.jpg",
+  "zeiger": [
+   3537,
+   945
+  ],
+  "name": "Slipstream",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-32-120.jpg",
+  "zeiger": [
+   3555,
+   1071
+  ],
+  "name": "FR-76",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-33-520.jpg",
+  "zeiger": [
+   3427,
+   1070
+  ],
+  "name": "Slipstream",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-34-986.jpg",
+  "zeiger": [
+   3279,
+   1066
+  ],
+  "name": "FR-76",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-36-EB1.jpg",
+  "zeiger": [
+   3165,
+   1064
+  ],
+  "name": "FR-76",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-40-16D.jpg",
+  "zeiger": [
+   3163,
+   691
+  ],
+  "name": "Slipstream",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-41-5E4.jpg",
+  "zeiger": [
+   3293,
+   690
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-43-A84.jpg",
+  "zeiger": [
+   3422,
+   690
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-44-F46.jpg",
+  "zeiger": [
+   3556,
+   690
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-45-54C.jpg",
+  "zeiger": [
+   3557,
+   817
+  ],
+  "name": "FR-76",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-47-B86.jpg",
+  "zeiger": [
+   3423,
+   816
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-48-0DA.jpg",
+  "zeiger": [
+   3292,
+   816
+  ],
+  "name": "FR-76",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-50-660.jpg",
+  "zeiger": [
+   3164,
+   815
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-51-B71.jpg",
+  "zeiger": [
+   3163,
+   940
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-52-039.jpg",
+  "zeiger": [
+   3291,
+   942
+  ],
+  "name": "FR-76",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-54-558.jpg",
+  "zeiger": [
+   3420,
+   943
+  ],
+  "name": "JS-400",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-55-AAF.jpg",
+  "zeiger": [
+   3554,
+   945
+  ],
+  "name": "FR-76",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-56-FEF.jpg",
+  "zeiger": [
+   3486,
+   1071
+  ],
+  "name": "CF-337 Panther Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-40-58-5AD.jpg",
+  "zeiger": [
+   3288,
+   1067
+  ],
+  "name": "CF-227 Badger Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-00-EED.jpg",
+  "zeiger": [
+   3227,
+   820
+  ],
+  "name": "CF-227 Badger Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-02-51E.jpg",
+  "zeiger": [
+   3488,
+   822
+  ],
+  "name": "CF-557 Galdereen Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-03-A73.jpg",
+  "zeiger": [
+   3538,
+   950
+  ],
+  "name": "CF-337 Panther \"Hazard-Zone\" Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-05-0AD.jpg",
+  "zeiger": [
+   3302,
+   947
+  ],
+  "name": "CF-337 Panther \"Hazard-Zone\" Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-06-577.jpg",
+  "zeiger": [
+   3159,
+   1069
+  ],
+  "name": "Spectre",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-07-AEB.jpg",
+  "zeiger": [
+   3425,
+   1074
+  ],
+  "name": "CF-557 Galdereen Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-10-608.jpg",
+  "zeiger": [
+   3422,
+   695
+  ],
+  "name": "Spectre",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-11-A8D.jpg",
+  "zeiger": [
+   3556,
+   694
+  ],
+  "name": "XL-1",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-13-F88.jpg",
+  "zeiger": [
+   3488,
+   822
+  ],
+  "name": "CF-337 Panther \"Hazard-Zone\" Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-14-43A.jpg",
+  "zeiger": [
+   3413,
+   947
+  ],
+  "name": "CF-557 Galdereen Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-15-93D.jpg",
+  "zeiger": [
+   3227,
+   820
+  ],
+  "name": "CF-337 Panther \"Hazard-Zone\" Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-16-EB5.jpg",
+  "zeiger": [
+   3267,
+   946
+  ],
+  "name": "CF-337 Panther \"Hazard-Zone\" Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-18-326.jpg",
+  "zeiger": [
+   3175,
+   1070
+  ],
+  "name": "JS-300",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-19-7F9.jpg",
+  "zeiger": [
+   3399,
+   1074
+  ],
+  "name": "SW16BR2 “Sawbuck” Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-20-E36.jpg",
+  "zeiger": [
+   3308,
+   443
+  ],
+  "name": "CF-337 Panther \"Hazard-Zone\" Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-22-2AE.jpg",
+  "zeiger": [
+   3562,
+   438
+  ],
+  "name": "CF-337 Panther \"Hazard-Zone\" Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-27-661.jpg",
+  "zeiger": [
+   3174,
+   440
+  ],
+  "name": "VK-00",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-28-ACF.jpg",
+  "zeiger": [
+   3291,
+   439
+  ],
+  "name": "VK-00",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-29-FFC.jpg",
+  "zeiger": [
+   3433,
+   435
+  ],
+  "name": "VK-00",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-30-475.jpg",
+  "zeiger": [
+   3578,
+   433
+  ],
+  "name": "VK-00",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-31-943.jpg",
+  "zeiger": [
+   3164,
+   566
+  ],
+  "name": "VK-00",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "komponente",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-33-D9D.jpg",
+  "zeiger": [
+   3360,
+   562
+  ],
+  "name": "CF-447 Rhino Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-34-2E9.jpg",
+  "zeiger": [
+   3228,
+   689
+  ],
+  "name": "CF-447 Rhino Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-35-777.jpg",
+  "zeiger": [
+   3529,
+   689
+  ],
+  "name": "CF-447 Rhino Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-41-36-B63.jpg",
+  "zeiger": [
+   3463,
+   944
+  ],
+  "name": "CF-447 Rhino Repeater",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "schiffswaffe",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-43-04-39B.jpg",
+  "zeiger": [
+   1860,
+   439
+  ],
+  "name": "FS-9 Magazine (75 Cap)",
+  "menge": 1,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "munition",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-43-06-A30.jpg",
+  "zeiger": [
+   1731,
+   436
+  ],
+  "name": "CRUZ Pulse",
+  "menge": 2,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "gegenstand",
+  "gruppe": "terminal-levski"
+ },
+ {
+  "datei": "ScreenShot-2026-11-21_15-43-08-371.jpg",
+  "zeiger": [
+   1584,
+   434
+  ],
+  "name": "FS-9 Magazine (75 Cap)",
+  "menge": 86,
+  "einheit": "stueck",
+  "qualitaet": null,
+  "art": "munition",
+  "gruppe": "terminal-levski"
+ }
+]

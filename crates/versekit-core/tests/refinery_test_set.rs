@@ -552,7 +552,7 @@ fn read_folder(folder: &Folder, index: &Index, learned: &Digits, cache: &mut Cac
             continue;
         }
         reading.field = match join_scrolled(&reading.field, &text) {
-            Some((all, _)) => all,
+            Some(joined) => joined.text,
             None if reading.field.is_empty() => text,
             None => format!("{}\n{text}", reading.field),
         };

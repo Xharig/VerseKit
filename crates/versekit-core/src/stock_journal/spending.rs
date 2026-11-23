@@ -200,7 +200,7 @@ mod tests {
     }
 
     fn session(start: i64, purchases: Vec<Purchase>) -> Session {
-        Session { start, purchases, sales: Vec::new(), movements: Vec::new() }
+        Session { start, purchases, sales: Vec::new(), movements: Vec::new(), transfers: Vec::new() }
     }
 
     /// Days of 86 400 seconds from the epoch, as UTC days: the clock of the check.
@@ -255,6 +255,7 @@ mod tests {
                 purchases: vec![buy(18 * 86_400 + 10, 999.0)],
                 sales: vec![sell(18 * 86_400 + 60, 100.0, Proof::Answer)],
                 movements: Vec::new(),
+                transfers: Vec::new(),
             },
             Session {
                 start: 20 * 86_400,
@@ -264,6 +265,7 @@ mod tests {
                     sell(20 * 86_400 + 80, 664_687.0, Proof::Requested),
                 ],
                 movements: Vec::new(),
+                transfers: Vec::new(),
             },
         ];
         let got = income(&sessions, NOW, &utc_day);
@@ -291,6 +293,7 @@ mod tests {
                 purchases: vec![buy(5 * 86_400, 5_000.0)],
                 sales: vec![sell(5 * 86_400 + 10, "gold", 300.0, Proof::BoxGone)],
                 movements: Vec::new(),
+                transfers: Vec::new(),
             },
             Session {
                 start: 20 * 86_400,
@@ -301,6 +304,7 @@ mod tests {
                     sell(20 * 86_400 + 30, "", 50.0, Proof::Answer),
                 ],
                 movements: Vec::new(),
+                transfers: Vec::new(),
             },
         ];
         let shares = sales_by(&sessions, NOW, &|deal| deal.class.clone());

@@ -45,6 +45,9 @@ pub mod list;
 mod localization;
 mod location_targets;
 pub mod mineables;
+pub mod name_needs;
+#[cfg(test)]
+mod real_names;
 pub mod place_names;
 pub mod places;
 pub mod product_table;
@@ -273,8 +276,9 @@ impl GameData {
         Ok(catalog::read(&forge, texts, fixes, &facts))
     }
 
-    /// [`GameData::blueprints_with`] and the stock values of
-    /// [`GameData::description_stats`] from one reading of the DataForge.
+    /// [`GameData::blueprints_with`], the stock values of
+    /// [`GameData::description_stats`] and the name keys the English original lacks ([`name_needs`]) from one
+    /// reading of the DataForge.
     ///
     /// # Errors
     ///
@@ -285,12 +289,16 @@ impl GameData {
         corrections: &[corrections::Correction],
         contracts: &[u8],
         locations: &[u8],
-    ) -> Result<(Catalog, versekit_core::jsonio::Map), Error> {
+    ) -> Result<(Catalog, versekit_core::jsonio::Map, versekit_core::jsonio::Map), Error> {
         let facts = facts_of(contracts, locations)?;
         let (entry, bytes) = self.read_dataforge()?;
         let forge = DataForge::open(&bytes).map_err(|source| Error::DataForge { entry, source: Box::new(source) })?;
         let fixes = corrections::CatalogFixes::new(corrections, self.scmdb_build().as_deref());
-        Ok((catalog::read(&forge, texts, fixes, &facts), description_stats::read(&forge, texts)))
+        Ok((
+            catalog::read(&forge, texts, fixes, &facts),
+            description_stats::read(&forge, texts),
+            name_needs::read(&forge, texts),
+        ))
     }
 
     /// What p4kx states for each contract entry of the archive (see
@@ -428,6 +436,25 @@ impl GameData {
         &self,
         dataforge: &[u8],
     ) -> Result<(versekit_core::jsonio::Value, versekit_core::jsonio::Value), Error> {
+        let catalogs = self.slot_catalogs(dataforge)?;
+        Ok((ship_slots::ships_file(&catalogs), ship_slots::parts_file(&catalogs)))
+    }
+
+    /// [`GameData::ship_slots_with`] and the mining equipment of the parts ([`ship_slots::mining_file`]) from the
+    /// same catalogs.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`GameData::ship_slots_with`].
+    pub fn slots_and_mining_with(
+        &self,
+        dataforge: &[u8],
+    ) -> Result<(versekit_core::jsonio::Value, versekit_core::jsonio::Value, versekit_core::jsonio::Value), Error> {
+        let catalogs = self.slot_catalogs(dataforge)?;
+        Ok((ship_slots::ships_file(&catalogs), ship_slots::parts_file(&catalogs), ship_slots::mining_file(&catalogs)))
+    }
+
+    fn slot_catalogs(&self, dataforge: &[u8]) -> Result<ship_slots::Catalogs, Error> {
         if let Some(entry) = DATAFORGE_ENTRIES.iter().find_map(|path| self.find_entry(path))
             && entry.is_encrypted()
         {
@@ -451,7 +478,7 @@ impl GameData {
                 serde_json::from_slice(&built.into_parts().0).map_err(|source| Error::Slots { source: Box::new(source) })?;
             catalogs.add(&catalog);
         }
-        Ok((ship_slots::ships_file(&catalogs), ship_slots::parts_file(&catalogs)))
+        Ok(catalogs)
     }
 
     /// The game values of the archive: every recipe with the quality

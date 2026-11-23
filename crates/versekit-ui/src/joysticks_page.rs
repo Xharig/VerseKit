@@ -1072,7 +1072,7 @@ mod tests {
         texts.iter().any(|(t, _)| t.contains(text))
     }
 
-    fn setup() -> std::sync::MutexGuard<'static, ()> {
+    fn setup() -> crate::LanguageGuard {
         let guard = crate::language_lock();
         theme::set_current("original");
         language::set_thread_language(Choice::De);

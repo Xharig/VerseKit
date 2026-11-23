@@ -39,7 +39,7 @@ fn ids(list: &[&str]) -> Vec<String> {
 
 #[test]
 fn the_flight_log_is_among_the_pages_that_can_be_pinned() {
-    assert_eq!(PAGES.len(), 45, "the count of the pages that can be pinned");
+    assert_eq!(PAGES.len(), 49, "the count of the pages that can be pinned");
     assert_eq!(page_key("statistik_flugbuch"), Some("hf_st_flugbuch"));
     assert_eq!(page_name("hf_st_flugbuch"), Some("statistik_flugbuch"));
     let names: std::collections::HashSet<_> = PAGES.iter().map(|(name, _)| name).collect();
@@ -290,6 +290,25 @@ fn refinery_jobs_split_into_running_and_done_and_old_ones_go() {
     assert_eq!(countdown_text(3600.0 + 180.0), "1h 3m");
     assert_eq!(countdown_text(43.0 * 60.0 + 57.0), "43m 57s");
     assert_eq!(countdown_text(-3.0), "0s");
+}
+
+#[test]
+fn a_done_refinery_job_with_its_yield_booked_waits_for_nothing() {
+    let job = |ends: f64, booked: bool| {
+        let mut job = vec![
+            ("ends".to_string(), Value::Float(ends)),
+            ("materials".to_string(), Value::Array(vec![Value::str("Gold")])),
+        ];
+        if booked {
+            job.push(("abgeholt".to_string(), Value::Float(ends + 5.0)));
+        }
+        job
+    };
+    let now = 100_000.0;
+    let jobs = [job(now - 10.0, true), job(now - 20.0, false)];
+    let (running, done) = refinery_current(&jobs, now);
+    assert_eq!((running.len(), done.len()), (0, 1));
+    assert_eq!(refinery_lines(&jobs, now).len(), 1);
 }
 
 #[test]

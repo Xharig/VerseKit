@@ -104,10 +104,17 @@ fn uneven_among(cards: &[Rect]) -> Vec<(Rect, f32)> {
 }
 
 /// Draws `key` in every size and notes the pages whose cards differ in width.
-fn look(case: &str, page: &mut SamplePage, key: &str, findings: &mut Vec<String>) {
+/// A run without `VERSEKIT_TESTS_VOLL=1` looks at two of the four sizes (a different two for each page, `n` its place) and in
+/// one of the two languages (see `all_findings`).
+fn look(case: &str, page: &mut SamplePage, key: &str, n: usize, findings: &mut Vec<String>) {
     page.go_to(key);
     let name = if key.is_empty() { "overview" } else { key };
-    for (width, height) in SIZES {
+    let sizes: Vec<(f32, f32)> = if crate::full_run() {
+        SIZES.to_vec()
+    } else {
+        vec![SIZES[n % SIZES.len()], SIZES[(n + 1) % SIZES.len()]]
+    };
+    for (width, height) in sizes {
         let cards = draw_cards(page, width, height);
         let odd = uneven_rects(&cards);
         for (card, full) in &odd {
@@ -184,21 +191,23 @@ fn all_findings() -> Vec<String> {
     for (choice, case) in [(Choice::De, "de"), (Choice::En, "en")] {
         set_thread_language(choice);
         let mut sample = SamplePage::preview();
-        for key in pages() {
-            look(&format!("{case} sample"), &mut sample, key, &mut findings);
+        // One language for each page (the other for the next one) unless the whole run is asked for.
+        let mine = |n: usize| crate::full_run() || n.is_multiple_of(2) ==(choice == Choice::De);
+        for (n, key) in pages().into_iter().enumerate().filter(|(n, _)| mine(*n)) {
+            look(&format!("{case} sample"), &mut sample, key, n, &mut findings);
         }
         let mut real = SamplePage::with_settings(apart(&dir));
-        for key in pages() {
-            look(&format!("{case} real data"), &mut real, key, &mut findings);
+        for (n, key) in pages().into_iter().enumerate().filter(|(n, _)| mine(*n)) {
+            look(&format!("{case} real data"), &mut real, key, n, &mut findings);
         }
         let mut full = SamplePage::with_settings(apart(&files));
-        for key in pages() {
-            look(&format!("{case} real data with files"), &mut full, key, &mut findings);
+        for (n, key) in pages().into_iter().enumerate().filter(|(n, _)| mine(*n)) {
+            look(&format!("{case} real data with files"), &mut full, key, n, &mut findings);
         }
         let vars = [(versekit_core::paths::ENV_INSTALL_DIR, game.as_str())];
         let mut with_sticks = SamplePage::with_settings(versekit_core::paths::Paths::new(host_in(&sticks, &vars)));
-        for key in pages() {
-            look(&format!("{case} real data with sticks"), &mut with_sticks, key, &mut findings);
+        for (n, key) in pages().into_iter().enumerate().filter(|(n, _)| mine(*n)) {
+            look(&format!("{case} real data with sticks"), &mut with_sticks, key, n, &mut findings);
         }
     }
     set_thread_language(Choice::De);
@@ -211,6 +220,9 @@ fn all_findings() -> Vec<String> {
 /// The cards of one page are the same width wherever they stand one below the other.
 #[test]
 fn the_cards_of_a_page_are_all_the_same_width() {
+    if crate::skip_unless_full_run() {
+        return;
+    }
     let _language = crate::language_lock();
     let findings = all_findings();
     assert!(findings.is_empty(), "{} page(s) with cards of different widths:\n{}", findings.len(), findings.join("\n"));

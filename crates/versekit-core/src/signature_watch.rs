@@ -438,8 +438,52 @@ pub fn pending(folder: &str) -> Vec<(String, Frame)> {
         .collect()
 }
 
-/// Keeps a picture the number of which was not sure; a picture like the newest one kept is not kept again.
+/// The pictures kept ([`pending`]) of which the ones without a signature pill are gone: they are deleted without a
+/// word. `good` holds the files known to show a pill already; they are not looked at again.
+pub fn pending_with_pill(folder: &str, good: &mut Vec<String>) -> Vec<(String, Frame)> {
+    let mut kept = Vec::new();
+    for (path, frame) in pending(folder) {
+        if good.contains(&path) || frame.shows_pill() {
+            if !good.contains(&path) {
+                good.push(path.clone());
+            }
+            kept.push((path, frame));
+        } else {
+            drop_pending(&path);
+        }
+    }
+    good.retain(|path| kept.iter().any(|(p, _)| p == path));
+    kept
+}
+
+/// What a photograph of the game at once came to.
+pub enum Snapshot {
+    /// The game is not in front: nothing was taken.
+    NoGame,
+    /// The game was photographed and shows no signature pill, or the grab failed.
+    Nothing,
+    /// The picture with a signature pill in it.
+    Got(Frame),
+}
+
+/// Photographs the game once, where it is in front, and looks for the signature pill in it. A picture without the
+/// pill is never given.
+pub fn snapshot(source: &mut dyn Source, known: &ByVariant<scan::Templates>, values: &[u64], number: u64) -> Snapshot {
+    let Some(game) = source.game() else { return Snapshot::NoGame };
+    let Ok(raw) = source.grab(game) else { return Snapshot::Nothing };
+    let found = scan::search(&raw, game.2, game.3, known, values, 12);
+    match Frame::of(&found, found.reading.value, number) {
+        Some(frame) if !found.reading.digits.is_empty() && frame.shows_pill() => Snapshot::Got(frame),
+        _ => Snapshot::Nothing,
+    }
+}
+
+/// Keeps a picture the number of which was not sure; a picture like the newest one kept is not kept again, and a
+/// picture without a signature pill is not kept at all.
 pub fn keep_pending(folder: &str, frame: &Frame) -> bool {
+    if !frame.shows_pill() {
+        return false;
+    }
     if pending(folder).first().is_some_and(|(_, newest)| newest.image == frame.image) {
         return false;
     }
@@ -545,6 +589,16 @@ impl Frame {
     pub fn new(image: Gray, value: Option<u64>, number: u64) -> Frame {
         let images = Images { green: Some(image.clone()), bright: None };
         Frame { image, variant: Some(Variant::Green), images, value, number }
+    }
+
+    /// Whether the frame shows a signature pill, the location symbol before a row of digits ([`scan::has_pill`]).
+    /// Only such a frame is kept, shown or taught from.
+    pub fn shows_pill(&self) -> bool {
+        let mut images: Vec<&Gray> = scan::VARIANTS.into_iter().filter_map(|v| self.images.get(v).as_ref()).collect();
+        if images.is_empty() {
+            images.push(&self.image);
+        }
+        scan::has_pill(&images)
     }
 
     /// The frame of what the search found, or `None` when it has no crop.
@@ -755,6 +809,12 @@ fn look_once(
     looked
 }
 
+/// The grey images of a find the location symbol is looked for in: every grey image of the place, else the one read.
+fn images_of(found: &Found) -> Vec<&scan::Gray> {
+    let all: Vec<&scan::Gray> = scan::VARIANTS.into_iter().filter_map(|v| found.images.get(v).as_ref()).collect();
+    if all.is_empty() { found.image.iter().collect() } else { all }
+}
+
 fn run_loop(shared: &Shared, source: &mut dyn Source, files: &Files, times: Times, wake: &dyn Fn()) {
     let Times { interval, clear_after, lost_after } = times;
     let start = Instant::now();
@@ -799,8 +859,8 @@ fn run_loop(shared: &Shared, source: &mut dyn Source, files: &Files, times: Time
             let mut changed = false;
             if let Some(look) = &looked
                 && !look.found.reading.digits.is_empty()
-                && let Some(image) = &look.found.image
-                && scan::has_locator(image, &look.found.reading)
+                && look.found.image.is_some()
+                && scan::has_locator_in(&images_of(&look.found), &look.found.reading)
             {
                 frame_number += 1;
                 if let Some(frame) = Frame::of(&look.found, look.found.reading.value, frame_number) {
@@ -818,7 +878,7 @@ fn run_loop(shared: &Shared, source: &mut dyn Source, files: &Files, times: Time
                 && !look.found.reading.digits.is_empty()
                 && now - last_unsure >= UNSURE_EVERY_S
                 && let Some(image) = &look.found.image
-                && scan::has_locator(image, &look.found.reading)
+                && scan::has_locator_in(&images_of(&look.found), &look.found.reading)
                 && state.unsure.as_ref().is_none_or(|u| u.image != *image)
             {
                 last_unsure = now;

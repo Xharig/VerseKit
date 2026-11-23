@@ -307,6 +307,15 @@ fn waiting_for_the_limit_of_github_is_a_note_and_no_error_to_report() {
 }
 
 #[test]
+fn a_busy_server_is_only_a_note() {
+    assert!(super::only_waiting(&FetchError::Failed("HTTP 504".into())), "504 passes by itself");
+    assert!(super::only_waiting(&FetchError::Failed("HTTP 502".into())));
+    assert!(!super::only_waiting(&FetchError::Failed("HTTP 404".into())), "a missing file is an error");
+    assert!(!super::only_waiting(&FetchError::Failed("HTTP 5".into())));
+    assert!(!super::only_waiting(&FetchError::Failed("kein json".into())));
+}
+
+#[test]
 fn a_broken_answer_of_github_stays_an_error() {
     let (_dir, paths) = paths_in("updater-kaputt", &[]);
     let net = sources("5.0.0").iter().fold(Fake::default(), |net, source| net.with(source, "kein json"));

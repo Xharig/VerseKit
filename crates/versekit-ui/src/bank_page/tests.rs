@@ -121,8 +121,21 @@ fn the_new_request_button_goes_with_the_cap_and_the_queue_tab_comes_with_staff_r
 }
 
 #[test]
-fn a_deposit_is_not_offered_and_another_modules_request_keeps_its_amount() {
-    assert!(!OFFERED.contains(&Kind::Deposit));
+fn a_deposit_goes_to_its_account_without_justification_and_another_modules_request_keeps_its_amount() {
+    assert!(OFFERED.contains(&Kind::Deposit), "a deposit is offered");
+    let deposit = Form {
+        kind: Kind::Deposit,
+        account: "a1".into(),
+        target: "a2".into(),
+        amount: "15.000".into(),
+        justification: "left from a withdrawal".into(),
+        ..Form::new()
+    };
+    assert_eq!(
+        versekit_core::jsonio::dumps(&versekit_core::basetool::bank::raise_body(&deposit.raise()), None, false),
+        r#"{"type": "DEPOSIT", "sourceAccountId": "a1", "amount": 15000}"#,
+        "the account it goes to as source, no target, no justification"
+    );
     let foreign = Request {
         id: "r".into(),
         kind: "WITHDRAWAL".into(),

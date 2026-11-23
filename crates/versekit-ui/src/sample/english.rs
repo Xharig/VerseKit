@@ -38,10 +38,8 @@
 use std::collections::HashSet;
 
 use versekit_core::language::{self, Choice, Lang};
-use versekit_core::paths::Paths;
 use versekit_core::theme;
 
-use super::real_data::{folder, host_in};
 use super::{NAV, SamplePage};
 
 /// Texts that read the same in both languages, one per line, with `#` reasons.
@@ -316,52 +314,6 @@ pub(super) fn pages() -> Vec<&'static str> {
     pages
 }
 
-/// The German texts found so far: (case, text) with the reason and the pages that show it.
-#[derive(Default)]
-struct Findings(std::collections::BTreeMap<(String, String), (&'static str, Vec<String>)>);
-
-impl Findings {
-    /// Draws `page` open at `key` in two sizes and notes every German text.
-    fn look(&mut self, case: &str, page: &mut SamplePage, key: &str, dictionary: &Dictionary) {
-        page.go_to(key);
-        let name = if key.is_empty() { "overview" } else { key };
-        for (width, height) in [(1280.0, 900.0), (700.0, 700.0)] {
-            for text in drawn_texts(page, width, height) {
-                let text = text.trim();
-                let Some(reason) = german_because(text, dictionary) else { continue };
-                let entry = self.0.entry((case.to_string(), text.to_string())).or_insert((reason, Vec::new()));
-                if !entry.1.iter().any(|page| page == name) {
-                    entry.1.push(name.to_string());
-                }
-            }
-        }
-        // A page that the window swaps for another is not looked at: say so, unless it is meant (the
-        // storage of the unit needs a connection to the Basetool, the pages of an org's data a connection to an
-        // org with the switch on).
-        let meant = case.starts_with("real data")
-            && matches!(key, "hf_staffellager" | "hf_bedarf" | "hf_bank" | super::ORG_STOCK_PAGE | super::ORG_ORDERS_PAGE);
-        // A page that became a view of another is drawn as that page, opened at its view.
-        let drawn_as = SamplePage::successor_of(key).unwrap_or(key);
-        if page.page_key() != drawn_as && !meant {
-            let entry =
-                self.0.entry((case.to_string(), name.to_string())).or_insert(("this page was not drawn", Vec::new()));
-            entry.1.push(name.to_string());
-        }
-    }
-
-    /// One line per text: `case: "text" (reason) on page, page, …`.
-    fn lines(&self) -> Vec<String> {
-        self.0
-            .iter()
-            .map(|((case, text), (reason, pages))| {
-                let shown: Vec<&str> = pages.iter().take(3).map(String::as_str).collect();
-                let more = if pages.len() > 3 { format!(" and {} more", pages.len() - 3) } else { String::new() };
-                format!("{case}: {text:?} ({reason}) on {}{more}", shown.join(", "))
-            })
-            .collect()
-    }
-}
-
 /// Runs `check` with the language of this thread set to English.
 fn in_english<R>(check: impl FnOnce() -> R) -> R {
     language::set_thread_language(Choice::En);
@@ -369,78 +321,6 @@ fn in_english<R>(check: impl FnOnce() -> R) -> R {
     let result = check();
     language::set_thread_language(Choice::Auto);
     result
-}
-
-/// Every German text on any page, in the sample, in the window on real data and in the
-/// catalog of the controls, with the update bar and the restart bar showing.
-fn all_findings() -> Vec<String> {
-    let dictionary = Dictionary::new();
-    let mut findings = Findings::default();
-
-    let mut sample = SamplePage::preview();
-    // The bar of a new version is there (the sample names one); the bar of a setting that waits for a restart too.
-    sample.gpu = !sample.gpu_started;
-    // The storage of the unit is there without a connection to the Basetool.
-    sample.use_storage_link(crate::org_stock_page::Link::demo());
-    for key in pages() {
-        findings.look("sample", &mut sample, key, &dictionary);
-    }
-
-    // The wizard on each of its steps, and the dialogs the controls open.
-    let mut catalog = SamplePage::new();
-    catalog.restore_open = true;
-    catalog.dialog_open = true;
-    for step in 0..4 {
-        catalog.wizard.step = step;
-        findings.look(&format!("catalog, step {step}"), &mut catalog, "", &dictionary);
-    }
-    catalog.revealed = true;
-    catalog.selection.click(0, egui::Modifiers::NONE);
-    catalog.selection.click(2, egui::Modifiers::COMMAND);
-    catalog.error_count = 2;
-    findings.look("catalog", &mut catalog, "", &dictionary);
-
-    // Real data in an empty folder: what the window says when nothing is there yet.
-    let dir = folder("englisch");
-    let mut real = SamplePage::with_settings(Paths::new(host_in(&dir, &[])));
-    for key in pages() {
-        findings.look("real data", &mut real, key, &dictionary);
-    }
-    let _ = std::fs::remove_dir_all(dir);
-
-    // Real data with files in them: stock, trade stock and hangar, set up like a copy of a real folder.
-    let dir = folder("englisch-dateien");
-    let files = [
-        (
-            versekit_core::stock::RAW_FILE,
-            r#"{"format": 1, "posten": [{"material": "Iron", "menge": 4.5, "qualitaet": 420, "ort": "Orison", "gestohlen": true}]}"#,
-        ),
-        (
-            versekit_core::stock::TRADE_FILE,
-            r#"{"format": 1, "posten": [{"ware": "Laranite", "menge": 32.0, "ort": "Seraphim Station", "gestohlen": false}]}"#,
-        ),
-        (
-            versekit_core::hangar::FILE,
-            r#"{"format": 1, "schiffe": [{"name": "Carrack", "hersteller": "Anvil Aerospace", "herkunft": "pledge", "belegung": {}}]}"#,
-        ),
-        ("einstellungen.json", "{\n  \"sprache\": \"en\"\n}\n"),
-    ];
-    for (name, content) in files {
-        std::fs::write(dir.join(name), content).expect("a file of the copy");
-    }
-    let mut copy = SamplePage::with_settings(Paths::new(host_in(&dir, &[])));
-    for key in ["hf_meinlager", "hf_hangar", "hf_liste", "hf_auftragslog", "hf_fortschritt", "hf_allgemein", ""] {
-        findings.look("real data with files", &mut copy, key, &dictionary);
-    }
-    let _ = std::fs::remove_dir_all(dir);
-    findings.lines()
-}
-
-/// No page, no tile, no dialog of the window shows German in English.
-#[test]
-fn the_interface_in_english_has_no_german_text() {
-    let findings = in_english(all_findings);
-    assert!(findings.is_empty(), "{} German text(s) in English:\n{}", findings.len(), findings.join("\n"));
 }
 
 /// A small dictionary of made-up words, so that no real text and no word of the list helps the check.

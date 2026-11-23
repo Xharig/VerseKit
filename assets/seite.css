@@ -304,3 +304,10 @@
   .empfehlung{padding:22px}
   .los-innen{grid-template-columns:minmax(0,1fr);padding:24px}
 }
+
+/* Table of keys in the FAQ */
+.tasten{width:100%;border-collapse:collapse;margin:10px 0 12px}
+.tasten th,.tasten td{text-align:left;padding:8px 10px;border-top:1px solid var(--linie);vertical-align:top}
+.tasten th{color:var(--leise);font-weight:600;border-top:0}
+.tasten td:first-child{white-space:nowrap;width:1%}
+.tasten kbd{font-family:inherit;background:var(--flaeche);border:1px solid var(--linie);border-radius:6px;padding:2px 7px}

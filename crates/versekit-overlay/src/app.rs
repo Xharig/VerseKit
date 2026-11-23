@@ -320,6 +320,11 @@ pub struct OverlayApp {
     pub notices: Vec<(String, String)>,
     /// The notice after a scan by hotkey, shown over the game for a moment ([`OverlayApp::show_scan_notice`]).
     scan_notices: crate::notice::Notices,
+    /// Set by the reading of the refinery once its picture is taken: only then the notice that it runs shows, so the
+    /// notice never stands in the picture read.
+    refinery_grabbed: Arc<AtomicBool>,
+    /// The text of the last hint row of the refinery scan: the next one takes its place instead of standing under it.
+    refinery_hint: Option<String>,
     /// The texts of the hint rows that say Star Citizen is not in front; they go once it is in front again.
     away_hints: Vec<String>,
     /// When it was last asked whether the game is in front for [`OverlayApp::away_hints`].
@@ -360,6 +365,9 @@ pub struct OverlayApp {
     main_presses: Receiver<()>,
     /// The hotkey of the blueprint scan at the crafting terminal and the scan it started.
     blueprint: crate::blueprint::BlueprintKey,
+    /// The hotkeys of the stock scan into the own stock and into the stock of the unit, and the scans they started.
+    stock_own: crate::stock_keys::StockKey,
+    stock_unit: crate::stock_keys::StockKey,
     /// The bridge to scmdb.net (`apply_scmdb`).
     scmdb: versekit_core::scmdb_bridge::Bridge,
     started: Instant,
@@ -930,6 +938,8 @@ impl OverlayApp {
             *self.search_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.search_hotkey;
             *self.main_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.main_hotkey;
             *self.blueprint.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.blueprint_hotkey;
+            *self.stock_own.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.stock_hotkey;
+            *self.stock_unit.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.unit_stock_hotkey;
             let scmdb_changed = fresh.scmdb != self.settings.scmdb;
             let sizes = (self.settings.size_percent, fresh.size_percent);
             self.settings = fresh;
@@ -1173,17 +1183,18 @@ impl OverlayApp {
         // The hotkey of the refinery scan: one reading at a time; its notice over the game says what came of it, and
         // the main window opens on what it read.
         let paths = self.paths.as_ref().map(|p| Paths::new(p.host.clone()));
-        let (mut reading, mut pressed) = (false, false);
+        let mut pressed = false;
+        let grabbed = self.refinery_grabbed.clone();
         let read = self.refinery.poll(|done| match paths {
             Some(paths) => {
-                reading = true;
                 pressed = true;
+                grabbed.store(false, Ordering::SeqCst);
                 let wake = || {
                     if let Some(ctx) = crate::CONTEXT.get() {
                         ctx.request_repaint();
                     }
                 };
-                crate::refinery::read_screen(paths, writeguard::state(), done, wake);
+                crate::refinery::read_screen(paths, writeguard::state(), done, grabbed, wake);
             }
             None => {
                 pressed = true;
@@ -1191,12 +1202,14 @@ impl OverlayApp {
             }
         });
         self.key_pressed(pressed);
-        // The reading of the whole screen takes seconds: the player sees at once that it runs.
-        if reading && read.is_none() && self.args.probe.is_none() && (self.game_area)().is_some() {
+        // The reading of the whole screen takes seconds: the player sees that it runs, but only once the picture is
+        // taken; shown before, the notice stood in the picture over the terminal (Levski, 22.11.2026).
+        let taken = self.refinery_grabbed.swap(false, Ordering::SeqCst);
+        if taken && read.is_none() && self.refinery.running() && self.args.probe.is_none() && (self.game_area)().is_some() {
             self.show_scan_notice(&crate::refinery::Outcome::working());
         }
         if let Some(outcome) = read {
-            self.show_scan_notice(&outcome.notice());
+            self.show_refinery_notice(&outcome.notice());
             if outcome.opens_main() {
                 self.open_main(Signal::OpenStockScan);
             }
@@ -1247,6 +1260,43 @@ impl OverlayApp {
         self.key_pressed(pressed);
         if let Some(outcome) = scanned {
             self.show_scan_notice(&outcome.notice());
+        }
+        // The hotkeys of the stock scan: the card under the pointer read where the pointer stands at the press, one
+        // scan at a time over both keys; the notice over the game names the stock it was for.
+        for target in [versekit_core::scan_notice::Target::Own, versekit_core::scan_notice::Target::Unit] {
+            let (key, other_busy) = match target {
+                versekit_core::scan_notice::Target::Own => (&mut self.stock_own, self.stock_unit.running()),
+                versekit_core::scan_notice::Target::Unit => (&mut self.stock_unit, self.stock_own.running()),
+            };
+            let mut pressed = false;
+            let paths = self.paths.as_ref().map(|p| Paths::new(p.host.clone()));
+            let outcome = if other_busy {
+                // Presses that come while the other key's scan runs are dropped.
+                while key.presses.try_recv().is_ok() {}
+                key.poll(|_| {})
+            } else {
+                key.poll(|done| match paths {
+                    Some(paths) => {
+                        pressed = true;
+                        let pointer = os::pointer().map(|p| (p.x, p.y));
+                        let wake = || {
+                            if let Some(ctx) = crate::CONTEXT.get() {
+                                ctx.request_repaint();
+                            }
+                        };
+                        crate::stock_keys::start(paths, target, pointer, writeguard::state(), done, wake);
+                    }
+                    None => {
+                        pressed = true;
+                        let _ = done.send(versekit_core::stock_scan_book::Outcome::NoGame(target));
+                    }
+                })
+            };
+            self.key_pressed(pressed);
+            if let Some(outcome) = outcome {
+                let notice = outcome.notice_in(versekit_core::language::current());
+                self.show_scan_notice(&notice);
+            }
         }
         // The hotkey of the handle search: the info bar takes the keyboard and its field the cursor; without the bar
         // on the screen a hint row says where the search is.
@@ -1828,25 +1878,38 @@ impl OverlayApp {
     /// notice for a moment in the middle over the game while the game is in front. Without the game in front, or
     /// without a window for it, the notice becomes a hint row of the overlay.
     pub fn show_scan_notice(&mut self, notice: &versekit_core::scan_notice::Notice) {
+        self.scan_notice_row(notice);
+    }
+
+    /// [`OverlayApp::show_scan_notice`]; the text of the hint row it became, `None` where it stood over the game.
+    fn scan_notice_row(&mut self, notice: &versekit_core::scan_notice::Notice) -> Option<String> {
         if self.settings.sound
-            && let Some(cue) = notice.kind.sound()
+            && let Some(cue) = notice.cue()
         {
             self.sound(cue);
         }
         let game = if self.args.probe.is_none() { (self.game_area)() } else { None };
         let shown = game.is_some_and(|area| self.scan_notices.show(notice, area, theme::current(), Instant::now()));
-        if !shown {
-            let text = if notice.detail.is_empty() {
-                notice.title.clone()
-            } else {
-                format!("{}: {}", notice.title, notice.detail)
-            };
-            // Said that the game is not in front: the row goes once it is.
-            if notice.away && !self.away_hints.contains(&text) {
-                self.away_hints.push(text.clone());
-            }
-            self.rows.push(Row::Hint { text: Message::Plain(text), contract: None }, self.settings.rows);
+        if shown {
+            return None;
         }
+        let text = if notice.detail.is_empty() { notice.title.clone() } else { format!("{}: {}", notice.title, notice.detail) };
+        // Said that the game is not in front: the row goes once it is.
+        if notice.away && !self.away_hints.contains(&text) {
+            self.away_hints.push(text.clone());
+        }
+        self.rows.push(Row::Hint { text: Message::Plain(text.clone()), contract: None }, self.settings.rows);
+        Some(text)
+    }
+
+    /// The notice of a refinery scan: as [`OverlayApp::show_scan_notice`], but its hint row takes the place of the
+    /// one the last refinery scan left (Levski, 22.11.2026: „Unsicher …“ and „Kein Raffinerie-Auftrag erkannt“ stood
+    /// one under the other, both of old readings).
+    pub fn show_refinery_notice(&mut self, notice: &versekit_core::scan_notice::Notice) {
+        if let Some(old) = self.refinery_hint.take() {
+            self.rows.remove_hints(|text| matches!(text, Message::Plain(text) if *text == old));
+        }
+        self.refinery_hint = self.scan_notice_row(notice);
     }
 
     pub fn open_main(&mut self, signal: Signal) {
@@ -2013,6 +2076,9 @@ impl OverlayApp {
         // wants it above the signature as well.
         let in_bar_only = layout.place == versekit_core::signature_window::Place::InfoBar;
         self.scanner.set_window_off(self.info_bar_on() && in_bar_only);
+        if let Some((key, value)) = self.scanner.follow_rock(self.paths.as_ref()) {
+            self.store(key, value);
+        }
         let step = self.scanner.step(theme::current());
         // A number that left the HUD stays for a while: a frame comes when it goes.
         if let Some(left) = self.scanner.wake_in() {
@@ -2066,7 +2132,7 @@ impl OverlayApp {
             main_command(given, &self.args.main_args, self.args.data.as_deref(), None, folder.as_deref())
                 .filter(|(_, args)| args.iter().any(|a| a == MAIN_WINDOW_SWITCH))
         else {
-            self.open_main(Signal::OpenMining);
+            self.open_main(Signal::OpenSignature);
             return;
         };
         let args: Vec<String> =
@@ -2085,7 +2151,7 @@ impl OverlayApp {
         }
         match command.spawn() {
             Ok(child) => self.learn_child = Some(child),
-            Err(_) => self.open_main(Signal::OpenMining),
+            Err(_) => self.open_main(Signal::OpenSignature),
         }
     }
 
@@ -2613,6 +2679,8 @@ struct Parts {
     main_hotkey: Arc<Mutex<Option<Hotkey>>>,
     main_presses: Receiver<()>,
     blueprint: crate::blueprint::BlueprintKey,
+    stock_own: crate::stock_keys::StockKey,
+    stock_unit: crate::stock_keys::StockKey,
     control: Option<Receiver<Control>>,
     start: Rect,
     /// A size or place was remembered: the first frame does not measure a default size.
@@ -2738,6 +2806,8 @@ impl OverlayApp {
             contracts: Vec::new(),
             notices: Vec::new(),
             scan_notices: crate::notice::Notices::default(),
+            refinery_grabbed: Arc::new(AtomicBool::new(false)),
+            refinery_hint: None,
             away_hints: Vec::new(),
             away_asked: None,
             game_in_front: versekit_core::screen_grab::foreground_is_game,
@@ -2767,6 +2837,8 @@ impl OverlayApp {
             main_hotkey: p.main_hotkey,
             main_presses: p.main_presses,
             blueprint: p.blueprint,
+            stock_own: p.stock_own,
+            stock_unit: p.stock_unit,
             scmdb: versekit_core::scmdb_bridge::Bridge::new(),
             started: Instant::now(),
             current: start,
@@ -2987,6 +3059,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     | Signal::OpenMining
                     | Signal::OpenStockScan
                     | Signal::OpenBank
+                    | Signal::OpenSignature
                     | Signal::AntiAfkOn
                     | Signal::AntiAfkOff
                     | Signal::DemandWanted => return,
@@ -3202,6 +3275,30 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             }
             #[cfg(not(windows))]
             drop(blueprint_tx);
+            // The hotkeys of the stock scan read the card with the recognition of Windows too: only there.
+            let (stock_own_tx, stock_own_rx) = mpsc::channel();
+            let (stock_unit_tx, stock_unit_rx) = mpsc::channel();
+            let stock_own = crate::stock_keys::StockKey::new(settings.stock_hotkey, stock_own_rx);
+            let stock_unit = crate::stock_keys::StockKey::new(settings.unit_stock_hotkey, stock_unit_rx);
+            #[cfg_attr(not(windows), allow(unused_mut))]
+            let mut stock_own_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg_attr(not(windows), allow(unused_mut))]
+            let mut stock_unit_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() && versekit_core::screen_grab::supported() {
+                let ctx = cc.egui_ctx.clone();
+                stock_own_registered =
+                    crate::win::start_hotkeys(stock_own.hotkey.clone(), stock_own_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+                let ctx = cc.egui_ctx.clone();
+                stock_unit_registered =
+                    crate::win::start_hotkeys(stock_unit.hotkey.clone(), stock_unit_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(not(windows))]
+            drop((stock_own_tx, stock_unit_tx));
             if args.probe.is_none()
                 && let Some(choice) = &hotkey_choice
             {
@@ -3224,6 +3321,10 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     if cfg!(windows) {
                         let blueprint = overlay::HotkeyChoice::read_blueprint(paths);
                         versekit_core::trail::step(&overlay::blueprint_hotkey_trail(&blueprint, blueprint_registered));
+                        let own = overlay::HotkeyChoice::read_stock(paths);
+                        versekit_core::trail::step(&overlay::stock_hotkey_trail(&own, stock_own_registered));
+                        let unit = overlay::HotkeyChoice::read_unit_stock(paths);
+                        versekit_core::trail::step(&overlay::unit_stock_hotkey_trail(&unit, stock_unit_registered));
                     }
                 }
             }
@@ -3247,6 +3348,8 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 main_hotkey,
                 main_presses: main_rx,
                 blueprint,
+                stock_own,
+                stock_unit,
                 control: control_rx,
                 start,
                 remembered: remembered.is_some(),
@@ -3392,6 +3495,9 @@ mod tests {
         main_key: Sender<()>,
         /// A press of the hotkey of the blueprint scan.
         blueprint_key: Sender<()>,
+        /// A press of the hotkeys of the stock scan into the own stock and into the stock of the unit.
+        stock_own_key: Sender<()>,
+        stock_unit_key: Sender<()>,
     }
 
     fn bench(args: Args, real_game: bool, paths: Option<Paths>) -> Bench {
@@ -3506,6 +3612,30 @@ mod tests {
         assert!(!bench.app.scan_notices.showing(), "no window without the game in front");
     }
 
+    /// Levski, 22.11.2026: „Unsicher: 2 Werte prüfen“ and „Kein Raffinerie-Auftrag erkannt“ of two old readings stood
+    /// one under the other. The hint row of a refinery scan takes the place of the last one; other rows stay.
+    #[test]
+    fn the_hint_row_of_a_refinery_scan_takes_the_place_of_the_last_one() {
+        use crate::refinery::{Found, Outcome};
+        let mut bench = bench(Args::default(), false, None);
+        bench.app.settings.sound = false;
+        let other = Row::Hint { text: Message::Plain("Anderer Hinweis".into()), contract: None };
+        bench.app.rows.clear();
+        bench.app.rows.push(other.clone(), 9);
+        let unsure = Found { materials: 4, unsure: 2, known: false, covered: false };
+        let hints = |app: &OverlayApp| app.rows.iter().filter(|row| **row != other).count();
+        bench.app.show_refinery_notice(&Outcome::Read(unsure).notice());
+        bench.app.show_refinery_notice(&Outcome::Read(Found::default()).notice());
+        assert_eq!(hints(&bench.app), 1, "{:?}", bench.app.rows);
+        let last = Outcome::Read(Found::default()).notice().title;
+        assert!(bench.app.rows.iter().any(|row| matches!(row, Row::Hint { text, .. } if text.render() == last)));
+        assert!(bench.app.rows.iter().any(|row| *row == other), "another hint stays");
+        // Counter-check: the other scans keep their rows as before.
+        bench.app.show_scan_notice(&crate::picture::Outcome::Failed.notice());
+        bench.app.show_scan_notice(&crate::picture::Outcome::Failed.notice());
+        assert_eq!(hints(&bench.app), 3);
+    }
+
     /// The hint row that Star Citizen is not in front goes by itself once it is in front again; the other hint rows
     /// stay, and the row does not go while the game stays away.
     #[test]
@@ -3559,7 +3689,7 @@ mod tests {
             bench.app.show_scan_notice(&notice);
             std::mem::take(&mut bench.app.played)
         };
-        let found = crate::refinery::Found { materials: 2, unsure: 0, known: false };
+        let found = crate::refinery::Found { materials: 2, unsure: 0, known: false, covered: false };
         assert_eq!(heard(crate::blueprint::Outcome::Done(Action::Add("Arclight".into())).notice()), [Cue::Done]);
         assert_eq!(heard(crate::refinery::Outcome::Read(found).notice()), [Cue::Done]);
         assert_eq!(heard(crate::picture::Outcome::Taken.notice()), [Cue::Done]);
@@ -3599,6 +3729,53 @@ mod tests {
         bench.app.take_news();
         bench.app.show_scan_notice(&crate::picture::Outcome::Taken.notice());
         assert!(bench.app.played.is_empty(), "{:?}", bench.app.played);
+    }
+
+    /// A stock scan sounds by the stock it went to: a taken one in the own stock has its sound and a taken one in the
+    /// stock of the unit another; a refused one sounds as any failure. The notice names the stock either way, and the
+    /// two keys are two scans that never run at once.
+    #[test]
+    fn a_stock_scan_sounds_and_looks_by_its_stock() {
+        use versekit_core::scan_notice::Target;
+        use versekit_core::stock_scan_book::{Measure, Outcome, Scan, ScannedItem, What};
+        let mut bench = bench(Args::default(), false, None);
+        let scan = |target| Scan {
+            id: 1,
+            at: 0,
+            target,
+            item: ScannedItem::new("Parallax", 3.0, Measure::Pieces, None),
+            place: "Orison".into(),
+            round: 1,
+            before: None,
+            after: 3.0,
+            what: What::Set,
+            undone: false,
+        };
+        let mut heard = |outcome: Outcome| {
+            bench.app.played.clear();
+            let notice = outcome.notice_in(language::Lang::De);
+            bench.app.show_scan_notice(&notice);
+            (notice.target, std::mem::take(&mut bench.app.played))
+        };
+        assert_eq!(heard(Outcome::Booked(scan(Target::Own))), (Some(Target::Own), vec![Cue::StockOwn]));
+        assert_eq!(heard(Outcome::Booked(scan(Target::Unit))), (Some(Target::Unit), vec![Cue::StockUnit]));
+        assert_eq!(heard(Outcome::Same(scan(Target::Unit))), (Some(Target::Unit), vec![Cue::AlreadyThere]));
+        assert_eq!(heard(Outcome::Added(scan(Target::Own))), (Some(Target::Own), vec![Cue::StockOwn]));
+        assert_eq!(heard(Outcome::Added(scan(Target::Unit))), (Some(Target::Unit), vec![Cue::StockUnit]));
+        let counted = Outcome::Counted(Target::Unit, "Parallax".into());
+        assert_eq!(heard(counted), (Some(Target::Unit), vec![Cue::Counted]));
+        assert_eq!(heard(Outcome::NoPlace(Target::Own)), (Some(Target::Own), vec![Cue::Failed]));
+        assert_eq!(heard(Outcome::NotLogistician), (Some(Target::Unit), vec![Cue::Failed]));
+        assert_eq!(heard(Outcome::Asked { target: Target::Own, candidates: 2 }), (Some(Target::Own), vec![Cue::Ask]));
+        // Each key clicks and, without a pointer to read at, says the game was not in front.
+        bench.app.played.clear();
+        bench.stock_own_key.send(()).unwrap();
+        bench.app.take_news();
+        assert_eq!(bench.app.played, [Cue::Press, Cue::Failed]);
+        bench.app.played.clear();
+        bench.stock_unit_key.send(()).unwrap();
+        bench.app.take_news();
+        assert_eq!(bench.app.played, [Cue::Press, Cue::Failed]);
     }
 
     /// The jobs of the fabricator come to the open overlay while their switch is on, and the switch takes them away.
@@ -3649,6 +3826,8 @@ mod tests {
         let (picture_key, picture_rx) = mpsc::channel();
         let (main_key, main_rx) = mpsc::channel();
         let (blueprint_key, blueprint_rx) = mpsc::channel();
+        let (stock_own_key, stock_own_rx) = mpsc::channel();
+        let (stock_unit_key, stock_unit_rx) = mpsc::channel();
         let file_settings = Settings::default();
         let forced_game = Arc::new(ForcedGame::new(args.game.then_some(true)));
         let app = OverlayApp::new(Parts {
@@ -3671,6 +3850,8 @@ mod tests {
             main_hotkey: Arc::new(Mutex::new(None)),
             main_presses: main_rx,
             blueprint: crate::blueprint::BlueprintKey::new(None, blueprint_rx),
+            stock_own: crate::stock_keys::StockKey::new(None, stock_own_rx),
+            stock_unit: crate::stock_keys::StockKey::new(None, stock_unit_rx),
             control: Some(control_rx),
             start: Rect::new(10, 20, 540, 390),
             remembered: true,
@@ -3688,7 +3869,7 @@ mod tests {
         let mut app = app;
         app.game_in_front = || false;
         app.game_area = || None;
-        Bench { app, news, game, control, search_key, picture_key, main_key, blueprint_key }
+        Bench { app, news, game, control, search_key, picture_key, main_key, blueprint_key, stock_own_key, stock_unit_key }
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {

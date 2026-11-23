@@ -1,0 +1,16 @@
+signatur-golem-3440/
+
+Die Bilder, die ein Spieler am 15. und 21.11.2026 im Signatur-Scanner angelernt hat, aus dem Bilder-ZIP seines
+Fehlerberichts (Star Citizen 4.x, Drake Golem, Spielfenster 3440 × 1440, Spieltexte Englisch). Jedes ist der
+Ausschnitt um die Zahl in einer Graustufe, so wie VerseKit ihn beim Anlernen ablegt (`signature_scan::save_sample`).
+
+Dateiname: die Zahl, die der Spieler eingetippt hat, und eine laufende Nummer.
+
+Achtzehn zeigen eine Signatur mit dem Ortssymbol davor (16,720, 24,720, 39,000, 48,000, 52,000, 60,000, 7,140,
+8,000). Vier zeigen KEINE Signatur und hätten nie zum Anlernen angeboten werden dürfen:
+
+- 085_01, 120_02: die Gradzahl im Ring der Kursanzeige,
+- 259_13: der Abstand „25.9m“,
+- 959_22: die Geschwindigkeit „959M/S“.
+
+Keine Namen, keine Kennungen: nur die kleinen Ausschnitte um die Zahl.

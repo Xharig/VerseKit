@@ -80,7 +80,7 @@ test('falsche Ansicht oder unbekannte Kachel wird abgelehnt', async () => {
 });
 
 test('die gewählte Übersetzung wird als Merkmal gezählt', async () => {
-  for (const tr of ['dymerz_de', 'luftwerft_ptbr', 'original', 'eigene', 'keine']) {
+  for (const tr of ['dymerz_de', 'luftwerft_ptbr', 'original', 'eigene', 'keine', 'ungewaehlt', 'nicht_anfassen']) {
     const e = env();
     assert.equal((await worker.fetch(ping({ ...FULL, tr }), e)).status, 204, tr);
     const merk = e.DB.calls.filter((c) => /INTO merkmale/.test(c.sql)).map((c) => c.args.slice(1).join('='));

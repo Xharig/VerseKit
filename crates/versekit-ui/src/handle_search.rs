@@ -1795,10 +1795,14 @@ pub(crate) mod tests {
         panic!("the search did not end");
     }
 
-    fn german() -> std::sync::MutexGuard<'static, ()> {
+    /// The tests of this page ask for the same handle, and the gate of the search is one for the whole process
+    /// (`Busy` while the same handle is being asked): they go one after the other, the others run on.
+    fn german() -> (crate::LanguageGuard, std::sync::MutexGuard<'static, ()>) {
+        static SAME_HANDLE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let one_at_a_time = SAME_HANDLE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let guard = crate::language_lock();
         set_thread_language(Choice::De);
-        guard
+        (guard, one_at_a_time)
     }
 
     #[test]

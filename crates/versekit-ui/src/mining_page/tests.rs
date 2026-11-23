@@ -254,8 +254,8 @@ mod tests {
         assert!(!shown.contains(&t("s_rm_zeit_laeuft")), "a fast method: {shown:?}");
     }
 
-    /// The levels the reading of the game data keeps for 4.10.2: the nine of the table, five of them under another
-    /// name.
+    /// The levels the reading of the game data keeps: those of 4.10.2 (the same as the table holds) with one made-up
+    /// change, so that the page shows the file leads: Electrostarolysis is fast and cheap.
     const GAME_4_10_2: &str = r#"{"format": 1, "build": "4.10.2-LIVE.12913470", "kanal": "KANAL", "verfahren": [
         {"name": "Pyrometric Chromalysis", "ertrag": 3, "tempo": 3, "kosten": 1},
         {"name": "Gaskin Process", "ertrag": 2, "tempo": 3, "kosten": 1},
@@ -263,7 +263,7 @@ mod tests {
         {"name": "Ferron Exchange", "ertrag": 3, "tempo": 1, "kosten": 2},
         {"name": "Kazen Winnowing", "ertrag": 1, "tempo": 2, "kosten": 3},
         {"name": "Thermonatic Deposition", "ertrag": 2, "tempo": 1, "kosten": 3},
-        {"name": "Electrostarolysis", "ertrag": 2, "tempo": 2, "kosten": 2},
+        {"name": "Electrostarolysis", "ertrag": 2, "tempo": 3, "kosten": 3},
         {"name": "Cormack Method", "ertrag": 1, "tempo": 3, "kosten": 2},
         {"name": "XCR Reaction", "ertrag": 1, "tempo": 3, "kosten": 1}]}"#;
 
@@ -276,17 +276,17 @@ mod tests {
         let dir = versekit_core::testdir::Dir::new("bergbau-spieldaten");
         let text = dir.path().to_string_lossy().into_owned();
         let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text));
-        // Costs first, then speed: the table names Electrostarolysis.
+        // Costs first, then speed: the table names Kazen Winnowing.
         let mut state = MiningState { first: 2, second: 3, ..MiningState::with_files(&paths) };
         assert_eq!(state.methods.origin, refining::Origin::Table, "no file: the table");
         let (shown, _) = mining(&context(), &mut state, 900.0);
-        assert!(shown.contains(&tf("s_rm_nimm", &[("0", Arg::from("Electrostarolysis"))])), "{shown:?}");
-        // The reading of the game data kept the levels of 4.10.2: Kazen Winnowing has the low costs now. The page
-        // finds the new file by its time when it looks again.
+        assert!(shown.contains(&tf("s_rm_nimm", &[("0", Arg::from("Kazen Winnowing"))])), "{shown:?}");
+        // The file of the game data leads where it differs from the table: Electrostarolysis has the low costs and
+        // the speed now. The page finds the new file by its time when it looks again.
         std::fs::write(paths.app_file(refining::GAME_FILE), GAME_4_10_2.replace("KANAL", "LIVE")).unwrap();
         state.looked_at = f64::NEG_INFINITY;
         let (shown, _) = mining(&context(), &mut state, 900.0);
-        assert!(shown.contains(&tf("s_rm_nimm", &[("0", Arg::from("Kazen Winnowing"))])), "{shown:?}");
+        assert!(shown.contains(&tf("s_rm_nimm", &[("0", Arg::from("Electrostarolysis"))])), "{shown:?}");
         let build = Arg::from("4.10.2-LIVE.12913470");
         let live = [tf("s_rm_stand_spiel", &[("0", build.clone())])];
         assert_eq!(methods_origin(&state.methods), live, "LIVE says nothing more");
@@ -764,6 +764,35 @@ mod tests {
                 state.look_up(&egui::Context::default());
                 Box::new(move |ui| crate::salvage_page::show_page(ui, scheme, &mut state, &mut crafting))
             }
+            4 => {
+                // The tab Signatur with the scanner on, pictures taught (some of one number) and a suspect pattern.
+                use versekit_core::paths::Host;
+                use versekit_core::pypath::Flavor;
+                use versekit_core::signature_scan::{self as scan, Gray, Variant};
+                let dir = versekit_core::testdir::Dir::new("bergbau-groesse-signatur");
+                let text = dir.path().to_string_lossy().into_owned();
+                let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text));
+                let files = scan::OwnFiles::in_folder(|name| paths.app_file(name));
+                let parent = std::path::Path::new(&files.shared).parent().map(|p| p.to_string_lossy().into_owned());
+                let folder = format!("{}/{}", parent.unwrap_or_default(), scan::SAMPLE_FOLDER);
+                for number in ["15600", "15600", "6740", "17080", "3170", "20975"] {
+                    std::thread::sleep(std::time::Duration::from_millis(15));
+                    let gray = Gray::new(90, 26, (0..90 * 26).map(|at| (at * 7 % 200) as u8).collect());
+                    assert!(scan::save_sample_as(&folder, &gray, &scan::sample_name(number)));
+                }
+                let mut file = scan::own::OwnFile::open(files.of(Variant::Green)).unwrap();
+                let mut block = [0u8; scan::NORM_W * scan::NORM_H];
+                block[4 * scan::NORM_W..16 * scan::NORM_W].fill(1);
+                file.add(scan::own::Kind::Taught, '4', &block, None, 24);
+                file.save(files.of(Variant::Green)).unwrap();
+                let mut state = MiningState::with_files(&paths);
+                state.scanner.on = true;
+                state.tab = 1;
+                Box::new(move |ui| {
+                    let _keep = &dir;
+                    show_page(ui, scheme, &mut state);
+                })
+            }
             _ => {
                 let mut crafting = crate::crafting_page::CraftingState::default();
                 let name = crafting.parts().map(|(_, book, _)| book.items[0].basis.clone()).unwrap_or_default();
@@ -774,15 +803,142 @@ mod tests {
         }
     }
 
+    /// A page on a made-up data folder, so that the scanner and the tabs are there.
+    fn page_with_files(tag: &str) -> (versekit_core::testdir::Dir, MiningState) {
+        use versekit_core::paths::Host;
+        use versekit_core::pypath::Flavor;
+        let dir = versekit_core::testdir::Dir::new(tag);
+        let text = dir.path().to_string_lossy().into_owned();
+        let paths = Paths::new(Host::new(Flavor::native(), &[(versekit_core::envvars::ENV_HOME, &text)], &text));
+        (dir, MiningState::with_files(&paths))
+    }
+
+    #[test]
+    fn the_tab_signature_stands_beside_mining_and_equipment_and_holds_the_scanner_the_mining_tab_does_not() {
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::Queryable;
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let (_dir, state) = page_with_files("bergbau-reiter-signatur");
+        let mut harness = Harness::builder()
+            .with_size(vec2(1000.0, 1800.0))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(
+                |ui, state: &mut MiningState| {
+                    let scheme = versekit_core::theme::current();
+                    let mut equipment = |_: &mut Ui| Vec::new();
+                    show_page_with(ui, scheme, state, Some(&mut equipment));
+                },
+                state,
+            );
+        harness.run_steps(3);
+        // The three tabs, in this order, and the mining tab without the card of the scanner.
+        for name in ["Bergbau", "Ausrüstung", "Signatur"] {
+            assert!(harness.query_by_label(name).is_some(), "{name}");
+        }
+        let at = |harness: &Harness<'_, MiningState>, name: &str| harness.get_by_label(name).rect().left();
+        assert!(at(&harness, "Bergbau") < at(&harness, "Ausrüstung") && at(&harness, "Ausrüstung") < at(&harness, "Signatur"));
+        assert!(harness.query_by_label(&t("s_bg_scan_kopf")).is_none(), "no scanner in the mining tab");
+        harness.get_by_label("Signatur").click();
+        harness.run_steps(4);
+        assert_eq!(harness.state().tab, 2);
+        assert!(harness.query_all_by_label_contains(&t("s_bg_scan_kopf")).count() > 0, "the scanner is in its tab");
+        assert!(harness.query_by_label(&t("s_bg_lead")).is_none(), "the mining page is not drawn below it");
+    }
+
+    #[test]
+    fn without_the_equipment_the_tab_signature_is_the_second_and_the_card_of_the_rock_links_to_it() {
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::Queryable;
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let (_dir, mut state) = page_with_files("bergbau-reiter-stein");
+        // The scanner is off: the card of the rock sends to the tab.
+        state.tab = 1;
+        let mut harness = Harness::builder()
+            .with_size(vec2(1000.0, 1800.0))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(
+                |ui, state: &mut MiningState| {
+                    let scheme = versekit_core::theme::current();
+                    show_page_with(ui, scheme, state, None);
+                },
+                state,
+            );
+        harness.run_steps(3);
+        assert!(harness.query_all_by_label(&t("s_bg_scan_kopf")).count() > 0, "tab 1 is the signature scanner here");
+        // With the equipment the card of the rock stands in the tab Equipment.
+        let (_dir, mut state) = page_with_files("bergbau-reiter-stein-2");
+        state.tab = 1;
+        let mut harness = Harness::builder()
+            .with_size(vec2(1000.0, 1800.0))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(
+                |ui, state: &mut MiningState| {
+                    let scheme = versekit_core::theme::current();
+                    let mut equipment = |_: &mut Ui| Vec::new();
+                    show_page_with(ui, scheme, state, Some(&mut equipment));
+                },
+                state,
+            );
+        harness.run_steps(3);
+        assert!(harness.query_by_label(&t("s_stein_scanner_aus")).is_some(), "the hint stands while the scanner is off");
+        harness.get_by_label(&t("s_stein_zum_reiter")).click();
+        harness.run_steps(4);
+        assert_eq!(harness.state().tab, 2, "the link opens the tab Signatur");
+        assert!(harness.query_all_by_label_contains(&t("s_bg_scan_kopf")).count() > 0);
+    }
+
+    /// The window names the page by the tab (the pin of the head, the card): the tab says whether it is shown, and a
+    /// request (a pinned card) opens it, with and without the equipment tab.
+    #[test]
+    fn the_tab_signature_says_when_it_is_shown_and_a_request_opens_it() {
+        use egui_kittest::Harness;
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        for (tag, with_equipment, at) in [("bergbau-reiter-bitte-a", true, 2), ("bergbau-reiter-bitte-b", false, 1)] {
+            let (_dir, state) = page_with_files(tag);
+            let mut harness = Harness::builder()
+                .with_size(vec2(1000.0, 1800.0))
+                .with_context_setup(crate::install)
+                .with_accessibility_check(false)
+                .allow_missing_glyphs()
+                .build_ui_state(
+                    move |ui, state: &mut MiningState| {
+                        let scheme = versekit_core::theme::current();
+                        let mut equipment = |_: &mut Ui| Vec::new();
+                        show_page_with(ui, scheme, state, with_equipment.then_some(&mut equipment as Equipment<'_>));
+                    },
+                    state,
+                );
+            harness.run_steps(3);
+            assert!(!harness.state().shows_signature, "the mining tab is not the signature tab");
+            harness.state_mut().want_signature = true;
+            harness.run_steps(4);
+            assert_eq!(harness.state().tab, at, "the request opens the tab");
+            assert!(harness.state().shows_signature, "and the tab says so");
+            assert!(!harness.state().want_signature, "the request is done once");
+        }
+    }
+
     #[test]
     fn the_four_pages_fit_and_cut_nothing_at_every_size_and_width_in_both_languages() {
+        if crate::skip_unless_full_run() {
+            return;
+        }
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         for lang in [Choice::De, Choice::En] {
             set_thread_language(lang);
-            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 for width in [380.0, 520.0, 900.0] {
-                    for which in 0..4 {
+                    for which in 0..5 {
                         let ctx = context();
                         crate::apply_size(&ctx, points);
                         let mut page = filled_page(which);

@@ -49,6 +49,28 @@ fn glance(line: String, details: Vec<String>) -> Glance {
     Glance::new(line, details)
 }
 
+/// Times the parts of a count of the overview: a part that took at least [`Lap::SLOW_MS`] is written into the
+/// trail, so a window that stands shows in the trail which tile held it.
+pub(super) struct Lap(std::time::Instant);
+
+impl Lap {
+    /// The milliseconds from which a part is written down.
+    pub(super) const SLOW_MS: u128 = 250;
+
+    pub(super) fn start() -> Lap {
+        Lap(std::time::Instant::now())
+    }
+
+    /// Writes `part` into the trail if it took long, and starts the next part.
+    pub(super) fn lap(&mut self, part: &str) {
+        let took = self.0.elapsed().as_millis();
+        if took >= Lap::SLOW_MS {
+            versekit_core::trail::slow_overview_part(part, took);
+        }
+        self.0 = std::time::Instant::now();
+    }
+}
+
 /// The Executive Hangar at `now` (Unix seconds) for the start the page of the Contested Zones keeps: the phase
 /// as the line in its colour (closed red, open in the accent, resetting gold), the five lamps, the time to the
 /// next change and when it opens, or until when it stays open. The same calculation as the page; without a
@@ -476,6 +498,7 @@ impl SamplePage {
     /// The tiles of 4.12 and the pinned pages, counted now; `now` in seconds of the clock.
     pub(super) fn tiles_of_4_12(&self, paths: &Paths, lang: Lang, now: i64) -> HashMap<&'static str, Glance> {
         let mut out: HashMap<&'static str, Glance> = HashMap::new();
+        let mut lap = Lap::start();
         let ago = |at: i64| relative_age_in(lang, (now - at) as f64);
         let one = |key: &str, value: Arg| tf_in(lang, key, &[("0", value)]);
         let two = |key: &str, a: Arg, b: Arg| tf_in(lang, key, &[("0", a), ("1", b)]);
@@ -500,10 +523,12 @@ impl SamplePage {
             details.push(one("s_uv_stand", Arg::from(catalog.version.as_str())));
         }
         out.insert("spiel", glance(t_in(lang, if running { "s_uv_laeuft" } else { "s_uv_laeuft_nicht" }), details));
+        lap.lap("spiel");
 
         // Location: the last landing place in the game log, read beside the window.
         let place = self.place_look.poll(paths, |own| location::place(own, None));
         out.insert("standort", place_tile(place, running, paths, lang, now));
+        lap.lap("standort");
 
         // Computer: the rating of the game from its log (`machine_info`), read beside the window; each reading
         // with an index is noted for the course over the days.
@@ -516,6 +541,7 @@ impl SamplePage {
         });
         let today = machine_info::history::day_of(now).unwrap_or_default();
         out.insert("rechner", machine_tile(machine, &machine_info::history::load(paths), &today, lang));
+        lap.lap("rechner");
 
         // Blueprints: owned of the catalog, this week, the newest.
         if real_catalog {
@@ -537,6 +563,7 @@ impl SamplePage {
             let foreign = versekit_core::logsource::foreign_tally(paths).blueprints;
             out.insert("bauplaene", with_foreign(tile, foreign, lang));
         }
+        lap.lap("bauplaene");
 
         // Translation: the source of each channel and how it stands.
         let today = translation::today();
@@ -569,6 +596,7 @@ impl SamplePage {
         // "Jetzt nach neuer Übersetzung sehen" where a channel has a source to look at (4.12).
         let check = (!crate::game_texts_page::checkable(paths).is_empty()).then_some(TileAction::TranslationCheck);
         out.insert("uebersetzung", Glance { action: check, ..glance(line, details) });
+        lap.lap("uebersetzung");
 
         // Play time: all of it, and the last seven days.
         let spans = played_spans(paths);
@@ -625,11 +653,14 @@ impl SamplePage {
         });
         tones.push(if newer { Tone::Warn } else { Tone::Good });
         out.insert("dienste", Glance { tones, line_tone: cig_tone, ..glance(cig, details) });
+        lap.lap("dienste");
 
         out.insert("raffinerie", refinery_tile_with_scan(paths, lang, now));
+        lap.lap("raffinerie");
 
         // Storage: how much different lies there, and the largest materials.
         out.insert("lager", storage_tile(&self.stock.rows(), lang, MOST));
+        lap.lap("lager");
 
         // Open contracts that give blueprints, the most missing first.
         if real_catalog && !self.contracts.sample {
@@ -652,6 +683,7 @@ impl SamplePage {
             let why = if real_catalog { "s_kt_auftraege_leer" } else { "s_kt_katalog_leer" };
             out.insert("auftraege", glance(t_in(lang, why), Vec::new()));
         }
+        lap.lap("auftraege");
 
         // New in the patch: the blueprints that came with the catalog's version.
         if real_catalog {
@@ -684,6 +716,7 @@ impl SamplePage {
             out.insert("bauplaene", glance(t_in(lang, "s_kt_katalog_leer"), Vec::new()));
         }
 
+        lap.lap("neu_patch");
         // Watch list: found of all, the open ones.
         let (found, total, open) = overview::watch_numbers(&versekit_core::watchlist::load(paths), &owned);
         out.insert(
@@ -742,6 +775,7 @@ impl SamplePage {
             },
         );
 
+        lap.lap("bedarf");
         // Latest finds in the game.
         let finds = overview::latest_finds(&own, MOST);
         let mut lines = finds.iter().map(|(name, at)| two("s_uv_fund", Arg::from(name.as_str()), Arg::from(ago(*at))));
@@ -785,9 +819,11 @@ impl SamplePage {
         // The Executive Hangar: the same on its tile and on the pinned page.
         let hangar = hangar_tile(self.contested.start(), versekit_core::contested::now(), lang);
         out.insert("executive_hangar", hangar.clone());
+        lap.lap("notizen");
 
         // A pinned page shows what its page has to show; one without data of its own, its short explanation.
         let mut pages = self.page_glances(paths, &own, lang, now, &super::glance::today_key(now), &out);
+        lap.lap("angeheftet");
         pages.insert("hf_contested", hangar);
         for tile in self.tiles.iter().filter(|tile| tile.pinned) {
             if let Some((page, key)) = overview::PAGES.iter().find(|(_, key)| *key == tile.key) {

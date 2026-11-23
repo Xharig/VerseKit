@@ -18,8 +18,10 @@
 //! The small window with the scanned material above the signature (Windows).
 //!
 //! A window of its own, not part of the overlay: a pop-up that is never activated (a click does not take the
-//! focus from the game), always on top, layered. Layered matters twice: `BitBlt` of the screen grab leaves
-//! layered windows out, so the window never photographs itself, and the opacity comes from the layering.
+//! focus from the game), always on top, layered for its opacity. ⚠ Layered does NOT keep it out of the screen grab:
+//! with the desktop composed by DWM, `BitBlt` of the screen takes layered windows along (Levski, 22.11.2026: the
+//! notice of the refinery scan stood in the picture read). The window asks the system to leave it out of every grab
+//! (`WDA_EXCLUDEFROMCAPTURE`, from Windows 10 2004 on), and the notices show only after the grab.
 //! Clicks pass through it (`WS_EX_TRANSPARENT`) unless the lock of the overlay is open: then it can be dragged.
 //!
 //! The window is drawn with GDI: the letters in two lines, the material in the accent and the number below.
@@ -60,6 +62,8 @@ pub struct Content {
     /// The material is a name the data know; "no ore recognised" stands in the normal colour.
     pub known: bool,
     pub number: String,
+    /// Lines below the number in the small letters, each with its colour: what the scanned rock gives.
+    pub extra: Vec<(String, u32)>,
     /// The height of the letters of the material in pixels.
     pub font_px: i32,
     pub background: u32,
@@ -185,11 +189,13 @@ pub fn measure(content: &Content) -> (i32, i32) {
         let (big, small) = (font(m.big), font(m.small));
         let wide_material = if content.material.is_empty() { 0 } else { width_of(dc, big, &content.material) };
         let wide_number = width_of(dc, if content.material.is_empty() { big } else { small }, &content.number);
+        let wide_extra = content.extra.iter().map(|(line, _)| width_of(dc, small, line)).max().unwrap_or(0);
         DeleteObject(big);
         DeleteObject(small);
         ReleaseDC(std::ptr::null_mut(), dc);
-        let text_w = wide_material.max(wide_number);
-        let text_h = if content.material.is_empty() { m.big_height } else { m.big_height + m.gap + m.small_height };
+        let text_w = wide_material.max(wide_number).max(wide_extra);
+        let text_h = if content.material.is_empty() { m.big_height } else { m.big_height + m.gap + m.small_height }
+            + content.extra.len() as i32 * (m.gap + m.small_height);
         (text_w + 2 * (m.pad + FRAME) + content.font_px / 4, text_h + 2 * m.pad + 2 * FRAME)
     }
 }
@@ -447,9 +453,15 @@ fn draw(hwnd: HWND, dc: HDC) {
                 draw_line(memory, &content.material, &mut top, flags);
                 SelectObject(memory, small);
                 SetTextColor(memory, content.sub);
-                let from = first + m.big_height + m.gap;
+                let mut from = first + m.big_height + m.gap;
                 let mut bottom = RECT { left: 0, top: from, right: w, bottom: from + m.small_height };
                 draw_line(memory, &content.number, &mut bottom, flags);
+                for (line, tone) in &content.extra {
+                    from += m.small_height + m.gap;
+                    SetTextColor(memory, *tone);
+                    let mut below = RECT { left: 0, top: from, right: w, bottom: from + m.small_height };
+                    draw_line(memory, line, &mut below, flags);
+                }
                 SelectObject(memory, previous);
             }
             DeleteObject(big);
@@ -459,6 +471,26 @@ fn draw(hwnd: HWND, dc: HDC) {
             DeleteObject(bitmap);
             DeleteDC(memory);
         }
+    }
+}
+
+/// The first build of Windows that leaves a window out of every grab of the screen (`WDA_EXCLUDEFROMCAPTURE`,
+/// Windows 10 2004). Before it the same request means `WDA_MONITOR`: the window would stand black in the picture.
+pub const EXCLUDE_FROM_CAPTURE_BUILD: u32 = 19041;
+
+/// Whether the build `build` (`CurrentBuildNumber`) knows how to leave a window out of the grab.
+pub fn can_exclude_from_capture(build: Option<&str>) -> bool {
+    build.and_then(|b| b.trim().parse::<u32>().ok()).is_some_and(|b| b >= EXCLUDE_FROM_CAPTURE_BUILD)
+}
+
+/// Leaves the window out of every grab of the screen, the own one included, where the system can; elsewhere nothing
+/// changes (an older Windows would black it out in the picture instead). The notice is shown only after the grab
+/// anyway; this keeps a notice still standing from an earlier scan out of the picture too.
+fn exclude_from_capture(hwnd: HWND) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE};
+    if can_exclude_from_capture(versekit_core::paths::windows_build_number().as_deref()) {
+        // SAFETY: our own window; a refusal leaves it as it was.
+        unsafe { SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE) };
     }
 }
 
@@ -501,6 +533,7 @@ impl ScanWindow {
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, &*inner as *const Inner as isize);
             SetLayeredWindowAttributes(hwnd, 0, ALPHA, LWA_ALPHA);
         }
+        exclude_from_capture(hwnd);
         Some(ScanWindow { hwnd, inner })
     }
 

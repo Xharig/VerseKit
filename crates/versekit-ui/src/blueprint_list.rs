@@ -1358,8 +1358,11 @@ fn clock(at: i64) -> String {
     versekit_core::formats::local_time(at).map_or(String::new(), |time| format!("{:02}:{:02}", time.hour, time.minute))
 }
 
-/// The picture of a question in the table of the scans view, at most this wide in points.
-const QUESTION_PICTURE: f32 = 300.0;
+/// The picture of a question in the table of the scans view: scaled to fill this box in points, keeping its shape.
+const QUESTION_PICTURE: egui::Vec2 = egui::vec2(360.0, 90.0);
+
+/// The picture of a question while the pointer is on it: scaled to fill this box in points, keeping its shape.
+const QUESTION_PICTURE_LARGE: egui::Vec2 = egui::vec2(900.0, 260.0);
 
 /// The column of the text read in the table of the scans view, at most this wide in points.
 const READ_COLUMN: f32 = 220.0;
@@ -1402,7 +1405,11 @@ pub fn show_scans(ui: &mut Ui, scheme: &Scheme, data: &mut ListData, state: &mut
                     match &asked.picture {
                         Some(picture) => {
                             let uri = format!("bytes://bauplan-frage/{}-{i}-{}.png", asked.at, picture.len());
-                            grid.add(egui::Image::from_bytes(uri, picture.clone()).max_width(QUESTION_PICTURE));
+                            let image = egui::Image::from_bytes(uri, picture.clone());
+                            grid.add(image.clone().fit_to_exact_size(QUESTION_PICTURE))
+                                .on_hover_ui(|tip| {
+                                    tip.add(image.fit_to_exact_size(QUESTION_PICTURE_LARGE));
+                                });
                         }
                         None => {
                             grid.label("–");
@@ -2434,7 +2441,7 @@ mod tests {
     fn legend_symbols_stay_with_their_text() {
         let scheme = versekit_core::theme::current();
         let mut findings = Vec::new();
-        for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             for width in [300.0, 420.0, 560.0, 700.0, 900.0, 1100.0, 1400.0] {
                 let ctx = egui::Context::default();
                 crate::install(&ctx);

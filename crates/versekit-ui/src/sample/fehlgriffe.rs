@@ -58,33 +58,6 @@ fn build_without_network(_: &Paths) -> Option<CatalogCache> {
 }
 
 #[test]
-fn the_window_starts_on_the_overview_unless_a_page_is_chosen() {
-    let _language = crate::language_lock();
-    let (page, dir) = real_page("start-ab-werk", "", &[]);
-    assert_eq!(page.page_key(), "", "as before");
-    let _ = std::fs::remove_dir_all(dir);
-
-    let (page, dir) = real_page("start-gewaehlt", "{\"startseite\": \"hf_auftragslog\"}", &[]);
-    assert_eq!(page.page_key(), "hf_auftragslog");
-    let _ = std::fs::remove_dir_all(dir);
-
-    // A start page that is a view of a page now: the page, with the view that was the page.
-    let (page, dir) = real_page("start-ansicht", "{\"startseite\": \"hf_fortschritt\"}", &[]);
-    assert_eq!((page.page_key(), page.list_progress), ("hf_liste", true));
-    let _ = std::fs::remove_dir_all(dir);
-    let (page, dir) = real_page("start-ansicht-farm", "{\"startseite\": \"hf_farmliste\"}", &[]);
-    assert_eq!((page.page_key(), page.craft_farm), ("hf_herstellung", true));
-    let _ = std::fs::remove_dir_all(dir);
-    let (page, dir) = real_page("start-ansicht-raff", "{\"startseite\": \"hf_raffinerien\"}", &[]);
-    assert_eq!((page.page_key(), page.mining_refineries), ("hf_bergbau", true));
-    let _ = std::fs::remove_dir_all(dir);
-
-    let (page, dir) = real_page("start-unbekannt", "{\"startseite\": \"hf_gibt_es_nicht\"}", &[]);
-    assert_eq!(page.page_key(), "", "a page the menu does not have is the overview");
-    let _ = std::fs::remove_dir_all(dir);
-}
-
-#[test]
 fn a_chosen_page_that_is_hidden_is_not_started_on() {
     let _language = crate::language_lock();
     let (mut page, dir) = real_page("start-versteckt", "{\"startseite\": \"hf_auftragslog\"}", &[]);

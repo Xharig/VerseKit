@@ -646,6 +646,35 @@ fn switch(ui: &mut Ui, scheme: &Scheme, label: &str, help: &str, value: bool) ->
     changed.then_some(on)
 }
 
+/// How a formed name came about, in words, by the key it was formed from.
+fn how_formed(name: &injection::names::Filled) -> String {
+    let key = match name.how {
+        injection::names::How::Base => "s_sp_namen_basis",
+        injection::names::How::Magazine => "s_sp_namen_magazin",
+        injection::names::How::Short => "s_sp_namen_kurz",
+    };
+    tf(key, &[("0", Arg::from(name.from.clone()))])
+}
+
+/// The item names VerseKit formed for keys the game text lacks: a folded list, nothing for none.
+fn added_names_report(ui: &mut Ui, scheme: &Scheme, added: &[injection::names::Filled]) {
+    if added.is_empty() {
+        return;
+    }
+    let title = tf("s_sp_namen", &[("0", Arg::from(added.len() as i64))]);
+    widgets::collapsing(&title).id_salt("game-added-names").show(ui, |ui| {
+        hint(ui, scheme, &t("s_sp_namen_h"));
+        ui.add_space(4.0);
+        for name in added {
+            let line = format!("{} = {}", name.key, name.text);
+            ui.add(egui::Label::new(RichText::new(line).color(color(scheme.fg))).wrap());
+            ui.add(egui::Label::new(RichText::new(how_formed(name)).small().color(color(scheme.sub))).wrap());
+            ui.add_space(2.0);
+        }
+    });
+    ui.add_space(6.0);
+}
+
 /// The page „Spiel“.
 pub fn show_game(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) -> Option<Jump> {
     state.poll();
@@ -688,6 +717,9 @@ pub fn show_game(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) -> Op
                 widgets::status_box(ui, scheme, scheme.sub, "circle-dashed", &t("s_sp_nichts"), &t("s_sp_nichts_h"));
             }
             ui.add_space(6.0);
+            if paths.setting_bool(game_texts::SETTING_ON, true) {
+                added_names_report(ui, scheme, &status.added_names);
+            }
         }
         let chosen =
             paths.setting(game_ini_source()).map_or_else(|| t("s_uv_keine_quelle"), |s| translation::display_name(&s));
@@ -1380,7 +1412,7 @@ mod tests {
         /// The language is one for the whole process and the answers of a step are written in its thread: a test
         /// that compares them with `t(..)` keeps the language still until it ends (last field: it drops after the folder
         /// is removed).
-        _language: std::sync::MutexGuard<'static, ()>,
+        _language: crate::LanguageGuard,
     }
 
     impl Game {
@@ -1563,7 +1595,10 @@ mod tests {
 
     /// Wait until the step on its thread is done.
     fn settle(state: &mut GameTextsState) {
-        for _ in 0..500 {
+        // The step runs on a thread of its own: on a busy machine that takes seconds, so wait for the end, not
+        // for a fixed number of tries.
+        let waited = std::time::Instant::now();
+        while waited.elapsed() < Duration::from_secs(120) {
             state.poll();
             if !state.busy() {
                 return;

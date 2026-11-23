@@ -485,6 +485,11 @@ pub fn current() -> &'static Scheme {
 /// id (nothing changes).
 pub fn set_current(id: &str) -> bool {
     match SCHEMES.iter().position(|s| s.id == id) {
+        // A thread with a scheme of its own (a check, never the program) switches only that one.
+        Some(index) if THREAD_SCHEME.with(std::cell::Cell::get) != 0 => {
+            THREAD_SCHEME.with(|s| s.set(index + 1));
+            true
+        }
         Some(index) => {
             CURRENT.store(index + 1, Ordering::Relaxed);
             true

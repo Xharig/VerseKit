@@ -43,6 +43,7 @@ use crate::color;
 use crate::layout::GAP;
 use crate::widgets::{self, ButtonKind};
 
+mod book_tab;
 mod relocation;
 mod scan;
 mod suggestions;
@@ -331,6 +332,9 @@ pub struct StockState {
     moved_unneeded: bool,
     /// The panel that moves both stores to one home place.
     reloc: relocation::Relocation,
+    /// The tab "Lager-Scans" is the one shown: the questions and the last scans of the stock scan.
+    scans: bool,
+    book: book_tab::BookTab,
 }
 
 fn entries_of(text: &str) -> Vec<Value> {
@@ -396,6 +400,8 @@ impl Default for StockState {
             moved_seen: false,
             moved_unneeded: false,
             reloc: relocation::Relocation::default(),
+            scans: false,
+            book: book_tab::BookTab::default(),
         }
     }
 }
@@ -439,6 +445,7 @@ impl StockState {
         let files = (paths.app_file(stock::RAW_FILE), paths.app_file(stock::TRADE_FILE));
         let mut state = StockState { files: Some(files), ..StockState::default() };
         state.connect_journal(paths);
+        state.book.connect(paths);
         state.reloc = relocation::Relocation::new(paths);
         state.reload();
         state
@@ -620,6 +627,7 @@ impl StockState {
         state.sugg.open = paths.setting_bool(SETTING_SUGGESTIONS_OPEN, true);
         state.scan = scan::Scan::new(paths);
         state.connect_journal(paths);
+        state.book.connect(paths);
         state.reloc = relocation::Relocation::new(paths);
         state.reload();
         state.moved_seen = paths.setting_bool(SETTING_MOVED_SEEN, false);
@@ -668,6 +676,11 @@ impl StockState {
     /// Connects the page to the sync: personal and shared parts, sharing into a unit.
     pub fn connect(&mut self, link: Option<crate::stock_share::Link>) {
         self.split = crate::stock_share::Split::new(link);
+    }
+
+    /// Lets the tab "Lager-Scans" book into the stock of the unit (take scans back there) through this connection.
+    pub fn connect_unit(&mut self, link: Option<std::sync::Arc<versekit_core::stock_scan_book::org::OrgLink>>) {
+        self.book.connect_unit(link);
     }
 
     /// The settings this page keeps in the settings file.
@@ -1795,6 +1808,11 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StockState) {
     }
     tabs(ui, scheme, state, &rows);
     ui.add_space(GAP);
+    if state.scans {
+        book_tab::show(ui, scheme, &mut state.book);
+        show_message(ui, scheme, state);
+        return;
+    }
     gap_line(ui, scheme, state, &rows);
     let now = ui.input(|i| i.time);
     state.look_at_suggestions(now, false);
@@ -2431,8 +2449,10 @@ fn book_refinery(state: &mut StockState) {
 fn tabs(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, rows: &[Row]) {
     let materials = rows.iter().filter(|r| !r.item).count();
     let items = rows.len() - materials;
-    let tabs = [format!("{} ({materials})", t("s_ml_material")), format!("{} ({items})", t("s_ml_items"))];
-    let mut chosen = usize::from(state.items);
+    let open = state.book.open_questions();
+    let scans = if open == 0 { t("s_lsc_reiter") } else { tf("s_lsc_reiter_offen", &[("0", Arg::from(open))]) };
+    let tabs = [format!("{} ({materials})", t("s_ml_material")), format!("{} ({items})", t("s_ml_items")), scans];
+    let mut chosen = if state.scans { 2 } else { usize::from(state.items) };
     let words =
         [t("s_mlg_aktion_sichern"), t("s_mlg_aktion_einlesen"), t("s_mlg_aktion_umziehen"), t("s_mlg_aktion_leeren")];
     let actions = [
@@ -2445,10 +2465,19 @@ fn tabs(ui: &mut Ui, scheme: &Scheme, state: &mut StockState, rows: &[Row]) {
         widgets::PageAction { icon: "house", text: &words[2], on: state.panel == Some(Panel::Move) },
         widgets::PageAction { icon: "trash-2", text: &words[3], on: state.panel == Some(Panel::Clear) },
     ];
-    let (changed, action) =
-        widgets::tab_bar_with_actions(ui, scheme, &[tabs[0].as_str(), tabs[1].as_str()], &mut chosen, &actions);
+    let (changed, action) = widgets::tab_bar_with_actions(
+        ui,
+        scheme,
+        &[tabs[0].as_str(), tabs[1].as_str(), tabs[2].as_str()],
+        &mut chosen,
+        &actions,
+    );
     if changed {
-        state.items = chosen == 1;
+        state.scans = chosen == 2;
+        // The list keeps the side it showed last while the tab of the scans is open.
+        if chosen != 2 {
+            state.items = chosen == 1;
+        }
         state.kind = None;
     }
     match action {
@@ -3964,7 +3993,7 @@ mod tests {
     fn nothing_sticks_out() {
         let scheme = versekit_core::theme::current();
         let mut findings = Vec::new();
-        for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             for width in [380.0, 520.0, 900.0] {
                 for (purpose, panel) in [(0, Some(Panel::Backup)), (2, Some(Panel::Clear)), (0, None)] {
                     let ctx = egui::Context::default();

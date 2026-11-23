@@ -915,28 +915,58 @@ fn a_number_read_sure_is_not_reported_as_unsure() {
     assert!(later.unsure.is_none());
 }
 
+/// A frame of the grey crop without anything in it: no pill.
+fn blank_frame(number: u64) -> Frame {
+    Frame::new(Gray::new(120, 30, vec![20; 120 * 30]), None, number)
+}
+
 #[test]
-fn the_pictures_kept_are_newest_first_not_twice_the_same_limited_and_can_be_let_go() {
+fn a_picture_without_a_signature_pill_is_not_kept_and_a_kept_one_without_it_goes_quietly() {
     let (_, crop) = small_crop();
-    let folder = testdir::fresh("gemerkt").to_string_lossy().into_owned();
-    assert!(pending(&folder).is_empty(), "no folder yet");
-    let picture = |shade: u8| {
-        let image = Gray::new(crop.w, crop.h, crop.data.iter().map(|v| v.saturating_add(shade)).collect());
-        Frame::new(image, None, u64::from(shade))
-    };
-    assert!(keep_pending(&folder, &picture(1)));
-    assert!(!keep_pending(&folder, &picture(1)), "the same picture twice");
-    std::thread::sleep(Duration::from_millis(3));
-    assert!(keep_pending(&folder, &picture(2)));
-    let all = pending(&folder);
-    assert_eq!(all.iter().map(|(_, f)| f.number).collect::<Vec<_>>(), [2, 1], "newest first");
-    drop_pending(&all[0].0);
-    assert_eq!(pending(&folder).len(), 1);
-    for shade in 3..(3 + PENDING_LIMIT as u8 + 4) {
-        std::thread::sleep(Duration::from_millis(3));
-        assert!(keep_pending(&folder, &picture(shade)));
+    let folder = testdir::fresh("gemerkt-ohne-pille").to_string_lossy().into_owned();
+    assert!(!keep_pending(&folder, &blank_frame(1)), "nothing kept without the pill");
+    assert!(pending(&folder).is_empty());
+    assert!(keep_pending(&folder, &Frame::new(crop, None, 2)), "a picture with the pill is kept");
+    // A file an older version kept: no pill in it.
+    jsonio::make_dirs(&folder).unwrap();
+    let old = format!("{folder}/{:016}.bin", 5);
+    assert!(write_last_frame(&old, &blank_frame(3)));
+    assert_eq!(pending(&folder).len(), 2);
+    let mut good = Vec::new();
+    let kept = pending_with_pill(&folder, &mut good);
+    assert_eq!(kept.iter().map(|(_, f)| f.number).collect::<Vec<_>>(), [2]);
+    assert!(!std::path::Path::new(&old).exists(), "the old picture without the pill is deleted");
+    assert_eq!(good.len(), 1);
+}
+
+/// A screen without the game in front.
+struct NoGameScreen;
+
+impl Source for NoGameScreen {
+    fn game(&mut self) -> Option<Area> {
+        None
     }
-    let kept = pending(&folder);
-    assert_eq!(kept.len(), PENDING_LIMIT);
-    assert_eq!(kept[0].1.number, u64::from(3 + PENDING_LIMIT as u8 + 3), "the newest stays");
+    fn grab(&mut self, _: Area) -> Result<Vec<u8>, GrabError> {
+        panic!("nothing is grabbed while the game is not in front");
+    }
+}
+
+#[test]
+fn a_snapshot_is_taken_only_with_the_game_in_front_and_only_a_picture_with_the_pill_counts() {
+    let files = files_in("schnappschuss");
+    let known = scan::templates_by_variant(scan::SHIPPED_TEMPLATES, &files.own);
+    let (mut canvas, _areas, number) = scene();
+    let values = [number];
+    assert!(matches!(snapshot(&mut NoGameScreen, &known, &values, 9), Snapshot::NoGame));
+    match snapshot(&mut canvas, &known, &values, 9) {
+        Snapshot::Got(frame) => assert_eq!(frame.number, 9),
+        _ => panic!("the pill is in the picture"),
+    }
+    canvas.with_pill.store(false, Ordering::Relaxed);
+    assert!(matches!(snapshot(&mut canvas, &known, &values, 10), Snapshot::Nothing));
+    let (mut bar, _areas, number) = scene_without_symbol();
+    assert!(
+        matches!(snapshot(&mut bar, &known, &[number], 11), Snapshot::Nothing),
+        "digits with a bar in the place of the symbol are no signature"
+    );
 }

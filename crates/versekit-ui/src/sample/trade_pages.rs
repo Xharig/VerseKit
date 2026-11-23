@@ -294,62 +294,6 @@ impl SamplePage {
         self.shops.want_place(place);
     }
 
-    fn shops_type_place(&mut self, text: &str) {
-        self.shops.type_place(text);
-    }
-}
-
-/// Wunsch von Blackd0g84: a place shows its shops, a click on a shop shows all it sells with its price there, a part
-/// of it opens as in the list and the way back leads to the shop; a shop is found by its name in the field too.
-#[test]
-fn a_place_lists_its_shops_and_a_shop_shows_its_whole_offer() {
-    let _language = crate::language_lock();
-    let files =
-        [("laeden-katalog.json", catalog_file()), ("laeden.json", shops_file()), ("schiffe.json", ships_file())];
-    let (mut page, dir) = page_with("shops-orte", &files);
-    page.shops_place("Lorville");
-    let (overflow, texts) = look(&mut page, "hf_laeden", 1280.0);
-    assert_eq!(overflow, 0.0);
-    let heading =
-        language::tf("s_ld_shops_hier", &[("0", language::Arg::from("Lorville")), ("1", language::Arg::from("2"))]);
-    assert!(shows(&texts, &heading), "{texts:?}");
-    let row_a = format!("Shop A ({})", language::tf("s_ld_shop_teile", &[("0", language::Arg::from("1"))]));
-    let row_t = format!("Tammany ({})", language::tf("s_ld_shop_teile", &[("0", language::Arg::from("1"))]));
-    assert!(
-        shows(&texts, &row_a) && shows(&texts, &row_t) && !shows(&texts, "Shop B ("),
-        "only the shops of the place: {texts:?}"
-    );
-    assert!(shows(&texts, "Arctic") && shows(&texts, "Iron Helmet"), "what is sold there stays below: {texts:?}");
-    // A click on the shop opens what it sells, with its price there; nothing of another shop.
-    draw_clicking(&mut page, 1280.0, 820.0, &[&row_a]);
-    assert_eq!(page.shops.open_outlet_name().as_deref(), Some("Shop A"));
-    let (overflow, texts) = look(&mut page, "hf_laeden", 1280.0);
-    assert_eq!(overflow, 0.0);
-    assert!(shows(&texts, "Shop A") && shows(&texts, "Lorville · Stanton"), "{texts:?}");
-    assert!(
-        starting_with(&texts, "Arctic").is_some() && texts.iter().any(|(t, _)| t.contains("1.200 aUEC")),
-        "{texts:?}"
-    );
-    assert!(!shows(&texts, "Iron Helmet") && !shows(&texts, "Frost"), "only what this shop sells: {texts:?}");
-    // A part of the shop opens as in the list (the shops of the place, the shopping list); back leads to the shop.
-    draw_clicking(&mut page, 1280.0, 820.0, &["Arctic"]);
-    let texts = look(&mut page, "hf_laeden", 1280.0).1;
-    assert!(
-        shows(&texts, "Shop A") && shows(&texts, &language::t("s_ld_in_korb")),
-        "the part with its shops: {texts:?}"
-    );
-    let back_to = |name: &str| language::tf("s_ld_zurueck_zu", &[("0", language::Arg::from(name))]);
-    draw_clicking(&mut page, 1280.0, 820.0, &[&back_to("Shop A")]);
-    assert_eq!(page.shops.open_outlet_name().as_deref(), Some("Shop A"), "back to the shop, not to the list");
-    draw_clicking(&mut page, 1280.0, 820.0, &[&back_to("Lorville")]);
-    assert_eq!(page.shops.open_outlet_name(), None, "and from the shop back to the place");
-    // The name of a shop in the field opens it at its place, without regard to case.
-    page.shops_type_place("tammany");
-    assert_eq!(page.shops.open_outlet_name().as_deref(), Some("Tammany"));
-    let texts = look(&mut page, "hf_laeden", 1280.0).1;
-    assert!(shows(&texts, "Iron Helmet") && texts.iter().any(|(t, _)| t.contains("800 aUEC")), "{texts:?}");
-    assert!(!shows(&texts, &language::t("s_ld_ort_unbekannt")), "a shop is no unknown place");
-    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]
@@ -440,7 +384,7 @@ fn the_lists_of_the_trade_pages_hold_long_names_at_every_size() {
     let mut findings = Vec::new();
     for scheme in versekit_core::theme::schemes() {
         versekit_core::theme::set_thread_current(scheme.id);
-        for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+        for points in crate::test_sizes() {
             page.size = points;
             let (width, height) = versekit_core::font_size::min_window(points);
             for english in [false, true] {

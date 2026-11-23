@@ -92,6 +92,16 @@ pub enum TagCheck {
     Agrees,
     /// A part read says otherwise than the catalog.
     Contradicts,
+    /// Only the grade letter says otherwise, while another part read agrees: the catalog keeps a default grade for
+    /// some items, so this alone does not make it another blueprint, though it still asks for a single reading.
+    GradeDiffers,
+}
+
+impl TagCheck {
+    /// Whether the tag speaks against the blueprint, in the grade or in any other part.
+    pub fn says_otherwise(self) -> bool {
+        matches!(self, TagCheck::Contradicts | TagCheck::GradeDiffers)
+    }
 }
 
 /// One blueprint of the comparison set: the catalog name and the parts of its tag.
@@ -503,7 +513,7 @@ pub fn check_tag(tag: Option<&Tag>, entry: &Entry) -> TagCheck {
     match (tag.grade, entry.grade) {
         (Some(read), Some(known)) => {
             if read != known {
-                return TagCheck::Contradicts;
+                return if compared >= 1 { TagCheck::GradeDiffers } else { TagCheck::Contradicts };
             }
             compared += 1;
         }
@@ -583,14 +593,14 @@ fn settle(
     }
     let entry = &names.entries[entries[0]];
     let check = check_tag(tag, entry);
-    let mut certainty = if check == TagCheck::Contradicts { certainty.min(Certainty::Likely) } else { certainty };
+    let mut certainty = if check.says_otherwise() { certainty.min(Certainty::Likely) } else { certainty };
     let mut candidates = candidates;
     // A name that is the beginning of longer ones (`Antium Helmet`, `Antium Helmet Jet`) may be a longer one whose
     // last word was lost: sure only when a tag was read that leaves it and says otherwise for every longer one (the
     // tag stands behind the whole name and is the one of the item the hint is about).
     let longer = key.map(|key| names.longer_than(key, entries[0])).unwrap_or_default();
     if certainty == Certainty::Sure && !longer.is_empty() {
-        let decided = check != TagCheck::Contradicts
+        let decided = !check.says_otherwise()
             && longer.iter().all(|&l| check_tag(tag, &names.entries[l]) == TagCheck::Contradicts);
         if !decided {
             certainty = Certainty::Likely;
@@ -812,10 +822,22 @@ fn read_whole_beginning_of_longer(reading: &Reading, name: &str) -> bool {
     reading.certainty == Certainty::Likely
         && reading.name.as_deref() == Some(name)
         && matches!(reading.how, How::Exact | How::Lookalike)
-        && reading.tag != TagCheck::Contradicts
+        && !reading.tag.says_otherwise()
         && !in_capitals(&split_tag(&reading.text).0)
         && reading.candidates.iter().all(|(other, _)| other == name || other.starts_with(&longer))
         && reading.candidates.len() > 1
+}
+
+/// Whether `reading` is the whole of `name` read exactly (or with mistakable characters), no longer name beginning
+/// with it, held back only because the grade letter of the tag differs from the catalog's while another part of the
+/// tag agrees, and not a line in capitals.
+fn read_whole_with_grade_off(reading: &Reading, name: &str) -> bool {
+    reading.certainty == Certainty::Likely
+        && reading.name.as_deref() == Some(name)
+        && matches!(reading.how, How::Exact | How::Lookalike)
+        && reading.tag == TagCheck::GradeDiffers
+        && !in_capitals(&split_tag(&reading.text).0)
+        && reading.candidates.iter().all(|(other, _)| other == name)
 }
 
 /// Puts the readings of several passes together. Sure when at least [`MIN_AGREE`] passes read the same blueprint
@@ -845,6 +867,11 @@ pub fn combine(readings: &[Reading]) -> Outcome {
         outcome.name = Some((*name).to_string());
         let whole_in_every_pass =
             readings.len() >= PASSES.len() && readings.iter().all(|r| read_whole_beginning_of_longer(r, name));
+        // Every pass read the whole name and the same tag with only the grade off: the grade of the catalog may be a
+        // default, and a name that no other blueprint carries is not changed by it.
+        let grade_off_in_every_pass = readings.len() >= PASSES.len()
+            && readings.iter().all(|r| read_whole_with_grade_off(r, name))
+            && readings.windows(2).all(|w| split_tag(&w[0].text).1 == split_tag(&w[1].text).1);
         // One pass read it sure and every other pass read something unclear that names it among its candidates (a
         // narrow stroke of `III` lost: `II` lies as near to `III` as to `IX`): nothing speaks against it.
         let unclear_but_naming_it = |r: &&Reading| {
@@ -853,7 +880,8 @@ pub fn combine(readings: &[Reading]) -> Outcome {
         let backed_by_every_pass = sure >= 1
             && readings.len() >= PASSES.len()
             && readings.iter().all(|r| (r.certainty == Certainty::Sure && r.name.as_deref() == Some(*name)) || unclear_but_naming_it(&r));
-        outcome.certainty = if sure >= MIN_AGREE || whole_in_every_pass || backed_by_every_pass {
+        let accepted = whole_in_every_pass || grade_off_in_every_pass || backed_by_every_pass;
+        outcome.certainty = if sure >= MIN_AGREE || accepted {
             Certainty::Sure
         } else {
             Certainty::Likely

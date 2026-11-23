@@ -546,20 +546,24 @@ impl SamplePage {
         let mut out: HashMap<&'static str, Glance> = HashMap::new();
         // Only what is pinned is worked out: the files are read every ten seconds while the overview is open.
         let pinned = |key: &str| self.tiles.iter().any(|tile| tile.pinned && tile.key == key);
+        let mut lap = super::glance_tiles::Lap::start();
         if pinned("hf_meinlager") {
             out.insert("hf_meinlager", storage_page(&self.stock.rows(), lang));
         }
+        lap.lap("hf_meinlager");
         if (pinned("hf_liste") || pinned("hf_fortschritt"))
             && let Some((list, progress)) = blueprint_pages(self, own, lang, now)
         {
             out.insert("hf_liste", list);
             out.insert("hf_fortschritt", progress);
         }
+        lap.lap("hf_liste");
         if pinned("hf_auftragslog")
             && let Some(contracts) = contract_page(self, today, lang)
         {
             out.insert("hf_auftragslog", contracts);
         }
+        lap.lap("hf_auftragslog");
         // The hangar file is read once for the three pages that are made of it.
         if pinned("hf_hangar") || pinned("hf_einkaufsliste") || pinned("hf_herstellung") || pinned("hf_farmliste") {
             let data = hangar::read(&paths.app_file(hangar::FILE));
@@ -573,24 +577,34 @@ impl SamplePage {
                 out.insert("hf_farmliste", farm_glance(self, paths, data.as_ref(), lang));
             }
         }
+        lap.lap("hf_hangar");
         if pinned("hf_staffellager") {
             out.insert("hf_staffellager", org_stock_glance(self, lang));
         }
         if pinned("hf_verkauf") {
             out.insert("hf_verkauf", selling_page(paths, lang, now));
         }
+        lap.lap("hf_verkauf");
         if pinned("hf_routen") {
             out.insert("hf_routen", routes_page(paths, lang));
         }
+        lap.lap("hf_routen");
+        if pinned("hf_finanzen") {
+            let (line, details) = crate::finance_page::glance(paths, lang);
+            out.insert("hf_finanzen", glance(line, details));
+        }
+        lap.lap("hf_finanzen");
         if pinned("hf_laeden") {
             out.insert("hf_laeden", shops_page(paths, lang));
         }
+        lap.lap("hf_laeden");
         for tile in self.tiles.iter().filter(|tile| tile.pinned) {
             if let Some(glance) = statistics_glance(&tile.key, paths, lang)
                 && let Some((_, key)) = overview::PAGES.iter().find(|(_, key)| *key == tile.key)
             {
                 out.insert(key, glance);
             }
+            lap.lap(&tile.key);
         }
         // The same subject as a tile of 4.12: the tile is the page's.
         for (page, tile) in [

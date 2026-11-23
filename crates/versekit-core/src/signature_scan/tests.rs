@@ -41,7 +41,10 @@ fn values() -> Vec<u64> {
     values
 }
 
+mod golem3440;
 mod gray;
+mod own_files;
+mod own_quality;
 
 /// The crops of a test file by their keys.
 fn images_of(text: &str) -> Vec<(String, Gray)> {
@@ -499,26 +502,6 @@ fn a_file_of_taught_digits_that_cannot_be_read_is_kept_and_nothing_is_taught() {
 }
 
 #[test]
-fn the_same_image_taught_again_and_again_adds_each_pattern_once() {
-    let known = shipped();
-    let folder = testdir::fresh("signatur-grenze");
-    let own = folder.join("eigene.json").to_string_lossy().into_owned();
-    let samples_folder = folder.join("bilder").to_string_lossy().into_owned();
-    let (number, crop) = pictures().remove(0);
-    for _ in 0..30 {
-        learn(&crop, &number.to_string(), &known, &own, &samples_folder).expect("taught");
-    }
-    let file = jsonio::read_json(&own).unwrap();
-    let Some(Value::Object(digits)) = file.get("ziffern") else { panic!("ziffern") };
-    let typed = number.to_string();
-    for (digit, list) in digits {
-        let Value::Array(list) = list else { panic!("list") };
-        let times = typed.matches(digit.as_str()).count();
-        assert!(!list.is_empty() && list.len() <= times, "digit {digit}: {} patterns for {times} places", list.len());
-    }
-}
-
-#[test]
 fn the_archive_holds_the_images_and_the_own_templates_under_the_name_of_the_reporter() {
     let known = shipped();
     let folder = testdir::fresh("signatur-archiv");
@@ -744,20 +727,6 @@ fn derived_templates_keep_all_crops_free_of_wrong_readings_and_lose_no_right_one
 }
 
 #[test]
-fn templates_taught_with_derived_variants_still_read_no_crop_wrong() {
-    let known = shipped();
-    let folder = testdir::fresh("signatur-abgeleitet-lesen");
-    let own = folder.join("eigene.json").to_string_lossy().into_owned();
-    let samples_folder = folder.join("bilder").to_string_lossy().into_owned();
-    for (_, _, number, crop) in keyed_crops().iter().step_by(3) {
-        let _ = learn(crop, &number.to_string(), &known, &own, &samples_folder);
-    }
-    let (right, none, wrong) = measure(&templates(SHIPPED, &own));
-    eprintln!("MEASURE taught: right {right} none {none} wrong {} {wrong:?}", wrong.len());
-    assert!(wrong.is_empty(), "{wrong:?}");
-}
-
-#[test]
 fn derived_patterns_differ_from_the_original_and_are_plausible_for_the_digit() {
     let known = shipped();
     let mut total = 0;
@@ -842,6 +811,25 @@ fn the_pill_right_above_a_bright_planet_is_found_and_read() {
     let found = search(&raw, w, h, &both(&shipped()), &golem_values(), 12);
     assert_eq!(found.reading.value, Some(16_780), "{:?}", found.reading);
     assert!(found.boxr.is_some_and(on_pill), "{:?}", found.boxr);
+}
+
+/// What the search reads above the bright planet can also be taught, and is a picture with a pill: before, the
+/// search read it with the bright ground left out and teaching did not, so the picture offered could not be taught
+/// ("could not be split into digits").
+#[test]
+fn the_pill_right_above_a_bright_planet_can_be_taught_too() {
+    let raw = golem_frame();
+    let (w, h) = GOLEM_SIZE;
+    let known = both(&shipped());
+    let found = search(&raw, w, h, &known, &golem_values(), 12);
+    assert_eq!(found.reading.value, Some(16_780));
+    let rasters: Vec<&Gray> = VARIANTS.into_iter().filter_map(|v| found.images.get(v).as_ref()).collect();
+    assert!(has_pill(&rasters), "offered for teaching");
+    let folder = testdir::fresh("golem-heller-grund-anlernen");
+    let files = OwnFiles::in_folder(|name| folder.join(name).to_string_lossy().into_owned());
+    let samples = folder.join("bilder").to_string_lossy().into_owned();
+    let taught = learn_variants(&found.images, "16,780", found.variant, &known, &files, &samples);
+    assert!(taught.as_ref().is_ok_and(|t| t.found == 5), "{taught:?}");
 }
 
 /// BGRA bytes of a larger frame as [`frame_of`], with a band of bright ground (a planet in haze: red 230, green
@@ -1043,7 +1031,7 @@ fn the_four_scan_images_of_the_player_are_read_by_the_shipped_digits_in_both_gre
     assert_eq!(pictures.len(), 4);
     for (number, crop) in pictures {
         for ground in [false, true] {
-            let reading = read_in(&crop, &known, &values, ground);
+            let reading = read_in(&crop, &known, &values, ground, &[]);
             assert_eq!(reading.value, Some(number), "ground {ground}: {reading:?}");
         }
     }

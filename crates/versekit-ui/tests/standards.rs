@@ -660,6 +660,7 @@ fn ui_program_sources() -> Vec<(String, String)> {
                     "bank_page/tests.rs",
                     "contract_finder_page/tests.rs",
                     "flugbuch_page/tests.rs",
+                    "finance_page/tests.rs",
                 ];
                 if test_only.contains(&name.as_str()) {
                     continue;

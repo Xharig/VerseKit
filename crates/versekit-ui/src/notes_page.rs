@@ -964,7 +964,7 @@ mod tests {
         let mut findings = Vec::new();
         for language in [Choice::De, Choice::En] {
             set_thread_language(language);
-            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+            for points in crate::test_sizes() {
                 for (physical, in_table) in [260.0f32, 330.0, 400.0, 559.0, 560.0, 700.0, 900.0]
                     .into_iter()
                     .flat_map(|width| [(width, false), (width, true)])
