@@ -1,0 +1,18 @@
+{
+  "items": [],
+  "removed": [
+    {
+      "key": "s-9",
+      "removedAt": "2026-11-14T21:12:00Z",
+      "removedBy": {
+        "channel": "patch",
+        "patchChange": {
+          "id": "3f0c2b1a-9e8d-4c7b-a6f5-e4d3c2b1a098",
+          "label": "4.4"
+        }
+      }
+    }
+  ],
+  "nextCursor": "c-41",
+  "hasMore": false
+}

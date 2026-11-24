@@ -246,6 +246,11 @@
         <dd data-de="Nach dem Herunterladen fragt VerseKit bei GitHub den Herkunftsnachweis der Datei ab und prüft Signatur, Zertifikat, den Eintrag im öffentlichen Transparenzlog, Repository, Bau-Ablauf und Tag. Dafür geht die Prüfsumme der Datei an GitHub, das Nachweis-Paket kommt von GitHubs Speicher bei Microsoft Azure. Das Ergebnis steht im Update-Protokoll. Noch hält ein fehlender oder nicht bestätigter Nachweis kein Update auf, weil ältere Versionen keinen haben; die Prüfsumme dagegen muss immer stimmen."
             data-en="After the download VerseKit asks GitHub for the file's build provenance and checks the signature, the certificate, the entry in the public transparency log, the repository, the build workflow and the tag. For that, the file's checksum goes to GitHub, and the provenance bundle comes from GitHub's storage at Microsoft Azure. The result is written to the update log. For now a missing or unconfirmed proof does not stop an update, because older versions have none; the checksum, however, always has to match.">Nach dem Herunterladen fragt VerseKit bei GitHub den Herkunftsnachweis der Datei ab und prüft Signatur, Zertifikat, den Eintrag im öffentlichen Transparenzlog, Repository, Bau-Ablauf und Tag. Dafür geht die Prüfsumme der Datei an GitHub, das Nachweis-Paket kommt von GitHubs Speicher bei Microsoft Azure. Das Ergebnis steht im Update-Protokoll. Noch hält ein fehlender oder nicht bestätigter Nachweis kein Update auf, weil ältere Versionen keinen haben; die Prüfsumme dagegen muss immer stimmen.</dd>
       </div>
+      <div class="zeile">
+        <dt data-de="Betatester" data-en="Beta tester">Betatester</dt>
+        <dd data-de="Wählst du die Stufe „Betatester“, holt VerseKit die verschlüsselten Beta-Dateien von GitHub und entschlüsselt sie auf deinem Rechner mit deinem persönlichen Beta-Code. Der Code steht nur in den Einstellungen dieses Rechners. Er wird nie gesendet, steht in keinem Fehlerbericht und kommt nicht in die Sicherung. Verlässt du die Stufe, löscht VerseKit Code und Beta-Dateien."
+            data-en="If you choose the “Beta tester” stage, VerseKit fetches the encrypted beta files from GitHub and decrypts them on your computer with your personal beta code. The code is kept only in the settings of this computer. It is never sent, never appears in an error report and does not go into the backup. When you leave the stage, VerseKit deletes the code and the beta files.">Wählst du die Stufe „Betatester“, holt VerseKit die verschlüsselten Beta-Dateien von GitHub und entschlüsselt sie auf deinem Rechner mit deinem persönlichen Beta-Code. Der Code steht nur in den Einstellungen dieses Rechners. Er wird nie gesendet, steht in keinem Fehlerbericht und kommt nicht in die Sicherung. Verlässt du die Stufe, löscht VerseKit Code und Beta-Dateien.</dd>
+      </div>
       <div class="zeile nie">
         <dt data-de="Nie" data-en="Never">Nie</dt>
         <dd data-de="Kein Update ohne passende Prüfsumme. Keine Datei, die auf einem Rechner von Hand gebaut wurde: Jede Version baut ein öffentlicher GitHub-Ablauf aus genau diesem Code."
@@ -256,6 +261,7 @@
       <a class="raus" href="https://github.com/Xharig/VerseKit/blob/main/crates/versekit-core/src/updater.rs">updater.rs</a>
       <a class="raus" href="https://github.com/Xharig/VerseKit/blob/main/crates/versekit-core/src/auto_update.rs">auto_update.rs</a>
       <a class="raus" href="https://github.com/Xharig/VerseKit/blob/main/crates/versekit-core/src/provenance.rs">provenance.rs</a>
+      <a class="raus" href="https://github.com/Xharig/VerseKit/blob/main/crates/versekit-core/src/beta.rs">beta.rs</a>
       <a class="raus" href="https://github.com/Xharig/VerseKit/blob/main/.github/workflows/release.yml">release.yml</a>
     </p>
   </div>

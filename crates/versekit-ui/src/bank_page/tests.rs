@@ -107,7 +107,7 @@ fn the_new_request_button_goes_with_the_cap_and_the_queue_tab_comes_with_staff_r
         .collect();
     full.not_staff = false;
     full.queue = Some(bank::Queue {
-        open: vec![QueueEntry { id: "q".into(), link: "https://beispiel.invalid/q".into(), ..QueueEntry::default() }],
+        open: vec![QueueEntry { id: "q".into(), link: "https://profit-base.online/bank/requests/q".into(), ..QueueEntry::default() }],
         ..bank::Queue::default()
     });
     state.data = Some(Arc::new(full));

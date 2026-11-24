@@ -1,0 +1,20 @@
+{
+  "dryRun": false,
+  "applied": 0,
+  "unchanged": 0,
+  "notApplied": 1,
+  "results": [
+    {
+      "index": 0,
+      "opId": "s1",
+      "result": "rejected",
+      "reason": "REMOVED_ELSEWHERE",
+      "patchChange": {
+        "id": "3f0c2b1a-9e8d-4c7b-a6f5-e4d3c2b1a098",
+        "label": "4.4"
+      }
+    }
+  ],
+  "offersReduced": 0,
+  "offersRemoved": 0
+}

@@ -6,6 +6,58 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.1 - 2026-11-25
+
+> „Lohnt sich der Stein?“ erscheint jetzt auch im Spiel, und ihr wählt, welche
+> Laser feuern. Dazu ein besserer Raffinerie-Scan, Tasten nach eurer
+> Tastaturlage und überall eine Anzeige, wenn VerseKit gerade arbeitet.
+
+### Neu
+
+- **Tastenkürzel für Anti-AFK:** Anti-AFK lässt sich jetzt mit einer Taste ein-
+  und ausschalten, auch im laufenden Spiel, wie mit dem Klick auf den Knopf in
+  der Leiste des Overlays. Die Taste stellt ihr unter Einstellungen › Overlay
+  neben den anderen Kürzeln ein; ohne eure Taste bleibt das Kürzel aus. Die
+  Statuszeile sagt „Anti-AFK: an“ oder „aus“. Wunsch von daheque16.
+- **Update-Stufe „Betatester“:** Unter Info › Update & Über bekommt ihr mit
+  einem persönlichen Beta-Code unfertige Funktionen vor allen anderen. Die
+  Beta-Dateien liegen verschlüsselt auf GitHub, ohne passenden Code wird nichts
+  angeboten.
+
+### Verbessert
+
+- **Lohnt sich der Stein?: welche Laser feuern:** In der Karte unter Bergbau ›
+  Ausrüstung hat jeder Laser des Schiffs ein Häkchen. Wer allein oder zu zweit
+  fliegt, lässt nur die besetzten an; VerseKit merkt sich das je Schiff. Die
+  Zeile nennt die Laser und die Leistung statt „Gas“: „alle 3 Laser, je 65 %“,
+  „Helix II auf 90 %“ oder „mehr Laser nötig (mit Helix II allein)“.
+- **Anzeige, wenn VerseKit arbeitet:** Wo ihr etwas angestoßen habt, steht
+  jetzt, dass es läuft. Bei der Übersetzung „aus dem Spiel“ zeigt die Karte,
+  dass sie aufs Spielende wartet, was sie lädt und wie weit der Katalog ist.
+  Ebenso beim Bestand einlesen, im Lager der Einheit, beim Absenden eines
+  Fehlerberichts und bei der Suche nach dem Spielordner.
+- **Bank:** Der Knopf „Im Basetool“ in den Anträgen öffnet nur noch Adressen
+  des Basetools.
+
+### Behoben
+
+- **Mauszeiger an der Info-Leiste:** Wer im Spiel weit nach oben schaute, sah
+  den Mauszeiger an der Info-Leiste, und sie fing Blick und Klicks ab. Sie
+  reicht jetzt wie das Overlay alles durch, solange das Spiel den Zeiger
+  versteckt, auch bei offenem Schloss (Einstellungen › Overlay).
+- **Lohnt sich der Stein? im Spiel:** Die Zeile unter der Signatur kam nicht,
+  weil die Signatur nach dem Scan verschwindet. VerseKit sucht das Scan-Feld
+  jetzt bis drei Minuten nach der letzten Signatur und zeigt die Zeile, solange
+  das Feld zu sehen ist.
+- **Ausprobieren mit Tausenderpunkt:** „150.000“ wurde als 150 kg gelesen.
+- **Raffinerie-Scan:** Bei manchen Bildschirmen schnitt VerseKit die
+  Materialnamen links ab. Zeilen wie Tungsten fehlten dann, und eine Ausbeute
+  von 98 konnte als 90 erscheinen. Lesen die Durchgänge eine 0 und eine 8 an
+  derselben Stelle, fragt VerseKit jetzt nach, statt zu raten.
+- **Steuerung nach Tastaturlage:** Die Seite Steuerung zeigte Tasten nach
+  US-Tastatur (auf deutscher Tastatur Y statt Z), und Neubelegen nahm das
+  Zeichen statt der Taste. Gemeldet von SirHinkebein [KRT].
+
 ## v5.6.0 - 2026-11-23
 
 > Neue Seite „Finanzen“ mit aUEC-Konto und Kontoauszug, ein Lager-Scan für

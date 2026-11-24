@@ -241,7 +241,7 @@ pub fn lines(state: &State, loadout: &crate::rock_crack::Loadout, price: impl Fn
         let verdict =
             if state.sure.with_head { crack::assess_with_head(&rock, loadout) } else { crack::assess(&rock, loadout) };
         let good = matches!(verdict, Verdict::Known(found) if found.band.cracks());
-        out.push(Line { text: crack::verdict_line_in(lang, &verdict), good });
+        out.push(Line { text: crack::verdict_line_in(lang, &verdict, loadout), good });
     }
     if show.1
         && let Some(scu) = state.sure.scu

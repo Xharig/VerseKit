@@ -11,6 +11,12 @@
       "maxLength": 128,
       "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
     },
+    "clientKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "A removed refinery order's key, carried only to the client that created it."
+    },
     "removedAt": {
       "type": "string",
       "format": "date-time",
@@ -25,7 +31,8 @@
             "web",
             "app",
             "client",
-            "system"
+            "system",
+            "patch"
           ]
         },
         "clientId": {
@@ -37,6 +44,25 @@
           "minLength": 1,
           "maxLength": 128,
           "description": "The removing installation, when a client removed it."
+        },
+        "patchChange": {
+          "type": "object",
+          "description": "The patch change whose trigger removed the entry, for the patch channel.",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ]
         }
       },
       "required": [

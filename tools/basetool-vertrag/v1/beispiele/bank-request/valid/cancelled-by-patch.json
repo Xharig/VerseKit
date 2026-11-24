@@ -1,0 +1,29 @@
+{
+  "id": "6e5d4c3b-2a19-4f08-9e7d-6c5b4a392817",
+  "version": 1,
+  "status": "CANCELLED",
+  "createdAt": "2026-11-02T18:00:00Z",
+  "decidedAt": "2026-11-06T12:00:00Z",
+  "type": "WITHDRAWAL",
+  "amount": 25000,
+  "note": null,
+  "justification": "Fuel for the convoy",
+  "account": {
+    "id": "5d0e9c1a-2b3f-4a6d-8e71-9c0b1a2d3e4f",
+    "no": "KB-0042",
+    "name": "Staffel Nord",
+    "orgUnitShorthand": "NORD"
+  },
+  "targetAccount": null,
+  "requiresOwnerApproval": false,
+  "requiredApprover": null,
+  "ownerApprovalGranted": false,
+  "rejectReason": null,
+  "client": null,
+  "splitEnabled": false,
+  "splitPercent": null,
+  "cancelledByPatch": {
+    "id": "3f0c2b1a-9e8d-4c7b-a6f5-e4d3c2b1a098",
+    "label": "4.4"
+  }
+}

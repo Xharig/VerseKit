@@ -4,7 +4,8 @@
       "index": 0,
       "status": "resolved",
       "ref": {
-        "bt": "bp-cf-337-panther-repeater",
+        "guid": "de20695c-eb2f-4b68-be6f-9806cbd205a7",
+        "bt": "de20695c-eb2f-4b68-be6f-9806cbd205a7",
         "name": "CF-337 Panther Repeater"
       }
     },

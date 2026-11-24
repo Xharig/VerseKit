@@ -43,7 +43,7 @@ fn every_kept_picture_of_the_terminal_gives_its_lines() {
     let materials: Vec<String> =
         [
             "Iron", "Quantainium", "Laranite", "Tungsten", "Corundum", "Titanium", "Quartz", "Ouratite", "Agricium",
-            "Bexalite", "Gold", "Borase", "Torite",
+            "Bexalite", "Gold", "Borase", "Torite", "Lindinium",
         ]
         .map(String::from)
         .to_vec();
@@ -52,8 +52,13 @@ fn every_kept_picture_of_the_terminal_gives_its_lines() {
             .map(String::from)
             .to_vec();
     let index = Index::new(&materials, |_| false).with_places(&places);
-    // The digits a new player reads with (the shipped ones), as the hotkey does.
-    let learned = Digits::default().completed_by(Digits::shipped());
+    // The digits a new player reads with (the shipped ones), as the hotkey does; with `VERSEKIT_REFINERY_DIGITS`
+    // (a file of learned digits) those of a player first.
+    let own = std::env::var_os("VERSEKIT_REFINERY_DIGITS")
+        .and_then(|file| versekit_core::jsonio::read_json(&file.to_string_lossy()).ok())
+        .map(|data| Digits::from_value(&data))
+        .unwrap_or_default();
+    let learned = own.completed_by(Digits::shipped());
     let mut names: Vec<String> = std::fs::read_dir(&folder)
         .expect("the folder")
         .flatten()

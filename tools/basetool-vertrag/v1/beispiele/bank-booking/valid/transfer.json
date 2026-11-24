@@ -1,0 +1,18 @@
+{
+  "postingId": "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f",
+  "transactionId": "3d4e5f6a-7b8c-4d9e-8f0a-1b2c3d4e5f6a",
+  "type": "TRANSFER",
+  "amount": -100500,
+  "createdAt": "2026-11-07T18:00:00Z",
+  "note": null,
+  "justification": "Fuel",
+  "reversedTransactionId": null,
+  "counterAccount": {
+    "no": "KB-0001",
+    "name": "KRT"
+  },
+  "intraAccount": false,
+  "transferFee": 500,
+  "counterpartyHandle": null,
+  "counterpartyOrgUnitName": null
+}

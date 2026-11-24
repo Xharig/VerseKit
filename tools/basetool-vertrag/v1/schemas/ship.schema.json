@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ingest.profit-base.online/exchange/v1/schemas/ship.schema.json",
   "title": "Ship",
-  "description": "One of the member's own ships. Purchase data is never exchanged.",
+  "description": "One of the member's own ships. Purchase data is never exchanged; only the coarse origin is.",
   "type": "object",
   "properties": {
     "shipId": {
@@ -76,6 +76,15 @@
       "type": "integer",
       "minimum": 0,
       "description": "The counter of the ship's org unit, separate from version: a change of the unit moves it, an edit of the other fields does not."
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "PLEDGE",
+        "IN_GAME",
+        "UNKNOWN"
+      ],
+      "description": "Whether the ship was pledged, bought in-game or is of unknown origin. A ship from a hangar import or with a pledge id always reads PLEDGE. The server always sends it; it stays optional in v1, which only grows."
     },
     "extensions": {
       "$ref": "extensions.schema.json"

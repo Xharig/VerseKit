@@ -25,7 +25,7 @@
           },
           "ref": {
             "$ref": "item-ref.schema.json",
-            "description": "The resolved entry, with `bt` and `name`."
+            "description": "The resolved entry, with `bt` and `name`, and `guid` for a blueprint product keyed by its produced item's GUID."
           },
           "candidates": {
             "type": "array",

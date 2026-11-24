@@ -23,7 +23,7 @@ fn assess(rock: &Rock, loadout: &Loadout) -> Verdict {
 }
 
 fn laser(power: f64) -> Laser {
-    Laser { power, min_share: 0.0, head: Factors::NONE, modules: Vec::new() }
+    Laser { name: "Helix II".into(), power, min_share: 0.0, head: Factors::NONE, modules: Vec::new() }
 }
 
 fn rock(mass: f64, resistance: f64) -> Rock {
@@ -81,8 +81,8 @@ fn resistance_lowers_the_power_delivered_not_the_power_required() {
 
 #[test]
 fn lasers_sum_their_power_and_average_their_resistance_factors() {
-    let one = Laser { power: 2000.0, min_share: 0.0, head: Factors { resistance: 0.7, ..Factors::NONE }, modules: Vec::new() };
-    let two = Laser { power: 2000.0, min_share: 0.0, head: Factors::NONE, modules: vec![Factors { power: 1.5, ..Factors::NONE }] };
+    let one = Laser { name: "Helix II".into(), power: 2000.0, min_share: 0.0, head: Factors { resistance: 0.7, ..Factors::NONE }, modules: Vec::new() };
+    let two = Laser { name: "Helix II".into(), power: 2000.0, min_share: 0.0, head: Factors::NONE, modules: vec![Factors { power: 1.5, ..Factors::NONE }] };
     let loadout = Loadout { lasers: vec![one, two], ..Loadout::default() };
     let all = loadout.combined().unwrap();
     assert!(close(all.power, 5000.0));
@@ -123,7 +123,7 @@ fn an_unsure_reading_or_no_laser_gives_no_answer() {
 #[test]
 fn the_effective_resistance_stops_at_98_percent() {
     let strong = Loadout {
-        lasers: vec![Laser { power: 100_000.0, min_share: 0.0, head: Factors { resistance: 2.0, ..Factors::NONE }, modules: vec![] }],
+        lasers: vec![Laser { name: "Helix II".into(), power: 100_000.0, min_share: 0.0, head: Factors { resistance: 2.0, ..Factors::NONE }, modules: vec![] }],
         ..Loadout::default()
     };
     let found = known(assess(&rock(1000.0, 90.0), &strong));
@@ -152,16 +152,35 @@ fn the_worth_leaves_out_the_inert_rest_and_needs_a_price_for_every_share() {
 }
 
 #[test]
+fn the_line_names_the_lasers_that_fire() {
+    use crate::language::Lang;
+    let named = |name: &str, power: f64| Laser { name: name.into(), ..laser(power) };
+    let all = Loadout { lasers: vec![named("Helix II", 2000.0), named("Hofstede-S2", 2000.0), named("Hofstede-S2", 2000.0)], ..Loadout::default() };
+    let line = |l: &Loadout, mass: f64| verdict_line_in(Lang::De, &assess(&rock(mass, 0.0), l), l);
+    assert!(line(&all, 10_000.0).contains("alle 3 Laser, je "), "{}", line(&all, 10_000.0));
+    let two = Loadout { lasers: all.lasers[..2].to_vec(), idle: 1, ..Loadout::default() };
+    assert!(line(&two, 7_000.0).contains("Helix II + Hofstede-S2, je "), "{}", line(&two, 7_000.0));
+    let alike = Loadout { lasers: all.lasers[1..].to_vec(), idle: 1, ..Loadout::default() };
+    assert_eq!(firing_in(Lang::De, &alike), "2× Hofstede-S2");
+    let alone = Loadout { lasers: all.lasers[..1].to_vec(), idle: 2, ..Loadout::default() };
+    assert_eq!(line(&alone, 30_000.0), "Nicht aufbrechbar · mehr Laser nötig (mit Helix II allein)");
+    assert_eq!(
+        verdict_line_in(Lang::En, &assess(&rock(30_000.0, 0.0), &two), &two),
+        "Not crackable · more lasers needed (with Helix II + Hofstede-S2)"
+    );
+}
+
+#[test]
 fn the_lines_say_the_answer_in_both_languages() {
     use crate::language::Lang;
     let loadout = Loadout { lasers: vec![laser(3900.0)], ..Loadout::default() };
     let easy = assess(&rock(5000.0, 0.0), &loadout);
-    assert_eq!(verdict_line_in(Lang::De, &easy), "Aufbrechbar · leicht · Gas 50 %");
-    assert_eq!(verdict_line_in(Lang::En, &easy), "Crackable · easy · throttle 50 %");
+    assert_eq!(verdict_line_in(Lang::De, &easy, &loadout), "Aufbrechbar · leicht · Helix II auf 50 %");
+    assert_eq!(verdict_line_in(Lang::En, &easy, &loadout), "Crackable · easy · Helix II at 50 %");
     let hard = assess(&rock(50_000.0, 0.0), &loadout);
-    assert_eq!(verdict_line_in(Lang::De, &hard), "Nicht aufbrechbar · mehr Laser nötig");
+    assert_eq!(verdict_line_in(Lang::De, &hard, &loadout), "Nicht aufbrechbar · mehr Laser nötig");
     let unsure = assess(&Rock::default(), &loadout);
-    assert_eq!(verdict_line_in(Lang::En, &unsure), "Crackable: scan not read surely");
+    assert_eq!(verdict_line_in(Lang::En, &unsure, &loadout), "Crackable: scan not read surely");
     assert_eq!(worth_line_in(Lang::De, 12_345.0), "Wert ca. 12.300 aUEC");
     assert_eq!(worth_line_in(Lang::En, 12_355.0), "Worth about 12,400 aUEC");
 }
@@ -170,7 +189,7 @@ fn the_lines_say_the_answer_in_both_languages() {
 /// 61.43 %, and the answer stands only where both ends agree.
 #[test]
 fn a_resistance_shown_with_the_head_is_taken_back_to_the_rocks_own() {
-    let head = |resistance: f64| Laser { power: 3900.0, min_share: 0.0, head: Factors { resistance, ..Factors::NONE }, modules: vec![] };
+    let head = |resistance: f64| Laser { name: "Helix II".into(), power: 3900.0, min_share: 0.0, head: Factors { resistance, ..Factors::NONE }, modules: vec![] };
     let one = Loadout { lasers: vec![head(0.7)], ..Loadout::default() };
     let shown = Rock { resistance: Some(42.0), ..rock(5000.0, 0.0) };
     let Verdict::Known(found) = assess_with_head_in(Model::Checker, &shown, &one) else { panic!("known") };
@@ -195,6 +214,7 @@ fn turret_one() -> Loadout {
     let focus = Factors { power: 0.95, ..Factors::NONE };
     Loadout {
         lasers: vec![Laser {
+            name: "Helix II".into(),
             power: 4930.0,
             min_share: 0.3,
             head: Factors { resistance: 0.7, ..Factors::NONE },
@@ -233,6 +253,7 @@ fn turret_two() -> Loadout {
     let focus = Factors { power: 0.95, ..Factors::NONE };
     Loadout {
         lasers: vec![Laser {
+            name: "Helix II".into(),
             power: 4060.0,
             min_share: 0.1,
             head: Factors { resistance: 0.7, ..Factors::NONE },
@@ -287,8 +308,8 @@ fn a_laser_too_strong_says_so() {
     loadout.lasers[0].min_share = 0.25;
     let verdict = super::assess(&rock(5000.0, 0.0), &loadout);
     assert_eq!(
-        verdict_line_in(Lang::De, &verdict),
-        "Aufbrechbar · leicht · schon das kleinste Gas ist zu viel: schwächeren Laser nehmen"
+        verdict_line_in(Lang::De, &verdict, &loadout),
+        "Aufbrechbar · leicht · schon die kleinste Leistung ist zu viel: schwächeren Laser nehmen"
     );
 }
 

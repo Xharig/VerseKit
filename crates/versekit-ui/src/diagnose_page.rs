@@ -768,6 +768,10 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut DiagnoseState) {
             if row.add(send).clicked() {
                 state.send(row.ctx());
             }
+            // The line stands next to the button that was clicked.
+            if state.is_sending() {
+                widgets::loading(row, scheme, &t("s_di_ab_laeuft"));
+            }
             let issue_word = t("s_di_melden");
             if row.add(widgets::Button::new(&issue_word, ButtonKind::Strong, scheme).icon("external-link")).clicked()
             {
@@ -790,7 +794,9 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut DiagnoseState) {
             let word = tf("s_di_zustimmung_bilder", &[("0", Arg::from(scans))]);
             widgets::switch_row(ui, scheme, &word, &mut state.scan_consent);
         }
-        if let Some((text, tone)) = &state.notice {
+        // The notice "sending" is the line beside the button while it lasts.
+        let sending_line = state.is_sending().then(|| t("s_di_ab_laeuft"));
+        if let Some((text, tone)) = state.notice.as_ref().filter(|(text, _)| sending_line.as_ref() != Some(text)) {
             let tone = match tone {
                 Tone::Good => scheme.accent,
                 Tone::Bad => scheme.red_text(),
@@ -884,7 +890,7 @@ fn report_box(ui: &mut Ui, scheme: &Scheme, state: &DiagnoseState) {
     let height = ui.fonts_mut(|f| f.row_height(&font)) * BOX_ROWS + 24.0;
     let name = t("s_div_bericht_name");
     let Some(shown) = &state.shown else {
-        small(ui, &t("s_div_wird_gebaut"), color(scheme.sub));
+        widgets::loading(ui, scheme, &t("s_div_wird_gebaut"));
         return;
     };
     let mut text: &str = &shown.text;
@@ -1089,6 +1095,39 @@ mod tests {
         assert!(!bodies[0].contains("scan-bilder"), "without the tick no images go");
         assert!(bodies[1].contains("scan-bilder") && bodies[1].contains("application/zip"), "with it they do");
         assert!(bodies[1].contains("bilder/2000_"), "the right number stands in the name of the image");
+    }
+
+    /// While the report is sent (and made), the page says so beside the button and in the box, once each.
+    #[test]
+    fn the_page_says_that_the_report_is_made_and_sent() {
+        let _german = german();
+        let (mut state, _transport, dir) = state_in("laeuft", 200);
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let texts = |output: &egui::FullOutput| -> Vec<String> {
+            output
+                .shapes
+                .iter()
+                .filter_map(|c| match &c.shape {
+                    egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                    _ => None,
+                })
+                .collect()
+        };
+        let (building, sending) = (t("s_div_wird_gebaut"), t("s_di_ab_laeuft"));
+        // The first frame starts the report: its box says it is made.
+        let first = texts(&run_frame(&ctx, &mut state, Vec::new()));
+        assert!(first.contains(&building), "{first:?}");
+        wait_for_report(&ctx, &mut state);
+        let seen = texts(&run_frame(&ctx, &mut state, Vec::new()));
+        assert!(!seen.contains(&building) && !seen.contains(&sending), "{seen:?}");
+        // A send is under way, with its notice as the click leaves it.
+        let (_hold, receiver) = channel();
+        state.sending = Some(receiver);
+        state.say(sending.clone(), Tone::Quiet);
+        let seen = texts(&run_frame(&ctx, &mut state, Vec::new()));
+        assert_eq!(seen.iter().filter(|s| **s == sending).count(), 1, "{seen:?}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

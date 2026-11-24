@@ -254,3 +254,13 @@ fn a_drag_of_the_window_gives_the_offset_for_the_place_it_was_left_at() {
         scanner.close();
     });
 }
+
+/// The rock is scanned from about 3 km on and its signature leaves the HUD: the panel is still searched for a while.
+#[test]
+fn the_player_still_mines_for_a_while_after_the_last_signature() {
+    let now = Instant::now() + Duration::from_secs(1000);
+    assert!(mining_now(true, None, now), "a signature in the HUD");
+    assert!(!mining_now(false, None, now), "never a signature: no search");
+    assert!(mining_now(false, Some(now - Duration::from_secs(60)), now), "a minute after the signature left");
+    assert!(!mining_now(false, Some(now - MINING_AFTER - Duration::from_secs(1)), now), "long after: no search");
+}

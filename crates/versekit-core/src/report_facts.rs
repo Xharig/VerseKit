@@ -74,7 +74,8 @@ pub const MASKED_SETTINGS: [&str; 6] = [
     hangar_inbox::SETTING_TOKEN,
 ];
 /// Settings that do not appear in the settings line at all.
-pub const HIDDEN_SETTINGS: [&str; 2] = [REPORTER_CLEARED, ACCOUNTS_RECHECKED];
+/// ⚠ The beta code is not even shown as `•••`: the report says only that the stage is on (`betatester`).
+pub const HIDDEN_SETTINGS: [&str; 3] = [REPORTER_CLEARED, ACCOUNTS_RECHECKED, crate::beta::SETTING_CODE];
 /// Own files that are rewritten at every start or sync.
 pub const REWRITTEN_FILES: [&str; 5] =
     ["start-spur.txt", "versionen.json", "fehler.json", "einstellungen.json", "bestand.json"];

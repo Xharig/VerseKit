@@ -307,6 +307,10 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, tab: &mut BookTab) {
     let mut discard = false;
     ui.add(egui::Label::new(RichText::new(t("s_lsc_lead")).small().color(color(scheme.sub))).wrap());
     ui.add_space(4.0);
+    if tab.working.is_some() {
+        widgets::loading(ui, scheme, &t("s_lsc_arbeitet"));
+        ui.add_space(4.0);
+    }
     if let Some(note) = &tab.note {
         let tint = if note.good { scheme.accent } else { scheme.red_text() };
         ui.add(egui::Label::new(RichText::new(&note.text).color(color(tint))).wrap());
@@ -548,6 +552,26 @@ mod tests {
         assert_eq!(stock::number_of(&entries[0], "menge"), 5.0, "back to the value before the scan");
         assert!(has(&harness, "zurückgenommen"), "the row says it was taken back");
         assert!(has(&harness, "Zurückgenommen: Parallax"), "the line above says what came back");
+    }
+
+    /// While the booking into the stock of the unit runs on its thread, the tab says so where the result will stand.
+    #[test]
+    fn the_tab_says_that_a_booking_into_the_unit_runs() {
+        let dir = Dir::new("lagerscan-reiter-arbeit");
+        let paths = paths_in(&dir);
+        language::set_thread_language(language::Choice::De);
+        let mut tab = open_tab(&paths);
+        let said = t("s_lsc_arbeitet");
+        let (sender, receiver) = mpsc::channel::<Done>();
+        tab.working = Some(receiver);
+        let mut harness = harness(tab);
+        assert!(has(&harness, &said), "the booking runs");
+        // The answer came: the line is gone.
+        sender.send(Done { text: "fertig".into(), good: true }).unwrap();
+        harness.state_mut().looked_at = f64::NEG_INFINITY;
+        harness.run_steps(3);
+        assert!(!has(&harness, &said), "the booking ended");
+        assert!(has(&harness, "fertig"));
     }
 
     /// An open question shows its candidates and takes the pick as a booking; none of them books nothing.

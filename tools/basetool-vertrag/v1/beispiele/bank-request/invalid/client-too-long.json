@@ -1,0 +1,25 @@
+{
+  "id": "7f3e2d1c-0b9a-4876-9543-210fedcba987",
+  "version": 1,
+  "status": "PENDING",
+  "createdAt": "2026-11-08T20:15:00Z",
+  "decidedAt": null,
+  "type": "WITHDRAWAL",
+  "amount": 15000,
+  "note": "Refuel at Port Olisar",
+  "justification": "Fuel for the Friday op",
+  "account": {
+    "id": "5d0e9c1a-2b3f-4a6d-8e71-9c0b1a2d3e4f",
+    "no": "KB-0042",
+    "name": "Staffel Nord",
+    "orgUnitShorthand": "NORD"
+  },
+  "targetAccount": null,
+  "requiresOwnerApproval": true,
+  "requiredApprover": "RESPONSIBLE_HOLDER",
+  "ownerApprovalGranted": false,
+  "rejectReason": null,
+  "client": "versekit-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "splitEnabled": false,
+  "splitPercent": null
+}

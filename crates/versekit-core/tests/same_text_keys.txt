@@ -218,6 +218,10 @@ s_ei_taste_num_plus
 # The short name of the overlay shortcut in the messages about a taken key: the word "Overlay" in both languages.
 s_hk_kurz_overlay
 
+# The short name of the Anti-AFK shortcut in the messages about a taken key: the name of the feature, "Anti-AFK" in
+# both languages.
+s_hk_kurz_antiafk
+
 # The choice of the installation (LIVE, PTU) on the pages Grafik and Blickwinkel: "Installation" in both languages.
 s_inst_titel
 

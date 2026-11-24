@@ -9,5 +9,6 @@
     "kind": "MONTHS",
     "months": 120
   },
+  "origin": "IN_GAME",
   "fitted": false
 }

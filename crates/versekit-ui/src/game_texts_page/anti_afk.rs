@@ -93,6 +93,9 @@ pub(super) struct AfkBlock {
     chords: anti_afk_key::Cached,
     /// Do keys sent by a program count as input (the setting, read together with the file)?
     pub(super) count_injected: bool,
+    /// The hotkey that switches it (`hotkey_antiafk`) as the overlay registers it, read together with the file;
+    /// `None` where none is set (or it is off, wrong or taken by another shortcut).
+    pub(super) shortcut: Option<versekit_core::overlay::Hotkey>,
 }
 
 impl Default for AfkBlock {
@@ -111,6 +114,7 @@ impl Default for AfkBlock {
             chord: Chord::default(),
             chords: anti_afk_key::Cached::default(),
             count_injected: true,
+            shortcut: None,
         }
     }
 }
@@ -140,6 +144,16 @@ impl AfkBlock {
         self.seconds = anti_afk::interval_for(paths) as i64;
         self.chord = self.chords.get(paths);
         self.count_injected = anti_afk::injected_count(paths);
+        self.shortcut = versekit_core::overlay::HotkeyChoice::read_anti_afk(paths).hotkey();
+    }
+
+    /// The line about the hotkey: the key as the overlay registers it, in the words of the language shown, or that
+    /// none is set.
+    pub(super) fn shortcut_text(&self) -> String {
+        match &self.shortcut {
+            Some(hotkey) => crate::sample::glance_tiles::hotkey_in(versekit_core::language::current(), &hotkey.text()),
+            None => t("aafk_kuerzel_kein"),
+        }
     }
 
     /// A click on the switch.
@@ -285,6 +299,11 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, state: &mut GameTextsState) {
             versekit_core::controls::input_readable(&block.chord.input, Some(versekit_core::joysticks::Kind::Keyboard));
         crate::settings::setting_row(ui, scheme, &t("aafk_taste"), &t(origin_key(block.chord.origin)), false, |row| {
             row.add(egui::Label::new(egui::RichText::new(shown).strong()))
+        });
+        // The hotkey that switches it, set on the page Overlay beside the other shortcuts: the key, or that none is set.
+        let shortcut = block.shortcut_text();
+        crate::settings::setting_row(ui, scheme, &t("aafk_kuerzel"), &t("aafk_kuerzel_h"), false, |row| {
+            row.add(egui::Label::new(egui::RichText::new(shortcut).strong()))
         });
         // Whether keys sent by a program count as input: the overlay reads the setting at its next beat.
         let name = t("aafk_makro");

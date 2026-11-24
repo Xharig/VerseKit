@@ -171,7 +171,9 @@ pub const OLD_LOG_FILE: &str = "log.old.log";
 /// machine), and in the Wine prefix the archive lies in (Linux: `<prefix>/drive_c/users/<user>/AppData/Roaming/
 /// rsilauncher/logs`, the prefix found by going up from the archive to `drive_c`). Only folders that exist, each once.
 pub fn log_folders(paths: &Paths, archive: Option<&Path>) -> Vec<PathBuf> {
-    log_folders_with(paths, archive, crate::paths::global().host.var_set("APPDATA"))
+    // A host with given drives looks at nothing of this computer, not at the launcher logs of its user either.
+    let machine = if paths.host.drives_given() { None } else { crate::paths::global().host.var_set("APPDATA") };
+    log_folders_with(paths, archive, machine)
 }
 
 /// [`log_folders`] with the `APPDATA` of the machine given.

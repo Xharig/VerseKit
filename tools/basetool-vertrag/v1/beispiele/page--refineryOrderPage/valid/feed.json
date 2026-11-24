@@ -1,0 +1,52 @@
+{
+  "items": [
+    {
+      "id": "4a2d3c5b-7e6f-4b8c-9d0e-1f2a3b4c5d6e",
+      "versions": {
+        "gameData": 7,
+        "finances": 2
+      },
+      "status": "CANCELED",
+      "location": {
+        "name": "CRU-L1 Ambitious Dream Station",
+        "guid": "1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b"
+      },
+      "missionId": "6b7c8d9e-0f1a-4b2c-8d3e-4f5a6b7c8d9e",
+      "goods": []
+    },
+    {
+      "id": "5b3e4d6c-8f7a-4c9d-8e1f-2a3b4c5d6e7f",
+      "clientKey": "wo-CRU-L1-0007",
+      "createdBy": {
+        "clientId": "versekit",
+        "name": "VerseKit"
+      },
+      "versions": {
+        "gameData": 9,
+        "finances": 3
+      },
+      "status": "COMPLETED",
+      "location": {
+        "name": "CRU-L1 Ambitious Dream Station",
+        "guid": "1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b"
+      },
+      "startedAt": "2026-11-07T18:00:00Z",
+      "durationMinutes": 300,
+      "endsAt": "2026-11-07T23:00:00Z",
+      "pickedUpAt": "2026-11-08T09:12:00Z",
+      "goods": []
+    }
+  ],
+  "removed": [
+    {
+      "key": "00000000-0000-4000-8000-000000000042",
+      "clientKey": "wo-ARC-L1-0042",
+      "removedAt": "2026-11-08T12:00:00Z",
+      "removedBy": {
+        "channel": "system"
+      }
+    }
+  ],
+  "nextCursor": "f1.12.0",
+  "hasMore": false
+}

@@ -266,6 +266,11 @@ impl QueueEntry {
             link: text(item, "link"),
         })
     }
+
+    /// The link if it is an https address at the Basetool, otherwise `None` (then no button appears).
+    pub fn safe_link(&self, config: &crate::basetool::config::Config) -> Option<String> {
+        Some(config.trusted_address(&self.link)).filter(|url| !url.is_empty())
+    }
 }
 
 /// The queue: what waits for the member's confirmation and for the member's approval.

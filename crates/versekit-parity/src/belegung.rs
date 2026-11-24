@@ -45,7 +45,7 @@ pub fn run(python_json: &str, out: &str, gegenprobe: bool) -> Result<(), String>
                 "lesbar" => {
                     set_language(case[1].as_str().ok_or("Sprache fehlt")?);
                     let kind = kind_of(case[3].as_str().unwrap_or_default());
-                    json!(controls::input_readable(case[2].as_str().ok_or("Eingabe fehlt")?, kind))
+                    json!(controls::input_readable_with(case[2].as_str().ok_or("Eingabe fehlt")?, kind, &|_| None))
                 }
                 "technisch" => json!(controls::technical_readable(case[1].as_str().ok_or("Aktion fehlt")?)),
                 "profil" => {

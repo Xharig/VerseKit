@@ -130,13 +130,18 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
     if job.at_exit && kind != Packaging::Exe {
         return Done::Stopped(None);
     }
-    let Some(asset) = updater::matching_asset(release, kind) else {
+    // A beta release holds only encrypted files: its own choice, its own fetch (the key ring, then the file opened
+    // with the stored code); from the plain file on the way is the same.
+    let beta = crate::beta::is_beta_tag(&release.version);
+    let asset = if beta { crate::beta::matching_asset(release, kind) } else { updater::matching_asset(release, kind) };
+    let Some(asset) = asset else {
         // ⚠ Two different situations: a release without any file is still being built (GitHub needs a minute or
         // two for the installer), one with files but none that fits is for fetching by hand.
         let key = if release.assets.is_empty() { "s_ub_wird_gebaut" } else { "selbst_holen" };
         return Done::Stopped(Some(t(key)));
     };
-    let Some(name) = updater::safe_filename(&asset.name) else {
+    let name = if beta { crate::beta::plain_name(&asset.name) } else { updater::safe_filename(&asset.name) };
+    let Some(name) = name else {
         return Done::Stopped(Some(updater::UpdateError::ForeignFile(asset.name.clone()).message()));
     };
     let backup_at_work = || kind == Packaging::Exe && backup::running(job.paths, updater::now());
@@ -157,7 +162,15 @@ pub fn run(job: &Job<'_>, release: &Release, report: &mut dyn FnMut(Event)) -> D
             display_broken = true;
         }
     };
-    let downloaded = match updater::download(job.download_net, release, asset, &target, &mut progress) {
+    let fetched = if beta {
+        match crate::beta::stored_code(job.paths) {
+            Some(code) => crate::beta::download(job.download_net, release, asset, &code, &target, &mut progress),
+            None => Err(updater::UpdateError::Beta(crate::beta::Problem::NoCode)),
+        }
+    } else {
+        updater::download(job.download_net, release, asset, &target, &mut progress)
+    };
+    let downloaded = match fetched {
         Ok(downloaded) => {
             update_run::clear_download_failures(job.paths);
             downloaded
@@ -324,6 +337,8 @@ pub struct NoBackup {
     pub reason: String,
     /// Whether test versions counted for the fetch (the answer "yes" fetches the same again).
     pub with_prerelease: bool,
+    /// Whether the unlocked beta counted for the fetch.
+    pub beta: bool,
 }
 
 /// The click on a button that fetches: one thread at a time, its state to look at from the window.
@@ -359,15 +374,26 @@ impl Runner {
     /// Fetches the newest release of the channel in a thread of its own: first a look at the list (what is
     /// remembered counts while GitHub was asked recently), then the sequence. `false` if a fetch is under way.
     pub fn start(&self, env: &Env, host: crate::paths::Host, with_prerelease: bool) -> bool {
-        self.start_with(env, host, with_prerelease, false)
+        self.start_fetch(env, host, Fetch { with_prerelease, ..Fetch::default() })
+    }
+
+    /// [`Runner::start`] with everything a fetch can be asked for (the beta too).
+    pub fn start_fetch(&self, env: &Env, host: crate::paths::Host, fetch: Fetch) -> bool {
+        self.start_with(env, host, fetch)
     }
 
     /// [`Runner::start`] after the player said to update although the backup could not be made.
     pub fn start_without_backup(&self, env: &Env, host: crate::paths::Host, with_prerelease: bool) -> bool {
-        self.start_with(env, host, with_prerelease, true)
+        self.start_with(env, host, Fetch { with_prerelease, beta: false, without_backup: true })
     }
 
-    fn start_with(&self, env: &Env, host: crate::paths::Host, with_prerelease: bool, without_backup: bool) -> bool {
+    /// [`Runner::start_without_backup`] for the fetch the question was about, the beta included.
+    pub fn start_again_without_backup(&self, env: &Env, host: crate::paths::Host, asked: &NoBackup) -> bool {
+        let fetch = Fetch { with_prerelease: asked.with_prerelease, beta: asked.beta, without_backup: true };
+        self.start_with(env, host, fetch)
+    }
+
+    fn start_with(&self, env: &Env, host: crate::paths::Host, fetch: Fetch) -> bool {
         {
             let mut shared = self.lock();
             if matches!(shared.state, Some(State::Busy { .. })) {
@@ -381,17 +407,11 @@ impl Runner {
             let chosen = |version: &str| {
                 runner.lock().state = Some(State::Busy { version: version.to_string(), percent: None });
             };
-            let done = fetch_newest(
-                &env,
-                &paths,
-                Fetch { with_prerelease, without_backup },
-                &mut |event| runner.event(event),
-                &chosen,
-            );
-            runner.finish(done, with_prerelease);
+            let done = fetch_newest(&env, &paths, fetch, &mut |event| runner.event(event), &chosen);
+            runner.finish(done, fetch);
         });
         if spawned.is_err() {
-            self.finish(Done::Stopped(Some(said("update_fehler", "thread"))), with_prerelease);
+            self.finish(Done::Stopped(Some(said("update_fehler", "thread"))), fetch);
         }
         true
     }
@@ -408,7 +428,7 @@ impl Runner {
         }
     }
 
-    fn finish(&self, done: Done, with_prerelease: bool) {
+    fn finish(&self, done: Done, fetch: Fetch) {
         let mut shared = self.lock();
         shared.state = Some(match done {
             Done::NoBackup(reason) => {
@@ -416,7 +436,8 @@ impl Runner {
                     Some(State::Busy { version, .. }) => version.clone(),
                     _ => String::new(),
                 };
-                shared.no_backup = Some(NoBackup { version, reason, with_prerelease });
+                shared.no_backup =
+                    Some(NoBackup { version, reason, with_prerelease: fetch.with_prerelease, beta: fetch.beta });
                 State::Idle
             }
             Done::Quit => State::Quit,
@@ -434,6 +455,8 @@ impl Runner {
 pub struct Fetch {
     /// Test versions count too.
     pub with_prerelease: bool,
+    /// The beta the stored code opens counts too.
+    pub beta: bool,
     /// The player said to update although the backup could not be made.
     pub without_backup: bool,
 }
@@ -459,14 +482,22 @@ pub fn fetch_newest(
     report: &mut dyn FnMut(Event),
     chosen: &dyn Fn(&str),
 ) -> Done {
-    let Fetch { with_prerelease, without_backup } = fetch;
+    let Fetch { with_prerelease, beta, without_backup } = fetch;
     let now = updater::now();
     // ⚠ Look first, then take: the remembered list can be a day old.
     updater::check(&*env.net, paths, &env.own_version, false, now);
     let cache = updater::cache_read(paths);
-    let Some(release) = updater::latest(&cache.releases, with_prerelease) else {
-        return Done::Stopped(Some(t("s_ub_keine_bekannt")));
+    let newest = updater::latest(&cache.releases, with_prerelease).cloned();
+    // The beta only when it is asked for, the stage is on and the stored code opened its key ring.
+    let unlocked = if beta { crate::beta::unlocked(paths) } else { None };
+    let release = match (newest, unlocked) {
+        (Some(newest), Some(beta)) => {
+            if crate::version::is_newer(&beta.version, &newest.version) { beta } else { newest }
+        }
+        (Some(one), None) | (None, Some(one)) => one,
+        (None, None) => return Done::Stopped(Some(t("s_ub_keine_bekannt"))),
     };
+    let release = &release;
     // ⚠ The running version would be installed again for nothing, and an older one would take the place of a newer
     // one: the newest the program knows is not newer than the one that runs.
     if is_running(release, &env.own_version) || !crate::version::is_newer(&release.version, &env.own_version) {

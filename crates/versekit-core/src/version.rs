@@ -48,9 +48,33 @@ pub fn parts(version: &str) -> (u64, u64, u64) {
     (0, 0, 0)
 }
 
+/// The first pre-release mark: where it ends, and its rank.
+fn first_mark(version: &str) -> Option<(usize, u8)> {
+    MARKS
+        .iter()
+        .filter_map(|m| version.find(m).map(|at| (at, at + m.len(), rank_of(m))))
+        .min()
+        .map(|(_, end, rank)| (end, rank))
+}
+
+/// `-dev` before `-alpha` before `-beta` before `-rc`.
+fn rank_of(mark: &str) -> u8 {
+    match mark {
+        "-rc" => 3,
+        "-beta" => 2,
+        "-alpha" => 1,
+        _ => 0,
+    }
+}
+
 /// Where the first pre-release mark ends.
 fn mark_end(version: &str) -> Option<usize> {
-    MARKS.iter().filter_map(|m| version.find(m).map(|at| (at, at + m.len()))).min().map(|(_, end)| end)
+    first_mark(version).map(|(end, _)| end)
+}
+
+/// The rank of the pre-release mark: `-dev` 0, `-alpha` 1, `-beta` 2, `-rc` 3; without one 0.
+pub fn prerelease_rank(version: &str) -> u8 {
+    first_mark(version).map_or(0, |(_, rank)| rank)
 }
 
 /// Whether the version carries `-dev`, `-rc`, `-beta` or `-alpha`.
@@ -79,6 +103,10 @@ pub fn is_newer(other: &str, own: &str) -> bool {
     if !pa {
         return false;
     }
+    let (ra, rb) = (prerelease_rank(other), prerelease_rank(own));
+    if ra != rb {
+        return ra > rb;
+    }
     prerelease_number(other) > prerelease_number(own)
 }
 
@@ -96,5 +124,25 @@ mod tests {
         assert!(is_newer("v4.13.0", "4.12.9"));
         assert!(!is_newer("kaputt", "1.0.0"));
         assert_eq!(parts("99999999999999999999999.1.2"), (u64::MAX, 1, 2));
+    }
+
+    /// The marks of one number stand in a fixed order, whatever number follows them; the tag of a beta release
+    /// (`beta-v…`) compares like its version.
+    #[test]
+    fn dev_alpha_beta_rc_finished() {
+        let order = ["5.7.0-dev", "5.7.0-alpha.9", "5.7.0-beta.1", "5.7.0-beta.12", "5.7.0-rc1", "5.7.0-rc2", "5.7.0"];
+        for (i, lower) in order.iter().enumerate() {
+            for higher in &order[i + 1..] {
+                assert!(is_newer(higher, lower), "{higher} after {lower}");
+                assert!(!is_newer(lower, higher), "{lower} not after {higher}");
+            }
+        }
+        assert!(is_newer("beta-v5.7.0-beta.2", "5.7.0-beta.1"));
+        assert!(!is_newer("beta-v5.7.0-beta.1", "5.7.0-beta.1"));
+        assert!(is_newer("5.7.0-rc1", "beta-v5.7.0-beta.3"));
+        assert!(is_newer("beta-v5.7.0-beta.1", "5.6.1"));
+        // Unchanged where only one kind of mark is in play.
+        assert!(is_newer("5.0.0-rc10", "5.0.0-rc9"));
+        assert!(is_newer("5.0.0-rc1", "5.0.0-dev"));
     }
 }

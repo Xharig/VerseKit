@@ -74,13 +74,15 @@ pub struct ImportState {
     stage: Stage,
     dialog: Option<file_dialog::Pending>,
     working: Option<Receiver<Answer>>,
+    /// The thread takes the entries over (else it reads a file).
+    taking: bool,
     /// The notice at the top right: text and when it came.
     notice: Option<(String, Option<f64>, &'static str)>,
 }
 
 impl Default for ImportState {
     fn default() -> Self {
-        ImportState { stage: Stage::Empty, dialog: None, working: None, notice: None }
+        ImportState { stage: Stage::Empty, dialog: None, working: None, taking: false, notice: None }
     }
 }
 
@@ -153,6 +155,7 @@ impl ImportState {
         });
         if started.is_ok() {
             self.working = Some(answer);
+            self.taking = false;
         } else {
             versekit_core::errors::record("import_page.thread", &"no thread");
         }
@@ -192,6 +195,7 @@ impl ImportState {
         let Stage::Preview { entries, .. } = &self.stage else { return };
         let (host, entries) = (host.clone(), entries.clone());
         self.spawn(ctx, move || take_job(&host, &entries));
+        self.taking = self.working.is_some();
     }
 
     /// Test seam: sets the answer of a read.
@@ -256,7 +260,17 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, state: &mut ImportState, host: &Host) 
     }
     ui.add(egui::Label::new(RichText::new(t("s_be_erkannt")).small().color(color(scheme.sub))).wrap());
     ui.add_space(10.0);
+    // A thread reads the file or takes the entries over: the line stands where the preview will.
+    let reading = state.working.is_some() && !state.taking;
+    if reading {
+        widgets::loading(ui, scheme, &t("s_be_liest"));
+    } else if state.working.is_some() {
+        widgets::loading(ui, scheme, &t("s_be_nimmt"));
+        ui.add_space(6.0);
+    }
     match state.stage.clone() {
+        // The old preview is of the file before: it stands aside while the new one is read.
+        _ if reading => {}
         Stage::Empty => {
             ui.label(RichText::new(t("s_vorschau_leer")).strong());
             ui.add(egui::Label::new(RichText::new(t("s_vorschau_leer_h")).small().color(color(scheme.sub))).wrap());
@@ -512,6 +526,46 @@ mod tests {
                 assert!(!has(&seen, "Karna".into()),"the names of new blueprints are not listed");
             });
         }
+    }
+
+    /// While a thread reads the file or takes the entries over, the page says so, and the empty preview does not
+    /// stand there as if nothing happened.
+    #[test]
+    fn the_page_says_that_a_thread_reads_or_takes_over() {
+        let b = bench("laeuft");
+        let scheme = versekit_core::theme::current();
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let painted = |state: &mut ImportState| -> Vec<String> {
+            let ctx = egui::Context::default();
+            crate::install(&ctx);
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 1200.0))),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| show(ui, scheme, state, &b.host));
+            output.textures_delta.clear();
+            output
+                .shapes
+                .iter()
+                .filter_map(|c| match &c.shape {
+                    egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                    _ => None,
+                })
+                .collect()
+        };
+        let (reads, takes, empty) = (t("s_be_liest"), t("s_be_nimmt"), t("s_vorschau_leer"));
+        let mut state = ImportState::default();
+        let seen = painted(&mut state);
+        assert!(seen.contains(&empty) && !seen.contains(&reads) && !seen.contains(&takes), "{seen:?}");
+        // A file is being read.
+        let (_hold, answer) = mpsc::channel::<Answer>();
+        state.working = Some(answer);
+        let seen = painted(&mut state);
+        assert!(seen.contains(&reads) && !seen.contains(&empty), "{seen:?}");
+        // The entries are being taken over.
+        state.taking = true;
+        let seen = painted(&mut state);
+        assert!(seen.contains(&takes) && !seen.contains(&reads), "{seen:?}");
     }
 
     #[test]

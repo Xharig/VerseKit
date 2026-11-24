@@ -47,6 +47,8 @@ use crate::net::{FetchError, Net};
 pub const API_BASE: &str = "https://api.github.com/repos/";
 /// The workflow that builds and attests the releases.
 pub const RELEASE_WORKFLOW: &str = ".github/workflows/release.yml";
+/// The workflow that builds, encrypts and attests the beta releases (tags `beta-v…`).
+pub const BETA_WORKFLOW: &str = ".github/workflows/beta.yml";
 /// Who issues the tokens of GitHub Actions; the certificate names it.
 pub const ACTIONS_ISSUER: &str = "https://token.actions.githubusercontent.com";
 /// The most bundles fetched for one file (each is one request outside the API's hourly limit). A run made again
@@ -93,9 +95,10 @@ pub struct Builder {
 impl Builder {
     /// The release workflow of [`crate::updater::REPO`], run for the tag `tag`.
     pub fn release(tag: &str) -> Self {
+        let workflow = if crate::beta::is_beta_tag(tag) { BETA_WORKFLOW } else { RELEASE_WORKFLOW };
         Self {
             repo: crate::updater::REPO.to_string(),
-            workflow: RELEASE_WORKFLOW.to_string(),
+            workflow: workflow.to_string(),
             git_ref: format!("refs/tags/{tag}"),
         }
     }

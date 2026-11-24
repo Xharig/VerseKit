@@ -85,9 +85,10 @@ pub struct InfoWindow {
     looked: u32,
     last_topmost: Instant,
     shown: bool,
-    /// Clicks pass through the bar: the lock of the overlay is closed (read by the checks).
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// Clicks pass through the bar: the lock of the overlay is closed, or the game hides the pointer.
     passing: bool,
+    /// Pass everything through while the game hides the pointer (the setting of the overlay).
+    auto_through: bool,
     /// How often the bar asked the system for the keyboard (read by the checks).
     #[cfg_attr(not(test), allow(dead_code))]
     keyboard_asked: u32,
@@ -115,8 +116,14 @@ impl InfoWindow {
             last_topmost: Instant::now(),
             shown: false,
             passing: false,
+            auto_through: true,
             keyboard_asked: 0,
         }
+    }
+
+    /// Takes the setting of the overlay: pass everything through while the game hides the pointer.
+    pub fn set_auto_through(&mut self, on: bool) {
+        self.auto_through = on;
     }
 
     /// Do clicks pass through the bar?
@@ -275,6 +282,9 @@ impl InfoWindow {
         self.placed = Some((x, y));
         let place = place_scale(ctx, self.id, self.zoom, ppp);
         let size = view::size(self.width, self.height) * self.zoom;
+        let area = (x, y, width_px, (self.height * own).round() as i32);
+        let busy = self.grab.is_some() || self.typing;
+        self.passing = passes(content.movable, self.auto_through, self.passing, busy, pointer, area);
         let builder = egui::ViewportBuilder::default()
             .with_title(versekit_core::language::window_title(&versekit_core::language::t("ib_fenstertitel")))
             .with_app_id(versekit_core::paths::WM_CLASS)
@@ -286,9 +296,8 @@ impl InfoWindow {
             .with_taskbar(false)
             .with_position([x as f32 / place, y as f32 / place])
             .with_inner_size(size)
-            .with_mouse_passthrough(!content.movable)
+            .with_mouse_passthrough(self.passing)
             .with_visible(self.may_show());
-        self.passing = !content.movable;
         let fresh = !self.shown;
         if fresh {
             trail(&format!("shown, window {} movable {}", self.native, content.movable));
@@ -489,6 +498,33 @@ fn place_scale(ctx: &egui::Context, bar: egui::ViewportId, zoom: f32, ppp: f32) 
     }
 }
 
+/// Do clicks and pointer moves pass through the bar? Always with the lock closed (`movable` false). With it open
+/// and `auto` on, while the game hides the pointer, as the overlay does: a pointer already over the bar while it
+/// takes the mouse keeps it, `busy` (a drag, typing in the field) keeps it too, and without a pointer the state
+/// stays. `area` is the bar in screen pixels (x, y, width, height).
+fn passes(
+    movable: bool,
+    auto: bool,
+    current: bool,
+    busy: bool,
+    pointer: Option<Pointer>,
+    area: (i32, i32, i32, i32),
+) -> bool {
+    if !movable {
+        return true;
+    }
+    if !auto || busy {
+        return false;
+    }
+    let Some(p) = pointer else { return current };
+    let (x, y, w, h) = area;
+    let inside = p.x >= x && p.x < x + w && p.y >= y && p.y < y + h;
+    if inside && !current {
+        return false;
+    }
+    p.hidden
+}
+
 /// The left end of a window `width` pixels wide at `x`, moved left so that it ends inside `work`, but never past
 /// its left edge.
 fn keep_inside(x: i32, width: i32, work: versekit_core::overlay::Rect) -> i32 {
@@ -558,6 +594,23 @@ mod tests {
 
     fn pointer(x: i32, y: i32) -> Option<Pointer> {
         Some(Pointer { hidden: false, x, y })
+    }
+
+    /// With the lock open the bar lets everything through while the game hides the pointer (looking around in the
+    /// game), and takes the mouse again once the pointer shows; a pointer over the bar keeps it, as on the overlay.
+    #[test]
+    fn the_open_bar_lets_a_hidden_pointer_through() {
+        let area = (1000, 0, 400, 40);
+        let hidden = |x, y| Some(Pointer { hidden: true, x, y });
+        assert!(passes(false, true, false, false, pointer(1100, 10), area), "closed lock: always through");
+        assert!(passes(true, true, false, false, hidden(500, 500), area), "hidden pointer outside: through");
+        assert!(passes(true, true, true, false, hidden(1100, 10), area), "and it stays through over the bar");
+        assert!(!passes(true, true, true, false, pointer(1100, 10), area), "pointer shows: the bar takes the mouse");
+        assert!(!passes(true, true, false, false, hidden(1100, 10), area), "over the bar while it takes the mouse");
+        assert!(!passes(true, true, true, true, hidden(500, 500), area), "a drag or typing keeps the mouse");
+        assert!(passes(true, true, true, false, None, area) && !passes(true, true, false, false, None, area));
+        // Counter-check: with the setting off the open bar takes the mouse also from a hidden pointer.
+        assert!(!passes(true, false, false, false, hidden(500, 500), area), "setting off: never through");
     }
 
     /// One frame of the bar in a context without windows (the bar is drawn inside it).

@@ -161,3 +161,15 @@ fn a_bank_error_goes_into_the_log_without_ids_and_details() {
     cancel.path = "POST /bank/requests/r-9/cancel".into();
     assert_eq!(cancel.private().path, "POST /bank/requests/{id}/cancel");
 }
+
+#[test]
+fn a_queue_link_opens_only_at_the_basetool() {
+    let host = crate::paths::Host::new(crate::pypath::Flavor::Posix, &[], "/");
+    let config = crate::basetool::config::Config::from_host(&host);
+    let entry = |link: &str| QueueEntry { id: "r-1".into(), link: link.into(), ..QueueEntry::default() };
+    let good = "https://profit-base.online/bank/requests/r-1";
+    assert_eq!(entry(good).safe_link(&config).as_deref(), Some(good));
+    for bad in ["", "http://profit-base.online/bank", "https://evil.example/bank", "javascript:alert(1)"] {
+        assert_eq!(entry(bad).safe_link(&config), None, "{bad}");
+    }
+}

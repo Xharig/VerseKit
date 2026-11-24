@@ -118,6 +118,8 @@ pub const KNOWN_FILES: &[&str] = &[
     "bauplan-scans.json",
     "bergung.json",
     "bericht.txt",
+    "beta-freigabe.json",
+    "beta-versionen.json",
     "bestand.bak.json",
     "bestand.json",
     "beziehungen.json",

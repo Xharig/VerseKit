@@ -1,0 +1,47 @@
+{
+  "ops": [
+    {
+      "opId": "p2",
+      "op": "pickup",
+      "clientKey": "wo-2026-11-08-arc-l1",
+      "versions": {
+        "gameData": 3
+      },
+      "lines": [
+        {
+          "material": {
+            "name": "Quantainium (Refined)"
+          },
+          "location": {
+            "name": "ARC-L1 Wide Forest Station"
+          },
+          "quality": 650,
+          "quantity": {
+            "amount": 4.5,
+            "unit": "SCU"
+          },
+          "orgUnit": {
+            "id": "0c2f8a51-7d3e-4b9a-9f10-5a6b7c8d9e01"
+          },
+          "jobOrder": "8a1b2c3d-4e5f-4a6b-9c7d-8e9f0a1b2c3d"
+        },
+        {
+          "material": {
+            "name": "Quantainium (Refined)"
+          },
+          "location": {
+            "name": "ARC-L1 Wide Forest Station"
+          },
+          "quality": 650,
+          "quantity": {
+            "amount": 2,
+            "unit": "SCU"
+          },
+          "receiver": "Pq7Rs8Tu9Vw0Xy1Za2Bc3De4Fg5Hi6Jk7Lm8No9Pq0R",
+          "personal": true,
+          "note": "Share of the run"
+        }
+      ]
+    }
+  ]
+}

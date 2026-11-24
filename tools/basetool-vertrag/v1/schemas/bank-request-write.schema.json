@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/bank-request-write.schema.json",
+  "title": "Bank request writes",
+  "description": "Raising, correcting and cancelling one of the member's own booking requests. A request books nothing; the bank decides it in the Basetool. There is no undo: cancel a pending request instead.",
+  "$defs": {
+    "raise": {
+      "title": "Raise a bank request",
+      "description": "A deposit may target any active account; a withdrawal or transfer needs an account the member may view. A deposit carries no justification; only a transfer names a destination; only a deposit may be split.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "DEPOSIT",
+            "WITHDRAWAL",
+            "TRANSFER"
+          ]
+        },
+        "sourceAccountId": {
+          "$ref": "#/$defs/accountId",
+          "description": "The request's account: the account a deposit is paid into, the account a withdrawal or transfer is paid from."
+        },
+        "targetAccountId": {
+          "description": "The destination of a transfer; absent or null otherwise.",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/accountId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "amount": {
+          "$ref": "#/$defs/amount"
+        },
+        "note": {
+          "$ref": "#/$defs/text"
+        },
+        "justification": {
+          "$ref": "#/$defs/text"
+        },
+        "splitEnabled": {
+          "type": "boolean",
+          "description": "Whether a deposit distributes splitPercent of its amount evenly across the squadron accounts on confirmation."
+        },
+        "splitPercent": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 100,
+          "description": "The whole percent a split deposit distributes; required with splitEnabled, absent otherwise."
+        }
+      },
+      "required": [
+        "type",
+        "sourceAccountId",
+        "amount"
+      ]
+    },
+    "correction": {
+      "title": "Correct a bank request",
+      "description": "Replaces amount, note, justification and destination of a pending, not yet approved own request; the type and the source account stay.",
+      "type": "object",
+      "properties": {
+        "amount": {
+          "$ref": "#/$defs/amount"
+        },
+        "note": {
+          "$ref": "#/$defs/text"
+        },
+        "justification": {
+          "$ref": "#/$defs/text"
+        },
+        "targetAccountId": {
+          "description": "The destination of a transfer; absent or null otherwise.",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/accountId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        }
+      },
+      "required": [
+        "amount",
+        "version"
+      ]
+    },
+    "cancel": {
+      "title": "Cancel a bank request",
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "#/$defs/version"
+        }
+      },
+      "required": [
+        "version"
+      ]
+    },
+    "written": {
+      "title": "Raised or corrected bank request",
+      "description": "Only the request's id, status, version and amount; read the request itself from the own requests.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "amount": {
+          "$ref": "#/$defs/amount"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "version",
+        "amount"
+      ]
+    },
+    "cancelled": {
+      "title": "Cancelled bank request",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "version"
+      ]
+    },
+    "accountId": {
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+      "description": "An account id as the account reads answer it."
+    },
+    "amount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000000000,
+      "description": "The amount in whole aUEC."
+    },
+    "text": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500,
+      "description": "Plain text; the Basetool shows it as text, links are not clickable."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The request's version as last read; a stale one answers 409 VERSION_CONFLICT."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "CONFIRMED",
+        "REJECTED",
+        "CANCELLED"
+      ]
+    }
+  }
+}

@@ -121,11 +121,16 @@ pub fn is_app_tag(tag: &str) -> bool {
 /// The releases of the app in an answer of the GitHub API, drafts and releases of other parts left out. `None` if
 /// it is no list.
 pub fn releases_from_api(body: &[u8]) -> Option<Vec<Release>> {
+    releases_matching(body, is_app_tag)
+}
+
+/// The releases in an answer of the GitHub API whose tag `keep` takes, drafts left out. `None` if it is no list.
+pub(crate) fn releases_matching(body: &[u8], keep: fn(&str) -> bool) -> Option<Vec<Release>> {
     let list: Vec<Value> = serde_json::from_slice(body).ok()?;
     Some(
         list.iter()
             .filter(|r| !r.get("draft").and_then(Value::as_bool).unwrap_or(false))
-            .filter(|r| r.get("tag_name").and_then(Value::as_str).is_some_and(is_app_tag))
+            .filter(|r| r.get("tag_name").and_then(Value::as_str).is_some_and(keep))
             .map(|r| {
                 let time = text_of(r, "published_at");
                 Release {
@@ -154,7 +159,7 @@ pub fn releases_from_api(body: &[u8]) -> Option<Vec<Release>> {
     )
 }
 
-fn cache_from_value(value: &Value) -> Cache {
+pub(crate) fn cache_from_value(value: &Value) -> Cache {
     let releases = value
         .get("freigaben")
         .and_then(Value::as_array)
@@ -187,7 +192,7 @@ fn cache_from_value(value: &Value) -> Cache {
     Cache { checked: value.get("geprueft").and_then(Value::as_f64).unwrap_or(0.0), releases }
 }
 
-fn cache_to_value(cache: &Cache) -> Value {
+pub(crate) fn cache_to_value(cache: &Cache) -> Value {
     json!({
         "geprueft": cache.checked,
         "freigaben": cache.releases.iter().map(|r| json!({
@@ -254,16 +259,21 @@ pub fn check(net: &dyn Net, paths: &Paths, own: &str, force: bool, at: f64) -> C
     let mut cache = cache_read(paths);
     let mut checked = Checked::default();
     let old_enough = at - cache.checked > MIN_INTERVAL;
-    if !crate::net::offline_in(&paths.host) && (force || old_enough) {
+    let offline = crate::net::offline_in(&paths.host);
+    // ⚠ The beta releases are only looked for and kept while the stage „Betatester“ is on: on every other stage
+    // nothing of them is written anywhere.
+    let beta_on = crate::beta::on(paths);
+    if !offline && (force || old_enough) {
         let mut found: Option<Vec<Release>> = None;
+        let mut betas: Option<Vec<Release>> = None;
         let mut failed = None;
         for source in sources(own) {
-            match net
-                .get(source)
-                .map_err(|e| (only_waiting(&e), e.to_string()))
-                .and_then(|body| {
-                    releases_from_api(&body).ok_or_else(|| (false, "the answer is no list of releases".to_string()))
-                }) {
+            match net.get(source).map_err(|e| (only_waiting(&e), e.to_string())).and_then(|body| {
+                if beta_on && *source == API {
+                    betas = crate::beta::releases_from_api(&body);
+                }
+                releases_from_api(&body).ok_or_else(|| (false, "the answer is no list of releases".to_string()))
+            }) {
                 Ok(releases) => found.get_or_insert_with(Vec::new).extend(releases),
                 Err((waiting, error)) => {
                     // Waiting for the limit or a busy server is a note, not an error the player is asked to report.
@@ -288,9 +298,18 @@ pub fn check(net: &dyn Net, paths: &Paths, own: &str, force: bool, at: f64) -> C
                 || error.to_lowercase().contains("rate limit")
                 || error == FetchError::Refused.to_string();
         }
+        if let Some(betas) = betas
+            && let Err(error) = crate::beta::cache_write(paths, &betas, at)
+        {
+            errors::record("updater.beta_cache_write", &error);
+        }
+    }
+    // The key ring is fetched only when the stored code was not tried on the newest beta yet.
+    if beta_on && !offline && let Err(error) = crate::beta::refresh(net, paths, false) {
+        errors::note("updater.beta_refresh", &error);
     }
     let with_prerelease = is_prerelease(own) || paths.setting_bool(PRERELEASE_SETTING, false);
-    checked.offer = best_newer(&cache.releases, own, with_prerelease).cloned();
+    checked.offer = with_beta(paths, own, best_newer(&cache.releases, own, with_prerelease).cloned());
     checked
 }
 
@@ -298,7 +317,16 @@ pub fn check(net: &dyn Net, paths: &Paths, own: &str, force: bool, at: f64) -> C
 /// often; the same choice as [`check`]).
 pub fn known_newer(paths: &Paths, own: &str) -> Option<Release> {
     let with_prerelease = is_prerelease(own) || paths.setting_bool(PRERELEASE_SETTING, false);
-    best_newer(&cache_read(paths).releases, own, with_prerelease).cloned()
+    with_beta(paths, own, best_newer(&cache_read(paths).releases, own, with_prerelease).cloned())
+}
+
+/// `offer`, or the beta the stored code opens when that is newer. ⚠ Without the stage „Betatester“ and a code that
+/// opened the key ring, `offer` as it is.
+fn with_beta(paths: &Paths, own: &str, offer: Option<Release>) -> Option<Release> {
+    match crate::beta::offer(paths, own) {
+        Some(beta) if offer.as_ref().is_none_or(|o| is_newer(&beta.version, &o.version)) => Some(beta),
+        _ => offer,
+    }
 }
 
 /// The highest release newer than `own`; pre-releases only `with_prerelease`. ⚠ The highest, not the first:
@@ -340,12 +368,18 @@ pub fn latest(releases: &[Release], with_prerelease: bool) -> Option<&Release> {
 /// One key per version: `-rc1` and `-rc13` differ, the finished version stands above its pre-releases.
 pub fn version_key(version: &str) -> (u64, u64, u64, u64) {
     let (major, minor, patch) = parts(version);
-    let step = if is_prerelease(version) { prerelease_number(version) } else { 9999 };
+    // dev < alpha < beta < rc < finished, and within one mark by its number.
+    let step = if is_prerelease(version) {
+        u64::from(crate::version::prerelease_rank(version)) << 48 | prerelease_number(version).min((1 << 48) - 1)
+    } else {
+        u64::MAX
+    };
     (major, minor, patch, step)
 }
 
 /// A version as the player reads it: without the `v` of the tag.
 pub fn shown_version(version: &str) -> &str {
+    let version = version.strip_prefix(crate::beta::TAG_PREFIX).unwrap_or(version);
     version.strip_prefix(['v', 'V']).unwrap_or(version)
 }
 
@@ -551,6 +585,8 @@ pub enum UpdateError {
     Server(u16),
     /// Writing the file failed.
     Disk(String),
+    /// A beta release could not be opened.
+    Beta(crate::beta::Problem),
 }
 
 impl UpdateError {
@@ -567,6 +603,7 @@ impl UpdateError {
             }
             Self::ChecksumWrong => language::t("up_summe_falsch"),
             Self::Fetch(what) | Self::Disk(what) => what.clone(),
+            Self::Beta(problem) => problem.message(),
         }
     }
 
@@ -583,6 +620,7 @@ impl UpdateError {
             Self::ChecksumWrong => "checksum does not match".to_string(),
             Self::Fetch(what) => format!("download failed: {what}"),
             Self::Disk(what) => format!("file not writable: {what}"),
+            Self::Beta(problem) => problem.log_text().to_string(),
         }
     }
 }
@@ -674,7 +712,7 @@ pub fn download(
     result.map(|()| Downloaded { path: target.to_path_buf(), checksum: expected })
 }
 
-fn fetch_and_verify(
+pub(crate) fn fetch_and_verify(
     net: &dyn Net,
     url: &str,
     target: &Path,

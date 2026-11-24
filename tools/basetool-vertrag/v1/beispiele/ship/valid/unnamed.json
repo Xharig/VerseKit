@@ -7,5 +7,6 @@
   "insurance": {
     "kind": "LTI"
   },
+  "origin": "UNKNOWN",
   "fitted": true
 }

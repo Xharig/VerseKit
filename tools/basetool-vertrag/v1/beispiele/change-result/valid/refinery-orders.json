@@ -1,0 +1,44 @@
+{
+  "dryRun": false,
+  "applied": 2,
+  "unchanged": 0,
+  "notApplied": 2,
+  "results": [
+    {
+      "index": 0,
+      "opId": "c1",
+      "result": "rejected",
+      "reason": "ALREADY_EXISTS",
+      "id": "3f1c2b4a-6d5e-4a7b-8c9d-0e1f2a3b4c5d"
+    },
+    {
+      "index": 1,
+      "opId": "u1",
+      "result": "rejected",
+      "reason": "PRECEDING_OP_REJECTED"
+    }
+  ],
+  "orders": [
+    {
+      "index": 2,
+      "opId": "f1",
+      "id": "5b3e4d6c-8f7a-4c9d-8e1f-2a3b4c5d6e7f",
+      "versions": {
+        "gameData": 9,
+        "finances": 4
+      }
+    },
+    {
+      "index": 3,
+      "opId": "g1",
+      "id": "5b3e4d6c-8f7a-4c9d-8e1f-2a3b4c5d6e7f",
+      "goods": [
+        "7d8e9f0a-1b2c-4d3e-8f4a-5b6c7d8e9f0a"
+      ],
+      "versions": {
+        "gameData": 10,
+        "finances": 4
+      }
+    }
+  ]
+}

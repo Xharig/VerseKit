@@ -131,8 +131,34 @@ fn the_fitting_comes_from_the_hangar_ship_and_the_trial_answers_with_it() {
     state.mass = "32975".into();
     state.resistance = "61".into();
     assert!(state.trial().unwrap().starts_with(&before("s_stein_nein")), "{:?}", state.trial());
+    for typed in ["150.000", "150,000", "150000"] {
+        state.mass = typed.into();
+        state.resistance = "72".into();
+        assert!(state.trial().unwrap().starts_with(&before("s_stein_nein")), "{typed}: {:?}", state.trial());
+    }
     state.resistance = "abc".into();
     assert_eq!(state.trial(), None);
+}
+
+#[test]
+fn the_trial_names_the_lasers_that_fire_and_a_laser_switched_off_is_left_out() {
+    let _language = crate::language_lock();
+    set_thread_language(LanguageChoice::De);
+    let mut state = RockBox { gear: gear(), choice: Choice { ship: mole().key, ..Choice::default() }, ..RockBox::default() };
+    state.follow_ships(&[mole()]);
+    state.mass = "9000".into();
+    state.resistance = "20".into();
+    let both = state.trial().unwrap();
+    let all = versekit_core::language::tf("s_stein_alle", &[("0", versekit_core::language::Arg::Int(2))]);
+    assert!(both.contains(&all), "{both}");
+    state.choice.set_fires(1, false);
+    let alone = state.trial().unwrap();
+    let short = |reference: &str| versekit_core::mining_gear::short_head_name(&state.gear.head(reference).unwrap().name);
+    assert!(alone.contains(&short("helix2")), "{alone}");
+    assert!(!alone.contains(&short("hofstede")), "{alone}");
+    let (shown, over) = draw(&mut state, &[mole()], 420.0, true);
+    assert_eq!(over, 0.0);
+    assert!(shown.iter().any(|s| s.contains(&t("s_stein_feuern"))), "{shown:?}");
 }
 
 #[test]

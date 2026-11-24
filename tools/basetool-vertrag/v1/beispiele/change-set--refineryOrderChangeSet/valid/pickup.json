@@ -1,0 +1,12 @@
+{
+  "ops": [
+    {
+      "opId": "p1",
+      "op": "pickup",
+      "clientKey": "wo-2026-11-08-arc-l1",
+      "versions": {
+        "gameData": 3
+      }
+    }
+  ]
+}

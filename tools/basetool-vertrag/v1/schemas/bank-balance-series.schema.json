@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/bank-balance-series.schema.json",
+  "title": "Bank balance series",
+  "description": "The end-of-day balances of a bank account the member views, one per UTC day of the requested period, with the balance target. Foreign bank data: a client keeps it in memory only, for at most 7 days.",
+  "type": "object",
+  "properties": {
+    "points": {
+      "type": "array",
+      "maxItems": 366,
+      "description": "One point per UTC day, oldest first.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "balance": {
+            "type": "integer",
+            "description": "The balance at the end of the day in whole aUEC."
+          }
+        },
+        "required": [
+          "date",
+          "balance"
+        ]
+      }
+    },
+    "balanceTarget": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "The balance goal in whole aUEC; null when none is set."
+    }
+  },
+  "required": [
+    "points",
+    "balanceTarget"
+  ]
+}

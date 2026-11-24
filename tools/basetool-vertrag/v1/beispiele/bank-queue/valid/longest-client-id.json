@@ -1,0 +1,62 @@
+{
+  "oldestOpenAt": "2026-11-06T09:30:00Z",
+  "oldestOverdue": true,
+  "open": [
+    {
+      "id": "7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "type": "WITHDRAWAL",
+      "amount": 2500,
+      "createdAt": "2026-11-06T09:30:00Z",
+      "ageHours": 52,
+      "account": {
+        "id": "5d0e9c1a-2b3f-4a6d-8e71-9c0b1a2d3e4f",
+        "no": "KB-0007",
+        "name": "Staffel Nord",
+        "orgUnitShorthand": "NORD"
+      },
+      "targetAccount": null,
+      "requesterHandle": "nova",
+      "justification": "Fuel for the convoy",
+      "note": null,
+      "requiresOwnerApproval": false,
+      "requiredApprover": null,
+      "ownerApprovalGranted": false,
+      "mayConfirm": true,
+      "accountBalance": 1250000,
+      "client": "versekit-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "link": "https://profit-base.online/bank/requests/7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+    }
+  ],
+  "toApprove": [
+    {
+      "id": "8b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e",
+      "type": "TRANSFER",
+      "amount": 40000,
+      "createdAt": "2026-11-08T14:00:00Z",
+      "ageHours": 7,
+      "account": {
+        "id": "6e1f0a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+        "no": "KB-0001",
+        "name": "KRT",
+        "orgUnitShorthand": "OL"
+      },
+      "targetAccount": {
+        "id": "5d0e9c1a-2b3f-4a6d-8e71-9c0b1a2d3e4f",
+        "no": "KB-0007",
+        "name": "Staffel Nord"
+      },
+      "requesterHandle": null,
+      "justification": "Hangar refit",
+      "note": "Split with Staffel Sued",
+      "requiresOwnerApproval": true,
+      "requiredApprover": "BANK_MANAGEMENT",
+      "ownerApprovalGranted": false,
+      "mayConfirm": false,
+      "accountBalance": null,
+      "client": null,
+      "link": "https://profit-base.online/bank/requests/8b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e"
+    }
+  ],
+  "nextCursor": "q1.1762421400.0.7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d.s",
+  "hasMore": true
+}

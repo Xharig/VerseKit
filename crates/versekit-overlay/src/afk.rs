@@ -143,7 +143,7 @@ impl Afk {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::sync::atomic::AtomicBool;
 
     use versekit_core::anti_afk::{self, Platform, SendError, StickWatch};
@@ -217,6 +217,12 @@ mod tests {
     }
 
     /// With the beat every `beat`; the runner comes along for a test that beats by hand.
+    /// An Anti-AFK on a quiet system that never presses by itself (the beat is an hour): for the tests of the
+    /// overlay that switch it.
+    pub(crate) fn quiet_afk() -> Afk {
+        built_with(false, std::time::Duration::from_secs(3600)).0
+    }
+
     fn built_with(admin: bool, beat: std::time::Duration) -> (Afk, Arc<AtomicU8>, Arc<Quiet>, Runner) {
         let platform = Arc::new(Quiet {
             admin: AtomicBool::new(admin),

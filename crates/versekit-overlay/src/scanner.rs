@@ -63,6 +63,18 @@ const FRAME_EVERY: Duration = Duration::from_secs(1);
 /// The equipment, the choice and the prices are read again this often: the page Mining changes the choice.
 const GEAR_RELOAD: Duration = Duration::from_secs(5);
 
+/// A place on the screen: left, top, width, height.
+type Area4 = (i32, i32, i32, i32);
+
+/// After the last signature the player still mines this long: the rock is scanned from about 3 km on and its
+/// signature leaves the HUD, the panel of the rock is searched for in this time.
+pub const MINING_AFTER: Duration = Duration::from_secs(180);
+
+/// Whether the player mines: a signature is shown, or the last one left the HUD less than [`MINING_AFTER`] ago.
+pub fn mining_now(signature_shown: bool, last_signature: Option<Instant>, now: Instant) -> bool {
+    signature_shown || last_signature.is_some_and(|at| now.saturating_duration_since(at) < MINING_AFTER)
+}
+
 /// What the lines of the rock are computed with.
 struct Mining {
     loadout: Loadout,
@@ -146,6 +158,14 @@ pub struct Scanner {
     /// every [`GEAR_RELOAD`].
     gear: Option<Mining>,
     gear_at: Option<Instant>,
+    /// When a signature stood in the HUD last ([`mining_now`]).
+    last_signature: Option<Instant>,
+    /// The panel of the rock is in sight: the window stays while it is, with the last signature and the rock's lines.
+    rock_in_sight: bool,
+    /// Where the window stood last (the pill and the game window) and what it showed, to show it again for the
+    /// rock's lines once the signature has left the HUD.
+    last_place: Option<(Area4, Area4)>,
+    last_text: Option<Text>,
     #[cfg(windows)]
     window: Option<ScanWindow>,
     /// The frame that shows the area read, and when it goes.
@@ -209,6 +229,10 @@ impl Scanner {
             rock_lines: Vec::new(),
             gear: None,
             gear_at: None,
+            last_signature: None,
+            rock_in_sight: false,
+            last_place: None,
+            last_text: None,
             #[cfg(windows)]
             window: None,
             #[cfg(windows)]
@@ -386,8 +410,13 @@ impl Scanner {
     /// place.
     pub fn follow_rock(&mut self, paths: Option<&Paths>) -> Option<(&'static str, versekit_core::jsonio::Value)> {
         let Some(rock) = &self.rock else { return None };
-        rock.set_mining(self.shown.is_some());
+        let now = Instant::now();
+        if self.shown.is_some() && self.clear_at.is_none() {
+            self.last_signature = Some(now);
+        }
+        rock.set_mining(mining_now(self.shown.is_some(), self.last_signature, now));
         let state = rock.state();
+        self.rock_in_sight = state.seen;
         // A place the search found is kept for the next start: handed back to be stored.
         let mut store = None;
         if let Some(place) = &state.place
@@ -588,9 +617,28 @@ impl Scanner {
                 }
             }
         }
-        // The number left the HUD a while ago: its time to stay is over.
+        // The number left the HUD a while ago: its time to stay is over, unless the panel of the rock is in sight;
+        // then the window stays with the rock's lines and is looked at again in a second.
         if self.clear_at.is_some_and(|at| Instant::now() >= at) {
-            self.hide();
+            if self.rock_in_sight && !self.rock_lines.is_empty() {
+                self.clear_at = Some(Instant::now() + Duration::from_secs(1));
+            } else {
+                self.hide();
+            }
+        }
+        // The window went with the signature, then the panel of the rock came in sight: it opens again with the
+        // last signature and the rock's lines.
+        if self.shown.is_none()
+            && self.rock_in_sight
+            && !self.rock_lines.is_empty()
+            && let (Some(text), Some((pill, game))) = (self.last_text.clone(), self.last_place)
+        {
+            self.clear_at = Some(Instant::now() + Duration::from_secs(1));
+            if !self.window_off {
+                self.show(&text, pill, game, scheme);
+            }
+            self.shown = Some(text);
+            return out;
         }
         if state.version == self.seen && !self.place_pending() {
             return out;
@@ -607,12 +655,20 @@ impl Scanner {
                 } else {
                     self.show(&text, pill, game, scheme);
                 }
+                self.last_text = Some(text.clone());
                 self.shown = Some(text);
+                self.last_place = Some((pill, game));
             }
-            // Gone from the HUD: what was shown stays for the time the player chose, then goes.
+            // Gone from the HUD: what was shown stays for the time the player chose, then goes. New lines of the
+            // rock show in the window that stays.
             _ if self.shown.is_some() => {
                 if self.clear_at.is_none() {
                     self.clear_at = Some(Instant::now() + self.linger());
+                }
+                if let (Some(text), Some((pill, game))) = (self.shown.clone(), self.last_place)
+                    && !self.window_off
+                {
+                    self.show(&text, pill, game, scheme);
                 }
             }
             _ => self.hide(),

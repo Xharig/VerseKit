@@ -55,10 +55,9 @@
 //! ⌨ **The keyboard works the window, too:** the keys are taken only while the box has the focus (it gets it when
 //! the window opens). Tab leaves the box for the buttons, where Enter and Space press them as everywhere.
 //!
-//! ⚠ Not known: whether the game takes a key by its place on the keyboard (`y`) or by the sign it makes. The
-//! window takes the sign (`Key`), not the place; on a German keyboard `Z` and `Y` could be exchanged.
-//! To be tried by the player against `pp_rebindkeys export`. With a modifier held, a letter is still taken by its
-//! sign; any other key by its place, because Shift turns a figure into another sign (`Shift+7` is `/`).
+//! **Letters, figures and signs** are named by their place on the keyboard (`physical_key`), the way the game
+//! names a key: on a German layout the key that makes `Z` is `y`. Where the toolkit tells no place, the sign
+//! it made is taken. A modifier held down changes nothing (`Shift+7` is `7`, not `/`).
 
 use versekit_core::language::SpawnWithLanguage as _;
 use std::sync::Arc;
@@ -199,10 +198,6 @@ fn is_system_key(key: Key, physical: Option<Key>) -> bool {
     matches!(physical.unwrap_or(key), Key::SuperLeft | Key::SuperRight)
 }
 
-fn is_letter(key: Key) -> bool {
-    (Key::A as usize..=Key::Z as usize).contains(&(key as usize))
-}
-
 /// Is the key event the toolkit made of the number block key `name`?
 fn number_block_twin(name: &str, key: Key, physical: Option<Key>) -> bool {
     match name {
@@ -230,12 +225,9 @@ fn number_block_guess(key: Key, physical: Option<Key>) -> Option<&'static str> {
     }
 }
 
-/// The name of a key that is no modifier. With a modifier held a letter is taken by its sign, any other key by
-/// its place: Shift turns a figure into another sign.
-fn base_name(key: Key, physical: Option<Key>, modified: bool) -> Option<String> {
-    if !modified || is_letter(key) {
-        return key_name(key);
-    }
+/// The name of a key that is no modifier: by its place on the keyboard (`physical`), the way the game names it;
+/// by its sign where the toolkit tells no place.
+fn base_name(key: Key, physical: Option<Key>) -> Option<String> {
     physical.and_then(key_name).or_else(|| key_name(key))
 }
 
@@ -365,8 +357,7 @@ fn read_strokes(strokes: &[Stroke], held: &mut Held, tapped: &[&'static str]) ->
                     Some(at) => Some(tapped.remove(at)),
                     None => number_block_guess(key, physical),
                 };
-                let modified = modifiers.shift || modifiers.ctrl || modifiers.alt;
-                let Some(base) = block.map(str::to_string).or_else(|| base_name(key, physical, modified)) else {
+                let Some(base) = block.map(str::to_string).or_else(|| base_name(key, physical)) else {
                     continue;
                 };
                 read.names.push(joined(&modifier_prefix(modifiers, &held.down), &base));
@@ -1071,9 +1062,9 @@ mod tests {
         // Shift makes `/` of the 7 on a German layout: the place counts, not the sign.
         let seven = [down(Key::ShiftLeft, Key::ShiftLeft, SHIFT), down(Key::Slash, Key::Num7, SHIFT)];
         assert_eq!(names(&seven, &[]), ["lshift+7"]);
-        // A letter keeps its sign.
+        // A letter is taken by its place, too.
         let z = [down(Key::ShiftLeft, Key::ShiftLeft, SHIFT), down(Key::Z, Key::Y, SHIFT)];
-        assert_eq!(names(&z, &[]), ["lshift+z"]);
+        assert_eq!(names(&z, &[]), ["lshift+y"]);
         // Cut, copy and paste come without their key.
         let mut held = Held::default();
         read_strokes(&[down(Key::ControlLeft, Key::ControlLeft, CTRL)], &mut held, &[]);
@@ -1082,6 +1073,19 @@ mod tests {
         read_strokes(&[down(Key::ShiftRight, Key::ShiftRight, SHIFT)], &mut held, &[]);
         assert_eq!(read_strokes(&[Stroke::Clipboard(Clip::Cut)], &mut held, &[]).names, ["rshift+delete"]);
         assert_eq!(names(&[Stroke::Clipboard(Clip::Paste)], &[]), ["lctrl+v"]);
+    }
+
+    #[test]
+    fn a_key_is_named_by_its_place_not_by_the_sign_on_the_cap() {
+        // German layout: the key on the place of `y` makes `Z`, the one on the place of `z` makes `Y`.
+        assert_eq!(names(&[down(Key::Z, Key::Y, NONE)], &[]), ["y"]);
+        assert_eq!(names(&[down(Key::Y, Key::Z, NONE)], &[]), ["z"]);
+        // `Ö` sits on the place of the semicolon, `ß` on the one of the minus.
+        assert_eq!(names(&[down(Key::Semicolon, Key::Semicolon, NONE)], &[]), ["semicolon"]);
+        assert_eq!(names(&[down(Key::Minus, Key::Minus, NONE)], &[]), ["minus"]);
+        // No place from the toolkit: the sign is taken.
+        let no_place = [Stroke::Down { key: Key::Z, physical: None, modifiers: NONE }];
+        assert_eq!(names(&no_place, &[]), ["z"]);
     }
 
     #[test]

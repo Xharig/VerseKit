@@ -88,7 +88,13 @@ fn a_file_of_another_format_gives_no_equipment() {
 #[test]
 fn the_choice_goes_through_the_settings_and_the_fitting_comes_from_the_hangar() {
     let lasers = vec![Chosen { head: "h2".into(), modules: vec!["rieger".into(), "focus".into()] }];
-    let choice = Choice { ship: "MOLE\u{1f}Argo\u{1f}0".into(), lasers: lasers.clone(), gadget: "sabir".into(), active: "surge".into() };
+    let choice = Choice {
+        ship: "MOLE\u{1f}Argo\u{1f}0".into(),
+        lasers: lasers.clone(),
+        gadget: "sabir".into(),
+        active: "surge".into(),
+        ..Choice::default()
+    };
     let values = choice.setting_values();
     assert!(values.iter().all(|(k, _)| *k != "stein_laser"), "the fitting is not kept twice");
     let get = |key: &str| values.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone());
@@ -165,6 +171,7 @@ fn the_choice_turns_into_the_numbers_of_the_answer() {
         ],
         gadget: "sabir".into(),
         active: "surge".into(),
+        ..Choice::default()
     };
     let loadout = choice.loadout(&gear);
     assert_eq!(loadout.lasers.len(), 1, "an unknown head is left out");
@@ -178,6 +185,37 @@ fn the_choice_turns_into_the_numbers_of_the_answer() {
     assert!((all.resistance - 0.7 * 0.9 * 0.5 * 0.85).abs() < 1e-9);
     let rock = Rock { mass: Some(20_000.0), resistance: Some(40.0), instability: None };
     assert!(matches!(assess(&rock, &loadout), Verdict::Known(_)));
+}
+
+#[test]
+fn a_laser_switched_off_does_not_fire_and_the_choice_keeps_it_per_ship() {
+    let gear = Gear::from_values(Some(&equipment()), None);
+    let two = vec![
+        Chosen { head: "h2".into(), modules: vec![] },
+        Chosen { head: "h1".into(), modules: vec![] },
+    ];
+    let mut choice = Choice { ship: "MOLE\u{1f}Argo\u{1f}0".into(), lasers: two, ..Choice::default() };
+    assert!(choice.fires(0) && choice.fires(1), "every laser fires until one is switched off");
+    choice.set_fires(1, false);
+    let loadout = choice.loadout(&gear);
+    assert_eq!((loadout.lasers.len(), loadout.idle), (1, 1));
+    let values = choice.setting_values();
+    let get = |key: &str| values.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone());
+    let back = Choice { lasers: choice.lasers.clone(), ..Choice::default() }
+        .with_idle(get(keys::IDLE));
+    let back = Choice { ship: choice.ship.clone(), ..back };
+    assert!(back.fires(0) && !back.fires(1), "kept through the settings");
+    let other = Choice { ship: "Prospector\u{1f}MISC\u{1f}0".into(), ..back.clone() };
+    assert!(other.fires(1), "the choice belongs to its ship");
+    let mut on_again = back;
+    on_again.set_fires(1, true);
+    assert_eq!(on_again.loadout(&gear).idle, 0);
+}
+
+#[test]
+fn a_head_loses_the_words_mining_laser_in_the_line() {
+    assert_eq!(short_head_name("Helix II Mining Laser"), "Helix II");
+    assert_eq!(short_head_name("Arbor MH1"), "Arbor MH1");
 }
 
 #[test]

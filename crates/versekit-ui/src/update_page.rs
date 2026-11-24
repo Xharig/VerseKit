@@ -28,11 +28,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use egui::{Frame, Margin, RichText, Sense, Stroke, Ui, UiBuilder};
 use versekit_core::auto_update;
+use versekit_core::beta::{self, Problem, Stage, Status};
 use versekit_core::language::{Arg, t, tf};
 use versekit_core::net::Fake;
 use versekit_core::paths::Paths;
 use versekit_core::theme::Scheme;
-use versekit_core::update_flow::{Env, NoBackup, Runner, State};
+use versekit_core::update_flow::{Env, Fetch, NoBackup, Runner, State};
 use versekit_core::update_run;
 use versekit_core::update_swap::Started;
 use versekit_core::updater::{self, Packaging, Release};
@@ -47,8 +48,8 @@ const READ_SECONDS: f64 = 60.0;
 /// How often the open page asks GitHub, in seconds: with the look of the thread of the overlay (every ten
 /// minutes) at most eighteen of the sixty requests an hour GitHub allows.
 const LOOK_SECONDS: f64 = 5.0 * 60.0;
-/// Below this width the two boxes of the channels stand one below the other.
-const NARROW: f32 = 620.0;
+/// Below this width the three boxes of the channels stand one below the other.
+const NARROW: f32 = 900.0;
 /// The picture of the program on the card.
 const LOGO: f32 = 48.0;
 /// The inner margin of the box of a channel.
@@ -85,7 +86,12 @@ impl Channel {
     /// The newest release of the channel in `releases`, whatever runs: from a test version the way back to the
     /// finished one stays open. `source`: the running program is a build of the source, which no fetch replaces.
     pub fn of(releases: &[Release], with_prerelease: bool, own: &str, source: bool) -> Channel {
-        let Some(release) = updater::latest(releases, with_prerelease) else { return Channel::default() };
+        Channel::of_release(updater::latest(releases, with_prerelease), own, source)
+    }
+
+    /// The box of `release` (the newest of its channel), if one is known.
+    pub fn of_release(release: Option<&Release>, own: &str, source: bool) -> Channel {
+        let Some(release) = release else { return Channel::default() };
         let relation = if versekit_core::update_flow::same_version(&release.version, own) {
             Relation::Same
         } else if source {
@@ -130,6 +136,8 @@ pub struct View {
     pub newer: Option<String>,
     pub stable: Channel,
     pub test: Channel,
+    /// The beta the stored code opens; nothing known on the other stages.
+    pub beta: Channel,
 }
 
 impl View {
@@ -140,15 +148,50 @@ impl View {
             newer: updater::best_newer(releases, own, with_prerelease).map(|r| r.version.clone()),
             stable: Channel::of(releases, false, own, source),
             test: Channel::of(releases, true, own, source),
+            beta: Channel::default(),
         }
     }
 
+    /// The view with the unlocked beta `beta` (only on the stage „Betatester“): its box, and the version the head
+    /// button and the bar name when it is newer than the one there.
+    pub fn with_beta(mut self, beta: Option<&Release>, own: &str, source: bool) -> View {
+        self.beta = Channel::of_release(beta, own, source);
+        if let Some(beta) = beta
+            && versekit_core::version::is_newer(&beta.version, own)
+            && self.newer.as_deref().is_none_or(|newer| versekit_core::version::is_newer(&beta.version, newer))
+        {
+            self.newer = Some(beta.version.clone());
+        }
+        self
+    }
+
     /// Does the newest release of the channel the head button fetches from run already, or an even newer version?
-    /// Then it has nothing to fetch.
+    /// Then it has nothing to fetch. The unlocked beta counts when it is newer.
     pub fn runs_newest(&self) -> bool {
         let channel = if HEAD_FETCH_PRERELEASE { &self.test } else { &self.stable };
         matches!(channel.relation, Relation::Same | Relation::Older | Relation::Ahead)
+            && self.beta.relation != Relation::Newer
     }
+}
+
+/// What a check of the code found, for the line under the field.
+#[derive(Default)]
+struct CodeSlot {
+    running: bool,
+    /// The look at GitHub failed: the line says so.
+    result: Option<Result<(), String>>,
+}
+
+/// The line of the beta box for what is known of the code.
+pub fn status_text(status: &Status) -> Option<String> {
+    Some(match status {
+        Status::Off => return None,
+        Status::NoCode => t("s_ub_beta_ohne_code"),
+        Status::NoBeta => t("s_ub_beta_keine"),
+        Status::Unchecked => t("s_ub_beta_ungeprueft"),
+        Status::Fits(tag) => tf("s_ub_beta_passt", &[("0", Arg::from(updater::shown_version(tag)))]),
+        Status::Problem(problem) => problem.message(),
+    })
 }
 
 /// What a look at GitHub found.
@@ -182,7 +225,7 @@ struct Question {
     version: String,
     /// The game runs: the window closes for a moment, the game goes on, and „after the game“ is the other way.
     playing: bool,
-    with_prerelease: bool,
+    fetch: Fetch,
 }
 
 /// What opening the question led to.
@@ -199,10 +242,12 @@ pub enum Begin {
 /// What the page asks the window to do.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PageOut {
-    /// Fetch the newest version; `true`: test versions count too.
-    pub fetch: Option<bool>,
-    /// A box was chosen: test versions on or off.
-    pub channel: Option<bool>,
+    /// Fetch the newest version of what is asked for.
+    pub fetch: Option<Fetch>,
+    /// A box was chosen: the stage.
+    pub channel: Option<Stage>,
+    /// „Check code“ was clicked: what is in the field.
+    pub check_code: Option<String>,
     pub news: bool,
     pub setup: bool,
     pub copy: bool,
@@ -216,8 +261,8 @@ pub struct Facts<'a> {
     pub known: usize,
     pub have: usize,
     pub folder: &'a str,
-    /// The setting: test versions on.
-    pub test_on: bool,
+    /// The stage of updating.
+    pub stage: Stage,
 }
 
 /// The state of updating in the window.
@@ -238,6 +283,15 @@ pub struct UpdateUi {
     manual_wait: Option<f64>,
     /// Since when a newer version is on offer and not installed (`auto_update::offered_since`), as of the last read.
     offered_since: Option<f64>,
+    /// What is in the field of the beta code. ⚠ Emptied as soon as the code is stored.
+    code_input: String,
+    /// What is known of the stage „Betatester“ and the code, as of the last read.
+    beta_status: Status,
+    /// The stored code with only its first four characters shown.
+    code_masked: Option<String>,
+    /// A line under the field of the code that is not the status (a code in the wrong form, no net).
+    code_note: Option<String>,
+    code_slot: Arc<Mutex<CodeSlot>>,
 }
 
 /// An environment that fetches nothing: the pages of a window without an updater (and every check of this
@@ -277,6 +331,67 @@ impl UpdateUi {
             backup_question: None,
             manual_wait: None,
             offered_since: None,
+            code_input: String::new(),
+            beta_status: Status::Off,
+            code_masked: None,
+            code_note: None,
+            code_slot: Arc::default(),
+        }
+    }
+
+    /// Is the code being checked right now?
+    pub fn checking_code(&self) -> bool {
+        self.code_slot.lock().unwrap_or_else(PoisonError::into_inner).running
+    }
+
+    /// The click on „check code“: a code in the right form is stored (the field is emptied), then GitHub is asked
+    /// for the beta and its key ring in a thread of its own. A code in the wrong form is not stored; the line says
+    /// why. ⚠ The code goes nowhere but into the settings of this computer.
+    pub fn check_code(&mut self, ctx: &egui::Context, paths: &Paths, typed: &str) {
+        let Some(code) = beta::Code::parse(typed) else {
+            self.code_note = Some(t("s_ub_beta_form"));
+            return;
+        };
+        self.code_input.clear();
+        // The stage is written at once too: the look below asks the settings, and the window writes its own later.
+        let stored = paths.set_setting(beta::SETTING_ON, versekit_core::jsonio::Value::Bool(true))
+            && beta::save_code(paths, &code);
+        if !stored {
+            self.code_note = Some(t("s_ub_beta_nicht_gespeichert"));
+            return;
+        }
+        self.code_note = None;
+        {
+            let mut slot = self.code_slot.lock().unwrap_or_else(PoisonError::into_inner);
+            if slot.running {
+                return;
+            }
+            slot.running = true;
+        }
+        let (net, own, host) = (self.env.net.clone(), self.env.own_version.clone(), paths.host.clone());
+        let (slot, ctx2) = (self.code_slot.clone(), ctx.clone());
+        let spawned = std::thread::Builder::new().name("beta-code".into()).spawn_with_language(move || {
+            let paths = Paths::new(host);
+            // The list is asked anew (the betas are kept only while the stage is on), then the key ring is tried.
+            updater::check(&*net, &paths, &own, true, updater::now());
+            let result = beta::refresh(&*net, &paths, false).map(|_| ());
+            let mut slot = slot.lock().unwrap_or_else(PoisonError::into_inner);
+            slot.running = false;
+            slot.result = Some(result);
+            ctx2.request_repaint();
+        });
+        if spawned.is_err() {
+            self.code_slot.lock().unwrap_or_else(PoisonError::into_inner).running = false;
+        }
+        ctx.request_repaint();
+    }
+
+    /// The result of a check of the code, once it is there: the boxes are read again.
+    fn take_code_result(&mut self, ctx: &egui::Context, paths: &Paths, now: f64, stage: Stage) {
+        let result = self.code_slot.lock().unwrap_or_else(PoisonError::into_inner).result.take();
+        if let Some(result) = result {
+            self.code_note = result.err().map(|_| t("s_ub_beta_netz"));
+            self.refresh(ctx, paths, now, true, stage);
         }
     }
 
@@ -301,12 +416,17 @@ impl UpdateUi {
 
     /// The channel of the button in the head: a test version runs, or the setting asks for test versions
     /// (`test_on`).
-    pub fn wants_prerelease(&self, test_on: bool) -> bool {
-        is_prerelease(&self.env.own_version) || test_on
+    pub fn wants_prerelease(&self, stage: Stage) -> bool {
+        is_prerelease(&self.env.own_version) || stage.with_prerelease()
+    }
+
+    /// What a fetch of the newest version asks for on `stage`: the beta only on the stage „Betatester“.
+    fn fetch_for(&self, stage: Stage) -> Fetch {
+        Fetch { with_prerelease: self.wants_prerelease(stage), beta: stage == Stage::Beta, without_backup: false }
     }
 
     /// The remembered list, read again when a minute has passed (or `force`). The repaint comes by itself.
-    pub fn refresh(&mut self, ctx: &egui::Context, paths: &Paths, now: f64, force: bool, test_on: bool) {
+    pub fn refresh(&mut self, ctx: &egui::Context, paths: &Paths, now: f64, force: bool, stage: Stage) {
         ctx.request_repaint_after(std::time::Duration::from_secs_f64(READ_SECONDS));
         if !force && self.read_at.is_some_and(|at| now - at < READ_SECONDS) {
             return;
@@ -314,7 +434,15 @@ impl UpdateUi {
         self.read_at = Some(now);
         self.releases = updater::cache_read(paths).releases;
         let source = updater::packaging(self.env.appimage.as_deref(), &self.env.own_version) == Packaging::Source;
-        self.view = View::of(&self.releases, &self.env.own_version, self.wants_prerelease(test_on), source);
+        let beta_on = stage == Stage::Beta;
+        self.beta_status = beta::status_for(paths, beta_on);
+        self.code_masked = if beta_on { beta::stored_code(paths).map(|code| code.masked()) } else { None };
+        let unlocked = beta::unlocked_for(paths, beta_on);
+        self.view = View::of(&self.releases, &self.env.own_version, self.wants_prerelease(stage), source).with_beta(
+            unlocked.as_ref(),
+            &self.env.own_version,
+            source,
+        );
         // The same offer as the thread of the overlay counts, so that both keep the same moment.
         let offered = updater::known_newer(paths, &self.env.own_version).is_some();
         self.offered_since = auto_update::offered_since(paths, &self.env.own_version, offered, updater::now());
@@ -365,17 +493,17 @@ impl UpdateUi {
 
     /// Fetches the newest version of the channel. Otherwise the sentence that says why not: a fetch is under way,
     /// or a download failed a moment ago.
-    pub fn start(&mut self, paths: &Paths, with_prerelease: bool) -> Result<(), String> {
+    pub fn start(&mut self, paths: &Paths, fetch: Fetch) -> Result<(), String> {
         self.manual_wait = update_run::manual_wait_left(paths, updater::now());
         if let Some(why) = self.held() {
             return Err(why);
         }
-        if self.runner.start(&self.env, paths.host.clone(), with_prerelease) { Ok(()) } else { Err(t("up_laeuft_schon")) }
+        if self.runner.start_fetch(&self.env, paths.host.clone(), fetch) { Ok(()) } else { Err(t("up_laeuft_schon")) }
     }
 
     /// The click on „update“ in the bar: the question before the version is installed. A build of the source
     /// asks nothing (`git pull` is its way).
-    pub fn begin(&mut self, test_on: bool) -> Begin {
+    pub fn begin(&mut self, stage: Stage) -> Begin {
         let Some(version) = self.view.newer.as_deref().map(updater::shown_version).map(str::to_string) else {
             return Begin::Nothing;
         };
@@ -383,7 +511,7 @@ impl UpdateUi {
             return Begin::Source;
         }
         let playing = (self.env.game_running)();
-        self.question = Some(Question { version, playing, with_prerelease: self.wants_prerelease(test_on) });
+        self.question = Some(Question { version, playing, fetch: self.fetch_for(stage) });
         Begin::Asked
     }
 
@@ -414,7 +542,7 @@ impl UpdateUi {
         });
         if anyway_clicked {
             self.backup_question = None;
-            let started = self.runner.start_without_backup(&self.env, paths.host.clone(), asked.with_prerelease);
+            let started = self.runner.start_again_without_backup(&self.env, paths.host.clone(), &asked);
             return (!started).then(|| t("up_laeuft_schon"));
         }
         if no_clicked {
@@ -454,7 +582,7 @@ impl UpdateUi {
         });
         if now_clicked {
             self.question = None;
-            if let Err(why) = self.start(paths, question.with_prerelease) {
+            if let Err(why) = self.start(paths, question.fetch) {
                 return Some(why);
             }
         } else if other_clicked {
@@ -467,7 +595,11 @@ impl UpdateUi {
 
     /// Looks at GitHub from the open page: at once when the page opens, then every five minutes, in a thread of
     /// its own. The result shows in the boxes (the list is read again) and, if it went wrong, in a line.
-    pub fn look(&mut self, ctx: &egui::Context, paths: &Paths, now: f64, test_on: bool) {
+    pub fn look(&mut self, ctx: &egui::Context, paths: &Paths, now: f64, stage: Stage) {
+        self.take_code_result(ctx, paths, now, stage);
+        if self.checking_code() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
+        }
         self.manual_wait = update_run::manual_wait_left(paths, updater::now());
         if self.manual_wait.is_some() {
             // The seconds on the hint count down.
@@ -479,7 +611,7 @@ impl UpdateUi {
         };
         if let Some(look) = finished {
             self.note = Some(look);
-            self.refresh(ctx, paths, now, true, test_on);
+            self.refresh(ctx, paths, now, true, stage);
         }
         let starting = {
             let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
@@ -536,7 +668,11 @@ impl UpdateUi {
                 .icon("download")
                 .blocked(fetch_blocked.as_deref());
             if ui.add(fetch).clicked() {
-                out.fetch = Some(HEAD_FETCH_PRERELEASE);
+                out.fetch = Some(Fetch {
+                    with_prerelease: HEAD_FETCH_PRERELEASE,
+                    beta: facts.stage == Stage::Beta,
+                    without_backup: false,
+                });
             }
             if packaging == Packaging::Source {
                 ui.add_space(4.0);
@@ -559,7 +695,7 @@ impl UpdateUi {
         ui.add_space(GAP);
         widgets::card(ui, scheme, |ui| {
             ui.set_width(ui.available_width());
-            self.channels(ui, scheme, facts.test_on, held.as_deref(), &mut out);
+            self.channels(ui, scheme, facts.stage, held.as_deref(), &mut out);
             if let Some(note) = self.note.and_then(|look| look.note()) {
                 ui.add_space(GAP);
                 small(ui, &note, color(scheme.yellow));
@@ -568,38 +704,49 @@ impl UpdateUi {
         out
     }
 
-    fn channels(&self, ui: &mut Ui, scheme: &Scheme, on: bool, held: Option<&str>, out: &mut PageOut) {
+    fn channels(&mut self, ui: &mut Ui, scheme: &Scheme, stage: Stage, held: Option<&str>, out: &mut PageOut) {
         widgets::card_title(ui, scheme, &t("s_ub_kanal"));
         small(ui, &t("s_ub_kanal_h"), color(scheme.sub));
         ui.add_space(6.0);
         let stable = BoxTexts { title: t("s_ub_fertig"), hint: t("s_ub_fertig_h"), mark: None };
         let test = BoxTexts { title: t("s_ub_test"), hint: t("s_ub_test_h"), mark: Some("rc") };
-        let mut boxes = [(stable, &self.view.stable, !on, false), (test, &self.view.test, on, true)];
-        // Both boxes are as tall as the taller one was in the frame before: the height its content asks for,
+        let beta = BoxTexts { title: t("s_ub_beta"), hint: t("s_ub_beta_h"), mark: Some("beta") };
+        let boxes = [
+            (stable, self.view.stable.clone(), Stage::Stable),
+            (test, self.view.test.clone(), Stage::Test),
+            (beta, self.view.beta.clone(), Stage::Beta),
+        ];
+        // All boxes are as tall as the tallest one was in the frame before: the height its content asks for,
         // frame and stroke included, never the height that was drawn (that would grow by the frame every frame).
         let height_id = ui.scope_id().with("kasten-hoehe");
         let height: f32 = ui.data(|d| d.get_temp(height_id)).unwrap_or(0.0);
         let mut taller = 0.0_f32;
+        let mut draw = |ui: &mut Ui, (texts, channel, own): &(BoxTexts, Channel, Stage), out: &mut PageOut| {
+            let shape = BoxShape { stage: *own, chosen: stage == *own, held, min_height: height };
+            let shown = channel_box(ui, scheme, texts, channel, &shape, out, &mut |ui, out| {
+                if *own == Stage::Beta && stage == Stage::Beta {
+                    self.code_area(ui, scheme, out);
+                }
+            });
+            taller = taller.max(shown);
+        };
         if ui.available_width() >= NARROW {
             ui.scope(|ui| {
                 // egui widens the row by what the widest column takes beyond its share; one point spare keeps a
                 // rounded box inside the card.
                 ui.set_max_width(ui.available_width() - 1.0);
-                ui.columns(2, |columns| {
-                    for (column, (texts, channel, chosen, with_prerelease)) in columns.iter_mut().zip(&mut boxes) {
-                        let shown =
-                            channel_box(column, scheme, texts, channel, *chosen, held, *with_prerelease, height, out);
-                        taller = taller.max(shown);
+                ui.columns(boxes.len(), |columns| {
+                    for (column, one) in columns.iter_mut().zip(&boxes) {
+                        draw(column, one, out);
                     }
                 });
             });
         } else {
-            for (i, (texts, channel, chosen, with_prerelease)) in boxes.iter_mut().enumerate() {
+            for (i, one) in boxes.iter().enumerate() {
                 if i > 0 {
                     ui.add_space(GAP);
                 }
-                let shown = channel_box(ui, scheme, texts, channel, *chosen, held, *with_prerelease, height, out);
-                taller = taller.max(shown);
+                draw(ui, one, out);
             }
         }
         ui.data_mut(|d| d.insert_temp(height_id, taller));
@@ -607,6 +754,62 @@ impl UpdateUi {
             ui.ctx().request_repaint();
         }
     }
+
+    /// The code in the box „Betatester“ while that stage is chosen: the stored code with only its first four
+    /// characters, the field (hidden like a password: the window may be on a stream), „check code“ with the
+    /// spinner while it runs, and what is known.
+    fn code_area(&mut self, ui: &mut Ui, scheme: &Scheme, out: &mut PageOut) {
+        ui.add_space(6.0);
+        if let Some(masked) = &self.code_masked {
+            small(ui, &tf("s_ub_beta_gespeichert", &[("0", Arg::from(masked.as_str()))]), color(scheme.sub));
+            ui.add_space(4.0);
+        }
+        let hint = t("s_ub_beta_feld_h");
+        let field = widgets::text_field(&mut self.code_input, &hint, scheme)
+            .password(true)
+            .desired_width(ui.available_width())
+            .char_limit(40);
+        let field = ui.add(field);
+        let name = t("s_ub_beta_code");
+        field.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, &name));
+        let entered = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+        ui.add_space(4.0);
+        let checking = self.checking_code();
+        let word = t("s_ub_beta_pruefen");
+        let blocked = checking.then(|| t("s_ub_beta_prueft"));
+        let button = widgets::Button::new(&word, ButtonKind::Normal, scheme)
+            .icon("shield-check")
+            .wrapping()
+            .blocked(blocked.as_deref());
+        if (ui.add(button).clicked() || entered) && !checking && !self.code_input.trim().is_empty() {
+            out.check_code = Some(self.code_input.clone());
+        }
+        ui.add_space(4.0);
+        if checking {
+            widgets::loading(ui, scheme, &t("s_ub_beta_prueft"));
+        } else if let Some(note) = &self.code_note {
+            small(ui, note, color(scheme.yellow));
+        } else if let Some(text) = status_text(&self.beta_status) {
+            let tone = match self.beta_status {
+                Status::Fits(_) => scheme.accent,
+                Status::Problem(Problem::Damaged | Problem::Foreign | Problem::WrongCode | Problem::NotInRound) => {
+                    scheme.yellow
+                }
+                _ => scheme.sub,
+            };
+            small(ui, &text, color(tone));
+        }
+    }
+}
+
+/// Where a box of a channel stands.
+struct BoxShape<'a> {
+    /// The stage the box chooses.
+    stage: Stage,
+    chosen: bool,
+    held: Option<&'a str>,
+    /// The height the box is to have at least, frame included.
+    min_height: f32,
 }
 
 /// The words of the box of a channel.
@@ -667,18 +870,18 @@ fn box_frame_height(stroke: f32) -> f32 {
 /// (and only if there is something to fetch: a statement that looks like a button must not act like one).
 /// `min_height`: the height the box is to have at least, frame included. Returns the height its own content asks
 /// for, frame included, so that the caller can bring both boxes to the taller one.
-#[allow(clippy::too_many_arguments)]
+/// `extra` draws what a box has beyond the others (the code of the beta box).
 fn channel_box(
     ui: &mut Ui,
     scheme: &Scheme,
     texts: &BoxTexts,
     channel: &Channel,
-    chosen: bool,
-    held: Option<&str>,
-    with_prerelease: bool,
-    min_height: f32,
+    shape: &BoxShape<'_>,
     out: &mut PageOut,
+    extra: &mut dyn FnMut(&mut Ui, &mut PageOut),
 ) -> f32 {
+    let BoxShape { stage, chosen, held, min_height } = *shape;
+    let fetch = Fetch { with_prerelease: stage != Stage::Stable, beta: stage == Stage::Beta, without_backup: false };
     let id = ui.scope_id().with(("kasten", &texts.title));
     let hovered = was_hovered(ui, id);
     let stroke = Stroke::new(if chosen { 2.0 } else { 1.0 }, color(if chosen { scheme.accent } else { scheme.line }));
@@ -712,11 +915,13 @@ fn channel_box(
                             .wrapping()
                             .blocked(held);
                         if ui.add(button).clicked() {
-                            out.fetch = Some(with_prerelease);
+                            out.fetch = Some(fetch);
                         }
-                    } else {
+                    } else if stage != Stage::Beta || channel.relation != Relation::Unknown {
+                        // The beta box says under the code what is known; „no version known“ would say less.
                         small(ui, &channel.label(), color(scheme.sub));
                     }
+                    extra(ui, out);
                 });
                 // The content is measured on its own: the room that is added below must not count as content.
                 let asked = content.response.rect.height();
@@ -730,8 +935,8 @@ fn channel_box(
     response.widget_info(|| egui::WidgetInfo::selected(egui::Role::RadioButton, true, chosen, &texts.title));
     remember_rect(ui, id, response.rect);
     widgets::focus_ring(ui, &response, scheme, control_radius(scheme));
-    if response.clicked() && out.fetch.is_none() && !chosen {
-        out.channel = Some(with_prerelease);
+    if response.clicked() && out.fetch.is_none() && out.check_code.is_none() && !chosen {
+        out.channel = Some(stage);
     }
     #[cfg(test)]
     tests::DRAWN_BOXES.with(|boxes| boxes.borrow_mut().push(response.rect.height()));
@@ -771,7 +976,7 @@ mod tests {
     /// The page for `frames` frames in a window `width` wide: the height of the page and of both boxes, per frame.
     fn frames(ui_state: &mut UpdateUi, width: f32, frames: usize) -> Vec<(f32, Vec<f32>)> {
         let ctx = egui::Context::default();
-        let facts = Facts { version: "5.0.0-dev", known: 1602, have: 444, folder: "E:\\Daten", test_on: false };
+        let facts = Facts { version: "5.0.0-dev", known: 1602, have: 444, folder: "E:\\Daten", stage: Stage::Beta };
         let mut drawn = Vec::new();
         for _ in 0..frames {
             DRAWN_BOXES.with(|boxes| boxes.borrow_mut().clear());
@@ -809,7 +1014,7 @@ mod tests {
             for width in [1200.0, 650.0, 500.0] {
                 let drawn = frames(&mut stocked("5.0.0-dev"), width, 60);
                 let first = &drawn[0];
-                assert_eq!(first.1.len(), 2, "both boxes are drawn at {width}");
+                assert_eq!(first.1.len(), 3, "all three boxes are drawn at {width}");
                 // The first frame knows no height from before: each box is as tall as its own content.
                 let content = first.1.iter().copied().fold(0.0_f32, f32::max);
                 assert!(content > 40.0, "a box has content: {first:?}");

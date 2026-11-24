@@ -844,6 +844,7 @@ fn queue_rows(ui: &mut Ui, scheme: &Scheme, open: &[QueueEntry], to_approve: &[Q
         }
         widgets::list_frame(ui, scheme, |list| {
             list.set_width(list.available_width());
+            let config = versekit_core::basetool::config::Config::current();
             for entry in entries {
                 list.horizontal_wrapped(|row| {
                     row.label(RichText::new(kind_text(&entry.kind)).color(color(scheme.fg)));
@@ -853,7 +854,7 @@ fn queue_rows(ui: &mut Ui, scheme: &Scheme, open: &[QueueEntry], to_approve: &[Q
                     }
                     row.label(sub(scheme, handle(entry.requester.as_deref())));
                     row.label(sub(scheme, tf("s_bank_alter", &[("0", Arg::Int(entry.age_hours))])));
-                    if !entry.link.is_empty()
+                    if let Some(link) = entry.safe_link(&config)
                         && row
                             .add(
                                 widgets::Button::new(&t("s_bank_im_basetool"), ButtonKind::Normal, scheme)
@@ -861,7 +862,7 @@ fn queue_rows(ui: &mut Ui, scheme: &Scheme, open: &[QueueEntry], to_approve: &[Q
                             )
                             .clicked()
                     {
-                        versekit_core::browser::open_in_browser(&entry.link);
+                        versekit_core::browser::open_in_browser(&link);
                     }
                 });
                 if !entry.justification.is_empty() {

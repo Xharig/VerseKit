@@ -1,0 +1,25 @@
+{
+  "dryRun": true,
+  "ops": [
+    {
+      "opId": "gu1",
+      "op": "good-update",
+      "id": "3f1c2b4a-6d5e-4a7b-8c9d-0e1f2a3b4c5d",
+      "versions": {
+        "gameData": 4
+      },
+      "goodId": "5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+      "outputQuantity": 950,
+      "quality": 680
+    },
+    {
+      "opId": "gr1",
+      "op": "good-remove",
+      "id": "3f1c2b4a-6d5e-4a7b-8c9d-0e1f2a3b4c5d",
+      "versions": {
+        "gameData": 5
+      },
+      "goodId": "6b7c8d9e-0f1a-4b2c-9d3e-4f5a6b7c8d9e"
+    }
+  ]
+}

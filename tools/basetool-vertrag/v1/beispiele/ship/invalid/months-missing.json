@@ -8,5 +8,6 @@
   "insurance": {
     "kind": "MONTHS"
   },
+  "origin": "UNKNOWN",
   "fitted": false
 }

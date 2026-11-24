@@ -1,0 +1,124 @@
+{
+  "patchChange": {
+    "id": "3f0c2b1a-9e8d-4c7b-a6f5-e4d3c2b1a098",
+    "label": "4.4",
+    "kind": "REBUILD",
+    "liveAt": "2026-11-12T18:00:00Z",
+    "options": {
+      "wipeGroups": [
+        {
+          "group": "CONSUMABLES",
+          "selected": true,
+          "types": [
+            {
+              "source": "ITEM_SUB_TYPE",
+              "value": "WeaponAttachment:Magazine"
+            },
+            {
+              "source": "ITEM_TYPE",
+              "value": "Food"
+            },
+            {
+              "source": "ITEM_KIND",
+              "value": "FOOD"
+            }
+          ]
+        },
+        {
+          "group": "MATERIALS_RAW",
+          "selected": false,
+          "types": [
+            {
+              "source": "MATERIAL_TYPE",
+              "value": "RAW"
+            }
+          ]
+        },
+        {
+          "group": "OTHER_ITEMS",
+          "selected": false,
+          "types": []
+        },
+        {
+          "group": "IN_GAME_SHIPS",
+          "selected": false,
+          "types": [
+            {
+              "source": "SHIP_ORIGIN",
+              "value": "IN_GAME"
+            }
+          ]
+        }
+      ],
+      "wipeExceptions": [
+        {
+          "entry": {
+            "bt": "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+            "name": "MedPen (Hemozal)"
+          },
+          "target": "GAME_ITEM",
+          "mode": "KEEP"
+        }
+      ],
+      "cancelRefineryOrders": true,
+      "currencyWipe": false,
+      "homeLocationPrompt": true
+    }
+  },
+  "homeLocation": {
+    "state": "PENDING",
+    "patchChange": {
+      "id": "3f0c2b1a-9e8d-4c7b-a6f5-e4d3c2b1a098",
+      "label": "4.4"
+    },
+    "liveAt": "2026-11-12T18:00:00Z",
+    "locations": [
+      {
+        "id": "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e",
+        "name": "Area18",
+        "system": "Stanton",
+        "uex": {
+          "kind": "CITY",
+          "id": 2
+        }
+      },
+      {
+        "id": "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+        "name": "Lorville",
+        "system": "Stanton",
+        "uex": {
+          "kind": "CITY",
+          "id": 4
+        },
+        "guid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+      }
+    ],
+    "preview": [
+      {
+        "location": {
+          "name": "Port Tressler",
+          "uex": {
+            "kind": "SPACE_STATION",
+            "id": 9
+          }
+        },
+        "rows": 12,
+        "pools": [
+          {
+            "orgUnit": {
+              "id": "0c2f8a51-7d3e-4b9a-9f10-5a6b7c8d9e01",
+              "name": "Staffel Nord"
+            },
+            "rows": 4
+          }
+        ],
+        "ships": 2
+      },
+      {
+        "rows": 0,
+        "pools": [],
+        "ships": 1
+      }
+    ]
+  }
+}

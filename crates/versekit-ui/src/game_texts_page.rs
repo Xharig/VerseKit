@@ -94,6 +94,8 @@ pub struct GameTextsState {
     /// The notes were switched on or off while a step ran.
     settle_after: bool,
     busy: bool,
+    /// The game folder of the card whose source is being fetched now (the card shows what happens).
+    working: Option<String>,
     said: Option<(String, bool)>,
     question: Option<Question>,
     custom: Vec<(String, Custom)>,
@@ -129,6 +131,7 @@ impl Default for GameTextsState {
             apply_after: false,
             settle_after: false,
             busy: false,
+            working: None,
             said: None,
             question: None,
             custom: Vec::new(),
@@ -275,6 +278,7 @@ impl GameTextsState {
     /// another tool's and looks once (`game_texts::watch`).
     fn finish(&mut self) {
         self.busy = false;
+        self.working = None;
         self.status = None;
     }
 
@@ -413,6 +417,8 @@ impl GameTextsState {
         {
             keep_following(paths);
         }
+        let was_busy = self.busy;
+        let card = root.clone();
         self.start(move |paths, net, archive, out| {
             let _ =
                 out.send(Message::Progress(tf("s_sp_hole", &[("0", Arg::from(translation::display_name(&source)))])));
@@ -454,6 +460,9 @@ impl GameTextsState {
             };
             let _ = out.send(Message::Done(said.0, said.1));
         });
+        if !was_busy && self.busy {
+            self.working = Some(card);
+        }
     }
 
     /// `pages.check` on a card: look for a new version and fetch it.
@@ -631,7 +640,34 @@ fn hint(ui: &mut Ui, scheme: &Scheme, text: &str) {
     widgets::hint(ui, scheme, text);
 }
 
+/// Under the sources of the card whose source is being fetched: what the step does now (waiting for the game to
+/// close, loading, placing, each as the player reads it) and, when the catalogue is built meanwhile, its bar.
+fn working_line(ui: &mut Ui, scheme: &Scheme, state: &GameTextsState, root: &str) {
+    working_block(ui, scheme, state, root, versekit_core::archive_lock::waiting_for("texts"));
+}
+
+/// [`working_line`] with the answer to "does a reading wait for the game to close" given.
+fn working_block(ui: &mut Ui, scheme: &Scheme, state: &GameTextsState, root: &str, waits: bool) {
+    if !state.busy || state.working.as_deref() != Some(root) {
+        return;
+    }
+    if waits {
+        crate::catalog_progress::waiting_line(ui, scheme, &t("s_ak_wartet"));
+    } else {
+        let text = state.said().filter(|(_, bad)| !bad).map_or_else(|| t("inj_laeuft"), |(text, _)| text.clone());
+        widgets::loading(ui, scheme, &text);
+    }
+    if let Some(snapshot) = versekit_core::build_progress::snapshot() {
+        crate::catalog_progress::strip(ui, scheme, &snapshot);
+    }
+    ui.ctx().request_repaint_after(Duration::from_millis(500));
+}
+
 fn said_line(ui: &mut Ui, scheme: &Scheme, state: &GameTextsState) {
+    // The card of the step that runs says it itself.
+    if state.busy && state.working.is_some() {
+        return;
+    }
     if let Some((text, bad)) = state.said() {
         let tone: Color = if *bad { scheme.red_text() } else { scheme.sub };
         ui.add(egui::Label::new(RichText::new(text).color(color(tone))).wrap());
@@ -1227,6 +1263,7 @@ fn card_body(
             state.choose(&id, channel, root);
         }
     }
+    working_line(c, scheme, state, root);
     c.add_space(4.0);
     let target = if current.is_empty() {
         None
@@ -1606,6 +1643,60 @@ mod tests {
             std::thread::sleep(Duration::from_millis(10));
         }
         panic!("the step did not end");
+    }
+
+    /// The texts a block of the page paints in one frame.
+    fn painted(show: impl FnMut(&mut Ui)) -> Vec<String> {
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 800.0))),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, show);
+        output.textures_delta.clear();
+        output
+            .shapes
+            .iter()
+            .filter_map(|c| match &c.shape {
+                egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The card whose source is fetched says what the fetch does, in the card, and nothing else says it there.
+    #[test]
+    fn the_card_of_a_running_fetch_says_what_it_does() {
+        let game = Game::new("laeuft");
+        let mut state = GameTextsState::with_parts(&game.paths, Arc::new(Fake::default()), Arc::new(game_texts::NoArchive));
+        let scheme = versekit_core::theme::current();
+        let root = game.paths.game_folder().unwrap();
+        let loading = "Deutsch (Dymerz) wird geladen (1.5 MB) …".to_string();
+        let waiting = t("s_ak_wartet");
+        // Nothing runs: nothing is said.
+        let shown = painted(|ui| working_block(ui, scheme, &state, &root, false));
+        assert!(!shown.contains(&loading) && !shown.contains(&waiting), "{shown:?}");
+        state.busy = true;
+        state.working = Some(root.clone());
+        state.said = Some((loading.clone(), false));
+        let shown = painted(|ui| working_block(ui, scheme, &state, &root, false));
+        assert!(shown.contains(&loading), "the step is told in the card: {shown:?}");
+        // The reading waits for the game: that is told instead.
+        let shown = painted(|ui| working_block(ui, scheme, &state, &root, true));
+        assert!(shown.contains(&waiting) && !shown.contains(&loading), "{shown:?}");
+        // Another card says nothing.
+        let shown = painted(|ui| working_block(ui, scheme, &state, "andere/Karte", false));
+        assert!(!shown.contains(&loading), "{shown:?}");
+        // The page puts it into the card of the folder, and the closing line does not repeat it.
+        let page = Page::new();
+        let (nodes, _) = page.frame(&Which::Translation, &mut state, Vec::new());
+        assert!(nodes.iter().any(|(_, label, _)| *label == loading), "in the card of the page");
+        let shown = painted(|ui| said_line(ui, scheme, &state));
+        assert!(!shown.contains(&loading), "the closing line does not repeat it: {shown:?}");
+        state.working = None;
+        let shown = painted(|ui| said_line(ui, scheme, &state));
+        assert!(shown.contains(&loading), "other steps are said by the closing line: {shown:?}");
     }
 
     #[test]
@@ -2304,6 +2395,33 @@ mod tests {
         let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
         let texts = texts_of(&nodes);
         assert!(texts.contains(&"Alt links + X") && state.anti_afk.chord.origin == Origin::Fallback, "{texts:?}");
+    }
+
+    /// The page says that there is a shortcut: the key the overlay registers (in the words of the language shown), or
+    /// that none is set. A key another shortcut holds, one switched off or one the overlay would not take is none.
+    #[test]
+    fn the_anti_afk_block_names_its_shortcut_or_says_that_none_is_set() {
+        use versekit_core::overlay::keys;
+        let game = Game::new("afk-kuerzel");
+        let (mut state, _) = afk_state(&game, anti_afk::Asked::Sent, true, true);
+        let page = Page::new();
+        let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
+        let texts = texts_of(&nodes);
+        assert!(texts.contains(&t("aafk_kuerzel").as_str()), "the row: {texts:?}");
+        assert!(texts.contains(&t("aafk_kuerzel_kein").as_str()), "no key set at first: {texts:?}");
+        assert!(game.paths.set_setting(keys::HOTKEY_ANTI_AFK, Value::str("Strg+Umschalt+F9")));
+        state.anti_afk.looked_at = None;
+        let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
+        let texts = texts_of(&nodes);
+        let key = crate::sample::glance_tiles::hotkey_in(versekit_core::language::current(), "Strg+Umschalt+F9");
+        assert!(texts.contains(&key.as_str()), "the key: {key} in {texts:?}");
+        assert!(!texts.contains(&t("aafk_kuerzel_kein").as_str()), "{texts:?}");
+        // Switched off: none.
+        assert!(game.paths.set_setting(keys::HOTKEY_ANTI_AFK_ON, Value::Bool(false)));
+        state.anti_afk.looked_at = None;
+        let (nodes, _) = page.frame(&Which::Game, &mut state, Vec::new());
+        let texts = texts_of(&nodes);
+        assert!(texts.contains(&t("aafk_kuerzel_kein").as_str()) && !texts.contains(&key.as_str()), "{texts:?}");
     }
 
     /// The switch for keys of macro software stands on without the setting, and a click stores the other way.

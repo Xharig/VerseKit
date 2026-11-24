@@ -81,6 +81,8 @@ impl Factors {
 /// One laser that fires at the rock.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Laser {
+    /// The name of the head as the line names it (`Helix II`).
+    pub name: String,
     /// The highest power of the head.
     pub power: f64,
     /// The power at the lowest throttle as a share of the highest (0–1): the throttle `x` gives
@@ -100,6 +102,8 @@ pub struct Loadout {
     pub gadget: Option<Factors>,
     /// An active module in use.
     pub active: Option<Factors>,
+    /// The lasers of the ship that do not fire (not manned).
+    pub idle: usize,
 }
 
 /// The lasers combined: summed power (at full and at the lowest throttle), averaged factors with gadget and
@@ -369,23 +373,55 @@ pub fn worth(scu: f64, shares: &[(String, f64)], price: impl Fn(&str) -> Option<
     Some(sum)
 }
 
-/// The line of the answer as the window above the signature and the overlay show it:
-/// `Aufbrechbar · gut · Gas 46 %`, `Nicht aufbrechbar · mehr Laser`, `Aufbrechbar: unsicher gelesen`.
-pub fn verdict_line_in(lang: crate::language::Lang, verdict: &Verdict) -> String {
+/// The lasers that fire, as the line names them: `alle 3 Laser` where every laser of the ship fires, else by
+/// name in their order, alike ones counted: `Helix II + 2× Hofstede-S2`.
+pub fn firing_in(lang: crate::language::Lang, loadout: &Loadout) -> String {
+    use crate::language::{Arg, tf_in};
+    let count = loadout.lasers.len();
+    if loadout.idle == 0 && count > 1 {
+        return tf_in(lang, "s_stein_alle", &[("0", Arg::Int(count as i64))]);
+    }
+    let mut names: Vec<(&str, usize)> = Vec::new();
+    for laser in &loadout.lasers {
+        match names.iter_mut().find(|(name, _)| *name == laser.name) {
+            Some((_, seen)) => *seen += 1,
+            None => names.push((&laser.name, 1)),
+        }
+    }
+    names
+        .iter()
+        .map(|(name, seen)| if *seen > 1 { format!("{seen}× {name}") } else { (*name).to_string() })
+        .collect::<Vec<_>>()
+        .join(" + ")
+}
+
+/// The line of the answer as the window above the signature and the overlay show it, naming the lasers of
+/// `loadout` that fire: `Aufbrechbar · gut · alle 3 Laser, je 46 %`, `Aufbrechbar · knapp · Helix II auf 90 %`,
+/// `Nicht aufbrechbar · mehr Laser nötig (mit Helix II allein)`, `Aufbrechbar: unsicher gelesen`.
+pub fn verdict_line_in(lang: crate::language::Lang, verdict: &Verdict, loadout: &Loadout) -> String {
     use crate::language::{Arg, t_in, tf_in};
+    let band = |found: &Assessment| Arg::Text(t_in(lang, found.band.label()));
+    let firing = || Arg::Text(firing_in(lang, loadout));
+    let several = loadout.lasers.len() > 1;
     match verdict {
         Verdict::Unknown(Missing::Reading) => t_in(lang, "s_stein_unsicher"),
         Verdict::Unknown(Missing::Lasers) => t_in(lang, "s_stein_kein_laser"),
         Verdict::Known(found) => match found.throttle {
-            Some(_) if found.band.cracks() && found.too_strong => {
-                tf_in(lang, "s_stein_zu_stark", &[("0", Arg::Text(t_in(lang, found.band.label())))])
-            }
+            Some(_) if found.band.cracks() && found.too_strong => tf_in(lang, "s_stein_zu_stark", &[("0", band(found))]),
             Some(throttle) if found.band.cracks() => tf_in(
                 lang,
-                "s_stein_ja",
-                &[("0", Arg::Text(t_in(lang, found.band.label()))), ("1", Arg::Int(i64::from(throttle)))],
+                if several { "s_stein_ja_je" } else { "s_stein_ja" },
+                &[("0", band(found)), ("1", firing()), ("2", Arg::Int(i64::from(throttle)))],
             ),
-            _ => tf_in(lang, "s_stein_nein", &[("0", Arg::Text(t_in(lang, found.band.label())))]),
+            _ if loadout.idle > 0 => {
+                let who = if several {
+                    firing_in(lang, loadout)
+                } else {
+                    tf_in(lang, "s_stein_allein", &[("0", firing())])
+                };
+                tf_in(lang, "s_stein_nein_mit", &[("0", band(found)), ("1", Arg::Text(who))])
+            }
+            _ => tf_in(lang, "s_stein_nein", &[("0", band(found))]),
         },
     }
 }

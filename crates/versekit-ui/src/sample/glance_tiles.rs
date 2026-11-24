@@ -383,7 +383,7 @@ pub(super) fn refinery_tile_with_scan(paths: &Paths, lang: Lang, now: i64) -> Gl
 
 /// A combination of keys with the words of the keys in `lang` (`Strg` is `Ctrl` in English); one the overlay would
 /// not take stays as it is written.
-pub(super) fn hotkey_in(lang: Lang, text: &str) -> String {
+pub(crate) fn hotkey_in(lang: Lang, text: &str) -> String {
     let Some(hotkey) = versekit_core::overlay::Hotkey::parse(text) else { return text.to_string() };
     hotkey
         .text()

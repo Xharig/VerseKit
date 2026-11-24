@@ -29,6 +29,12 @@
         "kind",
         "id"
       ]
+    },
+    "guid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "The DataForge GUID of the starmap object the location stands for, in lower-case canonical form: the location's own starmap object, else its city's, else its space station's. Absent when none is linked. Does not replace `uex`."
     }
   },
   "required": [

@@ -1,0 +1,57 @@
+{
+  "ops": [
+    {
+      "opId": "c1",
+      "op": "create",
+      "clientKey": "wo-ARC-L1-0043",
+      "orgUnit": {
+        "id": "0d6f3c1a-5b2e-4f7a-9c8d-1e2f3a4b5c6d"
+      },
+      "location": {
+        "name": "ARC-L1 Wide Forest Station"
+      },
+      "method": {
+        "code": "DINYX"
+      },
+      "status": "IN_PROGRESS",
+      "endsAt": "2026-11-08T14:30:00Z",
+      "durationMinutes": 90,
+      "expenses": 1250.5,
+      "goods": [
+        {
+          "input": {
+            "name": "Quantainium (Raw)"
+          },
+          "inputQuantity": 1200,
+          "outputQuantity": 900,
+          "quality": 650
+        }
+      ]
+    },
+    {
+      "opId": "u1",
+      "op": "update",
+      "clientKey": "wo-ARC-L1-0043",
+      "versions": {
+        "gameData": 0
+      },
+      "endsAt": "2026-11-08T15:00:00Z"
+    },
+    {
+      "opId": "g1",
+      "op": "good-add",
+      "clientKey": "wo-ARC-L1-0043",
+      "versions": {
+        "gameData": 1
+      },
+      "good": {
+        "input": {
+          "uexId": 42
+        },
+        "inputQuantity": 300,
+        "outputQuantity": 210,
+        "quality": 500
+      }
+    }
+  ]
+}

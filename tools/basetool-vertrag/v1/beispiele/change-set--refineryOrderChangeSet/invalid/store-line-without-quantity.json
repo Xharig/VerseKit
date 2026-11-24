@@ -1,0 +1,22 @@
+{
+  "ops": [
+    {
+      "op": "pickup",
+      "clientKey": "wo-2026-11-08-arc-l1",
+      "versions": {
+        "gameData": 3
+      },
+      "lines": [
+        {
+          "material": {
+            "name": "Quantainium (Refined)"
+          },
+          "location": {
+            "name": "ARC-L1 Wide Forest Station"
+          },
+          "quality": 650
+        }
+      ]
+    }
+  ]
+}

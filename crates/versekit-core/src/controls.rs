@@ -746,21 +746,32 @@ fn hat_pattern() -> &'static Regex {
 /// `x` becomes "X-Achse", `button12` "Knopf 12". ⚠⚠ A bare `x` is a letter on a keyboard; in the line of a
 /// stick it would look as if the key X were meant. So the names come from the language file in both languages;
 /// what is not there is passed through in capitals instead of inventing a pretty name.
+///
+/// A key of the main block shows the sign it makes on the keyboard layout of the system, since the game names
+/// it by its place on a US keyboard (`ralt+y` is "Alt Gr + Z" on a German layout).
 pub fn input_readable(input: &str, kind: Option<Kind>) -> String {
+    input_readable_with(input, kind, &crate::keyboard_layout::system_char)
+}
+
+/// [`input_readable`] with the table of signs of the keyboard layout (scan code to sign) given.
+pub fn input_readable_with(input: &str, kind: Option<Kind>, layout: &dyn Fn(u16) -> Option<char>) -> String {
     if input.is_empty() {
         return String::new();
     }
-    // Joined inputs: `ralt+y` becomes "Alt Gr + Y".
+    // Joined inputs: `ralt+y` becomes "Alt Gr + Z" on a German layout.
     if input.contains('+') {
         return input
             .split('+')
             .filter(|part| !part.is_empty())
-            .map(|part| input_readable(part, kind))
+            .map(|part| input_readable_with(part, kind, layout))
             .collect::<Vec<_>>()
             .join(" + ");
     }
     let known_key = KEY_READABLE.contains(&input);
     if matches!(kind, Some(Kind::Keyboard | Kind::Mouse)) || known_key {
+        if let Some(sign) = crate::keyboard_layout::label(input, layout) {
+            return sign;
+        }
         if known_key {
             return t(&format!("s_js_t_{input}"));
         }
@@ -918,13 +929,62 @@ mod tests {
         assert_eq!(conflicts(&all, "v_other", "js2", "button5").len(), 1);
     }
 
+    /// The signs of a German layout by scan code; every other key of the table makes its US sign.
+    fn german_layout(scan: u16) -> Option<char> {
+        let name = crate::anti_afk_key::name_of(crate::anti_afk_key::Key { scan, extended: false })?;
+        match name {
+            "y" => Some('Z'),
+            "z" => Some('Y'),
+            "semicolon" => Some('ö'),
+            "apostrophe" => Some('ä'),
+            "lbracket" => Some('ü'),
+            "minus" => Some('ß'),
+            "slash" => Some('-'),
+            other => crate::keyboard_layout::us_sign(other),
+        }
+    }
+
+    #[test]
+    fn keys_show_the_sign_on_the_cap_of_the_active_layout() {
+        let key = Some(Kind::Keyboard);
+        let de = |input: &str| input_readable_with(input, key, &german_layout);
+        assert_eq!(de("y"), "Z");
+        assert_eq!(de("z"), "Y");
+        assert_eq!(de("semicolon"), "Ö");
+        assert_eq!(de("apostrophe"), "Ä");
+        assert_eq!(de("lbracket"), "Ü");
+        assert_eq!(de("minus"), "ß", "replaces the own name where the layout has another sign");
+        assert_eq!(de("ralt+y"), "Alt Gr + Z");
+        assert_eq!(de("lctrl+lshift+z"), "Strg links + Umschalt links + Y");
+        assert_eq!(de("comma"), "Komma", "same sign as on a US keyboard: the own name stays");
+        assert_eq!(de("space"), "Leertaste");
+        assert_eq!(de("f5"), "F5");
+        assert_eq!(de("up"), "Pfeil ↑");
+        assert_eq!(de("np_5"), "Ziffernblock 5");
+        assert_eq!(input_readable_with("y", Some(Kind::Joystick), &german_layout), "Y-Achse", "an axis, no key");
+        // The US layout and no table leave everything as it was.
+        let us = |scan: u16| {
+            crate::anti_afk_key::name_of(crate::anti_afk_key::Key { scan, extended: false })
+                .and_then(crate::keyboard_layout::us_sign)
+        };
+        for input in ["y", "z", "semicolon", "minus", "ralt+y"] {
+            assert_eq!(
+                input_readable_with(input, key, &us),
+                input_readable_with(input, key, &|_| None),
+                "{input}"
+            );
+        }
+        assert_eq!(input_readable_with("semicolon", key, &|_| None), "SEMICOLON");
+    }
+
     #[test]
     fn inputs_and_actions_get_plain_names() {
         let _guard = german();
         assert_eq!(input_readable("button12", Some(Kind::Joystick)), "Knopf 12");
         assert_eq!(input_readable("x", Some(Kind::Joystick)), "X-Achse");
-        assert_eq!(input_readable("x", Some(Kind::Keyboard)), "X", "a letter on a keyboard");
-        assert_eq!(input_readable("ralt+y", Some(Kind::Keyboard)), "Alt Gr + Y");
+        assert_eq!(input_readable_with("x", Some(Kind::Keyboard), &|_| None), "X", "a letter on a keyboard");
+        let no_table = input_readable_with("ralt+y", Some(Kind::Keyboard), &|_| None);
+        assert_eq!(no_table, "Alt Gr + Y", "no table: the US name");
         assert_eq!(input_readable("np_5", Some(Kind::Keyboard)), "Ziffernblock 5");
         assert_eq!(input_readable("hat1_up", Some(Kind::Joystick)), "Hut 1 ↑");
         assert_eq!(input_readable("mystery", Some(Kind::Joystick)), "mystery", "passed through, not invented");

@@ -970,6 +970,9 @@ impl Split {
                     let button = row.add_enabled(!busy, widgets::Button::new(&word, ButtonKind::Strong, scheme));
                     go = button.clicked();
                     cancel = row.add(widgets::Button::new(&t("s_hl_abbrechen"), ButtonKind::Normal, scheme)).clicked();
+                    if busy {
+                        widgets::loading(row, scheme, &t("s_ml_sendet"));
+                    }
                 });
             });
         }
@@ -1229,6 +1232,45 @@ mod tests {
         b.settle();
         assert!(b.state.split.badges(scheme, &b.row()).is_empty());
         assert_eq!(b.state.split.actions(&b.row()), vec![Kind::Share]);
+    }
+
+    impl Bench {
+        /// The texts the page paints in one frame.
+        fn painted(&mut self) -> Vec<String> {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1400.0))),
+                ..Default::default()
+            };
+            let scheme = versekit_core::theme::current();
+            let state = &mut self.state;
+            let mut output = self.ctx.run_ui(input, |ui| show_page(ui, scheme, state));
+            output.textures_delta.clear();
+            output
+                .shapes
+                .iter()
+                .filter_map(|c| match &c.shape {
+                    egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                    _ => None,
+                })
+                .collect()
+        }
+    }
+
+    /// While a share or a taking back is on its way, the form says so next to its blocked button.
+    #[test]
+    fn the_open_form_says_that_the_send_runs() {
+        let _language = crate::language_lock();
+        language::set_thread_language(Choice::De);
+        let mut b = bench("sendet");
+        let row = b.row();
+        b.state.split.open(&row, Kind::Share);
+        assert!(b.state.split.form_is_open());
+        let said = t("s_ml_sendet");
+        assert!(!b.painted().contains(&said), "nothing is sent");
+        let (_hold, answer) = mpsc::channel();
+        b.state.split.sending =
+            Some(Sending { kind: Kind::Share, answer, booked: false, op: Value::Null, key: "k".into(), again: false });
+        assert!(b.painted().contains(&said), "the send runs");
     }
 
     #[test]

@@ -1,0 +1,15 @@
+{
+  "postingId": "11111111-2222-4333-8444-555555555501",
+  "transactionId": "11111111-2222-4333-8444-555555555502",
+  "type": "HOLDER_TRANSFER",
+  "amount": -500,
+  "createdAt": "2026-11-08T20:15:00Z",
+  "note": "Custody handover",
+  "justification": null,
+  "reversedTransactionId": null,
+  "counterAccount": null,
+  "intraAccount": false,
+  "transferFee": 500,
+  "counterpartyHandle": null,
+  "counterpartyOrgUnitName": null
+}

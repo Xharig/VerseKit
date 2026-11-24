@@ -1,0 +1,11 @@
+{
+  "ops": [
+    {
+      "op": "update",
+      "versions": {
+        "finances": 1
+      },
+      "expenses": 1300
+    }
+  ]
+}

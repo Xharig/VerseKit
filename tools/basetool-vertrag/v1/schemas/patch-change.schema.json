@@ -1,0 +1,434 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/patch-change.schema.json",
+  "title": "Patch change",
+  "description": "The latest Star Citizen patch change an admin recorded for everyone, with its options, and the member's state in the latest home-location phase. Only what was created or started before a patch change's live time was touched.",
+  "type": "object",
+  "properties": {
+    "patchChange": {
+      "$ref": "#/$defs/patchChange",
+      "description": "The latest patch change; absent before the first."
+    },
+    "homeLocation": {
+      "$ref": "#/$defs/homeLocationPrompt"
+    }
+  },
+  "required": [
+    "homeLocation"
+  ],
+  "$defs": {
+    "patchChange": {
+      "title": "Patch change",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The patch change's id, the same in every feed entry the patch change caused."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "The patch label, e.g. 4.4; an admin may correct it later."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "REBUILD",
+            "FULL_WIPE"
+          ],
+          "description": "A long-term persistence rebuild or a full wipe; the kind only preset the options."
+        },
+        "liveAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC 3339 timestamp in UTC: when the patch went live in the game. Every effect touched only what was created or started before it."
+        },
+        "options": {
+          "$ref": "#/$defs/options"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "kind",
+        "liveAt",
+        "options"
+      ]
+    },
+    "options": {
+      "title": "Patch change options",
+      "description": "The options as the admin triggered the patch change.",
+      "type": "object",
+      "properties": {
+        "wipeGroups": {
+          "type": "array",
+          "maxItems": 50,
+          "description": "Every wipe group in a fixed order, wiped or not, with the catalogue types it claims.",
+          "items": {
+            "$ref": "#/$defs/wipeGroup"
+          }
+        },
+        "wipeExceptions": {
+          "type": "array",
+          "maxItems": 100,
+          "description": "Single items and materials kept although their group was wiped, or wiped although it was not; an exception's entry follows it, never its group.",
+          "items": {
+            "$ref": "#/$defs/wipeException"
+          }
+        },
+        "cancelRefineryOrders": {
+          "type": "boolean",
+          "description": "Whether running refinery orders started before the live time were cancelled."
+        },
+        "currencyWipe": {
+          "type": "boolean",
+          "description": "Whether the Kartellbank was reset as of the live time."
+        },
+        "homeLocationPrompt": {
+          "type": "boolean",
+          "description": "Whether the members were asked for a new home location."
+        }
+      },
+      "required": [
+        "wipeGroups",
+        "wipeExceptions",
+        "cancelRefineryOrders",
+        "currencyWipe",
+        "homeLocationPrompt"
+      ]
+    },
+    "wipeGroup": {
+      "title": "Wipe group",
+      "type": "object",
+      "properties": {
+        "group": {
+          "type": "string",
+          "enum": [
+            "CONSUMABLES",
+            "FPS_EQUIPMENT",
+            "SHIP_COMPONENTS",
+            "MATERIALS_RAW",
+            "MATERIALS_REFINED",
+            "MATERIALS_NO_REFINE",
+            "OTHER_ITEMS",
+            "IN_GAME_SHIPS"
+          ]
+        },
+        "selected": {
+          "type": "boolean",
+          "description": "Whether the patch change wiped this group's stock or ships from before the live time."
+        },
+        "types": {
+          "type": "array",
+          "maxItems": 500,
+          "description": "The catalogue types the group claims. OTHER_ITEMS lists none: it takes every item no other group claims.",
+          "items": {
+            "$ref": "#/$defs/wipeGroupType"
+          }
+        }
+      },
+      "required": [
+        "group",
+        "selected",
+        "types"
+      ]
+    },
+    "wipeGroupType": {
+      "title": "Wipe group type",
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "MATERIAL_TYPE",
+            "ITEM_SUB_TYPE",
+            "ITEM_TYPE",
+            "ITEM_TYPE_PREFIX",
+            "WIKI_CLASSIFICATION_PREFIX",
+            "ITEM_KIND",
+            "SHIP_ORIGIN"
+          ],
+          "description": "The catalogue fact the value is compared with, in the order an entry is matched."
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The type key, e.g. Food, WeaponAttachment:Magazine, Char_Armor_ or RAW."
+        }
+      },
+      "required": [
+        "source",
+        "value"
+      ]
+    },
+    "wipeException": {
+      "title": "Wipe exception",
+      "type": "object",
+      "properties": {
+        "entry": {
+          "$ref": "item-ref.schema.json",
+          "description": "The item or material, named by its bt and display name as the stock feed names it; an entry removed from the catalogue since keeps its bt and carries no name."
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "GAME_ITEM",
+            "MATERIAL"
+          ],
+          "description": "Whether the entry is an item, or a material in every quality."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "KEEP",
+            "WIPE"
+          ]
+        }
+      },
+      "required": [
+        "entry",
+        "target",
+        "mode"
+      ]
+    },
+    "homeLocationPrompt": {
+      "title": "Home-location prompt",
+      "description": "The member's state in the latest patch change that asked for a new home location, which need not be the latest patch change.",
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "NOT_ASKED",
+            "PENDING",
+            "RELOCATED",
+            "PHASE_ENDED"
+          ],
+          "description": "NOT_ASKED: no phase asks the member, none ever ran or the account is younger than the live time. PENDING: the phase is open and the member has not chosen. RELOCATED: the member chose and was relocated. PHASE_ENDED: the phase ended before the member chose."
+        },
+        "patchChange": {
+          "type": "object",
+          "description": "The patch change that asked; absent when none ever asked.",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ]
+        },
+        "liveAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC 3339 timestamp in UTC: the asking patch change's live time; only lots and ships created before it move. Absent when none ever asked."
+        },
+        "chosen": {
+          "$ref": "#/$defs/homeLocation",
+          "description": "The chosen home location; absent before the choice, or once the location was deleted."
+        },
+        "chosenAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC 3339 timestamp in UTC: when the member chose and was relocated; absent before the choice."
+        },
+        "locations": {
+          "type": "array",
+          "maxItems": 1000,
+          "description": "The curated home locations on offer, by name. Empty when an admin curated none.",
+          "items": {
+            "$ref": "#/$defs/homeLocation"
+          }
+        },
+        "preview": {
+          "type": "array",
+          "maxItems": 10000,
+          "description": "While the member is PENDING, what the relocation would move from each current location: only stock rows and ships created before the live time. Empty otherwise.",
+          "items": {
+            "$ref": "#/$defs/previewEntry"
+          }
+        }
+      },
+      "required": [
+        "state",
+        "locations",
+        "preview"
+      ]
+    },
+    "homeLocation": {
+      "title": "Home location",
+      "description": "A curated home location, with the id a choice names.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The location's id; send it as a choice's location."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "The location's curated name, in full."
+        },
+        "system": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "The star system of the location's city or station; absent when unknown."
+        },
+        "uex": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "CITY",
+                "SPACE_STATION"
+              ]
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ]
+        },
+        "guid": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "description": "The DataForge GUID of the starmap object the location stands for, as location.schema.json describes it; absent when none is linked."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "previewEntry": {
+      "title": "Relocation preview entry",
+      "type": "object",
+      "properties": {
+        "location": {
+          "$ref": "location.schema.json",
+          "description": "The current location, named as the stock feed names it; absent for ships without a location."
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The member's stock rows there, own and pool rows together."
+        },
+        "pools": {
+          "type": "array",
+          "maxItems": 1000,
+          "description": "The share of those rows the member holds for each org unit's pool.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "orgUnit": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ]
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "orgUnit",
+              "rows"
+            ]
+          }
+        },
+        "ships": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The member's ships there."
+        }
+      },
+      "required": [
+        "rows",
+        "pools",
+        "ships"
+      ]
+    },
+    "homeLocationChoice": {
+      "title": "Home-location choice",
+      "description": "The member's choice in the phase the read showed: final, once per member and phase. It relocates the member in the same request.",
+      "type": "object",
+      "properties": {
+        "location": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+          "description": "The id of one of the home locations the read offers."
+        },
+        "patchChange": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+          "description": "The id of the patch change whose phase the read showed, homeLocation.patchChange.id. While another phase is open the choice answers 409 HOME_LOCATION_PHASE_CHANGED and moves nothing."
+        }
+      },
+      "required": [
+        "location",
+        "patchChange"
+      ]
+    },
+    "homeLocationChosen": {
+      "title": "Chosen home location",
+      "description": "The chosen home location and what the relocation moved there; read the patch change again for the member's new state.",
+      "type": "object",
+      "properties": {
+        "location": {
+          "$ref": "#/$defs/homeLocation"
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many of the member's stock rows moved."
+        },
+        "ships": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many of the member's ships moved."
+        }
+      },
+      "required": [
+        "location",
+        "rows",
+        "ships"
+      ]
+    }
+  }
+}

@@ -117,7 +117,7 @@ fn the_lines_follow_the_panel_the_loadout_and_the_switches() {
     use crate::language::{Lang, with_language};
     use crate::rock_crack::{Factors, Laser, Loadout};
     let loadout = Loadout {
-        lasers: vec![Laser { power: 3900.0, min_share: 0.0, head: Factors::NONE, modules: vec![] }],
+        lasers: vec![Laser { name: "Helix II".into(), power: 3900.0, min_share: 0.0, head: Factors::NONE, modules: vec![] }],
         ..Loadout::default()
     };
     let sure = Sure {
@@ -134,7 +134,7 @@ fn the_lines_follow_the_panel_the_loadout_and_the_switches() {
     let price = |name: &str| crate::stock_data::norm_material(name).eq("quantainium").then_some(1000.0);
     let texts = |show| with_language(Lang::De, || lines(&state, &loadout, price, show));
     let both = texts((true, true));
-    assert_eq!(both.iter().map(|l| l.text.as_str()).collect::<Vec<_>>(), vec!["Aufbrechbar · leicht · Gas 28 %", "Wert ca. 3.000 aUEC"]);
+    assert_eq!(both.iter().map(|l| l.text.as_str()).collect::<Vec<_>>(), vec!["Aufbrechbar · leicht · Helix II auf 28 %", "Wert ca. 3.000 aUEC"]);
     assert!(both[0].good && !both[1].good);
     assert_eq!(texts((false, true)).len(), 1);
     assert!(texts((false, false)).is_empty());

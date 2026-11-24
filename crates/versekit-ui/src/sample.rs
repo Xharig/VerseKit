@@ -42,7 +42,6 @@ use versekit_core::sound::Cue;
 use versekit_core::theme::{self, Color, IconTint, Scheme};
 use versekit_core::window_signal::{self, Role, Signal};
 use versekit_core::{font_size, language};
-
 mod backup_flow;
 #[cfg(test)]
 mod basetool_secrets;
@@ -75,7 +74,7 @@ mod org_areas;
 mod crash_hint;
 mod first_backup_hint;
 mod glance;
-mod glance_tiles;
+pub(crate) mod glance_tiles;
 mod layout_probe;
 #[cfg(test)]
 mod overview_clip;
@@ -83,6 +82,8 @@ mod page_glance;
 mod preview;
 #[cfg(test)]
 mod real_data;
+#[cfg(test)]
+mod thread_census;
 mod setup_wizard;
 pub use setup_wizard::SetupEnd;
 #[cfg(test)]
@@ -550,6 +551,11 @@ pub struct SamplePage {
     unit_modifiers: [bool; 3],
     unit_key: usize,
     unit_hotkey_on: bool,
+    /// The hotkey that switches Anti-AFK on and off (`hotkey_antiafk`, `hotkey_antiafk_an`). It has no default: it
+    /// starts off, without a combination (a letter without a modifier is none), until the player sets one.
+    antiafk_modifiers: [bool; 3],
+    antiafk_key: usize,
+    antiafk_hotkey_on: bool,
     /// Whether the overlay runs: it registers the hotkeys, so only then a new one counts as registered.
     overlay_runs: fn() -> bool,
     /// The window shows a test build (sample page: a click on the version).
@@ -585,6 +591,8 @@ pub struct SamplePage {
     loading_shown: bool,
     /// Update page: offer test versions; look for versions, install them by itself.
     update_test: bool,
+    /// Update page: the stage „Betatester“ (test versions count then too).
+    update_beta: bool,
     /// Updating from the window on real data: the version on offer, the question, the fetching.
     updates: update_page::UpdateUi,
     /// The page „Was ist neu“ on real data.
@@ -1556,6 +1564,9 @@ impl SamplePage {
                 .map_or([false, false, true], |h| h.0),
             unit_key: parse_hotkey(versekit_core::overlay::DEFAULT_UNIT_STOCK_HOTKEY).map_or(0, |h| h.1),
             unit_hotkey_on: true,
+            antiafk_modifiers: [false; 3],
+            antiafk_key: 0,
+            antiafk_hotkey_on: false,
             overlay_runs: || versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some(),
             test_build: false,
             news_index: 0,
@@ -1574,6 +1585,7 @@ impl SamplePage {
             catalog_watch: crate::catalog_progress::BuildWatch::default(),
             loading_shown: false,
             update_test: false,
+            update_beta: false,
             updates: update_page::UpdateUi::offline(env!("CARGO_PKG_VERSION")),
             news: crate::news_page::NewsState::default(),
             update_quit: false,
@@ -2652,7 +2664,7 @@ impl SamplePage {
             use versekit_core::overlay::{self, DEFAULT_SCAN_HOTKEY, HotkeyChoice, keys};
             // As the overlay registers them: one left at its default whose key an earlier one holds shows the spare
             // it takes instead.
-            let [_, scan, search, picture, main, blueprint, stock, unit_stock] =
+            let [_, scan, search, picture, main, blueprint, stock, unit_stock, anti_afk] =
                 HotkeyChoice::read_all(paths).map(|c| c.combination().map(|h| h.text()));
             let stored = scan
                 .or_else(|| paths.setting(keys::HOTKEY_SCAN))
@@ -2704,6 +2716,12 @@ impl SamplePage {
                 (self.unit_modifiers, self.unit_key) = (modifiers, key);
             }
             self.unit_hotkey_on = overlay::unit_stock_hotkey_on(paths);
+            // Anti-AFK has no default key: only one the settings hold shows, and the switch is on only with it.
+            let stored = anti_afk.or_else(|| paths.setting(keys::HOTKEY_ANTI_AFK)).as_deref().and_then(parse_hotkey);
+            if let Some((modifiers, key)) = stored {
+                (self.antiafk_modifiers, self.antiafk_key) = (modifiers, key);
+            }
+            self.antiafk_hotkey_on = overlay::anti_afk_hotkey_on(paths) && stored.is_some();
         }
         if let Some(place) = paths.setting("overlay_ecke").as_deref().and_then(corner_of) {
             self.overlay_place = place;
@@ -2713,6 +2731,7 @@ impl SamplePage {
             _ => settings::BarSide::Top,
         };
         self.update_test = paths.setting_bool("vorabversionen", false);
+        self.update_beta = versekit_core::beta::on(paths);
         self.mining.scanner.load(paths);
         self.progress_view.watch_only = paths.setting_bool(blueprint_progress::WATCHLIST_SETTING, false);
         self.list_progress = paths.setting(LIST_VIEW_SETTING).as_deref() == Some(PROGRESS_VIEW);
@@ -2796,7 +2815,8 @@ impl SamplePage {
         values.extend([
             ("overlay_ecke", Value::str(corner_name(self.overlay_place))),
             ("overlay_leiste", Value::str(if self.bar_side == settings::BarSide::Bottom { "unten" } else { "oben" })),
-            ("vorabversionen", Value::Bool(self.update_test)),
+            ("vorabversionen", Value::Bool(self.update_test || self.update_beta)),
+            (versekit_core::beta::SETTING_ON, Value::Bool(self.update_beta)),
             (blueprint_progress::WATCHLIST_SETTING, Value::Bool(self.progress_view.watch_only)),
             (LIST_VIEW_SETTING, Value::str(if self.list_progress { PROGRESS_VIEW } else { "liste" })),
             (CRAFT_VIEW_SETTING, Value::str(if self.craft_farm { FARM_VIEW } else { "herstellung" })),
@@ -2852,6 +2872,10 @@ impl SamplePage {
             values.push((versekit_core::overlay::keys::HOTKEY_UNIT_STOCK, Value::str(hotkey)));
         }
         values.push((versekit_core::overlay::keys::HOTKEY_UNIT_STOCK_ON, Value::Bool(self.unit_hotkey_on)));
+        if let Some(hotkey) = hotkey_text(self.antiafk_modifiers, self.antiafk_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_ANTI_AFK, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_ANTI_AFK_ON, Value::Bool(self.antiafk_hotkey_on)));
         if let Some(window) = &self.window {
             values.extend(window.values());
         }
@@ -2863,7 +2887,24 @@ impl SamplePage {
         values.extend(self.contested.setting_values());
         values.extend(self.mining.scanner.setting_values());
         values.extend(self.start_page_values());
+        // ⚠ Leaving the stage „Betatester“ deletes the code. While it is on, the code is not in this list: the page
+        // writes it itself, and this list must never write over it.
+        if !self.update_beta {
+            values.push((versekit_core::beta::SETTING_CODE, Value::str("")));
+        }
         values
+    }
+
+    /// The stage of updating as this window holds it (its settings may be written a moment later).
+    fn update_stage(&self) -> versekit_core::beta::Stage {
+        use versekit_core::beta::Stage;
+        if self.update_beta {
+            Stage::Beta
+        } else if self.update_test {
+            Stage::Test
+        } else {
+            Stage::Stable
+        }
     }
 
     /// The remembered window place, to open the window there.
@@ -2929,6 +2970,10 @@ impl SamplePage {
             return;
         }
         let Some(store) = &mut self.store else { return };
+        // Leaving the stage „Betatester“: what was found out with the code and the remembered betas go too.
+        if changed.iter().any(|(key, value)| *key == versekit_core::beta::SETTING_CODE && *value == Value::str("")) {
+            versekit_core::beta::forget_state(&store.paths);
+        }
         if let Some(writer) = &mut store.writer {
             writer.sent += 1;
             if writer.jobs.send(changed).is_err() {
@@ -3492,7 +3537,8 @@ impl SamplePage {
     fn show_about(&mut self, ui: &mut egui::Ui, scheme: &Scheme) -> Option<update_page::PageOut> {
         let store = self.store.as_ref()?;
         let now = ui.input(|i| i.time);
-        self.updates.look(ui.ctx(), &store.paths, now, self.update_test);
+        let stage = self.update_stage();
+        self.updates.look(ui.ctx(), &store.paths, now, stage);
         let folder = store.paths.app_folder();
         let version = self.updates.own_version().to_string();
         let facts = update_page::Facts {
@@ -3500,7 +3546,7 @@ impl SamplePage {
             known: self.blueprints.catalog.blueprints.len(),
             have: self.blueprints.have.len(),
             folder: &folder,
-            test_on: self.update_test,
+            stage,
         };
         Some(self.updates.page(ui, scheme, &facts))
     }
@@ -3519,7 +3565,7 @@ impl SamplePage {
     /// The click on „update“ in the bar on real data: the question before it is installed. A build of the source
     /// is updated by `git pull`; it is told on the page, not asked.
     fn ask_update(&mut self, now: f64) {
-        match self.updates.begin(self.update_test) {
+        match self.updates.begin(self.update_stage()) {
             update_page::Begin::Source => {
                 self.pin_notice = Some((now, t("update_quellcode")));
                 self.page = "hf_ueber".to_string();
@@ -3534,7 +3580,8 @@ impl SamplePage {
     fn update_frame(&mut self, ctx: &egui::Context, scheme: &Scheme) {
         let Some(store) = &self.store else { return };
         let now = ctx.input(|i| i.time);
-        self.updates.refresh(ctx, &store.paths, now, false, self.update_test);
+        let stage = self.update_stage();
+        self.updates.refresh(ctx, &store.paths, now, false, stage);
         let (said, quit) = self.updates.poll(ctx);
         let asked = self.updates.dialogs(ctx, scheme, &store.paths);
         for text in said.into_iter().chain(asked) {
@@ -4726,21 +4773,32 @@ impl SamplePage {
                             if out.news {
                                 jump = Some(("hf_wasistneu".to_string(), ""));
                             }
-                            if let Some(on) = out.channel {
-                                self.update_test = on;
-                                let word = t(if on { "e_an" } else { "e_aus" });
-                                let said = format!("{}: {word}", t("e_vorab"));
+                            if let Some(stage) = out.channel {
+                                use versekit_core::beta::Stage;
+                                self.update_test = stage.with_prerelease();
+                                self.update_beta = stage == Stage::Beta;
+                                let said = if stage == Stage::Beta {
+                                    format!("{}: {}", t("e_beta"), t("e_an"))
+                                } else {
+                                    let word = t(if stage == Stage::Test { "e_an" } else { "e_aus" });
+                                    format!("{}: {word}", t("e_vorab"))
+                                };
                                 self.pin_notice = Some((page.input(|i| i.time), said));
                                 if let Some(store) = &self.store {
                                     let now = page.input(|i| i.time);
-                                    self.updates.refresh(page.ctx(), &store.paths, now, true, on);
+                                    self.updates.refresh(page.ctx(), &store.paths, now, true, stage);
                                 }
                             }
-                            if let Some(with_prerelease) = out.fetch
+                            if let Some(fetch) = out.fetch
                                 && let Some(store) = &self.store
-                                && let Err(why) = self.updates.start(&store.paths, with_prerelease)
+                                && let Err(why) = self.updates.start(&store.paths, fetch)
                             {
                                 self.pin_notice = Some((page.input(|i| i.time), why));
+                            }
+                            if let Some(typed) = out.check_code
+                                && let Some(store) = &self.store
+                            {
+                                self.updates.check_code(page.ctx(), &store.paths, &typed);
                             }
                         }
                     }
@@ -4781,7 +4839,7 @@ impl SamplePage {
                         page.add_space(GAP);
                         let rows = settings_of("hf_ueber");
                         let groups = group_sizes(rows);
-                        let test = &mut self.update_test;
+                        let (test, beta) = (&mut self.update_test, &mut self.update_beta);
                         settings::settings_page(page, scheme, "ueber", &group_refs(&groups), &mut |ui, g, r| {
                             let (name, hint, choices) = rows[g].1[r];
                             let name = label(name);
@@ -4789,13 +4847,17 @@ impl SamplePage {
                             let choices: Vec<String> = choices.iter().map(|c| label(c)).collect();
                             let found_by_name = highlight::pointed(ui, &[&name]);
                             settings::setting_row(ui, scheme, &name, &hint, found_by_name, |row| {
-                                // Updating has no switch: only test versions yes or no.
+                                // Updating has no switch: the stage (test versions, stable, betatester). The code
+                                // of the beta is given on the page „Update & Über“.
                                 if g == 0 {
-                                    if widgets::radio(row, scheme, *test, &choices[0]).clicked() {
-                                        *test = true;
+                                    if widgets::radio(row, scheme, *test && !*beta, &choices[0]).clicked() {
+                                        (*test, *beta) = (true, false);
                                     }
-                                    if widgets::radio(row, scheme, !*test, &choices[1]).clicked() {
-                                        *test = false;
+                                    if widgets::radio(row, scheme, !*test && !*beta, &choices[1]).clicked() {
+                                        (*test, *beta) = (false, false);
+                                    }
+                                    if widgets::radio(row, scheme, *beta, &choices[2]).clicked() {
+                                        (*test, *beta) = (true, true);
                                     }
                                 }
                             });
@@ -4855,6 +4917,13 @@ impl SamplePage {
                             (&mut self.unit_modifiers, &mut self.unit_key, &mut self.unit_hotkey_on);
                         let unit_before = unit_on.then(|| hotkey_text(*unit_modifiers, *unit_key)).flatten();
                         let mut unit_refused = false;
+                        let (antiafk_modifiers, antiafk_key, antiafk_on) =
+                            (&mut self.antiafk_modifiers, &mut self.antiafk_key, &mut self.antiafk_hotkey_on);
+                        let antiafk_before =
+                            antiafk_on.then(|| hotkey_text(*antiafk_modifiers, *antiafk_key)).flatten();
+                        let mut antiafk_refused = false;
+                        // Anti-AFK presses keys: only where the system can (Windows).
+                        let antiafk_possible = versekit_core::anti_afk::supported();
                         // The blueprint scan reads letters with the recognition of the system: only where it can.
                         let blueprint_possible =
                             versekit_core::screen_grab::supported() && versekit_core::win_ocr::supported();
@@ -4978,6 +5047,7 @@ impl SamplePage {
                                         (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
                                         (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
                                         (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
+                                        (*antiafk_modifiers, *antiafk_key, *antiafk_on && antiafk_possible),
                                     ];
                                     let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
                                         match r {
@@ -4993,7 +5063,13 @@ impl SamplePage {
                                                 "overlay-bauplan",
                                             ),
                                             6 => (Some(&mut *stock_on), &mut *stock_modifiers, &mut *stock_key, "overlay-lager"),
-                                            _ => (Some(&mut *unit_on), &mut *unit_modifiers, &mut *unit_key, "overlay-staffellager"),
+                                            7 => (Some(&mut *unit_on), &mut *unit_modifiers, &mut *unit_key, "overlay-staffellager"),
+                                            _ => (
+                                                Some(&mut *antiafk_on),
+                                                &mut *antiafk_modifiers,
+                                                &mut *antiafk_key,
+                                                "overlay-antiafk",
+                                            ),
                                         };
                                     // The refinery scan, the picture of the game and the blueprint scan read the
                                     // screen: only where that works.
@@ -5001,6 +5077,7 @@ impl SamplePage {
                                         1 => scan_possible,
                                         3 => picture_possible,
                                         5..=7 => blueprint_possible,
+                                        8 => antiafk_possible,
                                         _ => true,
                                     };
                                     let before = (*held, *chosen);
@@ -5030,7 +5107,8 @@ impl SamplePage {
                                         4 => main_refused |= refused,
                                         5 => blueprint_refused |= refused,
                                         6 => stock_refused |= refused,
-                                        _ => unit_refused |= refused,
+                                        7 => unit_refused |= refused,
+                                        _ => antiafk_refused |= refused,
                                     }
                                     // A key another shortcut that is on holds already: the change goes back (a switch
                                     // turned on goes off again), and the reason is said below the page. One press must
@@ -5044,6 +5122,7 @@ impl SamplePage {
                                         (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
                                         (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
                                         (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
+                                        (*antiafk_modifiers, *antiafk_key, *antiafk_on && antiafk_possible),
                                     ];
                                     let changed = (rows_now[r].0, rows_now[r].1) != before;
                                     let turned_on = rows_now[r].2 && !rows_before[r].2;
@@ -5063,7 +5142,8 @@ impl SamplePage {
                                             4 => (&mut *main_modifiers, &mut *main_key),
                                             5 => (&mut *blueprint_modifiers, &mut *blueprint_key),
                                             6 => (&mut *stock_modifiers, &mut *stock_key),
-                                            _ => (&mut *unit_modifiers, &mut *unit_key),
+                                            7 => (&mut *unit_modifiers, &mut *unit_key),
+                                            _ => (&mut *antiafk_modifiers, &mut *antiafk_key),
                                         };
                                         (*held, *chosen) = (spare_modifiers, spare_key);
                                     } else if (changed || turned_on)
@@ -5077,7 +5157,8 @@ impl SamplePage {
                                             4 => (&mut *main_modifiers, &mut *main_key, Some(&mut *main_on)),
                                             5 => (&mut *blueprint_modifiers, &mut *blueprint_key, Some(&mut *blueprint_on)),
                                             6 => (&mut *stock_modifiers, &mut *stock_key, Some(&mut *stock_on)),
-                                            _ => (&mut *unit_modifiers, &mut *unit_key, Some(&mut *unit_on)),
+                                            7 => (&mut *unit_modifiers, &mut *unit_key, Some(&mut *unit_on)),
+                                            _ => (&mut *antiafk_modifiers, &mut *antiafk_key, Some(&mut *antiafk_on)),
                                         };
                                         if changed {
                                             (*held, *chosen) = before;
@@ -5285,6 +5366,7 @@ impl SamplePage {
                             (blueprint_refused, self.blueprint_modifiers, self.blueprint_key),
                             (stock_refused, self.stock_modifiers, self.stock_key),
                             (unit_refused, self.unit_modifiers, self.unit_key),
+                            (antiafk_refused, self.antiafk_modifiers, self.antiafk_key),
                         ] {
                             if refused {
                                 let saved = hotkey_text(modifiers, key).unwrap_or_default();
@@ -5303,6 +5385,7 @@ impl SamplePage {
                                 (self.blueprint_modifiers, self.blueprint_key),
                                 (self.stock_modifiers, self.stock_key),
                                 (self.unit_modifiers, self.unit_key),
+                                (self.antiafk_modifiers, self.antiafk_key),
                             ];
                             let (modifiers, key) = rows[by];
                             let combination = hotkey_text(modifiers, key).unwrap_or_default();
@@ -5334,6 +5417,10 @@ impl SamplePage {
                             self.stock_hotkey_on.then(|| hotkey_text(self.stock_modifiers, self.stock_key)).flatten();
                         let unit_now =
                             self.unit_hotkey_on.then(|| hotkey_text(self.unit_modifiers, self.unit_key)).flatten();
+                        let antiafk_now = self
+                            .antiafk_hotkey_on
+                            .then(|| hotkey_text(self.antiafk_modifiers, self.antiafk_key))
+                            .flatten();
                         let now_hotkeys = [
                             hotkey_text(self.hotkey_modifiers, self.hotkey_key),
                             hotkey_text(self.scan_modifiers, self.scan_key),
@@ -5343,6 +5430,7 @@ impl SamplePage {
                             blueprint_now,
                             stock_now,
                             unit_now,
+                            antiafk_now,
                         ];
                         let before_hotkeys = [
                             hotkey_before,
@@ -5353,6 +5441,7 @@ impl SamplePage {
                             blueprint_before,
                             stock_before,
                             unit_before,
+                            antiafk_before,
                         ];
                         for (before, now) in before_hotkeys.into_iter().zip(now_hotkeys) {
                             if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
@@ -5565,6 +5654,7 @@ impl SamplePage {
                         let start_command = &mut self.start_command;
                         let channel_states = &mut self.channel_states;
                         let mut start_commit = false;
+                        let searching = self.folder_search.is_some();
                         // What happened at the folder fields: handled once the page is drawn.
                         let mut events: Vec<(usize, widgets::FolderEvents)> = Vec::new();
                         settings::settings_page(page, scheme, "ordner", &group_refs(&groups), &mut |ui, g, r| {
@@ -5651,6 +5741,10 @@ impl SamplePage {
                                     versekit_core::browser::show_folder(&folders[r]);
                                 }
                                 events.push((r, seen));
+                                // The search for the game below the folder typed runs in a thread of its own.
+                                if r == 0 && searching {
+                                    widgets::loading(ui, scheme, &t("s_pf_sucht"));
+                                }
                             }
                             ui.add_space(4.0);
                         });
@@ -6635,7 +6729,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_dauer", "ov_s_dauer_h", &["s_ov_sek_sichtbar"]),
                 ],
             ),
-            // The six shortcuts, one line each: switch, name, modifier keys, key.
+            // The nine shortcuts, one line each: switch, name, modifier keys, key.
             (
                 "s_ov_gruppe_kuerzel",
                 &[
@@ -6647,6 +6741,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_hk_bauplan", "s_hk_bauplan_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_lager", "s_hk_lager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_staffellager", "s_hk_staffellager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_antiafk", "s_hk_antiafk_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             // The events that open the folded or waiting overlay, one switch each (the order of
@@ -6756,7 +6851,10 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
     (
         "hf_ueber",
         &[
-            ("s_ub_version", &[("s_ei_testversionen", "s_ei_testversionen_h", &["s_ul_testversion", "s_ul_stabil"])]),
+            (
+                "s_ub_version",
+                &[("s_ei_testversionen", "s_ei_testversionen_h", &["s_ul_testversion", "s_ul_stabil", "s_ul_betatester"])],
+            ),
             ("s_ei_aktualisieren", &[("s_ei_updates", "s_ei_updates_h", &[])]),
         ],
     ),
@@ -7461,6 +7559,7 @@ fn base_infos(page: &str) -> Vec<String> {
             "s_ub_kanal",
             "s_ub_fertig",
             "s_ub_test",
+            "s_ub_beta",
             "s_ub_einrichtung",
         ]),
         // The mining and its view of the refineries: the name of the view and what its table says.
@@ -7641,7 +7740,7 @@ fn is_section_hit(page: &str, setting: &str) -> bool {
 
 /// Settings a page draws from a module of its own, not from [`PAGE_SETTINGS`], that the menu filter finds on real
 /// data (only there they stand): (page, text key of the name, of the hint, of more words that find it; empty: none).
-const MODULE_SETTINGS: [(&str, &str, &str, &str); 20] = [
+const MODULE_SETTINGS: [(&str, &str, &str, &str); 21] = [
     // The settings of the handle search, on its page and in the card of the info bar of the overlay page.
     ("hf_overlay", "s_hq_einst_tage", "s_hq_einst_tage_h", ""),
     ("hf_overlay", "s_hq_einst_aff", "s_hq_einst_aff_h", ""),
@@ -7662,6 +7761,7 @@ const MODULE_SETTINGS: [(&str, &str, &str, &str); 20] = [
     ("hf_liste", "s_er_alle", "s_er_alle_h", ""),
     ("hf_meinlager", "s_lj_schalter", "s_lj_schalter_h", ""),
     ("hf_spiel", "aafk_taste", "aafk_taste_eigene", ""),
+    ("hf_spiel", "aafk_kuerzel", "aafk_kuerzel_h", ""),
     ("hf_spiel", "aafk_makro", "aafk_makro_h", ""),
 ];
 

@@ -432,6 +432,12 @@ impl Host {
         self
     }
 
+    /// Whether the drives were given ([`Host::with_drives`]): the host is closed to what this computer holds, the
+    /// logs of its launcher included.
+    pub fn drives_given(&self) -> bool {
+        self.drives.is_some()
+    }
+
     /// The drives the game is looked for on, as roots (`C:\`): under Windows the fixed drives only, never a
     /// network drive or a stick, whose probe can hold the program for seconds when it sleeps. Where the system
     /// gives none (or this is not Windows, as in a test of the Windows rules) the letters `C` to `H`, as 4.12

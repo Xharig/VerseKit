@@ -1,0 +1,51 @@
+{
+  "items": [
+    {
+      "id": "3f1c2b4a-6d5e-4a7b-8c9d-0e1f2a3b4c5d",
+      "createdBy": {
+        "clientId": "versekit",
+        "name": "VerseKit"
+      },
+      "versions": {
+        "gameData": 4,
+        "finances": 1
+      },
+      "status": "IN_PROGRESS",
+      "location": {
+        "name": "ARC-L1 Wide Forest Station",
+        "uex": {
+          "kind": "SPACE_STATION",
+          "id": 12
+        }
+      },
+      "method": {
+        "code": "DINYX",
+        "name": "Dinyx Solventation"
+      },
+      "startedAt": "2026-11-08T10:00:00Z",
+      "durationMinutes": 90,
+      "endsAt": "2026-11-08T11:30:00Z",
+      "expenses": 1250.5,
+      "orgUnitId": "0d6f3c1a-5b2e-4f7a-9c8d-1e2f3a4b5c6d",
+      "goods": [
+        {
+          "id": "5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+          "input": {
+            "bt": "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+            "name": "Quantainium (Raw)"
+          },
+          "inputQuantity": 1200,
+          "output": {
+            "bt": "8d9e0f1a-2b3c-4d4e-9f5a-6b7c8d9e0f1a",
+            "name": "Quantainium"
+          },
+          "outputQuantity": 900,
+          "quality": 650
+        }
+      ]
+    }
+  ],
+  "removed": [],
+  "nextCursor": "f1.9.0",
+  "hasMore": false
+}

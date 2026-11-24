@@ -161,6 +161,18 @@ pub const PATH_FIELDS: [&str; 3] = ["spiel_ordner", "launcher_ordner", "export_o
 /// The files that are read as settings, wherever they lie in the backup.
 const SETTINGS_NAMES: [&str; 2] = ["einstellungen.json", "einstellungen.bak.json"];
 
+/// A settings file without the personal beta code: a backup is passed on more often than the data folder. A file
+/// that is no JSON object, or has no code, stays as it is.
+fn without_beta_code(content: Vec<u8>) -> Vec<u8> {
+    let Ok(serde_json::Value::Object(mut map)) = serde_json::from_slice::<serde_json::Value>(&content) else {
+        return content;
+    };
+    if map.remove(crate::beta::SETTING_CODE).is_none() {
+        return content;
+    }
+    serde_json::to_vec_pretty(&serde_json::Value::Object(map)).unwrap_or(content)
+}
+
 /// The file in the data folder that holds the settings.
 const SETTINGS_FOLDER: &str = "Einstellungen";
 
@@ -566,6 +578,8 @@ fn write_marked_within(
                 }
                 Err(error) => return Err(Refusal::failed(error.to_string())),
             };
+            let is_settings = SETTINGS_NAMES.contains(&name.rsplit('/').next().unwrap_or(name).to_lowercase().as_str());
+            let content = if is_settings { without_beta_code(content) } else { content };
             archive.add(name, &content).map_err(|e| Refusal::failed(e.to_string()))?;
             count += 1;
         }
@@ -1496,6 +1510,21 @@ mod tests {
         assert_eq!(found.count, 3);
         assert!(!found.when.is_empty(), "the date stands in the attachment: {found:?}");
         assert!(paths.setting(LAST_SETTING).is_some(), "the time of the last backup is written down");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_beta_code_does_not_go_into_a_backup() {
+        let (paths, dir) = paths_in("betacode");
+        put(&paths, "Einstellungen/einstellungen.json", "{\"farbe\": \"rot\", \"beta_code\": \"QX4M-K7QM-2XRA-9FHD-W3TB\"}");
+        let target = dir.join("beta.zip").to_string_lossy().into_owned();
+        write(&paths, &target, "5.6.1", &[]).unwrap();
+        let data = fs::read(&target).unwrap();
+        let entries = zip::entries(&data).unwrap();
+        let settings = entries.iter().find(|e| e.name == "Einstellungen/einstellungen.json").unwrap();
+        let text = String::from_utf8(zip::read(&data, settings).unwrap()).unwrap();
+        assert!(!text.contains("beta_code") && !text.contains("QX4M"), "{text}");
+        assert!(text.contains("\"farbe\""), "the other settings stay: {text}");
         let _ = fs::remove_dir_all(dir);
     }
 

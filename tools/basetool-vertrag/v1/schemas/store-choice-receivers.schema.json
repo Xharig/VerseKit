@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/store-choice-receivers.schema.json",
+  "title": "Store choice receivers",
+  "description": "The members a refinery pickup's store lines may book onto: the member, and for a Logistician the members of the units they are a Logistician of, without those who withhold their name; the member first, then the others by name. Each with the org units they directly belong to.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The member's pseudonym at this client, as a store line's receiver names it. Opaque."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The name the Basetool shows for the member."
+          },
+          "self": {
+            "type": "boolean",
+            "description": "Whether this is the member the request acts for."
+          },
+          "orgUnits": {
+            "type": "array",
+            "maxItems": 1000,
+            "description": "The org units the receiver directly belongs to.",
+            "items": {
+              "$ref": "org-unit.schema.json"
+            }
+          }
+        },
+        "required": [
+          "ref",
+          "name",
+          "self",
+          "orgUnits"
+        ]
+      }
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "items"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "9c8b7a6f-5e4d-4c3b-8a29-1f0e9d8c7b6a",
+  "version": 3,
+  "status": "REJECTED",
+  "createdAt": "2026-11-05T12:00:00Z",
+  "decidedAt": "2026-11-05T16:45:00Z",
+  "type": "TRANSFER",
+  "amount": 75000,
+  "note": "Shared mining run",
+  "justification": "Split the haul",
+  "account": {
+    "id": "5d0e9c1a-2b3f-4a6d-8e71-9c0b1a2d3e4f",
+    "no": "KB-0042",
+    "name": "Staffel Nord",
+    "orgUnitShorthand": "NORD"
+  },
+  "targetAccount": {
+    "id": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+    "no": "KB-0001",
+    "name": "KRT"
+  },
+  "requiresOwnerApproval": false,
+  "requiredApprover": null,
+  "ownerApprovalGranted": false,
+  "rejectReason": "No receipt attached",
+  "client": null,
+  "splitEnabled": false,
+  "splitPercent": null
+}

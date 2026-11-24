@@ -1,0 +1,14 @@
+{
+  "dryRun": false,
+  "applied": 1,
+  "unchanged": 0,
+  "notApplied": 0,
+  "results": [],
+  "orders": [
+    {
+      "index": 0,
+      "opId": "c1",
+      "id": "3f1c2b4a-6d5e-4a7b-8c9d-0e1f2a3b4c5d"
+    }
+  ]
+}

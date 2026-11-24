@@ -131,30 +131,41 @@ impl RockBox {
             .unwrap_or_else(|| reference.to_string())
     }
 
-    /// What the chosen ship has fitted, a line per head: `Helix II: Focus III, Rieger-C3, Rieger-C3`.
-    pub fn fitted_lines(&self) -> Vec<String> {
+    /// What the chosen ship has fitted, a line per head with its place among the lasers of the ship:
+    /// `Helix II: Focus III, Rieger-C3, Rieger-C3`.
+    pub fn fitted(&self) -> Vec<(usize, String)> {
         self.choice
             .lasers
             .iter()
-            .filter(|chosen| !chosen.head.is_empty())
-            .map(|chosen| {
+            .enumerate()
+            .filter(|(_, chosen)| !chosen.head.is_empty())
+            .map(|(place, chosen)| {
                 let head = self.name_of(&chosen.head);
-                if chosen.modules.is_empty() {
+                let line = if chosen.modules.is_empty() {
                     head
                 } else {
                     let modules: Vec<String> = chosen.modules.iter().map(|m| self.name_of(m)).collect();
                     format!("{head}: {}", modules.join(", "))
-                }
+                };
+                (place, line)
             })
             .collect()
+    }
+
+    /// The lines of [`fitted`](Self::fitted).
+    pub fn fitted_lines(&self) -> Vec<String> {
+        self.fitted().into_iter().map(|(_, line)| line).collect()
     }
 
     /// The answer for the values typed in, with the choice; `None` until both are numbers.
     pub fn trial(&self) -> Option<String> {
         let number = |text: &str| text.trim().replace(',', ".").trim_end_matches('%').trim().parse::<f64>().ok();
-        let rock = Rock { mass: Some(number(&self.mass)?), resistance: Some(number(&self.resistance)?), instability: None };
-        let verdict = rock_crack::assess(&rock, &self.choice.loadout(&self.gear));
-        Some(rock_crack::verdict_line_in(versekit_core::language::current(), &verdict))
+        // The mass is whole kilograms: `150.000` and `150,000` are thousands.
+        let mass = versekit_core::stock::normalize_separators(&self.mass, true).parse::<f64>().ok()?;
+        let rock = Rock { mass: Some(mass), resistance: Some(number(&self.resistance)?), instability: None };
+        let loadout = self.choice.loadout(&self.gear);
+        let verdict = rock_crack::assess(&rock, &loadout);
+        Some(rock_crack::verdict_line_in(versekit_core::language::current(), &verdict, &loadout))
     }
 }
 
@@ -215,8 +226,16 @@ pub fn show_box(ui: &mut Ui, scheme: &Scheme, state: &mut RockBox, ships: &[Hang
                 row.label(RichText::new(&ship.name).strong());
             });
         }
-        for line in state.fitted_lines() {
-            ui.add(egui::Label::new(RichText::new(line).small().color(color(scheme.sub))).wrap());
+        let fitted = state.fitted();
+        if !fitted.is_empty() {
+            ui.label(RichText::new(t("s_stein_feuern")).small().color(color(scheme.sub)));
+        }
+        for (place, line) in fitted {
+            let mut fires = state.choice.fires(place);
+            if ui.checkbox(&mut fires, RichText::new(line).small()).changed() {
+                state.choice.set_fires(place, fires);
+                changed = true;
+            }
         }
         let gadgets: Vec<(String, String)> = std::iter::once(none())
             .chain(state.gear.gadgets.iter().map(|g| (g.reference.clone(), g.name.clone())))

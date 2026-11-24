@@ -1,0 +1,27 @@
+{
+  "items": [
+    {
+      "id": "7f3e2d1c-0b9a-4876-9543-210fedcba987",
+      "version": 1,
+      "status": "PENDING",
+      "createdAt": "2026-11-08T20:15:00Z",
+      "decidedAt": null,
+      "type": "WITHDRAWAL",
+      "amount": 15000,
+      "note": "Refuel at Port Olisar",
+      "justification": "Fuel for the Friday op",
+      "targetAccount": null,
+      "requiresOwnerApproval": true,
+      "requiredApprover": "RESPONSIBLE_HOLDER",
+      "ownerApprovalGranted": false,
+      "rejectReason": null,
+      "client": null,
+      "splitEnabled": false,
+      "splitPercent": null
+    }
+  ],
+  "removed": [],
+  "nextCursor": "f1.2245871.0",
+  "hasMore": false,
+  "openRequestCap": 20
+}

@@ -20,6 +20,7 @@
           "id": 4
         }
       },
+      "origin": "IN_GAME",
       "fitted": true,
       "orgUnit": {
         "id": "0d6f3c1a-5b2e-4f7a-9c8d-1e2f3a4b5c6d",
@@ -39,6 +40,7 @@
       "insurance": {
         "kind": "LTI"
       },
+      "origin": "UNKNOWN",
       "fitted": false,
       "orgUnitVersion": 0
     }

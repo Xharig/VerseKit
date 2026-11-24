@@ -363,6 +363,9 @@ pub struct OverlayApp {
     /// The hotkey of the main window, read at every key, and its presses.
     main_hotkey: Arc<Mutex<Option<Hotkey>>>,
     main_presses: Receiver<()>,
+    /// The hotkey that switches Anti-AFK on and off, read at every key, and its presses.
+    anti_afk_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    anti_afk_presses: Receiver<()>,
     /// The hotkey of the blueprint scan at the crafting terminal and the scan it started.
     blueprint: crate::blueprint::BlueprintKey,
     /// The hotkeys of the stock scan into the own stock and into the stock of the unit, and the scans they started.
@@ -937,6 +940,7 @@ impl OverlayApp {
             *self.picture.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.picture_hotkey;
             *self.search_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.search_hotkey;
             *self.main_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.main_hotkey;
+            *self.anti_afk_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.anti_afk_hotkey;
             *self.blueprint.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.blueprint_hotkey;
             *self.stock_own.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.stock_hotkey;
             *self.stock_unit.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.unit_stock_hotkey;
@@ -1321,6 +1325,15 @@ impl OverlayApp {
         if main_asked {
             self.show_main_by_key();
         }
+        // The hotkey of Anti-AFK: the same as a click on its button (the other state, said in the status line, with the
+        // click of the sounds). Several presses in one frame are one.
+        let mut anti_afk_asked = false;
+        while self.anti_afk_presses.try_recv().is_ok() {
+            anti_afk_asked = true;
+        }
+        if anti_afk_asked {
+            self.toggle_anti_afk_by_key();
+        }
         // What became of the hotkey grab under X11: taken, no such key, or a new one that works.
         for phrase in hotkey_x11::take_told() {
             self.rows.push(Row::Hint { text: phrase.into(), contract: None }, self.settings.rows);
@@ -1346,6 +1359,16 @@ impl OverlayApp {
     fn key_pressed(&mut self, pressed: bool) {
         if pressed && self.settings.sound {
             self.sound(Cue::Press);
+        }
+    }
+
+    /// The hotkey of Anti-AFK: the same as a click on its button (the other state, the line "Anti-AFK: an/aus" in the
+    /// status), and the click of the sounds when they are on. Without a runner (a system that cannot do it) nothing
+    /// happens, and nothing is said.
+    fn toggle_anti_afk_by_key(&mut self) {
+        if let Some(on) = self.afk.toggle() {
+            self.status = Afk::said(on).into();
+            self.key_pressed(true);
         }
     }
 
@@ -2450,6 +2473,7 @@ impl OverlayApp {
         // The context draws at the overlay's size; the bar's viewport at its own.
         let zoom = self.settings.info_bar_size_percent as f32 / self.settings.size_percent.max(1) as f32;
         self.info.set_zoom(ctx, zoom);
+        self.info.set_auto_through(self.settings.auto_through);
         let step = self.info.step(ctx, on, &content, pointer, Some(&mut self.search));
         if let Some(places) = step.store {
             self.store(versekit_core::info_bar::keys::PLACES, places.value());
@@ -2678,6 +2702,8 @@ struct Parts {
     search_presses: Receiver<()>,
     main_hotkey: Arc<Mutex<Option<Hotkey>>>,
     main_presses: Receiver<()>,
+    anti_afk_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    anti_afk_presses: Receiver<()>,
     blueprint: crate::blueprint::BlueprintKey,
     stock_own: crate::stock_keys::StockKey,
     stock_unit: crate::stock_keys::StockKey,
@@ -2836,6 +2862,8 @@ impl OverlayApp {
             search_presses: p.search_presses,
             main_hotkey: p.main_hotkey,
             main_presses: p.main_presses,
+            anti_afk_hotkey: p.anti_afk_hotkey,
+            anti_afk_presses: p.anti_afk_presses,
             blueprint: p.blueprint,
             stock_own: p.stock_own,
             stock_unit: p.stock_unit,
@@ -3260,6 +3288,22 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             }
             #[cfg(target_os = "macos")]
             drop(main_tx);
+            // The hotkey of Anti-AFK: only where the system can press keys (Windows); elsewhere it is not registered
+            // and the start trail says so.
+            let anti_afk_hotkey = Arc::new(Mutex::new(settings.anti_afk_hotkey));
+            let (anti_afk_tx, anti_afk_rx) = mpsc::channel();
+            #[cfg_attr(not(windows), allow(unused_mut))]
+            let mut anti_afk_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() && versekit_core::anti_afk::supported() {
+                let ctx = cc.egui_ctx.clone();
+                anti_afk_registered =
+                    crate::win::start_hotkeys(anti_afk_hotkey.clone(), anti_afk_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(not(windows))]
+            drop(anti_afk_tx);
             // The hotkey of the blueprint scan reads letters with the recognition of Windows: only there.
             let (blueprint_tx, blueprint_rx) = mpsc::channel();
             let blueprint = crate::blueprint::BlueprintKey::new(settings.blueprint_hotkey, blueprint_rx);
@@ -3318,6 +3362,8 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     }
                     let main = overlay::HotkeyChoice::read_main(paths);
                     versekit_core::trail::step(&overlay::main_hotkey_trail(&main, main_registered));
+                    let anti_afk = overlay::HotkeyChoice::read_anti_afk(paths);
+                    versekit_core::trail::step(&overlay::anti_afk_hotkey_trail(&anti_afk, anti_afk_registered));
                     if cfg!(windows) {
                         let blueprint = overlay::HotkeyChoice::read_blueprint(paths);
                         versekit_core::trail::step(&overlay::blueprint_hotkey_trail(&blueprint, blueprint_registered));
@@ -3347,6 +3393,8 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 search_presses: search_rx,
                 main_hotkey,
                 main_presses: main_rx,
+                anti_afk_hotkey,
+                anti_afk_presses: anti_afk_rx,
                 blueprint,
                 stock_own,
                 stock_unit,
@@ -3493,6 +3541,8 @@ mod tests {
         picture_key: Sender<()>,
         /// A press of the hotkey of the main window.
         main_key: Sender<()>,
+        /// A press of the hotkey of Anti-AFK.
+        anti_afk_key: Sender<()>,
         /// A press of the hotkey of the blueprint scan.
         blueprint_key: Sender<()>,
         /// A press of the hotkeys of the stock scan into the own stock and into the stock of the unit.
@@ -3567,6 +3617,46 @@ mod tests {
         bench.app.launched = None;
         bench.app.take_news();
         assert!(bench.app.launched.is_none(), "the presses were taken");
+    }
+
+    /// The hotkey of Anti-AFK does what a click on its button does: a press switches it on, the next one off, each
+    /// said in the status line, with the click of the sounds while they are on; presses that come together are one.
+    /// Without a runner (a system that cannot do it) a press does nothing.
+    #[test]
+    fn the_hotkey_of_anti_afk_switches_it_like_its_button_and_says_so() {
+        let mut bench = bench(Args::default(), false, None);
+        bench.app.afk = crate::afk::tests::quiet_afk();
+        bench.app.settings.sound = true;
+        bench.app.take_news();
+        assert!(!bench.app.afk.enabled() && bench.app.played.is_empty(), "no press, nothing");
+        bench.anti_afk_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(bench.app.afk.enabled(), "switched on");
+        assert_eq!(bench.app.status, Message::from(Afk::said(true)));
+        assert_eq!(bench.app.played, [Cue::Press], "the click of the sounds");
+        bench.anti_afk_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(!bench.app.afk.enabled(), "the next press switches it off");
+        assert_eq!(bench.app.status, Message::from(Afk::said(false)));
+        // Two presses in one frame are one.
+        bench.anti_afk_key.send(()).unwrap();
+        bench.anti_afk_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(bench.app.afk.enabled(), "one switching for two presses");
+        // Sounds off: the same, without the click.
+        bench.app.played.clear();
+        bench.app.settings.sound = false;
+        bench.anti_afk_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(!bench.app.afk.enabled());
+        assert!(bench.app.played.is_empty(), "no sound");
+        // No runner: nothing happens and nothing is said.
+        bench.app.afk = Afk::none(Arc::new(AtomicU8::new(0)));
+        bench.app.status = Message::Plain("vorher".into());
+        bench.anti_afk_key.send(()).unwrap();
+        bench.app.take_news();
+        assert_eq!(bench.app.status, Message::Plain("vorher".into()));
+        bench.app.afk.shutdown();
     }
 
     /// The hotkey of the picture of the game: two quick presses are one grab, and its notice says what came of it,
@@ -3825,6 +3915,7 @@ mod tests {
         let (search_key, search_rx) = mpsc::channel();
         let (picture_key, picture_rx) = mpsc::channel();
         let (main_key, main_rx) = mpsc::channel();
+        let (anti_afk_key, anti_afk_rx) = mpsc::channel();
         let (blueprint_key, blueprint_rx) = mpsc::channel();
         let (stock_own_key, stock_own_rx) = mpsc::channel();
         let (stock_unit_key, stock_unit_rx) = mpsc::channel();
@@ -3849,6 +3940,8 @@ mod tests {
             search_presses: search_rx,
             main_hotkey: Arc::new(Mutex::new(None)),
             main_presses: main_rx,
+            anti_afk_hotkey: Arc::new(Mutex::new(None)),
+            anti_afk_presses: anti_afk_rx,
             blueprint: crate::blueprint::BlueprintKey::new(None, blueprint_rx),
             stock_own: crate::stock_keys::StockKey::new(None, stock_own_rx),
             stock_unit: crate::stock_keys::StockKey::new(None, stock_unit_rx),
@@ -3869,7 +3962,19 @@ mod tests {
         let mut app = app;
         app.game_in_front = || false;
         app.game_area = || None;
-        Bench { app, news, game, control, search_key, picture_key, main_key, blueprint_key, stock_own_key, stock_unit_key }
+        Bench {
+            app,
+            news,
+            game,
+            control,
+            search_key,
+            picture_key,
+            main_key,
+            anti_afk_key,
+            blueprint_key,
+            stock_own_key,
+            stock_unit_key,
+        }
     }
 
     fn scratch(name: &str) -> std::path::PathBuf {

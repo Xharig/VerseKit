@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/bank-account.schema.json",
+  "title": "Bank account",
+  "description": "One active Kartellbank account the member may view in the Basetool, with its balance, target and 30-day trend, and the three facts about the member: whether they may raise a withdrawal or transfer here, their own limit, and whether they are exempt from approval. No holders, custody, limit tables or ceilings. Foreign bank data: a client keeps it in memory only, for at most 7 days.",
+  "type": "object",
+  "properties": {
+    "accountId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+    },
+    "accountNo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "description": "The account number the Basetool shows, such as KB-0042."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "ORG_UNIT",
+        "AREA",
+        "CARTEL",
+        "CARTEL_BANK",
+        "SPECIAL"
+      ],
+      "description": "An org unit's, an area's, the KRT, the bank's own or a special account."
+    },
+    "orgUnit": {
+      "oneOf": [
+        {
+          "$ref": "org-unit.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The org unit that owns the account; null for an account without one."
+    },
+    "balance": {
+      "type": "integer",
+      "description": "The current balance in whole aUEC."
+    },
+    "balanceTarget": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "The balance goal in whole aUEC; null when none is set."
+    },
+    "delta30d": {
+      "type": "integer",
+      "description": "The net change over the last 30 days in whole aUEC."
+    },
+    "sparkline": {
+      "type": "array",
+      "maxItems": 30,
+      "description": "The end-of-day balances of the last 30 days in whole aUEC, oldest first, ending with the current balance.",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "requestable": {
+      "type": "boolean",
+      "description": "Whether the member may raise a withdrawal or transfer from this account."
+    },
+    "ownLimit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "The member's limit in whole aUEC above which a request needs an approval; null when the member is exempt (approvalExempt) or every request needs one."
+    },
+    "approvalExempt": {
+      "type": "boolean",
+      "description": "Whether the member raises requests here without any approver's sign-off, as the account's responsible holder. Additive: the server always sends it; a reader that does not know it treats a null ownLimit as unknown."
+    }
+  },
+  "required": [
+    "accountId",
+    "accountNo",
+    "name",
+    "type",
+    "orgUnit",
+    "balance",
+    "balanceTarget",
+    "delta30d",
+    "sparkline",
+    "requestable",
+    "ownLimit"
+  ]
+}

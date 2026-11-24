@@ -1,0 +1,21 @@
+{
+  "id": "5b3e4d6c-8f7a-4c9d-8e1f-2a3b4c5d6e7f",
+  "versions": {
+    "gameData": 3,
+    "finances": 1
+  },
+  "status": "CANCELED",
+  "canceledByPatch": {
+    "id": "3f0c2b1a-9e8d-4c7b-a6f5-e4d3c2b1a098",
+    "label": "4.4"
+  },
+  "location": {
+    "name": "CRU-L1 Ambitious Dream Station",
+    "guid": "1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b"
+  },
+  "startedAt": "2026-11-14T17:30:00Z",
+  "durationMinutes": 420,
+  "endsAt": "2026-11-15T00:30:00Z",
+  "expenses": 2800,
+  "goods": []
+}

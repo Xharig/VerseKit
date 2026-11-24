@@ -46,6 +46,14 @@ pub mod keys {
     pub const SHOW_VERDICT: &str = "stein_zeile_aufbrechbar";
     /// The line of the worth.
     pub const SHOW_WORTH: &str = "stein_zeile_wert";
+    /// The lasers that do not fire, of every ship: a list of `<ship key>#<place of the laser>`.
+    pub const IDLE: &str = "stein_laser_aus";
+}
+
+/// A name of a head as the line of the answer shows it: without the trailing `Mining Laser`.
+pub fn short_head_name(name: &str) -> String {
+    let name = name.trim();
+    name.strip_suffix("Mining Laser").map_or(name, str::trim_end).to_string()
 }
 
 /// The further changes of a head, module or gadget in percent as the game stores them; `None` where the game data
@@ -383,9 +391,30 @@ pub struct Choice {
     pub lasers: Vec<Chosen>,
     pub gadget: String,
     pub active: String,
+    /// The lasers that do not fire, of every ship ([`keys::IDLE`]).
+    pub idle: Vec<String>,
 }
 
 impl Choice {
+    fn idle_entry(&self, place: usize) -> String {
+        format!("{}#{place}", self.ship)
+    }
+
+    /// Whether the laser at `place` of the chosen ship fires (every laser does until one is switched off).
+    pub fn fires(&self, place: usize) -> bool {
+        let entry = self.idle_entry(place);
+        !self.idle.contains(&entry)
+    }
+
+    /// Lets the laser at `place` of the chosen ship fire or not.
+    pub fn set_fires(&mut self, place: usize, fires: bool) {
+        let entry = self.idle_entry(place);
+        self.idle.retain(|e| *e != entry);
+        if !fires {
+            self.idle.push(entry);
+        }
+    }
+
     /// The choice of the settings with the fitting of the chosen ship of the hangar (the first mining ship where
     /// none is chosen or the chosen one is gone).
     pub fn read(paths: &Paths) -> Choice {
@@ -395,11 +424,27 @@ impl Choice {
     pub fn read_with(paths: &Paths, ships: &[HangarShip]) -> Choice {
         let settings = paths.settings();
         let get = |key: &str| settings.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
-        Choice::from_settings(get(keys::SHIP), get(keys::GADGET), get(keys::ACTIVE)).with_ship(ships)
+        Choice::from_settings(get(keys::SHIP), get(keys::GADGET), get(keys::ACTIVE))
+            .with_idle(get(keys::IDLE))
+            .with_ship(ships)
     }
 
     pub fn from_settings(ship: Option<Value>, gadget: Option<Value>, active: Option<Value>) -> Choice {
-        Choice { ship: text(ship.as_ref()), lasers: Vec::new(), gadget: text(gadget.as_ref()), active: text(active.as_ref()) }
+        Choice {
+            ship: text(ship.as_ref()),
+            gadget: text(gadget.as_ref()),
+            active: text(active.as_ref()),
+            ..Choice::default()
+        }
+    }
+
+    /// The lasers that do not fire from their setting ([`keys::IDLE`]).
+    pub fn with_idle(mut self, idle: Option<Value>) -> Choice {
+        self.idle = match idle {
+            Some(Value::Array(items)) => items.iter().filter_map(|v| v.as_str().map(str::to_string)).collect(),
+            _ => Vec::new(),
+        };
+        self
     }
 
     /// The fitting of the chosen ship among `ships`, the first one where the choice names none of them.
@@ -416,16 +461,24 @@ impl Choice {
             (keys::SHIP, Value::str(self.ship.clone())),
             (keys::GADGET, Value::str(self.gadget.clone())),
             (keys::ACTIVE, Value::str(self.active.clone())),
+            (keys::IDLE, Value::Array(self.idle.iter().cloned().map(Value::Str).collect())),
         ]
     }
 
-    /// The choice in numbers: heads the data do not know are left out, as are unknown modules.
+    /// The choice in numbers: heads the data do not know are left out, as are unknown modules; lasers that do not
+    /// fire are counted in [`Loadout::idle`].
     pub fn loadout(&self, gear: &Gear) -> Loadout {
+        let mut idle = 0;
         let lasers = self
             .lasers
             .iter()
-            .filter_map(|chosen| {
+            .enumerate()
+            .filter_map(|(place, chosen)| {
                 let head = gear.head(&chosen.head)?;
+                if !self.fires(place) {
+                    idle += 1;
+                    return None;
+                }
                 let modules = chosen
                     .modules
                     .iter()
@@ -435,6 +488,7 @@ impl Choice {
                     .map(|m| Factors { power: m.power, ..Factors::from_percent(0.0, m.resistance, m.instability) })
                     .collect();
                 Some(Laser {
+                    name: short_head_name(&head.name),
                     power: head.power,
                     min_share: head.throttle_min.unwrap_or(0.0),
                     head: Factors::from_percent(0.0, head.resistance, head.instability),
@@ -446,7 +500,7 @@ impl Choice {
         let active = gear
             .module(&self.active)
             .map(|m| Factors { power: m.power, ..Factors::from_percent(0.0, m.resistance, m.instability) });
-        Loadout { lasers, gadget, active }
+        Loadout { lasers, gadget, active, idle }
     }
 }
 

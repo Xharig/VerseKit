@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/refinery-order.schema.json",
+  "title": "Refinery order",
+  "description": "One of the member's own refinery orders. The owner is always the member and is not carried. Amounts are whole units, 100 to the SCU; money is in aUEC.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque identifier issued by the Basetool, the feed key and the id the write operations name. Clients store and echo it, never parse it."
+    },
+    "clientKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The key the creating client gave the order. Carried only to the client that created it."
+    },
+    "createdBy": {
+      "type": "object",
+      "description": "The client marker: the connected application that created the order. Absent for an order created in the web, a saved draft included.",
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The client's display name from the registry."
+        }
+      },
+      "required": [
+        "clientId",
+        "name"
+      ]
+    },
+    "versions": {
+      "type": "object",
+      "description": "The counters of the order's two sections. A write echoes the counter of each section it touches.",
+      "properties": {
+        "gameData": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Location, refining method, timer, status, goods, pickup and store."
+        },
+        "finances": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "expenses, otherExpenses and oreSales."
+        }
+      },
+      "required": [
+        "gameData",
+        "finances"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELED"
+      ]
+    },
+    "canceledByPatch": {
+      "type": "object",
+      "description": "The patch change that cancelled the order because the game patch ended it. Present only on a CANCELED order a patch change cancelled.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The patch change's id, the same in every feed entry the patch change caused."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "The patch label, e.g. 4.4; an admin may correct it later."
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ]
+    },
+    "location": {
+      "$ref": "location-ref.schema.json",
+      "description": "The refinery the order runs at."
+    },
+    "method": {
+      "type": "object",
+      "description": "The refining method; absent when none is set.",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp in UTC; absent when not set."
+    },
+    "durationMinutes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The run's length; absent when not set."
+    },
+    "endsAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "startedAt plus durationMinutes; absent while either is unset."
+    },
+    "pickedUpAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When a client reported the yield collected in the game; absent otherwise."
+    },
+    "storedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the yield was booked into stock; absent while it has not been. A stored order's status is locked."
+    },
+    "expenses": {
+      "type": "number",
+      "minimum": 0,
+      "description": "The refining costs; absent when not set."
+    },
+    "otherExpenses": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Further costs; absent when not set."
+    },
+    "oreSales": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Revenue from selling raw ore; absent when not set."
+    },
+    "missionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The linked mission, by id only; absent when the order has none."
+    },
+    "orgUnitId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The owning org unit, by id; absent for a personal order without one."
+    },
+    "goods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The good's row id, the id the goods operations name."
+          },
+          "input": {
+            "$ref": "item-ref.schema.json",
+            "description": "The raw input material."
+          },
+          "inputQuantity": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Whole units, 100 to the SCU; 0 when the input amount is not known."
+          },
+          "output": {
+            "$ref": "item-ref.schema.json",
+            "description": "The refined output material."
+          },
+          "outputQuantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "quality": {
+            "$ref": "quality.schema.json"
+          }
+        },
+        "required": [
+          "id",
+          "input",
+          "inputQuantity",
+          "output",
+          "outputQuantity",
+          "quality"
+        ]
+      }
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "id",
+    "versions",
+    "status",
+    "location",
+    "goods"
+  ]
+}

@@ -2205,7 +2205,8 @@ mod tests {
         assert!(shows(&texts, &t("s_js_belegt")), "{texts:?}");
         // One row for the eject: on the stick (changed) and still on the key (the factory's).
         assert_eq!(count(&texts, "Aussteigen"), 1, "{texts:?}");
-        assert!(shows(&texts, "Knopf 5") && shows(&texts, "Alt Gr + Y"), "{texts:?}");
+        let alt_gr_y = versekit_core::controls::input_readable("ralt+y", Some(versekit_core::joysticks::Kind::Keyboard));
+        assert!(shows(&texts, "Knopf 5") && shows(&texts, &alt_gr_y), "{texts:?}");
         assert_eq!(count(&texts, "Wiederbeleben"), 1, "{texts:?}");
         // The actions nothing points to have their row, with a "–" in every column.
         assert!(shows(&texts, "Free") && shows(&texts, "Winken"), "{texts:?}");
@@ -2218,7 +2219,8 @@ mod tests {
         assert!(shows(&texts, &tf("s_js_aktionen", &[("0", Arg::from(4))])), "{texts:?}");
         // The own binding says so, the factory's as well; the column is named.
         let stick = format!("Aussteigen, {}, Knopf 5, {}", t("s_js_k_stick"), t("s_js_eigen"));
-        let key = format!("Aussteigen, {}, Alt Gr + Y, {}", t("s_js_k_tasten"), t("s_js_werk"));
+        let alt_gr_y = versekit_core::controls::input_readable("ralt+y", Some(versekit_core::joysticks::Kind::Keyboard));
+        let key = format!("Aussteigen, {}, {alt_gr_y}, {}", t("s_js_k_tasten"), t("s_js_werk"));
         assert!(button_said(&bench, &stick, "") && button_said(&bench, &key, ""), "{:?}", bench.nodes);
         // One stick only: no name of a stick in the cells.
         assert!(!button_said(&bench, "Aussteigen", "Stick L"), "{:?}", bench.nodes);
@@ -2277,7 +2279,8 @@ mod tests {
         bench.click(&t("s_js_q_spiel"));
         bench.click_last(&t("s_js_q_werk"));
         let texts = bench.settle();
-        assert!(!shows(&texts, "Knopf 5") && shows(&texts, "Alt Gr + Y"), "only the factory setting: {texts:?}");
+        let alt_gr_y = versekit_core::controls::input_readable("ralt+y", Some(versekit_core::joysticks::Kind::Keyboard));
+        assert!(!shows(&texts, "Knopf 5") && shows(&texts, &alt_gr_y), "only the factory setting: {texts:?}");
         assert!(!bench.nodes.iter().any(|(_, name)| name.contains(&t("s_js_eigen"))), "nothing own: {:?}", bench.nodes);
         bench.click(&t("s_js_q_werk"));
         bench.click_last("layout_1_exported.xml");

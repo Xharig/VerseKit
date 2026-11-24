@@ -75,6 +75,20 @@
         }
       }
     },
+    "refineryOrderPage": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "refinery-order.schema.json"
+          }
+        }
+      }
+    },
     "orgStockPage": {
       "allOf": [
         {
@@ -99,6 +113,57 @@
       "required": [
         "units"
       ]
+    },
+    "bankAccountPage": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "description": "A snapshot page of the bank accounts the member views; removed is always empty, the bank has no change feed.",
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "bank-account.schema.json"
+          }
+        }
+      }
+    },
+    "bankBookingPage": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "description": "A snapshot page of an account's bookings, newest first; removed is always empty, the bank has no change feed.",
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "bank-booking.schema.json"
+          }
+        }
+      }
+    },
+    "bankRequestPage": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "description": "A snapshot page or a change-feed page of the member's own booking requests; removed names a request that no longer exists.",
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "bank-request.schema.json"
+          }
+        },
+        "openRequestCap": {
+          "description": "The most pending requests the member may hold; once the PENDING items reach it, the next raise answers 409 BANK_OPEN_REQUEST_CAP. Every page from the server carries it.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      }
     }
   }
 }

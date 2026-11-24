@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ingest.profit-base.online/exchange/v1/schemas/location-ref.schema.json",
   "title": "Location reference",
-  "description": "A warehouse location, resolved against the Basetool's location list: first by its UEX link, then by the exact name. A place without a warehouse location is `LOCATION_UNKNOWN`.",
+  "description": "A warehouse location, resolved against the Basetool's location list: first by its starmap GUID, then by its UEX link, then by the exact name. A place without a warehouse location is `LOCATION_UNKNOWN`.",
   "type": "object",
   "properties": {
     "name": {
@@ -29,6 +29,12 @@
         "kind",
         "id"
       ]
+    },
+    "guid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "The DataForge GUID of the starmap object the location stands for, in lower-case canonical form: the location's own starmap object, else its city's, else its space station's. Absent when none is linked. Wins over `uex` and `name` in a write; an unknown GUID falls back to them."
     }
   },
   "anyOf": [
@@ -40,6 +46,11 @@
     {
       "required": [
         "uex"
+      ]
+    },
+    {
+      "required": [
+        "guid"
       ]
     }
   ]

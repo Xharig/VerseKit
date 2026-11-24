@@ -93,7 +93,10 @@ fn remove(path: &str) {
 
 /// `v5.0.0 ` → `5.0.0`, for comparing versions as the run mark holds them.
 pub fn norm(version: &str) -> String {
-    crate::text::py_strip(version).to_lowercase().trim_start_matches('v').to_string()
+    let lower = crate::text::py_strip(version).to_lowercase();
+    // The tag of a beta release names the same version as the program it holds: `beta-v5.7.0-beta.1` is
+    // `5.7.0-beta.1`.
+    lower.strip_prefix(crate::beta::TAG_PREFIX).unwrap_or(&lower).trim_start_matches('v').to_string()
 }
 
 // ------------------------------------------------------------ processes

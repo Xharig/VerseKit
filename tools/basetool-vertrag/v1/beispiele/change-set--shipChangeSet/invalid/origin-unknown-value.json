@@ -1,0 +1,15 @@
+{
+  "ops": [
+    {
+      "op": "upsert",
+      "externalId": "vk-9",
+      "shipType": {
+        "name": "Cutlass Black"
+      },
+      "insurance": {
+        "kind": "LTI"
+      },
+      "origin": "BOUGHT"
+    }
+  ]
+}

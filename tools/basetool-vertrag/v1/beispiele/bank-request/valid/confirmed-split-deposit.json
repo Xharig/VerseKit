@@ -1,0 +1,25 @@
+{
+  "id": "3a4b5c6d-7e8f-4a0b-9c1d-2e3f4a5b6c7d",
+  "version": 2,
+  "status": "CONFIRMED",
+  "createdAt": "2026-11-06T18:00:00Z",
+  "decidedAt": "2026-11-07T09:30:00Z",
+  "type": "DEPOSIT",
+  "amount": 400000,
+  "note": null,
+  "justification": null,
+  "account": {
+    "id": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+    "no": "KB-0001",
+    "name": "KRT",
+    "orgUnitShorthand": null
+  },
+  "targetAccount": null,
+  "requiresOwnerApproval": false,
+  "requiredApprover": null,
+  "ownerApprovalGranted": false,
+  "rejectReason": null,
+  "client": null,
+  "splitEnabled": true,
+  "splitPercent": 20
+}

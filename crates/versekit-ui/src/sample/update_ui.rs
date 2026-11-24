@@ -435,6 +435,54 @@ fn a_click_on_a_box_chooses_the_channel_and_says_so_and_the_button_in_it_fetches
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// The box „Betatester“: chosen, it shows the field of the code and says that a code is missing; a code is stored
+/// with only its first four characters shown; leaving the stage deletes it. Without a beta release nothing of a
+/// beta is offered.
+#[test]
+fn the_beta_box_takes_a_code_and_leaving_the_stage_deletes_it() {
+    let _language = crate::language_lock();
+    let net = Arc::new(github("v5.0.1", b"new file"));
+    let releases = vec![release("v5.0.1", false)];
+    let (mut bench, dir) = window("update-beta", releases, "", |dir| env_in(dir, net.clone(), false).0);
+    let paths = Paths::new(host_in(&dir, &[]));
+    bench.page.go_to("hf_ueber");
+    let texts = bench.settle();
+    assert!(shows(&texts, &t("s_ub_beta")), "the third box is there");
+    assert!(!shows(&texts, &t("s_ub_beta_pruefen")), "the field only on the stage");
+    bench.click(&t("s_ub_beta"));
+    assert!(bench.page.update_beta && bench.page.update_test, "the beta stage counts test versions too");
+    assert_eq!(bench.notice(), Some(format!("{}: {}", t("e_beta"), t("e_an"))));
+    let texts = bench.settle();
+    assert!(shows(&texts, &t("s_ub_beta_pruefen")) && shows(&texts, &t("s_ub_beta_ohne_code")), "{texts:?}");
+    assert!(versekit_core::beta::on(&paths), "the stage is written");
+    // A code in the wrong form is not stored.
+    bench.page.updates.check_code(&egui::Context::default(), &paths, "ABCD-EFGH");
+    assert_eq!(versekit_core::beta::stored_code(&paths), None);
+    assert!(shows(&bench.settle(), &t("s_ub_beta_form")));
+    // A code in the right form is stored and shown only by its first four characters; no beta round is known.
+    bench.page.updates.check_code(&egui::Context::default(), &paths, "qx4m k7qm 2xra 9fhd w3tb");
+    let texts = pump(&mut bench, |bench, _| !bench.page.updates.checking_code());
+    let texts = if shows(&texts, &t("s_ub_beta_keine")) { texts } else { bench.settle() };
+    assert!(versekit_core::beta::stored_code(&paths).is_some());
+    assert!(shows(&texts, "QX4M-••••") && !shows(&texts, "K7QM"), "{texts:?}");
+    assert!(shows(&texts, &t("s_ub_beta_keine")), "{texts:?}");
+    assert!(!net.asked().iter().any(|url| url.contains("vkkey") || url.contains("vkbeta")), "{:?}", net.asked());
+    // Back to stable: the code is gone, and so are what was found out with it and the remembered betas.
+    let left = |name: &str| std::path::PathBuf::from(paths.app_file(name));
+    for name in [versekit_core::beta::STATE_FILE, versekit_core::beta::CACHE] {
+        std::fs::create_dir_all(left(name).parent().unwrap()).unwrap();
+        std::fs::write(left(name), "{}").unwrap();
+    }
+    bench.click(&t("s_ub_fertig"));
+    bench.settle();
+    assert!(!bench.page.update_beta && !bench.page.update_test);
+    assert!(!versekit_core::beta::on(&paths));
+    assert_eq!(versekit_core::beta::stored_code(&paths), None, "leaving the stage deletes the code");
+    assert!(!left(versekit_core::beta::STATE_FILE).exists(), "and the state of the code");
+    assert!(!left(versekit_core::beta::CACHE).exists(), "and the remembered betas");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn the_boxes_stand_side_by_side_in_a_wide_window_and_one_below_the_other_in_a_narrow_one() {
     let _language = crate::language_lock();

@@ -10,6 +10,7 @@
   "insurance": {
     "kind": "LTI"
   },
+  "origin": "PLEDGE",
   "fitted": true,
   "location": {
     "name": "Area18",

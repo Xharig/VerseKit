@@ -32,10 +32,15 @@ use super::docking::tests::draw;
 /// The host of a throwaway folder: the Basetool cannot go out, the home folder is the throwaway
 /// folder too (nothing of the home folder of this computer is found).
 ///
-/// The game folder is looked for on the drives of this computer unless the variables name one (that takes many seconds
-/// for each page built, because the page reads the real logs: see [`host_apart`] for a test that does not need the game).
+/// The game folder is the one the variables name, else none: no drive of this computer is looked at (a page that finds
+/// the game reads its real logs, many seconds of work for each page built). [`host_on_this_computer`] looks at the drives.
 pub(super) fn host_in(dir: &std::path::Path, vars: &[(&str, &str)]) -> Host {
-    host_on_this_computer(dir, vars)
+    let host = host_on_this_computer(dir, vars);
+    if vars.iter().any(|(name, _)| *name == versekit_core::paths::ENV_INSTALL_DIR) {
+        return host;
+    }
+    // No drive is looked at: the page finds no game, reads no log of this computer and starts no reading of it.
+    host.with_drives(&[])
 }
 
 /// The host of [`host_in`].

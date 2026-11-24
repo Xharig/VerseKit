@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "5.6.0"
+version = "5.6.1"
 edition = "2024"
 rust-version = "1.99"
 license = "GPL-3.0-only"
@@ -12,6 +12,8 @@ publish = false
 
 [workspace.dependencies]
 # Base64 for DPoP proofs and PEM keys of the Basetool connection.
+# Argon2id: the key of a beta tester from the code (`beta.rs`); pure Rust, MIT/Apache.
+argon2 = { version = "0.5", default-features = false, features = ["alloc"] }
 base64 = "0.22"
 eframe = { version = "=0.37.0", default-features = true, features = ["glow"] }
 egui = "=0.37.0"
@@ -92,3 +94,10 @@ debug = "line-tables-only"
 
 [profile.dev.package."*"]
 debug = false
+
+# Argon2id is meant to cost memory and time; unoptimised it takes many seconds per code, in the tests too.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3

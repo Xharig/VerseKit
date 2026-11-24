@@ -6,6 +6,57 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.1 - 2026-11-25
+
+> "Does the rock pay?" now shows in the game as well, and you choose which
+> lasers fire. Also a better refinery scan, keys by your keyboard layout and a
+> running indicator wherever VerseKit is at work.
+
+### New
+
+- **Keyboard shortcut for Anti-AFK:** Anti-AFK can now be switched on and off
+  with a key, in the running game too, like a click on the button in the bar of
+  the overlay. You set the key under Settings › Overlay beside the other
+  shortcuts; without your key the shortcut stays off. The status line says
+  "Anti-AFK: on" or "off". Requested by daheque16.
+- **Update stage "Beta tester":** Under Info › Update & About, a personal beta
+  code gets you unfinished features before everyone else. The beta files lie
+  encrypted on GitHub; without a fitting code nothing is offered.
+
+### Improved
+
+- **Does the rock pay?: which lasers fire:** In the card under Mining ›
+  Equipment every laser of the ship has a tick. Flying alone or as two, leave
+  only the manned ones on; VerseKit keeps that per ship. The line names the
+  lasers and the power instead of "throttle": "all 3 lasers, each at 65 %",
+  "Helix II at 90 %" or "more lasers needed (with Helix II alone)".
+- **Indicator while VerseKit works:** Where you started something, it now says
+  that it runs. For the translation "from the game" the card shows that it waits
+  for the game to close, what it loads and how far the catalog is. The same when
+  importing an inventory, in the unit stock, when sending an error report and
+  when searching for the game folder.
+- **Bank:** The button "In the Basetool" in the requests opens only addresses
+  of the Basetool.
+
+### Fixed
+
+- **Mouse pointer at the info bar:** Looking far up in the game showed the
+  mouse pointer at the info bar, and the bar caught view and clicks. Like the
+  overlay, it now passes everything through while the game hides the pointer,
+  with the lock open too (Settings › Overlay).
+- **Does the rock pay? in the game:** The line below the signature did not come,
+  because the signature leaves once the rock is scanned. VerseKit now searches
+  for the scan panel up to three minutes after the last signature and shows the
+  line while the panel is in sight.
+- **Try it with a thousands separator:** "150.000" was read as 150 kg.
+- **Refinery scan:** On some screens VerseKit cut the material names on the
+  left. Rows like Tungsten were then missing, and a yield of 98 could show as
+  90. Where the readings see a 0 and an 8 in the same place, VerseKit now asks
+  instead of guessing.
+- **Controls by keyboard layout:** The Controls page showed keys as on a US
+  keyboard (Y instead of Z on a German one), and binding took the sign instead
+  of the key. Reported by SirHinkebein [KRT].
+
 ## v5.6.0 - 2026-11-23
 
 > A new "Finances" page with an aUEC account and statement, a stock scan

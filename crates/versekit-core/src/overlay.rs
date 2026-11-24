@@ -82,6 +82,9 @@ pub const DEFAULT_STOCK_HOTKEY: &str = "F8";
 /// The hotkey that does the same into the stock of the unit ("Lager der Einheit"); it works only for a logistician
 /// ([`keys::LOGISTICIAN`]). It is on until switched off ([`keys::HOTKEY_UNIT_STOCK_ON`]).
 pub const DEFAULT_UNIT_STOCK_HOTKEY: &str = "Umschalt+F8";
+/// The hotkey that switches Anti-AFK on and off has no default: it holds no key until the player sets one
+/// (every free combination of the game is somebody's). Empty here, [`Shortcut::AntiAfk`] reads it as "none".
+pub const DEFAULT_ANTI_AFK_HOTKEY: &str = "";
 
 /// The first version whose hotkeys without a setting lie on the F keys.
 pub const F_KEYS_FROM: &str = "5.4.3";
@@ -157,6 +160,10 @@ pub mod keys {
     /// The hotkey of the stock scan into the stock of the unit is registered (only a literal `false` switches it off).
     pub const HOTKEY_UNIT_STOCK_ON: &str = "hotkey_staffellager_an";
     pub const HOTKEY_UNIT_STOCK: &str = "hotkey_staffellager";
+    /// The hotkey that switches Anti-AFK on and off is registered (only a literal `false` switches it off). It has
+    /// no default key: without [`HOTKEY_ANTI_AFK`] it holds nothing.
+    pub const HOTKEY_ANTI_AFK_ON: &str = "hotkey_antiafk_an";
+    pub const HOTKEY_ANTI_AFK: &str = "hotkey_antiafk";
     /// The player books as a logistician of the unit ("Als Logistiker buchen" under Connection & sync): the scan
     /// into the stock of the unit is allowed.
     pub const LOGISTICIAN: &str = crate::basetool::scopes::SETTING_ORGSTOCK_WRITE;
@@ -965,7 +972,7 @@ fn literal_false(paths: &Paths, key: &str) -> bool {
     paths.settings().iter().any(|(k, v)| k == key && *v == Value::Bool(false))
 }
 
-/// The eight shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
+/// The nine shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
 /// press would do both (5.2.1: the overlay and the picture of the game on Alt+Umschalt+B).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shortcut {
@@ -981,10 +988,12 @@ pub enum Shortcut {
     Stock,
     /// Reads the info card under the pointer into the stock of the unit.
     UnitStock,
+    /// Switches Anti-AFK on and off, as a click on its button in the bar does. No default key.
+    AntiAfk,
 }
 
 /// How many shortcuts there are.
-pub const SHORTCUTS: usize = 8;
+pub const SHORTCUTS: usize = 9;
 
 impl Shortcut {
     pub const ALL: [Shortcut; SHORTCUTS] = [
@@ -996,6 +1005,7 @@ impl Shortcut {
         Shortcut::Blueprint,
         Shortcut::Stock,
         Shortcut::UnitStock,
+        Shortcut::AntiAfk,
     ];
 
     /// Its name in the start trail, where it holds the key another one wanted.
@@ -1009,6 +1019,7 @@ impl Shortcut {
             Shortcut::Blueprint => "Bauplan-Hotkey",
             Shortcut::Stock => "Lager-Hotkey",
             Shortcut::UnitStock => "Staffellager-Hotkey",
+            Shortcut::AntiAfk => "Anti-AFK-Hotkey",
         }
     }
 
@@ -1024,6 +1035,7 @@ impl Shortcut {
             Shortcut::Blueprint => "s_hk_kurz_bauplan",
             Shortcut::Stock => "s_hk_kurz_lager",
             Shortcut::UnitStock => "s_hk_kurz_staffellager",
+            Shortcut::AntiAfk => "s_hk_kurz_antiafk",
         }
     }
 
@@ -1038,6 +1050,7 @@ impl Shortcut {
             Shortcut::Blueprint => (keys::HOTKEY_BLUEPRINT, DEFAULT_BLUEPRINT_HOTKEY, keys::HOTKEY_BLUEPRINT_ON),
             Shortcut::Stock => (keys::HOTKEY_STOCK, DEFAULT_STOCK_HOTKEY, keys::HOTKEY_STOCK_ON),
             Shortcut::UnitStock => (keys::HOTKEY_UNIT_STOCK, DEFAULT_UNIT_STOCK_HOTKEY, keys::HOTKEY_UNIT_STOCK_ON),
+            Shortcut::AntiAfk => (keys::HOTKEY_ANTI_AFK, DEFAULT_ANTI_AFK_HOTKEY, keys::HOTKEY_ANTI_AFK_ON),
         }
     }
 }
@@ -1078,6 +1091,8 @@ impl HotkeyChoice {
             blueprint,
             blueprint,
             blueprint,
+            // Anti-AFK presses keys only where the system can do it (Windows).
+            crate::anti_afk::supported(),
         ];
         let read = Shortcut::ALL.map(|shortcut| {
             let (key, default, switch) = shortcut.setting();
@@ -1086,8 +1101,14 @@ impl HotkeyChoice {
                 return (HotkeyChoice::Off, false);
             }
             let stored = paths.setting(key);
+            // A shortcut without a default key holds nothing until the player set one.
+            if default.is_empty() && stored.is_none() {
+                return (HotkeyChoice::Off, false);
+            }
             let text = stored.clone().unwrap_or_else(|| default.to_string());
-            let factory = stored.is_none() || Hotkey::parse(&text).is_some_and(|h| Hotkey::parse(default) == Some(h));
+            // Without a default there is no key to give way: a taken key stays taken.
+            let factory = !default.is_empty()
+                && (stored.is_none() || Hotkey::parse(&text).is_some_and(|h| Hotkey::parse(default) == Some(h)));
             (Hotkey::parse(&text).map_or(HotkeyChoice::Wrong(text), HotkeyChoice::Combination), factory)
         });
         resolve(read, registered)
@@ -1131,14 +1152,20 @@ impl HotkeyChoice {
 
     /// The hotkey of the stock scan into the own stock, [`DEFAULT_STOCK_HOTKEY`] where none is set.
     pub fn read_stock(paths: &Paths) -> HotkeyChoice {
-        let [.., stock, _] = HotkeyChoice::read_all(paths);
+        let [.., stock, _, _] = HotkeyChoice::read_all(paths);
         stock
     }
 
     /// The hotkey of the stock scan into the stock of the unit, [`DEFAULT_UNIT_STOCK_HOTKEY`] where none is set.
     pub fn read_unit_stock(paths: &Paths) -> HotkeyChoice {
-        let [.., unit_stock] = HotkeyChoice::read_all(paths);
+        let [.., unit_stock, _] = HotkeyChoice::read_all(paths);
         unit_stock
+    }
+
+    /// The hotkey that switches Anti-AFK on and off: [`HotkeyChoice::Off`] where none is set (it has no default).
+    pub fn read_anti_afk(paths: &Paths) -> HotkeyChoice {
+        let [.., anti_afk] = HotkeyChoice::read_all(paths);
+        anti_afk
     }
 
     /// The combination that is registered; none where it is off, wrong or taken.
@@ -1237,6 +1264,12 @@ pub fn unit_stock_hotkey_on(paths: &Paths) -> bool {
     !literal_false(paths, keys::HOTKEY_UNIT_STOCK_ON)
 }
 
+/// Whether the hotkey of Anti-AFK is to be registered: off only by a literal `false` (`hotkey_antiafk_an`). Without a
+/// key set ([`keys::HOTKEY_ANTI_AFK`]) it holds nothing either way.
+pub fn anti_afk_hotkey_on(paths: &Paths) -> bool {
+    !literal_false(paths, keys::HOTKEY_ANTI_AFK_ON)
+}
+
 /// Whether the player books as a logistician of the unit (`basetool_staffellager_buchen`): only then the stock of
 /// the unit takes a scan.
 pub fn is_logistician(paths: &Paths) -> bool {
@@ -1284,6 +1317,16 @@ pub fn stock_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>)
 /// The line of the start trail about the hotkey of the stock scan into the stock of the unit.
 pub fn unit_stock_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
     trail_line(Shortcut::UnitStock.trail_name(), choice, registered)
+}
+
+/// The line of the start trail about the hotkey of Anti-AFK: where the system cannot press keys (not Windows) it
+/// says so and registers nothing; else as the others.
+pub fn anti_afk_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    let name = Shortcut::AntiAfk.trail_name();
+    if !crate::anti_afk::supported() {
+        return format!("{name}: entfaellt (Anti-AFK geht nur unter Windows)");
+    }
+    trail_line(name, choice, registered)
 }
 
 /// The lines of the start trail about the hotkeys, as 4.12 writes them (`hotkey_anmelden`, `hotkey_scan_anmelden`):
@@ -1336,6 +1379,8 @@ pub struct Settings {
     pub stock_hotkey: Option<Hotkey>,
     /// The hotkey that reads the info card under the pointer into the stock of the unit.
     pub unit_stock_hotkey: Option<Hotkey>,
+    /// The hotkey that switches Anti-AFK on and off; none until the player sets one.
+    pub anti_afk_hotkey: Option<Hotkey>,
     pub layout: Layout,
     pub sound: bool,
     /// The volume of every sound in percent.
@@ -1403,6 +1448,7 @@ impl Default for Settings {
             blueprint_hotkey: Hotkey::parse(DEFAULT_BLUEPRINT_HOTKEY),
             stock_hotkey: Hotkey::parse(DEFAULT_STOCK_HOTKEY),
             unit_stock_hotkey: Hotkey::parse(DEFAULT_UNIT_STOCK_HOTKEY),
+            anti_afk_hotkey: None,
             layout: Layout::default(),
             sound: true,
             volume: crate::sound::VOLUME_DEFAULT,
@@ -1455,6 +1501,7 @@ impl Settings {
             blueprint_hotkey,
             stock_hotkey,
             unit_stock_hotkey,
+            anti_afk_hotkey,
         ] = HotkeyChoice::read_all(paths).map(|c| c.hotkey());
         // The overlay follows the clock of the main window the next time it reads its settings.
         crate::formats::apply_clock(paths);
@@ -1470,6 +1517,7 @@ impl Settings {
             blueprint_hotkey,
             stock_hotkey,
             unit_stock_hotkey,
+            anti_afk_hotkey,
             layout: Layout {
                 corner: Corner::from_setting(corner.as_deref()),
                 bar: BarSide::from_settings(bar.as_deref(), corner.as_deref()),
@@ -2549,6 +2597,65 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The hotkey that switches Anti-AFK has no default key: without one set it holds nothing, a literal `false`
+    /// switches it off, a key the player set is read like the others, and a key another shortcut holds is never
+    /// given up for it (there is no default to give way).
+    #[test]
+    fn the_hotkey_of_anti_afk_has_no_default_and_holds_only_a_key_the_player_set() {
+        let (paths, dir) = events_paths("antiafk-taste");
+        // Nothing set: nothing held, said so in the trail; the switch alone does not make a key.
+        assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Off, "no default key");
+        assert_eq!(Settings::read(&paths).anti_afk_hotkey, None);
+        assert_eq!(Settings::default().anti_afk_hotkey, None);
+        assert!(DEFAULT_ANTI_AFK_HOTKEY.is_empty());
+        paths.set_setting(keys::HOTKEY_ANTI_AFK_ON, Value::Bool(true));
+        assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Off, "on, but without a key");
+        assert_eq!(anti_afk_hotkey_trail(&HotkeyChoice::Off, Ok(())).contains("ausgeschaltet"), crate::anti_afk::supported());
+        // The names of the shortcut.
+        assert_eq!(Shortcut::AntiAfk.trail_name(), "Anti-AFK-Hotkey");
+        assert_eq!(Shortcut::AntiAfk.short_key(), "s_hk_kurz_antiafk");
+        assert_eq!(Shortcut::ALL.len(), SHORTCUTS);
+        assert_eq!(Shortcut::ALL[SHORTCUTS - 1], Shortcut::AntiAfk);
+        // A key the player set: registered, and the trail says so (where the system can press keys).
+        paths.set_setting(keys::HOTKEY_ANTI_AFK, Value::str("Alt+F9"));
+        let h = Hotkey::parse("Alt+F9").unwrap();
+        assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Combination(h));
+        assert_eq!(Settings::read(&paths).anti_afk_hotkey, Some(h));
+        assert!(anti_afk_hotkey_on(&paths));
+        let trail = anti_afk_hotkey_trail(&HotkeyChoice::read_anti_afk(&paths), Ok(()));
+        if crate::anti_afk::supported() {
+            assert_eq!(trail, "Anti-AFK-Hotkey: Alt+F9 angemeldet (ok)");
+        } else {
+            assert_eq!(trail, "Anti-AFK-Hotkey: entfaellt (Anti-AFK geht nur unter Windows)");
+        }
+        // Switched off by a literal `false`: it holds nothing, the key stays in the settings.
+        paths.set_setting(keys::HOTKEY_ANTI_AFK_ON, Value::Bool(false));
+        assert!(!anti_afk_hotkey_on(&paths));
+        assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Off);
+        assert_eq!(Settings::read(&paths).anti_afk_hotkey, None);
+        paths.set_setting(keys::HOTKEY_ANTI_AFK_ON, Value::Bool(true));
+        // A letter without a modifier is none.
+        paths.set_setting(keys::HOTKEY_ANTI_AFK, Value::str("A"));
+        assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Wrong("A".into()));
+        assert_eq!(Settings::read(&paths).anti_afk_hotkey, None);
+        // The key of the overlay: taken, not given up and not moved to a spare, and the trail names the holder.
+        let overlay = Hotkey::parse(DEFAULT_HOTKEY).unwrap();
+        paths.set_setting(keys::HOTKEY_ANTI_AFK, Value::str(DEFAULT_HOTKEY));
+        assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Taken(overlay, Shortcut::Overlay));
+        assert_eq!(Settings::read(&paths).anti_afk_hotkey, None);
+        assert_eq!(Settings::read(&paths).hotkey, Some(overlay), "the earlier shortcut keeps its key");
+        if crate::anti_afk::supported() {
+            let trail = anti_afk_hotkey_trail(&HotkeyChoice::read_anti_afk(&paths), Ok(()));
+            assert_eq!(trail, format!("Anti-AFK-Hotkey: {DEFAULT_HOTKEY} entfaellt (belegt durch Overlay-Hotkey)"));
+        }
+        // The key of the main window, left at its default: the same.
+        paths.set_setting(keys::HOTKEY_ANTI_AFK, Value::str(DEFAULT_MAIN_HOTKEY));
+        let main = Hotkey::parse(DEFAULT_MAIN_HOTKEY).unwrap();
+        assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Taken(main, Shortcut::Main));
+        assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Combination(main));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// The hotkey of the blueprint scan: F10 without a setting where the system reads letters, off by a literal
     /// `false`, and it never takes the key of an earlier shortcut.
     #[test]
@@ -2616,21 +2723,25 @@ mod tests {
         paths.set_setting(keys::HOTKEY_SEARCH_ON, Value::Bool(false));
         assert_eq!(HotkeyChoice::read_picture(&paths), HotkeyChoice::Combination(f9));
         // Every default and every spare apart: nothing moves without a collision.
-        let defaults = Shortcut::ALL.map(|s| (HotkeyChoice::Combination(Hotkey::parse(s.setting().1).unwrap()), true));
+        // (Anti-AFK has no default key: it holds nothing.)
+        let defaults = Shortcut::ALL.map(|s| match Hotkey::parse(s.setting().1) {
+            Some(hotkey) => (HotkeyChoice::Combination(hotkey), true),
+            None => (HotkeyChoice::Off, true),
+        });
         let fresh = resolve(defaults.clone(), [true; SHORTCUTS]);
         assert_eq!(
             fresh.clone().map(|c| c.hotkey().map(Hotkey::text)),
-            Shortcut::ALL.map(|s| Some(s.setting().1.to_string()))
+            Shortcut::ALL.map(|s| Hotkey::parse(s.setting().1).map(|_| s.setting().1.to_string()))
         );
         // Where the refinery scan cannot be registered (no screen to read), it holds no key: the search keeps its own.
         let mut read = defaults;
         read[1] = (HotkeyChoice::Combination(f9), false);
         read[2] = (HotkeyChoice::Combination(f9), false);
         assert_eq!(resolve(read.clone(), [true; SHORTCUTS])[2], HotkeyChoice::Taken(f9, Shortcut::Scan));
-        assert_eq!(resolve(read, [true, false, true, true, true, true, true, true])[2], HotkeyChoice::Combination(f9));
+        assert_eq!(resolve(read, [true, false, true, true, true, true, true, true, true])[2], HotkeyChoice::Combination(f9));
         let spares: Vec<Hotkey> = SPARE_HOTKEYS.iter().filter_map(|s| Hotkey::parse(s)).collect();
         assert_eq!(spares.len(), SPARE_HOTKEYS.len());
-        assert!(fresh.iter().all(|c| !spares.contains(&c.hotkey().unwrap())));
+        assert!(fresh.iter().filter_map(HotkeyChoice::hotkey).all(|h| !spares.contains(&h)));
         let _ = std::fs::remove_dir_all(dir);
     }
 

@@ -1,0 +1,25 @@
+{
+  "patchChange": {
+    "id": "3f0c2b1a-9e8d-4c7b-a6f5-e4d3c2b1a098",
+    "label": "4.4",
+    "kind": "REBUILD",
+    "liveAt": "2026-11-12T18:00:00Z",
+    "options": {
+      "wipeGroups": [
+        {
+          "group": "CONSUMABLES",
+          "selected": true
+        }
+      ],
+      "wipeExceptions": [],
+      "cancelRefineryOrders": true,
+      "currencyWipe": false,
+      "homeLocationPrompt": false
+    }
+  },
+  "homeLocation": {
+    "state": "NOT_ASKED",
+    "locations": [],
+    "preview": []
+  }
+}

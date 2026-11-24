@@ -2,14 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ingest.profit-base.online/exchange/v1/schemas/item-ref.schema.json",
   "title": "Item reference",
-  "description": "Identifies a catalogue entry — a blueprint product, an item, a material or a ship type. The server resolves the first field it can, in the order bt, scRecord, scGuid, uexId, locKey, name.",
+  "description": "Identifies a catalogue entry — a blueprint product, an item, a material or a ship type. The server resolves the first field it can, in the order guid, bt, scRecord, scGuid, uexId, locKey, name.",
   "type": "object",
   "properties": {
+    "guid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "A blueprint product's key: the DataForge GUID of the item it produces. Wins over every other field. Blueprint references only; other catalogues ignore it."
+    },
     "bt": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "description": "The Basetool's own key. Always wins when present."
+      "description": "The Basetool's own key. Wins over every field but guid. For a blueprint it is deprecated in favour of guid and removed 90 days after guid was added (see the changelog); for an item, material or ship type it stays."
     },
     "scRecord": {
       "type": "string",
@@ -78,6 +83,11 @@
     {
       "required": [
         "name"
+      ]
+    },
+    {
+      "required": [
+        "guid"
       ]
     }
   ],

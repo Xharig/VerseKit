@@ -614,7 +614,7 @@ pub(in crate::sample) mod tests {
 
     use versekit_core::storage_move::Outcome;
 
-    use super::super::hotkey_text;
+    use super::super::{hotkey_text, parse_hotkey};
     use super::super::real_data::{folder, host_apart, real_page};
     use super::*;
 
@@ -1118,9 +1118,9 @@ pub(in crate::sample) mod tests {
             "„Wann sichtbar“ and „Tastenkürzel“ side by side: {when:?} {keys:?}"
         );
         assert!((when.width() - display.width()).abs() < 1.0, "in the columns of cards: {when:?}");
-        // All the shortcuts, the two of the stock scan included, stand in one card: the page may scroll a little
-        // below this height, never more.
-        const PAGE_HEIGHT: f32 = 960.0;
+        // All the shortcuts, the two of the stock scan and the one of Anti-AFK included, stand in one card: the page
+        // may scroll a little below this height, never more (960 with eight shortcuts, one row more for the ninth).
+        const PAGE_HEIGHT: f32 = 990.0;
         assert!(keys.bottom() <= PAGE_HEIGHT, "the shortcuts end at {PAGE_HEIGHT} at most: {keys:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1387,6 +1387,61 @@ pub(in crate::sample) mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// The hotkey that switches Anti-AFK on the overlay page: no default, so it is off at first and without a key,
+    /// and nothing but the switch is saved; a key set and the switch on are saved (`hotkey_antiafk`,
+    /// `hotkey_antiafk_an`) and come back from the file; set on a key another shortcut holds, its line says by which
+    /// it is taken. Where the system cannot press keys, the row says so.
+    #[test]
+    fn the_hotkey_of_anti_afk_is_off_at_first_saved_when_set_and_said_when_taken() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("antiafk-taste", "{}", &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
+        assert!(shown(&texts, &language::t("s_hk_antiafk")), "the row: {texts:?}");
+        assert!(!bench.page.antiafk_hotkey_on, "off at first");
+        assert_eq!(hotkey_text(bench.page.antiafk_modifiers, bench.page.antiafk_key), None, "no key at first");
+        if !versekit_core::anti_afk::supported() {
+            assert!(shown(&texts, &language::t("s_nicht_moegl")), "where it cannot be done, the reason");
+            let _ = std::fs::remove_dir_all(dir);
+            return;
+        }
+        // The switch on without a key: only the switch is saved, never a key made up.
+        bench.page.antiafk_hotkey_on = true;
+        bench.settle();
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_antiafk_an\": true"), "{stored}");
+        assert!(!stored.contains("\"hotkey_antiafk\""), "no key, none saved: {stored}");
+        bench.page.antiafk_hotkey_on = false;
+        // Set by the player: the key and the switch are saved.
+        (bench.page.antiafk_modifiers, bench.page.antiafk_key) = parse_hotkey("Alt+F9").expect("a key");
+        bench.page.antiafk_hotkey_on = true;
+        bench.settle();
+        let stored = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap_or_default();
+        assert!(stored.contains("\"hotkey_antiafk\": \"Alt+F9\""), "{stored}");
+        assert!(stored.contains("\"hotkey_antiafk_an\": true"), "{stored}");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // Read back from the file: on, with its key.
+        let (page, dir) = real_page("antiafk-taste-gelesen", r#"{"hotkey_antiafk": "Alt+F9"}"#, &[]);
+        assert!(page.antiafk_hotkey_on, "a key set switches it on");
+        assert_eq!(hotkey_text(page.antiafk_modifiers, page.antiafk_key).as_deref(), Some("Alt+F9"));
+        let _ = std::fs::remove_dir_all(dir);
+
+        // Set on the key of the overlay: its line says by which it is taken.
+        let settings = r#"{"hotkey": "Alt+Umschalt+V", "hotkey_antiafk": "Alt+Umschalt+V"}"#;
+        let (page, dir) = real_page("antiafk-taste-belegt", settings, &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 3000.0;
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
+        assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// A shortcut that is switched off and still has its default key, which another shortcut holds meanwhile (the
     /// overlay on Alt+F10, the default of the picture): switched on, it takes the spare key it would take at
     /// the next start (`overlay::resolve`), instead of springing back off (5.2.2, reported by a tester). A key the
@@ -1566,6 +1621,18 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         // The first frames take note of the settings as they are.
         bench.settle();
+        // While a search runs, the page of the folders says so under the field (a search held open here).
+        let before = bench.page.page.clone();
+        bench.page.page = "hf_ordner".to_string();
+        let said = language::t("s_pf_sucht");
+        assert!(!bench.settle().iter().any(|(text, _)| *text == said), "no search, no line");
+        let (hold, answer) = std::sync::mpsc::channel();
+        bench.page.folder_search = Some(FolderSearch { typed: "ohne Ziel".into(), answer });
+        assert!(bench.settle().iter().any(|(text, _)| *text == said), "the search runs");
+        drop(hold);
+        bench.settle();
+        assert!(bench.page.folder_search.is_none(), "the answer was taken");
+        bench.page.page = before;
         let live = dir
             .join("prefix")
             .join("drive_c")

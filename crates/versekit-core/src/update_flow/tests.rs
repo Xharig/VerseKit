@@ -539,7 +539,8 @@ fn the_newest_version_is_not_fetched_again_when_it_runs() {
     let mut env = env_for(&c, net.clone(), Arc::new(never));
     env.own_version = "5.0.1".into();
     let paths = Paths::new(c.paths.host.clone());
-    let done = fetch_newest(&env, &paths, Fetch { with_prerelease: true, without_backup: false }, &mut |_| {}, &|_| {
+    let fetch = Fetch { with_prerelease: true, ..Fetch::default() };
+    let done = fetch_newest(&env, &paths, fetch, &mut |_| {}, &|_| {
         panic!("no version is chosen")
     });
     assert_eq!(done, Done::Stopped(Some(t("s_up_sofort_aktuell"))));
@@ -556,7 +557,8 @@ fn an_older_version_is_not_fetched_as_the_newest() {
     let mut env = env_for(&c, net.clone(), Arc::new(never));
     env.own_version = "9.0.0".into();
     let paths = Paths::new(c.paths.host.clone());
-    let done = fetch_newest(&env, &paths, Fetch { with_prerelease: true, without_backup: false }, &mut |_| {}, &|_| {
+    let fetch = Fetch { with_prerelease: true, ..Fetch::default() };
+    let done = fetch_newest(&env, &paths, fetch, &mut |_| {}, &|_| {
         panic!("no version is chosen")
     });
     assert_eq!(done, Done::Stopped(Some(t("s_up_sofort_aktuell"))));

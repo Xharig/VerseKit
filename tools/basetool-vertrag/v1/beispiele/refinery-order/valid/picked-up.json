@@ -1,0 +1,21 @@
+{
+  "id": "4a2d3c5b-7e6f-4b8c-9d0e-1f2a3b4c5d6e",
+  "versions": {
+    "gameData": 7,
+    "finances": 2
+  },
+  "status": "COMPLETED",
+  "location": {
+    "name": "CRU-L1 Ambitious Dream Station",
+    "guid": "1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b"
+  },
+  "startedAt": "2026-11-07T18:00:00Z",
+  "durationMinutes": 300,
+  "endsAt": "2026-11-07T23:00:00Z",
+  "pickedUpAt": "2026-11-08T09:12:00Z",
+  "expenses": 3400,
+  "otherExpenses": 150,
+  "oreSales": 0,
+  "missionId": "6b7c8d9e-0f1a-4b2c-8d3e-4f5a6b7c8d9e",
+  "goods": []
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/store-choice-job-orders.schema.json",
+  "title": "Store choice job orders",
+  "description": "The open and in-progress job orders the member can see that need one material, as the Basetool's store dialog offers them for a store line's earmark. Empty for a material that names nothing.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The job order's id, as a store line's jobOrder names it. Opaque."
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The order's running number, shown as #number."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "IN_PROGRESS"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      }
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "items"
+  ]
+}

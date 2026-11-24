@@ -284,6 +284,32 @@ fn a_zero_or_eight_counts_only_when_confirmed() {
     assert_eq!(guessed.unsure, vec!["Gold"]);
 }
 
+/// Levski, 24.11.: the yield `98` was read `90` by one reading and `98` by three; the look at the learned patterns
+/// said 90. Readings that disagree on a 0 or an 8 leave the cell unsure, whatever the patterns say.
+#[test]
+fn readings_split_on_a_zero_or_eight_leave_the_cell_to_the_player() {
+    assert!(split_on_confusable(&[Some(90), Some(98), Some(98), None]));
+    assert!(split_on_confusable(&[Some(608), Some(688)]));
+    assert!(!split_on_confusable(&[Some(98), Some(98), None]), "agreeing readings");
+    assert!(!split_on_confusable(&[Some(84), Some(584)]), "a lost digit is no dispute on 0 and 8");
+    assert!(!split_on_confusable(&[Some(91), Some(98)]), "1 and 8 are no pair");
+
+    let index = Index::new(&["Lindinium".to_string()], |_| false);
+    let reading = |amount: Int| table(&[("LINDINIUM", Some(305), Some(amount), Some(amount))]);
+    let passes = vec![reading(90), reading(98), reading(98), reading(98)];
+    let says_ninety = Checks { confirm: None, reread: Some(Box::new(|_, column| (column == 1).then_some(90))) };
+    let merged = merge_passes(&passes, &index, None, &says_ninety, true);
+    assert_eq!(merged.unsure, vec!["Lindinium"], "asked, not decided by the patterns");
+    assert_ne!(merged.found[0].2, Some(90), "{:?}", merged.found);
+    // Readings that agree still let the learned patterns read a cell anew.
+    let agreeing = vec![reading(98), reading(98)];
+    let lost = Checks {
+        confirm: Some(Box::new(|_, _, _| Checked::No)),
+        reread: Some(Box::new(|_, column| Some(if column == 0 { 305 } else { 98 }))),
+    };
+    assert_eq!(merge_passes(&agreeing, &index, None, &lost, false).found, found(&[("Lindinium", 305, 98)]));
+}
+
 #[test]
 fn loose_readings_end_the_name_and_give_way_to_real_digits() {
     let index = Index::new(&["Lindinium".to_string()], |_| false);
@@ -391,6 +417,26 @@ fn a_table_with_misread_heads_is_found_by_the_heads_around_the_quality() {
         sized("AtSBEUTE", 367.0, 203.0, 45.0, 9.0),
     ];
     assert!(find_tables(&profile, 1012, 1131).is_empty(), "the profile is no table");
+}
+
+/// Setting a job up at Levski on 5120×1440: `AUSGEWÄHLTE MATERIALIEN` is read as two words, only the second is a
+/// head, and the names below begin left of it. The table must reach over them, else `TUNGSTEN` is read `NGSTEN`.
+#[test]
+fn the_table_begins_at_the_first_word_of_its_row_of_heads() {
+    let words = vec![
+        sized("AUSGEWÄHLTE", 1934.0, 621.0, 74.0, 9.0),
+        sized("MATERIALIEN", 2014.0, 621.0, 70.0, 9.0),
+        sized("QUALITÄT", 2150.0, 621.0, 46.0, 9.0),
+        sized("ANZ.", 2224.0, 621.0, 20.0, 9.0),
+        sized("AUSBEUTE", 2272.0, 621.0, 48.0, 9.0),
+        sized("LINDINIUM", 1978.0, 655.0, 90.0, 16.0),
+        sized("305", 2163.0, 658.0, 20.0, 10.0),
+        sized("TUNGSTEN", 1976.0, 769.0, 86.0, 16.0),
+        sized("363", 2163.0, 772.0, 20.0, 10.0),
+    ];
+    let tables = find_tables(&words, 5120, 1440);
+    assert_eq!(tables.len(), 1, "found");
+    assert!(tables[0].area.0 <= 1934, "reaches over the names: {:?}", tables[0].area);
 }
 
 /// The card as the German terminal shows it: the head of the yield cut to `AUSBEU`; with `amount` the head `ANZ.`

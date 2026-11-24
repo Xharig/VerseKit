@@ -650,6 +650,19 @@ pub fn needs_confirm(value: Option<Int>) -> bool {
     value.is_some_and(|v| v.to_string().chars().any(|c| CONFUSABLE.contains(&c)))
 }
 
+/// Whether the readings themselves disagree on a confusable digit: two values of the same length that differ only
+/// where one has a 0 and the other an 8 (`90` and `98`). Then no look at the learned patterns decides the cell.
+pub fn split_on_confusable(values: &[Option<Int>]) -> bool {
+    let texts: Vec<String> = values.iter().flatten().map(Int::to_string).collect();
+    texts.iter().enumerate().any(|(i, a)| {
+        texts[i + 1..].iter().any(|b| {
+            a != b
+                && a.len() == b.len()
+                && a.chars().zip(b.chars()).all(|(x, y)| x == y || (CONFUSABLE.contains(&x) && CONFUSABLE.contains(&y)))
+        })
+    })
+}
+
 /// `_guess`: the value read most often; on a tie the one read first. `None` when no reading gave a number.
 fn guess(values: &[Option<Int>]) -> Option<Int> {
     let mut counts: Vec<(Int, usize)> = Vec::new();
@@ -790,13 +803,17 @@ fn merge_passes_with(
         }
         // A quality too short to be real has lost a digit (`84` of 584): never sure, read anew at most.
         quality = quality.filter(|q| plausible_quality(*q));
+        // Readings that disagree on a 0 or an 8 in the same place are not settled by the learned patterns: the cell
+        // stays unsure and is asked for (a reading of `98` as `90` was taken before).
+        let split_quality = split_on_confusable(&cluster.rows.iter().map(|r| r.quality).collect::<Vec<_>>());
+        let split_amount = split_on_confusable(&cluster.rows.iter().map(|r| r.amount).collect::<Vec<_>>());
         if let Some(reread) = &checks.reread
             && (quality.is_none() || amount.is_none())
         {
-            if quality.is_none() {
+            if quality.is_none() && !split_quality {
                 quality = reread(cluster.y, 0).filter(|q| plausible_quality(*q));
             }
-            if amount.is_none() {
+            if amount.is_none() && !split_amount {
                 amount = reread(cluster.y, 1);
             }
         }
@@ -1176,7 +1193,9 @@ pub fn find_tables(words: &[Word], width: i64, height: i64) -> Vec<Table> {
         score: usize,
         quality: &'a Word,
         unit: f64,
-        heads: Vec<&'a Word>,
+        /// Every word of the row of heads left of the quality: the table begins at the first of them
+        /// (`AUSGEWÄHLTE MATERIALIEN` is read as two words, and only the second is a head).
+        lefts: Vec<&'a Word>,
         rights: Vec<&'a Word>,
     }
     let split = split_heads(words);
@@ -1198,7 +1217,12 @@ pub fn find_tables(words: &[Word], width: i64, height: i64) -> Vec<Table> {
             let heads: Vec<&Word> =
                 line.iter().filter(|w| head(w, &HEAD_MATERIAL) && 0.0 < qx - w.x && qx - w.x < 30.0 * unit).collect();
             let rights: Vec<&Word> = line.iter().filter(|w| 0.0 <= w.x - qx && w.x - qx < 25.0 * unit).collect();
-            candidates.push(Candidate { score: heads.len() + rights.len(), quality, unit, heads, rights });
+            let lefts: Vec<&Word> = if heads.is_empty() {
+                Vec::new()
+            } else {
+                line.iter().filter(|w| 0.0 < qx - w.x && qx - w.x < 30.0 * unit).collect()
+            };
+            candidates.push(Candidate { score: heads.len() + rights.len(), quality, unit, lefts, rights });
         }
     }
     // One entry per row of heads: a second head of the quality in the same table (misread, doubled) lies closer
@@ -1215,7 +1239,7 @@ pub fn find_tables(words: &[Word], width: i64, height: i64) -> Vec<Table> {
         }
     }
     let mut tables: Vec<Table> =
-        chosen.iter().filter_map(|c| table_box(words, width, height, c.quality, c.unit, &c.heads, &c.rights)).collect();
+        chosen.iter().filter_map(|c| table_box(words, width, height, c.quality, c.unit, &c.lefts, &c.rights)).collect();
     tables.sort_by_key(|t| (t.area.0, t.area.1));
     tables
 }
