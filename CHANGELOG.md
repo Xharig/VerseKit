@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.2 - 2026-11-25
+
+> Eine Fehlerbehebung für alle, die VerseKit mit dem Stream Deck oder einem
+> anderen Tastenprogramm bedienen.
+
+### Behoben
+
+- **Titelleiste am Overlay:** Wer Anti-AFK oder ein anderes Kürzel über das
+  Stream Deck auslöste, sah kurz eine Windows-Titelleiste über dem Overlay.
+  Das Overlay lässt den Rahmen jetzt auch beim Wechsel des aktiven Fensters
+  unsichtbar.
+
 ## v5.6.1 - 2026-11-25
 
 > „Lohnt sich der Stein?“ erscheint jetzt auch im Spiel, und ihr wählt, welche

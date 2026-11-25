@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.2 - 2026-11-25
+
+> A fix for everyone who drives VerseKit with the Stream Deck or another key
+> program.
+
+### Fixed
+
+- **Title bar on the overlay:** Triggering anti-AFK or another shortcut from
+  the Stream Deck briefly showed a Windows title bar over the overlay. The
+  overlay now keeps its frame hidden when the active window changes too.
+
 ## v5.6.1 - 2026-11-25
 
 > "Does the rock pay?" now shows in the game as well, and you choose which

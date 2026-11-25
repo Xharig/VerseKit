@@ -75,7 +75,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     MB_SETFOREGROUND, MessageBoxW, PostMessageW, RI_KEY_BREAK, STYLESTRUCT, SWP_FRAMECHANGED, SWP_NOACTIVATE,
     SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetForegroundWindow, SetLayeredWindowAttributes,
     SetWindowLongPtrW, SetWindowPos, WM_ACTIVATE, WM_DWMCOMPOSITIONCHANGED, WM_ERASEBKGND, WM_LBUTTONDOWN,
-    WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_NCCALCSIZE, WM_NCDESTROY, WM_STYLECHANGED, WM_STYLECHANGING, WS_EX_LAYERED,
+    WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCDESTROY, WM_STYLECHANGED, WM_STYLECHANGING, WS_EX_LAYERED,
     WS_EX_NOACTIVATE, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP, WindowFromPoint,
 };
 
@@ -132,6 +132,12 @@ unsafe extern "system" fn subclass_proc(
         // one pixel high at the top for the shadow of a window without
         // decorations; inside a window region the system draws it as a line.
         WM_NCCALCSIZE if wparam != 0 && NO_FRAME.load(Ordering::Relaxed) => return 0,
+        // The window keeps the caption style of winit under its client area. A change of the active window (another
+        // program sending keys, as the Stream Deck does) has the system paint that caption over the picture;
+        // `lparam` -1 takes the change without painting the frame.
+        WM_NCACTIVATE if NO_FRAME.load(Ordering::Relaxed) => {
+            return unsafe { DefSubclassProc(hwnd, msg, wparam, -1) };
+        }
         // The window's own surface under the picture: black is transparent to DWM, white would show through.
         WM_ERASEBKGND => {
             erase_surface(hwnd, wparam as HDC);
@@ -1056,6 +1062,35 @@ mod tests {
         assert!(nvidia_dx12 > nvidia_vulkan);
         assert!(nvidia_dx12 > integrated_dx12);
         assert!(warp > opaque, "only a surface that blends shows the game behind");
+    }
+
+    /// A change of the active window reaches the window below the overlay's hook with `lparam` -1, so that the
+    /// system does not paint the caption over the picture; with the frame left on (counter check) it passes as sent.
+    #[test]
+    fn a_change_of_the_active_window_does_not_paint_the_caption() {
+        static SEEN: AtomicIsize = AtomicIsize::new(0);
+        unsafe extern "system" fn below(h: HWND, m: u32, w: WPARAM, l: LPARAM, _: usize, _: usize) -> LRESULT {
+            if m == WM_NCACTIVATE {
+                SEEN.store(l, Ordering::Relaxed);
+            }
+            unsafe { DefSubclassProc(h, m, w, l) }
+        }
+        let sent = |frame: bool| {
+            let hwnd = hidden_window();
+            assert_ne!(hwnd, 0);
+            // SAFETY: a hook on a window of this thread, called after the overlay's, which is set later.
+            unsafe { SetWindowSubclass(hwnd as HWND, Some(below), 0x7465_7374, 0) };
+            install(hwnd, true, frame, true);
+            SEEN.store(0, Ordering::Relaxed);
+            // SAFETY: a plain message to a window of this thread.
+            unsafe { SendMessageW(hwnd as HWND, WM_NCACTIVATE, 0, 0) };
+            destroy_window(hwnd);
+            SEEN.load(Ordering::Relaxed)
+        };
+        assert_eq!(sent(false), -1, "the caption is not painted");
+        // Counter check: with the frame of winit the message passes untouched.
+        assert_eq!(sent(true), 0);
+        NO_FRAME.store(true, Ordering::Relaxed);
     }
 
     /// The window's own surface under the picture of DirectComposition is white until painted, and DWM showed it
