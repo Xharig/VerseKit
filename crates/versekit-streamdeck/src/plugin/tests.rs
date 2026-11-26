@@ -1108,6 +1108,33 @@ fn the_game_actions_of_a_profile_file_are_read_from_every_page_and_dial() {
     assert!(profile_game_actions(b"kein zip").is_empty());
 }
 
+/// With real files, run by hand: the factory setting as XML (`VERSEKIT_PROBE_PROFILE`) and an `actionmaps.xml`
+/// (`VERSEKIT_PROBE_ACTIONMAPS`, only read). Every game action of every shipped profile gets a key; nothing is left.
+#[test]
+#[ignore = "needs the files of a game, see the comment"]
+fn every_game_action_of_the_shipped_profiles_gets_a_key_beside_real_bindings() {
+    use versekit_core::streamdeck_fill::{Outcome, count, plan};
+    let read = |name: &str| std::fs::read_to_string(std::env::var(name).expect(name)).expect(name);
+    let profile = versekit_core::controls::Profile::from_xml(&read("VERSEKIT_PROBE_PROFILE")).expect("profile");
+    let own = versekit_core::joysticks::bindings_from_text(&read("VERSEKIT_PROBE_ACTIONMAPS"));
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../streamdeck-plugin/profiles");
+    let mut names: Vec<String> = Vec::new();
+    for entry in std::fs::read_dir(&folder).expect("profiles").flatten() {
+        for name in profile_game_actions(&std::fs::read(entry.path()).expect("profile")) {
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+    }
+    names.sort();
+    let items = plan(&names, &own, &profile, &[], false);
+    let full = items.iter().filter(|i| i.outcome == Outcome::NoFreeKey).count();
+    let counted = count(&items);
+    println!("{} actions, {} without a key, {} can be put in, {} with no free key", names.len(), counted.without_key, counted.addable, full);
+    assert_eq!(full, 0);
+    assert_eq!(counted.addable, counted.without_key, "one putting in leaves nothing missing");
+}
+
 #[test]
 fn every_game_action_in_the_shipped_profiles_has_the_form_verse_kit_takes() {
     let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../streamdeck-plugin/profiles");

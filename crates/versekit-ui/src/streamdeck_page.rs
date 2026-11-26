@@ -85,7 +85,8 @@ pub struct StreamDeckState {
     report: Arc<Mutex<Report>>,
     asked: Option<Instant>,
     asking: Arc<Mutex<bool>>,
-    spare: bool,
+    /// The keyboard lines the player emptied in the game stay empty (off: they get a key too).
+    keep_deleted: bool,
     /// The actions of the plan that already have a key are shown (folded under one line until then).
     show_done: bool,
     planned: Arc<Mutex<Planned>>,
@@ -107,7 +108,7 @@ pub struct StreamDeckState {
 /// The plan of the game actions the plugin reported, worked out without a click, for the numbers beside the button.
 #[derive(Clone, Debug)]
 struct Counted {
-    /// What it was worked out for: the actions, the spare set, the state of the `actionmaps.xml`.
+    /// What it was worked out for: the actions, whether deleted lines stay, the state of the `actionmaps.xml`.
     key: (Vec<String>, bool, String),
     /// The items and the names of their actions.
     items: Result<(Vec<Item>, Vec<String>), String>,
@@ -159,7 +160,7 @@ fn ask(paths: &Paths) -> Option<Report> {
 }
 
 /// The plan for the game actions of the plugin, with the bindings, the factory setting and the hotkeys of VerseKit.
-fn work_out_plan(paths: &Paths, in_use: &[String], spare: bool) -> Result<(Vec<Item>, Vec<String>), String> {
+fn work_out_plan(paths: &Paths, in_use: &[String], keep_deleted: bool) -> Result<(Vec<Item>, Vec<String>), String> {
     let profile = versekit_gamedata::control_profile::profile(paths);
     let own = match versekit_core::joysticks::actionmaps_path(paths, None) {
         Some(file) if std::path::Path::new(&file).is_file() => versekit_core::joysticks::bindings(paths, Some(&file), None),
@@ -167,7 +168,7 @@ fn work_out_plan(paths: &Paths, in_use: &[String], spare: bool) -> Result<(Vec<I
     };
     let hotkeys: Vec<versekit_core::overlay::Hotkey> =
         versekit_core::overlay::HotkeyChoice::read_all(paths).iter().filter_map(|c| c.hotkey()).collect();
-    let mut items = streamdeck_fill::plan(in_use, &own, &profile, &hotkeys, spare);
+    let mut items = streamdeck_fill::plan(in_use, &own, &profile, &hotkeys, keep_deleted);
     let lang = versekit_core::language::current();
     let folder = paths.game_folder();
     let labels = match &folder {
@@ -269,11 +270,11 @@ impl StreamDeckState {
         self.counted_at = Some(Instant::now());
         *lock(&self.counting) = true;
         let before = lock(&self.counted).clone();
-        let (paths, counted, counting, spare, ctx) =
-            (Paths::new(paths.host.clone()), self.counted.clone(), self.counting.clone(), self.spare, ui.ctx().clone());
+        let (paths, counted, counting, keep, ctx) =
+            (Paths::new(paths.host.clone()), self.counted.clone(), self.counting.clone(), self.keep_deleted, ui.ctx().clone());
         let lang = versekit_core::language::current();
         let spawned = std::thread::Builder::new().name("streamdeck-zaehlen".into()).spawn(move || {
-            let key = (in_use, spare, versekit_core::anti_afk_key::stamp(&paths));
+            let key = (in_use, keep, versekit_core::anti_afk_key::stamp(&paths));
             let items = match before {
                 Some(done) if done.key == key => done.items,
                 _ => versekit_core::language::with_language(lang, || work_out_plan(&paths, &key.0, key.1)),
@@ -427,10 +428,11 @@ impl StreamDeckState {
         }
         self.planning = true;
         *lock(&self.planned) = None;
-        let (paths, planned, spare, ctx) = (Paths::new(paths.host.clone()), self.planned.clone(), self.spare, ui.ctx().clone());
+        let (paths, planned, keep, ctx) =
+            (Paths::new(paths.host.clone()), self.planned.clone(), self.keep_deleted, ui.ctx().clone());
         let lang = versekit_core::language::current();
         let spawned = std::thread::Builder::new().name("streamdeck-plan".into()).spawn(move || {
-            let result = versekit_core::language::with_language(lang, || work_out_plan(&paths, &in_use, spare));
+            let result = versekit_core::language::with_language(lang, || work_out_plan(&paths, &in_use, keep));
             *lock(&planned) = Some(result);
             ctx.request_repaint();
         });
@@ -573,6 +575,10 @@ fn plan_line(item: &Item, name: &str) -> String {
                 None => tf("sd_f_umziehen", &args),
             }
         }
+        Outcome::Refill(key) => {
+            let shown = versekit_core::controls::input_readable(key, Some(versekit_core::joysticks::Kind::Keyboard));
+            tf("sd_f_wieder", &[("0", Arg::from(shown))])
+        }
         other => t(other.text_key()),
     };
     format!("{name}: {what}")
@@ -603,21 +609,24 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     let plugin = t("sd_s_gruppe");
     let fill = t("sd_f_gruppe");
     let plan: Option<(Vec<Item>, Vec<String>)> = lock(&state.planned).as_ref().and_then(|r| r.as_ref().ok()).cloned();
-    // The actions the player deleted in the game: a box of their own above the list, so they are not missed.
+    // The actions the player deleted in the game: a box of their own above the list, so they are not missed, and the
+    // switch whether they get a key too.
     let deleted: Vec<String> = plan
         .as_ref()
         .map(|(items, names)| {
-            items.iter().zip(names).filter(|(i, _)| i.outcome == Outcome::Deleted).map(|(_, n)| n.clone()).collect()
+            let was_deleted = |o: &Outcome| matches!(o, Outcome::Deleted | Outcome::Refill(_));
+            items.iter().zip(names).filter(|(i, _)| was_deleted(&i.outcome)).map(|(_, n)| n.clone()).collect()
         })
         .unwrap_or_default();
-    let deleted_rows = usize::from(!deleted.is_empty());
+    let deleted_rows = if deleted.is_empty() { 0 } else { 2 };
+    let mut deleted_switched = None;
     let rows_of_plan: Vec<PlanRow> = plan.as_ref().map(|(items, _)| plan_rows(items, state.show_done)).unwrap_or_default();
     let plan_rows = plan.as_ref().map_or(0, |_| deleted_rows + rows_of_plan.len() + 1);
     let mut fold_switched = false;
     let (count_text, check_blocked) = state.count_text();
     let write_blocked = state.write_blocked();
     let record_rows = state.record.as_ref().map_or(0, |r| r.entries.len() + 1);
-    let fill_rows = 2 + plan_rows + record_rows;
+    let fill_rows = 1 + plan_rows + record_rows;
     let mut switched = None;
     let mut auto_switched = None;
     let mut set_up = false;
@@ -700,21 +709,27 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                     check = row.add(button).clicked() && blocked.is_none();
                 });
             }
-            (_, 1) => {
-                let name = t("sd_f_ausweich");
-                settings::setting_row(ui, scheme, &name, &t("sd_f_ausweich_h"), false, |row| {
-                    let switch = row.add(widgets::Toggle::new(&mut state.spare, scheme));
-                    let (enabled, on) = (switch.enabled(), state.spare);
-                    switch.widget_info(|| WidgetInfo::selected(Role::CheckBox, enabled, on, &name));
-                });
-            }
             (_, r) => {
-                let r = r - 2;
+                let r = r - 1;
                 if let Some((items, names)) = &plan {
-                    if r < deleted_rows {
+                    if r == 0 && deleted_rows > 0 {
                         let head = tf("sd_f_geloescht_kopf", &[("0", Arg::from(deleted.len()))]);
-                        let line = tf("sd_f_geloescht_zeile", &[("0", Arg::from(deleted.join(", ").as_str()))]);
+                        let which = if state.keep_deleted { "sd_f_geloescht_zeile" } else { "sd_f_geloescht_mit" };
+                        let line = tf(which, &[("0", Arg::from(deleted.join(", ").as_str()))]);
                         widgets::status_box(ui, scheme, scheme.yellow, "triangle-alert", &head, &line);
+                        return;
+                    }
+                    if r == 1 && deleted_rows > 1 {
+                        let name = t("sd_f_auch_geloeschte");
+                        settings::setting_row(ui, scheme, &name, &t("sd_f_auch_geloeschte_h"), false, |row| {
+                            let mut on = !state.keep_deleted;
+                            let switch = row.add(widgets::Toggle::new(&mut on, scheme));
+                            let enabled = switch.enabled();
+                            switch.widget_info(|| WidgetInfo::selected(Role::CheckBox, enabled, on, &name));
+                            if switch.changed() {
+                                deleted_switched = Some(on);
+                            }
+                        });
                         return;
                     }
                     let r = r - deleted_rows;
@@ -745,7 +760,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                     if r == rows_of_plan.len() {
                         let adds = items
                             .iter()
-                            .any(|i| matches!(i.outcome, Outcome::Add(_) | Outcome::Move { .. } | Outcome::Relocate { .. }));
+                            .any(|i| {
+                                matches!(i.outcome, Outcome::Add(_) | Outcome::Move { .. } | Outcome::Relocate { .. } | Outcome::Refill(_))
+                            });
                         let none = t("sd_f_nichts_frei");
                         let reason = if adds { write_blocked.as_deref() } else { Some(none.as_str()) };
                         ui.horizontal(|row| {
@@ -785,6 +802,12 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     }
     if fold_switched {
         state.show_done = !state.show_done;
+    }
+    // The plan and the count are worked out again with the new choice.
+    if let Some(on) = deleted_switched {
+        state.keep_deleted = !on;
+        state.counted_at = None;
+        state.start_plan(ui);
     }
     if let Some(on) = auto_switched {
         state.set_auto_page(on);
@@ -858,6 +881,11 @@ mod tests {
         assert!(plan_line(&add, "Aussteigen").starts_with("Aussteigen: "));
         let kept = Item { action: "v_x".into(), group: "g".into(), outcome: Outcome::Deleted };
         assert_eq!(plan_line(&kept, "X"), format!("X: {}", t("sd_f_geloescht")));
+        let filled = Item { action: "v_x".into(), group: "g".into(), outcome: Outcome::Refill("lalt+lshift+b".into()) };
+        let key = versekit_core::controls::input_readable("lalt+lshift+b", Some(versekit_core::joysticks::Kind::Keyboard));
+        assert_eq!(plan_line(&filled, "X"), format!("X: {}", tf("sd_f_wieder", &[("0", Arg::from(key))])));
+        // Deleted lines get a key unless the player switches it off.
+        assert!(!StreamDeckState::default().keep_deleted);
         let mouse = Item { action: "v_m".into(), group: "g".into(), outcome: Outcome::NotSendable("mouse4".into()) };
         let line = plan_line(&mouse, "Master-Modus");
         let button = versekit_core::controls::input_readable("mouse4", Some(versekit_core::joysticks::Kind::Keyboard));

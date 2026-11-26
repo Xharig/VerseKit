@@ -7833,7 +7833,6 @@ fn base_infos(page: &str) -> Vec<String> {
             "sd_s_einrichten",
             "sd_s_programm",
             "sd_f_pruefen",
-            "sd_f_ausweich",
         ]),
         "hf_einkaufsliste" => texts(&[
             "s_ek_lead",

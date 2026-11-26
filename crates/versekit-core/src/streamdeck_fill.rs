@@ -23,7 +23,7 @@
 //! the player and no factory key on the keyboard; a keyboard line the player emptied (deleted in the game) stays
 //! empty. Mouse, stick and pad lines stay as they are: the keyboard key comes beside them.
 //!
-//! ⚠ Only free keys of a fixed set, in a fixed order ([`main_set`], else [`spare_set`]): free of every action of
+//! ⚠ Only free keys of a fixed set, in a fixed order ([`key_set`], in stages): free of every action of
 //! the game (factory and own, [`crate::controls::conflicts`]), of the hotkeys of VerseKit and of the keys given out
 //! in the same go. The writing goes the one way every change of the file goes ([`crate::joysticks_write`]): the game
 //! must be quiet, a copy is made first, nothing broken is written.
@@ -45,16 +45,36 @@ use crate::paths::Paths;
 /// What was put in, in the data folder: for the list and the way back.
 pub const RECORD_FILE: &str = "streamdeck_eintraege.json";
 
-/// Left Alt and left Shift with a letter, then with a digit.
+/// Left Alt and left Shift with a letter, then with a digit: the first stage of [`key_set`].
 pub fn main_set() -> Vec<String> {
-    let letters = (b'a'..=b'z').map(|c| format!("lalt+lshift+{}", c as char));
-    let digits = (b'0'..=b'9').map(|c| format!("lalt+lshift+{}", c as char));
+    with_letters_and_digits("lalt+lshift")
+}
+
+fn with_letters_and_digits(modifiers: &str) -> Vec<String> {
+    let letters = (b'a'..=b'z').map(|c| format!("{modifiers}+{}", c as char));
+    let digits = (b'0'..=b'9').map(|c| format!("{modifiers}+{}", c as char));
     letters.chain(digits).collect()
 }
 
-/// Left Ctrl and left Shift with a letter: the set when left Alt and left Shift do not reach the game as they should.
-pub fn spare_set() -> Vec<String> {
-    (b'a'..=b'z').map(|c| format!("lctrl+lshift+{}", c as char)).collect()
+/// Every key VerseKit may give out, in the order it gives them: left Alt + left Shift with a letter or digit, then
+/// left Ctrl + left Shift with them, then F1 to F12 with left Shift, left Ctrl, left Alt + left Shift and left Ctrl +
+/// left Shift, then the number block 0 to 9 with left Ctrl, left Alt + left Shift and left Shift. Never the right Alt,
+/// never left Ctrl with left Alt (Alt Gr on a German keyboard), never the Windows key, never Alt with F4.
+pub fn key_set() -> Vec<String> {
+    let mut keys = main_set();
+    keys.extend(with_letters_and_digits("lctrl+lshift"));
+    for modifiers in ["lshift", "lctrl", "lalt+lshift", "lctrl+lshift"] {
+        keys.extend((1..=12).map(|n| format!("{modifiers}+f{n}")).filter(|key| !closes_the_window(key)));
+    }
+    for modifiers in ["lctrl", "lalt+lshift", "lshift"] {
+        keys.extend((0..=9).map(|n| format!("{modifiers}+np_{n}")));
+    }
+    keys
+}
+
+/// Alt with F4 closes the window in front.
+fn closes_the_window(key: &str) -> bool {
+    key.ends_with("+f4") && key.split('+').any(|m| m.ends_with("alt"))
 }
 
 /// The actions of the game that must never come with a key VerseKit gives out, also not by the key alone: power, the
@@ -105,6 +125,9 @@ pub enum Outcome {
     /// presses the key alone too (`alone`: the action on it, where there is one). An own keyboard line with the safe
     /// `key` takes its place; `factory` where `from` was the factory setting (the way back then takes the line out).
     Relocate { from: String, key: String, alone: Option<String>, factory: bool },
+    /// The player emptied the keyboard line in the game, and the plan puts this key in all the same; the way back
+    /// empties the line again.
+    Refill(String),
 }
 
 /// Does `input` hold the right Alt as a modifier (`ralt+p`)? On a German keyboard that is Alt Gr: Windows adds the
@@ -178,6 +201,7 @@ impl Outcome {
             Outcome::Move { .. } => "sd_f_verschieben",
             Outcome::NotSendable(_) => "sd_f_maus",
             Outcome::Relocate { .. } => "sd_f_umziehen",
+            Outcome::Refill(_) => "sd_f_wieder",
         }
     }
 }
@@ -197,24 +221,27 @@ fn hotkey_on(input: &str, hotkeys: &[Hotkey]) -> bool {
     let parts: Vec<&str> = input.split('+').collect();
     let Some((rest, mods)) = parts.split_last() else { return false };
     let has = |name: &str| mods.iter().any(|m| m.ends_with(name));
-    let code = match rest.strip_prefix("np_") {
-        Some(digit) => digit.parse::<u16>().ok().map(|n| 0x60 + n),
-        None => rest.chars().next().filter(|_| rest.len() == 1).map(|c| c.to_ascii_uppercase() as u16),
+    let function = rest.strip_prefix('f').and_then(|n| n.parse::<u16>().ok()).filter(|n| (1..=24).contains(n));
+    let code = match (rest.strip_prefix("np_"), function) {
+        (Some(digit), _) => digit.parse::<u16>().ok().map(|n| 0x60 + n),
+        (None, Some(n)) => Some(0x6F + n),
+        (None, None) => rest.chars().next().filter(|_| rest.len() == 1).map(|c| c.to_ascii_uppercase() as u16),
     };
     hotkeys.iter().any(|h| h.alt == has("alt") && h.ctrl == has("ctrl") && h.shift == has("shift") && Some(h.key) == code)
 }
 
 /// The plan for the game actions `in_use`, with the bindings `own` and the factory setting `profile`; `hotkeys`
-/// are the hotkeys of VerseKit, `spare` takes [`spare_set`] instead of [`main_set`].
+/// are the hotkeys of VerseKit. The keys come from [`key_set`], stage after stage as the earlier ones are taken. A
+/// keyboard line the player emptied in the game gets a key too, unless `keep_deleted`.
 pub fn plan(
     in_use: &[String],
     own: &[(String, Vec<Binding>)],
     profile: &Profile,
     hotkeys: &[Hotkey],
-    spare: bool,
+    keep_deleted: bool,
 ) -> Vec<Item> {
     let all = controls::view(View::All, own, profile);
-    let set = if spare { spare_set() } else { main_set() };
+    let set = key_set();
     let mut given: Vec<String> = Vec::new();
     let mut out = Vec::new();
     for name in in_use {
@@ -238,7 +265,14 @@ pub fn plan(
         let outcome = if !known {
             Outcome::Unknown
         } else if resolved.deleted {
-            Outcome::Deleted
+            if keep_deleted || resolved.group.is_empty() {
+                Outcome::Deleted
+            } else {
+                match free_key() {
+                    Some(key) => Outcome::Refill(key),
+                    None => Outcome::NoFreeKey,
+                }
+            }
         } else if let How::NotSendable { input } = &resolved.how {
             // A mouse button on the keyboard line moves to the free mouse line; the keyboard line takes a key.
             if plain_mouse(input) && !resolved.group.is_empty() && mouse_line_free(action, &resolved.group, own, profile) {
@@ -293,7 +327,7 @@ pub fn count(items: &[Item]) -> Count {
         match item.outcome {
             // A mouse button that cannot move without a loss works with the mouse: no missing key.
             Outcome::HasKey | Outcome::Unknown | Outcome::NotSendable(_) => continue,
-            Outcome::Add(_) | Outcome::Move { .. } | Outcome::Relocate { .. } => count.addable += 1,
+            Outcome::Add(_) | Outcome::Move { .. } | Outcome::Relocate { .. } | Outcome::Refill(_) => count.addable += 1,
             Outcome::Deleted => count.deleted += 1,
             Outcome::NoGroup | Outcome::NoFreeKey => {}
         }
@@ -319,6 +353,9 @@ pub struct Record {
     /// The player's keys with Alt Gr moved to a safe key: `(action, group, old input, new key)`; the new key is among
     /// [`Record::entries`] too.
     pub relocated: Vec<(String, String, String, String)>,
+    /// The keyboard lines the player had emptied and that took a key: `(action, group, key)`; the key is among
+    /// [`Record::entries`] too.
+    pub refilled: Vec<(String, String, String)>,
 }
 
 impl Record {
@@ -329,8 +366,10 @@ impl Record {
             self.moved.iter().map(|(a, g, m, k)| json!({"aktion": a, "gruppe": g, "maus": m, "taste": k})).collect();
         let relocated: Vec<Value> =
             self.relocated.iter().map(|(a, g, o, k)| json!({"aktion": a, "gruppe": g, "vorher": o, "taste": k})).collect();
+        let refilled: Vec<Value> =
+            self.refilled.iter().map(|(a, g, k)| json!({"aktion": a, "gruppe": g, "taste": k})).collect();
         let value = json!({"version": 1, "datei": self.file, "kopie": self.copy, "zeit": self.at, "eintraege": entries,
-                           "verschoben": moved, "umgezogen": relocated});
+                           "verschoben": moved, "umgezogen": relocated, "geloescht": refilled});
         serde_json::to_string_pretty(&value).unwrap_or_default()
     }
 
@@ -339,13 +378,11 @@ impl Record {
         if value["version"].as_u64() != Some(1) {
             return None;
         }
-        let entries = value["eintraege"]
-            .as_array()?
-            .iter()
-            .filter_map(|e| {
-                Some((e["aktion"].as_str()?.to_string(), e["gruppe"].as_str()?.to_string(), e["taste"].as_str()?.to_string()))
-            })
-            .collect();
+        let three = |e: &Value| -> Option<(String, String, String)> {
+            Some((e["aktion"].as_str()?.to_string(), e["gruppe"].as_str()?.to_string(), e["taste"].as_str()?.to_string()))
+        };
+        let entries = value["eintraege"].as_array()?.iter().filter_map(three).collect();
+        let refilled = value["geloescht"].as_array().map(|l| l.iter().filter_map(three).collect()).unwrap_or_default();
         let four = |list: &str, third: &str| -> Vec<(String, String, String, String)> {
             value[list]
                 .as_array()
@@ -366,6 +403,7 @@ impl Record {
             entries,
             moved: four("verschoben", "maus"),
             relocated: four("umgezogen", "vorher"),
+            refilled,
         })
     }
 }
@@ -388,9 +426,16 @@ pub fn apply(paths: &Paths, items: &[Item], now: i64) -> Result<Record, Failure>
     let adds: Vec<(String, String, String)> = items
         .iter()
         .filter_map(|item| match &item.outcome {
-            Outcome::Add(key) | Outcome::Move { key, .. } | Outcome::Relocate { key, .. } => {
+            Outcome::Add(key) | Outcome::Move { key, .. } | Outcome::Relocate { key, .. } | Outcome::Refill(key) => {
                 Some((item.action.clone(), item.group.clone(), key.clone()))
             }
+            _ => None,
+        })
+        .collect();
+    let refilled: Vec<(String, String, String)> = items
+        .iter()
+        .filter_map(|item| match &item.outcome {
+            Outcome::Refill(key) => Some((item.action.clone(), item.group.clone(), key.clone())),
             _ => None,
         })
         .collect();
@@ -415,7 +460,7 @@ pub fn apply(paths: &Paths, items: &[Item], now: i64) -> Result<Record, Failure>
     let mice: Vec<(String, String, String)> = moved.iter().map(|(a, g, m, _)| (a.clone(), g.clone(), m.clone())).collect();
     let file = crate::joysticks::actionmaps_path(paths, None).ok_or(Failure::NoFile)?;
     let done = joysticks_write::fill(paths, &adds, &mice, Some(&file))?;
-    let record = Record { file, copy: done.backup, at: now, entries: adds, moved, relocated };
+    let record = Record { file, copy: done.backup, at: now, entries: adds, moved, relocated, refilled };
     let _ = crate::jsonio::write_text_atomic(&paths.app_file(RECORD_FILE), &record.to_text(), crate::jsonio::Newline::Keep);
     Ok(record)
 }
@@ -429,7 +474,7 @@ pub fn apply(paths: &Paths, items: &[Item], now: i64) -> Result<Record, Failure>
 pub fn undo(paths: &Paths) -> Result<Vec<String>, Failure> {
     let record = load_record(paths).ok_or(Failure::Nothing)?;
     let items: Vec<(String, String)> = record.entries.iter().map(|(a, _, i)| (a.clone(), i.clone())).collect();
-    match joysticks_write::unfill(paths, &items, &record.moved, &record.relocated, Some(&record.file)) {
+    match joysticks_write::unfill(paths, &items, &record.moved, &record.relocated, &record.refilled, Some(&record.file)) {
         Ok((_, found)) => {
             forget_record(paths);
             Ok(found)
@@ -488,18 +533,102 @@ mod tests {
         list.iter().map(|s| s.to_string()).collect()
     }
 
+    /// The plan with the lines the player emptied kept empty.
+    fn plan(in_use: &[String], own: &[(String, Vec<Binding>)], profile: &Profile, hotkeys: &[Hotkey]) -> Vec<Item> {
+        super::plan(in_use, own, profile, hotkeys, true)
+    }
+
     #[test]
     fn the_sets_have_their_keys_and_every_key_can_be_sent() {
         assert_eq!(main_set().len(), 36);
         assert_eq!(main_set()[0], "lalt+lshift+a");
-        assert_eq!(spare_set().len(), 26);
-        assert_eq!(spare_set()[0], "lctrl+lshift+a");
-        for key in main_set().iter().chain(spare_set().iter()) {
+        let set = key_set();
+        // 36 + 36 letters and digits, 4 × 12 F keys without Alt + F4, 3 × 10 keys of the number block.
+        assert_eq!(set.len(), 36 + 36 + 47 + 30);
+        assert_eq!((set[36].as_str(), set[72].as_str(), set[119].as_str()), ("lctrl+lshift+a", "lshift+f1", "lctrl+np_0"));
+        assert_eq!(set[..36], main_set()[..], "the first stage comes first");
+        for (n, key) in set.iter().enumerate() {
             assert!(crate::anti_afk_key::parse(key).is_some(), "{key}");
+            assert!(!set[..n].contains(key), "given once: {key}");
+            let mods: Vec<&str> = key.split('+').rev().skip(1).collect();
             // The right Alt is Alt Gr on a German keyboard: Windows adds the left Ctrl, and the game presses the key
-            // alone.
+            // alone. Left Ctrl with left Alt is Alt Gr too.
             assert!(!key.contains("ralt"), "{key}");
+            assert!(!(mods.contains(&"lctrl") && mods.contains(&"lalt")), "{key}");
+            assert!(!key.contains("win"), "{key}");
+            assert!(!(key.ends_with("+f4") && mods.contains(&"lalt")), "Alt + F4 closes the game: {key}");
         }
+    }
+
+    /// Hotkeys of VerseKit on every key of every set: nothing is free.
+    fn every_key_held() -> Vec<Hotkey> {
+        let codes = (b'A'..=b'Z').chain(b'0'..=b'9').map(u16::from).chain(0x70..=0x7B).chain(0x60..=0x69);
+        let codes: Vec<u16> = codes.collect();
+        let mut out = Vec::new();
+        for mods in 0..8u8 {
+            for key in &codes {
+                out.push(Hotkey { ctrl: mods & 1 != 0, alt: mods & 2 != 0, shift: mods & 4 != 0, key: *key });
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn a_hotkey_of_verse_kit_on_an_f_key_or_the_number_block_is_seen() {
+        let ctrl_f5 = [Hotkey::parse("Strg+F5").expect("hotkey")];
+        assert!(hotkey_on("lctrl+f5", &ctrl_f5) && !hotkey_on("lctrl+f6", &ctrl_f5) && !hotkey_on("lshift+f5", &ctrl_f5));
+        assert!(key_set().iter().all(|key| hotkey_on(key, &every_key_held())), "every key of the sets is a hotkey key");
+    }
+
+    #[test]
+    fn a_deck_of_170_actions_beside_a_full_factory_setting_gets_a_key_for_every_one() {
+        // The factory setting holds every plain key, Alt, Ctrl and Shift with a letter, the F keys and the number
+        // block alone; dangerous actions lie on `i`, `b` and Ctrl + `c`.
+        let mut factory = Vec::new();
+        let plain = (b'a'..=b'z').chain(b'0'..=b'9').map(|c| (c as char).to_string());
+        let alone = plain.chain((1..=12).map(|n| format!("f{n}"))).chain((0..=9).map(|n| format!("np_{n}")));
+        let letters = || (b'a'..=b'z').map(|c| c as char);
+        let held: Vec<String> = alone
+            .chain(letters().map(|c| format!("lalt+{c}")))
+            .chain(letters().map(|c| format!("lctrl+{c}")))
+            .chain(letters().map(|c| format!("lshift+{c}")))
+            .filter(|k| !matches!(k.as_str(), "i" | "b" | "lctrl+c"))
+            .collect();
+        for (n, key) in held.iter().enumerate() {
+            factory.push(format!(r#"<action name="v_held_{n}" UILabel="@h" keyboard="{key}"/>"#));
+        }
+        factory.push(r#"<action name="v_power_toggle_thrusters" UILabel="@t" keyboard="i"/>"#.into());
+        factory.push(r#"<action name="v_eject" UILabel="@e" keyboard="b"/>"#.into());
+        factory.push(r#"<action name="v_self_destruct" UILabel="@s" keyboard="lctrl+c"/>"#.into());
+        for n in 0..170 {
+            factory.push(format!(r#"<action name="v_deck_{n}" UILabel="@d"/>"#));
+        }
+        let xml = format!(r#"<ActionMaps><actionmap name="spaceship_general" UILabel="@g">{}</actionmap></ActionMaps>"#, factory.concat());
+        let profile = Profile::from_xml(&xml).expect("profile");
+        // 50 actions of the deck have a key (factory), 120 have none.
+        let deck: Vec<String> = held.iter().take(50).enumerate().map(|(n, _)| format!("v_held_{n}")).chain((0..120).map(|n| format!("v_deck_{n}"))).collect();
+        assert_eq!(deck.len(), 170);
+        let items = plan(&deck, &[], &profile, &[]);
+        assert!(!items.iter().any(|i| i.outcome == Outcome::NoFreeKey), "{:?}", items.iter().filter(|i| i.outcome == Outcome::NoFreeKey).count());
+        assert_eq!(count(&items), Count { without_key: 120, deleted: 0, addable: 120 });
+        let given: Vec<&String> = items.iter().filter_map(|i| if let Outcome::Add(k) = &i.outcome { Some(k) } else { None }).collect();
+        for base in ["i", "b", "c"] {
+            assert!(!given.iter().any(|k| k.ends_with(&format!("+{base}"))), "a dangerous key alone: {base}");
+        }
+        assert!(given.iter().any(|k| k.contains("+f")) && given.iter().any(|k| k.contains("np_")), "the later stages are used");
+    }
+
+    #[test]
+    fn the_keys_go_out_stage_after_stage_when_the_earlier_ones_are_taken() {
+        // VerseKit holds every left Alt + left Shift key and every left Ctrl + left Shift key: the F keys come next.
+        let held: Vec<Hotkey> = every_key_held().into_iter().filter(|h| h.shift && (h.alt != h.ctrl) && h.key < 0x60).collect();
+        let items = plan(&names(&["v_free", "v_free2"]), &own(""), &profile(), &held);
+        assert_eq!(items[0].outcome, Outcome::Add("lshift+f1".into()));
+        assert_eq!(items[1].outcome, Outcome::Add("lshift+f2".into()));
+        // Every F key held too: the number block.
+        let held: Vec<Hotkey> = every_key_held().into_iter().filter(|h| !(0x60..=0x69).contains(&h.key)).collect();
+        let items = plan(&names(&["v_free"]), &own(""), &profile(), &held);
+        assert_eq!(items[0].outcome, Outcome::Add("lctrl+np_0".into()));
     }
 
     #[test]
@@ -518,18 +647,16 @@ mod tests {
         )
         .expect("profile");
         let body = r#"<actionmap name="spaceship_movement"><action name="v_master_mode_cycle_long"><rebind input="kb1_mouse4"/></action></actionmap>"#;
-        let items = plan(&names(&["v_master_mode_cycle_long"]), &own(body), &profile, &[], false);
+        let items = plan(&names(&["v_master_mode_cycle_long"]), &own(body), &profile, &[]);
         assert_eq!(
             items[0].outcome,
             Outcome::Move { mouse: "mouse4".into(), key: "lalt+lshift+d".into() },
             "not a (thrusters), not b (eject), not c (self destruct with Ctrl); d alone is harmless"
         );
-        let spare = plan(&names(&["v_master_mode_cycle_long"]), &own(body), &profile, &[], true);
-        assert_eq!(spare[0].outcome, Outcome::Move { mouse: "mouse4".into(), key: "lctrl+lshift+d".into() });
         // The player's own binding counts too: eject moved from `b` to `d` alone, so `b` is free and `d` is not.
         let own_eject = r#"<actionmap name="spaceship_general"><action name="v_eject"><rebind input="kb1_d"/></action></actionmap>
             <actionmap name="spaceship_movement"><action name="v_master_mode_cycle_long"><rebind input="kb1_mouse4"/></action></actionmap>"#;
-        let items = plan(&names(&["v_master_mode_cycle_long", "v_lights"]), &own(own_eject), &profile, &[], false);
+        let items = plan(&names(&["v_master_mode_cycle_long", "v_lights"]), &own(own_eject), &profile, &[]);
         assert_eq!(items[0].outcome, Outcome::Move { mouse: "mouse4".into(), key: "lalt+lshift+b".into() });
     }
 
@@ -540,7 +667,7 @@ mod tests {
             <action name="v_free"><rebind input="kb1_mouse4"/></action>
             <action name="v_eject"><rebind input="mo1_lalt+lshift+b"/></action>
         </actionmap>"#;
-        let items = plan(&names(&["v_free", "v_free2"]), &own(body), &profile(), &[], false);
+        let items = plan(&names(&["v_free", "v_free2"]), &own(body), &profile(), &[]);
         assert_eq!(
             items[0].outcome,
             Outcome::Move { mouse: "mouse4".into(), key: "lalt+lshift+c".into() },
@@ -558,7 +685,7 @@ mod tests {
             <action name="v_mouse"><rebind input="kb1_mouse4"/></action>
             <action name="v_free2"><rebind input="kb1_lalt+mouse1"/></action>
         </actionmap>"#;
-        let items = plan(&names(&["v_free", "v_mouse", "v_free2"]), &own(body), &profile(), &[], false);
+        let items = plan(&names(&["v_free", "v_mouse", "v_free2"]), &own(body), &profile(), &[]);
         assert_eq!(items[0].outcome, Outcome::NotSendable("mouse4".into()), "own mouse line taken: nothing is lost");
         assert_eq!(items[1].outcome, Outcome::NotSendable("mouse4".into()), "factory mouse button: nothing is lost");
         assert_eq!(items[2].outcome, Outcome::NotSendable("lalt+mouse1".into()), "no plain mouse button");
@@ -570,7 +697,7 @@ mod tests {
         assert!(!stays_on_mouse("v_free", &own(movable), &profile()), "it can move: it is missing until it does");
         // An emptied mouse line is the player's too.
         let emptied = r#"<actionmap name="spaceship_general"><action name="v_free"><rebind input="kb1_mouse4"/><rebind input="mo1_"/></action></actionmap>"#;
-        assert_eq!(plan(&names(&["v_free"]), &own(emptied), &profile(), &[], false)[0].outcome, Outcome::NotSendable("mouse4".into()));
+        assert_eq!(plan(&names(&["v_free"]), &own(emptied), &profile(), &[])[0].outcome, Outcome::NotSendable("mouse4".into()));
     }
 
     #[test]
@@ -585,13 +712,12 @@ mod tests {
         </actionmap>"#;
         let names = names(&["v_eject", "v_taken_a", "v_free", "v_free2", "v_mouse", "v_deleted", "gibt_es_nicht"]);
         let own = own(body);
-        let items = plan(&names, &own, &profile(), &[], false);
+        let items = plan(&names, &own, &profile(), &[]);
         let deck = names.iter().filter(|n| missing(n, &own, &profile())).count();
         assert_eq!(count(&items).without_key, deck, "{items:?}");
         assert_eq!(deck, 3, "v_free (moves), v_free2 (stick only), v_deleted; not the unknown, not the one that stays");
         // Every key full: the same number still.
-        let every: Vec<Hotkey> = (b'A'..=b'Z').filter_map(|c| Hotkey::parse(&format!("Strg+Umschalt+{}", c as char))).collect();
-        assert_eq!(count(&plan(&names, &own, &profile(), &every, true)).without_key, deck);
+        assert_eq!(count(&plan(&names, &own, &profile(), &every_key_held())).without_key, deck);
         // After putting in: nothing on either side.
         let after = r#"<actionmap name="spaceship_general">
             <action name="v_deleted"><rebind input="kb1_"/></action>
@@ -601,7 +727,7 @@ mod tests {
         </actionmap>"#;
         let own = own_of_body(after);
         let deck = names.iter().filter(|n| missing(n, &own, &profile())).count();
-        assert_eq!(count(&plan(&names, &own, &profile(), &[], false)).without_key, deck);
+        assert_eq!(count(&plan(&names, &own, &profile(), &[])).without_key, deck);
         assert_eq!(deck, 1, "only the one the player deleted");
     }
 
@@ -611,7 +737,7 @@ mod tests {
 
     #[test]
     fn a_free_key_goes_where_none_is_and_skips_what_the_game_holds() {
-        let items = plan(&names(&["v_free", "v_free2"]), &own(""), &profile(), &[], false);
+        let items = plan(&names(&["v_free", "v_free2"]), &own(""), &profile(), &[]);
         // lalt+lshift+a is the factory key of another action; lalt+lshift+y too, further down.
         assert_eq!(items[0].outcome, Outcome::Add("lalt+lshift+b".into()));
         assert_eq!(items[1].outcome, Outcome::Add("lalt+lshift+c".into()), "a key is given once");
@@ -621,7 +747,7 @@ mod tests {
     #[test]
     fn a_key_of_the_player_or_of_the_factory_is_never_touched() {
         let body = r#"<actionmap name="spaceship_general"><action name="v_free"><rebind input="kb1_k"/></action></actionmap>"#;
-        let items = plan(&names(&["v_free", "v_eject"]), &own(body), &profile(), &[], false);
+        let items = plan(&names(&["v_free", "v_eject"]), &own(body), &profile(), &[]);
         assert_eq!(items[0].outcome, Outcome::HasKey, "own keyboard line");
         assert_eq!(items[1].outcome, Outcome::HasKey, "factory key");
     }
@@ -629,35 +755,31 @@ mod tests {
     #[test]
     fn a_deleted_keyboard_binding_stays_deleted() {
         let body = r#"<actionmap name="spaceship_general"><action name="v_deleted"><rebind input="kb1_"/></action></actionmap>"#;
-        let items = plan(&names(&["v_deleted"]), &own(body), &profile(), &[], false);
+        let items = plan(&names(&["v_deleted"]), &own(body), &profile(), &[]);
         assert_eq!(items[0].outcome, Outcome::Deleted);
     }
 
     #[test]
     fn a_mouse_only_action_gets_a_key_beside_its_mouse_button() {
-        let items = plan(&names(&["v_mouse"]), &own(""), &profile(), &[], false);
+        let items = plan(&names(&["v_mouse"]), &own(""), &profile(), &[]);
         assert_eq!(items[0].outcome, Outcome::Add("lalt+lshift+b".into()));
     }
 
     #[test]
     fn a_hotkey_of_verse_kit_on_alt_and_a_letter_is_skipped() {
         let hotkeys = [Hotkey::parse("Alt+Umschalt+B").expect("hotkey")];
-        let items = plan(&names(&["v_free"]), &own(""), &profile(), &hotkeys, false);
+        let items = plan(&names(&["v_free"]), &own(""), &profile(), &hotkeys);
         assert_eq!(items[0].outcome, Outcome::Add("lalt+lshift+c".into()));
         let only_alt = [Hotkey::parse("Alt+B").expect("hotkey")];
-        let items = plan(&names(&["v_free"]), &own(""), &profile(), &only_alt, false);
+        let items = plan(&names(&["v_free"]), &own(""), &profile(), &only_alt);
         assert_eq!(items[0].outcome, Outcome::Add("lalt+lshift+b".into()), "Alt+B is another key than Alt+Shift+B");
-        let spare = [Hotkey::parse("Strg+Umschalt+A").expect("hotkey")];
-        let items = plan(&names(&["v_free"]), &own(""), &profile(), &spare, true);
-        assert_eq!(items[0].outcome, Outcome::Add("lctrl+lshift+b".into()));
     }
 
     #[test]
     fn an_unknown_action_and_a_full_set_say_so() {
-        let items = plan(&names(&["gibt_es_nicht"]), &own(""), &profile(), &[], false);
+        let items = plan(&names(&["gibt_es_nicht"]), &own(""), &profile(), &[]);
         assert_eq!(items[0].outcome, Outcome::Unknown);
-        let every: Vec<Hotkey> = (b'A'..=b'Z').filter_map(|c| Hotkey::parse(&format!("Strg+Umschalt+{}", c as char))).collect();
-        let items = plan(&names(&["v_free"]), &own(""), &profile(), &every, true);
+        let items = plan(&names(&["v_free"]), &own(""), &profile(), &every_key_held());
         assert_eq!(items[0].outcome, Outcome::NoFreeKey);
     }
 
@@ -676,7 +798,6 @@ mod tests {
             &own(body),
             &profile,
             &[],
-            false,
         );
         assert_eq!(items[0].outcome, Outcome::HasKey, "the ship has its key");
         assert_eq!(items[1].outcome, Outcome::Add("lalt+lshift+a".into()), "the vehicle gets one");
@@ -698,7 +819,7 @@ mod tests {
             <action name="v_eject"><rebind input="kb1_lalt+lshift+b"/></action>
             <action name="v_free2"><rebind input="js1_button3"/></action>
         </actionmap>"#;
-        let items = plan(&names(&["v_free", "v_free2"]), &own(body), &profile(), &[], false);
+        let items = plan(&names(&["v_free", "v_free2"]), &own(body), &profile(), &[]);
         assert_eq!(items[0].outcome, Outcome::Add("lalt+lshift+c".into()), "the own key of another action is taken");
         assert_eq!(items[1].outcome, Outcome::Add("lalt+lshift+d".into()), "a stick line is no keyboard key");
     }
@@ -741,7 +862,7 @@ mod tests {
     #[test]
     fn nothing_is_written_and_no_copy_made_while_the_game_runs() {
         let (paths, home, file) = world("laeuft", 5, &with_bom());
-        let items = plan(&names(&["v_free"]), &own(""), &profile(), &[], false);
+        let items = plan(&names(&["v_free"]), &own(""), &profile(), &[]);
         let refused = apply(&paths, &items, 1).expect_err("the game runs");
         assert!(refused.game_not_quiet(), "{refused:?}");
         assert_eq!(std::fs::read(&file).expect("file"), with_bom(), "the file stays as it is");
@@ -753,7 +874,7 @@ mod tests {
     #[test]
     fn the_keys_go_in_with_one_copy_keep_mark_and_line_ends_and_come_out_where_unchanged() {
         let (paths, home, file) = world("eintragen", 7200, &with_bom());
-        let items = plan(&names(&["v_free", "v_free2"]), &own(""), &profile(), &[], false);
+        let items = plan(&names(&["v_free", "v_free2"]), &own(""), &profile(), &[]);
         let record = apply(&paths, &items, 42).expect("written");
         assert_eq!(record.entries.len(), 2);
         assert_eq!(crate::game_files::backups(&file).len(), 1, "one copy for the whole go");
@@ -777,11 +898,10 @@ mod tests {
     #[test]
     fn the_count_names_the_actions_without_a_key_and_the_deleted_ones_among_them() {
         let body = r#"<actionmap name="spaceship_general"><action name="v_deleted"><rebind input="kb1_"/></action></actionmap>"#;
-        let items = plan(&names(&["v_free", "v_mouse", "v_deleted", "v_eject", "gibt_es_nicht"]), &own(body), &profile(), &[], false);
+        let items = plan(&names(&["v_free", "v_mouse", "v_deleted", "v_eject", "gibt_es_nicht"]), &own(body), &profile(), &[]);
         assert_eq!(count(&items), Count { without_key: 3, deleted: 1, addable: 2 });
         assert_eq!(count(&[]), Count::default());
-        let every: Vec<Hotkey> = (b'A'..=b'Z').filter_map(|c| Hotkey::parse(&format!("Strg+Umschalt+{}", c as char))).collect();
-        let full = plan(&names(&["v_free"]), &own(""), &profile(), &every, true);
+        let full = plan(&names(&["v_free"]), &own(""), &profile(), &every_key_held());
         assert_eq!(count(&full), Count { without_key: 1, deleted: 0, addable: 0 }, "no free key: still without one");
     }
 
@@ -794,6 +914,7 @@ mod tests {
             entries: vec![("v_free".into(), "spaceship_general".into(), "lalt+lshift+b".into())],
             moved: vec![("v_free".into(), "spaceship_general".into(), "mouse4".into(), "lalt+lshift+b".into())],
             relocated: vec![("v_eject".into(), "spaceship_general".into(), "ralt+p".into(), "lalt+lshift+c".into())],
+            refilled: vec![("v_deleted".into(), "spaceship_general".into(), "lalt+lshift+d".into())],
         };
         assert_eq!(Record::parse(&record.to_text()), Some(record));
         assert_eq!(Record::parse("{}"), None);
@@ -816,7 +937,7 @@ mod tests {
         )
         .expect("profile");
         let body = r#"<actionmap name="player"><action name="zoom_in"><rebind input="kb1_ralt+p"/></action></actionmap>"#;
-        let items = plan(&names(&["zoom_in", "zoom_out"]), &own(body), &profile, &[], false);
+        let items = plan(&names(&["zoom_in", "zoom_out"]), &own(body), &profile, &[]);
         assert_eq!(
             items[0].outcome,
             Outcome::Relocate {
@@ -847,19 +968,19 @@ mod tests {
     fn the_key_with_alt_gr_moves_in_the_file_and_comes_back_and_a_record_grown_old_is_dropped() {
         let (paths, home, file) = world("altgr", 7200, ALT_GR_MAPS.as_bytes());
         let read = || own_of(&std::fs::read_to_string(&file).expect("file"));
-        let items = plan(&names(&["v_free"]), &read(), &profile(), &[], false);
+        let items = plan(&names(&["v_free"]), &read(), &profile(), &[]);
         assert!(matches!(&items[0].outcome, Outcome::Relocate { from, .. } if from == "ralt+p"), "{items:?}");
         let record = apply(&paths, &items, 42).expect("written");
         assert_eq!(record.relocated.len(), 1);
         let text = std::fs::read_to_string(&file).expect("file");
         assert!(!text.contains("kb1_ralt+p") && text.contains("kb1_lalt+lshift+b") && text.contains("js1_button7"), "{text}");
-        assert_eq!(count(&plan(&names(&["v_free"]), &read(), &profile(), &[], false)), Count::default(), "nothing missing after");
+        assert_eq!(count(&plan(&names(&["v_free"]), &read(), &profile(), &[])), Count::default(), "nothing missing after");
         undo(&paths).expect("undone");
         let back = std::fs::read_to_string(&file).expect("file");
         assert!(back.contains("kb1_ralt+p") && !back.contains("lalt+lshift") && back.contains("js1_button7"), "{back}");
         // Again, and the player changes the key in the game afterwards: the way back finds nothing, drops the record,
         // changes nothing and is no failure.
-        let items = plan(&names(&["v_free"]), &read(), &profile(), &[], false);
+        let items = plan(&names(&["v_free"]), &read(), &profile(), &[]);
         apply(&paths, &items, 43).expect("written");
         let changed = std::fs::read_to_string(&file).expect("file").replace("kb1_lalt+lshift+b", "kb1_mouse4");
         std::fs::write(&file, &changed).expect("changed in the game");
@@ -875,7 +996,7 @@ mod tests {
     fn after_putting_in_nothing_is_missing_the_mouse_button_still_works_and_the_way_back_restores_it() {
         let (paths, home, file) = world("maus", 7200, MOUSE_MAPS.as_bytes());
         let read = || own_of(&std::fs::read_to_string(&file).expect("file"));
-        let items = plan(&names(&["v_free", "v_free2"]), &read(), &profile(), &[], false);
+        let items = plan(&names(&["v_free", "v_free2"]), &read(), &profile(), &[]);
         assert!(matches!(items[0].outcome, Outcome::Move { .. }), "{items:?}");
         let record = apply(&paths, &items, 42).expect("written");
         assert_eq!(record.moved.len(), 1);
@@ -883,7 +1004,7 @@ mod tests {
         assert!(text.contains("mo1_mouse4") && text.contains("js1_button3"), "the mouse button moved, the stick stays: {text}");
         assert!(!text.contains("kb1_mouse4"), "{text}");
         // Afterwards nothing is missing: every action of the deck has a key it can press.
-        let again = plan(&names(&["v_free", "v_free2"]), &read(), &profile(), &[], false);
+        let again = plan(&names(&["v_free", "v_free2"]), &read(), &profile(), &[]);
         assert_eq!(count(&again), Count::default(), "{again:?}");
         assert!(again.iter().all(|i| i.outcome == Outcome::HasKey));
         // The way back: the mouse button on the keyboard line again, the mouse line and the keys gone.
@@ -918,7 +1039,7 @@ mod tests {
         let maps = MAPS.replace("<action name=\"v_free2\">", "<action name=\"v_eject\">");
         let (paths, home, file) = world("altgr-werk", 7200, maps.as_bytes());
         let read = || own_of(&std::fs::read_to_string(&file).expect("file"));
-        let items = plan(&names(&["v_eject"]), &read(), &profile, &[], false);
+        let items = plan(&names(&["v_eject"]), &read(), &profile, &[]);
         assert_eq!(
             items[0].outcome,
             Outcome::Relocate { from: "ralt+y".into(), key: "lalt+lshift+a".into(), alone: None, factory: true }
@@ -932,6 +1053,76 @@ mod tests {
         let back = std::fs::read_to_string(&file).expect("file");
         assert!(!back.contains("kb1_") && back.contains("js1_button3"), "the own line goes, the factory key counts again: {back}");
         let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn one_putting_in_leaves_no_key_missing_also_for_alt_gr_and_deleted_lines_and_the_way_back_empties_them_again() {
+        // As the player's file: 162 actions on the deck beside a full factory setting; 40 of them on own keys with
+        // Alt Gr, 21 emptied in the game, 50 on factory keys, 51 without any key. One also lies on a stick.
+        let letters = || (b'a'..=b'z').map(|c| c as char);
+        let held: Vec<String> = (b'a'..=b'z')
+            .chain(b'0'..=b'9')
+            .map(|c| (c as char).to_string())
+            .chain((1..=12).map(|n| format!("f{n}")))
+            .chain((0..=9).map(|n| format!("np_{n}")))
+            .chain(letters().map(|c| format!("lalt+{c}")))
+            .chain(letters().map(|c| format!("lctrl+{c}")))
+            .chain(letters().map(|c| format!("lshift+{c}")))
+            .filter(|k| !matches!(k.as_str(), "i" | "b" | "lctrl+c"))
+            .collect();
+        let mut factory: Vec<String> =
+            held.iter().enumerate().map(|(n, k)| format!(r#"<action name="v_held_{n}" UILabel="@h" keyboard="{k}"/>"#)).collect();
+        factory.push(r#"<action name="v_power_toggle_thrusters" UILabel="@t" keyboard="i"/>"#.into());
+        factory.push(r#"<action name="v_eject" UILabel="@e" keyboard="b"/>"#.into());
+        factory.push(r#"<action name="v_self_destruct" UILabel="@s" keyboard="lctrl+c"/>"#.into());
+        factory.extend((0..112).map(|n| format!(r#"<action name="v_deck_{n}" UILabel="@d"/>"#)));
+        let xml = format!(r#"<ActionMaps><actionmap name="spaceship_general" UILabel="@g">{}</actionmap></ActionMaps>"#, factory.concat());
+        let profile = Profile::from_xml(&xml).expect("profile");
+        let alt_gr_keys: Vec<String> =
+            (b'a'..=b'z').chain(b'0'..=b'9').map(|c| format!("ralt+{}", c as char)).chain((1..=4).map(|n| format!("ralt+f{n}"))).collect();
+        let mut lines = String::new();
+        for (n, key) in alt_gr_keys.iter().enumerate() {
+            lines.push_str(&format!("   <action name=\"v_deck_{n}\">\r\n    <rebind input=\"kb1_{key}\"/>\r\n   </action>\r\n"));
+        }
+        for n in 40..61 {
+            lines.push_str(&format!("   <action name=\"v_deck_{n}\">\r\n    <rebind input=\"kb1_\"/>\r\n   </action>\r\n"));
+        }
+        lines.push_str("   <action name=\"v_deck_61\">\r\n    <rebind input=\"js1_button3\"/>\r\n   </action>\r\n");
+        let maps = MAPS.replace(
+            "   <action name=\"v_free2\">\r\n    <rebind input=\"js1_button3\"/>\r\n   </action>\r\n",
+            &lines,
+        );
+        let deck: Vec<String> =
+            (0..112).map(|n| format!("v_deck_{n}")).chain((0..50).map(|n| format!("v_held_{n}"))).collect();
+        assert_eq!(deck.len(), 162);
+        let (paths, home, file) = world("robert", 7200, maps.as_bytes());
+        let read = || own_of(&std::fs::read_to_string(&file).expect("file"));
+        let missing_now = || deck.iter().filter(|n| missing(n, &read(), &profile)).count();
+        assert_eq!(missing_now(), 40 + 21 + 51, "Alt Gr, deleted and without a key count as missing");
+        let items = super::plan(&deck, &read(), &profile, &[], false);
+        assert_eq!(count(&items), Count { without_key: 112, deleted: 0, addable: 112 }, "{items:?}");
+        apply(&paths, &items, 7).expect("written");
+        assert_eq!(missing_now(), 0, "one putting in, nothing missing");
+        assert_eq!(count(&super::plan(&deck, &read(), &profile, &[], false)).without_key, 0, "the bar is gone");
+        let text = std::fs::read_to_string(&file).expect("file");
+        assert!(!text.contains("\"kb1_\"") && !text.contains("kb1_ralt") && text.contains("js1_button3"), "{text}");
+        undo(&paths).expect("undone");
+        let back = std::fs::read_to_string(&file).expect("file");
+        assert_eq!(back.matches("\"kb1_\"").count(), 21, "the deleted lines are deleted again: {back}");
+        assert_eq!(back.matches("kb1_ralt+").count(), 40, "the Alt Gr keys are back");
+        assert!(back.contains("js1_button3"));
+        assert_eq!(missing_now(), 40 + 21 + 51);
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn a_deleted_line_stays_deleted_where_the_player_keeps_it() {
+        let body = r#"<actionmap name="spaceship_general"><action name="v_deleted"><rebind input="kb1_"/></action></actionmap>"#;
+        let kept = super::plan(&names(&["v_deleted"]), &own(body), &profile(), &[], true);
+        assert_eq!(kept[0].outcome, Outcome::Deleted);
+        let filled = super::plan(&names(&["v_deleted"]), &own(body), &profile(), &[], false);
+        assert_eq!(filled[0].outcome, Outcome::Refill("lalt+lshift+b".into()));
+        assert_eq!(count(&filled), Count { without_key: 1, deleted: 0, addable: 1 });
     }
 
     fn own_of(text: &str) -> Vec<(String, Vec<Binding>)> {

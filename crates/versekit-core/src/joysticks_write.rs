@@ -1048,8 +1048,9 @@ fn holds_key(text: &str, action: &str, key: &str) -> Result<bool, Failure> {
 /// The way back of [`fill_text`]: the keys `adds` `(action, input)` taken out where they still stand so; for the
 /// actions of `mice` `(action, section, mouse button, key)` whose keyboard line still holds that key, the mouse
 /// button goes back to the keyboard line and its mouse line goes; for the actions of `relocated` `(action, section,
-/// old input, key)` whose keyboard line still holds that key, the old input comes back. Gives the new text and the
-/// actions found; what the player changed since stays.
+/// old input, key)` whose keyboard line still holds that key, the old input comes back; for the actions of `refilled`
+/// `(action, section, key)` whose keyboard line still holds that key, the line is emptied again (deleted in the game).
+/// Gives the new text and the actions found; what the player changed since stays.
 ///
 /// # Errors
 ///
@@ -1059,9 +1060,16 @@ pub fn unfill_text(
     adds: &[(String, String)],
     mice: &[(String, String, String, String)],
     relocated: &[(String, String, String, String)],
+    refilled: &[(String, String, String)],
 ) -> Result<(String, Vec<String>), Failure> {
     let mut out = text.to_string();
     let mut found = Vec::new();
+    for (action, section, key) in refilled {
+        if holds_key(&out, action, key)? {
+            out = bind_action_text(&out, action, section, "kb1", "")?;
+            found.push(action.clone());
+        }
+    }
     for (action, section, mouse, key) in mice {
         if !holds_key(&out, action, key)? {
             continue;
@@ -1084,7 +1092,9 @@ pub fn unfill_text(
     }
     let plain: Vec<(String, String)> = adds
         .iter()
-        .filter(|(a, _)| !mice.iter().any(|(m, ..)| m == a) && !relocated.iter().any(|(r, ..)| r == a))
+        .filter(|(a, _)| {
+            !mice.iter().any(|(m, ..)| m == a) && !relocated.iter().any(|(r, ..)| r == a) && !refilled.iter().any(|(r, ..)| r == a)
+        })
         .cloned()
         .collect();
     let (out, more) = unbind_added_text(&out, &plain)?;
@@ -1102,10 +1112,11 @@ pub fn unfill(
     adds: &[(String, String)],
     mice: &[(String, String, String, String)],
     relocated: &[(String, String, String, String)],
+    refilled: &[(String, String, String)],
     file: Option<&str>,
 ) -> Result<(Done, Vec<String>), Failure> {
     let read = open(paths, file, None)?;
-    let (new, found) = unfill_text(&read.text, adds, mice, relocated)?;
+    let (new, found) = unfill_text(&read.text, adds, mice, relocated, refilled)?;
     let moved: Vec<String> = mice.iter().map(|(_, _, m, _)| m.clone()).collect();
     keyboard_and_these_mice(&read.text, &new, &moved, false)?;
     let done = commit(paths, &read, &new, found.len())?;
