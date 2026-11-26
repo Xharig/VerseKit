@@ -23,8 +23,12 @@
 //! tells [`Loss`] when it is lost ([`watch`]); the panic that follows comes out of `eframe::run_native` (winit hands
 //! it on after its loop) and [`Loss::guard`] takes it there; the program then starts itself anew ([`restart`]) and
 //! this process ends without a crash. The new process waits for this one to be gone ([`take_switch`]), so the single
-//! instance, the locks and the files of the run are free. A loss right after such a start is not taken: a device that
-//! is lost again and again ends the program as before, with its crash file.
+//! instance, the locks and the files of the run are free, and gives the driver a few seconds before it makes its
+//! device. A window that draws nothing never reaches that panic, and one whose surface egui-wgpu cannot make anew
+//! draws nothing without one: the loss closes the window at once ([`lost_into`], [`surface_unrecoverable`]) and its
+//! end starts the program anew as well ([`after_run`]). Up to [`MOST_STARTS`] starts may follow one right after the
+//! other (an installed driver resets the graphics more than once); a device that is lost again after that ends the
+//! program as before, with its crash file.
 
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,10 +37,18 @@ use std::time::{Duration, Instant};
 
 use eframe::egui_wgpu::wgpu;
 
-/// The switch of a start after a lost device, with the process id of the program that started it.
+/// The switch of a start after a lost device, with the process id of the program that started it and how many starts
+/// after a loss came one right after the other.
 pub const AFTER_LOSS: &str = "--nach-grafikverlust";
-/// How long a start after a lost device runs before a new loss starts the program anew again.
+/// How long a start after a lost device runs before a new loss counts as a loss of its own again.
 const SETTLE: Duration = Duration::from_secs(60);
+/// How many starts after a loss may follow one right after the other (a driver that is installed resets the
+/// graphics more than once); a device lost again after that ends the program as before.
+const MOST_STARTS: u32 = 3;
+/// How long the `n`-th start after a loss waits before it makes its device: the driver gets the time to settle.
+fn settle_pause(n: u32) -> Duration {
+    Duration::from_secs(2 * u64::from(n.min(MOST_STARTS)))
+}
 /// How long a start after a lost device waits at most for the program before it to be gone.
 const WAIT: Duration = Duration::from_secs(15);
 /// How often it looks whether that program is gone.
@@ -89,16 +101,47 @@ impl Loss {
 /// The loss of the device of this process.
 pub(crate) static LOSS: Loss = Loss::new();
 
-/// The time of a start after a lost device ([`take_switch`]).
-static STARTED_AFTER_LOSS: OnceLock<Instant> = OnceLock::new();
+/// The time of a start after a lost device and how many came one right after the other ([`take_switch`]).
+static STARTED_AFTER_LOSS: OnceLock<(Instant, u32)> = OnceLock::new();
 
-/// May a loss start the program anew? Not in the self-check (`quiet`), and not while a start after a loss settles.
-fn may_restart(quiet: bool) -> bool {
-    !quiet && STARTED_AFTER_LOSS.get().is_none_or(|at| at.elapsed() >= SETTLE)
+/// May a loss start the program anew, after a start after a loss `started` (how long it runs, how many starts in a
+/// row)? Not in the self-check (`quiet`); after [`MOST_STARTS`] starts in a row only once the last one settled.
+fn may_restart_after(quiet: bool, started: Option<(Duration, u32)>) -> bool {
+    !quiet && started.is_none_or(|(running, n)| running >= SETTLE || n < MOST_STARTS)
 }
 
-/// Tells `loss` when `device` is lost (`allowed` whether the window may start anew then), and draws `ctx` once more
-/// (the frame that finds the loss). When the window starts anew, the panic that follows is no crash for the
+fn may_restart(quiet: bool) -> bool {
+    may_restart_after(quiet, STARTED_AFTER_LOSS.get().map(|(at, n)| (at.elapsed(), *n)))
+}
+
+/// The number of the start that follows a loss now: one more while the start before it has not settled.
+fn next_start() -> u32 {
+    match STARTED_AFTER_LOSS.get() {
+        Some((at, n)) if at.elapsed() < SETTLE => n + 1,
+        _ => 1,
+    }
+}
+
+/// The window that is to end when its device is lost, for the losses found outside a frame.
+static WINDOW: Mutex<Option<eframe::egui::Context>> = Mutex::new(None);
+
+/// The device is lost (`text`), `allowed` whether the window may start anew: `loss` takes it, and a window that
+/// starts anew is told to close at once. A window that draws nothing (the overlay waits hidden) would otherwise
+/// never reach the panic of egui-wgpu, and one whose surface cannot be made anew draws nothing without one.
+pub(crate) fn lost_into(loss: &Loss, ctx: Option<&eframe::egui::Context>, text: &str, allowed: bool) {
+    if loss.seen(text, allowed) {
+        versekit_core::diagnostics::mark_graphics_lost();
+        if let Some(ctx) = ctx {
+            ctx.send_viewport_cmd_to(eframe::egui::ViewportId::ROOT, eframe::egui::ViewportCommand::Close);
+        }
+    }
+    if let Some(ctx) = ctx {
+        ctx.request_repaint();
+    }
+}
+
+/// Tells `loss` when `device` is lost (`allowed` whether the window may start anew then) and ends the window `ctx`
+/// for the new start ([`lost_into`]). When the window starts anew, the panic that may follow is no crash for the
 /// diagnostics.
 pub(crate) fn watch_into(
     loss: &'static Loss,
@@ -107,54 +150,89 @@ pub(crate) fn watch_into(
     allowed: impl Fn() -> bool + Send + 'static,
 ) {
     device.set_device_lost_callback(move |reason, message| {
-        if loss.seen(&format!("{reason:?}: {message}"), allowed()) {
-            versekit_core::diagnostics::mark_graphics_lost();
-        }
-        if let Some(ctx) = &ctx {
-            ctx.request_repaint();
-        }
+        lost_into(loss, ctx.as_ref(), &format!("{reason:?}: {message}"), allowed());
     });
 }
 
 /// [`watch_into`] for this process; not in the self-check (`quiet`).
 pub(crate) fn watch(device: &wgpu::Device, ctx: Option<eframe::egui::Context>, quiet: bool) {
+    *WINDOW.lock().unwrap_or_else(PoisonError::into_inner) = ctx.clone();
+    QUIET_WATCH.store(quiet, Ordering::Relaxed);
     watch_into(&LOSS, device, ctx, move || may_restart(quiet));
 }
 
+static QUIET_WATCH: AtomicBool = AtomicBool::new(false);
+
+/// egui-wgpu could not make the surface of the window anew after it was lost (a reset of the graphics driver): from
+/// now on every frame ends before it is drawn, without a panic, and the window stays empty. It counts as a lost
+/// device of this process.
+pub(crate) fn surface_unrecoverable(text: &str) {
+    let ctx = WINDOW.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    let allowed = may_restart(QUIET_WATCH.load(Ordering::Relaxed));
+    lost_into(&LOSS, ctx.as_ref(), &format!("Surface: {text}"), allowed);
+}
+
+/// Is a log line of egui-wgpu the failed new surface of a window ([`surface_unrecoverable`])?
+pub(crate) fn is_unrecoverable_surface(target: &str, message: &str) -> bool {
+    target.starts_with("egui_wgpu") && message.starts_with("Failed to recreate surface")
+}
+
+/// What `eframe::run_native` left (its result, or the text of a loss when its panic was taken): the result, or the
+/// text of the loss when the window starts anew. A window closed for a loss ([`lost_into`]) ends without a panic.
+pub(crate) fn after_run(outcome: Result<eframe::Result, String>, loss: &Loss) -> Result<eframe::Result, String> {
+    match outcome {
+        Ok(_) if loss.restarting() => Err(loss.text()),
+        other => other,
+    }
+}
+
 /// The command line of the start after a loss: `args` without a switch of an earlier loss, then [`AFTER_LOSS`] with
-/// `pid`.
-pub fn restart_args(args: &[String], pid: u32) -> Vec<String> {
+/// `pid` and the number `n` of this start in a row.
+pub fn restart_args(args: &[String], pid: u32, n: u32) -> Vec<String> {
     let (mut out, _) = split_switch(args);
     out.push(AFTER_LOSS.to_string());
     out.push(pid.to_string());
+    out.push(n.to_string());
     out
 }
 
-/// `args` without [`AFTER_LOSS`] and its process id, and that id when there is one.
-pub fn split_switch(args: &[String]) -> (Vec<String>, Option<u32>) {
+/// `args` without [`AFTER_LOSS`], its process id and its number, and the id with the number (1 without one) when
+/// there is one.
+pub fn split_switch(args: &[String]) -> (Vec<String>, Option<(u32, u32)>) {
     let mut out = Vec::with_capacity(args.len());
-    let mut pid = None;
-    let mut rest = args.iter();
+    let mut found = None;
+    let mut rest = args.iter().peekable();
     while let Some(arg) = rest.next() {
         if arg == AFTER_LOSS {
-            pid = rest.next().and_then(|p| p.parse().ok());
+            let pid = rest.next().and_then(|p| p.parse().ok());
+            let n = rest.peek().and_then(|n| n.parse::<u32>().ok());
+            if n.is_some() {
+                rest.next();
+            }
+            found = pid.map(|pid| (pid, n.unwrap_or(1).max(1)));
         } else {
             out.push(arg.clone());
         }
     }
-    (out, pid)
+    (out, found)
 }
 
 /// The start of every process of the program: `args` without [`AFTER_LOSS`]. A start after a lost device first waits
-/// (at most [`WAIT`]) for the program before it (`alive` asks for it) to be gone, and is noted as such.
+/// (at most [`WAIT`]) for the program before it (`alive` asks for it) to be gone, then gives the driver its time
+/// ([`settle_pause`], `pause` waits it), and is noted as such.
 pub fn take_switch(args: Vec<String>, alive: impl Fn(u32) -> bool) -> Vec<String> {
-    let (args, pid) = split_switch(&args);
-    if let Some(pid) = pid {
+    take_switch_with(args, alive, std::thread::sleep)
+}
+
+fn take_switch_with(args: Vec<String>, alive: impl Fn(u32) -> bool, pause: impl Fn(Duration)) -> Vec<String> {
+    let (args, found) = split_switch(&args);
+    if let Some((pid, n)) = found {
         let until = Instant::now() + WAIT;
         while alive(pid) && Instant::now() < until {
             std::thread::sleep(LOOK);
         }
-        let _ = STARTED_AFTER_LOSS.set(Instant::now());
+        pause(settle_pause(n));
+        let _ = STARTED_AFTER_LOSS.set((Instant::now(), n));
     }
     args
 }
@@ -174,7 +252,7 @@ pub(crate) fn restart(text: &str) -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let program = std::env::current_exe().map_err(|e| e.to_string())?;
     std::process::Command::new(program)
-        .args(restart_args(&args, std::process::id()))
+        .args(restart_args(&args, std::process::id(), next_start()))
         .spawn()
         .map(|_| ())
         .map_err(|e| e.to_string())
@@ -244,6 +322,29 @@ mod tests {
         assert!(text.starts_with("Destroyed"), "{text}");
     }
 
+    /// A real device lost under a window that draws nothing (the overlay waiting hidden): no frame reaches the panic,
+    /// the window is closed by the loss itself and its end starts the program anew.
+    #[test]
+    fn a_lost_device_under_a_window_that_draws_nothing_closes_it_for_a_new_start() {
+        let Some((device, _queue)) = device() else {
+            eprintln!("no graphics adapter here: the test has nothing to lose");
+            return;
+        };
+        let loss: &'static Loss = Box::leak(Box::new(Loss::new()));
+        let ctx = eframe::egui::Context::default();
+        watch_into(loss, &device, Some(ctx.clone()), || true);
+        device.destroy();
+        let _ = device.poll(wgpu::PollType::wait_indefinitely());
+        let mut out = ctx.run_ui(Default::default(), |_| {});
+        out.textures_delta.clear();
+        let commands = out.viewport_output.get(&eframe::egui::ViewportId::ROOT).map(|v| v.commands.clone());
+        assert!(
+            commands.is_some_and(|c| c.contains(&eframe::egui::ViewportCommand::Close)),
+            "the window is closed for the new start"
+        );
+        assert!(matches!(after_run(Ok(Ok(())), loss), Err(text) if text.starts_with("Destroyed")));
+    }
+
     /// The panic of egui-wgpu itself on a lost device, which [`Loss::guard`] stands in for: should a later egui-wgpu
     /// draw on without it, this fails and the guard can be looked at again.
     #[test]
@@ -274,34 +375,87 @@ mod tests {
     fn the_start_after_a_loss_carries_the_switch_once_and_waits_for_the_program_before_it() {
         let args = |a: &[&str]| a.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
         let started = args(&["--hauptfenster", "--daten", "X"]);
-        let again = restart_args(&started, 41);
-        assert_eq!(again, args(&["--hauptfenster", "--daten", "X", AFTER_LOSS, "41"]));
-        // A second loss names only the newest program.
-        assert_eq!(restart_args(&again, 42), args(&["--hauptfenster", "--daten", "X", AFTER_LOSS, "42"]));
-        assert_eq!(split_switch(&again), (started.clone(), Some(41)));
+        let again = restart_args(&started, 41, 2);
+        assert_eq!(again, args(&["--hauptfenster", "--daten", "X", AFTER_LOSS, "41", "2"]));
+        // A second loss names only the newest program and its number.
+        assert_eq!(restart_args(&again, 42, 3), args(&["--hauptfenster", "--daten", "X", AFTER_LOSS, "42", "3"]));
+        assert_eq!(split_switch(&again), (started.clone(), Some((41, 2))));
         assert_eq!(split_switch(&started), (started.clone(), None));
+        // The switch of an older start without its number counts as the first start; what follows stays.
+        let old = args(&[AFTER_LOSS, "41", "--daten", "X"]);
+        assert_eq!(split_switch(&old), (args(&["--daten", "X"]), Some((41, 1))));
 
         // Without the switch nothing waits and nothing is noted.
         let asked = std::cell::Cell::new(0);
-        assert_eq!(
-            take_switch(started.clone(), |_| {
-                asked.set(asked.get() + 1);
-                true
-            }),
-            started
-        );
-        assert_eq!((asked.get(), started_after_loss()), (0, false));
+        let paused = std::cell::RefCell::new(Vec::new());
+        let alive = |_: u32| {
+            asked.set(asked.get() + 1);
+            true
+        };
+        assert_eq!(take_switch_with(started.clone(), alive, |d| paused.borrow_mut().push(d)), started);
+        assert_eq!((asked.get(), started_after_loss(), paused.borrow().len()), (0, false, 0));
         assert!(may_restart(false) && !may_restart(true));
-        // With it the start waits until the program before it is gone, then a new loss right away is not taken.
+        // With it the start waits until the program before it is gone, then gives the driver its pause.
         let looks = std::cell::Cell::new(0);
         let alive = |pid: u32| {
             assert_eq!(pid, 41);
             looks.set(looks.get() + 1);
             looks.get() < 3
         };
-        assert_eq!(take_switch(again, alive), started);
+        assert_eq!(take_switch_with(again, alive, |d| paused.borrow_mut().push(d)), started);
         assert_eq!(looks.get(), 3);
+        assert_eq!(*paused.borrow(), [settle_pause(2)]);
         assert!(started_after_loss());
-        assert!(!may_restart(false), "a device lost again right after the new start ends the program as before");
+        assert!(may_restart(false), "the second start in a row may still start anew: the driver resets more than once");
+        assert_eq!(next_start(), 3);
+    }
+
+    /// Starts after a loss one right after the other: up to [`MOST_STARTS`], and after a start that settled anew.
+    #[test]
+    fn a_loss_right_after_a_start_starts_anew_up_to_the_most_starts() {
+        let soon = Duration::from_secs(5);
+        assert!(may_restart_after(false, None));
+        assert!(!may_restart_after(true, None), "never in the self-check");
+        for n in 1..MOST_STARTS {
+            assert!(may_restart_after(false, Some((soon, n))), "start {n}");
+        }
+        assert!(!may_restart_after(false, Some((soon, MOST_STARTS))), "lost again and again: it ends as before");
+        assert!(may_restart_after(false, Some((SETTLE, MOST_STARTS))), "a start that settled counts anew");
+        assert!(settle_pause(1) < settle_pause(2) && settle_pause(2) < settle_pause(3));
+        assert_eq!(settle_pause(9), settle_pause(MOST_STARTS));
+    }
+
+    /// The lost device ends the window at once when it starts anew (also when it draws nothing and so never reaches
+    /// the panic of egui-wgpu), and the end without a panic starts the program anew too.
+    #[test]
+    fn a_lost_device_closes_the_window_and_its_end_starts_anew() {
+        let close_sent = |ctx: &eframe::egui::Context| {
+            let mut out = ctx.run_ui(Default::default(), |_| {});
+            out.textures_delta.clear();
+            out.viewport_output
+                .get(&eframe::egui::ViewportId::ROOT)
+                .is_some_and(|v| v.commands.contains(&eframe::egui::ViewportCommand::Close))
+        };
+        let ctx = eframe::egui::Context::default();
+        let loss = Loss::new();
+        lost_into(&loss, Some(&ctx), "Unknown: Device is lost", true);
+        assert!(loss.restarting() && close_sent(&ctx), "the window that starts anew is closed");
+        assert!(matches!(after_run(Ok(Ok(())), &loss), Err(text) if text == "Unknown: Device is lost"));
+        // A loss on which the window may not start anew leaves the window open and its end as it is.
+        let ctx = eframe::egui::Context::default();
+        let loss = Loss::new();
+        lost_into(&loss, Some(&ctx), "Unknown: Device is lost", false);
+        assert!(loss.lost() && !close_sent(&ctx));
+        assert!(matches!(after_run(Ok(Ok(())), &loss), Ok(Ok(()))));
+        assert!(matches!(after_run(Ok(Ok(())), &Loss::new()), Ok(Ok(()))), "a window closed by the player ends");
+    }
+
+    /// The line egui-wgpu logs when it cannot make a lost surface anew is the one taken as a lost device.
+    #[test]
+    fn a_surface_that_cannot_be_made_anew_is_a_lost_device() {
+        let line = "Failed to recreate surface for ViewportId(0): Surface creation failed";
+        assert!(is_unrecoverable_surface("egui_wgpu::winit", line));
+        assert!(!is_unrecoverable_surface("wgpu_core::device", line), "only the line of egui-wgpu");
+        assert!(!is_unrecoverable_surface("egui_wgpu::winit", "Failed to create staging buffer"));
     }
 }

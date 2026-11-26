@@ -1527,13 +1527,13 @@ mod tests {
         let never = language::t("s_uv_sicherung_nie");
         // The counts of the overview are taken on the first frames.
         let mut texts = bench.settle();
-        for _ in 0..50 {
+        crate::wait_for(|| {
             if shows(&texts, &never) {
-                break;
+                return true;
             }
-            std::thread::sleep(std::time::Duration::from_millis(20));
             texts = bench.settle();
-        }
+            false
+        });
         assert!(shows(&texts, &never), "the tile of the backup is on the overview and says no backup yet: {texts:?}");
         let links = texts.iter().filter(|(text, _)| *text == link).count();
         assert_eq!(links, 1, "the link stands on the tile of the backup and on no other: {texts:?}");

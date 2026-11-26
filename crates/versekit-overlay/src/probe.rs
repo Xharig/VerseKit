@@ -744,16 +744,12 @@ fn sample_contracts() -> Vec<ContractLine> {
         goals: goals.iter().map(|g| g.to_string()).collect(),
         grey,
         count: 1,
+        complete: false,
     };
     vec![
-        line(
-            "Probe Eins",
-            "Auftrag angenommen: Probe Eins  →  Baupläne 1/3 · dir fehlt: Helm",
-            &["Fliege los", "Sammle die Kisten"],
-            false,
-        ),
-        line("Probe Zwei", "Auftrag angenommen: Probe Zwei  →  Baupläne 0/2", &["Nicht gezeigt"], true),
-        line("Probe Drei", "Auftrag angenommen: Probe Drei", &[], false),
+        line("Probe Eins", "Probe Eins  →  Baupläne 1/3 · dir fehlt: Helm", &["Fliege los", "Sammle die Kisten"], false),
+        line("Probe Zwei", "Probe Zwei  →  Baupläne 0/2", &["Nicht gezeigt"], true),
+        line("Probe Drei", "Probe Drei", &[], false),
     ]
 }
 
@@ -1321,6 +1317,7 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
             probe.check("immer_oben_beim_start", win::has_topmost(style));
             probe.check("klick_aktiviert_nicht", win::asks_no_activation(hwnd));
             probe.check("inhalt_fuellt_das_fenster", win::client_fills_window(hwnd));
+            probe.check("keine_titelleiste_beim_start", !win::has_frame_style(hwnd));
             let r = win::visible_rect(hwnd);
             probe.value("lage_beim_start", overlay::geometry_text(r));
             probe.value("skalierung", probe.scale);
@@ -1830,6 +1827,9 @@ pub fn step(app: &mut OverlayApp, ctx: &egui::Context, now: f64) {
             // click, foreground of the invisible window and its return) cannot be opened without a
             // person and is seen on a real screen.
             probe.check("fokusschutz_nach_den_menuepunkten", win::asks_no_activation(hwnd) && win::activations() == 0);
+            // After every change of state of the run (lock, folding, sizes, hotkeys) the window still has no caption.
+            probe.value("fensterstil_am_ende", format!("{:#x}", win::style(hwnd)));
+            probe.check("keine_titelleiste_nach_den_wechseln", !win::has_frame_style(hwnd));
             // The window of the icon is noted: stage 18 sees it gone after the closing.
             probe.tray_window = app.tray.as_ref().map_or(0, tray::Tray::window);
             win::destroy_window(probe.helper);

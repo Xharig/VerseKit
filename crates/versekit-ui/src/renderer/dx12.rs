@@ -378,12 +378,18 @@ struct KeptLog;
 
 impl log::Log for KeptLog {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        metadata.level() <= log::Level::Error && metadata.target().starts_with("wgpu")
+        let target = metadata.target();
+        metadata.level() <= log::Level::Error && (target.starts_with("wgpu") || target.starts_with("egui_wgpu"))
     }
 
     fn log(&self, record: &log::Record<'_>) {
         if !self.enabled(record.metadata()) {
             return;
+        }
+        // A surface egui-wgpu cannot make anew leaves the window empty without a panic: a lost device.
+        let message = record.args().to_string();
+        if super::lost::is_unrecoverable_surface(record.target(), &message) {
+            super::lost::surface_unrecoverable(&message);
         }
         let mut lines = LINES.lock().unwrap_or_else(PoisonError::into_inner);
         if lines.len() == KEPT_LINES {

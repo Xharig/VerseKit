@@ -4089,7 +4089,7 @@ mod tests {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         let mut found: Vec<(String, egui::Rect, egui::Rect)> = Vec::new();
-        for width in [760.0, 800.0, 840.0, 880.0, 920.0, 1000.0, 1400.0] {
+        for width in crate::test_pick(&[760.0, 800.0, 840.0, 880.0, 920.0, 1000.0, 1400.0]) {
             for _ in 0..3 {
                 let input = egui::RawInput {
                     screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 2000.0))),

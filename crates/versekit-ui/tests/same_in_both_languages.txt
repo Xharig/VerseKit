@@ -86,6 +86,10 @@ Program Files
 Roberts Space Industries
 Game Build(12913470) 18 Oct 26 (15 22 07).log
 
+# Log lines of a lost graphics device: the one of the library read to notice it, the reason written to the log.
+Failed to recreate surface
+Surface: {text}
+
 # Technical names: file types, libraries, screen sizes, the program with a number.
 HTTP/1.1 200 OKrnContent-Length: 0rnConnection: closernrn
 PNG / JPG

@@ -1423,14 +1423,14 @@ mod tests {
         b.state.split.set_for("u1", "");
         b.state.book_raw("Iron", "2", "500", "Area18");
         assert_eq!(b.state.split.wishes_waiting(), 2, "the second booking does not replace the first");
-        for _ in 0..40 {
+        crate::wait_for(|| {
             if b.state.split.wishes_waiting() == 0 && b.state.split.idle() {
-                break;
+                return true;
             }
             b.wire.sync.pass_now().expect("pass");
             b.frame();
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
+            false
+        });
         assert_eq!(b.iron_in_the_unit_at("Area18", 420), vec![("u1".to_string(), 3.0)]);
         assert_eq!(b.iron_in_the_unit_at("Area18", 500), vec![("u1".to_string(), 2.0)]);
         assert_eq!(b.state.split.wishes_waiting(), 0);
@@ -1925,13 +1925,12 @@ mod tests {
     impl Bench {
         /// The next thing the page or the send says, whichever takes it.
         fn next_said(&mut self) -> Option<String> {
-            for _ in 0..500 {
-                if let Some(text) = self.state.take_message_text().or_else(|| self.state.split.poll()) {
-                    return Some(text);
-                }
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
-            None
+            let mut said = None;
+            crate::wait_for(|| {
+                said = self.state.take_message_text().or_else(|| self.state.split.poll());
+                said.is_some()
+            });
+            said
         }
     }
 

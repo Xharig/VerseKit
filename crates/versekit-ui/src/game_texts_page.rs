@@ -1757,8 +1757,7 @@ mod tests {
         let sources = 2;
         // The flags are decoded next to the frames, each on its own: frames until all are there
         // (at most ten seconds, the whole test suite may be running beside it).
-        for _ in 0..500 {
-            std::thread::sleep(Duration::from_millis(20));
+        crate::wait_for(|| {
             let input = egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 5000.0))),
                 ..Default::default()
@@ -1783,10 +1782,8 @@ mod tests {
                     _ => None,
                 })
                 .collect();
-            if flags >= sources {
-                break;
-            }
-        }
+            flags >= sources
+        });
         let count = |name: &str| labels.iter().filter(|l| *l == name).count();
         assert_eq!((count("LIVE"), count("PTU")), (1, 1), "{labels:?}");
         assert_eq!(count("Kopie LIVE"), 0, "the copy is named by its channel");

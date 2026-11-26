@@ -381,13 +381,10 @@ mod tests {
         question.poll(&paths, 0.5);
         assert!(!question.is_open() && question.look.is_none());
         question.poll(&paths, 2.0);
-        for _ in 0..60 {
+        crate::wait_for(|| {
             question.poll(&paths, 2.0);
-            if question.is_open() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
+            question.is_open()
+        });
         let open = question.open.clone().expect("the neighbour channel is found");
         assert_eq!(open.entered, entered);
         assert_eq!(open.channels.len(), 1);

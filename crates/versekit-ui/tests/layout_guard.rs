@@ -685,7 +685,7 @@ fn click_states(key: &'static str, n: usize, findings: &mut Vec<String>) {
 }
 
 /// The pages whose list opens the detail of an entry beside the list or under its row, with entries in the sample.
-const LISTS_WITH_DETAIL: [&str; 4] = ["hf_liste", "hf_auftragslog", "hf_herstellung", "hf_bergbau"];
+const LISTS_WITH_DETAIL: [&str; 5] = ["hf_liste", "hf_auftragslog", "hf_herstellung", "hf_bergbau", "hf_verkauf"];
 
 /// The texts of a frame, sorted: what a page shows, whatever stands where.
 fn texts(frame: &Frame) -> Vec<String> {

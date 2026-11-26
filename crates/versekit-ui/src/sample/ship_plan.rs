@@ -123,12 +123,10 @@ fn back_on_the_hangar_after_the_shopping_list_changed_it_the_page_is_current() {
     std::fs::write(dir.join(hangar::FILE), own(&[SHIP, OTHER])).unwrap();
     // Back on the hangar: within a second of its clock it holds the new ship.
     let mut texts = Vec::new();
-    for _ in 0..40 {
+    crate::wait_for(|| {
         texts = look(&mut page, "hf_hangar", 1280.0).1;
-        if shows(&texts, OTHER) {
-            break;
-        }
-    }
+        shows(&texts, OTHER)
+    });
     assert!(shows(&texts, OTHER), "the ship from the other page shows: {texts:?}");
     let _ = std::fs::remove_dir_all(dir);
 }

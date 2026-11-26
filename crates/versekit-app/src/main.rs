@@ -1165,7 +1165,8 @@ mod tests {
         let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());
         assert!(after_update(&mut overlay, &paths, "5.0.1", &temp));
         assert!(overlay.notice.is_some() && overlay.open_overview);
-        assert!(update_run::failed_recently(&paths, "v5.0.2", now + 1.0));
+        // The time of the check, not of the start: under load the failure is stamped seconds after `now`.
+        assert!(update_run::failed_recently(&paths, "v5.0.2", versekit_core::updater::now()));
         // The jump from 4.12: cleaned up without a word.
         update_run::begin_run(&paths, &run("v5.0.0", "4.12.2", true)).unwrap();
         let mut overlay = versekit_overlay::Args::parse(Vec::<String>::new());

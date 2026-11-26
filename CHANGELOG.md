@@ -6,6 +6,46 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.3 - 2026-11-26
+
+> Eine Verkaufsroute für viele Waren, drei neue Tastenkürzel fürs Overlay und
+> ein Overlay, das bei Aufträgen mitwächst. Dazu ein Hänger in Mein Lager
+> behoben und ein schnellerer Start der Finanzen.
+
+### Neu
+
+- **Verkaufsroute für viele Waren:** Unter Handel › Kaufen & Verkaufen zeigt die neue
+  Ansicht „Route“, wie ihr alle gewählten Waren über wenige Stationen am
+  besten loswerdet: welche Station zuerst, was wo, mit Strecke und Erlös. Ist
+  eine Station voll oder habt ihr schon verkauft, rechnet ein Klick den Rest
+  neu. Wunsch von ottpossum.
+- **Drei neue Tastenkürzel:** „Mining-Scanner an/aus“, „Overlay leeren“ und
+  „Signatur anlernen“ stehen unter Einstellungen › Overlay bei den anderen
+  Kürzeln. Sie tun dasselbe wie das Auge, der Radiergummi und der Anlernknopf
+  in der Leiste des Overlays; die Statuszeile sagt, was passiert ist. Ohne
+  eure Taste bleiben sie aus.
+
+### Verbessert
+
+- **Aufträge im Overlay ohne Scrollen:** Laufende Aufträge stehen kürzer da.
+  Aufträge, deren Baupläne ihr schon alle habt, stehen in einer Zeile; ein
+  Klick zeigt ihre Ziele. Das Overlay wächst mit, bis zum Bildschirmrand,
+  statt dass ihr es hochziehen müsst.
+- **Finanzen starten schneller:** VerseKit merkt sich die Belohnungen der
+  Aufträge in einer Datei im Datenordner. Ab dem zweiten Öffnen ist die Seite
+  sofort da statt nach einigen Sekunden.
+
+### Behoben
+
+- **Mein Lager hing beim Bestätigen eines Scans:** Wer im Reiter „Lager-Scans“
+  eine Rückfrage beantwortete, sah das Fenster hängen. Jetzt wird erst
+  gebucht und dann die Rückfrage entfernt; schlägt die Buchung fehl, bleibt
+  die Frage stehen. Lange Ortsnamen brechen nur noch zwischen Wörtern um.
+- **Overlay leer nach einem Treiber-Update:** Verliert Windows die Grafik,
+  startet das Overlay neu, bis zu dreimal, statt leer zu bleiben.
+- **Keine Titelleiste mehr am Overlay:** Das Overlay trägt den Rahmen von
+  Windows gar nicht mehr, auch nicht für einen Augenblick.
+
 ## v5.6.2 - 2026-11-25
 
 > Eine Fehlerbehebung für alle, die VerseKit mit dem Stream Deck oder einem

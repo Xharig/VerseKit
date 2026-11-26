@@ -178,13 +178,13 @@ impl Bench {
     /// Frames until `done` is true, at most three seconds.
     fn until(&mut self, paths: &Paths, done: impl Fn(&Texts) -> bool) -> Texts {
         let mut texts = self.settle(paths);
-        for _ in 0..60 {
+        crate::wait_for(|| {
             if done(&texts) {
-                break;
+                return true;
             }
-            std::thread::sleep(std::time::Duration::from_millis(50));
             texts = self.settle(paths);
-        }
+            false
+        });
         texts
     }
 
@@ -448,14 +448,11 @@ fn only_old_says_so_and_asks_nothing_when_no_version_is_old_or_the_installed_one
         let mut bench = Bench::new();
         bench.click(&w.paths, &t("s_sc_knopf_alt"));
         let mut said = None;
-        for _ in 0..60 {
+        crate::wait_for(|| {
             bench.settle(&w.paths);
-            said = bench.state.take_notice().filter(|n| n.text == t(message) && !n.fault).or(said);
-            if said.is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
+            said = bench.state.take_notice().filter(|n| n.text == t(message) && !n.fault).or(said.take());
+            said.is_some()
+        });
         assert!(said.is_some(), "{name}: the footer says why nothing is cleared");
         assert!(bench.state.phase_is_idle(), "{name}");
         for file in [&w.current, &w.old, &w.driver, &w.crash] {
@@ -527,14 +524,11 @@ fn an_empty_cache_says_so_and_asks_nothing() {
     let mut bench = Bench::new();
     bench.click(&w.paths, &t("s_sc_knopf"));
     let mut said = None;
-    for _ in 0..60 {
+    crate::wait_for(|| {
         bench.settle(&w.paths);
-        said = bench.state.take_notice().filter(|n| n.text == t("s_sc_leer") && !n.fault).or(said);
-        if said.is_some() {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(50));
-    }
+        said = bench.state.take_notice().filter(|n| n.text == t("s_sc_leer") && !n.fault).or(said.take());
+        said.is_some()
+    });
     assert!(said.is_some(), "the footer says that there is nothing to empty");
     assert!(bench.state.phase_is_idle());
     let _ = std::fs::remove_dir_all(w.home);
@@ -576,12 +570,12 @@ fn the_question_holds_long_names_at_every_width_scheme_and_language_and_nothing_
     let mut findings = Vec::new();
     let ctx = egui::Context::default();
     crate::install(&ctx);
-    for scheme in theme::schemes() {
+    for scheme in crate::test_schemes() {
         theme::set_thread_current(scheme.id);
         for english in [false, true] {
             language::set_thread_language(if english { Choice::En } else { Choice::De });
             for scope in [Scope::Everything, Scope::OnlyOld] {
-                for width in [330.0, 480.0, 640.0, 900.0, 1400.0] {
+                for width in crate::test_pick(&[330.0, 480.0, 640.0, 900.0, 1400.0]) {
                     let places = long_places();
                     let chosen = vec![true; places.len()];
                     let mut state =

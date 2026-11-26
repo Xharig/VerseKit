@@ -1931,13 +1931,10 @@ mod tests {
 
         fn settle(&mut self) -> Texts {
             let mut texts = Vec::new();
-            for _ in 0..200 {
+            crate::wait_for(|| {
                 texts = self.frame();
-                if self.state.job.is_none() && self.state.look.is_some() {
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
+                self.state.job.is_none() && self.state.look.is_some()
+            });
             for _ in 0..3 {
                 texts = self.frame();
             }

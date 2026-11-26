@@ -301,13 +301,13 @@ fn a_click_on_an_organization_of_the_list_opens_its_card_without_asking_for_a_ha
     frame(&ctx, &mut state, click(org));
     assert_eq!(state.search.query, "SEITENORG");
     // The pause between two pages of the site is shared by the tests running at the same time.
-    for _ in 0..3000 {
+    crate::wait_for(|| {
         if !state.search.searching() {
-            break;
+            return true;
         }
-        std::thread::sleep(std::time::Duration::from_millis(10));
         frame(&ctx, &mut state, Vec::new());
-    }
+        false
+    });
     let shown = state.search.org_shown().cloned();
     assert!(
         matches!(&shown, Some(crate::handle_search::OrgShown::Card(found)) if found.org.name == "Seitenstaffel"),
@@ -348,14 +348,14 @@ fn a_handle_opened_from_the_list_shows_its_card_with_the_logos() {
     // The pause between two pages of the site is shared by the tests running at the same time: up to a minute.
     let mut seen = (0, 0);
     let mut shown = false;
-    for _ in 0..6000 {
+    let arrived = crate::wait_for(|| {
         seen = boxes(&shapes(&mut state), crate::handle_search::LOGO_SIZE);
         shown |= state.search.shown().is_some();
-        if seen.1 == 2 {
-            assert_eq!(seen.0, 1, "the missing logo stays a quiet box");
-            return;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        seen.1 == 2
+    });
+    if arrived {
+        assert_eq!(seen.0, 1, "the missing logo stays a quiet box");
+        return;
     }
     panic!(
         "the card with its pictures did not come: {seen:?}, shown once {shown}, searching {}, waiting {}, {:?}",

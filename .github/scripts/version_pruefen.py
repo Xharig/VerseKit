@@ -25,7 +25,9 @@ def main():
     if sys.argv[1:] == ['--nur-version']:
         print(version_im_code())
         return 0 if version_im_code() else 1
-    tag = (sys.argv[1] if len(sys.argv) > 1 else '').lstrip('v')
+    tag = sys.argv[1] if len(sys.argv) > 1 else ''
+    # A beta release is tagged `beta-v5.7.0-beta.1` and belongs to the version `5.7.0-beta.1`.
+    tag = (tag[len('beta-'):] if tag.startswith('beta-v') else tag).lstrip('v')
     code = version_im_code()
     print('Tag: %s · im Code: %s' % (tag or '(keiner)', code))
     if not code:

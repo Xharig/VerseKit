@@ -31,15 +31,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use ring::rand::{SecureRandom, SystemRandom};
 use versekit_core::beta::{Code, Cost, KEYRING_FILE, Keyring, RoundKey, SUFFIX, is_beta_tag, seal_file};
 use versekit_core::updater::{CHECKSUM_FILE, checksum_of};
+
+/// The environment variable that holds the secret of the build.
+const SECRET_ENV: &str = "VERSEKIT_BETA_SCHLUESSEL";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
         Some("neue-codes") => new_codes(&args[1..]),
+        Some("neuer-schluessel") => new_secret(),
         Some("verschluesseln") => encrypt(&args[1..]),
-        _ => Err("usage: neue-codes <count> | verschluesseln --tag <tag> --liste <file> --aus <folder> <file>...".into()),
+        _ => Err("usage: neue-codes <count> | neuer-schluessel | verschluesseln --tag <tag> [--liste <file>] --aus <folder> [--schluessel-aus-env [--nur-dateien | --nur-schluesselbund]] <file>...".into()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -66,6 +71,25 @@ fn new_codes(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// The key of the round `tag` from the secret of the build in [`SECRET_ENV`] (64 hexadecimal characters).
+fn derived_key(tag: &str) -> Result<RoundKey, String> {
+    let text = std::env::var(SECRET_ENV).map_err(|_| format!("{SECRET_ENV} is not set"))?;
+    let text = text.trim();
+    if text.len() < 64 || text.len() % 2 != 0 || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(format!("{SECRET_ENV} is no hexadecimal secret of at least 32 bytes"));
+    }
+    let bytes: Vec<u8> = (0..text.len()).step_by(2).filter_map(|i| u8::from_str_radix(&text[i..i + 2], 16).ok()).collect();
+    RoundKey::derive(&bytes, tag)
+}
+
+/// A new secret of the build, 64 hexadecimal characters.
+fn new_secret() -> Result<(), String> {
+    let mut bytes = [0u8; 32];
+    SystemRandom::new().fill(&mut bytes).map_err(|_| "no random bytes".to_string())?;
+    println!("{}", bytes.iter().map(|b| format!("{b:02x}")).collect::<String>());
+    Ok(())
+}
+
 fn encrypt(args: &[String]) -> Result<(), String> {
     let mut tag = None;
     let mut list = None;
@@ -77,37 +101,51 @@ fn encrypt(args: &[String]) -> Result<(), String> {
             "--tag" => tag = rest.next().cloned(),
             "--liste" => list = rest.next().map(PathBuf::from),
             "--aus" => out = rest.next().map(PathBuf::from),
-            "--schnell" => {}
+            "--schnell" | "--schluessel-aus-env" | "--nur-dateien" | "--nur-schluesselbund" => {}
             file => files.push(PathBuf::from(file)),
         }
     }
+    let flag = |name: &str| args.iter().any(|a| a == name);
+    let (only_files, only_ring) = (flag("--nur-dateien"), flag("--nur-schluesselbund"));
+    if only_files && only_ring {
+        return Err("--nur-dateien and --nur-schluesselbund exclude each other".into());
+    }
+    if (only_files || only_ring) && !flag("--schluessel-aus-env") {
+        return Err("the split modes need --schluessel-aus-env: two runs only agree on a key drawn from the secret".into());
+    }
     let tag = tag.filter(|t| is_beta_tag(t)).ok_or("--tag beta-v<version>, e.g. beta-v5.7.0-beta.1")?;
-    let list = list.ok_or("--liste <tester.json>")?;
     let out = out.ok_or("--aus <folder>")?;
-    if files.is_empty() {
-        return Err("no file to encrypt".into());
+    if only_ring == !files.is_empty() {
+        return Err(if only_ring { "--nur-schluesselbund takes no files" } else { "no file to encrypt" }.into());
     }
     // `--schnell` only for trying it out: the least cost a key ring may have.
-    let cost = if args.iter().any(|a| a == "--schnell") { Cost::LOWEST } else { Cost::DEFAULT };
-    let codes = read_list(&list)?;
-    let key = RoundKey::generate()?;
-    let ring = Keyring::seal(&tag, cost, &codes, &key)?;
+    let cost = if flag("--schnell") { Cost::LOWEST } else { Cost::DEFAULT };
+    let key = if flag("--schluessel-aus-env") { derived_key(&tag)? } else { RoundKey::generate()? };
     fs::create_dir_all(&out).map_err(|e| format!("{}: {e}", out.display()))?;
-    let mut written = vec![write(&out, KEYRING_FILE, ring.to_json().as_bytes())?];
+    let mut written = Vec::new();
+    let mut testers = 0;
+    if !only_files {
+        let codes = read_list(&list.ok_or("--liste <tester.json>")?)?;
+        testers = codes.len();
+        written.push(write(&out, KEYRING_FILE, Keyring::seal(&tag, cost, &codes, &key)?.to_json().as_bytes())?);
+    }
     for file in &files {
         let name = file.file_name().and_then(|n| n.to_str()).ok_or("a file without a name")?;
         let plain = fs::read(file).map_err(|e| format!("{}: {e}", file.display()))?;
         let sealed = seal_file(&key, &tag, name, &plain)?;
         written.push(write(&out, &format!("{name}{SUFFIX}"), &sealed)?);
     }
-    let mut sums = String::new();
-    for path in &written {
-        let sum = checksum_of(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-        sums.push_str(&format!("{sum}  {name}\n"));
+    // In a split run the checksums come from the job that gathers the parts.
+    if !only_files && !only_ring {
+        let mut sums = String::new();
+        for path in &written {
+            let sum = checksum_of(path).map_err(|e| format!("{}: {e}", path.display()))?;
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            sums.push_str(&format!("{sum}  {name}\n"));
+        }
+        write(&out, CHECKSUM_FILE, sums.as_bytes())?;
     }
-    write(&out, CHECKSUM_FILE, sums.as_bytes())?;
-    println!("{tag}: {} testers, {} files encrypted, written to {}", codes.len(), files.len(), out.display());
+    println!("{tag}: {testers} testers, {} files encrypted, written to {}", files.len(), out.display());
     Ok(())
 }
 

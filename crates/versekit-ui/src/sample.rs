@@ -556,6 +556,19 @@ pub struct SamplePage {
     antiafk_modifiers: [bool; 3],
     antiafk_key: usize,
     antiafk_hotkey_on: bool,
+    /// The hotkey that switches the signature scanner on and off (`hotkey_scanner`, `hotkey_scanner_an`). No default
+    /// either: off and without a combination until the player sets one.
+    scanner_hk_modifiers: [bool; 3],
+    scanner_hk_key: usize,
+    scanner_hk_on: bool,
+    /// The hotkey that clears the rows of the overlay (`hotkey_leeren`, `hotkey_leeren_an`). No default either.
+    clear_hk_modifiers: [bool; 3],
+    clear_hk_key: usize,
+    clear_hk_on: bool,
+    /// The hotkey that opens the teaching of the scanner (`hotkey_anlernen`, `hotkey_anlernen_an`). No default either.
+    learn_hk_modifiers: [bool; 3],
+    learn_hk_key: usize,
+    learn_hk_on: bool,
     /// Whether the overlay runs: it registers the hotkeys, so only then a new one counts as registered.
     overlay_runs: fn() -> bool,
     /// The window shows a test build (sample page: a click on the version).
@@ -1567,6 +1580,15 @@ impl SamplePage {
             antiafk_modifiers: [false; 3],
             antiafk_key: 0,
             antiafk_hotkey_on: false,
+            scanner_hk_modifiers: [false; 3],
+            scanner_hk_key: 0,
+            scanner_hk_on: false,
+            clear_hk_modifiers: [false; 3],
+            clear_hk_key: 0,
+            clear_hk_on: false,
+            learn_hk_modifiers: [false; 3],
+            learn_hk_key: 0,
+            learn_hk_on: false,
             overlay_runs: || versekit_core::window_signal::find(versekit_core::window_signal::Role::Overlay).is_some(),
             test_build: false,
             news_index: 0,
@@ -2664,7 +2686,7 @@ impl SamplePage {
             use versekit_core::overlay::{self, DEFAULT_SCAN_HOTKEY, HotkeyChoice, keys};
             // As the overlay registers them: one left at its default whose key an earlier one holds shows the spare
             // it takes instead.
-            let [_, scan, search, picture, main, blueprint, stock, unit_stock, anti_afk] =
+            let [_, scan, search, picture, main, blueprint, stock, unit_stock, anti_afk, scanner_hk, clear_hk, learn_hk] =
                 HotkeyChoice::read_all(paths).map(|c| c.combination().map(|h| h.text()));
             let stored = scan
                 .or_else(|| paths.setting(keys::HOTKEY_SCAN))
@@ -2722,6 +2744,24 @@ impl SamplePage {
                 (self.antiafk_modifiers, self.antiafk_key) = (modifiers, key);
             }
             self.antiafk_hotkey_on = overlay::anti_afk_hotkey_on(paths) && stored.is_some();
+            // Nor has the signature scanner: the same.
+            let stored = scanner_hk.or_else(|| paths.setting(keys::HOTKEY_SCANNER)).as_deref().and_then(parse_hotkey);
+            if let Some((modifiers, key)) = stored {
+                (self.scanner_hk_modifiers, self.scanner_hk_key) = (modifiers, key);
+            }
+            self.scanner_hk_on = overlay::scanner_hotkey_on(paths) && stored.is_some();
+            // Nor has the clearing of the overlay: the same.
+            let stored = clear_hk.or_else(|| paths.setting(keys::HOTKEY_CLEAR)).as_deref().and_then(parse_hotkey);
+            if let Some((modifiers, key)) = stored {
+                (self.clear_hk_modifiers, self.clear_hk_key) = (modifiers, key);
+            }
+            self.clear_hk_on = overlay::clear_hotkey_on(paths) && stored.is_some();
+            // Nor has the teaching of the scanner: the same.
+            let stored = learn_hk.or_else(|| paths.setting(keys::HOTKEY_LEARN)).as_deref().and_then(parse_hotkey);
+            if let Some((modifiers, key)) = stored {
+                (self.learn_hk_modifiers, self.learn_hk_key) = (modifiers, key);
+            }
+            self.learn_hk_on = overlay::learn_hotkey_on(paths) && stored.is_some();
         }
         if let Some(place) = paths.setting("overlay_ecke").as_deref().and_then(corner_of) {
             self.overlay_place = place;
@@ -2876,6 +2916,18 @@ impl SamplePage {
             values.push((versekit_core::overlay::keys::HOTKEY_ANTI_AFK, Value::str(hotkey)));
         }
         values.push((versekit_core::overlay::keys::HOTKEY_ANTI_AFK_ON, Value::Bool(self.antiafk_hotkey_on)));
+        if let Some(hotkey) = hotkey_text(self.scanner_hk_modifiers, self.scanner_hk_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_SCANNER, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_SCANNER_ON, Value::Bool(self.scanner_hk_on)));
+        if let Some(hotkey) = hotkey_text(self.clear_hk_modifiers, self.clear_hk_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_CLEAR, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_CLEAR_ON, Value::Bool(self.clear_hk_on)));
+        if let Some(hotkey) = hotkey_text(self.learn_hk_modifiers, self.learn_hk_key) {
+            values.push((versekit_core::overlay::keys::HOTKEY_LEARN, Value::str(hotkey)));
+        }
+        values.push((versekit_core::overlay::keys::HOTKEY_LEARN_ON, Value::Bool(self.learn_hk_on)));
         if let Some(window) = &self.window {
             values.extend(window.values());
         }
@@ -4922,6 +4974,21 @@ impl SamplePage {
                         let antiafk_before =
                             antiafk_on.then(|| hotkey_text(*antiafk_modifiers, *antiafk_key)).flatten();
                         let mut antiafk_refused = false;
+                        let (scanner_hk_modifiers, scanner_hk_key, scanner_hk_on) =
+                            (&mut self.scanner_hk_modifiers, &mut self.scanner_hk_key, &mut self.scanner_hk_on);
+                        let scanner_hk_before =
+                            scanner_hk_on.then(|| hotkey_text(*scanner_hk_modifiers, *scanner_hk_key)).flatten();
+                        let mut scanner_hk_refused = false;
+                        let (clear_hk_modifiers, clear_hk_key, clear_hk_on) =
+                            (&mut self.clear_hk_modifiers, &mut self.clear_hk_key, &mut self.clear_hk_on);
+                        let clear_hk_before =
+                            clear_hk_on.then(|| hotkey_text(*clear_hk_modifiers, *clear_hk_key)).flatten();
+                        let mut clear_hk_refused = false;
+                        let (learn_hk_modifiers, learn_hk_key, learn_hk_on) =
+                            (&mut self.learn_hk_modifiers, &mut self.learn_hk_key, &mut self.learn_hk_on);
+                        let learn_hk_before =
+                            learn_hk_on.then(|| hotkey_text(*learn_hk_modifiers, *learn_hk_key)).flatten();
+                        let mut learn_hk_refused = false;
                         // Anti-AFK presses keys: only where the system can (Windows).
                         let antiafk_possible = versekit_core::anti_afk::supported();
                         // The blueprint scan reads letters with the recognition of the system: only where it can.
@@ -5048,6 +5115,9 @@ impl SamplePage {
                                         (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
                                         (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
                                         (*antiafk_modifiers, *antiafk_key, *antiafk_on && antiafk_possible),
+                                        (*scanner_hk_modifiers, *scanner_hk_key, *scanner_hk_on && picture_possible),
+                                        (*clear_hk_modifiers, *clear_hk_key, *clear_hk_on),
+                                        (*learn_hk_modifiers, *learn_hk_key, *learn_hk_on && picture_possible),
                                     ];
                                     let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
                                         match r {
@@ -5064,11 +5134,29 @@ impl SamplePage {
                                             ),
                                             6 => (Some(&mut *stock_on), &mut *stock_modifiers, &mut *stock_key, "overlay-lager"),
                                             7 => (Some(&mut *unit_on), &mut *unit_modifiers, &mut *unit_key, "overlay-staffellager"),
-                                            _ => (
+                                            8 => (
                                                 Some(&mut *antiafk_on),
                                                 &mut *antiafk_modifiers,
                                                 &mut *antiafk_key,
                                                 "overlay-antiafk",
+                                            ),
+                                            9 => (
+                                                Some(&mut *scanner_hk_on),
+                                                &mut *scanner_hk_modifiers,
+                                                &mut *scanner_hk_key,
+                                                "overlay-scanner",
+                                            ),
+                                            10 => (
+                                                Some(&mut *clear_hk_on),
+                                                &mut *clear_hk_modifiers,
+                                                &mut *clear_hk_key,
+                                                "overlay-leeren",
+                                            ),
+                                            _ => (
+                                                Some(&mut *learn_hk_on),
+                                                &mut *learn_hk_modifiers,
+                                                &mut *learn_hk_key,
+                                                "overlay-anlernen",
                                             ),
                                         };
                                     // The refinery scan, the picture of the game and the blueprint scan read the
@@ -5078,6 +5166,10 @@ impl SamplePage {
                                         3 => picture_possible,
                                         5..=7 => blueprint_possible,
                                         8 => antiafk_possible,
+                                        // The signature scanner reads the screen too.
+                                        9 => picture_possible,
+                                        // The teaching shows pictures of the scanner.
+                                        11 => picture_possible,
                                         _ => true,
                                     };
                                     let before = (*held, *chosen);
@@ -5108,7 +5200,10 @@ impl SamplePage {
                                         5 => blueprint_refused |= refused,
                                         6 => stock_refused |= refused,
                                         7 => unit_refused |= refused,
-                                        _ => antiafk_refused |= refused,
+                                        8 => antiafk_refused |= refused,
+                                        9 => scanner_hk_refused |= refused,
+                                        10 => clear_hk_refused |= refused,
+                                        _ => learn_hk_refused |= refused,
                                     }
                                     // A key another shortcut that is on holds already: the change goes back (a switch
                                     // turned on goes off again), and the reason is said below the page. One press must
@@ -5123,8 +5218,11 @@ impl SamplePage {
                                         (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
                                         (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
                                         (*antiafk_modifiers, *antiafk_key, *antiafk_on && antiafk_possible),
+                                        (*scanner_hk_modifiers, *scanner_hk_key, *scanner_hk_on && picture_possible),
+                                        (*clear_hk_modifiers, *clear_hk_key, *clear_hk_on),
+                                        (*learn_hk_modifiers, *learn_hk_key, *learn_hk_on && picture_possible),
                                     ];
-                                    let changed = (rows_now[r].0, rows_now[r].1) != before;
+                                    let changed =(rows_now[r].0, rows_now[r].1) != before;
                                     let turned_on = rows_now[r].2 && !rows_before[r].2;
                                     let holder = any_holder(r, &active_hotkeys(rows_now));
                                     // A shortcut just switched on that still has its default key, which another one
@@ -5143,7 +5241,10 @@ impl SamplePage {
                                             5 => (&mut *blueprint_modifiers, &mut *blueprint_key),
                                             6 => (&mut *stock_modifiers, &mut *stock_key),
                                             7 => (&mut *unit_modifiers, &mut *unit_key),
-                                            _ => (&mut *antiafk_modifiers, &mut *antiafk_key),
+                                            8 => (&mut *antiafk_modifiers, &mut *antiafk_key),
+                                            9 => (&mut *scanner_hk_modifiers, &mut *scanner_hk_key),
+                                            10 => (&mut *clear_hk_modifiers, &mut *clear_hk_key),
+                                            _ => (&mut *learn_hk_modifiers, &mut *learn_hk_key),
                                         };
                                         (*held, *chosen) = (spare_modifiers, spare_key);
                                     } else if (changed || turned_on)
@@ -5158,7 +5259,10 @@ impl SamplePage {
                                             5 => (&mut *blueprint_modifiers, &mut *blueprint_key, Some(&mut *blueprint_on)),
                                             6 => (&mut *stock_modifiers, &mut *stock_key, Some(&mut *stock_on)),
                                             7 => (&mut *unit_modifiers, &mut *unit_key, Some(&mut *unit_on)),
-                                            _ => (&mut *antiafk_modifiers, &mut *antiafk_key, Some(&mut *antiafk_on)),
+                                            8 => (&mut *antiafk_modifiers, &mut *antiafk_key, Some(&mut *antiafk_on)),
+                                            9 => (&mut *scanner_hk_modifiers, &mut *scanner_hk_key, Some(&mut *scanner_hk_on)),
+                                            10 => (&mut *clear_hk_modifiers, &mut *clear_hk_key, Some(&mut *clear_hk_on)),
+                                            _ => (&mut *learn_hk_modifiers, &mut *learn_hk_key, Some(&mut *learn_hk_on)),
                                         };
                                         if changed {
                                             (*held, *chosen) = before;
@@ -5367,6 +5471,9 @@ impl SamplePage {
                             (stock_refused, self.stock_modifiers, self.stock_key),
                             (unit_refused, self.unit_modifiers, self.unit_key),
                             (antiafk_refused, self.antiafk_modifiers, self.antiafk_key),
+                            (scanner_hk_refused, self.scanner_hk_modifiers, self.scanner_hk_key),
+                            (clear_hk_refused, self.clear_hk_modifiers, self.clear_hk_key),
+                            (learn_hk_refused, self.learn_hk_modifiers, self.learn_hk_key),
                         ] {
                             if refused {
                                 let saved = hotkey_text(modifiers, key).unwrap_or_default();
@@ -5386,6 +5493,9 @@ impl SamplePage {
                                 (self.stock_modifiers, self.stock_key),
                                 (self.unit_modifiers, self.unit_key),
                                 (self.antiafk_modifiers, self.antiafk_key),
+                                (self.scanner_hk_modifiers, self.scanner_hk_key),
+                                (self.clear_hk_modifiers, self.clear_hk_key),
+                                (self.learn_hk_modifiers, self.learn_hk_key),
                             ];
                             let (modifiers, key) = rows[by];
                             let combination = hotkey_text(modifiers, key).unwrap_or_default();
@@ -5421,6 +5531,14 @@ impl SamplePage {
                             .antiafk_hotkey_on
                             .then(|| hotkey_text(self.antiafk_modifiers, self.antiafk_key))
                             .flatten();
+                        let scanner_hk_now = self
+                            .scanner_hk_on
+                            .then(|| hotkey_text(self.scanner_hk_modifiers, self.scanner_hk_key))
+                            .flatten();
+                        let clear_hk_now =
+                            self.clear_hk_on.then(|| hotkey_text(self.clear_hk_modifiers, self.clear_hk_key)).flatten();
+                        let learn_hk_now =
+                            self.learn_hk_on.then(|| hotkey_text(self.learn_hk_modifiers, self.learn_hk_key)).flatten();
                         let now_hotkeys = [
                             hotkey_text(self.hotkey_modifiers, self.hotkey_key),
                             hotkey_text(self.scan_modifiers, self.scan_key),
@@ -5431,6 +5549,9 @@ impl SamplePage {
                             stock_now,
                             unit_now,
                             antiafk_now,
+                            scanner_hk_now,
+                            clear_hk_now,
+                            learn_hk_now,
                         ];
                         let before_hotkeys = [
                             hotkey_before,
@@ -5442,6 +5563,9 @@ impl SamplePage {
                             stock_before,
                             unit_before,
                             antiafk_before,
+                            scanner_hk_before,
+                            clear_hk_before,
+                            learn_hk_before,
                         ];
                         for (before, now) in before_hotkeys.into_iter().zip(now_hotkeys) {
                             if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
@@ -6729,7 +6853,7 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_dauer", "ov_s_dauer_h", &["s_ov_sek_sichtbar"]),
                 ],
             ),
-            // The nine shortcuts, one line each: switch, name, modifier keys, key.
+            // The twelve shortcuts, one line each: switch, name, modifier keys, key.
             (
                 "s_ov_gruppe_kuerzel",
                 &[
@@ -6742,6 +6866,9 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_hk_lager", "s_hk_lager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_staffellager", "s_hk_staffellager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                     ("s_hk_antiafk", "s_hk_antiafk_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_scanner", "s_hk_scanner_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_leeren", "s_hk_leeren_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+                    ("s_hk_anlernen", "s_hk_anlernen_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
                 ],
             ),
             // The events that open the folded or waiting overlay, one switch each (the order of
@@ -10288,13 +10415,10 @@ mod tests {
         assert!(state.shown_text().is_some_and(|t| t.starts_with("VerseKit ")), "the report is there");
         state.set_consent_for_test();
         state.send(&ctx);
-        for _ in 0..200 {
+        crate::wait_for(|| {
             frame(&mut page, &ctx);
-            if page.diagnose.as_ref().is_some_and(|s| !s.is_sending()) {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            page.diagnose.as_ref().is_some_and(|s| !s.is_sending())
+        });
         let state = page.diagnose.as_ref().expect("page");
         assert_eq!(state.test_receiver_count(), 1, "one report reached the test receiver: {:?}", state.notice());
         assert_eq!(state.notice().map(|n| n.0.clone()), Some(language::t("s_di_ab_ok")));
@@ -10307,6 +10431,10 @@ mod tests {
     /// of the page.
     #[test]
     fn every_page_fits_at_every_size() {
+        // The layout check of all pages (`tests/layout_guard.rs`) does the same; this one runs in the full run only.
+        if crate::skip_unless_full_run() {
+            return;
+        }
         let (width, height) = font_size::BASE_MIN_SIZE;
         let mut pages: Vec<&str> = vec!["", "hf_wasistneu", "hf_diagnose", ASOP_PAGE, TOP_PAGE.0];
         pages.extend(NAV.iter().flat_map(|(_, entries)| entries.iter().map(|(page, _)| *page)));
@@ -10406,7 +10534,6 @@ mod tests {
     #[test]
     fn the_page_takes_a_catalog_built_in_the_background_over() {
         use std::sync::mpsc;
-        use std::time::Duration;
 
         let stale = blueprint_list::ListData::sample().catalog;
         let mut new = stale.clone();
@@ -10444,13 +10571,10 @@ mod tests {
         frame(&mut page);
         assert!(page.blueprints.is_building() && page.blueprints.catalog == stale);
         go.send(()).unwrap();
-        for _ in 0..1000 {
+        crate::wait_for(|| {
             frame(&mut page);
-            if !page.blueprints.is_building() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
+            !page.blueprints.is_building()
+        });
         assert_eq!(page.blueprints.catalog, new);
     }
 
@@ -10495,13 +10619,10 @@ mod tests {
             page.list_progress = progress;
             // The build without any source ends at once; wait until it has.
             let mut texts = Vec::new();
-            for _ in 0..500 {
+            crate::wait_for(|| {
                 texts = shown(&ctx, &mut page);
-                if texts.iter().any(|x| *x == t("kein_katalog")) {
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
+                texts.iter().any(|x| *x == t("kein_katalog"))
+            });
             assert!(texts.iter().any(|x| *x == t("kein_katalog")), "{name}: {texts:?}");
             assert!(!texts.iter().any(|x| x.contains(glance::NOT_YET)), "{name}: {texts:?}");
         }

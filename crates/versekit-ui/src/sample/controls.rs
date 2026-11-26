@@ -824,13 +824,13 @@ pub(in crate::sample) mod tests {
     /// Draws frames until `done` says yes (the lookup of the way to start runs in a thread), at most three seconds.
     fn until(bench: &mut Bench, mut done: impl FnMut(&mut Bench, &[(String, Pos2)]) -> bool) -> Vec<(String, Pos2)> {
         let mut texts = bench.settle();
-        for _ in 0..60 {
+        crate::wait_for(|| {
             if done(bench, &texts) {
-                break;
+                return true;
             }
-            std::thread::sleep(std::time::Duration::from_millis(50));
             texts = bench.settle();
-        }
+            false
+        });
         texts
     }
 
@@ -1119,8 +1119,8 @@ pub(in crate::sample) mod tests {
         );
         assert!((when.width() - display.width()).abs() < 1.0, "in the columns of cards: {when:?}");
         // All the shortcuts, the two of the stock scan and the one of Anti-AFK included, stand in one card: the page
-        // may scroll a little below this height, never more (960 with eight shortcuts, one row more for the ninth).
-        const PAGE_HEIGHT: f32 = 990.0;
+        // may scroll a little below this height, never more (960 with eight shortcuts, 1087 with twelve).
+        const PAGE_HEIGHT: f32 = 1090.0;
         assert!(keys.bottom() <= PAGE_HEIGHT, "the shortcuts end at {PAGE_HEIGHT} at most: {keys:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1887,14 +1887,11 @@ pub(in crate::sample) mod tests {
         });
         let first = bench.page.overview.clone().expect("counted").tile("executive_hangar").details[0].clone();
         let mut later = first.clone();
-        for _ in 0..80 {
-            std::thread::sleep(std::time::Duration::from_millis(50));
+        crate::wait_for(|| {
             bench.settle();
             later = bench.page.overview.clone().expect("counted").tile("executive_hangar").details[0].clone();
-            if later != first {
-                break;
-            }
-        }
+            later != first
+        });
         assert_ne!(later, first, "counted anew without waiting for the ten seconds");
         let _ = std::fs::remove_dir_all(dir);
 

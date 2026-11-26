@@ -155,13 +155,10 @@ fn the_button_on_the_blueprint_list_builds_the_catalog_again_and_tells_how_it_we
     bench.click(&t("s_er_kat"));
     let done = versekit_core::language::tf("s_er_kat_da", &[("0", versekit_core::language::Arg::from(0_i64))]);
     let mut told = false;
-    for _ in 0..200 {
+    crate::wait_for(|| {
         told = shows(&bench.settle(), &done);
-        if told {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
+        told
+    });
     assert!(BUILT.load(Ordering::SeqCst) > before, "the catalog was built");
     assert!(told, "and the foot says how many blueprints it holds");
     let _ = std::fs::remove_dir_all(dir);

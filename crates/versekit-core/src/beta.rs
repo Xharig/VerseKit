@@ -236,6 +236,28 @@ impl RoundKey {
         Ok(RoundKey(random()?))
     }
 
+    /// The key of the round `tag`, drawn from a secret of the build (at least 32 bytes). The same secret and the same
+    /// tag give the same key, so that the two build jobs and the job of the key ring agree without passing a key
+    /// around; another tag gives another key.
+    ///
+    /// # Errors
+    ///
+    /// A secret shorter than 32 bytes, or a tag that is no beta tag.
+    pub fn derive(secret: &[u8], tag: &str) -> Result<RoundKey, String> {
+        if secret.len() < KEY_LEN {
+            return Err("the build secret is shorter than 32 bytes".into());
+        }
+        if !is_beta_tag(tag) {
+            return Err("the tag of a beta release is beta-v<version>".into());
+        }
+        let prk = hkdf::Salt::new(hkdf::HKDF_SHA256, FORMAT.as_bytes()).extract(secret);
+        let info = [b"round|".as_slice(), tag.as_bytes()];
+        let okm = prk.expand(&info, hkdf::HKDF_SHA256).map_err(|_| "no round key")?;
+        let mut key = [0u8; KEY_LEN];
+        okm.fill(&mut key).map_err(|_| "no round key")?;
+        Ok(RoundKey(key))
+    }
+
     /// The key of the files, drawn from the key of the round.
     fn file_key(&self) -> Option<[u8; KEY_LEN]> {
         let prk = hkdf::Salt::new(hkdf::HKDF_SHA256, FORMAT.as_bytes()).extract(&self.0);

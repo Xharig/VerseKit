@@ -13,7 +13,7 @@
 # no-new-privileges.
 
 # Both bases are pinned to the digest of their multi-arch index (amd64 and arm64), the tag only names it.
-FROM rust:1.99-bookworm@sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c AS build
+FROM rust:1.100-bookworm@sha256:75d26c23c24cc6ea1cdabf0714a6bff8fd7bf3248716043fd7ae86dac7f41b94 AS build
 WORKDIR /src
 COPY . .
 RUN cargo build --release --locked -p versekit-orgserver && mkdir /data-empty

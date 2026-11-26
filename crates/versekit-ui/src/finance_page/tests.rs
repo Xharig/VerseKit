@@ -494,9 +494,13 @@ fn the_chosen_period_is_kept() {
 
 #[test]
 fn the_page_fits_at_every_width_in_both_languages() {
+    // The layout check of all pages (`tests/layout_guard.rs`) does the same; this one runs in the full run only.
+    if crate::skip_unless_full_run() {
+        return;
+    }
     for language in [Choice::De, Choice::En] {
         set_thread_language(language);
-        for width in [360.0, 520.0, 760.0, 1280.0] {
+        for width in crate::test_pick(&[360.0, 520.0, 760.0, 1280.0]) {
             let mut state = FinanceState::sample();
             for period in Period::ALL {
                 state.period = period;

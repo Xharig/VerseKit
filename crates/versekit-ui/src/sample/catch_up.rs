@@ -236,13 +236,12 @@ mod tests {
     /// Frames until the thread of the reading has answered.
     fn answer(reading: &mut Reading, paths: &Paths, game: &str) -> CatchUp {
         let ctx = egui::Context::default();
-        for _ in 0..500 {
-            if let Some(done) = reading.poll(&ctx, paths, game) {
-                return done.clone();
-            }
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
-        panic!("the reading did not answer");
+        let mut answer = None;
+        crate::wait_for(|| {
+            answer = reading.poll(&ctx, paths, game).cloned();
+            answer.is_some()
+        });
+        answer.expect("the reading did not answer")
     }
 
     #[test]
@@ -361,12 +360,7 @@ mod tests {
         let mut reading = Reading::default();
         assert!(reading.poll(&ctx, &paths, "one").is_none() || !reading.working());
         // Asked for another folder while the first may still work: never a result of the first for the second.
-        for _ in 0..500 {
-            if reading.poll(&ctx, &paths, "two").is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
+        crate::wait_for(|| reading.poll(&ctx, &paths, "two").is_some());
         assert_eq!(reading.key.as_deref().map(|k| k.starts_with("two")), Some(true));
         assert!(!reading.working());
         let _ = std::fs::remove_dir_all(dir);

@@ -275,8 +275,12 @@ fn the_switches_the_search_and_the_buttons_have_a_name_and_a_hover() {
 
 #[test]
 fn the_page_fits_at_every_width_in_both_languages() {
+    // The layout check of all pages (`tests/layout_guard.rs`) does the same; this one runs in the full run only.
+    if crate::skip_unless_full_run() {
+        return;
+    }
     for language in [Choice::De, Choice::En] {
-        for width in [380.0, 520.0, 700.0, 900.0, 1300.0] {
+        for width in crate::test_pick(&[380.0, 520.0, 700.0, 900.0, 1300.0]) {
             set_thread_language(language);
             theme::set_thread_current("krt");
             let (root, paths) = world("breite");

@@ -366,6 +366,15 @@ pub struct OverlayApp {
     /// The hotkey that switches Anti-AFK on and off, read at every key, and its presses.
     anti_afk_hotkey: Arc<Mutex<Option<Hotkey>>>,
     anti_afk_presses: Receiver<()>,
+    /// The hotkey that switches the signature scanner on and off, read at every key, and its presses.
+    scanner_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    scanner_presses: Receiver<()>,
+    /// The hotkey that clears the rows of the overlay, read at every key, and its presses.
+    clear_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    clear_presses: Receiver<()>,
+    /// The hotkey that opens the teaching of the signature scanner, read at every key, and its presses.
+    learn_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    learn_presses: Receiver<()>,
     /// The hotkey of the blueprint scan at the crafting terminal and the scan it started.
     blueprint: crate::blueprint::BlueprintKey,
     /// The hotkeys of the stock scan into the own stock and into the stock of the unit, and the scans they started.
@@ -377,7 +386,11 @@ pub struct OverlayApp {
     /// The visible part of the window now and the place it has when open,
     /// in screen pixels.
     pub current: Rect,
+    /// The open place the player chose, without [`Self::grow`]: what is remembered.
     pub last_open: Rect,
+    /// How many pixels the open overlay is taller than [`Self::last_open`] so the running contracts stand whole
+    /// ([`overlay::grown`]); nought again once they fit.
+    pub grow: i32,
     /// The window itself, in screen pixels: around the visible part and the
     /// place the overlay opens at.
     pub canvas: Rect,
@@ -941,6 +954,9 @@ impl OverlayApp {
             *self.search_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.search_hotkey;
             *self.main_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.main_hotkey;
             *self.anti_afk_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.anti_afk_hotkey;
+            *self.scanner_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.scanner_hotkey;
+            *self.clear_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.clear_hotkey;
+            *self.learn_hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.learn_hotkey;
             *self.blueprint.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.blueprint_hotkey;
             *self.stock_own.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.stock_hotkey;
             *self.stock_unit.hotkey.lock().unwrap_or_else(|e| e.into_inner()) = fresh.unit_stock_hotkey;
@@ -1334,6 +1350,32 @@ impl OverlayApp {
         if anti_afk_asked {
             self.toggle_anti_afk_by_key();
         }
+        // The hotkey of the signature scanner: the same as a click on the eye of the bar. Several presses in one frame
+        // are one.
+        let mut scanner_asked = false;
+        while self.scanner_presses.try_recv().is_ok() {
+            scanner_asked = true;
+        }
+        if scanner_asked {
+            self.toggle_scanner_by_key();
+        }
+        // The hotkey that clears the overlay: the same as a click on the eraser of the bar. Several presses in one frame
+        // are one.
+        let mut clear_asked = false;
+        while self.clear_presses.try_recv().is_ok() {
+            clear_asked = true;
+        }
+        if clear_asked {
+            self.clear_by_key();
+        }
+        // The hotkey of the teaching: the same as a click on its button in the bar. Several presses in one frame are one.
+        let mut learn_asked = false;
+        while self.learn_presses.try_recv().is_ok() {
+            learn_asked = true;
+        }
+        if learn_asked {
+            self.learn_by_key();
+        }
         // What became of the hotkey grab under X11: taken, no such key, or a new one that works.
         for phrase in hotkey_x11::take_told() {
             self.rows.push(Row::Hint { text: phrase.into(), contract: None }, self.settings.rows);
@@ -1370,6 +1412,29 @@ impl OverlayApp {
             self.status = Afk::said(on).into();
             self.key_pressed(true);
         }
+    }
+
+    /// The hotkey of the signature scanner: the same as a click on the eye of the bar (the other state, the line
+    /// "Automatisch erkennen: an/aus" in the status), and the click of the sounds when they are on.
+    fn toggle_scanner_by_key(&mut self) {
+        self.toggle_scanner();
+        self.key_pressed(true);
+    }
+
+    /// The hotkey that clears the overlay: the same as a click on the eraser of the bar (the rows go, the blueprints
+    /// stay), said in the status line, with the click of the sounds when they are on.
+    fn clear_by_key(&mut self) {
+        self.rows.clear();
+        self.status = Phrase::new("ov_geleert").into();
+        self.key_pressed(true);
+    }
+
+    /// The hotkey of the teaching: the same as a click on its button in the bar (the scanner goes on where it is off,
+    /// the small window opens), said in the status line, with the click of the sounds when they are on.
+    fn learn_by_key(&mut self) {
+        self.learn_scanner();
+        self.status = Phrase::new("ov_anlernen_offen").into();
+        self.key_pressed(true);
     }
 
     /// Plays `cue` at the volume of the settings; a test only notes it.
@@ -1676,14 +1741,25 @@ impl OverlayApp {
         }
         let key = (shown, self.settings.layout);
         let size = self.size_for(ctx, shown);
+        let mut base = None;
         let target = match shown {
             Shown::Strip => overlay::strip_place(self.settings.layout, self.last_open, size.0, size.1),
             _ => {
-                if self.placed_for == Some(key) && (self.current.w, self.current.h) == size {
+                let open = shown == Shown::Open;
+                let grow = if open { self.grow } else { 0 };
+                if self.placed_for == Some(key) && (self.current.w, self.current.h) == (size.0, size.1 + grow) {
                     return;
                 }
-                let from = overlay::placed_from(self.placed_for.map(|k| k.0), self.current, self.last_open);
-                overlay::place(self.settings.layout, size, from, work_at(from.x, from.y))
+                let before = self.placed_for.map(|k| k.0);
+                // Open it starts from the place without the growth: the window goes back there once the
+                // contracts fit again.
+                let from = match before {
+                    None | Some(Shown::Open) if open => self.last_open,
+                    _ => overlay::placed_from(before, self.current, self.last_open),
+                };
+                let placed = overlay::place(self.settings.layout, size, from, work_at(from.x, from.y));
+                base = Some(placed);
+                overlay::grown(self.settings.layout, placed, grow, work_at(placed.x, placed.y))
             }
         };
         self.placed_for = Some(key);
@@ -1692,12 +1768,32 @@ impl OverlayApp {
             ctx.request_repaint();
         }
         if shown == Shown::Open {
-            if self.last_open != self.current {
+            let base = base.unwrap_or(self.current);
+            if self.last_open != base {
                 // A new corner or size counts as the place to remember.
                 self.place_changed = Some(Instant::now());
             }
-            self.last_open = self.current;
+            self.last_open = base;
         }
+    }
+
+    /// The running contracts need `need` points more (less than nought: they have room to spare; `None`: none
+    /// stands): the open overlay grows or shrinks by as much, never below the place the player chose and never
+    /// past the work area of its screen ([`overlay::grown`]). It shows in the next frame.
+    fn follow_contracts(&mut self, ctx: &egui::Context, need: Option<f32>) {
+        // Counter check: the window keeps its size, the bar rolls.
+        if self.counter.as_deref() == Some("ohne_wachsen") {
+            return;
+        }
+        let base = self.last_open;
+        let work = work_at(base.x + base.w / 2, base.y + base.h / 2);
+        let want = need.map_or(0, |points| self.grow + self.px(ctx, points)).clamp(0, overlay::growth_room(base, work));
+        // A pixel of rounding is no change: the window would tremble.
+        if want == self.grow || (want != 0 && (want - self.grow).abs() <= 1) {
+            return;
+        }
+        self.grow = want;
+        ctx.request_repaint();
     }
 
     /// The custom drag: moving at the bar, resizing at the grip.
@@ -1755,18 +1851,27 @@ impl OverlayApp {
                 self.move_visible(overlay::snapped(self.current, Rect::from_area(area), Rect::from_area(work)));
             }
         }
-        match shown {
-            Shown::Open => self.last_open = self.current,
+        match (shown, kind) {
+            // A new size by hand is the place without growth; the next frame grows again if it must.
+            (Shown::Open, Drag::Resize) => {
+                self.last_open = self.current;
+                self.grow = 0;
+            }
+            // Moved: the place without growth moves along.
+            (Shown::Open, Drag::Move) => {
+                self.last_open.x += self.current.x - start.x;
+                self.last_open.y += self.current.y - start.y;
+            }
             // A folded bar carries the open place along: the same left
             // edge, and the edge of the bar.
-            Shown::Bar => {
+            (Shown::Bar, _) => {
                 self.last_open.x = self.current.x;
                 self.last_open.y = match self.settings.layout.bar {
                     BarSide::Top => self.current.y,
                     BarSide::Bottom => self.current.bottom() - self.last_open.h,
                 };
             }
-            Shown::Strip => {}
+            (Shown::Strip, _) => {}
         }
         let moved = (self.current.x - start.x).abs() + (self.current.y - start.y).abs();
         // A real move frees the corner; a click on the bar does not.
@@ -2341,6 +2446,9 @@ impl OverlayApp {
             None => view::show(ui, &shown_view),
         };
         self.laid_out = true;
+        if shown == Shown::Open && self.drag.is_none() {
+            self.follow_contracts(&ctx, out.contracts_need);
+        }
         if shown == Shown::Strip {
             self.was_waiting = true;
             if out.strip.x > 0.0 {
@@ -2704,6 +2812,12 @@ struct Parts {
     main_presses: Receiver<()>,
     anti_afk_hotkey: Arc<Mutex<Option<Hotkey>>>,
     anti_afk_presses: Receiver<()>,
+    scanner_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    scanner_presses: Receiver<()>,
+    clear_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    clear_presses: Receiver<()>,
+    learn_hotkey: Arc<Mutex<Option<Hotkey>>>,
+    learn_presses: Receiver<()>,
     blueprint: crate::blueprint::BlueprintKey,
     stock_own: crate::stock_keys::StockKey,
     stock_unit: crate::stock_keys::StockKey,
@@ -2864,6 +2978,12 @@ impl OverlayApp {
             main_presses: p.main_presses,
             anti_afk_hotkey: p.anti_afk_hotkey,
             anti_afk_presses: p.anti_afk_presses,
+            scanner_hotkey: p.scanner_hotkey,
+            scanner_presses: p.scanner_presses,
+            clear_hotkey: p.clear_hotkey,
+            clear_presses: p.clear_presses,
+            learn_hotkey: p.learn_hotkey,
+            learn_presses: p.learn_presses,
             blueprint: p.blueprint,
             stock_own: p.stock_own,
             stock_unit: p.stock_unit,
@@ -2895,6 +3015,7 @@ impl OverlayApp {
             lock: None,
             drawn: Vec::new(),
             visible_rows: 0,
+            grow: 0,
             contract_texts: Vec::new(),
             hide_buttons: Vec::new(),
             hidden_note: None,
@@ -3304,6 +3425,72 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             }
             #[cfg(not(windows))]
             drop(anti_afk_tx);
+            // The hotkey of the signature scanner: only where the screen can be read (Windows, X11).
+            let scanner_hotkey = Arc::new(Mutex::new(settings.scanner_hotkey));
+            let (scanner_tx, scanner_rx) = mpsc::channel();
+            #[cfg_attr(target_os = "macos", allow(unused_mut))]
+            let mut scanner_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() && versekit_core::screen_grab::supported() {
+                let ctx = cc.egui_ctx.clone();
+                scanner_registered =
+                    crate::win::start_hotkeys(scanner_hotkey.clone(), scanner_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(all(unix, not(target_os = "macos")))]
+            if args.probe.is_none() && versekit_core::screen_grab::supported() {
+                let ctx = cc.egui_ctx.clone();
+                scanner_registered = hotkey_x11::start(scanner_hotkey.clone(), scanner_tx, move || ctx.request_repaint())
+                    .then_some(())
+                    .ok_or_else(|| "kein X-Server".to_string());
+            }
+            #[cfg(target_os = "macos")]
+            drop(scanner_tx);
+            // The hotkey that clears the overlay: wherever the system lets keys be read (Windows, X11).
+            let clear_hotkey = Arc::new(Mutex::new(settings.clear_hotkey));
+            let (clear_tx, clear_rx) = mpsc::channel();
+            #[cfg_attr(target_os = "macos", allow(unused_mut))]
+            let mut clear_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() {
+                let ctx = cc.egui_ctx.clone();
+                clear_registered =
+                    crate::win::start_hotkeys(clear_hotkey.clone(), clear_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(all(unix, not(target_os = "macos")))]
+            if args.probe.is_none() {
+                let ctx = cc.egui_ctx.clone();
+                clear_registered = hotkey_x11::start(clear_hotkey.clone(), clear_tx, move || ctx.request_repaint())
+                    .then_some(())
+                    .ok_or_else(|| "kein X-Server".to_string());
+            }
+            #[cfg(target_os = "macos")]
+            drop(clear_tx);
+            // The hotkey of the teaching of the scanner: only where the screen can be read (Windows, X11).
+            let learn_hotkey = Arc::new(Mutex::new(settings.learn_hotkey));
+            let (learn_tx, learn_rx) = mpsc::channel();
+            #[cfg_attr(target_os = "macos", allow(unused_mut))]
+            let mut learn_registered: Result<(), String> = Err("kein System, das es kann".into());
+            #[cfg(windows)]
+            if args.probe.is_none() && versekit_core::screen_grab::supported() {
+                let ctx = cc.egui_ctx.clone();
+                learn_registered =
+                    crate::win::start_hotkeys(learn_hotkey.clone(), learn_tx, move || ctx.request_repaint())
+                        .then_some(())
+                        .ok_or_else(|| "Windows nimmt die Tastatur nicht an".to_string());
+            }
+            #[cfg(all(unix, not(target_os = "macos")))]
+            if args.probe.is_none() && versekit_core::screen_grab::supported() {
+                let ctx = cc.egui_ctx.clone();
+                learn_registered = hotkey_x11::start(learn_hotkey.clone(), learn_tx, move || ctx.request_repaint())
+                    .then_some(())
+                    .ok_or_else(|| "kein X-Server".to_string());
+            }
+            #[cfg(target_os = "macos")]
+            drop(learn_tx);
             // The hotkey of the blueprint scan reads letters with the recognition of Windows: only there.
             let (blueprint_tx, blueprint_rx) = mpsc::channel();
             let blueprint = crate::blueprint::BlueprintKey::new(settings.blueprint_hotkey, blueprint_rx);
@@ -3364,6 +3551,12 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                     versekit_core::trail::step(&overlay::main_hotkey_trail(&main, main_registered));
                     let anti_afk = overlay::HotkeyChoice::read_anti_afk(paths);
                     versekit_core::trail::step(&overlay::anti_afk_hotkey_trail(&anti_afk, anti_afk_registered));
+                    let scanner = overlay::HotkeyChoice::read_scanner(paths);
+                    versekit_core::trail::step(&overlay::scanner_hotkey_trail(&scanner, scanner_registered));
+                    let clear = overlay::HotkeyChoice::read_clear(paths);
+                    versekit_core::trail::step(&overlay::clear_hotkey_trail(&clear, clear_registered));
+                    let learn = overlay::HotkeyChoice::read_learn(paths);
+                    versekit_core::trail::step(&overlay::learn_hotkey_trail(&learn, learn_registered));
                     if cfg!(windows) {
                         let blueprint = overlay::HotkeyChoice::read_blueprint(paths);
                         versekit_core::trail::step(&overlay::blueprint_hotkey_trail(&blueprint, blueprint_registered));
@@ -3395,6 +3588,12 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 main_presses: main_rx,
                 anti_afk_hotkey,
                 anti_afk_presses: anti_afk_rx,
+                scanner_hotkey,
+                scanner_presses: scanner_rx,
+                clear_hotkey,
+                clear_presses: clear_rx,
+                learn_hotkey,
+                learn_presses: learn_rx,
                 blueprint,
                 stock_own,
                 stock_unit,
@@ -3543,6 +3742,13 @@ mod tests {
         main_key: Sender<()>,
         /// A press of the hotkey of Anti-AFK.
         anti_afk_key: Sender<()>,
+        /// A press of the hotkey of the signature scanner.
+        scanner_key: Sender<()>,
+        /// A press of the hotkey that clears the overlay.
+        clear_key: Sender<()>,
+        /// A press of the hotkey of the teaching (its check runs only under Windows, where the window starts).
+        #[cfg_attr(not(windows), allow(dead_code))]
+        learn_key: Sender<()>,
         /// A press of the hotkey of the blueprint scan.
         blueprint_key: Sender<()>,
         /// A press of the hotkeys of the stock scan into the own stock and into the stock of the unit.
@@ -3657,6 +3863,70 @@ mod tests {
         bench.app.take_news();
         assert_eq!(bench.app.status, Message::Plain("vorher".into()));
         bench.app.afk.shutdown();
+    }
+
+    /// The hotkey of the signature scanner does what a click on the eye of the bar does: a press switches the scanner
+    /// on, the next one off, each said in the status line, with the click of the sounds while they are on; presses
+    /// that come together are one.
+    #[test]
+    fn the_hotkey_of_the_scanner_switches_it_like_the_eye_and_says_so() {
+        let mut bench = bench(Args::default(), false, None);
+        bench.app.settings.sound = true;
+        bench.app.settings.scanner = false;
+        bench.app.take_news();
+        assert!(!bench.app.settings.scanner && bench.app.played.is_empty(), "no press, nothing");
+        bench.scanner_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(bench.app.settings.scanner, "switched on");
+        assert_eq!(bench.app.status, Message::from(Scanner::said(true)));
+        assert_eq!(bench.app.played, [Cue::Press], "the click of the sounds");
+        bench.scanner_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(!bench.app.settings.scanner, "the next press switches it off");
+        assert_eq!(bench.app.status, Message::from(Scanner::said(false)));
+        // Two presses in one frame are one.
+        bench.scanner_key.send(()).unwrap();
+        bench.scanner_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(bench.app.settings.scanner, "one switching for two presses");
+        // Sounds off: the same, without the click.
+        bench.app.played.clear();
+        bench.app.settings.sound = false;
+        bench.scanner_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(!bench.app.settings.scanner);
+        assert!(bench.app.played.is_empty(), "no sound");
+    }
+
+    /// The hotkey that clears the overlay does what a click on the eraser does: the rows go, the status line says so,
+    /// with the click of the sounds while they are on; presses that come together are one.
+    #[test]
+    fn the_hotkey_that_clears_the_overlay_takes_the_rows_like_the_eraser_and_says_so() {
+        let mut bench = bench(Args::default(), false, None);
+        bench.app.settings.sound = true;
+        bench.app.take_news();
+        let hint = |text: &str| Row::Hint { text: Message::Plain(text.into()), contract: None };
+        bench.app.rows.push(hint("eins"), 9);
+        bench.app.rows.push(hint("zwei"), 9);
+        let shown = bench.app.rows.len();
+        bench.app.played.clear();
+        bench.app.take_news();
+        assert!(shown >= 2);
+        assert_eq!(bench.app.rows.len(), shown, "no press, the rows stay");
+        bench.clear_key.send(()).unwrap();
+        bench.clear_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(bench.app.rows.is_empty(), "the rows are gone");
+        assert_eq!(bench.app.status, Message::from(Phrase::new("ov_geleert")));
+        assert_eq!(bench.app.played, [Cue::Press], "one click for two presses");
+        // Sounds off: the same, without the click.
+        bench.app.played.clear();
+        bench.app.settings.sound = false;
+        bench.app.rows.push(hint("drei"), 9);
+        bench.clear_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(bench.app.rows.is_empty());
+        assert!(bench.app.played.is_empty(), "no sound");
     }
 
     /// The hotkey of the picture of the game: two quick presses are one grab, and its notice says what came of it,
@@ -3916,6 +4186,9 @@ mod tests {
         let (picture_key, picture_rx) = mpsc::channel();
         let (main_key, main_rx) = mpsc::channel();
         let (anti_afk_key, anti_afk_rx) = mpsc::channel();
+        let (scanner_key, scanner_rx) = mpsc::channel();
+        let (clear_key, clear_rx) = mpsc::channel();
+        let (learn_key, learn_rx) = mpsc::channel();
         let (blueprint_key, blueprint_rx) = mpsc::channel();
         let (stock_own_key, stock_own_rx) = mpsc::channel();
         let (stock_unit_key, stock_unit_rx) = mpsc::channel();
@@ -3942,6 +4215,12 @@ mod tests {
             main_presses: main_rx,
             anti_afk_hotkey: Arc::new(Mutex::new(None)),
             anti_afk_presses: anti_afk_rx,
+            scanner_hotkey: Arc::new(Mutex::new(None)),
+            scanner_presses: scanner_rx,
+            clear_hotkey: Arc::new(Mutex::new(None)),
+            clear_presses: clear_rx,
+            learn_hotkey: Arc::new(Mutex::new(None)),
+            learn_presses: learn_rx,
             blueprint: crate::blueprint::BlueprintKey::new(None, blueprint_rx),
             stock_own: crate::stock_keys::StockKey::new(None, stock_own_rx),
             stock_unit: crate::stock_keys::StockKey::new(None, stock_unit_rx),
@@ -3971,6 +4250,9 @@ mod tests {
             picture_key,
             main_key,
             anti_afk_key,
+            scanner_key,
+            clear_key,
+            learn_key,
             blueprint_key,
             stock_own_key,
             stock_unit_key,
@@ -4288,6 +4570,80 @@ mod tests {
         assert_eq!((app.last_open.w, app.last_open.h), (700, 400), "back to the size it had");
         sizes(app, 100, 100);
         assert_eq!(factor_of(&ctx, bar), 1.0, "both as the main window again");
+    }
+
+    /// Two running contracts in the largest text on a small screen (1366 × 768 points, the task bar below): the open
+    /// overlay grows by itself until they stand whole, away from its anchored edge and wholly on the work area,
+    /// never past it; the place the player chose stays what is remembered, and once the contracts are gone the window
+    /// is as it was.
+    #[test]
+    fn the_overlay_grows_with_its_contracts_and_stays_on_a_small_screen() {
+        let small = || Setup { scale: 2.0, primary: 0, monitors: vec![monitor((0, 0, 2732, 1536), (0, 0, 2732, 1456))] };
+        let _screens = screen::fixed(small());
+        let work = Rect::new(0, 0, 2732, 1456);
+        let goals: Vec<String> = (1..=4).map(|n| format!("Ziel {n} mit einem etwas längeren Wortlaut")).collect();
+        let contract = |n: usize| ContractLine {
+            title: format!("Auftrag {n}"),
+            text: Message::Plain(format!("Auftrag {n}  →  Baupläne 1/3 · dir fehlt: Helm")),
+            goals: goals.clone(),
+            grey: false,
+            count: 1,
+            complete: false,
+        };
+        let layouts = [
+            (Layout { corner: Corner::TopLeft, bar: BarSide::Top }, Rect::new(16, 16, 900, 500)),
+            (Layout { corner: Corner::BottomRight, bar: BarSide::Bottom }, Rect::new(2732 - 900 - 16, 1456 - 500 - 16, 900, 500)),
+        ];
+        for (layout, chosen) in layouts {
+            let ctx = egui::Context::default();
+            versekit_ui::install(&ctx);
+            let mut bench = bench_at(Args { game: true, ..Args::default() }, true, None, 2.0);
+            let app = &mut bench.app;
+            app.points = versekit_core::font_size::POINTS_RANGE.1;
+            app.apply_zoom(&ctx);
+            (app.settings.layout, app.file_settings.layout) = (layout, layout);
+            (app.current, app.last_open, app.canvas) = (chosen, chosen, chosen);
+            app.placed_for = None;
+            for _ in 0..3 {
+                run_frame(app, &ctx);
+            }
+            // The place as its corner puts it: what the player has.
+            let chosen = app.current;
+            assert_eq!(app.last_open, chosen, "{layout:?}: nothing runs, nothing grows");
+            app.contracts = vec![contract(1), contract(2)];
+            for _ in 0..8 {
+                run_frame(app, &ctx);
+            }
+            let grown = app.current;
+            assert!(grown.h > chosen.h, "{layout:?}: the window grew: {grown:?}");
+            assert!(work.holds(grown), "{layout:?}: on the work area: {grown:?}");
+            assert_eq!(app.last_open, chosen, "{layout:?}: the chosen place stays what is remembered");
+            match layout.bar {
+                BarSide::Top => assert_eq!(grown.y, chosen.y, "{layout:?}: at the top it grows downwards"),
+                BarSide::Bottom => assert_eq!(grown.bottom(), chosen.bottom(), "{layout:?}: at the bottom upwards"),
+            }
+            let settled = app.current;
+            run_frame(app, &ctx);
+            assert_eq!(app.current, settled, "{layout:?}: it settles and does not tremble");
+            // Many contracts: never past the work area.
+            app.contracts = (1..=8).map(contract).collect();
+            for _ in 0..8 {
+                run_frame(app, &ctx);
+            }
+            assert!(work.holds(app.current), "{layout:?}: {:?}", app.current);
+            assert_eq!(app.current.h, work.h - 2 * overlay::EDGE, "{layout:?}: as high as the screen allows");
+            // At the edge of the screen the growth stops too and nothing asks for frames any more.
+            assert!(app.grow <= overlay::growth_room(app.last_open, work), "{layout:?}: grow {}", app.grow);
+            let full = (app.current, app.grow);
+            run_frame(app, &ctx);
+            assert_eq!((app.current, app.grow), full, "{layout:?}: at the edge it settles");
+            // Gone: back to the chosen place.
+            app.contracts.clear();
+            for _ in 0..4 {
+                run_frame(app, &ctx);
+            }
+            assert_eq!((app.current, app.grow), (chosen, 0), "{layout:?}: back as it was");
+        }
     }
 
     /// A frame without a window: a new corner reaches the window system as the place and size
@@ -5135,6 +5491,38 @@ mod tests {
         let plain = main_command(None, &[], Some(r"E:\Kopie"), Some(preview.clone()), folder);
         assert_eq!(plain, Some((preview, vec!["--daten".to_string(), r"E:\Kopie".to_string()])));
         assert_eq!(main_command(None, &own, None, None, folder), None);
+    }
+
+    /// The hotkey of the teaching does what its button does: the scanner goes on where it is off, the small window
+    /// opens (the program of the main window with the one switch exchanged), the status line says so, with the click
+    /// of the sounds; presses that come together are one.
+    #[cfg(windows)]
+    #[test]
+    fn the_hotkey_of_the_teaching_opens_it_like_its_button_and_says_so() {
+        let args = Args {
+            probe: Some("probe.txt".into()),
+            main_program: Some(std::path::PathBuf::from(r"D:\Kit\versekit.exe")),
+            main_args: vec!["--hauptfenster".into(), "--daten".into(), r"E:\Kopie".into()],
+            ..Args::default()
+        };
+        let mut bench = bench(args, false, None);
+        bench.app.settings.sound = true;
+        bench.app.settings.scanner = false;
+        bench.app.take_news();
+        assert!(bench.app.launched.is_none() && bench.app.played.is_empty(), "no press, nothing");
+        bench.learn_key.send(()).unwrap();
+        bench.learn_key.send(()).unwrap();
+        bench.app.take_news();
+        assert!(bench.app.settings.scanner, "the scanner goes on with it");
+        assert_eq!(
+            bench.app.launched,
+            Some((
+                std::path::PathBuf::from(r"D:\Kit\versekit.exe"),
+                vec!["--anlernen".to_string(), "--daten".to_string(), r"E:\Kopie".to_string()]
+            ))
+        );
+        assert_eq!(bench.app.status, Message::from(Phrase::new("ov_anlernen_offen")));
+        assert_eq!(bench.app.played, [Cue::Press], "one click for two presses");
     }
 
     /// The teaching opens the small window: the program of the main window with the one switch exchanged.

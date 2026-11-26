@@ -2110,7 +2110,7 @@ mod tests {
             let mut failed = None;
             for language in [Lang::En, Lang::De] {
                 with_language(language, || {
-                    for width in [300.0_f32, 420.0, 700.0, 1400.0] {
+                    for width in crate::test_pick(&[300.0_f32, 420.0, 700.0, 1400.0]) {
                         let (overflow, _) = drawn(page, width);
                         if overflow != 0.0 && failed.is_none() {
                             failed = Some(format!("{what}, {language:?}, {width}: {overflow}"));

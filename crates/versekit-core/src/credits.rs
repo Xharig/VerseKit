@@ -281,7 +281,7 @@ pub const PEOPLE: [Person; 46] = [
     person("Karasimsek", "", &[], &["s_dkv_karasimsek_bugs", "s_dkv_karasimsek_bugs2"]),
     person("moRy", "KRT", &["s_dkv_mory_idee"], &[]),
     person("J00ker", "", &[], &["s_dkv_j00ker_bugs"]),
-    person("ottpossum", "", &[], &["s_dkv_ottpossum_bugs"]),
+    person("ottpossum", "", &["s_dkv_ottpossum_idee"], &["s_dkv_ottpossum_bugs"]),
     person("SirHinkebein", "KRT", &[], &["s_dkv_sirhinkebein_bugs"]),
     person("daheque16", "", &["s_dkv_daheque16_idee"], &[]),
 ];

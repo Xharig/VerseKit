@@ -34,9 +34,15 @@
 //!
 //! Only without any key (the language files are missing, the title is unknown to them) the amounts the catalog
 //! states for the ways to a blueprint (`bauplaene` → `q` → `uec`, by the literal title) are taken, by the same rule.
+//!
+//! The index over the language files takes seconds, so the answers per title are kept in `auftrag-belohnungen.json`
+//! of the data folder together with the stamps of the files they were made of. A title with a stored answer never
+//! touches the index; the index is built (once per run) only for a title without one, and the answers are written
+//! again. Other stamps than the stored ones discard the stored answers.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 
 use crate::catalog_cache;
 use crate::injection::reputation::{CACHE_FILE, key};
@@ -55,6 +61,10 @@ const REWARD_BASE: &str = crate::injection::terms::REWARD_BASE;
 /// The section of the catalog file with the contracts that give blueprints, and their reward.
 const MISSIONS: &str = "missionen";
 const MISSION_REWARD: &str = "uec";
+/// The file of the data folder (in `Intern`) with the answers per title.
+pub const ANSWERS_FILE: &str = "auftrag-belohnungen.json";
+/// The layout of [`ANSWERS_FILE`]; another one is discarded.
+const ANSWERS_FORMAT: i64 = 1;
 
 /// What a completed contract is booked with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,7 +99,27 @@ pub struct Rewards {
     by_title: HashMap<String, Vec<i64>>,
     /// Every key of the terms with what it costs to take it (`buyin`), or `None` where it states none.
     costs: HashMap<String, Option<Span>>,
-    index: ContractIndex,
+    /// The language files the index is built of, on the first title without a stored answer.
+    ini_files: Vec<PathBuf>,
+    index: OnceLock<ContractIndex>,
+    /// The answers by cleaned title: the stored ones and the ones made in this run.
+    answers: Mutex<Answers>,
+    /// The files the rewards are made of as they were then; `None` where the rewards are not kept in a file.
+    stamps: Option<Vec<Stamp>>,
+}
+
+/// What a displayed title is booked with and what it costs to take.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Answer {
+    reward: Option<Reward>,
+    cost: Option<Reward>,
+}
+
+#[derive(Default)]
+struct Answers {
+    by_title: HashMap<String, Answer>,
+    /// Answers were added that the file does not hold yet.
+    unsaved: bool,
 }
 
 /// A file as it stood when the rewards were made of it: its path, its length and when it was written.
@@ -98,16 +128,19 @@ type Stamp = (PathBuf, Option<(u64, std::time::SystemTime)>);
 /// The rewards made last and the files they were made of.
 static MADE: std::sync::Mutex<Option<(Vec<Stamp>, std::sync::Arc<Rewards>)>> = std::sync::Mutex::new(None);
 
+/// Only one run makes the rewards at a time: the second one finds them made.
+static MAKING: Mutex<()> = Mutex::new(());
+
 /// The files the rewards are made of.
-fn source_files(paths: &Paths) -> Vec<PathBuf> {
+fn source_files(paths: &Paths, ini_files: &[PathBuf]) -> Vec<PathBuf> {
     let mut files = vec![PathBuf::from(paths.app_file(CACHE_FILE)), PathBuf::from(catalog_cache::current_file(paths))];
-    files.extend(mission_log::ini_files(paths));
+    files.extend(ini_files.iter().cloned());
     files
 }
 
 /// Are the rewards [`Rewards::load_kept`] keeps made of the files as they are now (then it answers at once)?
 pub fn kept_is_current(paths: &Paths) -> bool {
-    let now = stamps(&source_files(paths));
+    let now = stamps(&source_files(paths, &mission_log::ini_files(paths)));
     MADE.lock().ok().is_some_and(|made| made.as_ref().is_some_and(|(before, _)| *before == now))
 }
 
@@ -121,29 +154,195 @@ fn stamps(files: &[PathBuf]) -> Vec<Stamp> {
         .collect()
 }
 
-impl Rewards {
-    /// [`Rewards::load`], made again only when the reputation table, the catalog or a language file changed since
-    /// the last call: the index over the language files takes seconds.
-    pub fn load_kept(paths: &Paths) -> std::sync::Arc<Rewards> {
-        let now = stamps(&source_files(paths));
-        if let Ok(made) = MADE.lock()
-            && let Some((before, rewards)) = made.as_ref()
-            && *before == now
-        {
-            return rewards.clone();
+/// The stamps as the answers file keeps them: path, length and time of writing (nanoseconds since 1970), the last
+/// two `null` for a file that is not there.
+fn stamps_value(stamps: &[Stamp]) -> Value {
+    let nanos = |time: std::time::SystemTime| {
+        time.duration_since(std::time::UNIX_EPOCH).ok().and_then(|d| i64::try_from(d.as_nanos()).ok())
+    };
+    Value::Array(
+        stamps
+            .iter()
+            .map(|(file, stamp)| {
+                let (length, time) = match stamp.and_then(|(length, time)| Some((length, nanos(time)?))) {
+                    Some((length, time)) => (Value::int(length as i64), Value::int(time)),
+                    None => (Value::Null, Value::Null),
+                };
+                Value::Object(vec![
+                    ("pfad".into(), Value::str(file.to_string_lossy())),
+                    ("groesse".into(), length),
+                    ("geschrieben".into(), time),
+                ])
+            })
+            .collect(),
+    )
+}
+
+fn answer_value(answer: Option<Reward>) -> Value {
+    match answer {
+        Some(reward) => {
+            Value::Object(vec![("betrag".into(), Value::int(reward.amount)), ("ca".into(), Value::Bool(reward.approx))])
         }
-        let rewards = std::sync::Arc::new(Rewards::load(paths));
+        None => Value::Null,
+    }
+}
+
+/// A stored amount (`Ok(Some)`), none (`Ok(None)`), or an entry that is neither (`Err`).
+fn stored_reward(value: Option<&Value>) -> Result<Option<Reward>, ()> {
+    match value {
+        Some(Value::Null) => Ok(None),
+        Some(entry @ Value::Object(_)) => match (amount_of(entry.get("betrag")), entry.get("ca")) {
+            (Some(amount), Some(Value::Bool(approx))) => Ok(Some(Reward { amount, approx: *approx })),
+            _ => Err(()),
+        },
+        _ => Err(()),
+    }
+}
+
+/// The answers of the file when it was made of exactly the files as they are now; `None` for no file, another
+/// layout, other stamps or a damaged entry (then no entry is trusted).
+fn stored_answers(paths: &Paths, now: &[Stamp]) -> Option<HashMap<String, Answer>> {
+    let data = jsonio::read_json(&paths.app_file(ANSWERS_FILE)).ok()?;
+    if !matches!(data.get("format"), Some(Value::Int(text)) if *text == ANSWERS_FORMAT.to_string()) {
+        return None;
+    }
+    if data.get("quellen") != Some(&stamps_value(now)) {
+        return None;
+    }
+    let Some(Value::Object(entries)) = data.get("antworten") else { return None };
+    entries
+        .iter()
+        .map(|(title, entry)| {
+            let reward = stored_reward(entry.get("belohnung")).ok()?;
+            let cost = stored_reward(entry.get("einsatz")).ok()?;
+            Some((title.clone(), Answer { reward, cost }))
+        })
+        .collect()
+}
+
+/// The displayed titles of the completed contracts of the mission log.
+fn completed_titles(paths: &Paths) -> Vec<String> {
+    mission_log::load(paths)
+        .iter()
+        .map(mission_log::Mission::of)
+        .filter(|mission| mission.state == mission_log::COMPLETED)
+        .map(|mission| mission.name)
+        .collect()
+}
+
+impl Rewards {
+    /// [`Rewards::load`] with the answers for the titles of the completed contracts of the mission log, made again
+    /// only when the reputation table, the catalog or a language file changed since the last call. The answers come
+    /// from the answers file where it is current; the index over the language files (seconds) is built only for a
+    /// title without one, and the file is written then.
+    pub fn load_kept(paths: &Paths) -> std::sync::Arc<Rewards> {
+        let ini_files = mission_log::ini_files(paths);
+        let now = stamps(&source_files(paths, &ini_files));
+        let current = |made: &Option<(Vec<Stamp>, std::sync::Arc<Rewards>)>| {
+            made.as_ref().filter(|(before, _)| *before == now).map(|(_, rewards)| rewards.clone())
+        };
+        if let Some(rewards) = MADE.lock().ok().and_then(|made| current(&made)) {
+            return rewards;
+        }
+        let _making = MAKING.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(rewards) = MADE.lock().ok().and_then(|made| current(&made)) {
+            return rewards;
+        }
+        let rewards = std::sync::Arc::new(Rewards::made(paths, ini_files, now.clone(), &completed_titles(paths)));
         if let Ok(mut made) = MADE.lock() {
             *made = Some((now, rewards.clone()));
         }
         rewards
     }
 
-    /// From the reputation table and the catalog of the data folder and the language files of the installation.
+    /// From the reputation table and the catalog of the data folder and the language files of the installation,
+    /// with the index built on the first title asked and nothing stored.
     pub fn load(paths: &Paths) -> Rewards {
+        let ini_files = mission_log::ini_files(paths);
+        let now = stamps(&source_files(paths, &ini_files));
+        Rewards::read(paths, ini_files, now, false)
+    }
+
+    /// The rewards of the data folder with the answers for these titles; the answers file is written when it did
+    /// not hold all of them.
+    fn made(paths: &Paths, ini_files: Vec<PathBuf>, now: Vec<Stamp>, titles: &[String]) -> Rewards {
+        let rewards = Rewards::read(paths, ini_files, now, true);
+        for title in titles {
+            rewards.answer(title);
+        }
+        let _ = rewards.save(paths);
+        rewards
+    }
+
+    fn read(paths: &Paths, ini_files: Vec<PathBuf>, now: Vec<Stamp>, use_stored: bool) -> Rewards {
         let terms = jsonio::read_json(&paths.app_file(CACHE_FILE)).unwrap_or(Value::Null);
         let catalog = jsonio::read_json(&catalog_cache::current_file(paths)).unwrap_or(Value::Null);
-        Rewards::of_sources(&terms, &catalog, &mission_log::ini_files(paths))
+        let mut rewards = Rewards::of_sources(&terms, &catalog, &ini_files);
+        if use_stored && let Some(by_title) = stored_answers(paths, &now) {
+            rewards.answers = Mutex::new(Answers { by_title, unsaved: false });
+        }
+        rewards.stamps = Some(now);
+        rewards
+    }
+
+    /// Writes the answers file when answers were made that it does not hold; nothing for rewards that are not made
+    /// of the files of a data folder.
+    fn save(&self, paths: &Paths) -> std::io::Result<()> {
+        let (Some(stamps), Ok(mut answers)) = (&self.stamps, self.answers.lock()) else { return Ok(()) };
+        if !answers.unsaved {
+            return Ok(());
+        }
+        let mut titles: Vec<&String> = answers.by_title.keys().collect();
+        titles.sort();
+        let entries = titles
+            .into_iter()
+            .map(|title| {
+                let answer = answers.by_title[title];
+                let entry = vec![
+                    ("belohnung".to_string(), answer_value(answer.reward)),
+                    ("einsatz".to_string(), answer_value(answer.cost)),
+                ];
+                (title.clone(), Value::Object(entry))
+            })
+            .collect();
+        let data = Value::Object(vec![
+            ("format".into(), Value::int(ANSWERS_FORMAT)),
+            ("quellen".into(), stamps_value(stamps)),
+            ("antworten".into(), Value::Object(entries)),
+        ]);
+        let target = paths.app_file(ANSWERS_FILE);
+        let folder = paths.host.flavor.dirname(&target);
+        if !folder.is_empty() {
+            jsonio::make_dirs(&folder)?;
+        }
+        jsonio::write_text_atomic(&target, &jsonio::dumps(&data, Some(1), false), jsonio::Newline::Keep)?;
+        answers.unsaved = false;
+        Ok(())
+    }
+
+    /// The answer for a displayed title: the stored or an earlier one, else made of the index (built now if it is
+    /// not yet).
+    fn answer(&self, title: &str) -> Answer {
+        let key = mission_log::clean(title);
+        if let Some(answer) = self.answers.lock().ok().and_then(|answers| answers.by_title.get(&key).copied()) {
+            return answer;
+        }
+        let answer = Answer { reward: self.reward_by_index(title), cost: self.cost_by_index(title) };
+        if let Ok(mut answers) = self.answers.lock() {
+            answers.by_title.insert(key, answer);
+            answers.unsaved = true;
+        }
+        answer
+    }
+
+    fn index(&self) -> &ContractIndex {
+        self.index.get_or_init(|| ContractIndex::build_strict(&self.ini_files))
+    }
+
+    /// Has the index over the language files been built in this run?
+    #[cfg(test)]
+    fn index_built(&self) -> bool {
+        self.index.get().is_some()
     }
 
     /// From a parsed reputation table and the given language files.
@@ -162,7 +361,7 @@ impl Rewards {
         if by_key.values().all(Option::is_none) && by_title.is_empty() && costs.values().all(Option::is_none) {
             return Rewards::default();
         }
-        Rewards { index: ContractIndex::build_strict(ini_files), by_key, by_title, costs }
+        Rewards { ini_files: ini_files.to_vec(), by_key, by_title, costs, ..Rewards::default() }
     }
 
     /// No contract with a reward or a cost known?
@@ -175,7 +374,11 @@ impl Rewards {
     /// What it costs to take the contract with this displayed title (its buy-in, paid by whoever takes it): exact,
     /// or the lowest amount marked approximate where variants differ; `None` where the terms state none.
     pub fn cost_of_title(&self, title: &str) -> Option<Reward> {
-        let keys = self.index.candidates(title);
+        self.answer(title).cost
+    }
+
+    fn cost_by_index(&self, title: &str) -> Option<Reward> {
+        let keys = self.index().candidates(title);
         let spans: Option<Vec<Span>> = keys.iter().map(|k| self.costs.get(k).copied().flatten()).collect();
         let spans = spans.filter(|_| !keys.is_empty())?;
         Some(summed_up(spans.into_iter()))
@@ -184,7 +387,11 @@ impl Rewards {
     /// What the contract with this displayed title pays: exact, or the lowest amount marked approximate; `None`
     /// where the catalog states none for it.
     pub fn reward_of_title(&self, title: &str) -> Option<Reward> {
-        let keys = self.index.candidates(title);
+        self.answer(title).reward
+    }
+
+    fn reward_by_index(&self, title: &str) -> Option<Reward> {
+        let keys = self.index().candidates(title);
         if keys.is_empty() {
             let amounts = self.by_title.get(&mission_log::clean(title).to_lowercase())?;
             return Some(summed_up(amounts.iter().map(|amount| Span::exact(*amount))));
@@ -309,6 +516,145 @@ mod tests {
         let changed = Rewards::load_kept(&paths);
         assert!(!std::sync::Arc::ptr_eq(&first, &changed), "a changed table makes the rewards again");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A data folder with a reputation table and a language file; the paths to make rewards of them.
+    struct Setup {
+        _dir: crate::testdir::Dir,
+        paths: Paths,
+        ini: Vec<PathBuf>,
+    }
+
+    const TITLES: [&str; 6] = ["Kill the Pirate", "Haul Gold to Orison", "Same Name", "Ranged Pay", "Free Job", "Unknown"];
+
+    fn setup(tag: &str) -> Setup {
+        let (dir, ini) = ini(
+            tag,
+            &[
+                "Bounty_Title=Kill the Pirate",
+                "Haul_Title,P=Haul ~mission(Cargo) to ~mission(Location)",
+                "Twin_A_Title=Same Name",
+                "Twin_B_Title=Same Name",
+                "Ranged_Title=Ranged Pay",
+                "Free_Title=Free Job",
+            ],
+        );
+        let text = dir.path().to_string_lossy().into_owned();
+        let host = crate::paths::Host::new(crate::pypath::Flavor::native(), &[(crate::envvars::ENV_HOME, &text)], &text);
+        let paths = Paths::new(host);
+        let table = paths.app_file(CACHE_FILE);
+        std::fs::create_dir_all(std::path::Path::new(&table).parent().unwrap()).unwrap();
+        std::fs::write(
+            &table,
+            r#"{"format": 3, "angaben": {
+                "bounty_title": {"belohnung": 15000},
+                "haul_title": {"belohnung": 42000, "buyin": 700},
+                "twin_a_title": {"belohnung": 1000},
+                "twin_b_title": {"belohnung": 2000},
+                "ranged_title": {"belohnung": [1000, 5000]},
+                "free_title": {"rang": 1}
+            }}"#,
+        )
+        .unwrap();
+        Setup { _dir: dir, paths, ini }
+    }
+
+    fn titles() -> Vec<String> {
+        TITLES.iter().map(|title| title.to_string()).collect()
+    }
+
+    /// What each title gets: the reward and the cost.
+    fn answers_of(rewards: &Rewards) -> Vec<(Option<Reward>, Option<Reward>)> {
+        TITLES.iter().map(|title| (rewards.reward_of_title(title), rewards.cost_of_title(title))).collect()
+    }
+
+    fn made(setup: &Setup) -> Rewards {
+        let now = stamps(&source_files(&setup.paths, &setup.ini));
+        Rewards::made(&setup.paths, setup.ini.clone(), now, &titles())
+    }
+
+    #[test]
+    fn stored_answers_give_the_same_rewards_without_the_index() {
+        let setup = setup("belohnung-gespeichert");
+        let file = setup.paths.app_file(ANSWERS_FILE);
+        let first = made(&setup);
+        assert!(first.index_built(), "without a stored file the index is built");
+        assert!(std::path::Path::new(&file).is_file(), "and the answers are written");
+        let expected = answers_of(&first);
+        assert_eq!(first.reward_of_title("Kill the Pirate"), exact(15_000));
+        assert_eq!(first.reward_of_title("Same Name"), about(1000));
+        assert_eq!(first.cost_of_title("Haul Gold to Orison"), exact(700));
+        assert_eq!(first.reward_of_title("Unknown"), None);
+
+        let second = made(&setup);
+        assert!(!second.index_built(), "with the stored file the index stays unbuilt");
+        assert_eq!(answers_of(&second), expected, "the same rewards with and without the stored file");
+        assert!(!second.index_built(), "also after the questions");
+    }
+
+    #[test]
+    fn a_title_without_a_stored_answer_builds_the_index_once_and_is_stored() {
+        let setup = setup("belohnung-luecke");
+        made(&setup);
+        let now = stamps(&source_files(&setup.paths, &setup.ini));
+        let rewards = Rewards::made(&setup.paths, setup.ini.clone(), now.clone(), &["Kill the Pirate".to_string()]);
+        assert!(!rewards.index_built());
+        let gap = rewards.reward_of_title("Haul Silver to Lorville");
+        assert_eq!(gap, exact(42_000), "a title the file lacks is answered");
+        assert!(rewards.index_built(), "by the index, built for the gap");
+        rewards.save(&setup.paths).unwrap();
+        let again = Rewards::read(&setup.paths, setup.ini.clone(), now, true);
+        assert_eq!(again.reward_of_title("Haul Silver to Lorville"), gap);
+        assert!(!again.index_built(), "the gap is stored now");
+    }
+
+    #[test]
+    fn answers_of_other_stamps_are_discarded_and_made_again() {
+        let setup = setup("belohnung-stempel");
+        let file = setup.paths.app_file(ANSWERS_FILE);
+        let expected = answers_of(&made(&setup));
+        let stored = std::fs::read_to_string(&file).unwrap();
+
+        // A stored answer that is wrong is used while the stamps are right: the file really answers first.
+        let poisoned = stored.replacen("15000", "99999", 1);
+        assert_ne!(poisoned, stored);
+        std::fs::write(&file, &poisoned).unwrap();
+        let used = made(&setup);
+        assert_eq!(used.reward_of_title("Kill the Pirate"), exact(99_999), "the stored answer counts");
+        assert!(!used.index_built());
+
+        // The same file with a stamp that does not fit the language file is thrown away.
+        let tampered = poisoned.replacen("\"groesse\": ", "\"groesse\": 1", 1);
+        assert_ne!(tampered, poisoned);
+        std::fs::write(&file, &tampered).unwrap();
+        let rebuilt = made(&setup);
+        assert_eq!(rebuilt.reward_of_title("Kill the Pirate"), exact(15_000), "made again from the files");
+        assert!(rebuilt.index_built(), "the index is built again");
+        assert_eq!(answers_of(&rebuilt), expected);
+        assert_eq!(made(&setup).reward_of_title("Kill the Pirate"), exact(15_000), "and stored again");
+    }
+
+    #[test]
+    fn a_changed_language_file_discards_the_stored_answers() {
+        let setup = setup("belohnung-sprachdatei");
+        made(&setup);
+        std::fs::write(&setup.ini[0], "\u{feff}Bounty_Title=Kill the Pirate\r\nBounty_B_Title=Kill the Pirate\r\n").unwrap();
+        let changed = made(&setup);
+        assert!(changed.index_built(), "a changed language file makes the answers again");
+        assert_eq!(changed.reward_of_title("Kill the Pirate"), None, "a twin without an amount gives none now");
+    }
+
+    #[test]
+    fn a_damaged_or_foreign_answers_file_is_not_trusted() {
+        let setup = setup("belohnung-kaputt");
+        let file = setup.paths.app_file(ANSWERS_FILE);
+        let expected = answers_of(&made(&setup));
+        for broken in ["not json", "{\"format\": 2}", "[]", "{\"format\": 1, \"quellen\": [], \"antworten\": {}}"] {
+            std::fs::write(&file, broken).unwrap();
+            let rewards = made(&setup);
+            assert!(rewards.index_built(), "{broken}");
+            assert_eq!(answers_of(&rewards), expected, "{broken}");
+        }
     }
 
     /// A language file with these lines, in a folder of its own.

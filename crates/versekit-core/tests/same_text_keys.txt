@@ -8,6 +8,9 @@
 s_pv_art_text
 s_pv_quelle_erkul
 
+# The sell page: the view "Route" is written the same in both languages.
+s_vk_ro_ansicht_route
+
 # An amount with the unit SCU, which the game writes the same in both languages.
 s_p9_menge
 s_p9_menge_n

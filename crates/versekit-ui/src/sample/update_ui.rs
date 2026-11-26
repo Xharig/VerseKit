@@ -154,13 +154,13 @@ fn shows(texts: &[(String, Pos2)], part: &str) -> bool {
 /// Frames until `done` says yes, at most ten seconds.
 fn pump(bench: &mut Bench, mut done: impl FnMut(&mut Bench, &[(String, Pos2)]) -> bool) -> Vec<(String, Pos2)> {
     let mut texts = bench.settle();
-    for _ in 0..200 {
+    crate::wait_for(|| {
         if done(bench, &texts) {
-            break;
+            return true;
         }
-        std::thread::sleep(Duration::from_millis(50));
         texts = bench.settle();
-    }
+        false
+    });
     texts
 }
 

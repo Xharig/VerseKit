@@ -484,7 +484,7 @@ mod tests {
     fn open_it_sticks_out_nowhere_in_any_scheme_size_and_language() {
         let list = entries(HANGAR);
         let mut findings = Vec::new();
-        for scheme in versekit_core::theme::schemes() {
+        for scheme in crate::test_schemes() {
             for lang in Lang::ALL {
                 for points in crate::test_sizes() {
                     for width in [380.0, 880.0] {

@@ -47,9 +47,11 @@ use versekit_core::theme::{Color, Scheme};
 
 use crate::color;
 use crate::layout::{self, GAP};
+use crate::selling_route::{self, Inputs, RouteState};
 use crate::trade::{self, Job, Polled};
 use crate::widgets::{self, ButtonKind};
 
+const SETTING_VIEW: &str = "verkauf_ansicht";
 const SETTING_MODE: &str = "verkauf_modus";
 const SETTING_TOP: &str = "verkauf_spitze";
 /// The unit of Mein Lager (`cscu` or `scu`), kept by its page.
@@ -64,6 +66,8 @@ const TOP_PIECES: usize = 8;
 /// How often the page looks whether its files changed.
 const LOOK_SECONDS: f64 = 1.0;
 const LIST_ID: &str = "handel-verkauf-liste";
+/// Room a line of chosen goods keeps free at its right.
+const CHIP_SLACK: f32 = 8.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Mode {
@@ -78,6 +82,13 @@ enum Unit {
     /// A hundredth of an SCU.
     Cscu,
     Piece,
+}
+
+/// How the goods chosen for selling are answered: the places that take them, or one route over a few stations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum View {
+    Places,
+    Route,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -106,6 +117,10 @@ pub struct SellingState {
     seen: [Option<SystemTime>; 2],
     looked_at: f64,
     mode: Mode,
+    view: View,
+    route: RouteState,
+    /// Counts the reloads of the prices, so that a route is calculated again when they changed.
+    version: u64,
     top: Top,
     search: String,
     picks: Vec<String>,
@@ -138,6 +153,9 @@ impl Default for SellingState {
             seen: [None, None],
             looked_at: f64::NEG_INFINITY,
             mode: Mode::Sell,
+            view: View::Places,
+            route: RouteState::default(),
+            version: 0,
             top: Top::All,
             search: String::new(),
             picks: Vec::new(),
@@ -164,6 +182,7 @@ impl SellingState {
     pub fn with_files(paths: &Paths) -> SellingState {
         let mut state = SellingState { paths: Some(trade::job_paths(paths)), ..SellingState::default() };
         state.mode = if paths.setting(SETTING_MODE).as_deref() == Some("kaufen") { Mode::Buy } else { Mode::Sell };
+        state.view = if paths.setting(SETTING_VIEW).as_deref() == Some("route") { View::Route } else { View::Places };
         state.top = if paths.setting(SETTING_TOP).as_deref() == Some("bergbau") { Top::Mining } else { Top::All };
         state.cscu = paths.setting(SETTING_UNIT).as_deref() == Some("cscu");
         state.reload();
@@ -206,6 +225,34 @@ impl SellingState {
         state
     }
 
+    /// The route view over two stations, for the layout check: each good sells best at the other one, and the
+    /// stations lack a known distance.
+    pub fn show_route_sample(&mut self) -> bool {
+        let now = trade::now() as i64;
+        let offer = |terminal: &str, name: &str, price: f64, level: i64| {
+            format!(r#"{{"t":"{terminal}","n":"{name}","p":{price},"d":{now},"k":"","z":{level}}}"#)
+        };
+        let text = format!(
+            r#"{{"terminals":{{
+                "7":{{"o":"Area18","s":"Stanton","n":"TDD","q":false}},
+                "8":{{"o":"Lorville","s":"Stanton","n":"Teasa Spaceport","q":true}}}},"geholt":{now},"waren":{{
+                "Iron":[{},{}],"Kopion Horn":[{},{}],"Saldynium (Ore)":[{},{}],"Valakkar Pearl (Apex)":[{},{}]}}}}"#,
+            offer("7", "TDD", 1_500.0, 3),
+            offer("8", "Teasa Spaceport", 2_200.0, 3),
+            offer("7", "TDD", 45_000.0, 3),
+            offer("8", "Teasa Spaceport", 40_000.0, 3),
+            offer("7", "TDD", 34_000_000.0, 3),
+            offer("8", "Teasa Spaceport", 30_000_000.0, 3),
+            offer("7", "TDD", 8_000_000.0, 3),
+            offer("8", "Teasa Spaceport", 9_000_000.0, 5),
+        );
+        let Ok(data) = versekit_core::jsonio::loads(&text) else { return false };
+        self.data = Selling::from_value(&data);
+        self.version += 1;
+        self.view = View::Route;
+        true
+    }
+
     /// How far the list stuck out at the right in the last frame.
     pub fn list_overflow(&self) -> f32 {
         self.list_overflow
@@ -219,6 +266,7 @@ impl SellingState {
         vec![
             (SETTING_MODE, Value::str(if self.mode == Mode::Buy { "kaufen" } else { "verkaufen" })),
             (SETTING_TOP, Value::str(if self.top == Top::Mining { "bergbau" } else { "alle" })),
+            (SETTING_VIEW, Value::str(if self.view == View::Route { "route" } else { "orte" })),
         ]
     }
 
@@ -233,6 +281,7 @@ impl SellingState {
             self.seen = [modified(&files[0]), modified(&files[1])];
         }
         self.data = Selling::load(&paths);
+        self.version += 1;
         self.cargo = stock::load(&paths.app_file(TRADE_FILE), "trade_cargo.load");
         self.stock = StockData::load(|name| paths.app_file(name));
         self.mining = MiningData::load(&paths.app_file(MINING_FILE));
@@ -269,6 +318,7 @@ impl SellingState {
     }
 
     fn poll_job(&mut self, ui: &Ui) {
+        self.route.poll(ui);
         let Some(job) = &self.job else { return };
         let done = match job.poll() {
             Polled::Running => return,
@@ -435,6 +485,20 @@ impl SellingState {
         self.amounts.iter().filter_map(typed).collect()
     }
 
+    /// The amounts in SCU of the chosen goods the places and the route are counted with: Mein Lager, overwritten
+    /// by what is typed; pieces without a known size of a piece stay without SCU.
+    fn scu_amounts(&self) -> HashMap<String, f64> {
+        let own = self.own_amounts();
+        let mut amounts: HashMap<String, f64> = HashMap::new();
+        for (name, value) in selling::cargo_amounts(&self.cargo, None).iter() {
+            amounts.insert(name.to_string(), *value);
+        }
+        amounts.extend(own.iter().map(|(k, v)| (k.clone(), *v)));
+        let counts = self.own_pieces();
+        amounts.retain(|name, _| !counts.contains_key(name) || own.contains_key(name));
+        amounts
+    }
+
     /// The pieces typed for the goods that count in pieces.
     fn own_pieces(&self) -> HashMap<String, f64> {
         let typed = |(name, text): (&String, &String)| {
@@ -582,6 +646,25 @@ fn picker(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
     if ui.add(widgets::Button::new(&t("s_vk_aus_lager"), ButtonKind::Normal, scheme).icon("package")).clicked() {
         state.take_from_stock();
     }
+    ui.add_space(GAP);
+    let mut chosen = usize::from(state.view == View::Route);
+    let words = [t("s_vk_ro_ansicht_orte"), t("s_vk_ro_ansicht_route")];
+    if trade::toggle_pair(ui, scheme, [&words[0], &words[1]], &mut chosen) {
+        state.view = if chosen == 1 { View::Route } else { View::Places };
+    }
+    if state.view == View::Route {
+        ui.add_space(4.0);
+        let amounts = state.scu_amounts();
+        let inputs = Inputs {
+            data: &state.data,
+            picks: &state.picks,
+            amounts: &amounts,
+            nqa: state.nqa,
+            paths: state.paths.as_ref(),
+            version: state.version,
+        };
+        selling_route::controls(ui, scheme, &mut state.route, &inputs);
+    }
 }
 
 /// The chosen goods side by side, each in a lighter box: name, field for the
@@ -607,7 +690,8 @@ fn chips(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
         .zip(&units)
         .map(|(name, unit)| width_of(ui, name) + FIELD + width_of(ui, unit) + cross_w + 3.0 * gap + 2.0 * 8.0 + 2.0)
         .collect();
-    let room = ui.available_width();
+    // The boxes are a little wider than the sum of their parts (the margins of the field); a line keeps that much free.
+    let room = ui.available_width() - CHIP_SLACK;
     let mut lines: Vec<Vec<usize>> = vec![Vec::new()];
     let mut used = 0.0;
     for (i, w) in chip_w.iter().enumerate() {
@@ -682,17 +766,32 @@ fn results(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
         .min_scrolled_height(room)
         .auto_shrink([false, true]);
     let mut jump = None;
-    let shown = widgets::list_frame_marked(ui, scheme, |ui| widgets::scroll_area(ui, scheme, area, |ui| {
-        ui.set_max_width(ui.available_width() - layout::SAFETY);
-        jump = match state.mode {
-            Mode::Sell if state.picks.is_empty() => sell_overview(ui, scheme, state),
-            Mode::Sell => {
-                sell_places(ui, scheme, state);
-                None
-            }
-            Mode::Buy => buy_view(ui, scheme, state),
-        };
-    }))
+    let shown = widgets::list_frame_marked(ui, scheme, |ui| {
+        widgets::scroll_area(ui, scheme, area, |ui| {
+            ui.set_max_width(ui.available_width() - layout::SAFETY);
+            jump = match state.mode {
+                Mode::Sell if state.picks.is_empty() => sell_overview(ui, scheme, state),
+                Mode::Sell if state.view == View::Route => {
+                    let amounts = state.scu_amounts();
+                    let inputs = Inputs {
+                        data: &state.data,
+                        picks: &state.picks,
+                        amounts: &amounts,
+                        nqa: state.nqa,
+                        paths: state.paths.as_ref(),
+                        version: state.version,
+                    };
+                    selling_route::results(ui, scheme, &mut state.route, &inputs);
+                    None
+                }
+                Mode::Sell => {
+                    sell_places(ui, scheme, state);
+                    None
+                }
+                Mode::Buy => buy_view(ui, scheme, state),
+            };
+        })
+    })
     .inner;
     state.list_overflow = trade::overflow_of(&shown);
     if let Some(name) = jump {
@@ -779,14 +878,8 @@ fn sell_places(ui: &mut Ui, scheme: &Scheme, state: &mut SellingState) {
         return;
     }
     let own = state.own_amounts();
-    let mut amounts: HashMap<String, f64> = HashMap::new();
-    for (name, value) in selling::cargo_amounts(&state.cargo, None).iter() {
-        amounts.insert(name.to_string(), *value);
-    }
-    amounts.extend(own.iter().map(|(k, v)| (k.clone(), *v)));
-    // Pieces typed without a known size of a piece stay without SCU: the cargo does not stand in for them.
+    let amounts = state.scu_amounts();
     let counts = state.own_pieces();
-    amounts.retain(|name, _| !counts.contains_key(name) || own.contains_key(name));
     // A profit only for goods of Mein Lager with a price paid: a typed amount has none.
     let paid = selling::cargo_costs(&state.cargo, None);
     let costed = selling::cargo_costed_amounts(&state.cargo, None);
@@ -1340,6 +1433,73 @@ mod tests {
         let shown = drawn(|ui| sell_places(ui, scheme, &mut state));
         let wanted = trade::plain(lang, 200.0);
         assert!(shown.iter().any(|s| s.contains(&wanted)), "{wanted} in {shown:?}");
+    }
+
+    #[test]
+    fn the_route_list_never_sticks_out_at_the_right_in_any_size_or_language() {
+        let mut found = Vec::new();
+        for english in [false, true] {
+            versekit_core::language::set_thread_language(if english {
+                versekit_core::language::Choice::En
+            } else {
+                versekit_core::language::Choice::De
+            });
+            for points in versekit_core::font_size::POINTS_RANGE.0..=versekit_core::font_size::POINTS_RANGE.1 {
+                let mut state = SellingState::sample();
+                assert!(state.show_route_sample());
+                let mut harness = egui_kittest::Harness::builder()
+                    .with_size(egui::vec2(1280.0, 820.0))
+                    .with_context_setup(crate::install)
+                    .with_accessibility_check(false)
+                    .allow_missing_glyphs()
+                    .build_ui_state(|ui, state: &mut SellingState| show_page(ui, versekit_core::theme::current(), state), state);
+                harness.ctx.options_mut(|options| options.zoom_factor = versekit_core::font_size::zoom_factor(points));
+                harness.run_steps(8);
+                let overflow = harness.state().list_overflow();
+                if overflow > 0.0 {
+                    found.push(format!("{} size {points}: {overflow}", if english { "EN" } else { "DE" }));
+                }
+            }
+        }
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::Auto);
+        assert!(found.is_empty(), "{found:?}");
+    }
+
+    #[test]
+    fn the_route_page_in_the_window_sticks_out_nowhere_when_the_size_changes_on_one_page() {
+        use versekit_core::font_size;
+        use versekit_core::language::{Choice, set_thread_language};
+        set_thread_language(Choice::En);
+        let mut page = crate::sample::SamplePage::preview();
+        page.go_to("hf_verkauf");
+        assert!(page.choose_first_entry());
+        let mut harness = egui_kittest::Harness::builder()
+            .with_size(egui::vec2(font_size::BASE_MIN_SIZE.0, font_size::BASE_MIN_SIZE.1))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(
+                |ui, state: &mut (crate::sample::SamplePage, f32)| state.1 = state.0.show(ui),
+                (page, 0.0),
+            );
+        let mut found = Vec::new();
+        for points in font_size::POINTS_RANGE.0..=font_size::POINTS_RANGE.1 {
+            let (smallest_width, smallest_height) = font_size::min_window(points);
+            for window in [egui::vec2(smallest_width, smallest_height), egui::vec2(1280.0, 820.0), egui::vec2(1280.0, 1600.0)] {
+                harness.state_mut().0.size = points;
+                harness.ctx.options_mut(|options| options.zoom_factor = font_size::zoom_factor(points));
+                for _ in 0..6 {
+                    harness.set_size(window);
+                    harness.step();
+                }
+                let overflow = harness.state().1;
+                if overflow > 0.0 {
+                    found.push(format!("size {points} window {window:?}: {overflow}"));
+                }
+            }
+        }
+        set_thread_language(Choice::Auto);
+        assert!(found.is_empty(), "{found:?}");
     }
 
     #[test]

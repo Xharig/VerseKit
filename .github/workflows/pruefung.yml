@@ -13,7 +13,7 @@ on:
     branches: [main]
 
 env:
-  RUST_VERSION: '1.99.1'
+  RUST_VERSION: '1.100.0'
   CARGO_TERM_COLOR: never
 
 permissions:
@@ -55,3 +55,10 @@ jobs:
 
       - name: German and English in step
         run: python tools/sprachen_pruefen.py
+
+      # beta.yml sends nothing in plain text out of its run; the second line proves the check can fail.
+      - name: The beta workflow stays encrypted
+        run: |
+          python tools/beta_workflow_pruefen.py
+          python tools/beta_workflow_pruefen.py --selbsttest
+          python tools/beta_masken_tests.py

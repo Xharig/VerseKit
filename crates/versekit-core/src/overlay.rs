@@ -85,6 +85,15 @@ pub const DEFAULT_UNIT_STOCK_HOTKEY: &str = "Umschalt+F8";
 /// The hotkey that switches Anti-AFK on and off has no default: it holds no key until the player sets one
 /// (every free combination of the game is somebody's). Empty here, [`Shortcut::AntiAfk`] reads it as "none".
 pub const DEFAULT_ANTI_AFK_HOTKEY: &str = "";
+/// The hotkey that switches the signature scanner on and off has no default either: empty, [`Shortcut::Scanner`]
+/// reads it as "none".
+pub const DEFAULT_SCANNER_HOTKEY: &str = "";
+/// The hotkey that clears the rows of the overlay has no default either: empty, [`Shortcut::Clear`] reads it as
+/// "none".
+pub const DEFAULT_CLEAR_HOTKEY: &str = "";
+/// The hotkey that opens the teaching of the signature scanner has no default either: empty, [`Shortcut::Learn`]
+/// reads it as "none".
+pub const DEFAULT_LEARN_HOTKEY: &str = "";
 
 /// The first version whose hotkeys without a setting lie on the F keys.
 pub const F_KEYS_FROM: &str = "5.4.3";
@@ -164,6 +173,18 @@ pub mod keys {
     /// no default key: without [`HOTKEY_ANTI_AFK`] it holds nothing.
     pub const HOTKEY_ANTI_AFK_ON: &str = "hotkey_antiafk_an";
     pub const HOTKEY_ANTI_AFK: &str = "hotkey_antiafk";
+    /// The hotkey that switches the signature scanner on and off is registered (only a literal `false` switches it
+    /// off). It has no default key: without [`HOTKEY_SCANNER`] it holds nothing.
+    pub const HOTKEY_SCANNER_ON: &str = "hotkey_scanner_an";
+    pub const HOTKEY_SCANNER: &str = "hotkey_scanner";
+    /// The hotkey that clears the rows of the overlay is registered (only a literal `false` switches it off). It has
+    /// no default key: without [`HOTKEY_CLEAR`] it holds nothing.
+    pub const HOTKEY_CLEAR_ON: &str = "hotkey_leeren_an";
+    pub const HOTKEY_CLEAR: &str = "hotkey_leeren";
+    /// The hotkey that opens the teaching of the signature scanner is registered (only a literal `false` switches it
+    /// off). It has no default key: without [`HOTKEY_LEARN`] it holds nothing.
+    pub const HOTKEY_LEARN_ON: &str = "hotkey_anlernen_an";
+    pub const HOTKEY_LEARN: &str = "hotkey_anlernen";
     /// The player books as a logistician of the unit ("Als Logistiker buchen" under Connection & sync): the scan
     /// into the stock of the unit is allowed.
     pub const LOGISTICIAN: &str = crate::basetool::scopes::SETTING_ORGSTOCK_WRITE;
@@ -465,6 +486,29 @@ pub fn fit_work_area(corner: Corner, r: Rect, work: Rect) -> Rect {
 pub fn place(layout: Layout, size: (i32, i32), current: Rect, work: Rect) -> Rect {
     let (x, y) = corner_place(layout, size.0, size.1, current, work);
     fit_work_area(layout.corner, Rect::new(x, y, size.0, size.1), work)
+}
+
+/// The open window `base` taller by `grow` pixels, so the running contracts stand whole: it grows away from its
+/// anchored edge (upwards with the bar or a corner at the bottom, downwards otherwise) up to the height of the work
+/// area `work` less [`EDGE`] at top and bottom, and stays wholly on it: where the free side has no room left the
+/// window moves the other way. It never shrinks below `base`.
+pub fn grown(layout: Layout, base: Rect, grow: i32, work: Rect) -> Rect {
+    if grow <= 0 {
+        return base;
+    }
+    let h = base.h.saturating_add(grow).min(work.h - 2 * EDGE).max(base.h);
+    if h == base.h {
+        return base;
+    }
+    let (bottom, _) = layout.anchored();
+    let y = if bottom { base.bottom() - h } else { base.y };
+    let y = y.min(work.bottom() - h).max(work.y);
+    Rect { y, h, ..base }
+}
+
+/// The most a window `base` can still grow on the work area `work` ([`grown`]).
+pub fn growth_room(base: Rect, work: Rect) -> i32 {
+    (work.h - 2 * EDGE - base.h).max(0)
 }
 
 /// The window resized at the grip from its free corner: the anchored edges
@@ -972,7 +1016,7 @@ fn literal_false(paths: &Paths, key: &str) -> bool {
     paths.settings().iter().any(|(k, v)| k == key && *v == Value::Bool(false))
 }
 
-/// The nine shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
+/// The twelve shortcuts of the overlay in the order they came. A later one never takes the key of an earlier one: one
 /// press would do both (5.2.1: the overlay and the picture of the game on Alt+Umschalt+B).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shortcut {
@@ -990,10 +1034,16 @@ pub enum Shortcut {
     UnitStock,
     /// Switches Anti-AFK on and off, as a click on its button in the bar does. No default key.
     AntiAfk,
+    /// Switches the signature scanner on and off, as the eye in the bar does. No default key.
+    Scanner,
+    /// Clears the rows of the overlay, as the eraser in the bar does; the blueprints stay. No default key.
+    Clear,
+    /// Opens the teaching of the signature scanner, as its button in the bar does. No default key.
+    Learn,
 }
 
 /// How many shortcuts there are.
-pub const SHORTCUTS: usize = 9;
+pub const SHORTCUTS: usize = 12;
 
 impl Shortcut {
     pub const ALL: [Shortcut; SHORTCUTS] = [
@@ -1006,6 +1056,9 @@ impl Shortcut {
         Shortcut::Stock,
         Shortcut::UnitStock,
         Shortcut::AntiAfk,
+        Shortcut::Scanner,
+        Shortcut::Clear,
+        Shortcut::Learn,
     ];
 
     /// Its name in the start trail, where it holds the key another one wanted.
@@ -1020,6 +1073,9 @@ impl Shortcut {
             Shortcut::Stock => "Lager-Hotkey",
             Shortcut::UnitStock => "Staffellager-Hotkey",
             Shortcut::AntiAfk => "Anti-AFK-Hotkey",
+            Shortcut::Scanner => "Scanner-Hotkey",
+            Shortcut::Clear => "Leeren-Hotkey",
+            Shortcut::Learn => "Anlern-Hotkey",
         }
     }
 
@@ -1036,6 +1092,9 @@ impl Shortcut {
             Shortcut::Stock => "s_hk_kurz_lager",
             Shortcut::UnitStock => "s_hk_kurz_staffellager",
             Shortcut::AntiAfk => "s_hk_kurz_antiafk",
+            Shortcut::Scanner => "s_hk_kurz_scanner",
+            Shortcut::Clear => "s_hk_kurz_leeren",
+            Shortcut::Learn => "s_hk_kurz_anlernen",
         }
     }
 
@@ -1051,6 +1110,9 @@ impl Shortcut {
             Shortcut::Stock => (keys::HOTKEY_STOCK, DEFAULT_STOCK_HOTKEY, keys::HOTKEY_STOCK_ON),
             Shortcut::UnitStock => (keys::HOTKEY_UNIT_STOCK, DEFAULT_UNIT_STOCK_HOTKEY, keys::HOTKEY_UNIT_STOCK_ON),
             Shortcut::AntiAfk => (keys::HOTKEY_ANTI_AFK, DEFAULT_ANTI_AFK_HOTKEY, keys::HOTKEY_ANTI_AFK_ON),
+            Shortcut::Scanner => (keys::HOTKEY_SCANNER, DEFAULT_SCANNER_HOTKEY, keys::HOTKEY_SCANNER_ON),
+            Shortcut::Clear => (keys::HOTKEY_CLEAR, DEFAULT_CLEAR_HOTKEY, keys::HOTKEY_CLEAR_ON),
+            Shortcut::Learn => (keys::HOTKEY_LEARN, DEFAULT_LEARN_HOTKEY, keys::HOTKEY_LEARN_ON),
         }
     }
 }
@@ -1093,6 +1155,11 @@ impl HotkeyChoice {
             blueprint,
             // Anti-AFK presses keys only where the system can do it (Windows).
             crate::anti_afk::supported(),
+            // The signature scanner reads the screen: only where that works.
+            crate::screen_grab::supported(),
+            true,
+            // The teaching shows pictures of the scanner: only where the screen can be read.
+            crate::screen_grab::supported(),
         ];
         let read = Shortcut::ALL.map(|shortcut| {
             let (key, default, switch) = shortcut.setting();
@@ -1152,20 +1219,40 @@ impl HotkeyChoice {
 
     /// The hotkey of the stock scan into the own stock, [`DEFAULT_STOCK_HOTKEY`] where none is set.
     pub fn read_stock(paths: &Paths) -> HotkeyChoice {
-        let [.., stock, _, _] = HotkeyChoice::read_all(paths);
+        let [.., stock, _, _, _, _, _] = HotkeyChoice::read_all(paths);
         stock
     }
 
     /// The hotkey of the stock scan into the stock of the unit, [`DEFAULT_UNIT_STOCK_HOTKEY`] where none is set.
     pub fn read_unit_stock(paths: &Paths) -> HotkeyChoice {
-        let [.., unit_stock, _] = HotkeyChoice::read_all(paths);
+        let [.., unit_stock, _, _, _, _] = HotkeyChoice::read_all(paths);
         unit_stock
     }
 
     /// The hotkey that switches Anti-AFK on and off: [`HotkeyChoice::Off`] where none is set (it has no default).
     pub fn read_anti_afk(paths: &Paths) -> HotkeyChoice {
-        let [.., anti_afk] = HotkeyChoice::read_all(paths);
+        let [.., anti_afk, _, _, _] = HotkeyChoice::read_all(paths);
         anti_afk
+    }
+
+    /// The hotkey that switches the signature scanner on and off: [`HotkeyChoice::Off`] where none is set (it has no
+    /// default).
+    pub fn read_scanner(paths: &Paths) -> HotkeyChoice {
+        let [.., scanner, _, _] = HotkeyChoice::read_all(paths);
+        scanner
+    }
+
+    /// The hotkey that clears the rows of the overlay: [`HotkeyChoice::Off`] where none is set (it has no default).
+    pub fn read_clear(paths: &Paths) -> HotkeyChoice {
+        let [.., clear, _] = HotkeyChoice::read_all(paths);
+        clear
+    }
+
+    /// The hotkey that opens the teaching of the signature scanner: [`HotkeyChoice::Off`] where none is set (it has
+    /// no default).
+    pub fn read_learn(paths: &Paths) -> HotkeyChoice {
+        let [.., learn] = HotkeyChoice::read_all(paths);
+        learn
     }
 
     /// The combination that is registered; none where it is off, wrong or taken.
@@ -1270,6 +1357,24 @@ pub fn anti_afk_hotkey_on(paths: &Paths) -> bool {
     !literal_false(paths, keys::HOTKEY_ANTI_AFK_ON)
 }
 
+/// Whether the hotkey of the signature scanner is to be registered: off only by a literal `false`
+/// (`hotkey_scanner_an`). Without a key set ([`keys::HOTKEY_SCANNER`]) it holds nothing either way.
+pub fn scanner_hotkey_on(paths: &Paths) -> bool {
+    !literal_false(paths, keys::HOTKEY_SCANNER_ON)
+}
+
+/// Whether the hotkey that clears the rows of the overlay is to be registered: off only by a literal `false`
+/// (`hotkey_leeren_an`). Without a key set ([`keys::HOTKEY_CLEAR`]) it holds nothing either way.
+pub fn clear_hotkey_on(paths: &Paths) -> bool {
+    !literal_false(paths, keys::HOTKEY_CLEAR_ON)
+}
+
+/// Whether the hotkey that opens the teaching of the signature scanner is to be registered: off only by a literal
+/// `false` (`hotkey_anlernen_an`). Without a key set ([`keys::HOTKEY_LEARN`]) it holds nothing either way.
+pub fn learn_hotkey_on(paths: &Paths) -> bool {
+    !literal_false(paths, keys::HOTKEY_LEARN_ON)
+}
+
 /// Whether the player books as a logistician of the unit (`basetool_staffellager_buchen`): only then the stock of
 /// the unit takes a scan.
 pub fn is_logistician(paths: &Paths) -> bool {
@@ -1329,6 +1434,31 @@ pub fn anti_afk_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), Strin
     trail_line(name, choice, registered)
 }
 
+/// The line of the start trail about the hotkey of the signature scanner: where the screen cannot be read it says so
+/// and registers nothing; else as the others.
+pub fn scanner_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    let name = Shortcut::Scanner.trail_name();
+    if !crate::screen_grab::supported() {
+        return format!("{name}: entfaellt (der Scanner liest hier keinen Bildschirm)");
+    }
+    trail_line(name, choice, registered)
+}
+
+/// The line of the start trail about the hotkey that clears the rows of the overlay, in the way of [`hotkey_trail`].
+pub fn clear_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    trail_line(Shortcut::Clear.trail_name(), choice, registered)
+}
+
+/// The line of the start trail about the hotkey that opens the teaching of the signature scanner: where the screen
+/// cannot be read it says so and registers nothing; else as the others.
+pub fn learn_hotkey_trail(choice: &HotkeyChoice, registered: Result<(), String>) -> String {
+    let name = Shortcut::Learn.trail_name();
+    if !crate::screen_grab::supported() {
+        return format!("{name}: entfaellt (der Scanner liest hier keinen Bildschirm)");
+    }
+    trail_line(name, choice, registered)
+}
+
 /// The lines of the start trail about the hotkeys, as 4.12 writes them (`hotkey_anmelden`, `hotkey_scan_anmelden`):
 /// each hotkey with what came of its registration (`registered`, the reason where the system did not take it).
 /// `scan` is `None` where the refinery scan cannot read at all: then 4.12 says nothing of it.
@@ -1381,6 +1511,12 @@ pub struct Settings {
     pub unit_stock_hotkey: Option<Hotkey>,
     /// The hotkey that switches Anti-AFK on and off; none until the player sets one.
     pub anti_afk_hotkey: Option<Hotkey>,
+    /// The hotkey that switches the signature scanner on and off; none until the player sets one.
+    pub scanner_hotkey: Option<Hotkey>,
+    /// The hotkey that clears the rows of the overlay; none until the player sets one.
+    pub clear_hotkey: Option<Hotkey>,
+    /// The hotkey that opens the teaching of the signature scanner; none until the player sets one.
+    pub learn_hotkey: Option<Hotkey>,
     pub layout: Layout,
     pub sound: bool,
     /// The volume of every sound in percent.
@@ -1449,6 +1585,9 @@ impl Default for Settings {
             stock_hotkey: Hotkey::parse(DEFAULT_STOCK_HOTKEY),
             unit_stock_hotkey: Hotkey::parse(DEFAULT_UNIT_STOCK_HOTKEY),
             anti_afk_hotkey: None,
+            scanner_hotkey: None,
+            clear_hotkey: None,
+            learn_hotkey: None,
             layout: Layout::default(),
             sound: true,
             volume: crate::sound::VOLUME_DEFAULT,
@@ -1502,6 +1641,9 @@ impl Settings {
             stock_hotkey,
             unit_stock_hotkey,
             anti_afk_hotkey,
+            scanner_hotkey,
+            clear_hotkey,
+            learn_hotkey,
         ] = HotkeyChoice::read_all(paths).map(|c| c.hotkey());
         // The overlay follows the clock of the main window the next time it reads its settings.
         crate::formats::apply_clock(paths);
@@ -1518,6 +1660,9 @@ impl Settings {
             stock_hotkey,
             unit_stock_hotkey,
             anti_afk_hotkey,
+            scanner_hotkey,
+            clear_hotkey,
+            learn_hotkey,
             layout: Layout {
                 corner: Corner::from_setting(corner.as_deref()),
                 bar: BarSide::from_settings(bar.as_deref(), corner.as_deref()),
@@ -1941,6 +2086,41 @@ mod tests {
 
     fn layout(corner: Corner, bar: BarSide) -> Layout {
         Layout { corner, bar }
+    }
+
+    /// A small screen (1366×768, the task bar below): the window grows away from its anchored edge, stays on the
+    /// work area, moves where the free side has no room and never grows past the work area.
+    #[test]
+    fn the_window_grows_for_the_contracts_away_from_its_anchor_and_stays_on_the_work_area() {
+        let work = Rect::new(0, 0, 1366, 728);
+        let top = layout(Corner::Free, BarSide::Top);
+        let bottom = layout(Corner::BottomRight, BarSide::Bottom);
+        // At the top: downwards.
+        let base = Rect::new(100, 20, 420, 300);
+        assert_eq!(grown(top, base, 200, work), Rect::new(100, 20, 420, 500));
+        // At the bottom: upwards, the bottom edge stays.
+        let base = Rect::new(900, 420, 420, 300);
+        let r = grown(bottom, base, 200, work);
+        assert_eq!((r.y, r.h, r.bottom()), (220, 500, base.bottom()));
+        // Anchored at the top but standing low: it moves up instead of leaving the screen.
+        let base = Rect::new(100, 400, 420, 300);
+        let r = grown(top, base, 200, work);
+        assert_eq!((r.h, r.bottom()), (500, work.bottom()));
+        // More than the screen holds: as high as the work area less the gaps, wholly on it.
+        for (l, base) in [(top, Rect::new(100, 20, 420, 300)), (bottom, Rect::new(900, 420, 420, 300))] {
+            let r = grown(l, base, 5000, work);
+            assert_eq!(r.h, work.h - 2 * EDGE, "{l:?}");
+            assert!(work.holds(r), "{l:?}: {r:?}");
+            assert_eq!((r.x, r.w), (base.x, base.w), "the width stays");
+        }
+        // Nothing to grow and a window that already fills the screen: no change.
+        let base = Rect::new(100, 20, 420, 300);
+        assert_eq!(grown(top, base, 0, work), base);
+        assert_eq!(grown(top, base, -50, work), base);
+        let full = Rect::new(0, 0, 420, 728);
+        assert_eq!(grown(top, full, 100, work), full);
+        assert_eq!(growth_room(base, work), 728 - 16 - 300);
+        assert_eq!(growth_room(full, work), 0);
     }
 
     #[test]
@@ -2615,7 +2795,7 @@ mod tests {
         assert_eq!(Shortcut::AntiAfk.trail_name(), "Anti-AFK-Hotkey");
         assert_eq!(Shortcut::AntiAfk.short_key(), "s_hk_kurz_antiafk");
         assert_eq!(Shortcut::ALL.len(), SHORTCUTS);
-        assert_eq!(Shortcut::ALL[SHORTCUTS - 1], Shortcut::AntiAfk);
+        assert_eq!(Shortcut::ALL[SHORTCUTS - 4], Shortcut::AntiAfk);
         // A key the player set: registered, and the trail says so (where the system can press keys).
         paths.set_setting(keys::HOTKEY_ANTI_AFK, Value::str("Alt+F9"));
         let h = Hotkey::parse("Alt+F9").unwrap();
@@ -2653,6 +2833,135 @@ mod tests {
         let main = Hotkey::parse(DEFAULT_MAIN_HOTKEY).unwrap();
         assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Taken(main, Shortcut::Main));
         assert_eq!(HotkeyChoice::read_main(&paths), HotkeyChoice::Combination(main));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The hotkey that switches the signature scanner has no default key either: without one set it holds nothing,
+    /// a literal `false` switches it off, a key the player set is read like the others (F22 by itself too, as the
+    /// Stream Deck sends it), and a key another shortcut holds is never given up for it. Its own reading is the last
+    /// of all: the others keep their places.
+    #[test]
+    fn the_hotkey_of_the_scanner_has_no_default_and_holds_only_a_key_the_player_set() {
+        let (paths, dir) = events_paths("scanner-taste");
+        assert_eq!(HotkeyChoice::read_scanner(&paths), HotkeyChoice::Off, "no default key");
+        assert_eq!(Settings::read(&paths).scanner_hotkey, None);
+        assert_eq!(Settings::default().scanner_hotkey, None);
+        assert!(DEFAULT_SCANNER_HOTKEY.is_empty());
+        paths.set_setting(keys::HOTKEY_SCANNER_ON, Value::Bool(true));
+        assert_eq!(HotkeyChoice::read_scanner(&paths), HotkeyChoice::Off, "on, but without a key");
+        assert_eq!(Shortcut::Scanner.trail_name(), "Scanner-Hotkey");
+        assert_eq!(Shortcut::Scanner.short_key(), "s_hk_kurz_scanner");
+        assert_eq!(Shortcut::ALL[SHORTCUTS - 3], Shortcut::Scanner);
+        // F22 without a modifier, as the key of the Stream Deck sends it.
+        paths.set_setting(keys::HOTKEY_SCANNER, Value::str("F22"));
+        let f22 = Hotkey::parse("F22").expect("F22 is a hotkey by itself");
+        assert_eq!(HotkeyChoice::read_scanner(&paths), HotkeyChoice::Combination(f22));
+        assert!(scanner_hotkey_on(&paths));
+        let trail = scanner_hotkey_trail(&HotkeyChoice::read_scanner(&paths), Ok(()));
+        if crate::screen_grab::supported() {
+            assert_eq!(Settings::read(&paths).scanner_hotkey, Some(f22));
+            assert_eq!(trail, "Scanner-Hotkey: F22 angemeldet (ok)");
+        } else {
+            assert_eq!(trail, "Scanner-Hotkey: entfaellt (der Scanner liest hier keinen Bildschirm)");
+        }
+        // The shortcuts before it keep their places in the reading.
+        paths.set_setting(keys::HOTKEY_ANTI_AFK, Value::str("Alt+F9"));
+        let alt_f9 = Hotkey::parse("Alt+F9").unwrap();
+        assert_eq!(HotkeyChoice::read_anti_afk(&paths), HotkeyChoice::Combination(alt_f9));
+        assert_eq!(HotkeyChoice::read_scanner(&paths), HotkeyChoice::Combination(f22));
+        assert_eq!(HotkeyChoice::read_stock(&paths).combination(), Hotkey::parse(DEFAULT_STOCK_HOTKEY));
+        assert_eq!(HotkeyChoice::read_unit_stock(&paths).combination(), Hotkey::parse(DEFAULT_UNIT_STOCK_HOTKEY));
+        // Switched off by a literal `false`: it holds nothing, the key stays in the settings.
+        paths.set_setting(keys::HOTKEY_SCANNER_ON, Value::Bool(false));
+        assert!(!scanner_hotkey_on(&paths));
+        assert_eq!(HotkeyChoice::read_scanner(&paths), HotkeyChoice::Off);
+        assert_eq!(Settings::read(&paths).scanner_hotkey, None);
+        paths.set_setting(keys::HOTKEY_SCANNER_ON, Value::Bool(true));
+        // The key of Anti-AFK: taken by the earlier one, never moved.
+        paths.set_setting(keys::HOTKEY_SCANNER, Value::str("Alt+F9"));
+        if crate::anti_afk::supported() && crate::screen_grab::supported() {
+            assert_eq!(HotkeyChoice::read_scanner(&paths), HotkeyChoice::Taken(alt_f9, Shortcut::AntiAfk));
+            assert_eq!(Settings::read(&paths).scanner_hotkey, None);
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The hotkey that clears the rows of the overlay has no default key either: without one set it holds nothing,
+    /// a literal `false` switches it off, F23 by itself is read as the Stream Deck sends it, and a key an earlier
+    /// shortcut holds is never given up for it. Its own reading is the last of all: the others keep their places.
+    #[test]
+    fn the_hotkey_that_clears_the_overlay_has_no_default_and_holds_only_a_key_the_player_set() {
+        let (paths, dir) = events_paths("leeren-taste");
+        assert_eq!(HotkeyChoice::read_clear(&paths), HotkeyChoice::Off, "no default key");
+        assert_eq!(Settings::read(&paths).clear_hotkey, None);
+        assert_eq!(Settings::default().clear_hotkey, None);
+        assert!(DEFAULT_CLEAR_HOTKEY.is_empty());
+        paths.set_setting(keys::HOTKEY_CLEAR_ON, Value::Bool(true));
+        assert_eq!(HotkeyChoice::read_clear(&paths), HotkeyChoice::Off, "on, but without a key");
+        assert_eq!(Shortcut::Clear.trail_name(), "Leeren-Hotkey");
+        assert_eq!(Shortcut::Clear.short_key(), "s_hk_kurz_leeren");
+        assert_eq!(Shortcut::ALL[SHORTCUTS - 2], Shortcut::Clear);
+        paths.set_setting(keys::HOTKEY_CLEAR, Value::str("F23"));
+        let f23 = Hotkey::parse("F23").expect("F23 is a hotkey by itself");
+        assert_eq!(HotkeyChoice::read_clear(&paths), HotkeyChoice::Combination(f23));
+        assert_eq!(Settings::read(&paths).clear_hotkey, Some(f23));
+        assert!(clear_hotkey_on(&paths));
+        let trail = clear_hotkey_trail(&HotkeyChoice::read_clear(&paths), Ok(()));
+        assert_eq!(trail, "Leeren-Hotkey: F23 angemeldet (ok)");
+        // The shortcuts before it keep their places in the reading.
+        paths.set_setting(keys::HOTKEY_SCANNER, Value::str("F22"));
+        let f22 = Hotkey::parse("F22").unwrap();
+        assert_eq!(HotkeyChoice::read_scanner(&paths), HotkeyChoice::Combination(f22));
+        assert_eq!(HotkeyChoice::read_clear(&paths), HotkeyChoice::Combination(f23));
+        assert_eq!(HotkeyChoice::read_stock(&paths).combination(), Hotkey::parse(DEFAULT_STOCK_HOTKEY));
+        // Switched off by a literal `false`: it holds nothing, the key stays in the settings.
+        paths.set_setting(keys::HOTKEY_CLEAR_ON, Value::Bool(false));
+        assert!(!clear_hotkey_on(&paths));
+        assert_eq!(HotkeyChoice::read_clear(&paths), HotkeyChoice::Off);
+        assert_eq!(Settings::read(&paths).clear_hotkey, None);
+        paths.set_setting(keys::HOTKEY_CLEAR_ON, Value::Bool(true));
+        // The key of the overlay: taken by the earlier one, never moved.
+        let overlay = Hotkey::parse(DEFAULT_HOTKEY).unwrap();
+        paths.set_setting(keys::HOTKEY_CLEAR, Value::str(DEFAULT_HOTKEY));
+        assert_eq!(HotkeyChoice::read_clear(&paths), HotkeyChoice::Taken(overlay, Shortcut::Overlay));
+        assert_eq!(Settings::read(&paths).clear_hotkey, None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The hotkey that opens the teaching of the scanner has no default key either: without one set it holds nothing,
+    /// a literal `false` switches it off, F24 by itself is read as the Stream Deck sends it, and the shortcuts before
+    /// it keep their places. It is registered only where the screen can be read, as the scanner.
+    #[test]
+    fn the_hotkey_of_the_teaching_has_no_default_and_holds_only_a_key_the_player_set() {
+        let (paths, dir) = events_paths("anlernen-taste");
+        assert_eq!(HotkeyChoice::read_learn(&paths), HotkeyChoice::Off, "no default key");
+        assert_eq!(Settings::read(&paths).learn_hotkey, None);
+        assert_eq!(Settings::default().learn_hotkey, None);
+        assert!(DEFAULT_LEARN_HOTKEY.is_empty());
+        assert_eq!(Shortcut::Learn.trail_name(), "Anlern-Hotkey");
+        assert_eq!(Shortcut::Learn.short_key(), "s_hk_kurz_anlernen");
+        assert_eq!(Shortcut::ALL[SHORTCUTS - 1], Shortcut::Learn);
+        paths.set_setting(keys::HOTKEY_LEARN, Value::str("F24"));
+        let f24 = Hotkey::parse("F24").expect("F24 is a hotkey by itself");
+        assert_eq!(HotkeyChoice::read_learn(&paths), HotkeyChoice::Combination(f24));
+        assert_eq!(Settings::read(&paths).learn_hotkey, Some(f24));
+        assert!(learn_hotkey_on(&paths));
+        let trail = learn_hotkey_trail(&HotkeyChoice::read_learn(&paths), Ok(()));
+        if crate::screen_grab::supported() {
+            assert_eq!(trail, "Anlern-Hotkey: F24 angemeldet (ok)");
+        } else {
+            assert_eq!(trail, "Anlern-Hotkey: entfaellt (der Scanner liest hier keinen Bildschirm)");
+        }
+        // The shortcuts before it keep their places in the reading.
+        paths.set_setting(keys::HOTKEY_CLEAR, Value::str("F23"));
+        let f23 = Hotkey::parse("F23").unwrap();
+        assert_eq!(HotkeyChoice::read_clear(&paths), HotkeyChoice::Combination(f23));
+        assert_eq!(HotkeyChoice::read_learn(&paths), HotkeyChoice::Combination(f24));
+        // Switched off by a literal `false`: it holds nothing.
+        paths.set_setting(keys::HOTKEY_LEARN_ON, Value::Bool(false));
+        assert!(!learn_hotkey_on(&paths));
+        assert_eq!(HotkeyChoice::read_learn(&paths), HotkeyChoice::Off);
+        assert_eq!(Settings::read(&paths).learn_hotkey, None);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2738,7 +3047,7 @@ mod tests {
         read[1] = (HotkeyChoice::Combination(f9), false);
         read[2] = (HotkeyChoice::Combination(f9), false);
         assert_eq!(resolve(read.clone(), [true; SHORTCUTS])[2], HotkeyChoice::Taken(f9, Shortcut::Scan));
-        assert_eq!(resolve(read, [true, false, true, true, true, true, true, true, true])[2], HotkeyChoice::Combination(f9));
+        assert_eq!(resolve(read, [true, false, true, true, true, true, true, true, true, true, true, true])[2], HotkeyChoice::Combination(f9));
         let spares: Vec<Hotkey> = SPARE_HOTKEYS.iter().filter_map(|s| Hotkey::parse(s)).collect();
         assert_eq!(spares.len(), SPARE_HOTKEYS.len());
         assert!(fresh.iter().filter_map(HotkeyChoice::hotkey).all(|h| !spares.contains(&h)));

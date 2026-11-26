@@ -35,10 +35,34 @@ use crate::text::py_strip;
 
 static STOCK_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+thread_local! {
+    static HELD_HERE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The lock of the stock files; it is given back when this is dropped.
+pub struct StockGuard {
+    _guard: std::sync::MutexGuard<'static, ()>,
+}
+
+impl Drop for StockGuard {
+    fn drop(&mut self) {
+        HELD_HERE.with(|held| held.set(false));
+    }
+}
+
 /// Hold while reading, changing and writing the stock files as one step: the page and the sync write
-/// them from different threads. Not to be taken twice in one thread.
-pub fn lock() -> std::sync::MutexGuard<'static, ()> {
-    STOCK_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+/// them from different threads. Taken before [`jsonio::lock_saves`], never after it: the sync holds this
+/// lock while it saves. Not to be taken twice in one thread: that would wait for ever, so it panics.
+pub fn lock() -> StockGuard {
+    assert!(!HELD_HERE.with(std::cell::Cell::get), "stock::lock taken twice in one thread");
+    let guard = STOCK_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    HELD_HERE.with(|held| held.set(true));
+    StockGuard { _guard: guard }
+}
+
+/// Whether this thread holds the lock of the stock files.
+pub fn held_here() -> bool {
+    HELD_HERE.with(std::cell::Cell::get)
 }
 
 pub const RAW_FILE: &str = "rohstoffe.json";

@@ -2842,7 +2842,7 @@ mod tests {
         ];
         for (language, line) in lines {
             set_thread_language(language);
-            for width in [260.0, 380.0, 640.0, 900.0, 1300.0] {
+            for width in crate::test_pick(&[260.0, 380.0, 640.0, 900.0, 1300.0]) {
                 let mut page = with_limits("grenzen", Some(both));
                 let shown = frame_rects(&mut page, width);
                 let (_, rect) = shown

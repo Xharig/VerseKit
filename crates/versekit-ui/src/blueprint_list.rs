@@ -2385,13 +2385,10 @@ mod tests {
         println!("Liste bereit nach {loaded:?}, erstes Bild nach {first:?}, im Bau: {}", data.is_building());
         assert!(data.is_building(), "the build had not ended at the first frame");
         assert!(first < Duration::from_millis(100), "erstes Bild nach {first:?}");
-        for _ in 0..3000 {
+        crate::wait_for(|| {
             frame(&ctx, &mut data, &mut state);
-            if !data.is_building() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
+            !data.is_building()
+        });
         let visible = waited.blueprints.iter().filter(|b| !(data.hide_no_way && b.no_way)).count();
         assert!(!data.is_building() && data.catalog.blueprints.len() == visible);
         let _ = std::fs::remove_dir_all(&scratch);
@@ -2948,13 +2945,10 @@ mod tests {
         crate::install(&ctx);
         let mut state = ListState::default();
         assert_eq!(data.catalog, built);
-        for _ in 0..1000 {
+        crate::wait_for(|| {
             frame(&ctx, &mut data, &mut state);
-            if !data.is_building() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            !data.is_building()
+        });
         assert!(!data.is_building(), "the build of an unreadable archive ends");
         assert_eq!(data.catalog, built, "and leaves the list as it was");
     }
@@ -2984,13 +2978,10 @@ mod tests {
         assert!(texts.iter().any(|t| *t == t_de("kat_baut")), "{texts:?}");
         assert!(!texts.iter().any(|t| *t == t_de("kein_katalog")), "{texts:?}");
         go.send(()).unwrap();
-        for _ in 0..1000 {
+        crate::wait_for(|| {
             frame(&ctx, &mut data, &mut state);
-            if !data.is_building() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            !data.is_building()
+        });
         assert_eq!(data.catalog, new);
         assert!(ListData::load_from(&paths, None, None).is_none(), "nothing to show and nothing coming: no list");
     }
@@ -3160,13 +3151,10 @@ mod tests {
         assert!(texts.iter().any(|t| *t == format!("Alpha Rifle · {mark}")), "{texts:?}");
         // The catalog comes: the list is the list, the names are no longer put aside.
         go.send(()).unwrap();
-        for _ in 0..1000 {
+        crate::wait_for(|| {
             frame(&ctx, &mut data, &mut state);
-            if !data.is_building() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            !data.is_building()
+        });
         let texts = frame(&ctx, &mut data, &mut state);
         assert!(!texts.iter().any(|t| *t == format!("Alpha Rifle · {mark}")), "{texts:?}");
         // A collection without a name shows nothing of this.
@@ -3190,23 +3178,20 @@ mod tests {
         let stale = sample_catalog();
         let mut data = ListData::load_from(&paths, Some(stale.clone()), Pending::spawn(|| None)).unwrap();
         let mut state = ListState::default();
-        for _ in 0..1000 {
+        crate::wait_for(|| {
             frame(&ctx, &mut data, &mut state);
-            if !data.is_building() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            !data.is_building()
+        });
         assert!(!data.is_building() && data.catalog == stale);
 
         let mut empty = ListData::load_from(&paths, None, Pending::spawn(|| None)).unwrap();
-        for _ in 0..1000 {
+        crate::wait_for(|| {
             if !empty.is_building() {
-                break;
+                return true;
             }
             frame(&ctx, &mut empty, &mut state);
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            false
+        });
         let texts = frame(&ctx, &mut empty, &mut state);
         assert!(texts.iter().any(|t| *t == t_de("kein_katalog")), "{texts:?}");
     }
@@ -3271,13 +3256,10 @@ mod tests {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         let mut state = ListState::default();
-        for _ in 0..1000 {
+        crate::wait_for(|| {
             frame(&ctx, &mut data, &mut state);
-            if !data.is_building() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            !data.is_building()
+        });
         assert!(!data.is_building(), "the build of the unreadable archive ended without a catalog");
         let ended = ctx.input(|i| i.time);
         assert!(!data.follow_catalog(ended + CATALOG_LOOK, &mut state));

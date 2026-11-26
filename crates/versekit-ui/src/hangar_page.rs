@@ -3690,13 +3690,10 @@ mod tests {
         let (labels, _, _) = frame(&ctx, &mut state, Vec::new());
         assert!(labels.iter().any(|(_, l)| l == &t("s_as_gemerkt")), "{labels:?}");
         std::thread::sleep(WRITE_WAIT);
-        for _ in 0..200 {
+        crate::wait_for(|| {
             frame(&ctx, &mut state, Vec::new());
-            if writes.load(Ordering::SeqCst) == 1 && !state.names.writing() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            writes.load(Ordering::SeqCst) == 1 && !state.names.writing()
+        });
         assert_eq!(writes.load(Ordering::SeqCst), 1);
         assert_eq!(state.names.written().cloned(), Some((t("s_as_steht"), false)));
         let scheme = versekit_core::theme::current();
@@ -3718,13 +3715,10 @@ mod tests {
                 .expect("the button is there")
         };
         frame(&ctx, &mut state, click(button));
-        for _ in 0..200 {
+        crate::wait_for(|| {
             frame(&ctx, &mut state, Vec::new());
-            if writes.load(Ordering::SeqCst) == 2 {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            writes.load(Ordering::SeqCst) == 2
+        });
         assert_eq!(writes.load(Ordering::SeqCst), 2, "the button writes at once");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -4001,7 +3995,7 @@ mod tests {
         let table =
             ["vehicle_NameAEGS_Gladius=Gladius", "vehicle_NameAEGS_Idris=Idris", "vehicle_NameANVL_Carrack=Carrack"];
         let mut findings = Vec::new();
-        for scheme in versekit_core::theme::schemes() {
+        for scheme in crate::test_schemes() {
             for width in [380.0_f32, 900.0] {
                 let (mut state, _dir, _file) = names_page("karten", hangar_text, &table);
                 let ctx = egui::Context::default();

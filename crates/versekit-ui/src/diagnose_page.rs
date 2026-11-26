@@ -986,13 +986,10 @@ mod tests {
         assert!(transport.seen.lock().map(|s| s.is_empty()).unwrap_or(false), "the first click only asks");
         assert_eq!(state.notice().map(|n| n.0.clone()), Some(t("s_di_ohne_satz")));
         state.send(&ctx);
-        for _ in 0..200 {
+        crate::wait_for(|| {
             run_frame(&ctx, &mut state, Vec::new());
-            if !state.is_sending() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
+            !state.is_sending()
+        });
         assert_eq!(transport.seen.lock().map(|s| s.len()).unwrap_or(0), 1, "the second click sends");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -1079,13 +1076,10 @@ mod tests {
             state.consent = true;
             state.scan_consent = ticked;
             state.send(&ctx);
-            for _ in 0..200 {
+            crate::wait_for(|| {
                 run_frame(&ctx, &mut state, Vec::new());
-                if !state.is_sending() {
-                    break;
-                }
-                std::thread::sleep(Duration::from_millis(10));
-            }
+                !state.is_sending()
+            });
             let seen = transport.seen.lock().map(|s| s.clone()).unwrap_or_default();
             assert_eq!(seen.len(), 1);
             bodies.push(String::from_utf8_lossy(seen[0].body.as_deref().unwrap_or_default()).into_owned());

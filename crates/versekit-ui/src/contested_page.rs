@@ -1065,13 +1065,10 @@ mod tests {
         assert_eq!(state.start(), None);
         state.enter();
         let ctx = context();
-        for _ in 0..400 {
+        crate::wait_for(|| {
             state.tick(&ctx);
-            if state.start().is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            state.start().is_some()
+        });
         assert_eq!(state.start(), Some(1_792_860_059));
         assert_eq!(contested::load(&paths).site, Some(1_792_860_059), "kept in the data folder");
         // Entered again at once: not asked again, and a new window reads what is kept.
@@ -1097,13 +1094,10 @@ mod tests {
         let mut state = ContestedState::with_net(&paths, Some(down.clone()));
         state.enter();
         let ctx = context();
-        for _ in 0..400 {
+        crate::wait_for(|| {
             state.tick(&ctx);
-            if state.job.is_none() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            state.job.is_none()
+        });
         assert!(state.failed && state.start().is_none());
         // A visit right after a failed one does not try again.
         state.enter();

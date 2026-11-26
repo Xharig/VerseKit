@@ -175,13 +175,13 @@ impl SamplePage {
 /// Draws until the text is there: the chains run beside the page.
 fn wait_for(page: &mut SamplePage, key: &str, part: &str) -> (f32, Vec<(String, Pos2)>) {
     let mut last = look(page, key, 1280.0);
-    for _ in 0..80 {
+    crate::wait_for(|| {
         if shows(&last.1, part) {
-            break;
+            return true;
         }
-        std::thread::sleep(std::time::Duration::from_millis(25));
         last = look(page, key, 1280.0);
-    }
+        false
+    });
     last
 }
 
@@ -382,7 +382,7 @@ fn the_lists_of_the_trade_pages_hold_long_names_at_every_size() {
     page.shops_pick("Arctic");
     page.selling_take_from_stock();
     let mut findings = Vec::new();
-    for scheme in versekit_core::theme::schemes() {
+    for scheme in crate::test_schemes() {
         versekit_core::theme::set_thread_current(scheme.id);
         for points in crate::test_sizes() {
             page.size = points;

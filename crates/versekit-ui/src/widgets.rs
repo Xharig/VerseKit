@@ -4914,11 +4914,10 @@ mod tests {
         let (mut button, mut button_flagged, mut lead) = (0.0, 0.0, Vec2::ZERO);
         // The pictures are decoded next to the frames: frames until they are there (at most ten
         // seconds, the whole test suite may be running beside it).
-        for _ in 0..500 {
+        crate::wait_for(|| {
             if pictures >= 2 {
-                break;
+                return true;
             }
-            std::thread::sleep(std::time::Duration::from_millis(20));
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 plain = radio(ui, s, true, "Deutsch").rect.width();
                 flagged = radio_flag(ui, s, true, "Deutsch", "de").rect.width();
@@ -4934,7 +4933,8 @@ mod tests {
                     !matches!(c.shape, egui::Shape::Text(_)) && c.shape.texture_id() != egui::TextureId::default()
                 })
                 .count();
-        }
+            false
+        });
         assert!((flagged - plain - lead.x - 6.0).abs() < 0.5, "{plain} {flagged} {lead:?}");
         assert!((button_flagged - button - lead.x - 6.0).abs() < 0.5, "{button} {button_flagged} {lead:?}");
         assert!(pictures >= 2, "both flags are drawn: {pictures}");

@@ -590,13 +590,13 @@ mod tests {
         /// Frames until `done`, at most five seconds (the logs are read in a thread).
         fn until(&mut self, done: impl Fn(&Texts) -> bool) -> Texts {
             let mut texts = self.settle();
-            for _ in 0..100 {
+            crate::wait_for(|| {
                 if done(&texts) {
-                    break;
+                    return true;
                 }
-                std::thread::sleep(std::time::Duration::from_millis(50));
                 texts = self.settle();
-            }
+                false
+            });
             texts
         }
 
@@ -762,41 +762,32 @@ mod tests {
         let mut bench = Bench::new(home, paths);
         bench.click(&t("s_er_kat"));
         let mut said = None;
-        for _ in 0..100 {
+        crate::wait_for(|| {
             bench.settle();
-            said = bench.state.take_notice().or(said);
-            if said.is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
+            said = bench.state.take_notice().or(said.take());
+            said.is_some()
+        });
         // Three blueprints, one without a known way: off, two count.
         assert_eq!(said, Some(Said::note(tf("s_er_kat_da", &[("0", Arg::from(2i64))]))));
         assert!(detection::set_all_blueprints(&bench.paths, true));
         bench.state.build = built;
         bench.click(&t("s_er_kat"));
         let mut said = None;
-        for _ in 0..100 {
+        crate::wait_for(|| {
             bench.settle();
-            said = bench.state.take_notice().or(said);
-            if said.is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
+            said = bench.state.take_notice().or(said.take());
+            said.is_some()
+        });
         assert_eq!(said, Some(Said::note(tf("s_er_kat_da", &[("0", Arg::from(3i64))]))), "all: three");
         // A build that gives nothing is told as what it is, not as a success (4.12 always said "refreshed").
         bench.state.build = not_built;
         bench.click(&t("s_er_kat"));
         let mut said = None;
-        for _ in 0..100 {
+        crate::wait_for(|| {
             bench.settle();
-            said = bench.state.take_notice().or(said);
-            if said.is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
+            said = bench.state.take_notice().or(said.take());
+            said.is_some()
+        });
         assert_eq!(said, Some(Said::fault(t("s_er_kat_weg"))));
         let _ = std::fs::remove_dir_all(&bench.home);
     }

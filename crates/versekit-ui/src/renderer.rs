@@ -396,7 +396,7 @@ pub fn run_native(
         }
         app_creator(cc)
     });
-    match lost::LOSS.guard(|| eframe::run_native(app_name, options, watched)) {
+    match lost::after_run(lost::LOSS.guard(|| eframe::run_native(app_name, options, watched)), &lost::LOSS) {
         Ok(result) => result,
         Err(text) => lost::restart(&text).map_err(|error| {
             let version = env!("CARGO_PKG_VERSION");

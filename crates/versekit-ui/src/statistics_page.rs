@@ -149,7 +149,7 @@ impl Report {
         }
         let deals = deals_of(paths);
         let (contracts_done, contracts_paid) =
-            contracts_done(&log, &contract_rewards::Rewards::load(paths), now_seconds() as i64);
+            contracts_done(&log, &contract_rewards::Rewards::load_kept(paths), now_seconds() as i64);
         Report {
             contracts_paid,
             spending: deals.spending,
@@ -654,15 +654,15 @@ impl StatsState {
     /// Waits for the run on, for tests.
     #[cfg(test)]
     pub(crate) fn wait(&mut self) {
-        for _ in 0..400 {
+        let ended = crate::wait_for(|| {
             self.poll();
-            if !self.running() {
-                self.poll();
-                return;
+            if self.running() {
+                return false;
             }
-            std::thread::sleep(Duration::from_millis(25));
-        }
-        panic!("the run does not end");
+            self.poll();
+            true
+        });
+        assert!(ended, "the run does not end");
     }
 }
 
@@ -2329,8 +2329,8 @@ mod tests {
         let mut findings = Vec::new();
         for choice in [Choice::De, Choice::En] {
             set_thread_language(choice);
-            for scheme in theme::schemes() {
-                for width in [420.0, 640.0, 900.0, 1500.0] {
+            for scheme in crate::test_schemes() {
+                for width in crate::test_pick(&[420.0, 640.0, 900.0, 1500.0]) {
                     for page in [Page::Overview, Page::Ships, Page::Missions, Page::Quantum, Page::Stability] {
                         let (_, overflow) = draw_in(&mut state, page, width, scheme.id);
                         if overflow > 0.5 {

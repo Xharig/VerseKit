@@ -200,6 +200,12 @@ fn rounded(amount: f64, measure: Measure) -> f64 {
 /// replaced, never added to what lies there. A failed write is `Err`.
 pub fn set_own(paths: &Paths, item: &ScannedItem, place: &str, amount: Option<f64>) -> Result<Booked, String> {
     let _held = stock::lock();
+    set_own_held(paths, item, place, amount)
+}
+
+/// [`set_own`] for a caller that holds the lock of the stock files already.
+fn set_own_held(paths: &Paths, item: &ScannedItem, place: &str, amount: Option<f64>) -> Result<Booked, String> {
+    debug_assert!(stock::held_here(), "the lock of the stock files is held");
     let amount = amount.map(|a| rounded(a, item.measure)).filter(|a| *a > 0.0);
     // Goods with a quality lie in the material stock, everything else in the trade stock.
     let raw = item.measure == Measure::Scu && item.quality.is_some();
@@ -784,8 +790,15 @@ fn open_round(journal: &Journal, run: &Run<'_>, place: &str) -> Option<i64> {
 /// in the same round adds to it; the same tile again changes nothing. In the stock of the unit "the amount at the
 /// place" is what lies there in all lots, whoever booked them.
 fn book(run: &Run<'_>, item: ScannedItem, place: &str) -> Outcome {
-    let target = run.target;
+    // The stock files first, then the saves: the sync takes them in this order.
+    let _stock = stock::lock();
     let _lock = jsonio::lock_saves();
+    book_held(run, item, place)
+}
+
+/// [`book`] for a caller that holds the lock of the stock files and the saves already.
+fn book_held(run: &Run<'_>, item: ScannedItem, place: &str) -> Outcome {
+    let target = run.target;
     let mut journal = Journal::load(run.paths);
     let round = open_round(&journal, run, place);
     let before_in_round: Vec<&Scan> = journal
@@ -812,7 +825,7 @@ fn settle(run: &Run<'_>, journal: &mut Journal, pending: Pending, force: bool) -
     let target = run.target;
     let Pending { item, place, wanted, added, round } = pending;
     let set = match target {
-        Target::Own => set_own(run.paths, &item, &place, Some(wanted)).map_err(|error| {
+        Target::Own => set_own_held(run.paths, &item, &place, Some(wanted)).map_err(|error| {
             errors::record("stock_scan_book.eigen", &error);
             UnitError::Failed(error)
         }),
@@ -870,6 +883,7 @@ fn settle(run: &Run<'_>, journal: &mut Journal, pending: Pending, force: bool) -
 /// The player confirms the booking that waits at `index` (oldest first): it is made now, taking what is set aside
 /// for orders. `None` where there is no such confirmation.
 pub fn confirm_reserved(paths: &Paths, unit: Option<&dyn UnitStock>, index: usize, now: i64) -> Option<Outcome> {
+    let _stock = stock::lock();
     let _lock = jsonio::lock_saves();
     let mut journal = Journal::load(paths);
     if index >= journal.confirms.len() {
@@ -941,33 +955,49 @@ pub fn check(paths: &Paths, target: Target) -> Option<Outcome> {
     (target == Target::Unit && !crate::overlay::is_logistician(paths)).then_some(Outcome::NotLogistician)
 }
 
-/// The player picks an item of the question at `index` (oldest first), or none of them (`None`): the question is
-/// gone either way and the chosen item is booked as the reading would have been.
+/// The player picks an item of the question at `index` (oldest first), or none of them (`None`). The chosen item is
+/// booked as the reading would have been; the question goes only once the booking went through (or once none was
+/// picked): where the booking fails, the question stays open and nothing is lost.
 pub fn answer(paths: &Paths, unit: Option<&dyn UnitStock>, index: usize, chosen: Option<&str>, now: i64) -> Option<Outcome> {
-    let question = {
-        let _lock = jsonio::lock_saves();
-        let mut journal = Journal::load(paths);
-        if index >= journal.questions.len() {
-            return None;
-        }
-        let question = journal.questions.remove(index);
-        journal.save(paths);
-        question
+    // The stock files first, then the saves: the sync takes them in this order. Both are held until the question
+    // is gone, so nobody else changes the journal in between.
+    let _stock = stock::lock();
+    let _lock = jsonio::lock_saves();
+    let question = Journal::load(paths).questions.get(index).cloned()?;
+    let Some(name) = chosen else {
+        drop_question(paths, index, &question);
+        return None;
     };
-    let name = chosen?;
     // The tile of the question stays with the item, so the same tile is not counted twice later.
     let named = ScannedItem::new(name, question.item.quantity, question.item.measure, question.item.quality);
     let item = ScannedItem { tile_rect: question.item.tile_rect, tile_print: question.item.tile_print.clone(), ..named };
     let target = question.target;
-    if let Some(stopped) = check(paths, target) {
-        return Some(stopped);
+    let outcome = if let Some(stopped) = check(paths, target) {
+        stopped
+    } else if item.name.is_empty() || !(item.quantity.is_finite() && item.quantity > 0.0) {
+        Outcome::Nothing(target)
+    } else {
+        // The player picked: the pick books, the question is not asked again (goods without a quality included).
+        let context = Run { paths, target, place: Some(question.place.clone()), place_since: None, unit, now };
+        book_held(&context, item, &question.place)
+    };
+    let failed = matches!(
+        outcome,
+        Outcome::Failed(_) | Outcome::NoRight | Outcome::NotLogistician | Outcome::UnknownInUnit(_)
+    );
+    if !failed {
+        drop_question(paths, index, &question);
     }
-    if item.name.is_empty() || !(item.quantity.is_finite() && item.quantity > 0.0) {
-        return Some(Outcome::Nothing(target));
+    Some(outcome)
+}
+
+/// Takes the question at `index` out of the journal, if it is still `question`.
+fn drop_question(paths: &Paths, index: usize, question: &Question) {
+    let mut journal = Journal::load(paths);
+    if journal.questions.get(index) == Some(question) {
+        journal.questions.remove(index);
+        journal.save(paths);
     }
-    // The player picked: the pick books, the question is not asked again (goods without a quality included).
-    let context = Run { paths, target, place: Some(question.place.clone()), place_since: None, unit, now };
-    Some(book(&context, item, &question.place))
 }
 
 /// Drops every open question; nothing is booked.
@@ -1005,6 +1035,7 @@ pub fn undo_blocked(journal: &Journal, id: i64) -> Option<UndoError> {
 /// Takes scan `id` back: the amount at the place goes back to what it was before (the entry goes where there was
 /// none). In the stock of the unit that is a booking against it, so that stock must be writable.
 pub fn undo(paths: &Paths, unit: Option<&dyn UnitStock>, id: i64) -> Result<(), UndoError> {
+    let _stock = stock::lock();
     let _lock = jsonio::lock_saves();
     let mut journal = Journal::load(paths);
     if let Some(blocked) = undo_blocked(&journal, id) {
@@ -1013,7 +1044,7 @@ pub fn undo(paths: &Paths, unit: Option<&dyn UnitStock>, id: i64) -> Result<(), 
     let Some(scan) = journal.scans.iter().find(|s| s.id == id).cloned() else { return Err(UndoError::Gone) };
     match scan.target {
         Target::Own => {
-            set_own(paths, &scan.item, &scan.place, scan.before).map_err(|error| {
+            set_own_held(paths, &scan.item, &scan.place, scan.before).map_err(|error| {
                 errors::record("stock_scan_book.zurueck", &error);
                 UndoError::Failed
             })?;

@@ -36,7 +36,7 @@ use crate::contracts::{
     state_from_text, which_ended,
 };
 use crate::jsonio::{self, Newline, Value};
-use crate::language::{Phrase, tf};
+use crate::language::tf;
 use crate::logread;
 use crate::logscan::HandleScan;
 use crate::logsource::ContractScan;
@@ -212,6 +212,8 @@ pub struct Line {
     /// How many contracts of this title run (at least one): the game lets the same contract run twice, for
     /// example one accepted and one shared.
     pub count: usize,
+    /// Every blueprint of the contract is in the collection already (`3/3 · du hast alle`).
+    pub complete: bool,
 }
 
 /// How many contracts run over all lines of the bar.
@@ -347,6 +349,15 @@ pub struct Live {
     /// Set when the game ends: the silent ones go.
     pub clear_unclear: bool,
     objectives: Objectives,
+    /// The titles whose blueprints are all in the collection.
+    complete: HashSet<String>,
+}
+
+/// The line of a contract the catalog knows: for the bar, for the hint row, and whether every blueprint is had.
+struct Built {
+    bar: Message,
+    hint: Message,
+    complete: bool,
 }
 
 fn set_open(open: &mut Vec<(String, Message)>, title: &str, line: Message) {
@@ -385,6 +396,7 @@ impl Live {
                 goals: self.objectives.open_for(first.get(title.as_str()).copied()),
                 grey: self.unclear.contains(title),
                 count: self.missions.ids_of(title).len().max(1),
+                complete: self.complete.contains(title),
             })
             .collect()
     }
@@ -397,7 +409,10 @@ impl Live {
     ///
     /// ⚠ Unknown: only the title is left. That is no promise, only the name the
     /// game writes into the log. A made-up blueprint figure would be worse than none.
-    fn line_for(&self, check: &Check, title: &str, plain: &str) -> Option<Message> {
+    ///
+    /// The bar names the contract alone, its head says it was accepted; the hint row among the finds keeps
+    /// „Auftrag angenommen:“, there it is an event among others.
+    fn line_for(&self, check: &Check, title: &str, plain: &str) -> Option<Built> {
         let contract = self.contract_of.get(plain).map(String::as_str);
         let (total, missing) = check.blueprints.check(title, check.has, contract)?;
         // ⚠ The fraction is the answer, not the total: „23/54“ says whether
@@ -410,11 +425,22 @@ impl Live {
             [one] => tf("auftrag_fehlt", &[("0", have.into()), ("1", total.into()), ("2", one.as_str().into())]),
             _ => tf("auftrag_stand", &[("0", have.into()), ("1", total.into())]),
         };
-        Some(Message::Plain(tf("ov_a_zeile_mit", &[("0", head.into()), ("1", tail.into())])))
+        let with = |head: &str| Message::Plain(tf("ov_a_zeile_mit", &[("0", head.into()), ("1", tail.as_str().into())]));
+        Some(Built { bar: with(plain), hint: with(&head), complete: missing.is_empty() && total > 0 })
     }
 
     fn bare_line(plain: &str) -> Message {
-        Phrase::new("auftrag_zeile").with("0", plain).into()
+        Message::Plain(plain.to_string())
+    }
+
+    /// Sets the line of `title` and whether all its blueprints are had.
+    fn put(&mut self, title: &str, line: Message, complete: bool) {
+        set_open(&mut self.open, title, line);
+        if complete {
+            self.complete.insert(title.to_string());
+        } else {
+            self.complete.remove(title);
+        }
     }
 
     /// What is open according to the running Game.log, given as a whole text; the state only, no rows.
@@ -474,8 +500,10 @@ impl Live {
             // At the start nothing goes into the list of rows: only the state is set.
             self.seen.insert(plain.clone());
             self.line_source.insert(plain.clone(), self.contract_of.get(&plain).cloned());
-            let line = self.line_for(check, title, &plain).unwrap_or_else(|| Live::bare_line(&plain));
-            set_open(&mut self.open, &plain, line);
+            match self.line_for(check, title, &plain) {
+                Some(built) => self.put(&plain, built.bar, built.complete),
+                None => self.put(&plain, Live::bare_line(&plain), false),
+            }
         }
         self.silence_by(!log.is_empty(), &|ids| log.silence(ids), out);
         if !self.open.is_empty() {
@@ -658,7 +686,7 @@ impl Live {
             }
             if !self.open.iter().any(|(t, _)| t == plain) {
                 // The bare title is no promise; it may lead if the catalog does not know the mission.
-                set_open(&mut self.open, plain, Live::bare_line(plain));
+                self.put(plain, Live::bare_line(plain), false);
                 changed = true;
             }
             // ⚠ A contract that arrives later has the line built again: the
@@ -670,12 +698,12 @@ impl Live {
             }
             self.seen.insert(plain.clone());
             self.line_source.insert(plain.clone(), source);
-            let Some(line) = self.line_for(check, title, plain) else { continue };
-            set_open(&mut self.open, plain, line.clone());
+            let Some(built) = self.line_for(check, title, plain) else { continue };
+            self.put(plain, built.bar, built.complete);
             changed = true;
             // First the bar, then the hint: the other way round the window knows nothing yet.
             out.push(Out::Stand(self.stand()));
-            out.push(Out::Hint { text: line, contract: plain.clone() });
+            out.push(Out::Hint { text: built.hint, contract: plain.clone() });
         }
         if changed || goals_new {
             out.push(Out::Stand(self.stand()));
@@ -692,6 +720,7 @@ impl Live {
         self.contract_of.clear();
         self.line_source.clear();
         self.unclear.clear();
+        self.complete.clear();
         self.objectives = Objectives::default();
         before
     }
@@ -769,8 +798,15 @@ mod tests {
         let mut out = Vec::new();
         live.report(&paths, &section_of(&text), &text, &check, &mut out);
         let Out::Stand(lines) = &out[0] else { panic!("{out:?}") };
-        assert_eq!(lines[0].text.render(), "Auftrag angenommen: Hunt the Target  →  Baupläne 1/3");
-        assert!(matches!(&out[1], Out::Hint { contract, .. } if contract == "Hunt the Target"));
+        // The head of the bar says it was accepted: the line names the contract alone.
+        assert_eq!(lines[0].text.render(), "Hunt the Target  →  Baupläne 1/3");
+        assert!(!lines[0].complete);
+        // Among the finds the hint row keeps the event.
+        assert!(
+            matches!(&out[1], Out::Hint { text, contract } if contract == "Hunt the Target"
+                && text.render() == "Auftrag angenommen: Hunt the Target  →  Baupläne 1/3"),
+            "{out:?}"
+        );
         // The same message again says nothing.
         let mut out = Vec::new();
         live.report(&paths, &section_of(&text), &text, &check, &mut out);
@@ -836,9 +872,37 @@ mod tests {
         let mut out = Vec::new();
         live.report(&paths, &section_of(&text), &text, &check, &mut out);
         let Some(Out::Stand(lines)) = out.last() else { panic!("{out:?}") };
-        assert_eq!(lines[0].text.render(), "Auftrag angenommen: Something Else");
+        assert_eq!(lines[0].text.render(), "Something Else");
+        assert!(!lines[0].complete, "nothing known is nothing complete");
         assert!(!out.iter().any(|o| matches!(o, Out::Hint { .. })), "no hint for what the catalog does not know");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A contract whose blueprints are all had is marked complete, in English too, and loses the mark when one
+    /// is missing again (a new reading of the collection).
+    #[test]
+    fn a_contract_with_every_blueprint_had_is_complete() {
+        for (choice, said) in [(Choice::De, "Hunt the Target  →  "), (Choice::En, "Hunt the Target  →  ")] {
+            set_thread_language(choice);
+            let (paths, dir) = paths(&format!("komplett-{choice:?}"));
+            let catalog = blueprints();
+            let all = |_: &str| true;
+            let mut live = Live::new();
+            let text = line("Auftrag angenommen", "Hunt the Target", "m1", "");
+            live.report(&paths, &section_of(&text), &text, &Check { blueprints: &catalog, has: &all }, &mut Vec::new());
+            let lines = live.stand();
+            assert!(lines[0].complete, "{lines:?}");
+            let shown = lines[0].text.render();
+            assert!(shown.starts_with(said) && shown.contains("3/3"), "{shown}");
+            // Read anew without one of them: open again.
+            let before = live.reset();
+            let some = |n: &str| n != "C";
+            let check = Check { blueprints: &catalog, has: &some };
+            live.at_start(&text, &patterns(), &check, &HashSet::new(), &mut Vec::new());
+            live.after_reset(&before, &mut Vec::new());
+            assert!(!live.stand()[0].complete, "{:?}", live.stand());
+            let _ = std::fs::remove_dir_all(dir);
+        }
     }
 
     #[test]

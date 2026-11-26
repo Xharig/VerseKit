@@ -1064,13 +1064,10 @@ mod tests {
         paths.set_given_game(&given.to_string_lossy(), versekit_core::given::GivenBy::CommandLine);
         let look = PlaceLook::default();
         let mut found = None;
-        for _ in 0..200 {
+        crate::wait_for(|| {
             found = look.poll(&paths, |own| location::place(own, None));
-            if found.is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            found.is_some()
+        });
         let place = found.flatten().expect("read from the given folder");
         assert_eq!((place.number.as_deref(), place.since), (Some("4711"), Some(1_792_577_100)));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1093,13 +1090,9 @@ mod tests {
         let look: LogLook<usize> = LogLook::default();
         let read: fn(&Paths) -> usize = |_| READS.fetch_add(1, Ordering::SeqCst) + 1;
         let settled = |look: &LogLook<usize>, pause, want: usize| {
-            for _ in 0..200 {
-                if look.poll_every(&paths, read, pause) == Some(want) && !look.busy.load(Ordering::Acquire) {
-                    return true;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
-            false
+            crate::wait_for(|| {
+                look.poll_every(&paths, read, pause) == Some(want) && !look.busy.load(Ordering::Acquire)
+            })
         };
         assert!(settled(&look, LOOK_EVERY, 1), "the first reading starts at once");
         // The game writes on: within the pause nothing is read again.
@@ -1407,14 +1400,11 @@ mod tests {
         let page = SamplePage::with_settings(Paths::new(host));
         let (now, _) = now_and_clock();
         let mut days = Vec::new();
-        for _ in 0..500 {
+        crate::wait_for(|| {
             let _ = page.tiles_of_4_12(&paths, DE, now);
             days = machine_info::history::load(&paths);
-            if !days.is_empty() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            !days.is_empty()
+        });
         assert_eq!(days.len(), 1, "noted once");
         assert_eq!((days[0].cpu, days[0].gpu, days[0].class), (8.5, Some(12.75), Some(4)));
         assert_eq!(Some(days[0].day.clone()), machine_info::history::day_of(now));

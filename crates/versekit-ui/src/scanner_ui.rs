@@ -252,6 +252,9 @@ pub struct ScannerState {
     /// The hotkey of the overlay that takes the picture at once, as the page shows it; `None` where it is off or
     /// cannot be had.
     pub hotkey: Option<String>,
+    /// The hotkey of the overlay that switches the scanner on and off, as it is registered; `None` where none is set
+    /// or it cannot be had.
+    pub switch_hotkey: Option<String>,
     /// Where a fetch takes its pictures from: the screen (the checks make one up).
     screen: fn() -> Box<dyn Source>,
     /// The section of the digits taught.
@@ -300,6 +303,7 @@ impl Default for ScannerState {
             fetch_said: None,
             delay: game_picture::DEFAULT_DELAY,
             hotkey: None,
+            switch_hotkey: None,
             screen: || Box::new(Screen),
             own: own_digits::OwnView::default(),
             queue: Vec::new(),
@@ -328,6 +332,8 @@ impl ScannerState {
         self.delay = game_picture::delay(paths);
         let hotkey = versekit_core::overlay::HotkeyChoice::read_picture(paths).hotkey();
         self.hotkey = hotkey.filter(|_| versekit_core::screen_grab::supported()).map(|h| h.text());
+        let switch = versekit_core::overlay::HotkeyChoice::read_scanner(paths).hotkey();
+        self.switch_hotkey = switch.filter(|_| versekit_core::screen_grab::supported()).map(|h| h.text());
         self.take_new_picture();
     }
 
@@ -729,6 +735,15 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut ScannerState, mining:
         if toggled {
             state.set_on(on);
         }
+        // The hotkey that switches it in the game, set on the page Overlay beside the other shortcuts.
+        let shortcut = match &state.switch_hotkey {
+            Some(text) => tf(
+                "s_bg_scan_kuerzel",
+                &[("0", Arg::from(crate::sample::glance_tiles::hotkey_in(versekit_core::language::current(), text)))],
+            ),
+            None => t("s_bg_scan_kuerzel_kein"),
+        };
+        widgets::hint(ui, scheme, &shortcut);
         if !state.on {
             widgets::hint(ui, scheme, &t("scan_wache_aus"));
             return;

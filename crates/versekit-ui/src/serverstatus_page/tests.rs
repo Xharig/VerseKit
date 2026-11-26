@@ -87,17 +87,14 @@ fn click(at: egui::Pos2) -> Vec<egui::Event> {
     vec![egui::Event::PointerMoved(at), press(true), press(false)]
 }
 
-/// Frames until the threads of the page are done, at most five seconds.
+/// Frames until the threads of the page are done.
 fn settle(ctx: &egui::Context, state: &mut ServerStatusState) -> Vec<(Role, String, egui::Pos2)> {
-    for _ in 0..500 {
-        let nodes = frame(ctx, state, Vec::new());
-        if state.job.is_none() && state.notices_job.is_none() {
-            return frame(ctx, state, Vec::new());
-        }
-        drop(nodes);
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
-    panic!("the fetch did not finish");
+    let done = crate::wait_for(|| {
+        frame(ctx, state, Vec::new());
+        state.job.is_none() && state.notices_job.is_none()
+    });
+    assert!(done, "the fetch did not finish");
+    frame(ctx, state, Vec::new())
 }
 
 fn has(nodes: &[(Role, String, egui::Pos2)], text: &str) -> bool {

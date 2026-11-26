@@ -65,12 +65,15 @@ pub const LAST_SETTING: &str = "letzte_sicherung";
 ///
 /// ⚠ In doubt something does NOT belong here. A backup too large costs seconds, one too small costs the
 /// inventory.
-pub const RELOADABLE: [&str; 20] = [
+pub const RELOADABLE: [&str; 21] = [
     // v5: the two caches built from the `Data.p4k` (the catalog of the blueprint list and the values of the crafting
     // page). They are rebuilt from the game at the next start, are megabytes large and belong to the game folder of
     // the old computer, so they do not go into a backup, and an older backup that holds them does not bring them back.
     "Intern/katalog-spieldaten.json",
     "Intern/werte-spieldaten.json",
+    // The reward and the buy-in per contract title, made of the language files and the catalog; stamped with them
+    // and made again where they differ.
+    "Intern/auftrag-belohnungen.json",
     // v5: what the overlay tells the main window about anti-AFK. A state of the running program, never a
     // setting: a backup that took it along would bring a "on" back to a program that has it off.
     "Intern/anti-afk.json",
@@ -1427,6 +1430,7 @@ mod tests {
         }
         for no in [
             "Intern/katalog-cache.json",
+            "Intern/auftrag-belohnungen.json",
             "intern/Versionen.json",
             "Intern\\preise.json",
             "Intern/logstand.json",
@@ -1463,6 +1467,7 @@ mod tests {
             (INFO_FILE, None),
             ("Steuerung/actionmaps.xml", None),
             ("Intern/katalog-cache.json", None),
+            ("Intern/auftrag-belohnungen.json", None),
             ("Anderswo/preise.json", None),
             ("Anderswo/Logstand.JSON", None),
             ("Anderswo/Anti-AFK.json", None),

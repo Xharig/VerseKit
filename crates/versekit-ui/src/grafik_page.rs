@@ -1162,14 +1162,14 @@ mod tests {
                 last = self.frame(Vec::new());
             }
             let mut waited = false;
-            for _ in 0..3000 {
+            crate::wait_for(|| {
                 if !matches!(self.state.machine, Machine::Reading(_)) {
-                    break;
+                    return true;
                 }
                 waited = true;
-                std::thread::sleep(std::time::Duration::from_millis(10));
                 last = self.frame(Vec::new());
-            }
+                false
+            });
             if waited {
                 for _ in 0..4 {
                     last = self.frame(Vec::new());
@@ -1181,13 +1181,13 @@ mod tests {
         /// Frames until `done`, at most three seconds (the box reads in a thread of its own).
         fn until(&mut self, done: impl Fn(&Texts) -> bool) -> Texts {
             let mut texts = self.settle().0;
-            for _ in 0..60 {
+            crate::wait_for(|| {
                 if done(&texts) {
-                    break;
+                    return true;
                 }
-                std::thread::sleep(std::time::Duration::from_millis(50));
                 texts = self.settle().0;
-            }
+                false
+            });
             texts
         }
 

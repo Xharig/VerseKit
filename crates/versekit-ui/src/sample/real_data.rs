@@ -344,13 +344,10 @@ fn the_graphics_page_holds_long_texts_at_every_size_scheme_and_language() {
                 page.go_to("hf_grafik");
                 // The box reads the log in a thread of its own: frames until it shows.
                 let mut shown = (0.0, Vec::new());
-                for _ in 0..40 {
+                crate::wait_for(|| {
                     shown = draw(&mut page, width, height);
-                    if shows(&shown.1, &language::t("s_gr_cpu")) {
-                        break;
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(25));
-                }
+                    shows(&shown.1, &language::t("s_gr_cpu"))
+                });
                 // A few frames more: the first one with the box in it is not yet at rest.
                 for _ in 0..3 {
                     shown = draw(&mut page, width, height);
@@ -818,14 +815,12 @@ fn back_on_the_contracts_after_a_new_log_the_page_reads_it() {
     };
     std::fs::write(backups.join("a.log"), log("Hunt", "m1", "01")).unwrap();
     let until = |page: &mut SamplePage, name: &str| {
-        for _ in 0..200 {
-            let texts = look(page, "hf_auftragslog");
-            if shows(&texts, name) {
-                return texts;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
-        look(page, "hf_auftragslog")
+        let mut texts = Vec::new();
+        crate::wait_for(|| {
+            texts = look(page, "hf_auftragslog");
+            shows(&texts, name)
+        });
+        texts
     };
     let texts = until(&mut page, "Hunt");
     assert!(shows(&texts, "Hunt") && !shows(&texts, "Rescue"), "{texts:?}");

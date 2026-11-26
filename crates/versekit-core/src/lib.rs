@@ -170,6 +170,7 @@ pub mod scmdb;
 pub mod scmdb_bridge;
 pub mod screen;
 pub mod screen_grab;
+pub mod sell_route;
 pub mod selling;
 pub mod serverstatus;
 pub mod setup;

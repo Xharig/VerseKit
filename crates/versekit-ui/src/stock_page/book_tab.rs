@@ -124,6 +124,7 @@ impl BookTab {
 
     /// Reads the journal again when its file changed (the overlay writes it), at most once a second.
     pub(super) fn follow(&mut self, now: f64) {
+        self.take_finished();
         if now - self.looked_at < LOOK_SECONDS {
             return;
         }
@@ -132,6 +133,10 @@ impl BookTab {
         if modified(&file_of(paths)) != self.seen {
             self.reload();
         }
+    }
+
+    /// Takes the result of the booking that ran on its thread, once it is there.
+    fn take_finished(&mut self) {
         if let Some(finished) = self.working.as_ref().map(Receiver::try_recv) {
             match finished {
                 Ok(done) => {
@@ -153,20 +158,16 @@ impl BookTab {
             Work::Confirm(_) => Some(Target::Unit),
             Work::DropConfirm(_) => None,
         } == Some(Target::Unit);
-        let unit = self.unit.clone();
-        if !into_unit {
-            // The own stock is a file: done at once.
-            self.note = Some(execute(&paths, None, &work));
-            self.reload();
-            return;
-        }
+        let unit = if into_unit { self.unit.clone() } else { None };
         if self.working.is_some() {
             return;
         }
+        // On a thread of its own, also for the own stock: the page holds the lock of the stock files for the whole
+        // frame, and the booking takes that lock.
         let (sender, receiver) = mpsc::channel();
         self.working = Some(receiver);
         let ctx = ctx.clone();
-        let started = std::thread::Builder::new().name("lagerscan-einheit".into()).spawn_with_language(move || {
+        let started = std::thread::Builder::new().name("lagerscan-buchen".into()).spawn_with_language(move || {
             let link: Option<&dyn UnitStock> = unit.as_deref().map(|l| l as &dyn UnitStock);
             let _ = sender.send(execute(&paths, link, &work));
             ctx.request_repaint();
@@ -261,6 +262,31 @@ fn target_label(ui: &mut Ui, scheme: &Scheme, target: Target) {
     ui.label(RichText::new(t(stock_scan_book::target_title_key(target))).strong().color(color(tint)));
 }
 
+/// A text in a cell of a table that wraps between its words only: the cell is at least as wide as its longest word.
+fn words_cell(ui: &mut Ui, text: &str, tint: Option<egui::Color32>) {
+    let galley = words_galley(ui, text, tint);
+    ui.add(egui::Label::new(galley));
+}
+
+/// `text` laid out for [`words_cell`].
+fn words_galley(ui: &Ui, text: &str, tint: Option<egui::Color32>) -> Arc<egui::Galley> {
+    let rich = |part: &str| {
+        let rich = RichText::new(part);
+        match tint {
+            Some(tint) => rich.color(tint),
+            None => rich,
+        }
+    };
+    // Each word with the space behind it: the wrapping counts that space to the row.
+    let longest = text
+        .split_inclusive(char::is_whitespace)
+        .map(|word| widgets::one_line_width(ui, rich(word), egui::TextStyle::Body))
+        .fold(0.0, f32::max);
+    // Laid out here at a width of never less than the longest word, so the label does not wrap it again narrower.
+    let width = ui.available_width().max(longest.ceil() + 1.0);
+    egui::WidgetText::from(rich(text)).into_galley(ui, Some(egui::TextWrapMode::Wrap), width, egui::TextStyle::Body)
+}
+
 fn column_head(ui: &mut Ui, scheme: &Scheme, key: &str) {
     ui.label(RichText::new(t(key)).strong().color(color(scheme.sub)));
 }
@@ -338,8 +364,8 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, tab: &mut BookTab) {
                     let item = &waiting.pending.item;
                     grid.label(clock(waiting.at));
                     target_label(grid, scheme, waiting.target);
-                    grid.add(egui::Label::new(RichText::new(&item.name)).wrap());
-                    grid.add(egui::Label::new(RichText::new(&waiting.pending.place).color(color(scheme.sub))).wrap());
+                    words_cell(grid, &item.name, None);
+                    words_cell(grid, &waiting.pending.place, Some(color(scheme.sub)));
                     let mut after = item.clone();
                     after.quantity = waiting.pending.wanted;
                     grid.label(stock_scan_book::amount_in(language::current(), &after));
@@ -396,9 +422,9 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, tab: &mut BookTab) {
                         cell.set_max_width(READ_COLUMN);
                         let read = stock_scan_book::amount_in(language::current(), &asked.item);
                         let text = if asked.item.name.is_empty() { read } else { format!("{read} {}", asked.item.name) };
-                        cell.add(egui::Label::new(RichText::new(text).color(color(scheme.sub))).wrap());
+                        words_cell(cell, &text, Some(color(scheme.sub)));
                     });
-                    grid.add(egui::Label::new(RichText::new(&asked.place).color(color(scheme.sub))).wrap());
+                    words_cell(grid, &asked.place, Some(color(scheme.sub)));
                     grid.vertical(|cell| {
                         for name in &asked.candidates {
                             if cell.add(widgets::Button::new(name, ButtonKind::Normal, scheme)).clicked() {
@@ -439,10 +465,10 @@ pub(super) fn show(ui: &mut Ui, scheme: &Scheme, tab: &mut BookTab) {
             for scan in tab.journal.newest_first() {
                 grid.label(clock(scan.at));
                 target_label(grid, scheme, scan.target);
-                grid.add(egui::Label::new(RichText::new(&scan.item.name)).wrap());
+                words_cell(grid, &scan.item.name, None);
                 grid.label(stock_scan_book::amount_in(language::current(), &scan.item));
-                grid.add(egui::Label::new(RichText::new(&scan.place).color(color(scheme.sub))).wrap());
-                grid.add(egui::Label::new(RichText::new(result_text(scan)).color(color(scheme.sub))).wrap());
+                words_cell(grid, &scan.place, Some(color(scheme.sub)));
+                words_cell(grid, &result_text(scan), Some(color(scheme.sub)));
                 if scan.undone {
                     grid.label("");
                 } else {
@@ -511,6 +537,64 @@ mod tests {
         harness
     }
 
+    /// The tab as the page shows it: the frame holds the lock of the stock files.
+    fn harness_in_page(tab: BookTab) -> egui_kittest::Harness<'static, BookTab> {
+        let mut harness = egui_kittest::Harness::builder()
+            .with_size(egui::vec2(1100.0, 700.0))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(
+                |ui, tab: &mut BookTab| {
+                    let _lock = stock::lock();
+                    show(ui, versekit_core::theme::current(), tab);
+                },
+                tab,
+            );
+        harness.run_steps(3);
+        harness
+    }
+
+    /// Runs frames until the booking on its thread came back (at most ten seconds).
+    fn finish_work(harness: &mut egui_kittest::Harness<'static, BookTab>) {
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        harness.run_steps(1);
+        while harness.state().working.is_some() {
+            assert!(std::time::Instant::now() < until, "the booking came back");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            harness.run_steps(1);
+        }
+        harness.run_steps(2);
+    }
+
+    /// An open question about the own stock at Orison: read "Parallx", 4 pieces.
+    fn ask(paths: &Paths) {
+        let item = ScannedItem::new("Parallx", 4.0, Measure::Pieces, None);
+        let context = Run { paths, target: Target::Own, place: Some("Orison".into()), place_since: None, unit: None, now: 1 };
+        let unsure = Reading::Unsure { item, candidates: vec!["Parallax".into(), "Parallel".into()], picture: None };
+        stock_scan_book::run(&context, unsure);
+    }
+
+    /// The page holds the lock of the stock files for the whole frame: an answer for the own stock picked there
+    /// books all the same, and the frame does not wait for it (Mein Lager hung there on 26.11.).
+    #[test]
+    fn an_answer_picked_while_the_page_holds_the_stock_lock_books_and_does_not_hang() {
+        let (done, finished) = mpsc::channel();
+        std::thread::spawn(move || {
+            let dir = Dir::new("lagerscan-reiter-sperre");
+            let paths = paths_in(&dir);
+            language::set_thread_language(language::Choice::De);
+            ask(&paths);
+            let mut harness = harness_in_page(open_tab(&paths));
+            harness.get_by_label("Parallax").click();
+            finish_work(&mut harness);
+            let entries = stock::load(&paths.app_file(stock::TRADE_FILE), "test");
+            let _ = done.send(entries.first().map(|entry| stock::number_of(entry, "menge")));
+        });
+        let booked = finished.recv_timeout(std::time::Duration::from_secs(30)).expect("the frame does not wait for ever");
+        assert_eq!(booked, Some(4.0));
+    }
+
     fn open_tab(paths: &Paths) -> BookTab {
         let mut tab = BookTab::default();
         tab.connect(paths);
@@ -526,6 +610,50 @@ mod tests {
         harness: &'a egui_kittest::Harness<'static, BookTab>,
     ) -> Vec<egui_kittest::Node<'a>> {
         harness.query_all_by_label_contains("rückgängig machen").collect()
+    }
+
+    /// A long place wraps between its words, never inside one, also where the table is narrow ("People's Service
+    /// Station Alpha" stood as "People / 's / Servic / e" on 26.11.).
+    #[test]
+    fn a_long_place_wraps_between_words_only() {
+        let dir = Dir::new("lagerscan-reiter-ort");
+        let paths = paths_in(&dir);
+        language::set_thread_language(language::Choice::De);
+        let place = "People's Service Station Alpha";
+        let item = ScannedItem::new("Parallx", 4.0, Measure::Pieces, None);
+        let context = Run { paths: &paths, target: Target::Own, place: Some(place.into()), place_since: None, unit: None, now: 1 };
+        let candidates = vec!["Parallax".into(), "Parallel".into()];
+        stock_scan_book::run(&context, Reading::Unsure { item, candidates, picture: None });
+        let mut harness = egui_kittest::Harness::builder()
+            .with_size(egui::vec2(420.0, 700.0))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(|ui, tab: &mut BookTab| show(ui, versekit_core::theme::current(), tab), open_tab(&paths));
+        harness.run_steps(4);
+        // The rows of the place as they are painted.
+        fn rows_of(shape: &egui::Shape, place: &str, found: &mut Vec<Vec<String>>) {
+            match shape {
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|inner| rows_of(inner, place, found)),
+                egui::Shape::Text(text) if text.galley.job.text == place => found.push(
+                    text.galley.rows.iter().map(|row| row.glyphs.iter().map(|g| g.chr).collect::<String>()).collect(),
+                ),
+                _ => {}
+            }
+        }
+        let mut found = Vec::new();
+        for clipped in &harness.output().shapes {
+            rows_of(&clipped.shape, place, &mut found);
+        }
+        assert!(!found.is_empty(), "the place is painted");
+        let whole: Vec<&str> = place.split_whitespace().collect();
+        for rows in found {
+            assert!(rows.len() > 1, "the narrow table wraps the place: {rows:?}");
+            assert_eq!(rows.concat(), place, "every letter is painted once");
+            for row in &rows {
+                assert!(row.split_whitespace().all(|word| whole.contains(&word)), "a row cut a word: {rows:?}");
+            }
+        }
     }
 
     /// The tab names the stock of each scan, the amount and the place, and the button takes the scan back: the
@@ -547,7 +675,7 @@ mod tests {
         assert_eq!(undo_buttons(&harness).len(), 2);
         assert!(harness.state().journal.scans.iter().all(|s| !s.undone));
         undo_buttons(&harness).first().expect("newest row first").click();
-        harness.run_steps(3);
+        finish_work(&mut harness);
         let entries = stock::load(&paths.app_file(stock::TRADE_FILE), "test");
         assert_eq!(stock::number_of(&entries[0], "menge"), 5.0, "back to the value before the scan");
         assert!(has(&harness, "zurückgenommen"), "the row says it was taken back");
@@ -580,26 +708,12 @@ mod tests {
         let dir = Dir::new("lagerscan-reiter-frage");
         let paths = paths_in(&dir);
         language::set_thread_language(language::Choice::De);
-        let item = ScannedItem::new("Parallx", 4.0, Measure::Pieces, None);
-        let context = Run {
-            paths: &paths,
-            target: Target::Own,
-            place: Some("Orison".into()),
-            place_since: None,
-            unit: None,
-            now: 1,
-        };
-        let unsure = Reading::Unsure {
-            item,
-            candidates: vec!["Parallax".into(), "Parallel".into()],
-            picture: None,
-        };
-        stock_scan_book::run(&context, unsure);
+        ask(&paths);
         let mut harness = harness(open_tab(&paths));
         assert!(has(&harness, "Welcher Gegenstand?"));
         assert!(has(&harness, "Keiner davon") && has(&harness, "Parallel"));
         harness.get_by_label("Parallax").click();
-        harness.run_steps(3);
+        finish_work(&mut harness);
         let entries = stock::load(&paths.app_file(stock::TRADE_FILE), "test");
         assert_eq!(stock::number_of(&entries[0], "menge"), 4.0);
         assert!(has(&harness, "Keine offenen Rückfragen"), "the question is gone");

@@ -1291,14 +1291,11 @@ fn the_signature_box_in_the_model_is_a_dark_box_with_the_symbol_and_an_example_n
         }
     }
     let mut symbols = 0;
-    for _ in 0..80 {
+    crate::wait_for(|| {
         symbols = 0;
         draw().iter().for_each(|clipped| images(&clipped.shape, boxes[0].rect, &mut symbols));
-        if symbols > 0 {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(25));
-    }
+        symbols > 0
+    });
     assert!(symbols >= 1, "the location symbol stands in the box");
 }
 

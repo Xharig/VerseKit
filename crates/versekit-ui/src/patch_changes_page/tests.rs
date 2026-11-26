@@ -284,14 +284,14 @@ fn an_empty_collection_says_how_to_fill_it_and_fetching_without_the_net_says_so(
         nodes.iter().find(|(role, text, _)| *role == Role::Button && *text == t("s_pa_suchen")).expect("button");
     frame(&ctx, &mut state, click(button.2));
     let mut nodes = Vec::new();
-    for _ in 0..500 {
+    crate::wait_for(|| {
         nodes = frame(&ctx, &mut state, Vec::new());
         if state.sync_job.is_none() {
             nodes = frame(&ctx, &mut state, Vec::new());
-            break;
+            return true;
         }
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
+        false
+    });
     assert!(has(&nodes, &t("s_pa_kein_netz")), "the tests never ask erkul: no net");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -628,13 +628,10 @@ fn two_stands_kept_are_compared_in_a_thread_and_the_comparison_is_chosen() {
     assert!(!has(&nodes, &t("s_pv_vergl_leer")), "two stands: the lists are shown");
     let button = nodes.iter().find(|(role, text, _)| *role == Role::Button && *text == t("s_pv_vergleichen"));
     frame(&ctx, &mut state, click(button.expect("button").2));
-    for _ in 0..500 {
+    crate::wait_for(|| {
         frame(&ctx, &mut state, Vec::new());
-        if state.compare_job.is_none() {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
+        state.compare_job.is_none()
+    });
     assert_eq!(state.compared, Some(Compared::Done("4.10.0-LIVE.2222222".into())));
     assert_eq!(state.chosen.as_deref(), Some("4.10.0-LIVE.2222222"));
     let nodes = frame(&ctx, &mut state, Vec::new());

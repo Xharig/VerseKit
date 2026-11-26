@@ -76,10 +76,19 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetForegroundWindow, SetLayeredWindowAttributes,
     SetWindowLongPtrW, SetWindowPos, WM_ACTIVATE, WM_DWMCOMPOSITIONCHANGED, WM_ERASEBKGND, WM_LBUTTONDOWN,
     WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCDESTROY, WM_STYLECHANGED, WM_STYLECHANGING, WS_EX_LAYERED,
-    WS_EX_NOACTIVATE, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP, WindowFromPoint,
+    GWL_STYLE, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP,
+    WS_SYSMENU, WS_THICKFRAME, WindowFromPoint,
 };
 
 const SUBCLASS_ID: usize = 0x5645_4B4F;
+/// The parts of the window style that make a caption and a frame: the system paints them on its own ways (a change
+/// of the active window, a new title, a frame that is worked out anew), each time over the picture of the overlay.
+const FRAME_STYLE: u32 = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+
+/// `style` without [`FRAME_STYLE`].
+fn without_frame(style: u32) -> u32 {
+    style & !FRAME_STYLE
+}
 const WA_INACTIVE: usize = 0;
 /// `PW_RENDERFULLCONTENT`: also what the graphics card drew.
 const PW_RENDERFULLCONTENT: PRINT_WINDOW_FLAGS = 2;
@@ -144,6 +153,15 @@ unsafe extern "system" fn subclass_proc(
             return 1;
         }
         WM_MOUSEACTIVATE if guard => return MA_NOACTIVATE as LRESULT,
+        // winit writes the style of its window anew on its changes of state, with the caption: it stays out.
+        WM_STYLECHANGING if wparam as i32 == GWL_STYLE && NO_FRAME.load(Ordering::Relaxed) => {
+            // SAFETY: for WM_STYLECHANGING lParam points to a STYLESTRUCT the application may change.
+            let style = unsafe { &mut *(lparam as *mut STYLESTRUCT) };
+            if style.styleNew & FRAME_STYLE != 0 {
+                style.styleNew = without_frame(style.styleNew);
+                STYLE_REPAIRS.fetch_add(1, Ordering::Relaxed);
+            }
+        }
         WM_STYLECHANGING if guard && wparam as i32 == GWL_EXSTYLE => {
             // SAFETY: for WM_STYLECHANGING lParam points to a STYLESTRUCT the
             // application may change.
@@ -192,6 +210,9 @@ pub fn install(hwnd: isize, guard: bool, frame: bool, round: bool) -> bool {
         let current = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
         unsafe { SetWindowLongPtrW(hwnd, GWL_EXSTYLE, (current | WS_EX_NOACTIVATE) as isize) };
     }
+    if !frame {
+        drop_frame_style(hwnd);
+    }
     // The client area is worked out anew, now through the hooked procedure.
     let flags = SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE;
     // SAFETY: plain numbers for our own window.
@@ -212,10 +233,36 @@ pub fn guard_also(hwnd: isize) -> bool {
         let current = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
         unsafe { SetWindowLongPtrW(hwnd, GWL_EXSTYLE, (current | WS_EX_NOACTIVATE) as isize) };
     }
+    if NO_FRAME.load(Ordering::Relaxed) {
+        drop_frame_style(hwnd);
+    }
     let flags = SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE;
     // SAFETY: plain numbers for our own window.
     unsafe { SetWindowPos(hwnd, std::ptr::null_mut(), 0, 0, 0, 0, flags) };
     ok
+}
+
+/// Takes caption and frame out of the style of `hwnd` ([`FRAME_STYLE`]): the system has nothing left to paint over
+/// the picture. Later changes of winit are kept out by the hooked procedure.
+fn drop_frame_style(hwnd: HWND) {
+    // SAFETY: plain calls on our own window.
+    unsafe {
+        let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
+        if style & FRAME_STYLE != 0 {
+            SetWindowLongPtrW(hwnd, GWL_STYLE, without_frame(style) as isize);
+        }
+    }
+}
+
+/// The window style of `hwnd`.
+pub fn style(hwnd: isize) -> u32 {
+    // SAFETY: a plain read of a window's style.
+    unsafe { GetWindowLongPtrW(hwnd as HWND, GWL_STYLE) as u32 }
+}
+
+/// Does the window `hwnd` carry a caption or a frame the system could paint ([`FRAME_STYLE`])?
+pub fn has_frame_style(hwnd: isize) -> bool {
+    style(hwnd) & FRAME_STYLE != 0
 }
 
 /// Lets `hwnd`, a window with the guard, take the keyboard while `on` and brings it to the front; off, it never
@@ -857,6 +904,13 @@ mod tests {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::UI::WindowsAndMessaging::LWA_ALPHA;
 
+    /// The tests that hook the guard in set the switches of the process ([`NO_FRAME`]): one after the other.
+    static SWITCHES: Mutex<()> = Mutex::new(());
+
+    fn switches() -> std::sync::MutexGuard<'static, ()> {
+        SWITCHES.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     const UP: u16 = RI_KEY_BREAK as u16;
 
     fn combo(text: &str) -> Option<Hotkey> {
@@ -1012,6 +1066,7 @@ mod tests {
     /// the whole window, which would leave the background of the overlay black. The window is never shown.
     #[test]
     fn a_layered_window_gets_attributes_without_an_opacity_of_its_own() {
+        let _switches = switches();
         let hwnd = hidden_window();
         assert_ne!(hwnd, 0);
         install(hwnd, true, false, true);
@@ -1068,6 +1123,7 @@ mod tests {
     /// system does not paint the caption over the picture; with the frame left on (counter check) it passes as sent.
     #[test]
     fn a_change_of_the_active_window_does_not_paint_the_caption() {
+        let _switches = switches();
         static SEEN: AtomicIsize = AtomicIsize::new(0);
         unsafe extern "system" fn below(h: HWND, m: u32, w: WPARAM, l: LPARAM, _: usize, _: usize) -> LRESULT {
             if m == WM_NCACTIVATE {
@@ -1093,11 +1149,52 @@ mod tests {
         NO_FRAME.store(true, Ordering::Relaxed);
     }
 
+    /// The overlay carries no caption the system could paint, on no way: winit's caption style is taken out when the
+    /// guard is hooked in, stays out when winit writes the style anew (a change of state, as a hotkey or the lock
+    /// makes one) and when the window gets a new place and size (it grows with its contracts). A second window of
+    /// the program with the guard (the info bar) gets the same. Counter check: with the frame left on it stays.
+    #[test]
+    fn the_overlay_keeps_no_caption_through_a_new_style_and_a_new_size() {
+        let _switches = switches();
+        let winit_style = WS_POPUP | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+        let window_like_winit = || {
+            let hwnd = hidden_window();
+            assert_ne!(hwnd, 0);
+            // SAFETY: a style for a window of this thread.
+            unsafe { SetWindowLongPtrW(hwnd as HWND, GWL_STYLE, winit_style as isize) };
+            assert!(has_frame_style(hwnd), "the window starts with the caption of winit");
+            hwnd
+        };
+        let hwnd = window_like_winit();
+        install(hwnd, true, false, true);
+        assert!(!has_frame_style(hwnd), "no caption once the guard is in: {:#x}", style(hwnd));
+        assert!(style(hwnd) & WS_POPUP != 0, "the window stays a popup");
+        // winit writes the whole style anew, with the caption.
+        // SAFETY: as above.
+        unsafe { SetWindowLongPtrW(hwnd as HWND, GWL_STYLE, winit_style as isize) };
+        assert!(!has_frame_style(hwnd), "a new style of winit brings no caption: {:#x}", style(hwnd));
+        // A new place and size, as the growth of the overlay sets it.
+        set_rect(hwnd, Rect::new(10, 10, 300, 400));
+        assert!(!has_frame_style(hwnd), "a new size brings no caption");
+        let info = window_like_winit();
+        guard_also(info);
+        assert!(!has_frame_style(info), "the info bar has none either");
+        destroy_window(info);
+        destroy_window(hwnd);
+        // Counter check: with the frame of winit left on (`frame`) the caption stays.
+        let kept = window_like_winit();
+        install(kept, true, true, true);
+        assert!(has_frame_style(kept));
+        destroy_window(kept);
+        NO_FRAME.store(true, Ordering::Relaxed);
+    }
+
     /// The window's own surface under the picture of DirectComposition is white until painted, and DWM showed it
     /// instead of the game behind; `WM_ERASEBKGND` paints it black, which DWM takes as transparent. The window is
     /// never shown.
     #[test]
     fn the_window_surface_is_painted_black() {
+        let _switches = switches();
         let hwnd = hidden_window();
         assert_ne!(hwnd, 0);
         install(hwnd, true, false, true);

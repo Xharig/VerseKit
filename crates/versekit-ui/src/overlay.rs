@@ -269,6 +269,13 @@ pub struct Output {
     pub unhide_button: Option<Rect>,
     /// The lines of the contract bar drawn this frame (header, lines, objectives).
     pub contract_texts: Vec<String>,
+    /// The lines of contracts that fold, with the title, in window points: a click there shows or hides the
+    /// objectives.
+    pub fold_buttons: Vec<(String, Rect)>,
+    /// How many points the bar of contracts lacks to stand whole above the kept rows ([`ROWS_KEPT`]); less than
+    /// nought where it has room to spare. `None` while no contract stands: the window may grow by as much, up to
+    /// the edge of its screen, and only beyond that the bar rolls.
+    pub contracts_need: Option<f32>,
     /// A bank line was clicked: the bank page of the main window opens.
     pub open_bank: bool,
     /// The player asked to install the waiting update now (the button of its line, only while the game is closed).
@@ -732,16 +739,61 @@ fn contracts_bar(ui: &mut Ui, view: &View, out: &mut Output) {
     let head = contracts_head(versekit_core::live_contracts::running(view.contracts), view.contracts_max);
     quiet(ui, &head);
     out.contract_texts.push(head);
+    let folds = |line: &ContractLine| line.complete && !line.grey && !line.goals.is_empty();
+    // Where one line folds, every title keeps the room of the arrow: the titles stand in one column, the
+    // objectives under them indented by as much more.
+    let lead = if view.contracts.iter().any(folds) { FOLD_ICON + 2.0 } else { 0.0 };
+    let indent = 14.0 + lead;
     for line in view.contracts {
         let text = match line.count {
             0 | 1 => line.text.render(),
             count => tf("ov_a_zeile_mehrfach", &[("0", count.into()), ("1", line.text.render().into())]),
         };
         let tone = if line.grey { s.sub } else { s.fg };
+        // A contract with every blueprint had folds to its line: its objectives come with a click on it.
+        let foldable = folds(line);
+        let unfolded = !foldable || goals_unfolded(ui.ctx(), &line.title);
+        let mut fold = None;
         // The text column has a fixed width, the button stands at the right edge in every line.
         let rect = line_with_button(ui, |ui| {
-            ui.add(egui::Label::new(RichText::new(&text).small().color(color(tone))).wrap());
+            // The field under the pointer goes behind the line, drawn once its place is known.
+            let field = ui.painter().add(egui::Shape::Noop);
+            let head = ui.horizontal_top(|ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                if lead > 0.0 {
+                    // The arrow in the middle of the first line of the text.
+                    let small = ui.text_style_height(&TextStyle::Small);
+                    let (place, _) = ui.allocate_exact_size(vec2(FOLD_ICON, small), Sense::hover());
+                    let arrow = if unfolded { "chevron-down" } else { "chevron-right" };
+                    if foldable && let Some(image) = crate::icons::image(arrow, s.sub, FOLD_ICON) {
+                        image.paint_at(ui, Rect::from_center_size(place.center(), Vec2::splat(FOLD_ICON)));
+                    }
+                }
+                ui.add(egui::Label::new(RichText::new(&text).small().color(color(tone))).wrap());
+            });
+            if foldable {
+                fold = Some((head.response.rect, field));
+            }
         });
+        if let Some((head, field)) = fold {
+            let (meaning, name) = match unfolded {
+                true => (t("ov_a_ziele_verbergen"), tf("ov_a_ziele_verbergen_name", &[("0", line.title.as_str().into())])),
+                false => (t("ov_a_ziele_zeigen"), tf("ov_a_ziele_zeigen_name", &[("0", line.title.as_str().into())])),
+            };
+            let response = ui.interact(head, fold_id(&line.title).with("knopf"), Sense::click());
+            // Under the pointer or with the focus of the keyboard the line gets the field of the other buttons.
+            if response.hovered() || response.has_focus() {
+                let fill = ui.visuals().widgets.hovered.bg_fill;
+                ui.painter().set(field, egui::Shape::rect_filled(head.expand(1.0), 4.0, fill));
+            }
+            response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
+            let response = hover_hint(ui, response.on_hover_cursor(CursorIcon::PointingHand), &meaning, &mut out.hint);
+            if response.clicked() {
+                ui.ctx().data_mut(|d| d.insert_temp(fold_id(&line.title), !unfolded));
+                ui.ctx().request_repaint();
+            }
+            out.fold_buttons.push((line.title.clone(), head));
+        }
         out.hide_buttons.push(rect);
         let meaning = t("ov_auftrag_weg");
         let name = tf("ov_a_weg_name", &[("0", line.title.as_str().into())]);
@@ -754,15 +806,18 @@ fn contracts_bar(ui: &mut Ui, view: &View, out: &mut Output) {
         if line.grey {
             let why = t("ov_a_unklar");
             ui.horizontal_top(|ui| {
-                ui.add_space(14.0);
+                ui.add_space(indent);
                 quiet(ui, &why);
             });
             out.contract_texts.push(why);
             continue;
         }
+        if !unfolded {
+            continue;
+        }
         for goal in line.goals.iter().take(OBJECTIVES_MAX) {
             ui.horizontal_top(|ui| {
-                ui.add_space(14.0);
+                ui.add_space(indent);
                 // An empty circle: still open, as on the blueprint list.
                 if let Some(image) = crate::icons::image("circle", s.sub, 10.0) {
                     let circle = ui.add(image.sense(Sense::hover()));
@@ -776,7 +831,7 @@ fn contracts_bar(ui: &mut Ui, view: &View, out: &mut Output) {
         if let Some(rest) = line.goals.len().checked_sub(OBJECTIVES_MAX).filter(|r| *r > 0) {
             let more = tf("ov_ziele_mehr", &[("0", rest.into())]);
             ui.horizontal_top(|ui| {
-                ui.add_space(14.0);
+                ui.add_space(indent);
                 quiet(ui, &more);
             });
             out.contract_texts.push(more);
@@ -784,6 +839,23 @@ fn contracts_bar(ui: &mut Ui, view: &View, out: &mut Output) {
     }
     ui.add_space(2.0);
 }
+
+/// The side of the arrow before a contract that folds.
+const FOLD_ICON: f32 = 12.0;
+
+/// Where the session keeps whether the objectives of the contract `title` are unfolded (in the memory of egui,
+/// not in a file: a new start folds them again).
+fn fold_id(title: &str) -> egui::Id {
+    egui::Id::unique(("overlay-auftrag-ziele", title))
+}
+
+/// The player unfolded the objectives of the contract `title` in this session.
+fn goals_unfolded(ctx: &egui::Context, title: &str) -> bool {
+    ctx.data(|d| d.get_temp::<bool>(fold_id(title))).unwrap_or(false)
+}
+
+/// The rows of finds the overlay keeps below the contracts: their bar takes what it needs above them.
+pub const ROWS_KEPT: f32 = 2.0;
 
 /// The head of the bar of contracts with how many run of the most the game allows (`3/10`).
 pub fn contracts_head(running: usize, most: usize) -> String {
@@ -938,15 +1010,22 @@ fn draw(ui: &mut Ui, view: &View) -> Output {
         }
         content.add_space(4.0);
         if !view.contracts.is_empty() || view.hidden.is_some() {
-            // The bar takes at most about half of what is left; more rolls in its own area,
-            // so the rows below always keep their place.
-            let cap = (content.available_height() * 0.55).max(48.0);
+            // The bar takes what it needs; below it stay the lines of the refinery and the bank and
+            // [`ROWS_KEPT`] rows of finds. What does not fit is told to the window, which grows by as much;
+            // only where it cannot grow further the bar rolls in its own area.
+            let small = content.text_style_height(&TextStyle::Small);
+            let row = content.text_style_height(&TextStyle::Body) + small + 4.0;
+            let line = small + content.spacing().item_spacing.y;
+            let gap = |n: usize| if n == 0 { 0.0 } else { n as f32 * line + 4.0 };
+            let below = ROWS_KEPT * row + gap(view.refinery.len()) + gap(view.bank.len());
+            let room = (content.available_height() - below).max(48.0);
             let area = ScrollArea::vertical()
                 .id_salt("overlay-auftraege")
-                .max_height(cap)
-                .min_scrolled_height(cap)
+                .max_height(room)
+                .min_scrolled_height(room)
                 .auto_shrink([false, true]);
-            crate::widgets::scroll_area(&mut content, s, area, |ui| contracts_bar(ui, view, &mut out));
+            let shown = crate::widgets::scroll_area(&mut content, s, area, |ui| contracts_bar(ui, view, &mut out));
+            out.contracts_need = Some(shown.content_size.y - room);
         }
         for (line, done) in view.refinery {
             let tint = if *done { s.accent } else { s.fg };
@@ -1601,6 +1680,8 @@ mod tests {
         "s_cz_lampen",
         "ov_h_hangar",
         "ov_h_ziel_offen",
+        "ov_a_ziele_zeigen",
+        "ov_a_ziele_verbergen",
         "ov_h_zeile_gefunden",
         "ov_h_zeile_hinweis",
         "ov_h_zeile_katalog",
@@ -2182,6 +2263,7 @@ mod tests {
             goals: goals.iter().map(|g| (*g).to_string()).collect(),
             grey,
             count: 1,
+            complete: false,
         }
     }
 
@@ -2190,14 +2272,9 @@ mod tests {
         let many: Vec<String> = (1..=8).map(|n| format!("Ziel {n}")).collect();
         let many: Vec<&str> = many.iter().map(String::as_str).collect();
         vec![
-            line(
-                "Eins",
-                "Auftrag angenommen: Eins  →  Baupläne 1/3 · dir fehlt: Ein sehr langer Name eines Bauplans",
-                &many,
-                false,
-            ),
-            line("Zwei", "Auftrag angenommen: Zwei  →  Baupläne 0/2", &["Nicht gezeigt"], true),
-            line("Drei", "Auftrag angenommen: Drei", &[], false),
+            line("Eins", "Eins  →  Baupläne 1/3 · dir fehlt: Ein sehr langer Name eines Bauplans", &many, false),
+            line("Zwei", "Zwei  →  Baupläne 0/2", &["Nicht gezeigt"], true),
+            line("Drei", "Drei", &[], false),
         ]
     }
 
@@ -2231,7 +2308,7 @@ mod tests {
             v.contracts = &lines;
             let (out, _) = frame(&v, vec2(420.0, 400.0), None);
             assert_eq!(out.contract_texts[0], contracts_head(4, 10));
-            assert!(out.contract_texts.contains(&"2× Auftrag angenommen: Drei".to_string()), "{:?}", out.contract_texts);
+            assert!(out.contract_texts.contains(&"2× Drei".to_string()), "{:?}", out.contract_texts);
             assert_eq!(out.hide_buttons.len(), 3, "still one line, one button per title");
         }
     }
@@ -2323,21 +2400,29 @@ mod tests {
         let status = Message::Plain("x".into());
         let goals: Vec<String> = (1..=6).map(|n| format!("Ziel {n} mit einem etwas längeren Wortlaut")).collect();
         let goals: Vec<&str> = goals.iter().map(String::as_str).collect();
-        let lines: Vec<ContractLine> = (1..=4)
+        let mut lines: Vec<ContractLine> = (1..=4)
             .map(|n| {
                 line(
                     &format!("Auftrag {n}"),
-                    &format!("Auftrag angenommen: Auftrag {n}  →  Baupläne 1/3 · dir fehlt: Name"),
+                    &format!("Auftrag {n}  →  Baupläne 1/3 · dir fehlt: Name"),
                     &goals,
                     false,
                 )
             })
             .collect();
+        // The first one with every blueprint had: it folds, with its arrow.
+        lines[0].text = Message::Plain("Auftrag 1  →  Baupläne 3/3 · du hast alle".into());
+        lines[0].complete = true;
         for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
             versekit_core::language::set_thread_language(choice);
             for scheme in theme::schemes() {
-                for points in crate::test_sizes() {
-                    let (width, height) = versekit_core::font_size::min_window(points);
+                // Folded and unfolded at the narrowest window, unfolded in a wide one.
+                for (points, (unfold, wide)) in crate::test_sizes()
+                    .into_iter()
+                    .flat_map(|p| [(false, false), (true, false), (true, true)].map(|state| (p, state)))
+                {
+                    let (narrow, height) = versekit_core::font_size::min_window(points);
+                    let width = if wide { narrow * 1.6 } else { narrow };
                     let mut v = view(scheme, &rows, &status, Shown::Open);
                     v.contracts = &lines;
                     v.hidden = Some("Ein Auftrag mit einem ziemlich langen Titel, der umbrechen muss");
@@ -2345,6 +2430,7 @@ mod tests {
                     crate::install(&ctx);
                     crate::apply(&ctx, scheme);
                     crate::apply_size(&ctx, points);
+                    ctx.data_mut(|d| d.insert_temp(fold_id("Auftrag 1"), unfold));
                     let mut out = Output::default();
                     for _ in 0..3 {
                         let input = egui::RawInput {
@@ -2354,11 +2440,15 @@ mod tests {
                         let mut output = ctx.run_ui(input, |ui| out = show(ui, &v));
                         output.textures_delta.clear();
                     }
-                    let what = format!("{choice:?} {} Stufe {points} {width}x{height}", scheme.id);
+                    let what = format!("{choice:?} {} Stufe {points} {width}x{height} offen {unfold}", scheme.id);
                     for r in &out.hide_buttons {
                         assert!(r.min.x >= 0.0 && r.max.x <= width + 0.5, "{what}: {r:?}");
                     }
                     assert!(out.hide_buttons.windows(2).all(|w| (w[0].max.x - w[1].max.x).abs() < 0.5), "{what}");
+                    // The folding line stays left of its hide button, inside the window.
+                    assert_eq!(out.fold_buttons.len(), 1, "{what}");
+                    let (_, head) = &out.fold_buttons[0];
+                    assert!(head.min.x >= 0.0 && head.max.x <= out.hide_buttons[0].min.x + 0.5, "{what}: {head:?}");
                     // The way back stands in the same column as the hide buttons and inside the window.
                     let back = out.unhide_button.expect("the line with the way back is drawn");
                     assert!(back.min.x >= 0.0 && back.max.x <= width + 0.5, "{what}: {back:?}");
@@ -2564,6 +2654,192 @@ mod tests {
             output.textures_delta.clear();
         }
         assert_eq!(hidden, vec!["Drei".to_string()]);
+    }
+
+    /// Two contracts like in the game: one with every blueprint had (folds), one with one still open (stays open).
+    fn complete_and_open() -> Vec<ContractLine> {
+        let goals = ["Barge-Inverter abholen", "Barge-Inverter abliefern", "Zurückkehren"];
+        let mut done = line("Fertig", "Fertig  →  Baupläne 3/3 · du hast alle", &goals, false);
+        done.complete = true;
+        vec![done, line("Offen", "Offen  →  Baupläne 2/3 · dir fehlt: Helm", &["Kisten bergen"], false)]
+    }
+
+    /// Clicks `target` in a running context and gives the outputs of the frames.
+    fn click(ctx: &egui::Context, v: &View, size: Vec2, target: Pos2) -> Output {
+        let press = |pressed| egui::Event::PointerButton {
+            pos: target,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Default::default(),
+        };
+        let mut out = Output::default();
+        let steps = [vec![egui::Event::PointerMoved(target)], vec![press(true)], vec![press(false)], vec![], vec![]];
+        for events in steps {
+            let input =
+                egui::RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, size)), events, ..Default::default() };
+            let mut output = ctx.run_ui(input, |ui| out = show(ui, v));
+            output.textures_delta.clear();
+        }
+        out
+    }
+
+    /// A contract with every blueprint had stands in one line with its arrow; a click on it shows its objectives,
+    /// a second hides them again, and the state stays for the session. A contract with a blueprint still open keeps
+    /// its objectives without an arrow. Both languages say on hover and to screen readers what the click does.
+    #[test]
+    fn a_contract_with_every_blueprint_folds_to_its_line_and_opens_with_a_click() {
+        let _language = crate::language_lock();
+        let rows = rows();
+        let status = Message::Plain("x".into());
+        let lines = complete_and_open();
+        let scheme = theme::by_id("original").expect("original");
+        for choice in [language::Choice::De, language::Choice::En] {
+            language::set_thread_language(choice);
+            let mut v = view(scheme, &rows, &status, Shown::Open);
+            v.contracts = &lines;
+            let size = vec2(420.0, 600.0);
+            let ctx = egui::Context::default();
+            crate::install(&ctx);
+            crate::apply(&ctx, scheme);
+            let folded = click(&ctx, &v, size, pos2(1.0, 1.0));
+            let texts = &folded.contract_texts;
+            assert!(texts.contains(&lines[0].text.render()), "{choice:?}: {texts:?}");
+            assert!(!texts.iter().any(|x| x.starts_with("Barge")), "{choice:?}: folded shows no objectives: {texts:?}");
+            assert!(texts.contains(&"Kisten bergen".to_string()), "{choice:?}: the open one keeps its objectives");
+            assert_eq!(folded.fold_buttons.len(), 1, "{choice:?}: only the complete one folds");
+            let (title, head) = folded.fold_buttons[0].clone();
+            assert_eq!(title, "Fertig");
+            assert!(head.min.x >= 0.0 && head.max.x <= size.x, "{choice:?}: {head:?}");
+            // Hover says what the click does, as a tooltip and in the window of its own.
+            for outside in [false, true] {
+                v.hints_outside = outside;
+                let arrow = pos2(head.min.x + FOLD_ICON / 2.0, head.min.y + FOLD_ICON / 2.0);
+                assert_eq!(hint_at(&v, arrow), Some(t("ov_a_ziele_zeigen")), "{choice:?} outside {outside}");
+            }
+            v.hints_outside = false;
+            let opened = click(&ctx, &v, size, head.center());
+            assert!(
+                opened.contract_texts.contains(&"Barge-Inverter abholen".to_string()),
+                "{choice:?}: a click shows the objectives: {:?}",
+                opened.contract_texts
+            );
+            // Kept while the session runs: another frame without a click still shows them.
+            let still = click(&ctx, &v, size, pos2(1.0, 1.0));
+            assert!(still.contract_texts.contains(&"Zurückkehren".to_string()), "{choice:?}");
+            let closed = click(&ctx, &v, size, still.fold_buttons[0].1.center());
+            assert!(!closed.contract_texts.iter().any(|x| x.starts_with("Barge")), "{choice:?}: a second click hides them");
+            // The words of both states exist in this language and are no keys.
+            for key in ["ov_a_ziele_zeigen", "ov_a_ziele_verbergen"] {
+                let text = t(key);
+                assert!(!text.is_empty() && text != key, "{choice:?}: {key}");
+            }
+            for key in ["ov_a_ziele_zeigen_name", "ov_a_ziele_verbergen_name"] {
+                let name = tf(key, &[("0", "Fertig".into())]);
+                assert!(name.contains("Fertig") && !name.starts_with("ov_"), "{choice:?}: {name}");
+            }
+        }
+    }
+
+    /// The shapes of the frame drawn with the pointer at `pointer` (a few frames, so hover is known).
+    fn shapes_at(v: &View, size: Vec2, pointer: Pos2) -> (Output, Vec<egui::Shape>, Color32) {
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        crate::apply(&ctx, v.scheme);
+        let mut out = Output::default();
+        let mut shapes = Vec::new();
+        for _ in 0..3 {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, size)),
+                events: vec![egui::Event::PointerMoved(pointer)],
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| out = show(ui, v));
+            output.textures_delta.clear();
+            shapes = output.shapes.into_iter().map(|c| c.shape).collect();
+        }
+        (out, shapes, ctx.global_style().visuals.widgets.hovered.bg_fill)
+    }
+
+    /// The line that folds shows a field under the pointer like the other buttons, in every scheme, and none
+    /// without the pointer.
+    #[test]
+    fn the_line_that_folds_shows_its_field_under_the_pointer_in_every_scheme() {
+        let rows = rows();
+        let status = Message::Plain("x".into());
+        let lines = complete_and_open();
+        let size = vec2(420.0, 600.0);
+        for scheme in theme::schemes() {
+            let mut v = view(scheme, &rows, &status, Shown::Open);
+            v.contracts = &lines;
+            let (first, _, _) = shapes_at(&v, size, pos2(1.0, 1.0));
+            let head = first.fold_buttons[0].1;
+            let field = |shapes: &[egui::Shape], fill: Color32| {
+                shapes.iter().any(|s| matches!(s, egui::Shape::Rect(r) if r.fill == fill && r.rect.intersects(head)))
+            };
+            let (_, away, fill) = shapes_at(&v, size, pos2(1.0, 1.0));
+            assert!(!field(&away, fill), "{}: a field without the pointer", scheme.id);
+            let (_, over, fill) = shapes_at(&v, size, head.center());
+            assert!(field(&over, fill), "{}: no field under the pointer", scheme.id);
+        }
+    }
+
+    /// The titles of the contracts stand in one column whether their line folds or not, and the objectives under
+    /// them stand further in than the titles.
+    #[test]
+    fn the_titles_stand_in_one_column_with_and_without_an_arrow() {
+        let rows = rows();
+        let status = Message::Plain("x".into());
+        let lines = complete_and_open();
+        let scheme = theme::by_id("original").expect("original");
+        let mut v = view(scheme, &rows, &status, Shown::Open);
+        v.contracts = &lines;
+        let (_, shapes, _) = shapes_at(&v, vec2(420.0, 600.0), pos2(1.0, 1.0));
+        let left_of = |start: &str| {
+            shapes
+                .iter()
+                .find_map(|s| match s {
+                    egui::Shape::Text(t) if t.galley.text().starts_with(start) => Some(t.pos.x),
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("{start} not drawn"))
+        };
+        let (done, open, goal) = (left_of("Fertig"), left_of("Offen"), left_of("Kisten"));
+        assert!((done - open).abs() < 0.5, "the titles do not stand in one column: {done} {open}");
+        assert!(goal > open + 10.0, "the objective stands no further in than its title: {goal} {open}");
+    }
+
+    /// The bar of contracts says how much room it lacks: with two long contracts in a low window it lacks room,
+    /// in a tall one it has room to spare, without contracts it says nothing; and a folded contract needs less.
+    #[test]
+    fn the_bar_of_contracts_tells_the_room_it_lacks() {
+        let _language = crate::language_lock();
+        language::set_thread_language(language::Choice::De);
+        let rows = rows();
+        let status = Message::Plain("x".into());
+        let scheme = theme::by_id("original").expect("original");
+        let goals: Vec<String> = (1..=4).map(|n| format!("Ziel {n} mit einem etwas längeren Wortlaut")).collect();
+        let goals: Vec<&str> = goals.iter().map(String::as_str).collect();
+        let open: Vec<ContractLine> = (1..=2)
+            .map(|n| line(&format!("Auftrag {n}"), &format!("Auftrag {n}  →  Baupläne 1/3 · dir fehlt: Helm"), &goals, false))
+            .collect();
+        let mut v = view(scheme, &rows, &status, Shown::Open);
+        let (none, _) = frame(&v, vec2(420.0, 300.0), None);
+        assert_eq!(none.contracts_need, None);
+        v.contracts = &open;
+        let (low, _) = frame(&v, vec2(420.0, 220.0), None);
+        let lacks = low.contracts_need.expect("contracts stand");
+        assert!(lacks > 20.0, "a low window lacks room: {lacks}");
+        let (tall, _) = frame(&v, vec2(420.0, 220.0 + lacks + 40.0), None);
+        let spare = tall.contracts_need.expect("contracts stand");
+        assert!(spare < 0.0 && spare > -60.0, "grown by as much it fits, with what was added on top to spare: {spare}");
+        // Folded, the same contracts need less.
+        let mut folded = open.clone();
+        for line in &mut folded {
+            line.complete = true;
+        }
+        v.contracts = &folded;
+        let (less, _) = frame(&v, vec2(420.0, 220.0), None);
+        assert!(less.contracts_need.expect("contracts stand") < lacks - 40.0, "{less:?}");
     }
 
     /// The highest opacity the painted meshes give the point `p` (vertex colors only).

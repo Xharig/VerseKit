@@ -113,14 +113,30 @@ pub struct Gate {
     busy: Mutex<Vec<String>>,
     last: Mutex<Option<Instant>>,
     pause: Duration,
+    /// The gate of the program follows [`no_pause_for_tests`]; a gate of its own never does.
+    follows_the_switch: bool,
+}
+
+/// Set by the build of the tests of a program that asks a made-up site: the gate of the program then waits for
+/// nobody, or the tests of one program would queue up behind one another at the pause. Nothing but a test sets it.
+static NO_PAUSE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The gate of the program stops pausing for the rest of this process. Only for the tests, which ask a made-up site.
+pub fn no_pause_for_tests() {
+    NO_PAUSE.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
 /// The one gate of the program: the handles and the members of organizations share its pause.
-pub(crate) static GATE: Gate = Gate::new(PAUSE);
+pub(crate) static GATE: Gate = Gate::of_the_program();
 
 impl Gate {
     pub const fn new(pause: Duration) -> Gate {
-        Gate { busy: Mutex::new(Vec::new()), last: Mutex::new(None), pause }
+        Gate { busy: Mutex::new(Vec::new()), last: Mutex::new(None), pause, follows_the_switch: false }
+    }
+
+    /// The gate with the pause of the program.
+    pub const fn of_the_program() -> Gate {
+        Gate { busy: Mutex::new(Vec::new()), last: Mutex::new(None), pause: PAUSE, follows_the_switch: true }
     }
 
     /// Takes `key` for one search; `None` while another search of it runs.
@@ -138,7 +154,8 @@ impl Gate {
         let mut last = self.last.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(before) = *last {
             let since = before.elapsed();
-            if since < self.pause {
+            let free = self.follows_the_switch && NO_PAUSE.load(std::sync::atomic::Ordering::SeqCst);
+            if since < self.pause && !free {
                 std::thread::sleep(self.pause - since);
             }
         }
@@ -597,6 +614,26 @@ pub(crate) mod tests {
         drop(ticket);
         assert!(!gate.is_busy("musterpilot"));
         assert!(search_with(&gate, &paths, &site(), "Musterpilot", true, 0.0).is_ok());
+    }
+
+    #[test]
+    fn the_gate_of_the_program_pauses_until_the_tests_switch_it_off_and_a_gate_of_its_own_always_does() {
+        // The normal way: the pause between two pages is there (the switch is set by this test only, below).
+        let shared = Gate::of_the_program();
+        let started = Instant::now();
+        shared.wait_turn();
+        shared.wait_turn();
+        assert!(started.elapsed() >= PAUSE - Duration::from_millis(50), "{:?}", started.elapsed());
+        no_pause_for_tests();
+        let started = Instant::now();
+        shared.wait_turn();
+        shared.wait_turn();
+        assert!(started.elapsed() < Duration::from_millis(500), "{:?}", started.elapsed());
+        let own = Gate::new(Duration::from_millis(120));
+        let started = Instant::now();
+        own.wait_turn();
+        own.wait_turn();
+        assert!(started.elapsed() >= Duration::from_millis(120));
     }
 
     #[test]

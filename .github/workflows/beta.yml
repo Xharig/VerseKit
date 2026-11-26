@@ -1,0 +1,312 @@
+# Builds a beta release for every tag `beta-v*` and attaches ONLY encrypted files to the GitHub release.
+#
+#   Windows: VerseKit-Setup.exe.vkbeta            (Inno Setup, as in release.yml)
+#   Linux:   VerseKit-x86_64.AppImage.vkbeta      (packaging/appimage.sh)
+#   Windows job: VerseKit-Beta.vkkey, the key ring with one entry per personal code
+#   Release: SHA256SUMS.txt over exactly these three files
+#
+# The files are encrypted inside the build job that makes them (AES-256-GCM, the key of the round drawn by HKDF from
+# the secret VERSEKIT_BETA_SCHLUESSEL and the tag), so that a plain installer never leaves a job: not as an
+# artifact (those can be fetched by anybody who is logged in to GitHub), not as an attachment. The key ring comes from
+# the secret VERSEKIT_BETA_TESTER (a JSON list of the personal codes) and is made in the Windows job only. The build
+# provenance (Sigstore) names this file and the tag and is made over the PLAIN files: the program checks it after
+# it has opened a beta (`provenance.rs`, BETA_WORKFLOW).
+#
+# Same rules as release.yml: actions pinned to a commit, no ${{ }} inside `run:` (values come through `env:`), the
+# deploy key of the p4kx repository only in the build jobs and only through ssh-agent. The secrets of the beta
+# are written to a file of the runner, their codes masked, and never printed. `tools/beta_workflow_pruefen.py`
+# checks this file (no plain artifact, no plain attachment, the same Rust version as release.yml).
+
+name: Beta bauen
+
+on:
+  push:
+    tags: ['beta-v*']
+
+env:
+  TAG: ${{ github.ref_name }}
+  RUST_VERSION: '1.100.0'
+  CARGO_TERM_COLOR: never
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ------------------------------------------------------------------ Windows
+  windows:
+    runs-on: windows-latest
+    # Besides reading the repository: the token of this run for Sigstore and storing the attestation.
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+
+      - name: Version against the tag
+        run: python .github/scripts/version_pruefen.py "$env:TAG"
+
+      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.P4KX_DEPLOY_KEY }}
+
+      - name: Fetch p4kx over SSH
+        run: git config --global url."ssh://git@github.com/p4kx-org/".insteadOf "https://github.com/p4kx-org/"
+
+      - name: Rust
+        run: |
+          rustup toolchain install "$env:RUST_VERSION" --profile minimal --component clippy
+          rustup default "$env:RUST_VERSION"
+          rustc --version
+
+      - name: Checks
+        run: |
+          cargo clippy --release --workspace --locked -- -D warnings
+          cargo test --locked -p versekit-gamedata --test no_key
+          cargo test --locked -p versekit-app
+          cargo test --locked -p versekit-core --lib -- updater update_run update_helper update_swap auto_update autostart backup provenance beta
+
+      - name: Build the program
+        run: cargo build --release --locked -p versekit-app
+
+      - name: Hangar-Exporter (checked against its fixed checksum and its Mozilla signature)
+        shell: pwsh
+        run: |
+          pwsh packaging/hangar-exporter.ps1 -SelfTest
+          pwsh packaging/hangar-exporter.ps1
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+          }
+          if (-not (Test-Path $iscc)) { $iscc = 'ISCC.exe' }
+          $version = python .github/scripts/version_pruefen.py --nur-version
+          if (-not $version) { throw 'no version in Cargo.toml' }
+          Write-Host "Installer version: $version"
+          & $iscc "/DAppVersion=$version" packaging\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC ended with $LASTEXITCODE" }
+          Get-ChildItem dist
+
+      # The provenance over the PLAIN installer; the file itself goes no further than this job.
+      - name: Build provenance
+        id: herkunft
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: dist/VerseKit-Setup.exe
+
+      - name: Build provenance failed
+        if: steps.herkunft.outcome == 'failure'
+        run: |
+          echo "::warning title=Build provenance::No build provenance for $env:TAG - the beta goes out without it"
+
+      - name: Encrypt the installer
+        shell: pwsh
+        env:
+          VERSEKIT_BETA_SCHLUESSEL: ${{ secrets.VERSEKIT_BETA_SCHLUESSEL }}
+        run: |
+          cargo run --quiet --release --locked -p versekit-core --example beta_verschluesseln -- `
+            verschluesseln --tag "$env:TAG" --aus beta-aus --schluessel-aus-env --nur-dateien dist/VerseKit-Setup.exe
+          if ($LASTEXITCODE -ne 0) { throw "encrypting ended with $LASTEXITCODE" }
+
+      # The list of the personal codes: to a file of the runner, the codes masked first, never printed.
+      - name: Key ring
+        shell: pwsh
+        env:
+          VERSEKIT_BETA_SCHLUESSEL: ${{ secrets.VERSEKIT_BETA_SCHLUESSEL }}
+          VERSEKIT_BETA_TESTER: ${{ secrets.VERSEKIT_BETA_TESTER }}
+        run: |
+          $liste = Join-Path $env:RUNNER_TEMP 'tester.json'
+          [System.IO.File]::WriteAllText($liste, $env:VERSEKIT_BETA_TESTER)
+          python .github/scripts/beta_masken.py "$liste"
+          if ($LASTEXITCODE -ne 0) { throw 'the list of the testers is no list' }
+          cargo run --quiet --release --locked -p versekit-core --example beta_verschluesseln -- `
+            verschluesseln --tag "$env:TAG" --liste "$liste" --aus beta-aus --schluessel-aus-env --nur-schluesselbund
+          $code = $LASTEXITCODE
+          Remove-Item -Force $liste
+          if ($code -ne 0) { throw "the key ring ended with $code" }
+
+      - name: Only encrypted files go on
+        shell: pwsh
+        run: |
+          $names = (Get-ChildItem beta-aus -File | Sort-Object Name | ForEach-Object Name) -join ' '
+          Write-Host "to upload: $names"
+          if ($names -ne 'VerseKit-Beta.vkkey VerseKit-Setup.exe.vkbeta') { throw "unexpected files: $names" }
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
+        with:
+          name: beta-windows
+          path: |
+            beta-aus/VerseKit-Setup.exe.vkbeta
+            beta-aus/VerseKit-Beta.vkkey
+          retention-days: 1
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------- Linux
+  linux:
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      TZ: Etc/UTC
+    steps:
+      - name: Git and SSH for the checkout and for p4kx
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git openssh-client ca-certificates
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+
+      - name: Version against the tag
+        run: |
+          apt-get install -y -qq --no-install-recommends python3
+          python3 .github/scripts/version_pruefen.py "$TAG"
+
+      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.P4KX_DEPLOY_KEY }}
+
+      - name: Fetch p4kx over SSH
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global url."ssh://git@github.com/p4kx-org/".insteadOf "https://github.com/p4kx-org/"
+          mkdir -p /etc/ssh
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" >> /etc/ssh/ssh_known_hosts
+
+      - name: Tools and Rust
+        run: bash packaging/appimage.sh --tools
+
+      - name: Build the program
+        run: bash packaging/appimage.sh --build
+
+      - name: Start check under a virtual screen
+        run: |
+          data="$(mktemp -d)"
+          xvfb-run -a target/release/versekit --daten "$data" > start.log 2>&1 &
+          started=$!
+          sleep 10
+          if ! kill -0 "$started" 2>/dev/null; then
+            cat start.log
+            echo "the program ended within ten seconds of its start" >&2
+            exit 1
+          fi
+          kill "$started"
+
+      - name: Pack the AppImage
+        run: bash packaging/appimage.sh --pack
+
+      - name: Build provenance
+        id: herkunft
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: dist/VerseKit-x86_64.AppImage
+
+      - name: Build provenance failed
+        if: steps.herkunft.outcome == 'failure'
+        run: echo "::warning title=Build provenance::No build provenance for $TAG - the beta goes out without it"
+
+      - name: Encrypt the AppImage
+        env:
+          VERSEKIT_BETA_SCHLUESSEL: ${{ secrets.VERSEKIT_BETA_SCHLUESSEL }}
+        run: |
+          . "$HOME/.cargo/env"
+          cargo run --quiet --release --locked -p versekit-core --example beta_verschluesseln -- \
+            verschluesseln --tag "$TAG" --aus beta-aus --schluessel-aus-env --nur-dateien dist/VerseKit-x86_64.AppImage
+          test "$(ls beta-aus)" = "VerseKit-x86_64.AppImage.vkbeta"
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
+        with:
+          name: beta-linux
+          path: beta-aus/VerseKit-x86_64.AppImage.vkbeta
+          retention-days: 1
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------ Release
+  release:
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
+        with: { path: dateien }
+
+      - name: Exactly the three encrypted files
+        run: |
+          set -eu
+          found="$(cd dateien && find . -type f | sort | tr '\n' ' ')"
+          echo "artifacts: $found"
+          test "$found" = "./beta-linux/VerseKit-x86_64.AppImage.vkbeta ./beta-windows/VerseKit-Beta.vkkey ./beta-windows/VerseKit-Setup.exe.vkbeta "
+
+      - name: Checksums
+        run: |
+          set -eu
+          mkdir beta-aus
+          cp dateien/beta-windows/* dateien/beta-linux/* beta-aus/
+          ( cd beta-aus && sha256sum VerseKit-Beta.vkkey VerseKit-Setup.exe.vkbeta VerseKit-x86_64.AppImage.vkbeta ) > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          test "$(wc -l < SHA256SUMS.txt)" = "3"
+          if grep -q '/' SHA256SUMS.txt; then echo "a path in SHA256SUMS.txt" >&2; exit 1; fi
+
+      - name: Release text
+        run: |
+          {
+            echo "Beta $TAG (encrypted). Opens only with a personal beta code: Info > Update & About > Beta tester."
+            echo
+            echo "Betafassung $TAG (verschluesselt). Oeffnet sich nur mit einem persoenlichen Beta-Code: Info > Update & Ueber > Betatester."
+          } > release-text.md
+
+      # A fault of GitHub during the upload (5xx) does not end the job here: the next step repairs and checks.
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
+        id: hochladen
+        continue-on-error: true
+        with:
+          tag_name: ${{ env.TAG }}
+          prerelease: true
+          body_path: release-text.md
+          files: |
+            beta-aus/VerseKit-Beta.vkkey
+            beta-aus/VerseKit-Setup.exe.vkbeta
+            beta-aus/VerseKit-x86_64.AppImage.vkbeta
+            SHA256SUMS.txt
+
+      - name: Attachments fetched back and checked
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -u
+          files="beta-aus/VerseKit-Beta.vkkey beta-aus/VerseKit-Setup.exe.vkbeta beta-aus/VerseKit-x86_64.AppImage.vkbeta SHA256SUMS.txt"
+          for attempt in 1 2 3 4 5 6; do
+            if ! gh release view "$TAG" > /dev/null 2>&1; then
+              gh release create "$TAG" --prerelease --verify-tag --notes-file release-text.md || true
+            fi
+            bad=""
+            back="$(mktemp -d)"
+            for file in $files; do
+              name="$(basename "$file")"
+              if gh release download "$TAG" --pattern "$name" --dir "$back" --clobber > /dev/null 2>&1 \
+                && cmp -s "$file" "$back/$name"; then
+                echo "ok: $name"
+              else
+                echo "missing or different: $name"
+                bad="$bad $file"
+              fi
+            done
+            rm -rf "$back"
+            if [ -z "$bad" ]; then exit 0; fi
+            if [ "$attempt" = 6 ]; then break; fi
+            gh release upload "$TAG" $bad --clobber || true
+            sleep $((attempt * 30))
+          done
+          echo "the attachments of $TAG are not complete after six attempts" >&2
+          exit 1

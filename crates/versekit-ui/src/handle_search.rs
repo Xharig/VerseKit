@@ -241,6 +241,9 @@ impl HandleSearch {
 
     /// Like [`HandleSearch::with_files`], asking over `net`.
     pub fn with_net(paths: &Paths, net: Option<Arc<dyn Net>>) -> HandleSearch {
+        // The tests of this crate ask a made-up site: the gate does not make them queue at its pause.
+        #[cfg(test)]
+        versekit_core::handle_query::cache::no_pause_for_tests();
         let own = Paths::new(paths.host.clone());
         HandleSearch {
             settings: Settings::read(&own),
@@ -1785,14 +1788,14 @@ pub(crate) mod tests {
     /// Waits for the thread of the search and takes its answer. The pause between two pages of the site holds in
     /// the tests too and is shared by the tests running at the same time: up to half a minute.
     fn settle(ctx: &egui::Context, search: &mut HandleSearch) {
-        for _ in 0..3000 {
+        let ended = crate::wait_for(|| {
             if !search.searching() {
-                return;
+                return true;
             }
-            std::thread::sleep(std::time::Duration::from_millis(10));
             frame(ctx, search, Vec::new(), egui::Modifiers::NONE);
-        }
-        panic!("the search did not end");
+            false
+        });
+        assert!(ended, "the search did not end");
     }
 
     /// The tests of this page ask for the same handle, and the gate of the search is one for the whole process
@@ -1933,13 +1936,10 @@ pub(crate) mod tests {
         assert_eq!(boxes(&first, LOGO_SIZE), (3, 0), "the profile picture and two logos waiting");
         assert!(search.pictures_waiting());
         open.store(true, std::sync::atomic::Ordering::SeqCst);
-        for _ in 0..500 {
+        crate::wait_for(|| {
             shapes(&ctx, &mut search);
-            if !search.pictures_waiting() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+            !search.pictures_waiting()
+        });
         assert!(!search.pictures_waiting(), "the pictures came");
         let later = shapes(&ctx, &mut search);
         assert_eq!(boxes(&later, LOGO_SIZE), (1, 2), "picture and logo shown, the missing logo stays a quiet box");
@@ -1999,14 +1999,14 @@ pub(crate) mod tests {
 
     /// Waits for the page of members on its way.
     fn settle_members(ctx: &egui::Context, search: &mut HandleSearch) {
-        for _ in 0..3000 {
+        let came = crate::wait_for(|| {
             if !search.members_loading() {
-                return;
+                return true;
             }
-            std::thread::sleep(std::time::Duration::from_millis(10));
             frame(ctx, search, Vec::new(), egui::Modifiers::NONE);
-        }
-        panic!("the members did not come");
+            false
+        });
+        assert!(came, "the members did not come");
     }
 
     #[test]
@@ -2206,14 +2206,11 @@ pub(crate) mod tests {
 
     /// Waits until the members opened by the card of an organization came.
     fn settle_org_members(ctx: &egui::Context, search: &mut HandleSearch) {
-        for _ in 0..3000 {
+        let came = crate::wait_for(|| {
             frame(ctx, search, Vec::new(), egui::Modifiers::NONE);
-            if search.members_shown().is_some() && !search.members_loading() {
-                return;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        panic!("the members did not come");
+            search.members_shown().is_some() && !search.members_loading()
+        });
+        assert!(came, "the members did not come");
     }
 
     #[test]

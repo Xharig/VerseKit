@@ -45,6 +45,8 @@ impl SamplePage {
             "hf_auftragslog" => self.contract_view.choose_first(),
             "hf_herstellung" => self.crafting.choose_first(),
             "hf_bergbau" => self.mining.choose_first(),
+            // Not an entry but the route view of the sample prices, which is as tall as a detail.
+            "hf_verkauf" => self.selling.show_route_sample(),
             // The made-up comparison of a test channel: the note of a reader that changed, a gap of every class.
             "hf_patchaenderungen" => self.patch_changes.choose_test_comparison(),
             _ => false,

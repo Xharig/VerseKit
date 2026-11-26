@@ -407,6 +407,35 @@ fn leaving_the_stage_deletes_the_code_and_what_it_opened() {
 }
 
 #[test]
+fn the_key_of_a_round_comes_from_the_secret_and_the_tag_alone() {
+    let secret = [7u8; 32];
+    let a = RoundKey::derive(&secret, TAG).unwrap();
+    assert_eq!(a, RoundKey::derive(&secret, TAG).unwrap(), "the same secret and tag: the same key");
+    assert_ne!(a, RoundKey::derive(&secret, "beta-v5.7.0-beta.2").unwrap(), "another tag: another key");
+    assert_ne!(a, RoundKey::derive(&[8u8; 32], TAG).unwrap(), "another secret: another key");
+    assert!(RoundKey::derive(&[7u8; 31], TAG).is_err(), "a short secret is refused");
+    assert!(RoundKey::derive(&secret, "v5.7.0").is_err(), "no beta tag");
+    // A file sealed in one job opens with the key a second job draws, and with no other.
+    let sealed = seal_file(&a, TAG, SETUP, PLAIN).unwrap();
+    let again = RoundKey::derive(&secret, TAG).unwrap();
+    assert_eq!(open_file(&again, TAG, SETUP, sealed.clone()).unwrap().0, PLAIN);
+    let other = RoundKey::derive(&secret, "beta-v5.7.0-beta.2").unwrap();
+    assert_eq!(open_file(&other, TAG, SETUP, sealed), Err(Problem::Damaged));
+}
+
+#[test]
+fn a_key_ring_of_a_derived_key_is_opened_by_every_code_of_the_list_reserve_codes_included() {
+    let key = RoundKey::derive(&[9u8; 32], TAG).unwrap();
+    let mut codes = testers();
+    codes.extend((0..20).map(|n| code(&format!("R{n:03}-K7QM-2XRA-9FHD-W3TB"))));
+    let ring = Keyring::parse(Keyring::seal(TAG, Cost::LOWEST, &codes, &key).unwrap().to_json().as_bytes()).unwrap();
+    assert_eq!(ring.entries.len(), 23);
+    for code in &codes {
+        assert_eq!(ring.unlock(TAG, code), Ok(key.clone()));
+    }
+}
+
+#[test]
 fn the_error_report_never_shows_the_code() {
     let (_dir, paths) = paths_in("beta-bericht");
     assert!(choose(&paths, Stage::Beta));

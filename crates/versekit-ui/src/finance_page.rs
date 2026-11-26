@@ -352,15 +352,15 @@ impl FinanceState {
     /// Waits for the run on, for tests.
     #[cfg(test)]
     pub(crate) fn wait(&mut self) {
-        for _ in 0..400 {
+        let ended = crate::wait_for(|| {
             self.poll();
-            if !self.running() {
-                self.poll();
-                return;
+            if self.running() {
+                return false;
             }
-            std::thread::sleep(Duration::from_millis(25));
-        }
-        panic!("the run does not end");
+            self.poll();
+            true
+        });
+        assert!(ended, "the run does not end");
     }
 }
 

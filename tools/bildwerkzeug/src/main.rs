@@ -1108,13 +1108,11 @@ fn overlay_picture(dir: &str, english: bool) {
     // The lines of the running contracts as the log reader makes them: the title, then what the catalog says.
     let contract = |title: &str, tail: String| ContractLine {
         title: title.into(),
-        text: Message::Plain(tf(
-            "ov_a_zeile_mit",
-            &[("0", Arg::from(tf("auftrag_zeile", &[("0", Arg::from(title))]))), ("1", Arg::from(tail))],
-        )),
+        text: Message::Plain(tf("ov_a_zeile_mit", &[("0", Arg::from(title)), ("1", Arg::from(tail))])),
         goals: Vec::new(),
         grey: false,
         count: 1,
+        complete: false,
     };
     let contracts = vec![
         contract(
@@ -1325,6 +1323,184 @@ fn update_waiting_picture(dir: &str, english: bool) {
     println!("gespeichert: {file}");
 }
 
+/// A check picture of the running contracts on a small screen: 1366 × 768 pixels with the task bar below, the
+/// largest text that screen allows, two contracts (one with every blueprint had, one with one missing) and three
+/// finds. The overlay starts in its default size in the upper left corner and grows as the program lets it
+/// ([`versekit_core::overlay::grown`]), as far as the work area goes. Marked across the top as a check picture.
+fn contracts_picture(dir: &str, english: bool, all_open: bool) {
+    use versekit_core::blueprints::kind_readable;
+    use versekit_core::language::{Arg, Phrase, tf};
+    use versekit_core::live_contracts::Line as ContractLine;
+    use versekit_core::overlay::{BarSide, Corner, Layout, Message, Row, Rows, Shown, grown};
+    use versekit_ui::overlay::{self, View};
+    // The screen in pixels, the largest text it allows (the zoom of the overlay) and the task bar.
+    const SCREEN: (f32, f32) = (1366.0, 768.0);
+    const TASK_BAR: f32 = 40.0;
+    const STRIPE: f32 = 22.0;
+    let points = versekit_core::font_size::max_points_for_screen(SCREEN.0, SCREEN.1);
+    let zoom = versekit_core::font_size::zoom_factor(points);
+    let scheme = versekit_core::theme::current();
+    let mut rows = Rows::default();
+    for (name, kind, code, time) in [
+        ("Arclight Pistol", "WeaponPersonal", "S1", "20:12:33"),
+        ("Pembroke Helmet", "Char_Armor_Helmet", "S2", "20:41:07"),
+        ("Morozov-SH Core", "Char_Armor_Torso", "S2", "20:44:52"),
+    ] {
+        let row = Row::Found {
+            name: name.into(),
+            kind: kind_readable(kind),
+            code: code.into(),
+            time: time.into(),
+            caught_up: false,
+        };
+        rows.push(row, overlay::DEFAULT_ROWS);
+    }
+    let goals = |names: &[&str]| names.iter().map(|g| (*g).to_string()).collect::<Vec<_>>();
+    let contracts = vec![
+        ContractLine {
+            title: "Protect Fuel Tanks".into(),
+            text: Message::Plain(tf(
+                "ov_a_zeile_mit",
+                &[
+                    ("0", Arg::from("Protect Fuel Tanks")),
+                    ("1", Arg::from(tf("auftrag_komplett", &[("0", Arg::from(3)), ("1", Arg::from(3))]))),
+                ],
+            )),
+            goals: goals(&["Barge-Inverter abholen", "Barge-Inverter zu Port Tressler bringen", "Wachen ausschalten"]),
+            grey: false,
+            count: 1,
+            // With `all_open` both lines keep their objectives: the window has to grow.
+            complete: !all_open,
+        },
+        ContractLine {
+            title: "Retake the Outpost".into(),
+            text: Message::Plain(tf(
+                "ov_a_zeile_mit",
+                &[
+                    ("0", Arg::from("Retake the Outpost")),
+                    (
+                        "1",
+                        Arg::from(tf(
+                            "auftrag_fehlt",
+                            &[("0", Arg::from(2)), ("1", Arg::from(3)), ("2", Arg::from("Morozov-SH Helmet"))],
+                        )),
+                    ),
+                ],
+            )),
+            goals: goals(&["Zum Außenposten fliegen", "Angreifer ausschalten", "Funkturm reparieren"]),
+            grey: false,
+            count: 1,
+            complete: false,
+        },
+    ];
+    let status = Message::Phrase(Phrase::new("ov_status").with("0", 442).with("1", "20:44:52"));
+    // In points of the zoomed overlay: the screen, the work area, the place the player chose.
+    let size = vec2(SCREEN.0 / zoom, SCREEN.1 / zoom);
+    let to_px = |v: f32| (v * zoom).round() as i32;
+    let work = versekit_core::overlay::Rect::new(0, 0, SCREEN.0 as i32, (SCREEN.1 - TASK_BAR) as i32);
+    let layout = Layout { corner: Corner::TopLeft, bar: BarSide::Top };
+    let mut grow = 0i32;
+    let mut base = None;
+    let mut installed = false;
+    let mut harness = Harness::builder()
+        .with_size(size)
+        .with_pixels_per_point(zoom)
+        .with_max_steps(80)
+        .with_accessibility_check(false)
+        .wgpu()
+        .build_ui(move |ui| {
+            if !installed {
+                versekit_ui::install(ui.ctx());
+                installed = true;
+                ui.ctx().request_repaint();
+                return;
+            }
+            // The whole picture is the screen: the ground goes under the margins of the frame too.
+            let screen = ui.ctx().viewport_rect();
+            let painter = ui.painter().with_clip_rect(screen);
+            painter.rect_filled(screen, 0.0, egui::Color32::from_rgb(0x0a, 0x10, 0x1c));
+            let bar = Rect::from_min_max(pos2(0.0, size.y - TASK_BAR / zoom), size.to_pos2());
+            painter.rect_filled(bar, 0.0, egui::Color32::from_rgb(0x20, 0x24, 0x2c));
+            // The place the player chose: the default size of this text, under the mark of the check picture.
+            let chosen = *base.get_or_insert_with(|| {
+                let default = overlay::default_size(ui);
+                let (x, y) = (versekit_core::overlay::EDGE, to_px(STRIPE / zoom) + versekit_core::overlay::EDGE);
+                versekit_core::overlay::Rect::new(x, y, to_px(default.x), to_px(default.y))
+            });
+            let window = grown(layout, chosen, grow, work);
+            let view = View {
+                scheme,
+                shown: Shown::Open,
+                rows: &rows,
+                contracts: &contracts,
+                contracts_max: 10,
+                hidden: None,
+                refinery: &[],
+                bank: &[],
+                launcher: true,
+                status: &status,
+                location: None,
+                shard: Some("euw1b"),
+                shard_hint: None,
+                signature: None,
+                demand: None,
+                update: None,
+                update_days: None,
+                zone: None,
+                game: true,
+                locked: false,
+                bar: BarSide::Top,
+                anchored: layout.anchored(),
+                opacity: 1.0,
+                extras: &[],
+                menu: true,
+                drag_under_buttons: false,
+                hangar: None,
+                hints_outside: false,
+            };
+            let at = Rect::from_min_size(
+                pos2(window.x as f32 / zoom, window.y as f32 / zoom),
+                vec2(window.w as f32 / zoom, window.h as f32 / zoom),
+            );
+            let mut child = ui.new_child(egui::UiBuilder::new().max_rect(at));
+            child.set_clip_rect(at);
+            let out = overlay::show(&mut child, &view);
+            // As the program does it: the window takes what the contracts lack, up to the edge of the work area.
+            if let Some(need) = out.contracts_need {
+                let want = (grow + (need * zoom).round() as i32)
+                    .clamp(0, versekit_core::overlay::growth_room(chosen, work));
+                if (want - grow).abs() > 1 {
+                    grow = want;
+                    ui.ctx().request_repaint();
+                }
+            }
+            let stripe = Rect::from_min_size(pos2(0.0, 0.0), vec2(size.x, STRIPE / zoom));
+            ui.painter().rect_filled(stripe, 0.0, egui::Color32::from_rgb(0xb0, 0x10, 0x10));
+            ui.painter().text(
+                stripe.center(),
+                egui::Align2::CENTER_CENTER,
+                format!("PRÜFBILD NACHHER · 1366×768, Schrift {points} (größte für diesen Bildschirm), erfundene Aufträge"),
+                egui::FontId::proportional(12.0 / zoom),
+                egui::Color32::WHITE,
+            );
+        });
+    harness.run_steps(40);
+    harness.remove_cursor();
+    harness.run_steps(3);
+    let image = (0..5)
+        .find_map(|_| {
+            harness.render().ok().or_else(|| {
+                std::thread::sleep(std::time::Duration::from_millis(800));
+                None
+            })
+        })
+        .expect("render");
+    let kind = if all_open { "-aufgeklappt" } else { "" };
+    let file = format!("{dir}/PRUEFBILD-auftraege-1366{kind}{}.png", if english { "-en" } else { "-de" });
+    image.save(&file).expect("Bild speichern");
+    println!("gespeichert: {file}");
+}
+
 fn main() {
     // `--en` draws in English; the other words are the folder, the scheme, the kind of pictures, a search word.
     let mut words: Vec<String> = std::env::args().skip(1).collect();
@@ -1383,6 +1559,12 @@ fn main() {
 
     if what == "pruefung" {
         review_pictures(&dir);
+        return;
+    }
+
+    if what == "auftraege" {
+        contracts_picture(&dir, english, false);
+        contracts_picture(&dir, english, true);
         return;
     }
 

@@ -96,6 +96,7 @@ pub mod sample;
 pub mod scanner_ui;
 pub mod patch_changes_page;
 pub mod selling_page;
+mod selling_route;
 pub mod serverstatus_page;
 pub mod settings;
 pub mod shader_page;
@@ -380,6 +381,31 @@ pub(crate) fn test_sizes() -> Vec<i64> {
     vec![low, between, high]
 }
 
+/// Which of `all` a test that goes through widths, schemes or the like takes: all of them in the full run, else the
+/// first, the last and one in between. The one in between is fixed by the name of the test (the same at every run,
+/// different from test to test), so the smallest and the largest are always there and no value is left out by all
+/// the tests.
+#[cfg(test)]
+pub(crate) fn test_pick<T: Copy>(all: &[T]) -> Vec<T> {
+    if full_run() || all.len() <= 3 {
+        return all.to_vec();
+    }
+    let name = std::thread::current().name().unwrap_or("").bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(u64::from(b)));
+    let between = 1 + (name % (all.len() as u64 - 2)) as usize;
+    vec![all[0], all[between], all[all.len() - 1]]
+}
+
+/// The schemes a test of the layout goes through: all in the full run, else the first (square) and the last
+/// (round), which differ in the corners.
+#[cfg(test)]
+pub(crate) fn test_schemes() -> Vec<&'static versekit_core::theme::Scheme> {
+    let all = versekit_core::theme::schemes();
+    if full_run() {
+        return all.iter().collect();
+    }
+    vec![&all[0], &all[all.len() - 1]]
+}
+
 /// Gives the test its own language and scheme (see [`LanguageGuard`]).
 #[cfg(test)]
 pub(crate) fn language_lock() -> LanguageGuard {
@@ -388,10 +414,74 @@ pub(crate) fn language_lock() -> LanguageGuard {
     LanguageGuard
 }
 
+/// The longest a test waits for something that happens in a thread of its own (seconds). A wait is over as soon as
+/// its condition holds, so the limit only matters for a fault; `VERSEKIT_TESTS_WARTEN` shortens it for the counter-check.
+#[cfg(test)]
+fn wait_limit() -> std::time::Duration {
+    let seconds = std::env::var("VERSEKIT_TESTS_WARTEN").ok().and_then(|value| value.parse::<u64>().ok()).unwrap_or(60);
+    std::time::Duration::from_secs(seconds)
+}
+
+/// Runs `step` again and again, a few milliseconds apart, until it says it is done or [`wait_limit`] has passed;
+/// whether it was done. The wait ends on the condition, not after a count of tries: a count runs out early when
+/// the machine is busy and the thread it waits for is slow.
+#[cfg(test)]
+pub(crate) fn wait_for(step: impl FnMut() -> bool) -> bool {
+    wait_for_within(wait_limit(), step)
+}
+
+#[cfg(test)]
+fn wait_for_within(limit: std::time::Duration, mut step: impl FnMut() -> bool) -> bool {
+    let deadline = std::time::Instant::now() + limit;
+    loop {
+        if step() {
+            return true;
+        }
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use versekit_core::theme;
+
+    #[test]
+    fn the_sample_always_holds_the_smallest_the_largest_and_both_ends_of_the_schemes() {
+        let widths = [330.0_f32, 480.0, 640.0, 900.0, 1400.0];
+        let taken = test_pick(&widths);
+        assert!(taken.contains(&330.0) && taken.contains(&1400.0), "{taken:?}");
+        assert!(taken.len() == 3 || full_run());
+        assert_eq!(test_pick(&widths), taken, "the same at every run");
+        assert_eq!(test_pick(&[1, 2]), [1, 2], "a short list is taken whole");
+        let schemes = test_schemes();
+        let all = theme::schemes();
+        assert!(schemes.iter().any(|s| s.id == all[0].id) && schemes.iter().any(|s| s.id == all[all.len() - 1].id));
+    }
+
+    #[test]
+    fn a_wait_ends_when_the_thread_is_done_however_slow_it_is() {
+        let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let setter = flag.clone();
+        let thread = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            setter.store(true, std::sync::atomic::Ordering::SeqCst);
+        });
+        let started = std::time::Instant::now();
+        assert!(wait_for_within(std::time::Duration::from_secs(30), || flag.load(std::sync::atomic::Ordering::SeqCst)));
+        assert!(started.elapsed() < std::time::Duration::from_secs(10), "it ends on the condition, not at the limit");
+        thread.join().expect("thread");
+    }
+
+    #[test]
+    fn a_wait_for_something_that_never_happens_ends_at_the_limit_and_says_so() {
+        let started = std::time::Instant::now();
+        assert!(!wait_for_within(std::time::Duration::from_millis(300), || false));
+        assert!(started.elapsed() >= std::time::Duration::from_millis(300));
+    }
 
     #[test]
     fn switches_without_restart() {

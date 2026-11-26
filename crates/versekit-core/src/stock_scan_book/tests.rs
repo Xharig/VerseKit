@@ -25,9 +25,75 @@ use crate::overlay::keys;
 use crate::testdir::Dir;
 
 fn paths_in(dir: &Dir) -> Paths {
+    paths_at(&dir.path().to_string_lossy())
+}
+
+fn paths_at(home: &str) -> Paths {
+    let vars = [(crate::envvars::ENV_HOME, home), (crate::envvars::ENV_NO_NET, "1")];
+    Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, home))
+}
+
+/// A booking into the own stock waits for the lock of the stock files before it holds the saves: the sync holds
+/// the stock files while it saves, and the other order made both wait for ever (Mein Lager hung on 26.11.).
+#[test]
+fn a_booking_and_a_sync_that_saves_under_the_stock_lock_do_not_wait_for_each_other() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+    let dir = Dir::new("lagerscan-sperren");
     let home = dir.path().to_string_lossy().into_owned();
-    let vars = [(crate::envvars::ENV_HOME, home.as_str()), (crate::envvars::ENV_NO_NET, "1")];
-    Paths::new(crate::paths::Host::new(crate::pypath::Flavor::native(), &vars, &home))
+    let (done, finished) = mpsc::channel();
+    let (held, holding) = mpsc::channel();
+    let sync_home = home.clone();
+    let sync_done = done.clone();
+    std::thread::spawn(move || {
+        let paths = paths_at(&sync_home);
+        let _stock = stock::lock();
+        held.send(()).expect("the test waits");
+        // The booking runs meanwhile and gets as far as it can.
+        std::thread::sleep(Duration::from_millis(300));
+        let saved = jsonio::save_json(&paths.app_file("abgleich-probe.json"), &jsonio::Value::Bool(true), 1, false);
+        let _ = sync_done.send(("sync", saved.is_ok()));
+    });
+    holding.recv().expect("the sync holds the stock files");
+    std::thread::spawn(move || {
+        let paths = paths_at(&home);
+        let outcome = run(&context(&paths, Target::Own, None, 1), Reading::Sure(pieces("Parallax", 5.0)));
+        let _ = done.send(("booking", matches!(outcome, Outcome::Booked(_))));
+    });
+    for _ in 0..2 {
+        let (who, good) = finished.recv_timeout(Duration::from_secs(20)).expect("neither waits for the other for ever");
+        assert!(good, "{who} went through");
+    }
+    assert_eq!(trade_amount(&paths_in(&dir), "Parallax", "Orison", true), Some(5.0));
+}
+
+/// A picked answer whose booking fails keeps its question open: nothing the player picked is lost. Once the
+/// booking goes through, the question is gone.
+#[test]
+fn a_failed_booking_keeps_the_question() {
+    let dir = Dir::new("lagerscan-frage-bleibt");
+    let paths = paths_in(&dir);
+    let ctx = context(&paths, Target::Own, None, 1);
+    run(&ctx, Reading::Unsure { item: pieces("Parallx", 1.0), candidates: vec!["Parallax".into()], picture: None });
+    let file = paths.app_file(stock::TRADE_FILE);
+    std::fs::write(&file, "kein json {").expect("written");
+    let outcome = answer(&paths, None, 0, Some("Parallax"), 2).expect("answered");
+    assert_eq!(outcome, Outcome::Failed(Target::Own));
+    assert_eq!(Journal::load(&paths).questions.len(), 1, "the question stays open");
+    // The reading put the broken file aside or not: either way it is gone now.
+    let _ = std::fs::remove_file(&file);
+    let outcome = answer(&paths, None, 0, Some("Parallax"), 3).expect("answered");
+    assert!(matches!(outcome, Outcome::Booked(_)), "{outcome:?}");
+    assert!(Journal::load(&paths).questions.is_empty(), "booked: the question is gone");
+    assert_eq!(trade_amount(&paths, "Parallax", "Orison", true), Some(1.0));
+}
+
+/// The lock of the stock files taken twice in one thread says so instead of waiting for ever.
+#[test]
+#[should_panic(expected = "stock::lock taken twice in one thread")]
+fn the_stock_lock_taken_twice_in_one_thread_panics() {
+    let _first = stock::lock();
+    let _second = stock::lock();
 }
 
 fn pieces(name: &str, quantity: f64) -> ScannedItem {

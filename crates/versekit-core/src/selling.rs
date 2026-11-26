@@ -625,6 +625,11 @@ fn without_low_outliers(rows: &[&Offer]) -> Vec<Offer> {
 }
 
 impl Selling {
+    /// The offers for a good without the one that falls out of line.
+    pub fn offers_without_outliers(&self, name: &str) -> Vec<&Offer> {
+        self.goods.get(name).map_or_else(Vec::new, |rows| without_outliers(rows))
+    }
+
     /// What a good brings at most per SCU, or `0.0`. A single absurd offer is
     /// dropped unless `with_outliers`.
     pub fn best_price(&self, name: &str, with_outliers: bool) -> f64 {

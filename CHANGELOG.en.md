@@ -6,6 +6,45 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.3 - 2026-11-26
+
+> A sell route for many goods, three new overlay shortcuts and an overlay that
+> grows with your contracts. Plus a hang in My Inventory fixed and a faster start
+> of the finances.
+
+### New
+
+- **Sell route for many goods:** Under Trade › Buy & Sell, the new view “Route”
+  shows how to sell all chosen goods over a few stations for the most money:
+  which station first, what where, with distance and revenue. If a station is
+  full or you have sold already, one click works out the rest anew. Requested
+  by ottpossum.
+- **Three new shortcuts:** “Mining scanner on/off”, “Clear overlay” and
+  “Teach a signature” stand under Settings › Overlay with the other shortcuts.
+  They do the same as the eye, the eraser and the teach button in the overlay
+  bar; the status line says what happened. Without your key they stay off.
+
+### Improved
+
+- **Contracts in the overlay without scrolling:** Running contracts read
+  shorter. Contracts whose blueprints you already have all sit in one line; a
+  click shows their objectives. The overlay grows with them, up to the edge of
+  the screen, instead of you dragging it taller.
+- **Finances start faster:** VerseKit keeps the rewards of contracts in a file
+  in the data folder. From the second opening on, the page is there at once
+  instead of after a few seconds.
+
+### Fixed
+
+- **My Inventory hung when confirming a scan:** Answering a question in the tab
+  “Stock scans” froze the window. Now the booking comes first and the question
+  goes afterwards; if the booking fails, the question stays. Long place names
+  wrap only between words.
+- **Empty overlay after a driver update:** When Windows loses the graphics,
+  the overlay starts anew, up to three times, instead of staying empty.
+- **No more title bar on the overlay:** The overlay no longer carries the
+  Windows frame at all, not even for a moment.
+
 ## v5.6.2 - 2026-11-25
 
 > A fix for everyone who drives VerseKit with the Stream Deck or another key

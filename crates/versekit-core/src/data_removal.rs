@@ -108,6 +108,7 @@ pub const KNOWN_FILES: &[&str] = &[
     "aktionsnamen.json",
     "anti-afk.json",
     "asop.json",
+    "auftrag-belohnungen.json",
     "auftraege-ausgeblendet.json",
     "auftragslog.bak.json",
     "auftragslog.json",

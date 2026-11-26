@@ -938,7 +938,7 @@ pub(crate) mod tests {
     fn the_entry_and_its_pages_fit_every_size_and_scheme() {
         let (width, height) = font_size::BASE_MIN_SIZE;
         let mut findings = Vec::new();
-        for scheme in theme::schemes() {
+        for scheme in crate::test_schemes() {
             theme::set_thread_current(scheme.id);
             for points in crate::test_sizes() {
                 let (mut page, _) = window(true);

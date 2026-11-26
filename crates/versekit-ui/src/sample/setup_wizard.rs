@@ -1325,16 +1325,15 @@ mod tests {
         let mut bench = Bench::new(page);
         assert!(bench.page.open_setup_if_needed(), "a new program needs the assistant");
         let confirm = language::t("s_mlg_bestaetigen");
-        for _ in 0..200 {
-            // The reading step waits for its thread.
-            std::thread::sleep(std::time::Duration::from_millis(10));
+        // The reading step waits for its thread: confirm until no confirmation is left.
+        crate::wait_for(|| {
             let texts = bench.settle();
-            let at = if shows(&texts, &confirm) { confirm.clone() } else { String::new() };
-            if at.is_empty() {
-                break;
+            if !shows(&texts, &confirm) {
+                return true;
             }
-            bench.click(&at);
-        }
+            bench.click(&confirm);
+            false
+        });
         // All steps before the last are confirmed now; the last one is "Fertig". (The window slides in for a dozen
         // frames; the button is where it stays only after that.)
         for _ in 0..4 {
@@ -1586,8 +1585,8 @@ mod tests {
         if let Some(w) = bench.page.setup.as_mut() {
             // The way a player arrives: all steps before the last are confirmed, the last is not.
             let last = w.steps.len() - 1;
-            for k in 0..last {
-                w.state.done[k] = true;
+            for done in w.state.done.iter_mut().take(last) {
+                *done = true;
             }
             w.state.step = last;
         }
@@ -1638,13 +1637,13 @@ mod tests {
         // The thread needs a moment: frames until the result stands there.
         let wanted = tf("nachgelesen_gross", &[("0", Arg::from(2)), ("1", Arg::from(0))]);
         let mut texts = bench.settle();
-        for _ in 0..100 {
+        crate::wait_for(|| {
             if shows(&texts, &wanted) {
-                break;
+                return true;
             }
-            std::thread::sleep(std::time::Duration::from_millis(20));
             texts = bench.settle();
-        }
+            false
+        });
         let seen: Vec<&str> = texts.iter().map(|(t, _)| t.as_str()).collect();
         assert!(shows(&texts, &wanted), "{wanted} / {seen:?}");
         // No stored session is kept, so the logs have a gap: said, with the way to tick off the rest by hand.
@@ -1781,13 +1780,13 @@ mod tests {
         // for the accounts of the logs).
         bench.click(&language::t("s_mlg_bestaetigen"));
         until_shown(&mut bench, &language::t("as_acc_text"));
-        for _ in 0..200 {
+        crate::wait_for(|| {
             if bench.page.setup.as_ref().is_some_and(|w| w.steps[w.state.step] == Step::Overlay) {
-                break;
+                return true;
             }
             bench.click(&language::t("s_mlg_bestaetigen"));
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
+            false
+        });
         let texts = (0..4).map(|_| bench.settle()).last().unwrap_or_default();
         assert!(shows(&texts, "71 %"), "the overlay step shows the opacity of the file, not the default: {texts:?}");
         // Skipped: it ends at once, the file is the one it was (the note of the version apart), and it does not
@@ -1826,14 +1825,14 @@ mod tests {
         assert!(page.open_short_if_needed());
         let mut bench = Bench::new(page);
         let confirm = language::t("s_mlg_bestaetigen");
-        for _ in 0..200 {
-            std::thread::sleep(std::time::Duration::from_millis(5));
+        crate::wait_for(|| {
             let texts = bench.settle();
             if !shows(&texts, &confirm) {
-                break;
+                return true;
             }
             bench.click(&confirm);
-        }
+            false
+        });
         for _ in 0..4 {
             bench.settle();
         }
