@@ -102,6 +102,8 @@ struct Bindings {
     mouse_only: std::collections::HashSet<String>,
     /// The game actions on the deck that are missing a key ([`versekit_core::streamdeck_fill::missing`]).
     missing: std::collections::HashSet<String>,
+    /// How the game takes the key of each action of the list that does not simply follow it.
+    timings: HashMap<String, versekit_core::controls::Timing>,
 }
 
 /// Values read from files, kept for a while.
@@ -340,16 +342,20 @@ impl DeckHost {
 
     fn game_action(&self, action: &str, phase: Phase) -> Result<(), Refused> {
         if phase == Phase::Up {
-            self.keys.up(action, self.sink.as_ref());
+            self.keys.up(action, self.sink.as_ref(), Instant::now());
             return Ok(());
         }
         if let Some(why) = self.blocked() {
             return Err(Refused { status: 409, code: if why == "admin" { "admin" } else { "spiel_admin" } });
         }
-        let how = lock(&self.bindings).list.iter().find(|r| r.action == action).map(|r| r.how.clone());
+        let (how, timing) = {
+            let bindings = lock(&self.bindings);
+            let how = bindings.list.iter().find(|r| r.action == action).map(|r| r.how.clone());
+            (how, bindings.timings.get(action).copied().unwrap_or_default())
+        };
         match how {
             None => Err(Refused { status: 400, code: "aktion" }),
-            Some(How::Keyboard { keys, .. }) => match self.keys.down(action, &keys, self.sink.as_ref(), Instant::now()) {
+            Some(How::Keyboard { keys, .. }) => match self.keys.down(action, &keys, timing, self.sink.as_ref(), Instant::now()) {
                 Ok(()) => Ok(()),
                 Err(NotSent::NotInFront) => Err(Refused { status: 409, code: "nicht_vorne" }),
                 Err(NotSent::Failed) => Err(Refused { status: 503, code: "nicht_gesendet" }),
@@ -404,7 +410,12 @@ fn work_out(paths: &Paths, mark: String, in_use: &[String]) -> Bindings {
     use versekit_core::streamdeck_fill;
     let mouse_only = in_use.iter().filter(|name| streamdeck_fill::stays_on_mouse(name, &own, &profile)).cloned().collect();
     let missing = in_use.iter().filter(|name| streamdeck_fill::missing(name, &own, &profile)).cloned().collect();
-    Bindings { mark, list, names, groups, mouse_only, missing }
+    let timings = list
+        .iter()
+        .map(|r| (r.action.clone(), profile.timing_of(&r.action)))
+        .filter(|(_, t)| *t != versekit_core::controls::Timing::Follow)
+        .collect();
+    Bindings { mark, list, names, groups, mouse_only, missing, timings }
 }
 
 /// The list with the qualified names added that name a known `actionmap` and a known action (the others stay
@@ -582,7 +593,7 @@ impl Deck {
             .name("streamdeck-tasten".into())
             .spawn(move || {
                 loop {
-                    std::thread::sleep(Duration::from_millis(250));
+                    std::thread::sleep(versekit_core::streamdeck_keys::WATCH_EVERY);
                     h.keys.watch(h.sink.as_ref(), s.last_contact(), Instant::now());
                 }
             })
@@ -782,6 +793,41 @@ mod tests {
         let unknown = host.command(&Command::GameAction { action: "v_nix".into(), phase: Phase::Down });
         assert_eq!(unknown, Err(Refused { status: 400, code: "aktion" }));
         assert_eq!(fake.sent.lock().unwrap().len(), 4, "nothing more sent");
+    }
+
+    #[test]
+    fn a_tap_on_the_deck_holds_the_key_as_long_as_the_game_wants_it_held() {
+        let (host, _, _, fake) = host();
+        let keys = versekit_core::anti_afk_key::parse("lalt+lshift+b").expect("keys");
+        let profile = versekit_core::controls::Profile::from_xml(
+            r#"<ActionMaps><ActivationMode name="delayed_press" onPress="1" multiTap="1" pressTriggerThreshold="0.25" releaseTriggerThreshold="-1"/>
+               <actionmap name="spaceship_movement"><action name="v_master_mode_cycle_long" activationMode="delayed_press"/></actionmap></ActionMaps>"#,
+        )
+        .expect("profile");
+        *lock(&host.bindings) = Bindings {
+            mark: "m".into(),
+            list: vec![Resolved {
+                action: "v_master_mode_cycle_long".into(),
+                group: "spaceship_movement".into(),
+                how: How::Keyboard { input: "lalt+lshift+b".into(), keys },
+                own: true,
+                deleted: false,
+            }],
+            timings: [("v_master_mode_cycle_long".to_string(), profile.timing_of("v_master_mode_cycle_long"))].into(),
+            ..Bindings::default()
+        };
+        if host.blocked().is_some() {
+            return;
+        }
+        let start = Instant::now();
+        host.command(&Command::GameAction { action: "v_master_mode_cycle_long".into(), phase: Phase::Down }).expect("down");
+        host.command(&Command::GameAction { action: "v_master_mode_cycle_long".into(), phase: Phase::Up }).expect("up");
+        let ups = || fake.sent.lock().unwrap().iter().filter(|e| e.up).count();
+        assert_eq!((host.keys.count(), ups()), (1, 0), "a tap of the deck does not let go at once");
+        host.keys.watch(host.sink.as_ref(), Some(Duration::ZERO), start + Duration::from_millis(200));
+        assert_eq!(ups(), 0, "not before the game took it");
+        host.keys.watch(host.sink.as_ref(), Some(Duration::ZERO), start + Duration::from_millis(400));
+        assert_eq!((host.keys.count(), ups()), (0, 3), "let go after the threshold");
     }
 
     #[test]

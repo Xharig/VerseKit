@@ -257,6 +257,29 @@ mod system {
         foreground().is_some_and(|(_, path)| is_game_path(&path))
     }
 
+    /// The mouse pointer in physical points, whatever scaling this thread was in.
+    pub fn physical_pointer() -> Option<(i32, i32)> {
+        use windows_sys::Win32::Foundation::POINT;
+        use windows_sys::Win32::UI::WindowsAndMessaging::GetPhysicalCursorPos;
+        let _aware = Aware::new();
+        let mut at = POINT { x: 0, y: 0 };
+        // SAFETY: `at` lives during the call.
+        (unsafe { GetPhysicalCursorPos(&raw mut at) } != 0).then_some((at.x, at.y))
+    }
+
+    /// The dots per inch of the window in front (96 at a scaling of 100 %); `None` without one.
+    pub fn foreground_dpi() -> Option<u32> {
+        use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
+        // SAFETY: calls without arguments the system owns; a zero handle is "no window".
+        let window = unsafe { GetForegroundWindow() };
+        if window.is_null() {
+            return None;
+        }
+        // SAFETY: a window handle the system handed over; zero comes back for one that is gone.
+        let dpi = unsafe { GetDpiForWindow(window) };
+        (dpi != 0).then_some(dpi)
+    }
+
     pub fn game_rect() -> Option<Area> {
         let (window, path) = foreground()?;
         if !is_game_path(&path) {
@@ -338,6 +361,45 @@ pub fn game_rect() -> Option<Area> {
     {
         None
     }
+}
+
+/// The mouse pointer in physical points; `None` where this system cannot ask.
+pub fn physical_pointer() -> Option<(i32, i32)> {
+    #[cfg(windows)]
+    {
+        system::physical_pointer()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
+/// The dots per inch of the window in front (96 at a scaling of 100 %); `None` where this system cannot ask.
+pub fn foreground_dpi() -> Option<u32> {
+    #[cfg(windows)]
+    {
+        system::foreground_dpi()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
+/// The pointer in physical points: `given` as the caller read it, `now` the physical pointer asked at the scan. A
+/// caller that was not aware of the scaling read `given` in scaled points (at 150 % two thirds of the physical); where
+/// `given` scaled up by `dpi` lies near `now` and nearer than `given` itself, that is taken.
+pub fn physical_of(given: (i32, i32), now: Option<(i32, i32)>, dpi: Option<u32>) -> (i32, i32) {
+    let (Some(now), Some(dpi)) = (now, dpi) else { return given };
+    if dpi <= 96 {
+        return given;
+    }
+    let scale = |v: i32| (i64::from(v) * i64::from(dpi) / 96) as i32;
+    let scaled = (scale(given.0), scale(given.1));
+    let apart = |a: (i32, i32)| (i64::from(a.0 - now.0).abs()).max(i64::from(a.1 - now.1).abs());
+    let near = 24 * i64::from(dpi) / 96;
+    if apart(scaled) <= near && apart(scaled) < apart(given) { scaled } else { given }
 }
 
 /// The window in front while it is not the game: the file name of its program, its window class and whether it is
@@ -457,6 +519,19 @@ impl FrontKeeper {
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn a_pointer_read_in_scaled_points_is_taken_in_physical_ones() {
+        // 150 %: the pointer at 2240,1280 reads 1493,853 to a caller unaware of the scaling.
+        assert_eq!(physical_of((1493, 853), Some((2240, 1280)), Some(144)), (2239, 1279));
+        // Read in physical points already: it stays.
+        assert_eq!(physical_of((2240, 1280), Some((2242, 1281)), Some(144)), (2240, 1280));
+        // The pointer moved far since the key: the one of the key stays.
+        assert_eq!(physical_of((1000, 500), Some((3000, 1800)), Some(144)), (1000, 500));
+        // 100 %, nothing asked: it stays.
+        assert_eq!(physical_of((1493, 853), Some((2240, 1280)), Some(96)), (1493, 853));
+        assert_eq!(physical_of((1493, 853), None, Some(144)), (1493, 853));
+    }
 
     fn front(program: &str, class: &str, own: bool) -> Front {
         Front { program: program.into(), class: class.into(), own }

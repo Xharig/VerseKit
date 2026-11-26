@@ -781,7 +781,61 @@ fn windows_command_line(pid: u32) -> Option<String> {
 /// Seconds since a Game.log was written, or `None` without one.
 fn age_of(path: &str) -> Option<f64> {
     let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok()?;
-    Some(std::time::SystemTime::now().duration_since(modified).map_or(0.0, |d| d.as_secs_f64()))
+    age_since(std::time::SystemTime::now(), modified)
+}
+
+/// How long ago `modified` was at `now`, in seconds. ⚠ A time more than two seconds ahead (a clock set wrong, a file
+/// copied from another computer) says nothing: it would count as written just now for ever.
+fn age_since(now: std::time::SystemTime, modified: std::time::SystemTime) -> Option<f64> {
+    match now.duration_since(modified) {
+        Ok(age) => Some(age.as_secs_f64()),
+        Err(ahead) if ahead.duration().as_secs_f64() <= 2.0 => Some(0.0),
+        Err(_) => None,
+    }
+}
+
+/// Why the files of the game must not be written now.
+#[derive(Clone, Debug, PartialEq)]
+pub enum NotQuiet {
+    /// `StarCitizen.exe` is in the process list.
+    Process,
+    /// A Game.log was written `age` seconds ago; `listed`: the process list says the game is not there.
+    LogFresh { age: f64, listed: bool },
+    /// The process list cannot be read and there is no Game.log.
+    Unknown,
+}
+
+impl NotQuiet {
+    /// Whole minutes until a fresh log counts as quiet; `None` for the other reasons.
+    pub fn minutes_left(&self) -> Option<u64> {
+        match self {
+            NotQuiet::LogFresh { age, .. } => {
+                Some(((crate::mission_log::GAME_IDLE_SEC - age).max(0.0) / 60.0).ceil().max(1.0) as u64)
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Why the game counts as running, from the answer of the process list and the ages of the logs; `None` when it is
+/// quiet. In the process list, or a log written lately in any channel: it runs. Not in the list and no fresh log:
+/// quiet, also without any log. Without the list a log that lies quiet is the word, and no log at all is nothing to
+/// go by.
+pub fn not_quiet_with(process: Option<bool>, ages: &[f64]) -> Option<NotQuiet> {
+    if process == Some(true) {
+        return Some(NotQuiet::Process);
+    }
+    let youngest = ages.iter().copied().fold(f64::INFINITY, f64::min);
+    if youngest < crate::mission_log::GAME_IDLE_SEC {
+        return Some(NotQuiet::LogFresh { age: youngest, listed: process == Some(false) });
+    }
+    (process.is_none() && ages.is_empty()).then_some(NotQuiet::Unknown)
+}
+
+/// Why the files of the game must not be written now ([`not_quiet_with`]); `None` when they may.
+pub fn not_quiet(paths: &Paths) -> Option<NotQuiet> {
+    let process = if paths.host.var(ENV_NO_PROCESS).is_some() { None } else { game_process() };
+    not_quiet_with(process, &log_ages(paths))
 }
 
 /// Does the game run? The process list first, then the Game.log of **every** channel that is installed
@@ -793,21 +847,37 @@ pub fn run_state(paths: &Paths) -> RunState {
     run_state_with(paths, process)
 }
 
-/// [`run_state`] with the answer of the process list given (the tests give it).
-pub fn run_state_with(paths: &Paths, process: Option<bool>) -> RunState {
-    let mut ages: Vec<f64> = crate::overlay::log_age(paths).into_iter().collect();
+/// The ages of the Game.log of the folder the program reads and of every installed channel, in seconds.
+fn log_ages(paths: &Paths) -> Vec<f64> {
+    let mut ages: Vec<f64> = paths.game_log(None).and_then(|log| age_of(&log)).into_iter().collect();
     for (_, folder, _) in paths.installed_channels() {
         ages.extend(paths.game_log(Some(&folder)).and_then(|log| age_of(&log)));
     }
-    // In the process list, or a log written lately in any channel: it runs.
-    if process == Some(true) || ages.iter().any(|age| *age < crate::mission_log::GAME_IDLE_SEC) {
-        return RunState::Running;
+    ages
+}
+
+/// The game ended lately: not in the process list, but a Game.log written less than
+/// `mission_log::GAME_IDLE_SEC` ago. Gives the whole minutes until it counts as quiet ([`run_state`]); `None` while
+/// it runs or is quiet already, or where the process list cannot tell.
+pub fn ended_lately(paths: &Paths) -> Option<u64> {
+    let process = if paths.host.var(ENV_NO_PROCESS).is_some() { None } else { game_process() };
+    minutes_until_quiet(process, &log_ages(paths))
+}
+
+/// [`ended_lately`] with the answer of the process list and the ages of the logs given.
+pub fn minutes_until_quiet(process: Option<bool>, ages: &[f64]) -> Option<u64> {
+    match not_quiet_with(process, ages) {
+        Some(reason @ NotQuiet::LogFresh { listed: true, .. }) => reason.minutes_left(),
+        _ => None,
     }
-    // Nothing written lately and not in the list: the list can tell it is not there; without it, a log that
-    // lies quiet is the word, and no log at all is nothing to go by.
-    match (process, ages.is_empty()) {
-        (None, true) => RunState::Unknown,
-        _ => RunState::Idle,
+}
+
+/// [`run_state`] with the answer of the process list given (the tests give it).
+pub fn run_state_with(paths: &Paths, process: Option<bool>) -> RunState {
+    match not_quiet_with(process, &log_ages(paths)) {
+        None => RunState::Idle,
+        Some(NotQuiet::Unknown) => RunState::Unknown,
+        Some(_) => RunState::Running,
     }
 }
 
@@ -911,6 +981,36 @@ pub fn on_path(program: &str, path: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_reason_the_game_counts_as_running_is_told_and_a_log_from_the_future_says_nothing() {
+        assert_eq!(not_quiet_with(Some(true), &[]), Some(NotQuiet::Process));
+        assert_eq!(not_quiet_with(Some(false), &[30.0]), Some(NotQuiet::LogFresh { age: 30.0, listed: true }));
+        assert_eq!(not_quiet_with(None, &[30.0]), Some(NotQuiet::LogFresh { age: 30.0, listed: false }));
+        assert_eq!(not_quiet_with(None, &[]), Some(NotQuiet::Unknown));
+        // The process list says the game is not there: no log is no reason to wait.
+        assert_eq!(not_quiet_with(Some(false), &[]), None);
+        assert_eq!(not_quiet_with(Some(false), &[400.0]), None);
+        assert_eq!(not_quiet_with(None, &[400.0]), None);
+        // A log written an hour ahead of the clock is no fresh log; a second ahead is.
+        let (now, s) = (std::time::SystemTime::now(), std::time::Duration::from_secs);
+        assert_eq!(age_since(now, now + s(3600)), None);
+        assert_eq!(age_since(now, now + s(1)), Some(0.0));
+        assert_eq!(age_since(now + s(90), now), Some(90.0));
+        assert_eq!(NotQuiet::LogFresh { age: 30.0, listed: false }.minutes_left(), Some(5));
+    }
+
+    #[test]
+    fn a_game_ended_lately_says_how_many_minutes_are_left_until_it_counts_as_quiet() {
+        // Not in the process list, the log written 10 s ago: 290 s left, five minutes.
+        assert_eq!(minutes_until_quiet(Some(false), &[10.0, 4000.0]), Some(5));
+        assert_eq!(minutes_until_quiet(Some(false), &[250.0]), Some(1), "50 s left: one minute");
+        assert_eq!(minutes_until_quiet(Some(false), &[299.5]), Some(1));
+        assert_eq!(minutes_until_quiet(Some(false), &[300.0]), None, "quiet already");
+        assert_eq!(minutes_until_quiet(Some(false), &[]), None, "no log");
+        assert_eq!(minutes_until_quiet(Some(true), &[10.0]), None, "it runs");
+        assert_eq!(minutes_until_quiet(None, &[10.0]), None, "the list cannot tell");
+    }
     use crate::jsonio::Value;
     use crate::paths::{ENV_INSTALL_DIR, Host};
 

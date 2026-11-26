@@ -151,21 +151,12 @@ fn unsafe_key(name: &str, own: &[(String, Vec<Binding>)], profile: &Profile) -> 
     matches!(&resolved.how, How::Keyboard { input, .. } if alt_gr(input))
 }
 
-/// Is `input` a plain button or wheel of the mouse, as the game writes it on a keyboard line (`mouse4`, `mwheel_up`)?
-fn plain_mouse(input: &str) -> bool {
-    let input = input.trim().to_ascii_lowercase();
-    input.strip_prefix("mouse").is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
-        || matches!(input.as_str(), "mwheel_up" | "mwheel_down")
-}
-
-/// Is the mouse line of `action` in `section` free: no line of the player on a mouse (not even an emptied one) and
-/// no mouse button of the factory setting?
-fn mouse_line_free(action: &str, section: &str, own: &[(String, Vec<Binding>)], profile: &Profile) -> bool {
-    let own_mouse = own.iter().filter(|(id, _)| id.starts_with("mo")).flat_map(|(_, list)| list.iter()).any(|b| {
-        b.action == action && (section.is_empty() || b.section.is_empty() || b.section == section)
-    });
-    let factory_mouse = profile.defaults.get(action).is_some_and(|fields| fields.iter().any(|(f, i)| f == "mouse" && !i.is_empty()));
-    !own_mouse && !factory_mouse
+/// The mouse input of `action`: the player's line on a mouse, else the mouse of the factory setting; empty without.
+fn mouse_input(action: &str, own: &[(String, Vec<Binding>)], profile: &Profile) -> String {
+    let mine = own.iter().filter(|(id, _)| id.starts_with("mo")).flat_map(|(_, list)| list.iter()).find(|b| b.action == action);
+    mine.map(|b| b.input.clone())
+        .or_else(|| profile.defaults.get(action).and_then(|f| f.iter().find(|(f, _)| f == "mouse").map(|(_, i)| i.clone())))
+        .unwrap_or_default()
 }
 
 /// Is the game action `name` a missing key: known to the game, without a key on the keyboard the deck can press, and
@@ -177,15 +168,14 @@ pub fn missing(name: &str, own: &[(String, Vec<Binding>)], profile: &Profile) ->
         && !stays_on_mouse(name, own, profile)
 }
 
-/// Does the game action `name` keep a mouse button the Stream Deck cannot press, because nothing can move without a
-/// loss ([`Outcome::NotSendable`])? Such an action is no missing key: it works with the mouse.
+/// Does the game action `name` lie on a mouse button the Stream Deck cannot press ([`Outcome::NotSendable`])? Such an
+/// action is no missing key: it works with the mouse.
+///
+/// ⚠⚠ The game keeps **one** place for keyboard and mouse together: a keyboard line beside a mouse line is made one
+/// when the game saves its bindings, and one of the two is lost (the mouse button of the player or the key put in).
+/// So no key is ever put beside a mouse button, the player's or the factory's.
 pub fn stays_on_mouse(name: &str, own: &[(String, Vec<Binding>)], profile: &Profile) -> bool {
-    let resolved = game_binding::resolve(name, own, profile);
-    let (_, action) = game_binding::qualified(name, profile);
-    match &resolved.how {
-        How::NotSendable { input } => !(plain_mouse(input) && mouse_line_free(action, &resolved.group, own, profile)),
-        _ => false,
-    }
+    matches!(game_binding::resolve(name, own, profile).how, How::NotSendable { .. } | How::MouseOnly)
 }
 
 impl Outcome {
@@ -265,7 +255,9 @@ pub fn plan(
         let outcome = if !known {
             Outcome::Unknown
         } else if resolved.deleted {
-            if keep_deleted || resolved.group.is_empty() {
+            // A line of the player on a mouse beside the emptied one: a key would take its place ([`stays_on_mouse`]).
+            let own_mouse = own.iter().filter(|(id, _)| id.starts_with("mo")).flat_map(|(_, l)| l.iter()).any(|b| b.action == action);
+            if keep_deleted || resolved.group.is_empty() || own_mouse {
                 Outcome::Deleted
             } else {
                 match free_key() {
@@ -274,15 +266,10 @@ pub fn plan(
                 }
             }
         } else if let How::NotSendable { input } = &resolved.how {
-            // A mouse button on the keyboard line moves to the free mouse line; the keyboard line takes a key.
-            if plain_mouse(input) && !resolved.group.is_empty() && mouse_line_free(action, &resolved.group, own, profile) {
-                match free_key() {
-                    Some(key) => Outcome::Move { mouse: input.trim().to_ascii_lowercase(), key },
-                    None => Outcome::NoFreeKey,
-                }
-            } else {
-                Outcome::NotSendable(input.clone())
-            }
+            // A mouse button stays where it is: a key beside it would take its place ([`stays_on_mouse`]).
+            Outcome::NotSendable(input.clone())
+        } else if resolved.how == How::MouseOnly {
+            Outcome::NotSendable(mouse_input(action, own, profile))
         } else if let How::Keyboard { input, .. } = &resolved.how
             && alt_gr(input)
             && !resolved.group.is_empty()
@@ -646,58 +633,58 @@ mod tests {
             </ActionMaps>"#,
         )
         .expect("profile");
-        let body = r#"<actionmap name="spaceship_movement"><action name="v_master_mode_cycle_long"><rebind input="kb1_mouse4"/></action></actionmap>"#;
-        let items = plan(&names(&["v_master_mode_cycle_long"]), &own(body), &profile, &[]);
+        let items = plan(&names(&["v_master_mode_cycle_long"]), &own(""), &profile, &[]);
         assert_eq!(
             items[0].outcome,
-            Outcome::Move { mouse: "mouse4".into(), key: "lalt+lshift+d".into() },
+            Outcome::Add("lalt+lshift+d".into()),
             "not a (thrusters), not b (eject), not c (self destruct with Ctrl); d alone is harmless"
         );
         // The player's own binding counts too: eject moved from `b` to `d` alone, so `b` is free and `d` is not.
-        let own_eject = r#"<actionmap name="spaceship_general"><action name="v_eject"><rebind input="kb1_d"/></action></actionmap>
-            <actionmap name="spaceship_movement"><action name="v_master_mode_cycle_long"><rebind input="kb1_mouse4"/></action></actionmap>"#;
+        let own_eject = r#"<actionmap name="spaceship_general"><action name="v_eject"><rebind input="kb1_d"/></action></actionmap>"#;
         let items = plan(&names(&["v_master_mode_cycle_long", "v_lights"]), &own(own_eject), &profile, &[]);
-        assert_eq!(items[0].outcome, Outcome::Move { mouse: "mouse4".into(), key: "lalt+lshift+b".into() });
+        assert_eq!(items[0].outcome, Outcome::Add("lalt+lshift+b".into()));
     }
 
     #[test]
-    fn a_mouse_button_on_the_keyboard_line_moves_to_the_mouse_line_and_a_key_combination_of_the_mouse_is_taken() {
-        // As in a real binding file: a mouse button on the keyboard device, a combination of keys on the mouse device.
+    fn a_combination_of_keys_the_game_wrote_on_the_mouse_is_a_key_of_the_keyboard() {
+        // The game keeps one place for keyboard and mouse and writes keys there as `mo1_…` too.
+        let body = r#"<actionmap name="spaceship_movement">
+            <action name="v_toggle_jump_request"><rebind input="mo1_lctrl+lshift+m"/><rebind input="js1_button4"/></action>
+        </actionmap>"#;
+        let profile = Profile::from_xml(
+            r#"<ActionMaps><actionmap name="spaceship_movement" UILabel="@m"><action name="v_toggle_jump_request" UILabel="@j" keyboard="ralt+j"/></actionmap></ActionMaps>"#,
+        )
+        .expect("profile");
+        let items = plan(&names(&["v_toggle_jump_request"]), &own(body), &profile, &[]);
+        assert_eq!(items[0].outcome, Outcome::HasKey, "no second key beside it");
+        assert!(!missing("v_toggle_jump_request", &own(body), &profile));
+        let resolved = game_binding::resolve("v_toggle_jump_request", &own(body), &profile);
+        assert!(matches!(&resolved.how, How::Keyboard { input, .. } if input == "lctrl+lshift+m"), "{resolved:?}");
+    }
+
+    #[test]
+    fn no_key_is_ever_put_beside_a_mouse_button_of_the_player_or_the_factory() {
+        // The game makes a keyboard line and a mouse line of one action one when it saves: the mouse button would go.
+        // v_free: a mouse button on the keyboard line; v_mouse: the factory gives it mouse3; v_free2: a combination;
+        // v_own: the player's mouse button on the mouse line; v_deleted: an emptied line beside an own mouse button.
         let body = r#"<actionmap name="spaceship_general">
             <action name="v_free"><rebind input="kb1_mouse4"/></action>
-            <action name="v_eject"><rebind input="mo1_lalt+lshift+b"/></action>
-        </actionmap>"#;
-        let items = plan(&names(&["v_free", "v_free2"]), &own(body), &profile(), &[]);
-        assert_eq!(
-            items[0].outcome,
-            Outcome::Move { mouse: "mouse4".into(), key: "lalt+lshift+c".into() },
-            "the mouse line is free: the button moves there, the keyboard line takes a key (lalt+lshift+b is held on the mouse)"
-        );
-        assert_eq!(items[1].outcome, Outcome::Add("lalt+lshift+d".into()));
-        assert_eq!(count(&items), Count { without_key: 2, deleted: 0, addable: 2 }, "both get a key");
-    }
-
-    #[test]
-    fn a_mouse_button_stays_where_the_mouse_line_is_taken_and_counts_as_no_missing_key() {
-        // v_free: its own mouse line holds another button; v_mouse: the factory gives it mouse3; v_free2: a combination.
-        let body = r#"<actionmap name="spaceship_general">
-            <action name="v_free"><rebind input="kb1_mouse4"/><rebind input="mo1_mouse5"/></action>
-            <action name="v_mouse"><rebind input="kb1_mouse4"/></action>
             <action name="v_free2"><rebind input="kb1_lalt+mouse1"/></action>
+            <action name="v_own"><rebind input="mo1_mouse5"/></action>
+            <action name="v_deleted"><rebind input="kb1_"/><rebind input="mo1_mouse2"/></action>
         </actionmap>"#;
-        let items = plan(&names(&["v_free", "v_mouse", "v_free2"]), &own(body), &profile(), &[]);
-        assert_eq!(items[0].outcome, Outcome::NotSendable("mouse4".into()), "own mouse line taken: nothing is lost");
-        assert_eq!(items[1].outcome, Outcome::NotSendable("mouse4".into()), "factory mouse button: nothing is lost");
-        assert_eq!(items[2].outcome, Outcome::NotSendable("lalt+mouse1".into()), "no plain mouse button");
-        assert_eq!(count(&items), Count::default(), "they work with the mouse: no missing key");
-        for name in ["v_free", "v_mouse", "v_free2"] {
-            assert!(stays_on_mouse(name, &own(body), &profile()), "{name}");
+        let items = super::plan(&names(&["v_free", "v_mouse", "v_free2", "v_own", "v_deleted"]), &own(body), &profile(), &[], false);
+        assert_eq!(items[0].outcome, Outcome::NotSendable("mouse4".into()));
+        assert_eq!(items[1].outcome, Outcome::NotSendable("mouse3".into()), "the factory mouse button stays");
+        assert_eq!(items[2].outcome, Outcome::NotSendable("lalt+mouse1".into()));
+        assert_eq!(items[3].outcome, Outcome::NotSendable("mouse5".into()), "the own mouse button stays");
+        assert_eq!(items[4].outcome, Outcome::Deleted, "not filled beside the own mouse button");
+        for item in &items {
+            assert!(!matches!(item.outcome, Outcome::Add(_) | Outcome::Move { .. } | Outcome::Refill(_)), "{item:?}");
         }
-        let movable = r#"<actionmap name="spaceship_general"><action name="v_free"><rebind input="kb1_mouse4"/></action></actionmap>"#;
-        assert!(!stays_on_mouse("v_free", &own(movable), &profile()), "it can move: it is missing until it does");
-        // An emptied mouse line is the player's too.
-        let emptied = r#"<actionmap name="spaceship_general"><action name="v_free"><rebind input="kb1_mouse4"/><rebind input="mo1_"/></action></actionmap>"#;
-        assert_eq!(plan(&names(&["v_free"]), &own(emptied), &profile(), &[])[0].outcome, Outcome::NotSendable("mouse4".into()));
+        for name in ["v_free", "v_mouse", "v_free2", "v_own"] {
+            assert!(stays_on_mouse(name, &own(body), &profile()) && !missing(name, &own(body), &profile()), "{name}");
+        }
     }
 
     #[test]
@@ -715,13 +702,13 @@ mod tests {
         let items = plan(&names, &own, &profile(), &[]);
         let deck = names.iter().filter(|n| missing(n, &own, &profile())).count();
         assert_eq!(count(&items).without_key, deck, "{items:?}");
-        assert_eq!(deck, 3, "v_free (moves), v_free2 (stick only), v_deleted; not the unknown, not the one that stays");
+        assert_eq!(deck, 2, "v_free2 (stick only), v_deleted; not the unknown, not those on the mouse");
         // Every key full: the same number still.
         assert_eq!(count(&plan(&names, &own, &profile(), &every_key_held())).without_key, deck);
         // After putting in: nothing on either side.
         let after = r#"<actionmap name="spaceship_general">
             <action name="v_deleted"><rebind input="kb1_"/></action>
-            <action name="v_free"><rebind input="kb1_lalt+lshift+b"/><rebind input="mo1_mouse4"/></action>
+            <action name="v_free"><rebind input="kb1_mouse4"/></action>
             <action name="v_mouse"><rebind input="kb1_mouse4"/></action>
             <action name="v_free2"><rebind input="js1_button3"/><rebind input="kb1_lalt+lshift+c"/></action>
         </actionmap>"#;
@@ -760,9 +747,9 @@ mod tests {
     }
 
     #[test]
-    fn a_mouse_only_action_gets_a_key_beside_its_mouse_button() {
+    fn a_mouse_only_action_stays_on_its_mouse_button() {
         let items = plan(&names(&["v_mouse"]), &own(""), &profile(), &[]);
-        assert_eq!(items[0].outcome, Outcome::Add("lalt+lshift+b".into()));
+        assert_eq!(items[0].outcome, Outcome::NotSendable("mouse3".into()));
     }
 
     #[test]
@@ -899,7 +886,7 @@ mod tests {
     fn the_count_names_the_actions_without_a_key_and_the_deleted_ones_among_them() {
         let body = r#"<actionmap name="spaceship_general"><action name="v_deleted"><rebind input="kb1_"/></action></actionmap>"#;
         let items = plan(&names(&["v_free", "v_mouse", "v_deleted", "v_eject", "gibt_es_nicht"]), &own(body), &profile(), &[]);
-        assert_eq!(count(&items), Count { without_key: 3, deleted: 1, addable: 2 });
+        assert_eq!(count(&items), Count { without_key: 2, deleted: 1, addable: 1 }, "v_mouse works with the mouse");
         assert_eq!(count(&[]), Count::default());
         let full = plan(&names(&["v_free"]), &own(""), &profile(), &every_key_held());
         assert_eq!(count(&full), Count { without_key: 1, deleted: 0, addable: 0 }, "no free key: still without one");
@@ -993,11 +980,14 @@ mod tests {
     const MOUSE_MAPS: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<ActionMaps version=\"1\">\r\n <ActionProfiles version=\"1\" profileName=\"default\">\r\n  <actionmap name=\"spaceship_general\">\r\n   <action name=\"v_free\">\r\n    <rebind input=\"kb1_mouse4\"/>\r\n   </action>\r\n   <action name=\"v_free2\">\r\n    <rebind input=\"js1_button3\"/>\r\n   </action>\r\n  </actionmap>\r\n </ActionProfiles>\r\n</ActionMaps>\r\n";
 
     #[test]
-    fn after_putting_in_nothing_is_missing_the_mouse_button_still_works_and_the_way_back_restores_it() {
+    fn a_mouse_button_moved_by_an_older_version_comes_back_on_the_way_back() {
+        // Older versions moved a mouse button from the keyboard line to the mouse line; their record is taken back.
         let (paths, home, file) = world("maus", 7200, MOUSE_MAPS.as_bytes());
         let read = || own_of(&std::fs::read_to_string(&file).expect("file"));
-        let items = plan(&names(&["v_free", "v_free2"]), &read(), &profile(), &[]);
-        assert!(matches!(items[0].outcome, Outcome::Move { .. }), "{items:?}");
+        let items = vec![
+            Item { action: "v_free".into(), group: "spaceship_general".into(), outcome: Outcome::Move { mouse: "mouse4".into(), key: "lalt+lshift+b".into() } },
+            Item { action: "v_free2".into(), group: "spaceship_general".into(), outcome: Outcome::Add("lalt+lshift+c".into()) },
+        ];
         let record = apply(&paths, &items, 42).expect("written");
         assert_eq!(record.moved.len(), 1);
         let text = std::fs::read_to_string(&file).expect("file");

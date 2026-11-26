@@ -142,6 +142,59 @@ pub struct Profile {
     pub groups: OrderedMap<String>,
     /// The `actionmap`s in the order of the file, each to `(UILabel, UICategory)`: the keys of the texts, with the `@`.
     pub maps: OrderedMap<(String, String)>,
+    /// Action to how the game takes its key ([`Timing`]); only those that do not simply follow the key.
+    pub timings: OrderedMap<Timing>,
+}
+
+/// How the game takes the key of an action, by its `activationMode`: as it goes down and up, only after it was held
+/// a while (`delayed_press`: at least so many milliseconds), only when it is let go soon (`tap`: within so many
+/// milliseconds), or only when it is tapped twice (`double_tap`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Timing {
+    #[default]
+    Follow,
+    AtLeast(u32),
+    Within(u32),
+    Twice,
+}
+
+impl Timing {
+    /// The timing of an `<ActivationMode>` of the `defaultProfile.xml`.
+    fn of_mode(node: Node) -> Timing {
+        let number = |name: &str| attribute(node, name).and_then(|v| v.trim().parse::<f64>().ok()).unwrap_or(-1.0);
+        let ms = |seconds: f64| (seconds * 1000.0).round() as u32;
+        if number("multiTap") >= 2.0 {
+            Timing::Twice
+        } else if number("pressTriggerThreshold") > 0.0 {
+            Timing::AtLeast(ms(number("pressTriggerThreshold")))
+        } else if number("releaseTriggerThreshold") > 0.0 && number("onRelease") >= 1.0 {
+            Timing::Within(ms(number("releaseTriggerThreshold")))
+        } else {
+            Timing::Follow
+        }
+    }
+
+    /// The timing as a word of the kept file: `mindestens:250`, `hoechstens:250`, `zweimal`, `folgen`.
+    pub fn word(&self) -> String {
+        match self {
+            Timing::Follow => "folgen".into(),
+            Timing::AtLeast(ms) => format!("mindestens:{ms}"),
+            Timing::Within(ms) => format!("hoechstens:{ms}"),
+            Timing::Twice => "zweimal".into(),
+        }
+    }
+
+    /// The timing of a word of [`Timing::word`].
+    pub fn parse(word: &str) -> Option<Timing> {
+        let (kind, ms) = word.split_once(':').map_or((word, None), |(k, n)| (k, n.parse::<u32>().ok()));
+        match (kind, ms) {
+            ("folgen", None) => Some(Timing::Follow),
+            ("zweimal", None) => Some(Timing::Twice),
+            ("mindestens", Some(ms)) => Some(Timing::AtLeast(ms)),
+            ("hoechstens", Some(ms)) => Some(Timing::Within(ms)),
+            _ => None,
+        }
+    }
 }
 
 fn attribute<'a>(node: Node<'a, '_>, name: &str) -> Option<&'a str> {
@@ -160,6 +213,11 @@ impl Profile {
         let options = roxmltree::ParsingOptions { allow_dtd: true, ..roxmltree::ParsingOptions::default() };
         let document = roxmltree::Document::parse_with_options(text, options).ok()?;
         let mut profile = Profile::default();
+        let modes: std::collections::HashMap<&str, Timing> = document
+            .descendants()
+            .filter(|n| is_element(*n, "ActivationMode"))
+            .filter_map(|n| Some((attribute(n, "name")?, Timing::of_mode(n))))
+            .collect();
         for group in document.descendants().filter(|n| is_element(*n, "actionmap")) {
             let section = attribute(group, "name").unwrap_or("");
             if !section.is_empty() && profile.maps.get(section).is_none() {
@@ -202,8 +260,18 @@ impl Profile {
             if !preset.is_empty() {
                 profile.defaults.set(name, preset);
             }
+            let timing = attribute(node, "activationMode").and_then(|mode| modes.get(mode.trim())).copied().unwrap_or_default();
+            if timing != Timing::Follow {
+                profile.timings.set(name, timing);
+            }
         }
         Some(profile)
+    }
+
+    /// How the game takes the key of `action` (also as `actionmap.action`).
+    pub fn timing_of(&self, action: &str) -> Timing {
+        let plain = action.split_once('.').map_or(action, |(_, plain)| plain);
+        self.timings.get(plain).copied().unwrap_or_default()
     }
 
     /// Does the profile say anything (an empty one is what a missing archive gives)?
@@ -870,6 +938,60 @@ mod tests {
     use super::*;
     use crate::joysticks::bindings_from_text;
     use crate::language::{self, Choice};
+
+    /// The modes of the `defaultProfile.xml` of the game, as it writes them.
+    const MODES: &str = r#"<ActivationModes>
+    <ActivationMode name="tap" onPress="0" onHold="0" onRelease="1" multiTap="1" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="0.25" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="double_tap" onPress="1" onHold="0" onRelease="0" multiTap="2" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="tap_quicker" onPress="0" onHold="0" onRelease="1" multiTap="1" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="0.15" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="press" onPress="1" onHold="0" onRelease="0" multiTap="1" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="delayed_press" onPress="1" onHold="0" onRelease="0" multiTap="1" multiTapBlock="1" pressTriggerThreshold="0.25" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="delayed_press_medium" onPress="1" onHold="0" onRelease="0" multiTap="1" multiTapBlock="1" pressTriggerThreshold="0.5" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="delayed_press_long" onPress="1" onHold="0" onRelease="0" multiTap="1" multiTapBlock="1" pressTriggerThreshold="1.5" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="hold" onPress="1" onHold="0" onRelease="1" multiTap="1" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="1"/>
+    <ActivationMode name="delayed_hold" onPress="1" onHold="0" onRelease="1" multiTap="1" multiTapBlock="1" pressTriggerThreshold="0.25" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="1"/>
+  </ActivationModes>"#;
+
+    #[test]
+    fn every_action_knows_how_the_game_takes_its_key() {
+        let xml = format!(
+            r#"<ActionMaps>{MODES}<actionmap name="spaceship_movement">
+              <action name="v_master_mode_cycle" activationMode="tap" keyboard="b"/>
+              <action name="v_master_mode_cycle_long" activationMode="delayed_press" keyboard="b"/>
+              <action name="v_toggle_quantum_mode" activationMode="press" keyboard="b"/>
+              <action name="v_self_destruct" activationMode="delayed_press_medium"/>
+              <action name="v_long" activationMode="delayed_press_long"/>
+              <action name="v_quick" activationMode="tap_quicker"/>
+              <action name="v_twice" activationMode="double_tap"/>
+              <action name="v_scan" activationMode="hold"/>
+              <action name="v_dhold" activationMode="delayed_hold"/>
+              <action name="v_none"/>
+              <action name="v_unknown" activationMode="gibt_es_nicht"/>
+            </actionmap></ActionMaps>"#
+        );
+        let profile = Profile::from_xml(&xml).expect("profile");
+        let cases = [
+            ("v_master_mode_cycle", Timing::Within(250)),
+            ("v_master_mode_cycle_long", Timing::AtLeast(250)),
+            ("v_toggle_quantum_mode", Timing::Follow),
+            ("v_self_destruct", Timing::AtLeast(500)),
+            ("v_long", Timing::AtLeast(1500)),
+            ("v_quick", Timing::Within(150)),
+            ("v_twice", Timing::Twice),
+            ("v_scan", Timing::Follow),
+            ("v_dhold", Timing::AtLeast(250)),
+            ("v_none", Timing::Follow),
+            ("v_unknown", Timing::Follow),
+            ("spaceship_movement.v_master_mode_cycle_long", Timing::AtLeast(250)),
+        ];
+        for (action, timing) in cases {
+            assert_eq!(profile.timing_of(action), timing, "{action}");
+        }
+        for timing in [Timing::Follow, Timing::AtLeast(250), Timing::Within(150), Timing::Twice] {
+            assert_eq!(Timing::parse(&timing.word()), Some(timing));
+        }
+        assert_eq!(Timing::parse("mindestens:x"), None);
+    }
 
     const PROFILE: &str = r#"<profile>
  <actionmap name="spaceship_general">

@@ -159,6 +159,37 @@ fn ask(paths: &Paths) -> Option<Report> {
     })
 }
 
+/// Why the keys cannot be written while the game is not quiet, exactly ([`versekit_core::game_start::not_quiet`]);
+/// a reason other than the last one goes to the error log.
+fn game_not_quiet(paths: &Paths) -> String {
+    static LAST: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+    let reason = versekit_core::game_start::not_quiet(paths);
+    let said = format!("{reason:?}");
+    let mut last = LAST.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if last.as_deref() != Some(said.as_str()) {
+        versekit_core::errors::note("streamdeck.eintragen_gesperrt", &said);
+        *last = Some(said);
+    }
+    not_quiet_text(reason.as_ref())
+}
+
+fn not_quiet_text(reason: Option<&versekit_core::game_start::NotQuiet>) -> String {
+    use versekit_core::game_start::NotQuiet;
+    match reason {
+        Some(NotQuiet::Process) => t("sd_f_spiel_prozess"),
+        Some(fresh @ NotQuiet::LogFresh { age, listed }) => {
+            let minutes = fresh.minutes_left().unwrap_or(1) as usize;
+            match (listed, minutes) {
+                (true, 1) => t("sd_f_spiel_beendet_1"),
+                (true, n) => tf("sd_f_spiel_beendet", &[("0", Arg::from(n))]),
+                (false, n) => tf("sd_f_spiel_log", &[("0", Arg::from(*age as usize)), ("1", Arg::from(n))]),
+            }
+        }
+        Some(NotQuiet::Unknown) => t("sd_f_spiel_unklar"),
+        None => t("sd_f_spiel_laeuft"),
+    }
+}
+
 /// The plan for the game actions of the plugin, with the bindings, the factory setting and the hotkeys of VerseKit.
 fn work_out_plan(paths: &Paths, in_use: &[String], keep_deleted: bool) -> Result<(Vec<Item>, Vec<String>), String> {
     let profile = versekit_gamedata::control_profile::profile(paths);
@@ -279,7 +310,8 @@ impl StreamDeckState {
                 Some(done) if done.key == key => done.items,
                 _ => versekit_core::language::with_language(lang, || work_out_plan(&paths, &key.0, key.1)),
             };
-            let quiet = versekit_core::game_files::check_quiet(&paths).map_err(|e| e.reason());
+            let quiet = versekit_core::game_files::check_quiet(&paths)
+                .map_err(|_| versekit_core::language::with_language(lang, || game_not_quiet(&paths)));
             *lock(&counted) = Some(Counted { key, items, quiet });
             *lock(&counting) = false;
             ctx.request_repaint();
@@ -356,7 +388,7 @@ impl StreamDeckState {
                 t("sd_f_nichts_frei")
             })
         } else {
-            counted.quiet.err().map(|_| t("sd_f_spiel_laeuft"))
+            counted.quiet.err()
         };
         (text, blocked)
     }
@@ -365,7 +397,8 @@ impl StreamDeckState {
     fn write_blocked(&self) -> Option<String> {
         match lock(&self.counted).as_ref().map(|c| c.quiet.clone()) {
             Some(Ok(())) => None,
-            _ => Some(t("sd_f_spiel_laeuft")),
+            Some(Err(why)) => Some(why),
+            None => Some(t("sd_f_spiel_laeuft")),
         }
     }
 
@@ -451,7 +484,7 @@ impl StreamDeckState {
                 self.close_preview();
             }
             Err(failure) => {
-                let reason = if failure.game_not_quiet() { t("sd_f_spiel_laeuft") } else { failure.text() };
+                let reason = if failure.game_not_quiet() { game_not_quiet(paths) } else { failure.text() };
                 self.message = Some((tf("sd_f_fehler", &[("0", Arg::from(reason))]), false));
             }
         }
@@ -474,7 +507,7 @@ impl StreamDeckState {
                 self.record = streamdeck_fill::load_record(paths);
             }
             Err(failure) => {
-                let reason = if failure.game_not_quiet() { t("sd_f_spiel_laeuft") } else { failure.text() };
+                let reason = if failure.game_not_quiet() { game_not_quiet(paths) } else { failure.text() };
                 self.message = Some((tf("sd_f_fehler", &[("0", Arg::from(reason))]), false));
             }
         }
@@ -941,6 +974,34 @@ mod tests {
             let state = StreamDeckState { on: true, report: Arc::new(Mutex::new(same)), ..StreamDeckState::default() };
             assert!(!state.status_text().contains(&old), "{installed:?} {shipped:?}");
         }
+    }
+
+    #[test]
+    fn a_game_ended_lately_says_when_the_keys_can_go_in_instead_of_asking_to_close_it() {
+        use versekit_core::game_start::NotQuiet;
+        let ended = |age: f64| NotQuiet::LogFresh { age, listed: true };
+        assert_eq!(not_quiet_text(None), t("sd_f_spiel_laeuft"));
+        assert_eq!(not_quiet_text(Some(&ended(70.0))), tf("sd_f_spiel_beendet", &[("0", Arg::from(4usize))]));
+        assert_eq!(not_quiet_text(Some(&ended(250.0))), t("sd_f_spiel_beendet_1"));
+        // Each reason says itself: the process, a fresh log without the process list, nothing to go by.
+        let texts = [
+            not_quiet_text(Some(&NotQuiet::Process)),
+            not_quiet_text(Some(&NotQuiet::LogFresh { age: 70.0, listed: false })),
+            not_quiet_text(Some(&NotQuiet::Unknown)),
+            not_quiet_text(Some(&ended(70.0))),
+        ];
+        for (i, a) in texts.iter().enumerate() {
+            assert!(!texts[i + 1..].contains(a) && *a != t("sd_f_spiel_laeuft"), "{a}");
+        }
+        assert!(texts[1].contains("70") && texts[1].contains('4'), "{}", texts[1]);
+        // The reason the count found is what the button says.
+        let state = counted_state(&[Outcome::Add("lalt+lshift+b".into())], false, "s");
+        lock(&state.report).in_use = vec!["v_0".into()];
+        if let Some(counted) = lock(&state.counted).as_mut() {
+            counted.quiet = Err(texts[0].clone());
+        }
+        assert_eq!(state.write_blocked(), Some(texts[0].clone()));
+        assert_eq!(state.count_text().1, Some(texts[0].clone()));
     }
 
     /// A state with the interface on and a counted plan of these outcomes, the game quiet or running.

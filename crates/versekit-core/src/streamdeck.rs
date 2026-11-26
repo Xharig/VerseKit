@@ -120,10 +120,71 @@ pub fn short_name(action: &str, lang: crate::language::Lang) -> Option<&'static 
 }
 
 /// The name of a game action as the deck and its page show it: the name of the game where it has one in `lang`
-/// (`own_text`), else the short name of the profiles, else what the game has (English or technical); on one line.
+/// (`own_text`), else the short name of the profiles as the profiles write it ([`written`]), else what the game has
+/// (English or technical); on one line.
 pub fn game_action_name(action: &str, game_name: &str, own_text: bool, lang: crate::language::Lang) -> String {
-    let name = if own_text { None } else { short_name(action, lang) };
-    crate::controls::one_line(name.unwrap_or(game_name))
+    match if own_text { None } else { short_name(action, lang) } {
+        Some(short) => crate::controls::one_line(&written(short, lang)),
+        None => crate::controls::one_line(game_name),
+    }
+}
+
+/// Words after the first that stay small in a short name.
+const SMALL_WORDS: [&str; 17] = [
+    "scannen", "sperren", "an/aus", "wischen", "anfordern", "zurück", "wechseln", "laden", "bündeln", "anpassen", "brechen",
+    "zerlegen", "links", "rechts", "mitte", "reset", "euch",
+];
+
+/// Short names and words written as they are.
+const FIXED_WORDS: [(&str, &str); 16] = [
+    ("VTOL", "VTOL"),
+    ("NAV", "NAV"),
+    ("SCM", "SCM"),
+    ("E.S.P.", "E.S.P."),
+    ("PIT-MENÜ", "PIT-Menü"),
+    ("PIT MENU", "PIT Menu"),
+    ("MOBIGLAS", "mobiGlas"),
+    ("3RD", "3rd"),
+    ("ON/OFF", "on/off"),
+    ("ANTI-AFK", "Anti-AFK"),
+    ("CRUISE", "Cruise"),
+    ("AUEC", "aUEC"),
+    ("FAQ", "FAQ"),
+    ("GITHUB", "GitHub"),
+    ("BALKEN = HIER", "Balken = hier"),
+    ("BAR = HERE", "Bar = here"),
+];
+
+/// A short name of the profiles (written in capitals in `kurznamen.json`) as the key pictures of the profiles write
+/// it: each word with a capital first letter, also after a hyphen; some words after the first small (`MUNITION
+/// BÜNDELN` → `Munition bündeln`), some written as they are (`MOBIGLAS` → `mobiGlas`).
+pub fn written(text: &str, lang: crate::language::Lang) -> String {
+    let fixed = |word: &str| FIXED_WORDS.iter().find(|(from, _)| *from == word).map(|(_, to)| (*to).to_string());
+    if let Some(whole) = fixed(text) {
+        return whole;
+    }
+    let english = lang == crate::language::Lang::En;
+    let words: Vec<String> = text
+        .split(' ')
+        .enumerate()
+        .map(|(i, word)| {
+            if let Some(kept) = fixed(word) {
+                return kept;
+            }
+            let low = word.to_lowercase();
+            if i > 0 && (SMALL_WORDS.contains(&low.as_str()) || (english && matches!(low.as_str(), "on/off" | "left" | "right"))) {
+                return low;
+            }
+            low.split('-')
+                .map(|part| {
+                    let mut chars = part.chars();
+                    chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
+                })
+                .collect::<Vec<_>>()
+                .join("-")
+        })
+        .collect();
+    words.join(" ")
 }
 
 /// The game actions that are dangerous by themselves (eject, emergency exit, self destruct, all power off): a key
@@ -345,12 +406,139 @@ pub const PLUGIN_FILE: &str = "VerseKit.streamDeckPlugin";
 /// Where the Stream Deck program is offered.
 pub const ELGATO_URL: &str = "https://www.elgato.com/downloads";
 
-/// Is the Stream Deck program of Elgato installed? Looked for in its folder under the programs.
+/// Is the Stream Deck program of Elgato installed? See [`app_found`].
 pub fn app_installed(host: &crate::paths::Host) -> bool {
-    ["ProgramFiles", "ProgramW6432"]
-        .iter()
-        .filter_map(|name| host.var_set(name))
-        .any(|base| std::path::Path::new(base).join("Elgato").join("StreamDeck").join("StreamDeck.exe").is_file())
+    app_found(host).is_some()
+}
+
+/// Where the Stream Deck program was found: its program file or, found only by its data, its data folder.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AppFound {
+    pub path: String,
+    /// How: `programme`, `app_paths`, `deinstallation`, `prozess`, `daten`.
+    pub by: &'static str,
+}
+
+/// What the system says about the Stream Deck program, gathered by [`app_found`].
+#[derive(Clone, Debug, Default)]
+pub struct AppHints {
+    /// The folders of the programs (`ProgramFiles`, `ProgramW6432`).
+    pub program_folders: Vec<String>,
+    /// The program files the registry names under `App Paths\StreamDeck.exe`.
+    pub app_paths: Vec<String>,
+    /// The folders the uninstall entries named „Stream Deck“ give (`InstallLocation`).
+    pub uninstall: Vec<String>,
+    /// The program file of a running `StreamDeck.exe`.
+    pub running: Option<String>,
+    /// The data folder `%APPDATA%\Elgato\StreamDeck`.
+    pub data_folder: Option<String>,
+}
+
+/// The Stream Deck program by the hints, the first that holds: the folder under the programs, the registry, a
+/// running process, then its data folder (installed elsewhere, where the program file is not known). The plugin is
+/// installed by opening its file, which works wherever the program lies.
+pub fn app_from(hints: &AppHints, is_file: impl Fn(&std::path::Path) -> bool, is_dir: impl Fn(&std::path::Path) -> bool) -> Option<AppFound> {
+    use std::path::Path;
+    let exe = "StreamDeck.exe";
+    let found = |path: std::path::PathBuf, by| Some(AppFound { path: path.to_string_lossy().into_owned(), by });
+    for base in &hints.program_folders {
+        let path = Path::new(base).join("Elgato").join("StreamDeck").join(exe);
+        if is_file(&path) {
+            return found(path, "programme");
+        }
+    }
+    for file in &hints.app_paths {
+        let path = Path::new(file.trim().trim_matches('"'));
+        if is_file(path) {
+            return found(path.to_path_buf(), "app_paths");
+        }
+    }
+    for folder in &hints.uninstall {
+        let path = Path::new(folder.trim().trim_matches('"')).join(exe);
+        if is_file(&path) {
+            return found(path, "deinstallation");
+        }
+    }
+    if let Some(running) = &hints.running {
+        return found(Path::new(running).to_path_buf(), "prozess");
+    }
+    hints.data_folder.as_deref().filter(|f| is_dir(Path::new(f))).and_then(|f| found(Path::new(f).to_path_buf(), "daten"))
+}
+
+/// Looks for the Stream Deck program: under the programs, in the registry (`App Paths`, the uninstall entries), as
+/// a running process and by its data folder ([`app_from`]).
+pub fn app_found(host: &crate::paths::Host) -> Option<AppFound> {
+    let mut hints = AppHints {
+        program_folders: ["ProgramFiles", "ProgramW6432"].iter().filter_map(|n| host.var_set(n).map(String::from)).collect(),
+        data_folder: host.var_set("APPDATA").map(|a| std::path::Path::new(a).join("Elgato").join("StreamDeck").to_string_lossy().into_owned()),
+        ..AppHints::default()
+    };
+    #[cfg(windows)]
+    {
+        use crate::paths::registry::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, open};
+        for root in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
+            if let Some(key) = open(root, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\StreamDeck.exe") {
+                hints.app_paths.extend(key.value(""));
+            }
+            for list in [r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"] {
+                let Some(key) = open(root, list) else { continue };
+                for index in 0..key.subkey_count().unwrap_or(0) {
+                    let Some(entry) = key.enum_key(index).and_then(|name| key.sub(&name)) else { continue };
+                    if entry.value("DisplayName").is_some_and(|n| n.to_ascii_lowercase().contains("stream deck")) {
+                        hints.uninstall.extend(entry.value("InstallLocation").filter(|l| !l.trim().is_empty()));
+                    }
+                }
+            }
+        }
+        hints.running = running_program("streamdeck.exe");
+    }
+    app_from(&hints, std::path::Path::is_file, std::path::Path::is_dir)
+}
+
+/// The program file of a running process whose file is called `name` (small letters); `None` without one.
+#[cfg(windows)]
+fn running_program(name: &str) -> Option<String> {
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
+    };
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW};
+    // SAFETY: a snapshot handle that is closed below.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return None;
+    }
+    // SAFETY: an all-zero entry is a valid empty one; its size is set as the call wants.
+    let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+    let mut found = None;
+    // SAFETY: `entry` carries its size; the snapshot is valid until closed.
+    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+    while more {
+        let end = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
+        if String::from_utf16_lossy(&entry.szExeFile[..end]).to_ascii_lowercase() == name {
+            // SAFETY: the handle has the least rights and is closed below.
+            let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, entry.th32ProcessID) };
+            if !handle.is_null() {
+                let mut buffer = [0u16; 1024];
+                let mut size = buffer.len() as u32;
+                // SAFETY: the buffer is as large as `size` says and lives during the call.
+                if unsafe { QueryFullProcessImageNameW(handle, 0, buffer.as_mut_ptr(), &raw mut size) } != 0 {
+                    found = Some(String::from_utf16_lossy(&buffer[..size as usize]));
+                }
+                // SAFETY: opened above.
+                unsafe { CloseHandle(handle) };
+            }
+            if found.is_some() {
+                break;
+            }
+        }
+        // SAFETY: as above.
+        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+    }
+    // SAFETY: the handle from above, closed once.
+    unsafe { CloseHandle(snapshot) };
+    found
 }
 
 /// The plugin file beside the running program; `None` where there is none.
@@ -1097,6 +1285,42 @@ mod tests {
     }
 
     #[test]
+    fn the_stream_deck_program_is_found_wherever_it_was_installed() {
+        use std::path::Path;
+        let files = ["D:/Apps/Elgato/StreamDeck/StreamDeck.exe", "E:/Tools/SD/StreamDeck.exe", "C:/Program Files/Elgato/StreamDeck/StreamDeck.exe"];
+        let is_file = |p: &Path| files.iter().any(|f| Path::new(f) == p);
+        let is_dir = |p: &Path| p == Path::new("C:/Users/x/AppData/Roaming/Elgato/StreamDeck");
+        let by = |hints: &AppHints| app_from(hints, is_file, is_dir).map(|f| f.by);
+        let mut hints = AppHints { program_folders: vec!["C:/Programme".into()], ..AppHints::default() };
+        assert_eq!(by(&hints), None, "not under the programs and nothing else");
+        hints.app_paths = vec!["\"D:/Apps/Elgato/StreamDeck/StreamDeck.exe\"".into()];
+        assert_eq!(by(&hints), Some("app_paths"), "installed elsewhere, named in App Paths");
+        hints.app_paths.clear();
+        hints.uninstall = vec!["E:/Tools/SD".into()];
+        assert_eq!(by(&hints), Some("deinstallation"));
+        hints.uninstall.clear();
+        hints.running = Some("F:/x/StreamDeck.exe".into());
+        assert_eq!(by(&hints), Some("prozess"), "a running program is there");
+        hints.running = None;
+        hints.data_folder = Some("C:/Users/x/AppData/Roaming/Elgato/StreamDeck".into());
+        assert_eq!(by(&hints), Some("daten"), "only its data folder");
+        hints.program_folders.push("C:/Program Files".into());
+        assert_eq!(by(&hints), Some("programme"), "the usual place first");
+        let path = app_from(&hints, is_file, is_dir).map(|f| f.path).expect("found");
+        assert_eq!(Path::new(&path), Path::new("C:/Program Files/Elgato/StreamDeck/StreamDeck.exe"));
+        hints.data_folder = Some("C:/nirgends".into());
+        hints.program_folders.clear();
+        assert_eq!(by(&hints), None, "a data folder that is not there is no hint");
+    }
+
+    /// What the search finds on this computer; run by hand with `--ignored --nocapture`.
+    #[test]
+    #[ignore = "looks at the programs of this computer"]
+    fn the_stream_deck_program_of_this_computer() {
+        println!("{:?}", app_found(&crate::paths::Host::current()));
+    }
+
+    #[test]
     fn plugin_versions_compare_number_by_number() {
         assert!(version_older("5.6.2.0", "5.6.2.12"));
         assert!(version_older("5.6.2.99999", "5.7.0.1"));
@@ -1262,12 +1486,38 @@ mod tests {
     #[test]
     fn a_game_action_without_a_text_of_its_own_takes_the_short_name_of_the_profiles() {
         use crate::language::Lang;
-        assert_eq!(short_name("v_toggle_guns_mode", Lang::De), Some("WAFFEN-MODUS"));
+        assert_eq!(short_name("v_toggle_guns_mode", Lang::De), Some("WAFFEN MODUS"));
         assert_eq!(short_name("spaceship_weapons.v_toggle_guns_mode", Lang::En), Some("GUN MODE"));
         assert_eq!(short_name("v_nothing_known", Lang::De), None);
         // No German text: the short name before the English one; a German text of the game stays.
-        assert_eq!(game_action_name("v_toggle_jump_request", "Toggle Jump Request", false, Lang::De), "SPRUNG");
-        assert_eq!(game_action_name("v_ifcs_vector_decoupling_toggle", "Ifcs Vector Decoupling Toggle", false, Lang::De), "ENTKOPPELT");
+        assert_eq!(game_action_name("v_toggle_jump_request", "Toggle Jump Request", false, Lang::De), "Sprung");
+        assert_eq!(game_action_name("v_ifcs_vector_decoupling_toggle", "Ifcs Vector Decoupling Toggle", false, Lang::De), "Entkoppelt");
+        // As the key pictures of the profiles write the short names.
+        assert_eq!(written("MUNITION BÜNDELN", Lang::De), "Munition bündeln");
+        assert_eq!(written("WAFFEN-MODUS", Lang::De), "Waffen-Modus");
+        assert_eq!(written("MOBIGLAS", Lang::De), "mobiGlas");
+        assert_eq!(written("LIGHTS ON/OFF", Lang::En), "Lights on/off");
+        assert_eq!(written("TURN LEFT", Lang::En), "Turn left");
+        assert_eq!(written("TURN LEFT", Lang::De), "Turn Left");
+    }
+
+    /// Every short name written as the profile repository writes it: lines `de|en <tab> capitals <tab> written` in
+    /// the file `VERSEKIT_WRITTEN_PAIRS` (made by its own script from `kurztasten.schreibweise`).
+    #[test]
+    #[ignore = "needs a list made by the profile repository"]
+    fn the_short_names_are_written_as_the_profiles_write_them() {
+        use crate::language::Lang;
+        let Ok(file) = std::env::var("VERSEKIT_WRITTEN_PAIRS") else { return };
+        let text = std::fs::read_to_string(file).expect("pairs");
+        let mut wrong = Vec::new();
+        for line in text.lines().filter(|l| !l.is_empty()) {
+            let parts: Vec<&str> = line.split('\t').collect();
+            let lang = if parts[0] == "en" { Lang::En } else { Lang::De };
+            if written(parts[1], lang) != parts[2] {
+                wrong.push(format!("{}: {} != {}", parts[1], written(parts[1], lang), parts[2]));
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
         assert_eq!(game_action_name("v_toggle_jump_request", "Sprung anfordern", true, Lang::De), "Sprung anfordern");
         assert_eq!(game_action_name("v_nothing_known", "Toggle Nothing", false, Lang::De), "Toggle Nothing");
         // A line break of the game is a space.

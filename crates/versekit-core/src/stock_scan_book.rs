@@ -616,8 +616,12 @@ pub enum Outcome {
     Reserved { target: Target, name: String, reserved: f64 },
     /// Nothing read.
     Nothing(Target),
-    /// The game was not in front, or the pointer stood outside it.
+    /// The game was not in front.
     NoGame(Target),
+    /// The mouse pointer stood outside the window of the game.
+    Outside(Target),
+    /// Windows has no language for its text recognition.
+    NoLanguage(Target),
     /// The place of the player is not known: nothing is booked.
     NoPlace(Target),
     /// The scan into the stock of the unit needs "Book as a logistician".
@@ -640,6 +644,8 @@ impl Outcome {
             | Outcome::Reserved { target, .. }
             | Outcome::Nothing(target)
             | Outcome::NoGame(target)
+            | Outcome::Outside(target)
+            | Outcome::NoLanguage(target)
             | Outcome::NoPlace(target)
             | Outcome::Failed(target) => *target,
             Outcome::NotLogistician | Outcome::NoRight | Outcome::UnknownInUnit(_) => Target::Unit,
@@ -724,6 +730,8 @@ impl Outcome {
                 let away = language::t_in(lang, "s_bpscan_kein_spiel");
                 return Notice { away: true, ..Notice::for_target(target, NoticeKind::Nothing, title, away) };
             }
+            Outcome::Outside(_) => (NoticeKind::Nothing, say("s_lsc_zeiger_aussen")),
+            Outcome::NoLanguage(_) => (NoticeKind::Nothing, say("s_rf_lesen_keine_sprache")),
             Outcome::NoPlace(_) => (NoticeKind::Nothing, say("s_lsc_kein_ort")),
             Outcome::NotLogistician => (NoticeKind::Nothing, say("s_lsc_kein_logistiker")),
             Outcome::NoRight => (NoticeKind::Nothing, say("s_lsc_kein_recht")),

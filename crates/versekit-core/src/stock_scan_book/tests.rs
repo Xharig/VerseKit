@@ -393,6 +393,22 @@ fn what_is_not_a_reading_is_not_booked() {
 
 /// Every notice names the stock first, in both languages, and the two stocks differ in what they say.
 #[test]
+fn every_reason_for_nothing_read_has_a_notice_of_its_own() {
+    let target = Target::Own;
+    let reasons = [Outcome::Nothing(target), Outcome::NoGame(target), Outcome::Outside(target), Outcome::NoLanguage(target)];
+    for lang in Lang::ALL {
+        let details: Vec<String> = reasons.iter().map(|o| o.notice_in(lang).detail).collect();
+        for (i, a) in details.iter().enumerate() {
+            assert!(!details[i + 1..].contains(a), "{lang:?}: {a} twice");
+        }
+    }
+    let de = |o: &Outcome| o.notice_in(Lang::De).detail;
+    assert!(de(&Outcome::Outside(target)).contains("außerhalb"), "{}", de(&Outcome::Outside(target)));
+    assert!(de(&Outcome::NoLanguage(target)).contains("Sprachpaket"));
+    assert!(de(&Outcome::Nothing(target)).contains("Mauszeiger"));
+}
+
+#[test]
 fn every_notice_names_its_stock() {
     let dir = Dir::new("lagerscan-hinweis");
     let paths = paths_in(&dir);
@@ -404,6 +420,8 @@ fn every_notice_names_its_stock() {
         unit,
         Outcome::Asked { target: Target::Own, candidates: 2 },
         Outcome::Nothing(Target::Unit),
+        Outcome::Outside(Target::Own),
+        Outcome::NoLanguage(Target::Unit),
         Outcome::NoPlace(Target::Unit),
         Outcome::NoPlace(Target::Own),
         Outcome::NotLogistician,

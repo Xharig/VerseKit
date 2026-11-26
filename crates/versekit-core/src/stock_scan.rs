@@ -2729,17 +2729,72 @@ pub fn read_game(
     names: &Names,
     texts: Option<&GameTexts>,
 ) -> Result<Option<CardOutcome>, ScanError> {
+    match read_game_seen(pointer, names, texts).1? {
+        GameRead::Card(card) => Ok(Some(*card)),
+        GameRead::NotInFront | GameRead::Outside => Ok(None),
+    }
+}
+
+/// What a scan in the window of the game came to.
+#[derive(Clone, Debug, PartialEq)]
+pub enum GameRead {
+    /// The card read (or nothing found on it).
+    Card(Box<CardOutcome>),
+    /// The game was not in front.
+    NotInFront,
+    /// The mouse pointer stood outside the window of the game.
+    Outside,
+}
+
+/// What a scan in the window of the game saw: the pointer as given, the pointer it took (in physical points, see
+/// [`crate::screen_grab::physical_of`]), the window of the game, the dots per inch of the window in front.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Seen {
+    pub given: (i32, i32),
+    pub used: (i32, i32),
+    pub rect: Option<(i32, i32, i32, i32)>,
+    pub dpi: Option<u32>,
+}
+
+impl std::fmt::Display for Seen {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "zeiger {},{} benutzt {},{}", self.given.0, self.given.1, self.used.0, self.used.1)?;
+        match self.rect {
+            Some(r) => write!(f, " fenster {},{} bild {}x{}", r.0, r.1, r.2, r.3)?,
+            None => write!(f, " kein fenster")?,
+        }
+        match self.dpi {
+            Some(dpi) => write!(f, " dpi {dpi} ({} %)", dpi * 100 / 96),
+            None => write!(f, " dpi unbekannt"),
+        }
+    }
+}
+
+/// [`read_game`] with what it saw and why it read nothing: the pointer taken in physical points, as the window and
+/// the picture are.
+pub fn read_game_seen(
+    pointer: (i32, i32),
+    names: &Names,
+    texts: Option<&GameTexts>,
+) -> (Seen, Result<GameRead, ScanError>) {
     use crate::refinery_scan::Reason;
-    let Some(rect) = crate::screen_grab::game_rect() else { return Ok(None) };
-    let at = (i64::from(pointer.0 - rect.0), i64::from(pointer.1 - rect.1));
+    let dpi = crate::screen_grab::foreground_dpi();
+    let used = crate::screen_grab::physical_of(pointer, crate::screen_grab::physical_pointer(), dpi);
+    let rect = crate::screen_grab::game_rect();
+    let seen = Seen { given: pointer, used, rect, dpi };
+    let Some(rect) = rect else { return (seen, Ok(GameRead::NotInFront)) };
+    let at = (i64::from(used.0 - rect.0), i64::from(used.1 - rect.1));
     let size = (i64::from(rect.2), i64::from(rect.3));
     if at.0 < 0 || at.1 < 0 || at.0 >= size.0 || at.1 >= size.1 {
-        return Ok(None);
+        return (seen, Ok(GameRead::Outside));
     }
-    let raw = crate::screen_grab::grab_raw(rect).map_err(|e| ScanError::new(Reason::Grab, e.key()))?;
+    let raw = match crate::screen_grab::grab_raw(rect) {
+        Ok(raw) => raw,
+        Err(e) => return (seen, Err(ScanError::new(Reason::Grab, e.key()))),
+    };
     let bitmap = Bitmap { width: size.0, height: size.1, raw };
     let mut ocr = crate::win_ocr::Recognition::new(&bitmap);
-    read_card(&bitmap, at, &mut ocr, names, texts).map(Some)
+    (seen, read_card(&bitmap, at, &mut ocr, names, texts).map(|card| GameRead::Card(Box::new(card))))
 }
 
 // ------------------------------------------------------------ Joined to the booking

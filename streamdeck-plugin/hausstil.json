@@ -22,7 +22,16 @@
   "schrift_hinweis": "Symbol 52 x 52 oben links bei x 46, y 16. Eine Zeile Mitte y 93, hoechstens 112 breit; zwei Zeilen Mitte 88 und 109, hoechstens 104 breit (x 20 bis 124), damit nichts ins Band der unteren rechten Klammer reicht (klammerpruefung.py des Repos VerseKit-StreamDeck).",
   "gedimmt_anteil": 0.45,
   "schrift_px_spielaktion": 20,
-  "schrift_spielaktion_hinweis": "Name einer Spielaktion-Taste (Kurzname aus dem Profil) in 20 px, wenn er passt; sonst wie jede Taste 18 bis 15 px.",
+  "schrift_spielaktion_hinweis": "Name einer Spielaktion-Taste (Kurzname aus dem Profil) nach spielaktion_schrift, wie die Kurznamen-Tastenbilder der Profile; passt er so nicht, wie jede Taste 18 bis 15 px.",
+  "spielaktion_schrift": {
+    "eine_px": [28, 27, 26, 25, 24, 23, 22],
+    "zwei_px": [24, 23, 22, 21, 20],
+    "breite_eine": 120,
+    "breite_zwei": [116, 80],
+    "zeile_mitte_eine": 94,
+    "zeile_mitte_zwei": [86, 108],
+    "hinweis": "Wie kurztasten.py des Repos VerseKit-Design: eine Zeile so gross wie moeglich (28 bis 22 px, hoechstens 120 breit), sonst zwei Zeilen nur an einem Leerzeichen (24 bis 20 px, die erste hoechstens 116, die zweite hoechstens 80 breit, damit sie nicht ins Eckfeld unten rechts reicht), keine Silbentrennung. Mit einer Zustandszeile steht der Name einzeilig bei y 86 (24 bis 20 px), der Zustand klein bei y 108."
+  },
   "farben": {
     "gruen": "#9ce430",
     "tuerkis": "#2fd6c8",

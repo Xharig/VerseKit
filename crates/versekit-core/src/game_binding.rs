@@ -118,7 +118,16 @@ fn resolve_in(action: &str, all: &controls::Devices, own: &[(String, Vec<Binding
         .or_else(|| profile.groups.get(action).cloned())
         .unwrap_or_default();
     let keyboard: Vec<&&controls::Entry> = entries.iter().filter(|e| e.kind == Some(Kind::Keyboard)).collect();
-    let sendable = keyboard.iter().find_map(|e| anti_afk_key::parse(&e.input).map(|keys| (*e, keys)));
+    // ⚠ The game keeps one place for keyboard and mouse together and writes keys there as `mo1_lctrl+lshift+m` too:
+    // keys on the mouse line are keys of the keyboard, and a line of the player there takes the place of the factory.
+    let slot = |source: bool| {
+        entries.iter().filter(move |e| matches!(e.kind, Some(Kind::Keyboard | Kind::Mouse)) && (e.source == Source::Mine) == source)
+    };
+    let mut ordered: Vec<&&controls::Entry> = slot(true).filter(|e| e.kind == Some(Kind::Keyboard)).collect();
+    ordered.extend(slot(true).filter(|e| e.kind == Some(Kind::Mouse)));
+    ordered.extend(slot(false).filter(|e| e.kind == Some(Kind::Keyboard)));
+    ordered.extend(slot(false).filter(|e| e.kind == Some(Kind::Mouse)));
+    let sendable = ordered.iter().find_map(|e| anti_afk_key::parse(&e.input).map(|keys| (**e, keys)));
     let how = if let Some((entry, keys)) = sendable {
         let own = entry.source == Source::Mine;
         return Resolved {

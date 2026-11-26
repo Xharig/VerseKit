@@ -39,7 +39,7 @@ pub const ENTRY: &str = "Data/Libs/Config/defaultProfile.xml";
 /// The file in the data folder of the program.
 pub const CACHE_FILE: &str = "aktionsnamen.json";
 /// Changes when what is kept changes, or the way the mark is made: older files then count for nothing.
-pub const CACHE_VERSION: i64 = 5;
+pub const CACHE_VERSION: i64 = 6;
 
 /// The `defaultProfile.xml` of the archive as XML text.
 ///
@@ -94,6 +94,8 @@ fn to_value(profile: &Profile, mark: &str) -> Value {
         ("standard".into(), Value::Object(standard)),
         ("gruppen".into(), Value::Object(groups)),
         ("karten".into(), Value::Object(maps)),
+        // How the game takes the key of an action, where it does not simply follow it.
+        ("halten".into(), Value::Object(profile.timings.iter().map(|(k, t)| (k.to_string(), Value::str(t.word().as_str()))).collect())),
     ])
 }
 
@@ -128,6 +130,11 @@ fn from_value(value: &Value, mark: &str) -> Option<Profile> {
         let Value::Array(pair) = pair else { continue };
         let text = |i: usize| pair.get(i).and_then(Value::as_str).unwrap_or_default().to_string();
         profile.maps.set(map, (text(0), text(1)));
+    }
+    for (action, word) in value.get("halten")?.as_object()? {
+        if let Some(timing) = word.as_str().and_then(versekit_core::controls::Timing::parse) {
+            profile.timings.set(action, timing);
+        }
     }
     Some(profile)
 }
@@ -171,12 +178,20 @@ mod tests {
     #[test]
     fn a_profile_survives_the_kept_file_and_a_foreign_mark_is_not_taken() {
         let profile = Profile::from_xml(
-            r#"<p><actionmap name="g"><action name="a" UILabel="@l" UIDescription="@d" keyboard="f" joystick="button1"/></actionmap></p>"#,
+            r#"<p><ActivationMode name="delayed_press" onPress="1" multiTap="1" pressTriggerThreshold="0.25" releaseTriggerThreshold="-1"/>
+               <actionmap name="g"><action name="a" UILabel="@l" UIDescription="@d" keyboard="f" joystick="button1" activationMode="delayed_press"/></actionmap></p>"#,
         )
         .expect("profile");
         let value = to_value(&profile, "mark:1:2");
         let text = jsonio::dumps(&value, Some(2), false);
         let back = from_value(&jsonio::loads(&text).expect("json"), "mark:1:2").expect("kept");
+        assert_eq!(back.timing_of("a"), versekit_core::controls::Timing::AtLeast(250), "how the game takes the key comes back");
+        // A file of before without it is read anew from the archive.
+        let mut old = jsonio::loads(&text).expect("json");
+        if let Value::Object(fields) = &mut old {
+            fields.retain(|(k, _)| k != "halten");
+        }
+        assert!(from_value(&old, "mark:1:2").is_none());
         assert_eq!(back.labels.get("a"), Some(&("@l".to_string(), "@d".to_string())));
         assert_eq!(back.defaults.get("a").map(Vec::len), Some(2));
         assert_eq!(back.groups.get("a").map(String::as_str), Some("g"));

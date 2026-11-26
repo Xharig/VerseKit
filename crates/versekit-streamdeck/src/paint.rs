@@ -57,7 +57,21 @@ pub struct Style {
     pub one_line: f32,
     pub two_lines: [f32; 2],
     pub dimmed: f64,
+    /// The name of a game action, as the key pictures of the profiles write it ([`game_lines`]).
+    pub game: GameWriting,
     source: Value,
+}
+
+/// How the name of a game action is written: one line as large as it fits, else two lines split at a space.
+#[derive(Clone, Debug)]
+pub struct GameWriting {
+    pub one: Vec<f32>,
+    pub two: Vec<f32>,
+    pub width_one: f32,
+    /// The widest the first and the second of two lines may be (the second beside the bottom right bracket).
+    pub width_two: [f32; 2],
+    pub one_line: f32,
+    pub two_lines: [f32; 2],
 }
 
 impl Style {
@@ -117,6 +131,24 @@ pub fn style() -> &'static Style {
             one_line: number(&v, "zeile_mitte_eine"),
             two_lines: [v["zeile_mitte_zwei"][0].as_f64().unwrap_or(88.0) as f32, v["zeile_mitte_zwei"][1].as_f64().unwrap_or(109.0) as f32],
             dimmed: v["gedimmt_anteil"].as_f64().unwrap_or(0.45),
+            game: {
+                let g = &v["spielaktion_schrift"];
+                let list = |name: &str| -> Vec<f32> {
+                    g[name].as_array().map(|l| l.iter().filter_map(Value::as_f64).map(|n| n as f32).collect()).unwrap_or_default()
+                };
+                let pair = |name: &str| -> [f32; 2] {
+                    let l = list(name);
+                    [l.first().copied().unwrap_or_else(|| panic!("hausstil.json: {name}")), l.get(1).copied().unwrap_or(0.0)]
+                };
+                GameWriting {
+                    one: list("eine_px"),
+                    two: list("zwei_px"),
+                    width_one: number(g, "breite_eine"),
+                    width_two: pair("breite_zwei"),
+                    one_line: number(g, "zeile_mitte_eine"),
+                    two_lines: pair("zeile_mitte_zwei"),
+                }
+            },
             source: v,
         }
     })
@@ -181,6 +213,29 @@ pub fn lines_of(label: &str, two_allowed: bool) -> Option<(Vec<String>, f32)> {
             }
         }
         size -= 0.5;
+    }
+    None
+}
+
+/// The name of a game action as the key pictures of the profiles write it: on one line at the largest size of
+/// [`GameWriting::one`] it fits, else on two lines split at a space (never inside a word) at the largest size of
+/// [`GameWriting::two`] where both fit, the split with the most even number of letters; `None` when it fits neither.
+pub fn game_lines(label: &str) -> Option<(Vec<String>, f32)> {
+    let g = &style().game;
+    if let Some(size) = g.one.iter().copied().find(|&size| line_width(label, size) <= g.width_one) {
+        return Some((vec![label.to_string()], size));
+    }
+    let splits: Vec<(String, String)> =
+        label.match_indices(' ').map(|(at, _)| (label[..at].trim().to_string(), label[at + 1..].trim().to_string())).collect();
+    for &size in &g.two {
+        let best = splits
+            .iter()
+            .filter(|(a, b)| !a.is_empty() && !b.is_empty())
+            .filter(|(a, b)| line_width(a, size) <= g.width_two[0] && line_width(b, size) <= g.width_two[1])
+            .min_by_key(|(a, b)| a.chars().count().abs_diff(b.chars().count()));
+        if let Some((a, b)) = best {
+            return Some((vec![a.clone(), b.clone()], size));
+        }
     }
     None
 }
@@ -409,7 +464,7 @@ pub fn png(look: &Look, action: Action) -> Vec<u8> {
     } else {
         s.writing_of(action)
     };
-    // The name of a game action stands larger where it fits: the short names of the profiles.
+    // The name of a game action stands larger where it fits: the short names of the profiles ([`game_lines`] first).
     let name_start = if matches!(action, Action::GameAction | Action::Emote) { s.font_game } else { s.font };
     let muted = s.colour("gedaempft");
     // A key that does nothing yet (the balance) stands dimmed: its colour mixed into the card.
@@ -432,7 +487,18 @@ pub fn png(look: &Look, action: Action) -> Vec<u8> {
         arc_around(&mut pixmap, middle, radius, 270.0, 270.0 + 360.0 * held.clamp(0.0, 1.0), 5.0, warning);
     }
     let name_colour = if dimmed { mixed(writing, s.card, s.dimmed) } else { writing };
+    let game = matches!(action, Action::GameAction | Action::Emote);
+    let g = &s.game;
     match &look.badge {
+        // A game action as the key pictures of the profiles: large, on one line or split at a space.
+        None if game && let Some((lines, size)) = game_lines(&look.label) => {
+            if lines.len() == 1 {
+                line(&mut pixmap, &lines[0], size, g.one_line, name_colour);
+            } else {
+                line(&mut pixmap, &lines[0], size, g.two_lines[0], name_colour);
+                line(&mut pixmap, &lines[1], size, g.two_lines[1], name_colour);
+            }
+        }
         None => {
             let one = (name_start > s.font && line_width(&look.label, name_start) <= s.text_width)
                 .then(|| (vec![look.label.clone()], name_start));
@@ -449,11 +515,14 @@ pub fn png(look: &Look, action: Action) -> Vec<u8> {
             // The state as the second line: the word in the colour of the key when on, grey when off. Both lines as
             // wide as two lines may be (26.11.: "Hauptfenster" at 18 pixels ran to the edge of the key on the device).
             // The name above a state stands as large as the short names of the game keys, on every key.
-            let size = size_from(&look.label, s.text_width_two, s.font_game).unwrap_or(s.font_min);
+            // A game action: the name on one line as large as two lines of the profiles may be, above the state.
+            let game_size = game.then(|| g.two.iter().copied().find(|&px| line_width(&look.label, px) <= g.width_two[0])).flatten();
+            let size = game_size.or_else(|| size_from(&look.label, s.text_width_two, s.font_game)).unwrap_or(s.font_min);
             // A long name of the game that does not fit on the key even at the smallest size is cut with „…“, not
             // drawn past its edge (the line of the name stands above the band of the lower brackets).
             let label = shortened(&look.label, size, s.size as f32 - 8.0);
-            line(&mut pixmap, &label, size, s.two_lines[0], name_colour);
+            let name_middle = if game_size.is_some() { g.two_lines[0] } else { s.two_lines[0] };
+            line(&mut pixmap, &label, size, name_middle, name_colour);
             let state_colour = match badge.tone {
                 Tone::Warning => s.colour("warnung"),
                 Tone::Error => s.colour("fehler"),
@@ -936,6 +1005,134 @@ mod tests {
         }
     }
 
+    /// The names of the game action and emote keys of every shipped profile (German and English), and the short
+    /// names the plugin shows on a key without a name of its own.
+    fn every_short_name() -> Vec<String> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../streamdeck-plugin");
+        let wanted = [Action::GameAction.uuid(), Action::Emote.uuid()];
+        let mut names: Vec<String> = Vec::new();
+        let mut add = |name: &str| {
+            if !name.trim().is_empty() && !names.iter().any(|n| n == name) {
+                names.push(name.to_string());
+            }
+        };
+        for entry in std::fs::read_dir(root.join("profiles")).expect("profiles").flatten() {
+            let file = std::fs::read(entry.path()).expect("profile");
+            for zipped in versekit_core::zip::entries(&file).expect("zip") {
+                if !zipped.name.to_ascii_lowercase().ends_with("/manifest.json") {
+                    continue;
+                }
+                let Ok(page) = serde_json::from_slice::<Value>(&versekit_core::zip::read(&file, &zipped).expect("read")) else { continue };
+                for controller in page["Controllers"].as_array().into_iter().flatten() {
+                    for action in controller["Actions"].as_object().into_iter().flat_map(|m| m.values()) {
+                        if action["UUID"].as_str().is_some_and(|u| wanted.iter().any(|w| w == u))
+                            && let Some(name) = action["Settings"]["name"].as_str()
+                        {
+                            add(name);
+                        }
+                    }
+                }
+            }
+        }
+        let short: Value = serde_json::from_str(&std::fs::read_to_string(root.join("kurznamen.json")).expect("kurznamen")).expect("json");
+        // As the plugin shows them: written as the profiles write them.
+        for pair in short["aktionen"].as_object().expect("aktionen").values() {
+            let langs = [versekit_core::language::Lang::De, versekit_core::language::Lang::En];
+            for (name, lang) in pair.as_array().expect("pair").iter().zip(langs) {
+                add(&versekit_core::streamdeck::written(name.as_str().expect("name"), lang));
+            }
+        }
+        names
+    }
+
+    #[test]
+    fn every_short_name_stands_large_as_on_the_profiles_without_a_split_word_or_a_cut() {
+        let (s, g) = (style(), &style().game);
+        assert!(s.symbol >= 52.0, "symbol {} px", s.symbol);
+        let names = every_short_name();
+        assert!(names.len() > 300, "{} names", names.len());
+        let mut wrong = Vec::new();
+        for name in &names {
+            let Some((lines, size)) = game_lines(name) else {
+                wrong.push(format!("{name}: does not fit (shorten it)"));
+                continue;
+            };
+            if lines.len() > 2 || lines.join(" ") != *name || lines.iter().any(|l| l.ends_with('-')) {
+                wrong.push(format!("{name}: split as {lines:?}"));
+            }
+            let least = if lines.len() == 1 { 22.0 } else { 20.0 };
+            if size < least {
+                wrong.push(format!("{name}: {size} px, less than {least}"));
+            }
+            let widths: &[f32] = if lines.len() == 1 { &[g.width_one] } else { &g.width_two };
+            for (l, w) in lines.iter().zip(widths) {
+                if line_width(l, size) > *w {
+                    wrong.push(format!("{name}: line {l:?} wider than {w}"));
+                }
+            }
+            // Drawn in white: no writing outside the card, none in the field of the bottom right bracket.
+            let look = Look { icon: "crosshair", icon_tone: Tone::Accent, label: name.clone(), badge: None, colour: Some("rot"), hold: None };
+            let picture = image::load_from_memory(&png(&look, Action::GameAction)).expect("png").to_rgba8();
+            let picture = image::imageops::resize(&picture, 144, 144, image::imageops::FilterType::Triangle);
+            'rows: for y in 60..144 {
+                for x in 0..144 {
+                    let p = picture.get_pixel(x, y);
+                    if p[0] > 200 && p[1] > 200 && p[2] > 200 && (!(12..=132).contains(&x) || (x >= 113 && y >= 113)) {
+                        wrong.push(format!("{name}: writing at {x},{y}"));
+                        break 'rows;
+                    }
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{} of {} names: {wrong:#?}", wrong.len(), names.len());
+        // One line as large as it fits, two only at a space.
+        assert_eq!(game_lines("Licht"), Some((vec!["Licht".to_string()], 28.0)));
+        assert_eq!(game_lines("Munition bündeln").map(|(l, _)| l.len()), Some(2));
+        assert_eq!(game_lines("Hauptfensterbankleiste"), None, "one long word is not split");
+    }
+
+    /// Writes keys of game actions as the plugin draws them, scaled to the keys of the devices (72 and 96 pixels),
+    /// German and English, into the folder `VERSEKIT_RENDER_OUT`, to look at by eye.
+    #[test]
+    #[ignore = "writes pictures to look at"]
+    fn pictures_of_game_keys_to_look_at() {
+        use versekit_core::language::Lang;
+        let Some(out) = std::env::var_os("VERSEKIT_RENDER_OUT") else { return };
+        let out = std::path::Path::new(&out);
+        std::fs::create_dir_all(out).expect("folder");
+        let actions = [
+            ("select_primary_pit", None),
+            ("ammoRepool", None),
+            ("toggle_lowered", None),
+            ("toggle_flashlight", None),
+            ("reloadSecondary", None),
+            ("v_atc_request", None),
+            ("notification_accept", None),
+            ("v_lights", Some("sd_ga_nicht_belegt")),
+            ("v_toggle_quantum_mode", Some("sd_ga_unsicher")),
+        ];
+        for lang in [Lang::De, Lang::En] {
+            for (action, state) in actions {
+                let short = versekit_core::streamdeck::short_name(action, lang).expect("a short name");
+                let label = versekit_core::streamdeck::written(short, lang);
+                let style = crate::game_style::of(action, "");
+                let look = Look {
+                    icon: if state.is_some() { "keyboard-off" } else { style.as_ref().map_or("crosshair", |s| s.icon) },
+                    icon_tone: if state.is_some() { Tone::Warning } else { Tone::Accent },
+                    label,
+                    badge: state.map(|key| Badge { word: versekit_core::language::t_in(lang, key), filled: false, tone: Tone::Warning }),
+                    colour: style.as_ref().map(|s| s.colour),
+                    hold: None,
+                };
+                let picture = image::load_from_memory(&png(&look, Action::GameAction)).expect("png").to_rgba8();
+                for size in [72u32, 96, 144] {
+                    let scaled = image::imageops::resize(&picture, size, size, image::imageops::FilterType::Lanczos3);
+                    scaled.save(out.join(format!("{}-{action}-{size}.png", lang.code()))).expect("save");
+                }
+            }
+        }
+    }
+
     fn dial(compact: bool) -> crate::render::DialLook {
         crate::render::DialLook {
             label: "Schilde".into(),
@@ -1139,7 +1336,7 @@ mod tests {
     }
 
     #[test]
-    fn the_name_of_a_key_with_a_state_is_as_large_as_the_short_name_of_a_game_key() {
+    fn the_name_of_a_game_key_with_a_state_is_at_least_as_large_as_that_of_any_key() {
         let with_state = |action: Action, word: &str| {
             let look = Look {
                 icon: "layers",
@@ -1151,9 +1348,10 @@ mod tests {
             };
             png(&look, action)
         };
-        let (_, state_high, state_top) = drawn_box_at(&with_state(Action::Overlay, "AUS"), LINE_X, 76..98);
-        let (_, game_high, game_top) = drawn_box_at(&with_state(Action::GameAction, "AUS"), LINE_X, 76..98);
-        assert_eq!((state_high, state_top), (game_high, game_top), "Overlay above AUS as large as on a game key");
+        let (_, state_high, _) = drawn_box_at(&with_state(Action::Overlay, "AUS"), LINE_X, 76..98);
+        let (_, game_high, _) = drawn_box_at(&with_state(Action::GameAction, "AUS"), LINE_X, 76..98);
+        // A game key writes its name as the profiles do, larger than the other keys of the plugin.
+        assert!(game_high > state_high, "Overlay above AUS {state_high} high, on a game key {game_high}");
         let (w, _) = drawn_box(&with_state(Action::Overlay, "AUS"), LINE_X, 76..98);
         assert!(w as f32 > line_width("Overlay", style().font) + 2.0, "wider than at 18 pixels: {w}");
     }
