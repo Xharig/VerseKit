@@ -22,6 +22,7 @@
 //!
 //! | Status | Body | Meaning |
 //! |---|---|---|
+//! | 204 | empty | `OPTIONS` on the path: the browser's preflight, needs no token |
 //! | 200 | `{"schiffe": n, "unveraendert": b}` | delivered; `unveraendert`: the hangar already was exactly this |
 //! | 400 | `{"fehler": …, "code": …}` | refused, nothing changed (`json`, `schema`, `version`, `uebergabe`, `schiffe`, `leer`, `laenge`, `anfrage` for no HTTP request) |
 //! | 431 | `code: "kopf"` | request head longer than 16 KiB |
@@ -33,6 +34,9 @@
 //!
 //! ⚠ Listens on `127.0.0.1` only. The token is never written to a message,
 //! a log or an answer.
+//!
+//! ⚠ CORS heads (with Private Network Access) only go to an extension origin
+//! or the RSI site (`cors_origin`); any other page fails at the preflight.
 //!
 //! ⚠ Before a delivery removes a ship, the hangar file is copied to
 //! `hangar.bak.json`; without that copy nothing is written.
@@ -118,6 +122,11 @@ impl Answer {
         Answer { status, body: jsonio::dumps(&Value::Object(body), None, false) }
     }
 
+    /// The answer to the preflight: no body, the CORS heads come from `to_http_for`.
+    fn preflight() -> Answer {
+        Answer { status: 204, body: String::new() }
+    }
+
     fn delivered(ships: usize, unchanged: bool) -> Answer {
         let body: Map =
             vec![("schiffe".into(), Value::int(ships as i64)), ("unveraendert".into(), Value::Bool(unchanged))];
@@ -132,16 +141,35 @@ impl Answer {
         }
     }
 
-    /// The whole HTTP answer as bytes.
+    /// The whole HTTP answer as bytes, without CORS heads.
     pub fn to_http(&self) -> Vec<u8> {
-        let mut head = format!(
-            "HTTP/1.1 {} {}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n",
-            self.status,
-            reason(self.status),
-            self.body.len()
-        );
+        self.to_http_for(&Head::default())
+    }
+
+    /// The whole HTTP answer as bytes; CORS heads when the request comes from
+    /// an allowed origin.
+    pub fn to_http_for(&self, request: &Head) -> Vec<u8> {
+        let mut head = format!("HTTP/1.1 {} {}\r\n", self.status, reason(self.status));
+        if self.status != 204 {
+            head.push_str(&format!(
+                "Content-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\n",
+                self.body.len()
+            ));
+        }
+        head.push_str("Connection: close\r\n");
         if self.status == 405 {
-            head.push_str("Allow: POST\r\n");
+            head.push_str("Allow: POST, OPTIONS\r\n");
+        }
+        if let Some(origin) = request.origin.as_deref().filter(|o| cors_origin(o)) {
+            head.push_str(&format!(
+                "Access-Control-Allow-Origin: {origin}\r\nVary: Origin\r\nAccess-Control-Allow-Private-Network: true\r\n"
+            ));
+            if self.status == 204 {
+                head.push_str(&format!(
+                    "Access-Control-Allow-Methods: POST, OPTIONS\r\nAccess-Control-Allow-Headers: {}\r\nAccess-Control-Max-Age: 600\r\n",
+                    allowed_headers(request.request_headers.as_deref())
+                ));
+            }
         }
         head.push_str("\r\n");
         let mut bytes = head.into_bytes();
@@ -153,6 +181,7 @@ impl Answer {
 fn reason(status: u16) -> &'static str {
     match status {
         200 => "OK",
+        204 => "No Content",
         400 => "Bad Request",
         401 => "Unauthorized",
         403 => "Forbidden",
@@ -161,6 +190,36 @@ fn reason(status: u16) -> &'static str {
         413 => "Payload Too Large",
         431 => "Request Header Fields Too Large",
         _ => "Service Unavailable",
+    }
+}
+
+// ------------------------------------------------------------ CORS
+
+/// An origin that gets CORS heads: a browser extension, or the RSI site for a
+/// content script.
+pub fn cors_origin(origin: &str) -> bool {
+    const EXTENSIONS: [&str; 3] = ["chrome-extension://", "moz-extension://", "safari-web-extension://"];
+    let extension = EXTENSIONS.iter().any(|scheme| {
+        origin
+            .strip_prefix(scheme)
+            .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'))
+    });
+    extension || origin == "https://robertsspaceindustries.com"
+}
+
+/// `Access-Control-Allow-Headers`: the asked-for names when they are plain
+/// header names, else `Authorization, Content-Type`.
+fn allowed_headers(asked: Option<&str>) -> String {
+    const DEFAULT: &str = "Authorization, Content-Type";
+    match asked.map(str::trim) {
+        Some(names)
+            if !names.is_empty()
+                && names.len() <= 512
+                && names.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_, ".contains(&b)) =>
+        {
+            names.to_string()
+        }
+        _ => DEFAULT.to_string(),
     }
 }
 
@@ -175,6 +234,9 @@ pub struct Head {
     pub content_length: Option<String>,
     pub chunked: bool,
     pub expect_continue: bool,
+    pub origin: Option<String>,
+    /// `Access-Control-Request-Headers` of a preflight.
+    pub request_headers: Option<String>,
 }
 
 /// Parse the head (everything before the empty line).
@@ -196,6 +258,8 @@ pub fn parse_head(text: &str) -> Option<Head> {
             "content-length" => head.content_length = Some(value),
             "transfer-encoding" => head.chunked = true,
             "expect" => head.expect_continue = value.eq_ignore_ascii_case("100-continue"),
+            "origin" => head.origin = Some(value),
+            "access-control-request-headers" => head.request_headers = Some(value),
             _ => {}
         }
     }
@@ -225,6 +289,9 @@ fn same_secret(a: &str, b: &str) -> bool {
 pub fn check_head(head: &Head, gate: &Gate) -> Result<usize, Answer> {
     if head.path != PATH {
         return Err(Answer::error(404, "Unbekannter Pfad", "pfad"));
+    }
+    if head.method == "OPTIONS" {
+        return Err(Answer::preflight());
     }
     if head.method != "POST" {
         return Err(Answer::error(405, "Nur POST", "methode"));
@@ -312,11 +379,12 @@ pub fn deliver(body: &[u8], hangar_file: &str, names: &ShipNames) -> (Answer, Op
 
 // ------------------------------------------------------------ the running receiver
 
-/// What happened last, for the page; `at` is the local time `HH:MM`.
+/// What happened last, for the page; `at` is the local time `HH:MM`, `method`
+/// the HTTP method of a refused request.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
     Delivered { at: String, delivered: Delivered },
-    Refused { at: String, status: u16, code: String },
+    Refused { at: String, status: u16, code: String, method: String },
 }
 
 fn clock() -> String {
@@ -426,7 +494,7 @@ pub fn handle(mut stream: TcpStream, inbox: &Inbox, files: &Files, deadline: Ins
             break end;
         }
         if buffer.len() > MAX_HEAD {
-            reply(&mut stream, &Answer::error(431, "Kopfzeilen zu lang", "kopf"), true);
+            reply(&mut stream, &Answer::error(431, "Kopfzeilen zu lang", "kopf"), &Head::default(), true);
             return;
         }
         match read_until(&mut stream, &mut chunk, deadline) {
@@ -436,14 +504,18 @@ pub fn handle(mut stream: TcpStream, inbox: &Inbox, files: &Files, deadline: Ins
     };
     let head = String::from_utf8_lossy(&buffer[..end]).into_owned();
     let Some(head) = parse_head(&head) else {
-        reply(&mut stream, &Answer::error(400, "Keine HTTP-Anfrage", "anfrage"), true);
+        reply(&mut stream, &Answer::error(400, "Keine HTTP-Anfrage", "anfrage"), &Head::default(), true);
         return;
     };
     let length = match check_head(&head, &inbox.gate()) {
         Ok(length) => length,
         Err(answer) => {
-            inbox.remember(Event::Refused { at: clock(), status: answer.status, code: answer.code() });
-            reply(&mut stream, &answer, true);
+            // The preflight is no refusal: the page keeps showing the last real event.
+            if answer.status != 204 {
+                let method = head.method.clone();
+                inbox.remember(Event::Refused { at: clock(), status: answer.status, code: answer.code(), method });
+            }
+            reply(&mut stream, &answer, &head, true);
             return;
         }
     };
@@ -469,15 +541,19 @@ pub fn handle(mut stream: TcpStream, inbox: &Inbox, files: &Files, deadline: Ins
             }
             inbox.remember(Event::Delivered { at, delivered });
         }
-        None => inbox.remember(Event::Refused { at, status: answer.status, code: answer.code() }),
+        None => {
+            let method = head.method.clone();
+            inbox.remember(Event::Refused { at, status: answer.status, code: answer.code(), method });
+        }
     }
-    reply(&mut stream, &answer, false);
+    reply(&mut stream, &answer, &head, false);
 }
 
-/// Send the answer; after an early answer, drain what the client still sends
-/// so it sees the answer and not a reset connection.
-fn reply(stream: &mut TcpStream, answer: &Answer, early: bool) {
-    let _ = stream.write_all(&answer.to_http());
+/// Send the answer (with CORS heads for `request`); after an early answer,
+/// drain what the client still sends so it sees the answer and not a reset
+/// connection.
+fn reply(stream: &mut TcpStream, answer: &Answer, request: &Head, early: bool) {
+    let _ = stream.write_all(&answer.to_http_for(request));
     let _ = stream.flush();
     if early {
         let _ = stream.shutdown(Shutdown::Write);
@@ -643,7 +719,93 @@ mod tests {
     fn answer_is_http() {
         let text = String::from_utf8(Answer::error(405, "Nur POST", "methode").to_http()).unwrap();
         assert!(text.starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
-        assert!(text.contains("Allow: POST\r\n"));
+        assert!(text.contains("Allow: POST, OPTIONS\r\n"));
+        assert!(!text.contains("Access-Control"), "no CORS heads without an origin");
         assert!(text.ends_with(r#"{"fehler": "Nur POST", "code": "methode"}"#));
+    }
+
+    fn preflight_from(origin: Option<&str>, asked: Option<&str>) -> Head {
+        Head {
+            method: "OPTIONS".into(),
+            path: PATH.into(),
+            origin: origin.map(str::to_string),
+            request_headers: asked.map(str::to_string),
+            ..Head::default()
+        }
+    }
+
+    #[test]
+    fn preflight_is_answered_without_token() {
+        let extension = preflight_from(Some("chrome-extension://hgmnaolojobpmeieccpholmjacbjkpbm"), None);
+        let answer = check_head(&extension, &gate()).unwrap_err();
+        assert_eq!(answer.status, 204);
+        // Switched off or not ready: the preflight still passes, the POST is told why.
+        assert_eq!(check_head(&extension, &Gate { enabled: false, ready: false, ..gate() }).unwrap_err().status, 204);
+        let text = String::from_utf8(answer.to_http_for(&extension)).unwrap();
+        assert!(text.starts_with("HTTP/1.1 204 No Content\r\n"), "{text}");
+        for head in [
+            "Access-Control-Allow-Origin: chrome-extension://hgmnaolojobpmeieccpholmjacbjkpbm\r\n",
+            "Vary: Origin\r\n",
+            "Access-Control-Allow-Private-Network: true\r\n",
+            "Access-Control-Allow-Methods: POST, OPTIONS\r\n",
+            "Access-Control-Allow-Headers: Authorization, Content-Type\r\n",
+        ] {
+            assert!(text.contains(head), "{head} missing in {text}");
+        }
+        assert!(!text.contains("Content-Length"), "204 has no body");
+        assert!(text.ends_with("\r\n\r\n"));
+        // The asked-for header names are allowed back; anything odd falls back.
+        let asked = preflight_from(
+            Some("moz-extension://4b1c2d3e-0000-4000-8000-123456789abc"),
+            Some("authorization,content-type"),
+        );
+        let text = String::from_utf8(Answer::preflight().to_http_for(&asked)).unwrap();
+        assert!(text.contains("Access-Control-Allow-Headers: authorization,content-type\r\n"), "{text}");
+        let odd = preflight_from(Some("chrome-extension://abc"), Some("x\r\nSet-Cookie: a=b"));
+        let text = String::from_utf8(Answer::preflight().to_http_for(&odd)).unwrap();
+        assert!(text.contains("Access-Control-Allow-Headers: Authorization, Content-Type\r\n"), "{text}");
+    }
+
+    #[test]
+    fn cors_heads_only_for_extensions_and_the_rsi_site() {
+        for origin in [
+            "chrome-extension://hgmnaolojobpmeieccpholmjacbjkpbm",
+            "moz-extension://4b1c2d3e-0000-4000-8000-123456789abc",
+            "safari-web-extension://ABC-123",
+            "https://robertsspaceindustries.com",
+        ] {
+            assert!(cors_origin(origin), "{origin}");
+        }
+        for origin in [
+            "https://example.com",
+            "http://robertsspaceindustries.com",
+            "https://robertsspaceindustries.com.example.com",
+            "chrome-extension://",
+            "chrome-extension://abc/x",
+            "null",
+            "",
+        ] {
+            assert!(!cors_origin(origin), "{origin}");
+        }
+        let foreign = preflight_from(Some("https://example.com"), None);
+        let text = String::from_utf8(Answer::preflight().to_http_for(&foreign)).unwrap();
+        assert!(text.starts_with("HTTP/1.1 204"));
+        assert!(!text.contains("Access-Control"), "a foreign page gets no CORS head: {text}");
+        // The answer to the POST itself carries the origin, else the extension cannot read it.
+        let post = Head { origin: Some("https://robertsspaceindustries.com".into()), ..head("Bearer x", "1") };
+        let text = String::from_utf8(Answer::error(401, "x", "token").to_http_for(&post)).unwrap();
+        assert!(text.contains("Access-Control-Allow-Origin: https://robertsspaceindustries.com\r\n"), "{text}");
+        assert!(!text.contains("Access-Control-Allow-Methods"), "methods only in the preflight");
+    }
+
+    #[test]
+    fn parse_head_reads_origin_and_asked_headers() {
+        let h = parse_head(&format!(
+            "OPTIONS {PATH} HTTP/1.1\r\nOrigin: chrome-extension://abc\r\nAccess-Control-Request-Method: POST\r\naccess-control-request-headers: authorization,content-type"
+        ))
+        .unwrap();
+        assert_eq!(h.method, "OPTIONS");
+        assert_eq!(h.origin.as_deref(), Some("chrome-extension://abc"));
+        assert_eq!(h.request_headers.as_deref(), Some("authorization,content-type"));
     }
 }

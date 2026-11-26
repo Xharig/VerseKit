@@ -5395,6 +5395,7 @@
   "s_dkv_shockwaffel_idee3": "„Lohnt sich der Stein?“: aufbrechbar, Gas und Wert gleich nach dem Scan. Danke!",
   "s_dkv_ottpossum_idee": "Eine Verkaufsroute für viele Waren: welche Station zuerst, was wo verkaufen, neu rechnen, wenn eine Station voll ist. Danke!",
   "s_dkv_ottpossum_bugs": "Sprachpakete mit Vorsilben wie „[CIV.S2.C]“: 103 Baupläne blieben ohne Zuordnung, jetzt werden sie erkannt. Danke!",
+  "s_dkv_pr3d4t0r16_bugs": "„An VerseKit senden“ aus Opera GX endete mit Fehler 405, die Schiffe kamen nicht an. Jetzt nimmt VerseKit sie an. Danke!",
   "s_dkv_daheque16_idee": "Ein Tastenkürzel für Anti-AFK: ein- und ausschalten per Taste, auch im Spiel. Danke!",
   "s_dkv_sirhinkebein_bugs": "Die Steuerung zeigte auf deutscher Tastatur Y statt Z: Tasten stehen jetzt nach deiner Tastaturlage. Danke!",
   "s_dkv_shockwave_bugs": "Mausrad zoomte die Contested-Karte statt zu scrollen. Jetzt scrollt es, Strg zoomt. Danke!",

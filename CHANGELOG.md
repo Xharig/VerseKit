@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.4 - 2026-11-26
+
+> Eine Fehlerbehebung für alle, die ihren Hangar aus Opera GX oder einem
+> ähnlichen Browser an VerseKit senden.
+
+### Behoben
+
+- **Hangar-Kopplung in Opera GX (Fehler 405):** „An VerseKit senden“ endete
+  in manchen Browsern mit Fehler 405, und keine Schiffe kamen an. Der Browser
+  fragt vorher nach, ob er senden darf; VerseKit beantwortet diese Frage
+  jetzt und nimmt die Schiffe an. Unter Mein Hangar nennt eine abgelehnte
+  Anfrage jetzt auch, wie der Browser gesendet hat. Gemeldet von pr3d4t0r16.
+
 ## v5.6.3 - 2026-11-26
 
 > Eine Verkaufsroute für viele Waren, drei neue Tastenkürzel fürs Overlay und

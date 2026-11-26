@@ -45,6 +45,15 @@ fn post(port: u16, path: &str, auth: Option<&str>, body: &[u8], length: Option<u
     (status, body)
 }
 
+/// Send a raw request and return the whole answer.
+fn raw(port: u16, request: &str) -> String {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
+    stream.write_all(request.as_bytes()).unwrap();
+    let mut answer = String::new();
+    let _ = stream.read_to_string(&mut answer);
+    answer
+}
+
 fn code(body: &str) -> String {
     versekit_core::jsonio::loads(body)
         .ok()
@@ -96,6 +105,54 @@ fn the_write_lock_reaches_the_receiver() {
     let (port, _) = start(&inside, &token, guard, inbox::DEADLINE);
     assert_eq!(post(port, PATH, Some(&auth), LIST.as_bytes(), None).0, 200);
     assert!(std::path::Path::new(&inside).exists());
+}
+
+/// What a browser sends when the extension's request runs in CORS mode: first
+/// the preflight, then the POST with its origin. Both pass, the ships arrive.
+#[test]
+fn preflight_then_delivery_like_a_browser() {
+    let dir = fresh_dir("einlieferung-cors");
+    let file = dir.join("hangar.json").to_string_lossy().into_owned();
+    let token = inbox::new_token().unwrap();
+    let (port, shared) = start(&file, &token, writeguard::state(), inbox::DEADLINE);
+    let origin = "chrome-extension://hgmnaolojobpmeieccpholmjacbjkpbm";
+
+    let preflight = raw(
+        port,
+        &format!(
+            "OPTIONS {PATH} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: {origin}\r\nAccess-Control-Request-Method: POST\r\n\
+             Access-Control-Request-Headers: authorization,content-type\r\nAccess-Control-Request-Private-Network: true\r\n\r\n"
+        ),
+    );
+    assert!(preflight.starts_with("HTTP/1.1 204 No Content\r\n"), "{preflight}");
+    assert!(preflight.contains(&format!("Access-Control-Allow-Origin: {origin}\r\n")), "{preflight}");
+    assert!(preflight.contains("Access-Control-Allow-Private-Network: true\r\n"), "{preflight}");
+    assert!(preflight.contains("Access-Control-Allow-Headers: authorization,content-type\r\n"), "{preflight}");
+    assert!(shared.last().is_none(), "the preflight is no refusal");
+    assert!(!std::path::Path::new(&file).exists(), "the preflight writes nothing");
+
+    let body = LIST.as_bytes();
+    let answer = raw(
+        port,
+        &format!(
+            "POST {PATH} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: {origin}\r\nContent-Type: application/json\r\n\
+             Authorization: Bearer {token}\r\nContent-Length: {}\r\n\r\n{LIST}",
+            body.len()
+        ),
+    );
+    assert!(answer.starts_with("HTTP/1.1 200 OK\r\n"), "{answer}");
+    assert!(answer.contains(&format!("Access-Control-Allow-Origin: {origin}\r\n")), "{answer}");
+    assert!(answer.ends_with(r#"{"schiffe": 5, "unveraendert": false}"#), "{answer}");
+    assert_eq!(shared.deliveries(), 1);
+
+    // Another method is still refused, and the page learns which one.
+    let get = raw(port, &format!("GET {PATH} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: {origin}\r\n\r\n"));
+    assert!(get.starts_with("HTTP/1.1 405 "), "{get}");
+    assert!(
+        matches!(shared.last(), Some(Event::Refused { status: 405, ref method, .. }) if method == "GET"),
+        "{:?}",
+        shared.last()
+    );
 }
 
 /// A client that sends nothing holds the receiver only until the time limit.

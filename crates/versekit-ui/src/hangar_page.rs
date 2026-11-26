@@ -638,14 +638,18 @@ fn last_event_line(receiver: &Receiver) -> Option<(String, bool)> {
             (text, true)
         }
         // The extension checks the connection with an empty object: refused, but fine.
-        Event::Refused { at, status: 400, code } if code == "schema" => {
+        Event::Refused { at, status: 400, code, .. } if code == "schema" => {
             (tf("s_hgl_probe", &[("zeit", Arg::from(at.as_str()))]), true)
         }
-        Event::Refused { at, status, code } => {
+        Event::Refused { at, status, code, method } => {
             let reason = match code.as_str() {
                 "token" => t("s_hgl_grund_token"),
                 "hangarzugang_aus" => t("s_hgl_grund_aus"),
                 "uebergabe" | "version" | "schiffe" | "leer" | "json" => t("s_hgl_grund_datei"),
+                // A wrong method names it, so a report shows what the browser sent.
+                "methode" => {
+                    format!("{} ({method})", tf("s_hgl_grund_sonst", &[("status", Arg::from(status as usize))]))
+                }
                 _ => tf("s_hgl_grund_sonst", &[("status", Arg::from(status as usize))]),
             };
             (tf("s_hgl_abgelehnt", &[("zeit", Arg::from(at.as_str())), ("grund", Arg::from(reason))]), false)

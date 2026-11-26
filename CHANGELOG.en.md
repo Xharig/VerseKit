@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.6.4 - 2026-11-26
+
+> A fix for everyone who sends their hangar to VerseKit from Opera GX or a
+> similar browser.
+
+### Fixed
+
+- **Hangar link in Opera GX (error 405):** “Send to VerseKit” ended with
+  error 405 in some browsers, and no ships arrived. The browser first asks
+  whether it may send; VerseKit now answers that question and takes the
+  ships. Under My hangar, a refused request now also names how the browser
+  sent it. Reported by pr3d4t0r16.
+
 ## v5.6.3 - 2026-11-26
 
 > A sell route for many goods, three new overlay shortcuts and an overlay that
