@@ -66,9 +66,15 @@ jobs:
           cargo test --locked -p versekit-gamedata --test no_key
           cargo test --locked -p versekit-app
           cargo test --locked -p versekit-core --lib -- updater update_run update_helper update_swap auto_update autostart backup provenance beta
+          cargo test --locked -p versekit-streamdeck
 
       - name: Build the program
         run: cargo build --release --locked -p versekit-app
+
+      # The Stream Deck plugin with its profiles; the installer puts it beside the program.
+      - name: Build the Stream Deck plugin
+        shell: pwsh
+        run: pwsh tools/streamdeck_paket.ps1
 
       - name: Hangar-Exporter (checked against its fixed checksum and its Mozilla signature)
         shell: pwsh

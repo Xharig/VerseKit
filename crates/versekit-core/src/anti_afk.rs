@@ -1199,6 +1199,35 @@ impl Runner {
 /// The real system: Windows does it all, elsewhere nothing is supported.
 pub struct System;
 
+/// Sends key events as the player's own (a key of the Stream Deck), not marked as anti-AFK's.
+///
+/// # Errors
+///
+/// [`SendError`] where the system took not all events, or cannot send keys.
+pub fn send_player_keys(events: &[KeyEvent]) -> Result<(), SendError> {
+    #[cfg(windows)]
+    {
+        windows_system::send_unmarked(events)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = events;
+        Err(SendError("no api".into()))
+    }
+}
+
+/// Does this program run with administrator rights? `None` where that cannot be told.
+pub fn self_elevated() -> Option<bool> {
+    #[cfg(windows)]
+    {
+        windows_system::self_elevated()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 #[cfg(not(windows))]
 impl Platform for System {
     fn supported(&self) -> bool {
@@ -1339,6 +1368,38 @@ mod windows_system {
         }
     }
 
+    /// The inputs of key events of the Stream Deck: scan codes without the own mark.
+    fn unmarked_inputs(events: &[KeyEvent]) -> Vec<INPUT> {
+        events
+            .iter()
+            .copied()
+            .map(|event| {
+                let mut input = keyboard_event(event);
+                input.Anonymous.ki.dwExtraInfo = 0;
+                input
+            })
+            .collect()
+    }
+
+    /// Key events of a key of the Stream Deck: without the own mark, so anti-AFK counts them as the player's.
+    pub(super) fn send_unmarked(events: &[KeyEvent]) -> Result<(), SendError> {
+        let inputs = unmarked_inputs(events);
+        // SAFETY: the array lives during the call and the size is that of one element.
+        let sent = unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
+        if sent as usize == inputs.len() {
+            return Ok(());
+        }
+        // SAFETY: reads the last error of this thread.
+        let error = unsafe { GetLastError() };
+        Err(SendError(format!("SendInput {sent}/{}, error {error}", inputs.len())))
+    }
+
+    /// Does this program run with administrator rights?
+    pub(super) fn self_elevated() -> Option<bool> {
+        // SAFETY: the pseudo handle of this process needs no closing.
+        elevated(unsafe { GetCurrentProcess() })
+    }
+
     fn send(events: &[KeyEvent]) -> Result<(), SendError> {
         let inputs: Vec<INPUT> = events.iter().copied().map(keyboard_event).collect();
         // SAFETY: the array lives during the call and the size is that of one element.
@@ -1395,6 +1456,33 @@ mod windows_system {
 
         fn watch_sticks(&self) -> Option<Box<dyn StickWatch>> {
             Listener::start().map(|listener| Box::new(listener) as Box<dyn StickWatch>)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::KEYEVENTF_UNICODE;
+
+        #[test]
+        fn a_key_of_the_stream_deck_goes_out_as_a_scan_code_without_a_virtual_key_or_a_sign() {
+            // Without a virtual key the layout of the system has nothing to turn: Ü on German, [ on US is the
+            // same key the game reads as lbracket.
+            let lbracket = crate::anti_afk_key::key_of("lbracket").expect("key");
+            let ralt = crate::anti_afk_key::key_of("ralt").expect("key");
+            for input in unmarked_inputs(&crate::anti_afk::key_events(&[ralt, lbracket], false)) {
+                // SAFETY: the inputs are keyboard inputs, built above.
+                let ki = unsafe { input.Anonymous.ki };
+                assert_eq!(input.r#type, INPUT_KEYBOARD);
+                assert_eq!(ki.wVk, 0, "no virtual key");
+                assert_ne!(ki.dwFlags & KEYEVENTF_SCANCODE, 0, "the scan code counts");
+                assert_eq!(ki.dwFlags & KEYEVENTF_UNICODE, 0, "no sign");
+                assert_eq!(ki.dwExtraInfo, 0, "counted as the player's");
+            }
+            let inputs = unmarked_inputs(&crate::anti_afk::key_events(&[lbracket], true));
+            // SAFETY: as above.
+            let ki = unsafe { inputs[0].Anonymous.ki };
+            assert_eq!((ki.wScan, ki.dwFlags & KEYEVENTF_KEYUP != 0), (0x1A, true));
         }
     }
 }

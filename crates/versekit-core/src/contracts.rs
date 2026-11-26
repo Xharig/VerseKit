@@ -622,6 +622,28 @@ impl Objectives {
         names
     }
 
+    /// How far a contract is: of its visible objectives with a wording, how many are done (the state ends in
+    /// `COMPLETED`, as the contract log counts them) and how many there are; `None` without any.
+    pub fn progress_for(&self, mission_id: Option<&str>) -> Option<(usize, usize)> {
+        let entries = mission_id.and_then(|m| self.states.get(m))?;
+        let mut seen: Vec<&String> = Vec::new();
+        let mut done = 0;
+        for (oid, state, flags) in entries {
+            if !flags.contains(OBJECTIVE_VISIBLE) {
+                continue;
+            }
+            let Some(wording) = self.titles.get(oid).filter(|w| !w.is_empty()) else { continue };
+            if seen.contains(&wording) {
+                continue;
+            }
+            seen.push(wording);
+            if state.to_uppercase().ends_with("COMPLETED") {
+                done += 1;
+            }
+        }
+        (!seen.is_empty()).then_some((done, seen.len()))
+    }
+
     /// The contract is over, its objectives too.
     pub fn forget(&mut self, mission_id: &str) {
         self.states.remove(mission_id);
@@ -820,5 +842,32 @@ mod tests {
         assert_eq!(all.len(), 2);
         assert_eq!(all[1], ObjectiveEvent::Title { objective_id: "0123abcd-1".into(), wording: "Fliege los".into() });
         assert!(objective_states_from_text("nichts").is_empty());
+    }
+
+    #[test]
+    fn the_progress_counts_the_visible_objectives_with_a_wording_and_the_completed_ones() {
+        let state = |oid: &str, state: &str, flags: &str| ObjectiveEvent::State {
+            mission_id: "m1".into(),
+            objective_id: oid.into(),
+            state: state.into(),
+            flags: flags.into(),
+        };
+        let title = |oid: &str, wording: &str| ObjectiveEvent::Title { objective_id: oid.into(), wording: wording.into() };
+        let mut objectives = Objectives::default();
+        objectives.absorb(&[
+            title("o1", "Fracht abholen"),
+            title("o2", "Fracht abliefern"),
+            title("o3", "Zurückkehren"),
+            title("o4", "Versteckt"),
+            state("o1", "COMPLETED", "ShowInLog"),
+            state("o2", "INPROGRESS", "ShowInLog"),
+            state("o3", "INPROGRESS", "ShowInLog"),
+            state("o4", "INPROGRESS", "Hidden"),
+            state("o5", "INPROGRESS", "ShowInLog"),
+        ]);
+        assert_eq!(objectives.progress_for(Some("m1")), Some((1, 3)), "hidden and without a wording do not count");
+        assert_eq!(objectives.open_for(Some("m1")), ["Fracht abliefern", "Zurückkehren"]);
+        assert_eq!(objectives.progress_for(Some("m2")), None);
+        assert_eq!(objectives.progress_for(None), None);
     }
 }

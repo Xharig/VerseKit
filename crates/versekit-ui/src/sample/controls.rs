@@ -61,7 +61,8 @@ const REMOVED_PAGES: [(&str, &str); 11] = [
 const SEEN_FILE: &str = "gesehen.json";
 /// Which area came with which version (the names as `gesehen.json` keeps them, 4.12 `NEW_SINCE`). The page of an
 /// area is `hf_<area>`; an area without such a page carries no mark. A new area: one line here.
-pub(super) const NEW_SINCE: [(&str, &str); 26] = [
+pub(super) const NEW_SINCE: [(&str, &str); 27] = [
+    ("streamdeck", "5.7.0"),
     ("statistik", "3.58.0"),
     ("darstellung", "3.58.0"),
     ("basetool", "3.61.0"),
@@ -1118,9 +1119,9 @@ pub(in crate::sample) mod tests {
             "„Wann sichtbar“ and „Tastenkürzel“ side by side: {when:?} {keys:?}"
         );
         assert!((when.width() - display.width()).abs() < 1.0, "in the columns of cards: {when:?}");
-        // All the shortcuts, the two of the stock scan and the one of Anti-AFK included, stand in one card: the page
-        // may scroll a little below this height, never more (960 with eight shortcuts, 1087 with twelve).
-        const PAGE_HEIGHT: f32 = 1090.0;
+        // The card „Tastenkürzel“ holds the row that leads to the page of keys: the first four cards end within this
+        // height.
+        const PAGE_HEIGHT: f32 = 990.0;
         assert!(keys.bottom() <= PAGE_HEIGHT, "the shortcuts end at {PAGE_HEIGHT} at most: {keys:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1187,7 +1188,7 @@ pub(in crate::sample) mod tests {
         // Tall enough for the picker of the scan, the second one of the page.
         bench.height = 1800.0;
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&texts, &language::t("s_hk_scan")), "the row: {texts:?}");
@@ -1235,7 +1236,7 @@ pub(in crate::sample) mod tests {
         // the search is the last.
         bench.page.picture_hotkey_on = false;
         bench.page.main_hotkey_on = false;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         // A little down the page, so that the picker below the last row of the first group stands in the window.
         bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
         bench.frame(vec![egui::Event::MouseWheel {
@@ -1302,7 +1303,7 @@ pub(in crate::sample) mod tests {
         bench.page.overlay_runs = || true;
         // The handle search without its picker: the one of the picture is the third of the page.
         bench.page.search_hotkey_on = false;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&texts, &language::t("s_hk_bild")), "the row: {texts:?}");
@@ -1353,7 +1354,7 @@ pub(in crate::sample) mod tests {
         // The search and the picture without their pickers: the one of the main window is the third of the page.
         bench.page.search_hotkey_on = false;
         bench.page.picture_hotkey_on = false;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&texts, &language::t("s_hk_haupt")), "the row: {texts:?}");
@@ -1380,7 +1381,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("haupt-taste-belegt", settings, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
@@ -1397,7 +1398,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("antiafk-taste", "{}", &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&texts, &language::t("s_hk_antiafk")), "the row: {texts:?}");
@@ -1435,7 +1436,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("antiafk-taste-belegt", settings, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
@@ -1458,7 +1459,7 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         bench.settle();
         assert!(!bench.page.picture_hotkey_on, "switched off in the settings");
         let current = |page: &SamplePage| hotkey_text(page.picture_modifiers, page.picture_key);
@@ -1480,7 +1481,7 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         bench.settle();
         let name = bench.place(&language::t("s_hk_bild"), 0);
         bench.click_at(name - egui::vec2(30.0, -4.0));
@@ -1508,7 +1509,7 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         bench.settle();
         let search = hotkey_text(bench.page.search_modifiers, bench.page.search_key);
         assert_eq!(search.as_deref(), Some("Alt+Umschalt+H"));
@@ -1531,7 +1532,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("taste-doppelt-zeile", settings, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
@@ -1549,9 +1550,42 @@ pub(in crate::sample) mod tests {
         assert_eq!(read, versekit_core::overlay::HotkeyChoice::Combination(f9), "the overlay registers the search");
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         assert!(!texts.iter().any(|(t, _)| *t == line), "no holder while the overlay's hotkey is off: {texts:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The shortcuts stand on the page of keys and Stream Deck, all twelve with the Stream Deck below; the overlay page
+    /// shows none of them, only a row whose button leads there. The grey switch of the overlay's own shortcut says on
+    /// hover why it is always on.
+    #[test]
+    fn the_shortcuts_stand_on_the_page_of_keys_and_the_overlay_page_leads_there() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("kuerzel-seite", "{}", &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 2400.0;
+        let shown = |texts: &[(String, Pos2)], key: &str| texts.iter().any(|(t, _)| *t == language::t(key));
+        let rows: Vec<&str> = super::super::SHORTCUT_ROWS.1.iter().map(|(name, ..)| *name).collect();
+        assert_eq!(rows.len(), versekit_core::overlay::SHORTCUTS, "all twelve shortcuts");
+        bench.page.go_to("hf_streamdeck");
+        let texts = bench.settle();
+        for row in &rows {
+            assert!(shown(&texts, row), "{row} on the page of keys: {texts:?}");
+        }
+        assert!(shown(&texts, "sd_s_gruppe"), "the Stream Deck stays on the page");
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        assert!(shown(&texts, "s_ov_kuerzel_wo"), "the row that leads to the shortcuts: {texts:?}");
+        // The name of the page stands in the menu and on the one button that leads there; the twelve rows of the
+        // shortcuts would bring it once each. (Their names read as the short words the overlay page uses
+        // elsewhere, `s_hk_kurz_*`, so the names alone cannot tell.)
+        let word = language::t("hf_streamdeck");
+        let places = texts.iter().filter(|(t, _)| *t == word).count();
+        assert_eq!(places, 2, "menu and one button, no rows of shortcuts");
+        bench.click_nth(&word, places - 1);
+        bench.settle();
+        assert_eq!(bench.page.page, "hf_streamdeck", "the button opens the page of keys");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2721,7 +2755,7 @@ pub(in crate::sample) mod tests {
         let _language = crate::language_lock();
         let (page, dir) = real_page("kuerzel", "{\n  \"hotkey\": \"Strg+Alt+B\"\n}\n", &[]);
         let mut bench = Bench::new(page);
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let before = bench.page.hotkey_modifiers;
         assert_eq!(before, [true, true, false], "Strg+Alt as stored");
         // Strg off: Alt is left, fine. Alt off as well: nothing would be left.
@@ -2743,7 +2777,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("kuerzel-allein", "{\n  \"hotkey\": \"Alt+F13\"\n}\n", &[]);
         let mut bench = Bench::new(page);
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Alt+F13"));
         bench.click("Alt");
         bench.settle();

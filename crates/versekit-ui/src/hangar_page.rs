@@ -1299,6 +1299,22 @@ pub(crate) fn exporter_buttons(ui: &mut Ui, scheme: &Scheme) {
     });
 }
 
+/// One button per browser for getting the Hangar Extension: each opens its store entry
+/// (`exporter::extension_plan`).
+fn extension_buttons(ui: &mut Ui, scheme: &Scheme) {
+    use versekit_core::exporter::{self, Browser};
+    ui.horizontal_wrapped(|row| {
+        for browser in Browser::ALL {
+            let word = t(browser.label());
+            let spoken = tf("s_hgl_extension_fuer", &[("browser", Arg::from(word.as_str()))]);
+            let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("external-link").spoken(&spoken);
+            if row.add(button).on_hover_text(t(browser.extension_hint())).clicked() {
+                exporter::open_extension(browser);
+            }
+        }
+    });
+}
+
 /// Fetching from the pledge store: first straight from the Hangar-Exporter,
 /// then from an export file or a file dropped onto the window.
 fn import_part(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
@@ -1318,6 +1334,8 @@ fn import_part(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
     ui.add_space(8.0);
     ui.label(RichText::new(t("s_hgl_datei_titel")).strong());
     small(ui, &t("s_hgl_datei_text"), scheme.sub);
+    small(ui, &t("s_hgl_extension_holen"), scheme.sub);
+    extension_buttons(ui, scheme);
     small(ui, &t("s_hgl_import_json"), scheme.gold);
     // With the hangar shared over the Basetool, its ships win over a file.
     if state.basetool_ships_on() {
@@ -2668,6 +2686,63 @@ mod tests {
             }
             let _ = std::fs::remove_dir_all(dir);
         }
+        assert!(findings.is_empty(), "{}", findings.join("\n"));
+    }
+
+    #[test]
+    fn the_hangar_extension_has_a_named_button_per_browser_and_nothing_of_it_is_cut() {
+        use versekit_core::exporter::Browser;
+        let _language = crate::language_lock();
+        steady_scheme();
+        let mut findings = Vec::new();
+        for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
+            versekit_core::language::set_thread_language(choice);
+            let (mut state, dir) = page_on("extension-knoepfe", r#"{"format": 1, "schiffe": []}"#);
+            let ctx = egui::Context::default();
+            crate::install(&ctx);
+            ctx.enable_accesskit();
+            let names: Vec<String> = Browser::ALL
+                .iter()
+                .map(|b| tf("s_hgl_extension_fuer", &[("browser", Arg::from(t(b.label())))]))
+                .collect();
+            let line = t("s_hgl_extension_holen");
+            for width in [320.0_f32, 380.0, 900.0] {
+                let scheme = versekit_core::theme::current();
+                let mut output = None;
+                for _ in 0..3 {
+                    let input = egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 4000.0))),
+                        ..Default::default()
+                    };
+                    let mut out = ctx.run_ui(input, |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| show_page(ui, scheme, &mut state));
+                    });
+                    out.textures_delta.clear();
+                    output = Some(out);
+                }
+                let output = output.expect("a frame");
+                let texts = texts_with_clip(&output);
+                match texts.iter().find(|(drawn, _, _)| *drawn == line) {
+                    Some((_, rect, clip)) if rect.min.x >= clip.min.x - 0.5 && rect.max.x <= clip.max.x + 0.5 => {}
+                    found => findings.push(format!("{choice:?} {width}: {line:?} not whole: {found:?}")),
+                }
+                let update = output.platform_output.accesskit_update.expect("accesskit is on");
+                for name in &names {
+                    let bounds: Vec<_> = update
+                        .nodes
+                        .iter()
+                        .filter(|(_, n)| n.role() == Role::Button && n.label() == Some(name.as_str()))
+                        .filter_map(|(_, n)| n.bounds())
+                        .collect();
+                    match bounds.as_slice() {
+                        [b] if b.x0 >= -0.5 && b.x1 <= f64::from(width) + 0.5 => {}
+                        found => findings.push(format!("{choice:?} {width}: {name:?} once inside the page: {found:?}")),
+                    }
+                }
+            }
+            let _ = std::fs::remove_dir_all(dir);
+        }
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 

@@ -275,7 +275,7 @@ pub struct Gate {
 }
 
 /// Compare without stopping at the first difference.
-fn same_secret(a: &str, b: &str) -> bool {
+pub(crate) fn same_secret(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
     let mut diff = a.len() ^ b.len();
     for i in 0..a.len().max(b.len()) {

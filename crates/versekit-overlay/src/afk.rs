@@ -80,7 +80,6 @@ impl Afk {
     }
 
     /// Is the switch on?
-    #[cfg(test)]
     pub fn enabled(&self) -> bool {
         self.runner.as_ref().is_some_and(Runner::enabled)
     }

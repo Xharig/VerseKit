@@ -667,6 +667,28 @@ pub fn ini_stamp(game_folder: &str, lang: crate::language::Lang) -> String {
     parts.join("|")
 }
 
+/// A name of the game on one line: the line breaks some texts of the `global.ini` hold (written `\n`) become
+/// spaces.
+pub fn one_line(name: &str) -> String {
+    name.replace("\\n", " ").replace(['\n', '\r'], " ").split(' ').filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
+/// The actions whose name has no text of the game in `lang` (an English or a technical name stands instead), from
+/// the `global.ini` of that language; every action without a game folder.
+pub fn without_own_text(
+    profile: &Profile,
+    game_folder: Option<&str>,
+    lang: crate::language::Lang,
+) -> std::collections::HashSet<String> {
+    let texts = game_folder.map(|folder| ini_texts(folder, lang)).unwrap_or_default();
+    profile
+        .labels
+        .iter()
+        .filter(|(_, (label, _))| texts.get(label.trim_start_matches('@')).is_none_or(|t| t.is_empty()))
+        .map(|(action, _)| action.to_string())
+        .collect()
+}
+
 /// The names of the actions from the `global.ini` files of the game folder: the language asked first, the
 /// English where CIG gave no text in it (better than a technical short form).
 pub fn labels_from_folder(profile: &Profile, game_folder: &str, lang: crate::language::Lang) -> OrderedMap<Label> {
@@ -1095,5 +1117,25 @@ mod tests {
         write_csv(&file, &text).expect("write");
         assert!(std::fs::read(&file).expect("read").starts_with(&[0xef, 0xbb, 0xbf]));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_actions_without_a_text_in_the_language_are_known_and_a_name_stands_on_one_line() {
+        let profile = Profile::from_xml(PROFILE).expect("profile");
+        let game = std::env::temp_dir().join(format!("versekit-controls-own-text-{}", crate::testdir::run_tag()));
+        let german = game.join("data").join("Localization").join("german_(germany)");
+        std::fs::create_dir_all(&german).expect("folder");
+        std::fs::write(german.join("global.ini"), "ui_CIEject=Aussteigen\r\nui_CIUse=\r\n").expect("ini");
+        let folder = game.to_string_lossy().into_owned();
+        let without = without_own_text(&profile, Some(&folder), crate::language::Lang::De);
+        assert!(!without.contains("v_eject"), "a German text");
+        for action in ["v_respawn", "pl_use", "v_free", "v_hidden"] {
+            assert!(without.contains(action), "{action}: no German text (missing, empty or no label)");
+        }
+        assert_eq!(without_own_text(&profile, None, crate::language::Lang::De).len(), profile.labels.len(), "no game folder");
+        let _ = std::fs::remove_dir_all(game);
+        assert_eq!(one_line("Andocken\\n(Einleiten)"), "Andocken (Einleiten)");
+        assert_eq!(one_line("Zwei\nZeilen  hier"), "Zwei Zeilen hier");
+        assert_eq!(one_line("Aussteigen"), "Aussteigen");
     }
 }

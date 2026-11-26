@@ -1,0 +1,4 @@
+<!-- VerseKit, eigene Zeichnung (Energie-MFD nachempfunden) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4c-.6-2.6.4-5 2.8-5.4 1.4 1.8.6 4.2-2.8 5.4z" transform="rotate(0 12 12)"/><path d="M12 10.4c-.6-2.6.4-5 2.8-5.4 1.4 1.8.6 4.2-2.8 5.4z" transform="rotate(90 12 12)"/><path d="M12 10.4c-.6-2.6.4-5 2.8-5.4 1.4 1.8.6 4.2-2.8 5.4z" transform="rotate(180 12 12)"/><path d="M12 10.4c-.6-2.6.4-5 2.8-5.4 1.4 1.8.6 4.2-2.8 5.4z" transform="rotate(270 12 12)"/>
+</svg>

@@ -742,6 +742,7 @@ fn sample_contracts() -> Vec<ContractLine> {
         title: title.to_string(),
         text: Message::Plain(text.to_string()),
         goals: goals.iter().map(|g| g.to_string()).collect(),
+        steps: None,
         grey,
         count: 1,
         complete: false,

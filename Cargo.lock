@@ -4805,7 +4805,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-app"
-version = "5.6.4"
+version = "5.7.0-beta.1"
 dependencies = [
  "eframe",
  "egui",
@@ -4818,7 +4818,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-core"
-version = "5.6.4"
+version = "5.7.0-beta.1"
 dependencies = [
  "argon2",
  "base64 0.22.1",
@@ -4842,7 +4842,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-gamedata"
-version = "5.6.4"
+version = "5.7.0-beta.1"
 dependencies = [
  "p4kx-archive",
  "p4kx-cryxml",
@@ -4867,12 +4867,13 @@ dependencies = [
 
 [[package]]
 name = "versekit-overlay"
-version = "5.6.4"
+version = "5.7.0-beta.1"
 dependencies = [
  "eframe",
  "egui",
  "raw-window-handle",
  "regex",
+ "serde_json",
  "versekit-core",
  "versekit-gamedata",
  "versekit-ui",
@@ -4883,7 +4884,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-overlay-proto"
-version = "5.6.4"
+version = "5.7.0-beta.1"
 dependencies = [
  "eframe",
  "egui",
@@ -4894,7 +4895,7 @@ dependencies = [
 
 [[package]]
 name = "versekit-parity"
-version = "5.6.4"
+version = "5.7.0-beta.1"
 dependencies = [
  "p4kx-dataforge",
  "regex",
@@ -4905,8 +4906,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "versekit-streamdeck"
+version = "5.7.0-beta.1"
+dependencies = [
+ "ab_glyph",
+ "base64 0.22.1",
+ "getrandom 0.3.4",
+ "image",
+ "resvg",
+ "ring",
+ "serde_json",
+ "versekit-core",
+]
+
+[[package]]
 name = "versekit-ui"
-version = "5.6.4"
+version = "5.7.0-beta.1"
 dependencies = [
  "eframe",
  "egui",

@@ -123,6 +123,18 @@ fn a_ship_the_seat_was_left_in_is_the_own_one() {
 }
 
 #[test]
+fn the_last_ship_is_the_last_seat_or_target_and_a_ship_only_passing_by_is_none() {
+    let seat = format!("<Vehicle Control Flow> CreateDriver: Local client node [5] granted control token for '{FOREIGN}' [9]");
+    let pick = target(OWN, "LOC_rs_ext_nyx-castra_jp1");
+    let passing = arrival("MISC_Prospector_111111111111");
+    assert_eq!(last_ship_in(&log(&[(10, &seat)])).as_deref(), Some("RSI_Polaris"));
+    assert_eq!(last_ship_in(&log(&[(10, &seat), (20, &pick)])).as_deref(), Some("RSI_Constellation_Andromeda_GS"));
+    assert_eq!(last_ship_in(&log(&[(10, &pick), (20, &seat), (30, &passing)])).as_deref(), Some("RSI_Polaris"));
+    assert_eq!(last_ship_in(&log(&[(30, &passing)])), None, "an arrival alone names no ship of the player");
+    assert_eq!(last_ship_in(""), None);
+}
+
+#[test]
 fn a_target_number_is_a_planet_when_the_log_says_so() {
     let planet = "<Planet CPU Maps Loaded> x Planet 'nyx1' (entity 4242) y";
     let known = target(OWN, "4242");

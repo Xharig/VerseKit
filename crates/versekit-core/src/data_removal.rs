@@ -212,6 +212,8 @@ pub const KNOWN_FILES: &[&str] = &[
     "start-spur-overlay.txt",
     "start-spur.txt",
     "statistik.json",
+    "streamdeck.json",
+    "streamdeck_eintraege.json",
     "titel-original.json",
     "uebersetzung.json",
     "uebersetzung_abfragen.json",

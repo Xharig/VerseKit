@@ -108,6 +108,7 @@ pub mod startprograms_page;
 pub mod statistics_page;
 pub mod stock_page;
 pub mod stock_share;
+pub mod streamdeck_page;
 pub mod streamer;
 pub mod suggest;
 pub mod thanks_page;

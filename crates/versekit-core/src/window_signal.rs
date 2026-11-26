@@ -186,6 +186,9 @@ pub enum DataKind {
     Demand = 1,
     /// What the overlay shows of the Kartellbank (`basetool::bank::handover`), from the main window to the overlay.
     Bank = 2,
+    /// The key of a page of the menu (`hf_bergbau`), from the overlay to the main window: a key of the Stream Deck
+    /// asked for it. Only keys of [`crate::streamdeck::PAGES`] are opened.
+    Page = 3,
 }
 
 impl DataKind {
@@ -193,9 +196,15 @@ impl DataKind {
         match code {
             1 => Some(DataKind::Demand),
             2 => Some(DataKind::Bank),
+            3 => Some(DataKind::Page),
             _ => None,
         }
     }
+}
+
+/// The page key a [`DataKind::Page`] handing over carries; `None` for one that may not be opened.
+pub fn page_of(bytes: &[u8]) -> Option<&str> {
+    std::str::from_utf8(bytes).ok().filter(|key| crate::streamdeck::page_allowed(key))
 }
 
 /// The most bytes one handing over carries; longer data are not sent.
@@ -779,6 +788,16 @@ mod tests {
         }
         assert_eq!(Signal::from_code(0), None);
         assert_eq!(Signal::from_code(16), None);
+    }
+
+    /// A page handed over by a key of the Stream Deck opens only when it is one of the menu.
+    #[test]
+    fn only_pages_of_the_menu_are_taken_from_a_handing_over() {
+        assert_eq!(DataKind::from_code(DataKind::Page as usize), Some(DataKind::Page));
+        assert_eq!(page_of(b"hf_bergbau"), Some("hf_bergbau"));
+        assert_eq!(page_of(b"s_af_seite"), None);
+        assert_eq!(page_of(b"hf_bergbau\0"), None);
+        assert_eq!(page_of(&[0xFF, 0xFE]), None);
     }
 
     /// A handing over goes as one message and back whole; anything cut, too long, of an unknown kind or without the

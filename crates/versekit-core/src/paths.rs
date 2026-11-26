@@ -1066,6 +1066,12 @@ impl Paths {
         )
     }
 
+    /// A file in the configuration folder of the current name ([`CONFIG_FOLDER_NAME`]): the same place for every
+    /// data folder, found by another program of the same user without reading the pointer files.
+    pub fn config_file(&self, name: &str) -> String {
+        self.join_all(&self.config_base(), &[CONFIG_FOLDER_NAME, name])
+    }
+
     /// The configuration directory: `%APPDATA%` (else the home folder) or `$XDG_CONFIG_HOME` (else `~/.config`).
     fn config_base(&self) -> String {
         match self.host.flavor {

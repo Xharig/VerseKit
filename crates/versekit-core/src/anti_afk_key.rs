@@ -381,6 +381,30 @@ mod tests {
     }
 
     #[test]
+    fn the_keys_of_signs_go_out_at_the_place_the_game_reads_not_as_a_sign() {
+        // The game names a key by its place (DirectInput, US keyboard); the scan code of that place is sent,
+        // whatever the layout of the system makes of it.
+        let places = [
+            ("minus", 0x0C),
+            ("equals", 0x0D),
+            ("y", 0x15),
+            ("lbracket", 0x1A),
+            ("rbracket", 0x1B),
+            ("semicolon", 0x27),
+            ("apostrophe", 0x28),
+            ("grave", 0x29),
+            ("backslash", 0x2B),
+            ("z", 0x2C),
+            ("comma", 0x33),
+            ("period", 0x34),
+            ("slash", 0x35),
+        ];
+        for (name, scan) in places {
+            assert_eq!(key_of(name), Some(plain(scan)), "{name}");
+        }
+    }
+
+    #[test]
     fn every_name_has_its_own_scan_code() {
         let mut seen = std::collections::BTreeSet::new();
         for &(name, key) in NAMES {

@@ -97,8 +97,35 @@ pub enum Failure {
     OrderConflict,
     /// The file of the remembered order could not be written (`s_jr_f_schreiben`).
     OrderWrite,
+    /// The change would touch a joystick, gamepad or mouse line: the Stream Deck adds keys only (`s_js_f_nur_tastatur`).
+    OthersTouched,
     /// The game runs, or the copy or the writing failed.
     Write(WriteError),
+}
+
+/// The lines of joysticks, gamepads and mice in a binding file: their bindings (`input="js…"`, `gp…`, `mo…`) and
+/// their option blocks, in order and trimmed.
+pub fn other_device_lines(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut in_options = false;
+    for line in text.lines().map(str::trim) {
+        let lower = line.to_ascii_lowercase();
+        let opens = lower.starts_with("<options");
+        if opens || in_options || ["input=\"js", "input=\"gp", "input=\"mo"].iter().any(|start| lower.contains(start)) {
+            out.push(line.to_string());
+        }
+        if opens {
+            in_options = !lower.ends_with("/>") && !lower.contains("</options>");
+        } else if in_options && lower.contains("</options>") {
+            in_options = false;
+        }
+    }
+    out
+}
+
+/// The Stream Deck is an addition: a change it makes leaves every joystick, gamepad and mouse line as it was.
+fn keyboard_only(old: &str, new: &str) -> Result<(), Failure> {
+    if other_device_lines(old) == other_device_lines(new) { Ok(()) } else { Err(Failure::OthersTouched) }
 }
 
 impl Failure {
@@ -131,6 +158,7 @@ impl Failure {
             Failure::OrderNothing => "s_jr_f_nichts_gemerkt",
             Failure::OrderConflict => "s_jr_f_widerspruch",
             Failure::OrderWrite => "s_jr_f_schreiben",
+            Failure::OthersTouched => "s_js_f_nur_tastatur",
             Failure::Write(_) => return None,
         })
     }
@@ -856,6 +884,234 @@ pub fn bind_action(
     commit(paths, &read, &new, 1)
 }
 
+/// Keyboard keys put on several actions in one change of the text: each `(action, section, input)` as
+/// [`bind_action_text`] does it on the device `kb1`.
+///
+/// # Errors
+///
+/// See [`bind_action_text`].
+pub fn bind_many_text(text: &str, items: &[(String, String, String)]) -> Result<String, Failure> {
+    let mut out = text.to_string();
+    for (action, section, input) in items {
+        out = bind_action_text(&out, action, section, "kb1", input)?;
+    }
+    Ok(out)
+}
+
+/// [`bind_many_text`] written to the file: one copy, one writing.
+///
+/// # Errors
+///
+/// See [`bind_action_text`]; [`Failure::NoFile`] and the refusals of the writing.
+pub fn bind_many(
+    paths: &Paths,
+    items: &[(String, String, String)],
+    file: Option<&str>,
+    folder: Option<&str>,
+) -> Result<Done, Failure> {
+    if items.is_empty() {
+        return Err(Failure::Nothing);
+    }
+    let read = open(paths, file, folder)?;
+    let new = bind_many_text(&read.text, items)?;
+    keyboard_only(&read.text, &new)?;
+    commit(paths, &read, &new, items.len())
+}
+
+/// The text with the keyboard lines `kb1_<input>` of the actions `(action, input)` taken out again, each only where
+/// it still stands so; an action left without a line goes with it. Gives the new text and the actions whose line
+/// was found: what the player changed since stays as it is.
+///
+/// # Errors
+///
+/// [`Failure::Unreadable`] where the text is not well formed.
+pub fn unbind_added_text(text: &str, items: &[(String, String)]) -> Result<(String, Vec<String>), Failure> {
+    let full: Vec<(String, String)> = items.iter().map(|(a, i)| (a.clone(), format!("kb1_{i}"))).collect();
+    unbind_lines_text(text, &full)
+}
+
+/// The text with the lines `(action, full input with its device)` taken out, each only where it still stands so; an
+/// action left without a line goes with it. Gives the new text and the actions whose line was found.
+///
+/// # Errors
+///
+/// [`Failure::Unreadable`] where the text is not well formed.
+pub fn unbind_lines_text(text: &str, items: &[(String, String)]) -> Result<(String, Vec<String>), Failure> {
+    let document = parse(text).ok_or(Failure::Unreadable)?;
+    let mut edits = Vec::new();
+    let mut found = Vec::new();
+    for action in document.descendants().filter(|n| is_element(*n, "action")) {
+        let name = action.attribute("name").unwrap_or("");
+        let wanted: Vec<&String> = items.iter().filter(|(a, _)| a == name).map(|(_, input)| input).collect();
+        if wanted.is_empty() {
+            continue;
+        }
+        let rebinds: Vec<Node> = action.children().filter(|n| is_element(*n, "rebind")).collect();
+        let ours: Vec<&Node> = rebinds
+            .iter()
+            .filter(|r| r.attribute("input").is_some_and(|v| wanted.iter().any(|w| v.trim().eq_ignore_ascii_case(w))))
+            .collect();
+        if ours.is_empty() {
+            continue;
+        }
+        found.push(name.to_string());
+        let others = action.children().filter(Node::is_element).count() - ours.len();
+        if others == 0 {
+            edits.push(Edit { range: whole_line(text, action.range()), with: String::new() });
+        } else {
+            for rebind in ours {
+                edits.push(Edit { range: whole_line(text, rebind.range()), with: String::new() });
+            }
+        }
+    }
+    Ok((apply(text, edits), found))
+}
+
+/// [`unbind_added_text`] written to the file.
+///
+/// # Errors
+///
+/// [`Failure::Same`] where none of the lines stands any more; the failures of reading and writing.
+pub fn unbind_added(
+    paths: &Paths,
+    items: &[(String, String)],
+    file: Option<&str>,
+    folder: Option<&str>,
+) -> Result<(Done, Vec<String>), Failure> {
+    let read = open(paths, file, folder)?;
+    let (new, found) = unbind_added_text(&read.text, items)?;
+    keyboard_only(&read.text, &new)?;
+    let done = commit(paths, &read, &new, found.len())?;
+    Ok((done, found))
+}
+
+/// Like [`keyboard_only`], with the mouse lines `mo1_<mouse>` of `mice` allowed to come (`added`) or go: every other
+/// joystick, gamepad and mouse line stays as it was.
+pub(crate) fn keyboard_and_these_mice(old: &str, new: &str, mice: &[String], added: bool) -> Result<(), Failure> {
+    let (before, after) = (other_device_lines(old), other_device_lines(new));
+    let (mut longer, shorter) = if added { (after, before) } else { (before, after) };
+    for line in &shorter {
+        let Some(at) = longer.iter().position(|l| l == line) else { return Err(Failure::OthersTouched) };
+        longer.remove(at);
+    }
+    let allowed = |line: &str| mice.iter().any(|m| line.eq_ignore_ascii_case(&format!("<rebind input=\"mo1_{m}\"/>")));
+    if longer.iter().all(|line| allowed(line)) { Ok(()) } else { Err(Failure::OthersTouched) }
+}
+
+/// Keyboard keys put in, and for the actions of `mice` `(action, section, mouse button)` the mouse button moved from
+/// the keyboard line to the mouse line `mo1_`: the keyboard line takes the new key, the mouse button keeps working.
+///
+/// # Errors
+///
+/// See [`bind_action_text`].
+pub fn fill_text(text: &str, adds: &[(String, String, String)], mice: &[(String, String, String)]) -> Result<String, Failure> {
+    let mut out = bind_many_text(text, adds)?;
+    for (action, section, mouse) in mice {
+        out = bind_action_text(&out, action, section, "mo1", mouse)?;
+    }
+    Ok(out)
+}
+
+/// [`fill_text`] written to the file: one copy, one writing; besides the keyboard only the mouse lines of `mice` come.
+///
+/// # Errors
+///
+/// [`Failure::Nothing`] without anything to put in; see [`bind_action_text`]; [`Failure::NoFile`],
+/// [`Failure::OthersTouched`] and the refusals of the writing.
+pub fn fill(
+    paths: &Paths,
+    adds: &[(String, String, String)],
+    mice: &[(String, String, String)],
+    file: Option<&str>,
+) -> Result<Done, Failure> {
+    if adds.is_empty() {
+        return Err(Failure::Nothing);
+    }
+    let read = open(paths, file, None)?;
+    let new = fill_text(&read.text, adds, mice)?;
+    let moved: Vec<String> = mice.iter().map(|(_, _, m)| m.clone()).collect();
+    keyboard_and_these_mice(&read.text, &new, &moved, true)?;
+    commit(paths, &read, &new, adds.len())
+}
+
+/// Does the keyboard line of `action` in `text` still hold `kb1_<key>`?
+fn holds_key(text: &str, action: &str, key: &str) -> Result<bool, Failure> {
+    let ours = format!("kb1_{key}");
+    let document = parse(text).ok_or(Failure::Unreadable)?;
+    Ok(document.descendants().any(|n| {
+        is_element(n, "action")
+            && n.attribute("name") == Some(action)
+            && n.children().any(|r| is_element(r, "rebind") && r.attribute("input").is_some_and(|v| v.trim().eq_ignore_ascii_case(&ours)))
+    }))
+}
+
+/// The way back of [`fill_text`]: the keys `adds` `(action, input)` taken out where they still stand so; for the
+/// actions of `mice` `(action, section, mouse button, key)` whose keyboard line still holds that key, the mouse
+/// button goes back to the keyboard line and its mouse line goes; for the actions of `relocated` `(action, section,
+/// old input, key)` whose keyboard line still holds that key, the old input comes back. Gives the new text and the
+/// actions found; what the player changed since stays.
+///
+/// # Errors
+///
+/// [`Failure::Unreadable`] where the text is not well formed.
+pub fn unfill_text(
+    text: &str,
+    adds: &[(String, String)],
+    mice: &[(String, String, String, String)],
+    relocated: &[(String, String, String, String)],
+) -> Result<(String, Vec<String>), Failure> {
+    let mut out = text.to_string();
+    let mut found = Vec::new();
+    for (action, section, mouse, key) in mice {
+        if !holds_key(&out, action, key)? {
+            continue;
+        }
+        out = bind_action_text(&out, action, section, "kb1", mouse)?;
+        out = unbind_lines_text(&out, &[(action.clone(), format!("mo1_{mouse}"))])?.0;
+        found.push(action.clone());
+    }
+    for (action, section, old, key) in relocated {
+        if !holds_key(&out, action, key)? {
+            continue;
+        }
+        // An empty old key was the factory's: the own line goes, and the factory key counts again.
+        out = if old.is_empty() {
+            unbind_lines_text(&out, &[(action.clone(), format!("kb1_{key}"))])?.0
+        } else {
+            bind_action_text(&out, action, section, "kb1", old)?
+        };
+        found.push(action.clone());
+    }
+    let plain: Vec<(String, String)> = adds
+        .iter()
+        .filter(|(a, _)| !mice.iter().any(|(m, ..)| m == a) && !relocated.iter().any(|(r, ..)| r == a))
+        .cloned()
+        .collect();
+    let (out, more) = unbind_added_text(&out, &plain)?;
+    found.extend(more);
+    Ok((out, found))
+}
+
+/// [`unfill_text`] written to the file.
+///
+/// # Errors
+///
+/// [`Failure::Same`] where none of the lines stands any more; the failures of reading and writing.
+pub fn unfill(
+    paths: &Paths,
+    adds: &[(String, String)],
+    mice: &[(String, String, String, String)],
+    relocated: &[(String, String, String, String)],
+    file: Option<&str>,
+) -> Result<(Done, Vec<String>), Failure> {
+    let read = open(paths, file, None)?;
+    let (new, found) = unfill_text(&read.text, adds, mice, relocated)?;
+    let moved: Vec<String> = mice.iter().map(|(_, _, m, _)| m.clone()).collect();
+    keyboard_and_these_mice(&read.text, &new, &moved, false)?;
+    let done = commit(paths, &read, &new, found.len())?;
+    Ok((done, found))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1331,6 +1587,59 @@ mod tests {
         assert!(matches!(commit(&paths, &read, &new, 1), Err(Failure::Changed)));
         assert_eq!(std::fs::read_to_string(&file).expect("file"), other, "the newer state stays");
         let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn several_keys_go_in_at_once_and_come_out_again_where_they_still_stand() {
+        let text = sample();
+        let items = vec![
+            ("v_empty".to_string(), "spaceship_general".to_string(), "ralt+a".to_string()),
+            ("v_new".to_string(), "spaceship_mining".to_string(), "ralt+b".to_string()),
+        ];
+        let added = bind_many_text(&text, &items).expect("added");
+        assert_eq!(inputs(&added, "kb1", "v_empty"), vec!["ralt+a"]);
+        assert_eq!(inputs(&added, "kb1", "v_new"), vec!["ralt+b"]);
+        assert_eq!(inputs(&added, "js1", "v_eject"), vec!["button5"], "other lines stay");
+        assert!(parse(&added).is_some());
+        // The player put another key on one of them since: that one stays.
+        let changed = added.replace("kb1_ralt+b", "kb1_k");
+        let back = vec![("v_empty".to_string(), "ralt+a".to_string()), ("v_new".to_string(), "ralt+b".to_string())];
+        let (undone, found) = unbind_added_text(&changed, &back).expect("undone");
+        assert_eq!(found, vec!["v_empty".to_string()]);
+        assert!(inputs(&undone, "kb1", "v_empty").is_empty());
+        assert_eq!(inputs(&undone, "kb1", "v_new"), vec!["k"]);
+        assert!(!undone.contains("v_empty\">"), "the action left without a line goes with it");
+        // Taking out what was put in gives the text of before, byte for byte; only the action that was empty before
+        // goes with its line (an empty action binds nothing).
+        let (whole, _) = unbind_added_text(&bind_many_text(&text, &items[..1]).expect("added"), &back[..1]).expect("undone");
+        assert_eq!(whole, text.replace("   <action name=\"v_empty\"/>\n", ""));
+    }
+
+    #[test]
+    fn the_stream_deck_adds_keys_only_and_never_touches_a_joystick_gamepad_or_mouse_line() {
+        let text = sample().replace(
+            "    <rebind input=\"kb1_ralt+y\"/>\n",
+            "    <rebind input=\"kb1_ralt+y\"/>\n    <rebind input=\"gp1_dpad_up\"/>\n    <rebind input=\"mo1_mouse4\"/>\n",
+        );
+        assert_eq!(other_device_lines(&text).len(), 7, "two option blocks (four lines), joystick, gamepad, mouse");
+        let items = vec![
+            ("v_empty".to_string(), "spaceship_general".to_string(), "ralt+a".to_string()),
+            ("v_eject".to_string(), "spaceship_general".to_string(), "ralt+b".to_string()),
+        ];
+        let added = bind_many_text(&text, &items).expect("added");
+        assert!(keyboard_only(&text, &added).is_ok());
+        let back = vec![("v_empty".to_string(), "ralt+a".to_string())];
+        let (undone, _) = unbind_added_text(&added, &back).expect("undone");
+        assert!(keyboard_only(&added, &undone).is_ok());
+        // A joystick line changed, a gamepad line gone, a mouse line added, an option changed: refused each.
+        for broken in [
+            added.replace("js1_button5", "js1_button6"),
+            added.replace("    <rebind input=\"gp1_dpad_up\"/>\n", ""),
+            added.replace("kb1_ralt+a", "mo1_ralt+a"),
+            added.replace("invert=\"1\"", "invert=\"0\""),
+        ] {
+            assert!(matches!(keyboard_only(&text, &broken), Err(Failure::OthersTouched)));
+        }
     }
 
     #[test]

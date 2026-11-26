@@ -54,6 +54,10 @@
 #ifndef ExtensionDir
   #define ExtensionDir "..\dist\erweiterung"
 #endif
+; The Stream Deck plugin (tools\streamdeck_paket.ps1 writes it); the page "Keys & Stream Deck" opens it from {app}.
+#ifndef StreamDeckPlugin
+  #define StreamDeckPlugin "..\target\streamdeck\VerseKit.streamDeckPlugin"
+#endif
 #ifndef OutputName
   #define OutputName "VerseKit-Setup"
 #endif
@@ -143,6 +147,12 @@ Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreve
 ; The Hangar-Exporter for Firefox (signed by Mozilla) with its licence and the address of its source. The
 ; installer only puts the file there; it installs nothing into a browser.
 Source: "{#ExtensionDir}\*"; DestDir: "{app}\erweiterung"; Flags: ignoreversion
+; The Stream Deck plugin with its profiles. A real setup cannot be built without it; a check setup may lack it.
+#ifdef TestRun
+Source: "{#StreamDeckPlugin}"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+#else
+Source: "{#StreamDeckPlugin}"; DestDir: "{app}"; Flags: ignoreversion
+#endif
 
 ; Removed before the new files come: an older Hangar-Exporter, and the shortcuts of the earlier product names.
 ; Only the exact names an earlier installer made, never a pattern: a shortcut the user made with the product

@@ -144,6 +144,19 @@ mod tests {
     }
 
     #[test]
+    fn a_key_of_the_game_is_the_same_key_on_a_german_and_a_us_keyboard_only_its_cap_differs() {
+        let (de, us) = (table(GERMAN), table(&[]));
+        let caps = [("lbracket", "Ü"), ("rbracket", "+"), ("semicolon", "Ö"), ("apostrophe", "Ä"), ("y", "Z"), ("z", "Y")];
+        for (name, german) in caps {
+            let key = anti_afk_key::key_of(name).expect("a key");
+            // What goes out is the scan code of the place: one and the same for both layouts.
+            assert_eq!(anti_afk_key::name_of(key), Some(name), "{name}");
+            assert_eq!(label(name, &de).as_deref(), Some(german), "{name} on a German keyboard");
+            assert_eq!(label(name, &us), None, "{name} on a US keyboard is what the game says");
+        }
+    }
+
+    #[test]
     fn the_us_layout_changes_nothing() {
         let us = table(&[]);
         for name in ["y", "z", "semicolon", "minus", "lbracket", "5", "slash"] {
