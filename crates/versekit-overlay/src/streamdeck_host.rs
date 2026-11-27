@@ -485,6 +485,10 @@ impl Host for DeckHost {
             streamdeck::FIELD_DIALS.into(),
             json!({"kompakt": self.paths.setting_bool(streamdeck::SETTING_DIAL_COMPACT, false)}),
         );
+        map.insert(
+            streamdeck::FIELD_KEYS_SHOWN.into(),
+            json!(self.paths.setting_bool(streamdeck::SETTING_KEYS_SHOWN, false)),
+        );
         map.insert(streamdeck::FIELD_CONTRACTS.into(), lock(&self.contracts).clone());
         map.insert(streamdeck::FIELD_STATUS.into(), self.readiness(&snapshot).value());
         map.insert(streamdeck::FIELD_SHIP.into(), lock(&self.ship).clone());

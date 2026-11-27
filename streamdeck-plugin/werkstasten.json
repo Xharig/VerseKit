@@ -116,6 +116,10 @@
       "eingabe": "f4",
       "halten": "hoechstens:250"
     },
+    "toggleAttachHelmet": {
+      "eingabe": "lalt+h",
+      "halten": "hoechstens:250"
+    },
     "toggle_contact": {
       "eingabe": "f11",
       "halten": "folgen"
@@ -158,6 +162,10 @@
     },
     "v_brake": {
       "eingabe": "x",
+      "halten": "folgen"
+    },
+    "v_cycle_industrial_mode": {
+      "eingabe": "m",
       "halten": "folgen"
     },
     "v_dec_scan_focus_level": {

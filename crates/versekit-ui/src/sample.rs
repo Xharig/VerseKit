@@ -479,6 +479,8 @@ pub struct SamplePage {
     orgs: crate::org_connect_page::OrgConnectState,
     /// The page of the Stream Deck plugin.
     streamdeck: crate::streamdeck_page::StreamDeckState,
+    /// The page of keys without the shortcuts above the Stream Deck: only for its picture on the website.
+    streamdeck_only: bool,
     org_lots: crate::org_data_stock_page::OrgLotsState,
     org_orders: crate::org_data_orders_page::OrgOrdersState,
     org_index: crate::org_data::IndexCache,
@@ -1557,6 +1559,7 @@ impl SamplePage {
             connection: basetool_page::ConnectionState::new(None),
             orgs: crate::org_connect_page::OrgConnectState::sample(),
             streamdeck: crate::streamdeck_page::StreamDeckState::default(),
+            streamdeck_only: false,
             org_lots: crate::org_data_stock_page::OrgLotsState::default(),
             org_orders: crate::org_data_orders_page::OrgOrdersState::default(),
             org_index: crate::org_data::IndexCache::default(),
@@ -1777,6 +1780,16 @@ impl SamplePage {
         let mut page = Self::preview_still();
         page.bank = bank_page::BankState::default();
         page.bank_sample = true;
+        page
+    }
+
+    /// [`Self::preview_still`] with the Stream Deck plugin connected and keys missing
+    /// ([`crate::streamdeck_page::StreamDeckState::example`]), the shortcuts above it left out: for the picture of
+    /// the page of keys, which shows what the page does for the Stream Deck.
+    pub fn preview_still_streamdeck() -> Self {
+        let mut page = Self::preview_still();
+        page.streamdeck = crate::streamdeck_page::StreamDeckState::example();
+        page.streamdeck_only = true;
         page
     }
 
@@ -6014,7 +6027,9 @@ impl SamplePage {
                     "s_os_seite" => crate::org_connect_page::show_page(page, scheme, &mut self.orgs),
                     "hf_streamdeck" => {
                         // All shortcuts first, then the Stream Deck.
-                        self.overlay_settings(page, scheme, true);
+                        if !self.streamdeck_only {
+                            self.overlay_settings(page, scheme, true);
+                        }
                         crate::streamdeck_page::show_page(page, scheme, &mut self.streamdeck);
                     }
                     ORG_STOCK_PAGE => {

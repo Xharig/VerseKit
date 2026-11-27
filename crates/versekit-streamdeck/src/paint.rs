@@ -218,26 +218,37 @@ pub fn lines_of(label: &str, two_allowed: bool) -> Option<(Vec<String>, f32)> {
 }
 
 /// The name of a game action as the key pictures of the profiles write it: on one line at the largest size of
-/// [`GameWriting::one`] it fits, else on two lines split at a space (never inside a word) at the largest size of
-/// [`GameWriting::two`] where both fit, the split with the most even number of letters; `None` when it fits neither.
+/// [`GameWriting::one`] it fits, or on two lines split at a space (never inside a word) at the largest size of
+/// [`GameWriting::two`] where both fit, the split with the most even number of letters; two lines only where they
+/// stand larger than one (`Rührt euch`: two lines of 28 pixels, not one of 24). `None` when it fits neither.
 pub fn game_lines(label: &str) -> Option<(Vec<String>, f32)> {
     let g = &style().game;
-    if let Some(size) = g.one.iter().copied().find(|&size| line_width(label, size) <= g.width_one) {
-        return Some((vec![label.to_string()], size));
-    }
+    let one = g.one.iter().copied().find(|&size| line_width(label, size) <= g.width_one);
     let splits: Vec<(String, String)> =
         label.match_indices(' ').map(|(at, _)| (label[..at].trim().to_string(), label[at + 1..].trim().to_string())).collect();
-    for &size in &g.two {
-        let best = splits
+    let two = g.two.iter().copied().find_map(|size| {
+        splits
             .iter()
             .filter(|(a, b)| !a.is_empty() && !b.is_empty())
             .filter(|(a, b)| line_width(a, size) <= g.width_two[0] && line_width(b, size) <= g.width_two[1])
-            .min_by_key(|(a, b)| a.chars().count().abs_diff(b.chars().count()));
-        if let Some((a, b)) = best {
-            return Some((vec![a.clone(), b.clone()], size));
-        }
+            .min_by_key(|(a, b)| a.chars().count().abs_diff(b.chars().count()))
+            .map(|(a, b)| (vec![a.clone(), b.clone()], size))
+    });
+    match (one, two) {
+        (Some(size), Some(two)) if two.1 <= size => Some((vec![label.to_string()], size)),
+        (_, Some(two)) => Some(two),
+        (Some(size), None) => Some((vec![label.to_string()], size)),
+        (None, None) => None,
     }
-    None
+}
+
+impl GameWriting {
+    /// The middles of two lines of `size` pixels: the second as far below the first as the writing needs (`size`
+    /// less 2), at least as far as [`GameWriting::two_lines`] says.
+    pub fn two_middles(&self, size: f32) -> [f32; 2] {
+        let [first, second] = self.two_lines;
+        [first, second.max(first + size - 2.0)]
+    }
 }
 
 /// The size, 18 pixels down to 15, at which `text` fits on one line `width` pixels wide; `None` when it does not.
@@ -464,8 +475,10 @@ pub fn png(look: &Look, action: Action) -> Vec<u8> {
     } else {
         s.writing_of(action)
     };
-    // The name of a game action stands larger where it fits: the short names of the profiles ([`game_lines`] first).
-    let name_start = if matches!(action, Action::GameAction | Action::Emote) { s.font_game } else { s.font };
+    // The name of a game action, and of the keys of the pages of VerseKit (a page, the timer of the contested zones),
+    // stands larger where it fits: the short names of the profiles ([`game_lines`] first).
+    let game = matches!(action, Action::GameAction | Action::Emote | Action::Page | Action::Contested);
+    let name_start = if game { s.font_game } else { s.font };
     let muted = s.colour("gedaempft");
     // A key that does nothing yet (the balance) stands dimmed: its colour mixed into the card.
     let dimmed = action == Action::Wallet;
@@ -487,7 +500,6 @@ pub fn png(look: &Look, action: Action) -> Vec<u8> {
         arc_around(&mut pixmap, middle, radius, 270.0, 270.0 + 360.0 * held.clamp(0.0, 1.0), 5.0, warning);
     }
     let name_colour = if dimmed { mixed(writing, s.card, s.dimmed) } else { writing };
-    let game = matches!(action, Action::GameAction | Action::Emote);
     let g = &s.game;
     match &look.badge {
         // A game action as the key pictures of the profiles: large, on one line or split at a space.
@@ -495,8 +507,9 @@ pub fn png(look: &Look, action: Action) -> Vec<u8> {
             if lines.len() == 1 {
                 line(&mut pixmap, &lines[0], size, g.one_line, name_colour);
             } else {
-                line(&mut pixmap, &lines[0], size, g.two_lines[0], name_colour);
-                line(&mut pixmap, &lines[1], size, g.two_lines[1], name_colour);
+                let [first, second] = g.two_middles(size);
+                line(&mut pixmap, &lines[0], size, first, name_colour);
+                line(&mut pixmap, &lines[1], size, second, name_colour);
             }
         }
         None => {
@@ -871,12 +884,15 @@ mod tests {
     #[test]
     fn a_page_key_is_drawn_as_the_page_key_of_the_profiles_in_its_own_colour() {
         let (ours, theirs) = (hangar(), template("start-seite-hangar-de.png"));
-        let (sw, sh, st) = drawn_box_at(&ours, SYMBOL_X, SYMBOL_Y);
-        let (mw, mh, mt) = drawn_box_at(&theirs, SYMBOL_X, SYMBOL_Y);
+        // The symbol as in the profile; the name stands as large as on the game keys (see the test of the names),
+        // larger than in the model picture, so only the rows above it are measured.
+        let above_name = SYMBOL_Y.start..72;
+        let (sw, sh, st) = drawn_box_at(&ours, SYMBOL_X, above_name.clone());
+        let (mw, mh, mt) = drawn_box_at(&theirs, SYMBOL_X, above_name);
         assert!(sw.abs_diff(mw) <= 6 && sh.abs_diff(mh) <= 6 && st.abs_diff(mt) <= 3, "symbol {sw}×{sh} at {st}, profile {mw}×{mh} at {mt}");
-        let (_, th, tt) = drawn_box_at(&ours, LINE_X, 80..106);
-        let (_, mth, mtt) = drawn_box_at(&theirs, LINE_X, 80..106);
-        assert!(th.abs_diff(mth) <= 3 && tt.abs_diff(mtt) <= 3, "name {th} high at {tt}, profile {mth} at {mtt}");
+        let (_, th, _) = drawn_box_at(&ours, LINE_X, 72..120);
+        let (_, mth, _) = drawn_box_at(&theirs, LINE_X, 72..120);
+        assert!(th > mth, "the name larger than in the model picture: {th} high, profile {mth}");
         // The bracket in magenta, as the profile; the colour of the page keys, not the green.
         let a = image::load_from_memory(&ours).expect("ours").to_rgba8();
         let b = image::load_from_memory(&theirs).expect("theirs").to_rgba8();
@@ -1088,7 +1104,36 @@ mod tests {
         // One line as large as it fits, two only at a space.
         assert_eq!(game_lines("Licht"), Some((vec!["Licht".to_string()], 28.0)));
         assert_eq!(game_lines("Munition bündeln").map(|(l, _)| l.len()), Some(2));
+        // Two lines where they stand larger than one (tester 27.11.2026: „Rührt euch“ smaller than the other names).
+        assert_eq!(game_lines("Rührt euch"), Some((vec!["Rührt".to_string(), "euch".to_string()], 28.0)));
+        assert_eq!(game_lines("Achtung"), Some((vec!["Achtung".to_string()], 28.0)));
+        assert_eq!(g.two_middles(28.0), [86.0, 112.0], "room between two lines of 28 pixels");
+        assert_eq!(g.two_middles(22.0), [86.0, 108.0]);
         assert_eq!(game_lines("Hauptfensterbankleiste"), None, "one long word is not split");
+    }
+
+    #[test]
+    fn the_name_of_a_key_that_opens_a_page_stands_as_large_as_the_name_of_a_game_key() {
+        use versekit_core::language::{Lang, t_in};
+        let mut checked = 0;
+        for page in versekit_core::streamdeck::PAGES {
+            for lang in [Lang::De, Lang::En] {
+                let label = t_in(lang, page);
+                // Same symbol and colour: the pictures differ only where the name is written.
+                let look = Look { icon: "compass", icon_tone: Tone::Accent, label: label.clone(), badge: None, colour: Some("rot"), hold: None };
+                assert!(png(&look, Action::Page) == png(&look, Action::GameAction), "{lang:?} {page}: {label}");
+                checked += 1;
+            }
+        }
+        assert!(checked >= 20, "{checked} names");
+        // The timer of the contested zones, with its state below the name, as a game key with a line below.
+        for label in ["Contested".to_string(), "Timer".to_string(), t_in(Lang::De, "hf_contested")] {
+            let badge = Some(Badge { word: "55 min · OFFEN".into(), filled: true, tone: Tone::Accent });
+            let look = Look { icon: "timer", icon_tone: Tone::Accent, label: label.clone(), badge, colour: Some("seite"), hold: None };
+            assert!(png(&look, Action::Contested) == png(&look, Action::GameAction), "{label}");
+        }
+        // Two lines where the game keys have two.
+        assert_eq!(game_lines(&t_in(Lang::De, "hf_bergung")).map(|(l, _)| l.len()), Some(2), "Zerlegen & Bergen");
     }
 
     /// Writes keys of game actions as the plugin draws them, scaled to the keys of the devices (72 and 96 pixels),

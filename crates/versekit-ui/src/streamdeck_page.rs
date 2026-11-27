@@ -94,6 +94,8 @@ pub struct StreamDeckState {
     on: bool,
     /// The dials without their name (`streamdeck_regler_kompakt`).
     compact: bool,
+    /// Every game action key shows its key of the game (`streamdeck_tasten_anzeigen`).
+    keys_shown: bool,
     /// The page of the device follows the game (`streamdeck_seite_auto`).
     auto_page: bool,
     report: Arc<Mutex<Report>>,
@@ -114,6 +116,8 @@ pub struct StreamDeckState {
     /// The actions the names of the record were last asked for.
     record_naming: Option<Vec<String>>,
     message: Option<(String, bool)>,
+    /// A message came after a click far down the page (put in, taken back): the page goes up to it once.
+    message_in_sight: bool,
     /// When the plugin file was handed to the Stream Deck program.
     opened: Option<Instant>,
     /// The plan worked out by itself for the numbers beside the button, and whether the game is quiet.
@@ -124,6 +128,8 @@ pub struct StreamDeckState {
     preview_closed: Option<(Vec<String>, bool, String)>,
     /// „Später“ in the bar of the main window: hidden until the next start.
     bar_hidden: bool,
+    /// The state of the `actionmaps.xml` the open preview was worked out on.
+    preview_stamp: Option<String>,
 }
 
 /// The plan of the game actions the plugin reported, worked out without a click, for the numbers beside the button.
@@ -135,6 +141,8 @@ struct Counted {
     items: Result<(Vec<Item>, Vec<String>), String>,
     /// `Err` with the reason while the game runs or nobody can tell.
     quiet: Result<(), String>,
+    /// When a game that ended lately counts as quiet: the line beside the buttons counts down to it.
+    quiet_at: Option<Instant>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -192,6 +200,24 @@ fn game_not_quiet(paths: &Paths) -> String {
         *last = Some(said);
     }
     not_quiet_text(reason.as_ref())
+}
+
+/// When a game that ended lately (gone from the process list, its log still fresh) counts as quiet; `None` for the
+/// other reasons, which have no end in sight.
+fn quiet_in(reason: Option<&versekit_core::game_start::NotQuiet>) -> Option<Instant> {
+    match reason {
+        Some(versekit_core::game_start::NotQuiet::LogFresh { age, listed: true }) => {
+            let left = (versekit_core::mission_log::GAME_IDLE_SEC - age).max(0.0);
+            Some(Instant::now() + Duration::from_secs_f64(left))
+        }
+        _ => None,
+    }
+}
+
+/// The line beside the buttons while a game that ended lately is not quiet yet: the time left as `m:ss`.
+fn countdown_text(left: Duration) -> String {
+    let seconds = left.as_secs() + u64::from(left.subsec_nanos() > 0);
+    tf("sd_f_spiel_beendet_uhr", &[("0", Arg::from(format!("{}:{:02}", seconds / 60, seconds % 60).as_str()))])
 }
 
 fn not_quiet_text(reason: Option<&versekit_core::game_start::NotQuiet>) -> String {
@@ -279,6 +305,7 @@ impl StreamDeckState {
     pub fn with_paths(paths: &Paths, copy: bool) -> StreamDeckState {
         let on = paths.setting_bool(SETTING_ON, false);
         let compact = paths.setting_bool(streamdeck::SETTING_DIAL_COMPACT, false);
+        let keys_shown = paths.setting_bool(streamdeck::SETTING_KEYS_SHOWN, false);
         let auto_page = paths.setting_bool(streamdeck::SETTING_AUTO_PAGE, true);
         let record = streamdeck_fill::load_record(paths);
         StreamDeckState {
@@ -286,8 +313,44 @@ impl StreamDeckState {
             copy,
             on,
             compact,
+            keys_shown,
             auto_page,
             record,
+            ..StreamDeckState::default()
+        }
+    }
+
+    /// Made-up for the pictures of the website: the interface on, the plugin connected, and three game actions of
+    /// the deck without a key on the keyboard, their plan open with the button to put them in. Without a data
+    /// folder: nothing is asked and nothing is written.
+    pub fn example() -> StreamDeckState {
+        // Keys of the sets of the program (Ctrl right, Alt left), the names the way the page names an action without
+        // a name of the game: the short names of the profiles in the language of the preview.
+        let actions: [(&str, &str, Outcome); 4] = [
+            // Deck actions without a factory key (`keyboard=" "`): the toggles of mining and salvage take none at all.
+            ("v_set_scan_mode", "seat_general", Outcome::Add("rctrl+np_5".into())),
+            ("v_ifcs_speed_limiter_toggle", "spaceship_movement", Outcome::Add("rctrl+np_7".into())),
+            ("v_toggle_landing_system", "spaceship_general", Outcome::Add("lalt+g".into())),
+            ("v_lights", "lights_controller", Outcome::HasKey),
+        ];
+        let items: Vec<Item> = actions
+            .iter()
+            .map(|(action, group, outcome)| Item { action: (*action).into(), group: (*group).into(), outcome: outcome.clone() })
+            .collect();
+        let lang = versekit_core::language::current();
+        let names: Vec<String> = actions
+            .iter()
+            .map(|(action, ..)| {
+                streamdeck::game_action_name(action, &versekit_core::controls::technical_readable(action), false, lang)
+            })
+            .collect();
+        let in_use: Vec<String> = actions.iter().map(|(action, ..)| (*action).to_string()).collect();        let report = Report { reachable: true, connected: true, in_use: in_use.clone(), ..Report::default() };
+        let counted = Counted { key: (in_use, false, String::new()), items: Ok((items, names)), quiet: Ok(()), quiet_at: None };
+        StreamDeckState {
+            on: true,
+            auto_page: true,
+            report: Arc::new(Mutex::new(report)),
+            counted: Arc::new(Mutex::new(Some(counted))),
             ..StreamDeckState::default()
         }
     }
@@ -296,6 +359,13 @@ impl StreamDeckState {
         self.compact = on;
         if let Some(paths) = &self.paths {
             paths.set_setting(streamdeck::SETTING_DIAL_COMPACT, Value::Bool(on));
+        }
+    }
+
+    fn set_keys_shown(&mut self, on: bool) {
+        self.keys_shown = on;
+        if let Some(paths) = &self.paths {
+            paths.set_setting(streamdeck::SETTING_KEYS_SHOWN, Value::Bool(on));
         }
     }
 
@@ -361,7 +431,8 @@ impl StreamDeckState {
             };
             let quiet = versekit_core::game_files::check_quiet(&paths)
                 .map_err(|_| versekit_core::language::with_language(lang, || game_not_quiet(&paths)));
-            *lock(&counted) = Some(Counted { key, items, quiet });
+            let quiet_at = quiet.is_err().then(|| quiet_in(versekit_core::game_start::not_quiet(&paths).as_ref())).flatten();
+            *lock(&counted) = Some(Counted { key, items, quiet, quiet_at });
             *lock(&counting) = false;
             ctx.request_repaint();
         });
@@ -396,6 +467,7 @@ impl StreamDeckState {
         if let Ok(plan) = counted.items {
             *lock(&self.planned) = Some(Ok(plan));
             self.planning = true;
+            self.preview_stamp = Some(counted.key.2);
         }
     }
 
@@ -404,6 +476,7 @@ impl StreamDeckState {
         self.preview_closed = lock(&self.counted).as_ref().map(|c| c.key.clone());
         *lock(&self.planned) = None;
         self.planning = false;
+        self.preview_stamp = None;
     }
 
     /// The numbers beside the button, and why it cannot be pressed (`None` when it can).
@@ -437,17 +510,62 @@ impl StreamDeckState {
                 t("sd_f_nichts_frei")
             })
         } else {
-            counted.quiet.err()
+            self.wait_text()
         };
         (text, blocked)
     }
 
     /// Why the keys cannot be written now; `None` when the game is quiet.
     fn write_blocked(&self) -> Option<String> {
-        match lock(&self.counted).as_ref().map(|c| c.quiet.clone()) {
-            Some(Ok(())) => None,
-            Some(Err(why)) => Some(why),
-            None => Some(t("sd_f_spiel_laeuft")),
+        if lock(&self.counted).is_none() {
+            return Some(t("sd_f_spiel_laeuft"));
+        }
+        self.wait_text()
+    }
+
+    /// Why the game files cannot be written now, as the line beside the buttons says it: the time left for a game
+    /// that ended lately, else the reason; `None` while the game is quiet or nothing is counted yet.
+    fn wait_text(&self) -> Option<String> {
+        let counted = lock(&self.counted);
+        let counted = counted.as_ref()?;
+        let why = counted.quiet.clone().err()?;
+        Some(match counted.quiet_at {
+            Some(at) => countdown_text(at.saturating_duration_since(Instant::now())),
+            None => why,
+        })
+    }
+
+    /// The line beside the buttons that says without hovering why nothing can be written now; only while there is
+    /// something to put in or to take back.
+    fn wait_line(&self, plan_open: bool) -> Option<String> {
+        let wait = self.wait_text()?;
+        let addable = lock(&self.counted)
+            .as_ref()
+            .and_then(|c| c.items.as_ref().ok().map(|(items, _)| streamdeck_fill::count(items).addable > 0))
+            .unwrap_or(false);
+        (plan_open || self.record.is_some() || addable).then_some(wait)
+    }
+
+    /// Is a game that ended lately counted down to the time the keys can go in?
+    fn counting_down(&self) -> bool {
+        lock(&self.counted).as_ref().is_some_and(|c| c.quiet.is_err() && c.quiet_at.is_some())
+    }
+
+    /// Draws again every second while the line counts down.
+    fn keep_counting_down(&self, ui: &Ui) {
+        if self.counting_down() {
+            ui.ctx().request_repaint_after(Duration::from_secs(1));
+        }
+    }
+
+    /// The preview worked out on a former state of the `actionmaps.xml` (the game wrote it since, when it ended)
+    /// goes; while keys are missing it opens again on the new state.
+    fn drop_stale_preview(&mut self) {
+        let now = lock(&self.counted).as_ref().map(|c| c.key.2.clone());
+        if self.planning && self.preview_stamp.is_some() && now.is_some() && now != self.preview_stamp {
+            *lock(&self.planned) = None;
+            self.planning = false;
+            self.preview_stamp = None;
         }
     }
 
@@ -518,6 +636,7 @@ impl StreamDeckState {
         }
         self.planning = true;
         *lock(&self.planned) = None;
+        self.preview_stamp = lock(&self.counted).as_ref().map(|c| c.key.2.clone());
         let (paths, planned, keep, ctx) =
             (Paths::new(paths.host.clone()), self.planned.clone(), self.keep_deleted, ui.ctx().clone());
         let lang = versekit_core::language::current();
@@ -593,14 +712,17 @@ impl StreamDeckState {
 /// must be closed while it runs, „Jetzt eintragen“ and „Später“ (hidden until the next start). True when the
 /// player wants to put them in: the page of the keys opens with the preview.
 /// The text of the bar: how many keys of the deck have no binding (one key in the singular), and that the game
-/// must be closed first while it runs.
-fn missing_text(lang: versekit_core::language::Lang, missing: usize, game_runs: bool) -> String {
+/// must be closed first while it runs, or `wait` (the time left after a game that ended lately).
+fn missing_text(lang: versekit_core::language::Lang, missing: usize, game_runs: bool, wait: Option<&str>) -> String {
     use versekit_core::language::{t_in, tf_in};
     let mut message =
         if missing == 1 { t_in(lang, "sd_leiste_1") } else { tf_in(lang, "sd_leiste", &[("0", Arg::from(missing))]) };
     if game_runs {
         message.push(' ');
-        message.push_str(&t_in(lang, "sd_leiste_spiel"));
+        match wait {
+            Some(wait) => message.push_str(wait),
+            None => message.push_str(&t_in(lang, "sd_leiste_spiel")),
+        }
     }
     message
 }
@@ -612,7 +734,9 @@ pub fn missing_bar(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) ->
     state.keep_asking(ui);
     state.keep_counting(ui);
     let Some((missing, game_runs)) = state.missing() else { return false };
-    let message = missing_text(versekit_core::language::current(), missing, game_runs);
+    let wait = state.counting_down().then(|| state.wait_text()).flatten();
+    state.keep_counting_down(ui);
+    let message = missing_text(versekit_core::language::current(), missing, game_runs, wait.as_deref());
     let (now_word, later_word) = (t("sd_leiste_jetzt"), t("hf_update_spaeter"));
     let texts =
         settings::UpdateTexts { message: &message, update: &now_word, news: &later_word, update_blocked: None, urgent: false };
@@ -753,7 +877,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     state.keep_counting(ui);
     state.keep_naming_record(ui);
     // Keys are missing: the preview stands open at once (after setting up, after a press on such a key, from the bar).
+    state.drop_stale_preview();
     state.open_preview_by_itself();
+    state.keep_counting_down(ui);
     // Once the plugin asks, the request to confirm is done: the state row says "Connected".
     if state.opened.is_some() && lock(&state.report).connected {
         state.opened = None;
@@ -767,7 +893,10 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     }
     if let Some((text, ok)) = state.message.clone() {
         let (tone, icon) = if ok { (scheme.accent, "circle-check") } else { (scheme.yellow, "triangle-alert") };
-        widgets::status_box(ui, scheme, tone, icon, &t("hf_streamdeck"), &text);
+        let shown = widgets::status_box(ui, scheme, tone, icon, &t("hf_streamdeck"), &text);
+        if std::mem::take(&mut state.message_in_sight) {
+            shown.scroll_to_me(Some(egui::Align::Min));
+        }
         ui.add_space(6.0);
     }
     let plugin = t("sd_s_gruppe");
@@ -793,7 +922,10 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     let (count_text, check_blocked) = state.count_text();
     let write_blocked = state.write_blocked();
     let record_rows = state.record.as_ref().map_or(0, |r| r.entries.len() + 1);
-    let fill_rows = 1 + plan_rows + record_rows;
+    let wait_line = state.wait_line(plan.is_some());
+    let wait_icon = if state.counting_down() { "clock" } else { "triangle-alert" };
+    let wait_rows = usize::from(wait_line.is_some());
+    let fill_rows = 1 + wait_rows + plan_rows + record_rows;
     let mut switched = None;
     let mut auto_switched = None;
     let mut set_up = false;
@@ -806,7 +938,8 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     let hint = lock(&state.report).device_hint.clone();
     let copy = state.copy;
     let mut compact_switched = None;
-    settings::settings_page(ui, scheme, "streamdeck", &[(plugin.as_str(), 6), (fill.as_str(), fill_rows)], &mut |ui, g, r| {
+    let mut keys_switched = None;
+    settings::settings_page(ui, scheme, "streamdeck", &[(plugin.as_str(), 7), (fill.as_str(), fill_rows)], &mut |ui, g, r| {
         match (g, r) {
             (0, 0) => {
                 let name = t("sd_s_an");
@@ -833,7 +966,11 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                 });
             }
             (0, 2) => {
-                settings::setting_row(ui, scheme, &t("sd_s_status"), &state.status_text(), false, |_| {});
+                // The state stands in the row itself, not only behind the symbol `info`.
+                let status = state.status_text();
+                settings::setting_row(ui, scheme, &t("sd_s_status"), "", false, |row| {
+                    row.add(egui::Label::new(status.as_str()).wrap());
+                });
             }
             (0, 3) => {
                 settings::setting_row(ui, scheme, &t("sd_s_einrichten"), &t("sd_s_einrichten_h"), false, |row| {
@@ -857,6 +994,18 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                     }
                 });
             }
+            (0, 5) => {
+                let name = t("sd_s_tasten_anzeigen");
+                settings::setting_row(ui, scheme, &name, &t("sd_s_tasten_anzeigen_h"), false, |row| {
+                    let mut on = state.keys_shown;
+                    let switch = row.add_enabled(!copy, widgets::Toggle::new(&mut on, scheme));
+                    let enabled = switch.enabled();
+                    switch.widget_info(|| WidgetInfo::selected(Role::CheckBox, enabled, on, &name));
+                    if switch.changed() {
+                        keys_switched = Some(on);
+                    }
+                });
+            }
             (0, _) => {
                 let text = hint.as_ref().map_or_else(
                     || t("sd_s_elgato_h"),
@@ -877,7 +1026,13 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                 });
             }
             (_, r) => {
-                let r = r - 1;
+                if let Some(wait) = &wait_line
+                    && r == 1
+                {
+                    widgets::status_box(ui, scheme, scheme.yellow, wait_icon, &t("sd_f_gesperrt"), wait);
+                    return;
+                }
+                let r = r - 1 - wait_rows;
                 if let Some((items, names)) = &plan {
                     if r == 0 {
                         let adds = items.iter().any(|i| {
@@ -983,6 +1138,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     if let Some(on) = compact_switched {
         state.set_compact(on);
     }
+    if let Some(on) = keys_switched {
+        state.set_keys_shown(on);
+    }
     if fold_switched {
         state.show_done = !state.show_done;
     }
@@ -1010,15 +1168,18 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     }
     if write && let Some((items, _)) = &plan {
         state.write_plan(items);
+        state.message_in_sight = true;
     }
     if cancel {
         state.close_preview();
     }
     if undo {
         state.undo(false);
+        state.message_in_sight = true;
     }
     if whole {
         state.undo(true);
+        state.message_in_sight = true;
     }
 }
 
@@ -1111,13 +1272,83 @@ mod tests {
     }
 
     #[test]
+    fn the_switch_to_show_the_keys_is_off_at_first_and_kept_in_the_settings() {
+        let home = std::env::temp_dir().join(format!("versekit-sd-tasten-anzeigen-{}", std::process::id()));
+        std::fs::create_dir_all(&home).expect("folder");
+        let text = home.to_string_lossy().into_owned();
+        let host = versekit_core::paths::Host::new(
+            versekit_core::pypath::Flavor::native(),
+            &[(versekit_core::envvars::ENV_HOME, text.as_str())],
+            &text,
+        );
+        let paths = Paths::new(host);
+        let mut state = StreamDeckState::with_paths(&paths, false);
+        assert!(!state.keys_shown, "off unless the player switches it on");
+        state.set_keys_shown(true);
+        assert!(paths.setting_bool(streamdeck::SETTING_KEYS_SHOWN, false), "kept for the interface");
+        assert!(StreamDeckState::with_paths(&paths, false).keys_shown, "read again on the next opening");
+        assert_eq!(t_in_de("sd_s_tasten_anzeigen"), "Tasten anzeigen");
+        assert!(!versekit_core::language::t_in(versekit_core::language::Lang::En, "sd_s_tasten_anzeigen_h").is_empty());
+        let _ = std::fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn the_state_stands_in_its_row_and_a_message_after_putting_in_comes_into_sight() {
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::Queryable as _;
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let items: Vec<Item> =
+            (0..60).map(|n| Item { action: format!("v_{n}"), group: "g".into(), outcome: Outcome::Add(format!("rctrl+{n}")) }).collect();
+        let names: Vec<String> = (0..60).map(|n| format!("Aktion {n}")).collect();
+        let report = Report { reachable: true, connected: true, ..Report::default() };
+        let state = StreamDeckState {
+            on: true,
+            report: Arc::new(Mutex::new(report)),
+            planned: Arc::new(Mutex::new(Some(Ok((items, names))))),
+            show_done: true,
+            ..StreamDeckState::default()
+        };
+        let height = 500.0;
+        // The first pictures stand scrolled to the end of the page, where the list ends.
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(1000.0, height))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(
+                |ui, (state, frames): &mut (StreamDeckState, u32)| {
+                    let mut area = egui::ScrollArea::vertical();
+                    if *frames < 3 {
+                        area = area.vertical_scroll_offset(100_000.0);
+                    }
+                    *frames += 1;
+                    area.show(ui, |ui| show_page(ui, versekit_core::theme::current(), state));
+                },
+                (state, 0),
+            );
+        harness.run_steps(3);
+        assert!(harness.query_by_label(&t("sd_s_verbunden")).is_some(), "the state is written in the row, not only on hover");
+        assert!(harness.query_by_label_contains("Aktion 59").is_some_and(|n| n.rect().max.y <= height), "scrolled down");
+        let done = tf("sd_f_fertig", &[("0", Arg::from(60usize))]);
+        {
+            let (state, _) = harness.state_mut();
+            state.message = Some((done.clone(), true));
+            state.message_in_sight = true;
+        }
+        harness.run_steps(4);
+        let shown = harness.get_by_label_contains(&done).rect();
+        assert!(shown.min.y >= 0.0 && shown.max.y <= height, "the message is in sight: {shown:?}");
+        assert!(!harness.state().0.message_in_sight, "once");
+    }
+
+    #[test]
     fn the_bar_says_one_key_in_the_singular_and_more_in_the_plural() {
         use versekit_core::language::Lang;
-        assert_eq!(missing_text(Lang::De, 1, false), "1 Stream-Deck-Taste ist im Spiel nicht belegt.");
-        assert_eq!(missing_text(Lang::De, 3, false), "3 Stream-Deck-Tasten sind im Spiel nicht belegt.");
-        assert_eq!(missing_text(Lang::En, 1, false), "1 Stream Deck key has no binding in the game.");
-        assert_eq!(missing_text(Lang::En, 2, false), "2 Stream Deck keys have no binding in the game.");
-        assert!(missing_text(Lang::De, 1, true).ends_with(&versekit_core::language::t_in(Lang::De, "sd_leiste_spiel")));
+        assert_eq!(missing_text(Lang::De, 1, false, None), "1 Stream-Deck-Taste ist im Spiel nicht belegt.");
+        assert_eq!(missing_text(Lang::De, 3, false, None), "3 Stream-Deck-Tasten sind im Spiel nicht belegt.");
+        assert_eq!(missing_text(Lang::En, 1, false, None), "1 Stream Deck key has no binding in the game.");
+        assert_eq!(missing_text(Lang::En, 2, false, None), "2 Stream Deck keys have no binding in the game.");
+        assert!(missing_text(Lang::De, 1, true, None).ends_with(&versekit_core::language::t_in(Lang::De, "sd_leiste_spiel")));
     }
 
     #[test]
@@ -1253,6 +1484,7 @@ mod tests {
             key: (vec!["v_0".into()], false, stamp.into()),
             items: Ok((items, names)),
             quiet: if quiet { Ok(()) } else { Err("läuft".into()) },
+            quiet_at: None,
         };
         StreamDeckState { on: true, counted: Arc::new(Mutex::new(Some(counted))), ..StreamDeckState::default() }
     }
@@ -1265,6 +1497,51 @@ mod tests {
         assert_eq!(counted_state(&[Outcome::HasKey], true, "1").missing(), None, "nothing missing: no bar");
         let off = StreamDeckState { on: false, ..counted_state(&missing, true, "1") };
         assert_eq!(off.missing(), None, "the interface off: no bar");
+    }
+
+    #[test]
+    fn a_game_that_ended_lately_shows_a_line_that_counts_down_and_the_bar_says_it_too() {
+        let state = counted_state(&[Outcome::Add("rctrl+a".into())], false, "1");
+        lock(&state.report).in_use = vec!["v_0".into()];
+        // Running: the line says it without hovering, as the button does.
+        assert_eq!(state.wait_line(false), Some("läuft".into()));
+        assert_eq!(state.write_blocked(), Some("läuft".into()));
+        assert!(!state.counting_down());
+        // Ended lately: the line counts down to the time the keys can go in.
+        if let Some(counted) = lock(&state.counted).as_mut() {
+            counted.quiet_at = Some(Instant::now() + Duration::from_millis(44_500));
+        }
+        let line = state.wait_line(false).expect("a line");
+        assert_eq!(line, tf("sd_f_spiel_beendet_uhr", &[("0", Arg::from("0:45"))]));
+        assert_eq!(state.write_blocked(), Some(line.clone()), "the button says the same");
+        assert_eq!(state.count_text().1, Some(line.clone()), "and the check button too");
+        assert!(state.counting_down());
+        let bar = missing_text(versekit_core::language::current(), 1, true, Some(&line));
+        assert!(bar.ends_with(&line), "{bar}");
+        // Quiet: no line; nothing to put in or take back: no line either.
+        assert_eq!(counted_state(&[Outcome::Add("rctrl+a".into())], true, "1").wait_line(true), None);
+        assert_eq!(counted_state(&[Outcome::HasKey], false, "1").wait_line(false), None);
+        assert!(counted_state(&[Outcome::HasKey], false, "1").wait_line(true).is_some(), "an open preview shows it");
+    }
+
+    #[test]
+    fn the_old_preview_goes_once_the_game_wrote_the_bindings_and_opens_again_on_the_new_state() {
+        let mut state = counted_state(&[Outcome::Add("rctrl+a".into())], false, "vorher");
+        state.open_preview_by_itself();
+        assert!(state.planning && lock(&state.planned).is_some());
+        // The same state: it stays.
+        state.drop_stale_preview();
+        assert!(state.planning, "unchanged file: the preview stays");
+        // The game wrote the file when it ended: the old preview goes and the new one opens.
+        *lock(&state.counted) = lock(&counted_state(&[Outcome::Add("rctrl+b".into())], true, "nachher").counted).clone();
+        state.drop_stale_preview();
+        assert!(!state.planning && lock(&state.planned).is_none(), "the old preview is gone");
+        state.open_preview_by_itself();
+        let planned = lock(&state.planned).clone();
+        assert!(
+            matches!(planned, Some(Ok((items, _))) if items[0].outcome == Outcome::Add("rctrl+b".into())),
+            "the new state"
+        );
     }
 
     #[test]

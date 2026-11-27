@@ -201,9 +201,22 @@ pub const SWITCH_WAIT: Duration = Duration::from_secs(2);
 
 /// Keys of older shipped profiles the plugin brings up to date where they appear (the Stream Deck program never
 /// updates an installed profile): the game action and the short name it had, the game action and the short names
-/// (German, English) it has now.
-pub const KEY_UPDATES: [(&str, &str, &str, [&str; 2]); 1] =
-    [("v_ifcs_throttle_swap_mode", "Cruise", "v_ifcs_speed_limiter_toggle", ["Begrenzer", "Limiter"])];
+/// (German, English) it has now. The helmet goes to the action that works also with a weapon or a gadget in the hand
+/// (`toggleAttachHelmet`, Left Alt + H in the factory setting); the countermeasure keys are both called Flares. Mining and
+/// salvage press M (`v_cycle_industrial_mode`, as the iConCity profile does): the game drops a keyboard line of the
+/// toggles (`keyboard=""` in its factory setting).
+pub const KEY_UPDATES: [(&str, &str, &str, [&str; 2]); 10] = [
+    ("v_toggle_mining_mode", "Bergbau", "v_cycle_industrial_mode", ["Bergbau", "Mining"]),
+    ("v_toggle_mining_mode", "Mining", "v_cycle_industrial_mode", ["Bergbau", "Mining"]),
+    ("v_toggle_salvage_mode", "Bergung", "v_cycle_industrial_mode", ["Bergung", "Salvage"]),
+    ("v_toggle_salvage_mode", "Salvage", "v_cycle_industrial_mode", ["Bergung", "Salvage"]),
+    ("v_ifcs_throttle_swap_mode", "Cruise", "v_ifcs_speed_limiter_toggle", ["Begrenzer", "Limiter"]),
+    ("toggleEquipHelmet", "Helm", "toggleAttachHelmet", ["Helm", "Helmet"]),
+    ("toggleEquipHelmet", "Helmet", "toggleAttachHelmet", ["Helm", "Helmet"]),
+    ("emote_greet", "Grüssen", "emote_greet", ["Grüßen", "Greet"]),
+    ("v_weapon_countermeasure_decoy_burst_increase", "Salve +", "v_weapon_countermeasure_decoy_burst_increase", ["Flares +", "Flares +"]),
+    ("v_weapon_countermeasure_decoy_burst_increase", "Burst +", "v_weapon_countermeasure_decoy_burst_increase", ["Flares +", "Flares +"]),
+];
 
 /// The settings of a key brought up to date by [`KEY_UPDATES`]; `None` where nothing changes. Only a key that still
 /// has the old game action and the old short name: what the player set himself stays.
@@ -554,6 +567,16 @@ impl Plugin {
         match verse.state(since) {
             Ok(None) => return Vec::new(),
             Ok(Some(state)) => {
+                // The switch that shows the keys is kept with the table: the deck looks the same without VerseKit.
+                let shown = state.get(streamdeck::FIELD_KEYS_SHOWN).and_then(Value::as_bool);
+                if let Some(shown) = shown
+                    && shown != self.table.keys_shown
+                {
+                    self.table.keys_shown = shown;
+                    if let Some(file) = &self.table_file {
+                        self.table.save(file);
+                    }
+                }
                 self.state = Some(state);
                 self.missing = None;
                 if was_away {
@@ -599,7 +622,8 @@ impl Plugin {
     fn load_bindings(&mut self, verse: &mut dyn Verse) {
         let Ok(value) = verse.bindings() else { return };
         // The plugin keeps the keys of the player and the names of the game, to press them while VerseKit is closed.
-        let table = crate::table::Table::from_bindings(&value, self.lang());
+        let mut table = crate::table::Table::from_bindings(&value, self.lang());
+        table.keys_shown = self.table.keys_shown;
         if !table.entries.is_empty() && table != self.table {
             if let Some(file) = &self.table_file {
                 table.save(file);
@@ -807,6 +831,11 @@ impl Plugin {
         if matches!(action, Action::GameAction | Action::Emote) {
             self.game_style(key, &mut look);
             Self::profile_look(key, &mut look);
+        }
+        // The version the plugin came with, also without VerseKit.
+        if action == Action::Version {
+            look.badge = Some(Badge { word: streamdeck::version_word(env!("CARGO_PKG_VERSION")), filled: false, tone: Tone::Muted });
+            return look;
         }
         if self.offline() {
             // A game action needs no VerseKit: its name and key come from the table the plugin keeps.
@@ -1035,7 +1064,9 @@ impl Plugin {
             }
             // The key of the game only where the key asks for it (`taste_anzeigen`); without it the name stands larger.
             None => {
-                let wanted = key.settings["taste_anzeigen"].as_bool().unwrap_or(false);
+                // The key asks for it itself, or VerseKit asks it of every game action key (kept while it is away).
+                let all = self.table.keys_shown;
+                let wanted = key.settings["taste_anzeigen"].as_bool().unwrap_or(false) || all;
                 let shown = match self.bindings.get(first) {
                     Some(binding) if !self.offline() => binding.key.clone(),
                     _ => self.table.get(first).map_or_else(String::new, |e| {
@@ -1044,6 +1075,9 @@ impl Plugin {
                 };
                 if wanted && !shown.is_empty() {
                     look.badge = Some(Badge { word: shown, filled: false, tone: Tone::Muted });
+                } else if actions.iter().all(|a| versekit_core::streamdeck::needs_weapon(a)) {
+                    // A hand signal plays only with a weapon drawn: the key says so below its name.
+                    look.badge = self.badge("sd_z_mit_waffe", false, Tone::Muted);
                 }
             }
         }
@@ -1057,6 +1091,9 @@ impl Plugin {
     fn press(&mut self, context: &str, verse: &mut dyn Verse) -> Vec<Value> {
         let Some(key) = self.keys.get(context).cloned() else { return Vec::new() };
         // Without VerseKit only the game actions work: the plugin presses them itself.
+        if key.action == Action::Version {
+            return Vec::new();
+        }
         if self.offline() && !matches!(key.action, Action::GameAction | Action::Emote) {
             return vec![Self::alert(context)];
         }
@@ -1080,7 +1117,7 @@ impl Plugin {
             Action::Status => Command::Page(streamdeck::PAGE_KEYS.into()),
             Action::Ship => Command::Page(streamdeck::PAGE_SHIPS.into()),
             // Only a display: a press sends nothing to VerseKit and nothing to the game.
-            Action::Health => return Vec::new(),
+            Action::Health | Action::Version => return Vec::new(),
             Action::Page => {
                 let page = key.settings["seite"].as_str().unwrap_or("");
                 if !streamdeck::page_allowed(page) {

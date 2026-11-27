@@ -90,6 +90,7 @@
     "toggle_contact": "charakter message-square-text",
     "toggle_flashlight": "charakter flashlight",
     "toggle_lowered": "rot person-standing",
+    "toggleAttachHelmet": "charakter hard-hat",
     "toggleEquipHelmet": "charakter hard-hat",
     "turret_change_position": "rot rotate-cw",
     "turret_esp_toggle": "rot radar",

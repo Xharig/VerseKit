@@ -71,6 +71,7 @@ pub const STATE_FIELDS: &[&str] = &[
     "spielaktion",
     FIELD_DEVICE_PAGE,
     FIELD_DIALS,
+    FIELD_KEYS_SHOWN,
     FIELD_CONTRACTS,
     FIELD_STATUS,
     FIELD_SHIP,
@@ -136,7 +137,8 @@ const SMALL_WORDS: [&str; 17] = [
 ];
 
 /// Short names and words written as they are.
-const FIXED_WORDS: [(&str, &str); 16] = [
+const FIXED_WORDS: [(&str, &str); 17] = [
+    ("GRÜSSEN", "Grüßen"),
     ("VTOL", "VTOL"),
     ("NAV", "NAV"),
     ("SCM", "SCM"),
@@ -185,6 +187,31 @@ pub fn written(text: &str, lang: crate::language::Lang) -> String {
         })
         .collect();
     words.join(" ")
+}
+
+/// A version of VerseKit as a key writes it: `5.7.0-beta.6` → `5.7.0 · Beta 6`, `5.7.0` stays.
+pub fn version_word(version: &str) -> String {
+    match version.split_once('-') {
+        Some((numbers, rest)) => {
+            let (stage, number) = rest.split_once('.').unwrap_or((rest, ""));
+            // `rc` is written RC, `beta` Beta.
+            let stage: String = if stage.len() <= 2 {
+                stage.to_ascii_uppercase()
+            } else {
+                stage.chars().enumerate().map(|(i, c)| if i == 0 { c.to_ascii_uppercase() } else { c }).collect()
+            };
+            if number.is_empty() { format!("{numbers} · {stage}") } else { format!("{numbers} · {stage} {number}") }
+        }
+        None => version.to_string(),
+    }
+}
+
+/// Does the game action `action` (also as `actionmap.action`) play only with a weapon drawn? The hand signals of the
+/// emotes (`emote_cs_yes`, `emote_cs_stop` …, on the number block in the factory setting) do; the game does nothing
+/// without one.
+pub fn needs_weapon(action: &str) -> bool {
+    let plain = action.split_once('.').map_or(action, |(_, plain)| plain);
+    plain.starts_with("emote_cs_")
 }
 
 /// The game actions that are dangerous by themselves (eject, emergency exit, self destruct, all power off): a key
@@ -311,6 +338,12 @@ pub fn contracts_of(state: &State) -> Vec<ContractCard> {
 pub const FIELD_DIALS: &str = "regler";
 /// Setting: the dials without their name, the value or the symbol larger (off: with the name).
 pub const SETTING_DIAL_COMPACT: &str = "streamdeck_regler_kompakt";
+
+/// The field of the state that says whether every game action key shows its key of the game: `true` or `false`.
+pub const FIELD_KEYS_SHOWN: &str = "tasten_anzeigen";
+/// Setting: every game action key shows its key of the game small below its name (off: only the keys that ask for
+/// it themselves).
+pub const SETTING_KEYS_SHOWN: &str = "streamdeck_tasten_anzeigen";
 
 // ------------------------------------------------------------ key file
 
@@ -751,10 +784,12 @@ pub enum Action {
     Ship,
     /// A key or a dial that shows the health of the player from the telemetry of the game; a press does nothing.
     Health,
+    /// A key that shows the version of VerseKit the plugin came with; also without VerseKit, a press does nothing.
+    Version,
 }
 
 impl Action {
-    pub const ALL: [Action; 23] = [
+    pub const ALL: [Action; 24] = [
         Action::Overlay,
         Action::Main,
         Action::RefineryScan,
@@ -778,6 +813,7 @@ impl Action {
         Action::Status,
         Action::Ship,
         Action::Health,
+        Action::Version,
     ];
 
     /// The id in the commands and in the manifest.
@@ -806,6 +842,7 @@ impl Action {
             Action::Status => "status",
             Action::Ship => "schiff",
             Action::Health => "gesundheit",
+            Action::Version => "version",
         }
     }
 
@@ -849,6 +886,7 @@ impl Action {
             Action::Status => "activity",
             Action::Ship => "rocket",
             Action::Health => "heart-pulse",
+            Action::Version => "info",
         }
     }
 
@@ -1610,6 +1648,12 @@ mod tests {
         assert_eq!(written("LIGHTS ON/OFF", Lang::En), "Lights on/off");
         assert_eq!(written("TURN LEFT", Lang::En), "Turn left");
         assert_eq!(written("TURN LEFT", Lang::De), "Turn Left");
+        // Capitals have no ß: the short name of the profiles writes it with SS, the key with ß.
+        assert_eq!(game_action_name("emote_greet", "greet", false, Lang::De), "Grüßen");
+        assert_eq!(game_action_name("emote_greet", "Greet", false, Lang::En), "Greet");
+        // Both keys of the countermeasures say Flares.
+        assert_eq!(short_name("v_weapon_countermeasure_decoy_launch", Lang::De), Some("FLARES"));
+        assert_eq!(short_name("v_weapon_countermeasure_decoy_burst_increase", Lang::De), Some("FLARES +"));
     }
 
     /// Every short name written as the profile repository writes it: lines `de|en <tab> capitals <tab> written` in

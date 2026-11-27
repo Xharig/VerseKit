@@ -49,6 +49,8 @@ pub struct Table {
     pub entries: HashMap<String, Entry>,
     /// Given by VerseKit (`true`) or the factory keys the plugin brings.
     pub from_verse: bool,
+    /// The switch of VerseKit that shows the key on every game action key, as VerseKit said it last.
+    pub keys_shown: bool,
 }
 
 fn lang_word(lang: Lang) -> &'static str {
@@ -71,12 +73,12 @@ impl Table {
             };
             entries.insert(id.to_string(), entry);
         }
-        Table { lang, entries, from_verse: true }
+        Table { lang, entries, from_verse: true, keys_shown: false }
     }
 
     /// The factory keys the plugin brings.
     pub fn factory() -> Table {
-        let mut table = Table::parse(FACTORY).unwrap_or(Table { lang: Lang::De, entries: HashMap::new(), from_verse: false });
+        let mut table = Table::parse(FACTORY).unwrap_or(Table { lang: Lang::De, entries: HashMap::new(), from_verse: false, keys_shown: false });
         table.from_verse = false;
         table
     }
@@ -89,7 +91,13 @@ impl Table {
                 (id.clone(), json!({"eingabe": e.input, "halten": e.timing.word(), "name": e.name, "karte": e.map}))
             })
             .collect();
-        serde_json::to_string_pretty(&json!({"fassung": 1, "sprache": lang_word(self.lang), "von_versekit": self.from_verse, "aktionen": entries}))
+        serde_json::to_string_pretty(&json!({
+            "fassung": 1,
+            "sprache": lang_word(self.lang),
+            "von_versekit": self.from_verse,
+            "tasten_anzeigen": self.keys_shown,
+            "aktionen": entries
+        }))
             .unwrap_or_default()
     }
 
@@ -109,7 +117,12 @@ impl Table {
                 Some((id.clone(), Entry { input, timing, name: text("name"), map: text("karte") }))
             })
             .collect();
-        Some(Table { lang, entries, from_verse: value["von_versekit"].as_bool().unwrap_or(false) })
+        Some(Table {
+            lang,
+            entries,
+            from_verse: value["von_versekit"].as_bool().unwrap_or(false),
+            keys_shown: value["tasten_anzeigen"].as_bool().unwrap_or(false),
+        })
     }
 
     /// The table of the file `path`; the factory keys where there is none or it cannot be read.

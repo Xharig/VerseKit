@@ -39,7 +39,7 @@ pub const ENTRY: &str = "Data/Libs/Config/defaultProfile.xml";
 /// The file in the data folder of the program.
 pub const CACHE_FILE: &str = "aktionsnamen.json";
 /// Changes when what is kept changes, or the way the mark is made: older files then count for nothing.
-pub const CACHE_VERSION: i64 = 6;
+pub const CACHE_VERSION: i64 = 7;
 
 /// The `defaultProfile.xml` of the archive as XML text.
 ///
@@ -96,6 +96,8 @@ fn to_value(profile: &Profile, mark: &str) -> Value {
         ("karten".into(), Value::Object(maps)),
         // How the game takes the key of an action, where it does not simply follow it.
         ("halten".into(), Value::Object(profile.timings.iter().map(|(k, t)| (k.to_string(), Value::str(t.word().as_str()))).collect())),
+        // The actions the game takes no keyboard line for.
+        ("ohne_tastatur".into(), Value::Array(profile.no_keyboard.iter().map(|a| Value::str(a.as_str())).collect())),
     ])
 }
 
@@ -136,6 +138,8 @@ fn from_value(value: &Value, mark: &str) -> Option<Profile> {
             profile.timings.set(action, timing);
         }
     }
+    let Some(Value::Array(list)) = value.get("ohne_tastatur") else { return None };
+    profile.no_keyboard.extend(list.iter().filter_map(Value::as_str).map(String::from));
     Some(profile)
 }
 
@@ -198,6 +202,30 @@ mod tests {
         assert_eq!(back.maps.get("g"), profile.maps.get("g"), "the actionmaps come back");
         assert_eq!(back.maps.len(), profile.maps.len());
         assert!(from_value(&value, "other:1:2").is_none(), "another archive");
+    }
+
+    #[test]
+    fn the_actions_without_a_keyboard_field_are_known_apart_from_those_with_a_blank_one_and_survive_the_kept_file() {
+        // As the game writes them (4.10.2): `keyboard=""` takes no keyboard line, `keyboard=" "` does.
+        let profile = Profile::from_xml(
+            r#"<p><actionmap name="seat_general">
+                 <action name="v_toggle_mining_mode" UILabel="@mi" keyboard="" joystick=" "/>
+                 <action name="v_set_mining_mode" UILabel="@smi" keyboard=" " joystick=" "/>
+                 <action name="v_cycle_industrial_mode" UILabel="@in" keyboard="m"/>
+                 <action name="v_without" UILabel="@w"/>
+               </actionmap></p>"#,
+        )
+        .expect("profile");
+        assert_eq!(profile.no_keyboard.iter().map(String::as_str).collect::<Vec<_>>(), ["v_toggle_mining_mode"]);
+        let text = jsonio::dumps(&to_value(&profile, "mark:1:2"), Some(2), false);
+        let back = from_value(&jsonio::loads(&text).expect("json"), "mark:1:2").expect("kept");
+        assert_eq!(back.no_keyboard, profile.no_keyboard, "comes back from the kept file");
+        // A file of before without the list is read anew from the archive.
+        let mut old = jsonio::loads(&text).expect("json");
+        if let Value::Object(fields) = &mut old {
+            fields.retain(|(k, _)| k != "ohne_tastatur");
+        }
+        assert!(from_value(&old, "mark:1:2").is_none());
     }
 
     #[test]

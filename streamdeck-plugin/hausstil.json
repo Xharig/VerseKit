@@ -25,12 +25,12 @@
   "schrift_spielaktion_hinweis": "Name einer Spielaktion-Taste (Kurzname aus dem Profil) nach spielaktion_schrift, wie die Kurznamen-Tastenbilder der Profile; passt er so nicht, wie jede Taste 18 bis 15 px.",
   "spielaktion_schrift": {
     "eine_px": [28, 27, 26, 25, 24, 23, 22],
-    "zwei_px": [24, 23, 22, 21, 20],
+    "zwei_px": [28, 27, 26, 25, 24, 23, 22, 21, 20],
     "breite_eine": 120,
     "breite_zwei": [116, 80],
     "zeile_mitte_eine": 94,
     "zeile_mitte_zwei": [86, 108],
-    "hinweis": "Wie kurztasten.py des Repos VerseKit-Design: eine Zeile so gross wie moeglich (28 bis 22 px, hoechstens 120 breit), sonst zwei Zeilen nur an einem Leerzeichen (24 bis 20 px, die erste hoechstens 116, die zweite hoechstens 80 breit, damit sie nicht ins Eckfeld unten rechts reicht), keine Silbentrennung. Mit einer Zustandszeile steht der Name einzeilig bei y 86 (24 bis 20 px), der Zustand klein bei y 108."
+    "hinweis": "Wie kurztasten.py des Repos VerseKit-Design: eine Zeile so gross wie moeglich (28 bis 22 px, hoechstens 120 breit); zwei Zeilen nur an einem Leerzeichen (28 bis 20 px, die erste hoechstens 116, die zweite hoechstens 80 breit, damit sie nicht ins Eckfeld unten rechts reicht), keine Silbentrennung. Zwei Zeilen stehen, wo sie groesser werden als eine (Tester 27.11.2026: „Rührt euch“ stand einzeilig kleiner als die anderen Namen), sonst eine. Die zweite Zeile steht ab 24 px um Schriftgroesse minus 2 unter der ersten (28 px: 86 und 112), darunter bei 108. Mit einer Zustandszeile steht der Name einzeilig bei y 86 (24 bis 20 px), der Zustand klein bei y 108."
   },
   "farben": {
     "gruen": "#9ce430",

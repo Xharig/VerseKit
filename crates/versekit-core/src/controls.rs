@@ -144,6 +144,10 @@ pub struct Profile {
     pub maps: OrderedMap<(String, String)>,
     /// Action to how the game takes its key ([`Timing`]); only those that do not simply follow the key.
     pub timings: OrderedMap<Timing>,
+    /// The actions whose `keyboard` field is empty (`keyboard=""`, not even a space): the game drops a keyboard line
+    /// of the player there when it saves its bindings (seen 27.11.2026 with `v_toggle_mining_mode` and
+    /// `v_toggle_salvage_mode`), so no key may be put there.
+    pub no_keyboard: std::collections::BTreeSet<String>,
 }
 
 /// How the game takes the key of an action, by its `activationMode`: as it goes down and up, only after it was held
@@ -259,6 +263,9 @@ impl Profile {
                 .collect();
             if !preset.is_empty() {
                 profile.defaults.set(name, preset);
+            }
+            if attribute(node, "keyboard") == Some("") {
+                profile.no_keyboard.insert(name.to_string());
             }
             let timing = attribute(node, "activationMode").and_then(|mode| modes.get(mode.trim())).copied().unwrap_or_default();
             if timing != Timing::Follow {
@@ -742,17 +749,27 @@ pub fn one_line(name: &str) -> String {
 }
 
 /// The actions whose name has no text of the game in `lang` (an English or a technical name stands instead), from
-/// the `global.ini` of that language; every action without a game folder.
+/// the `global.ini` of that language; every action without a game folder. A text the same as the English one but
+/// for capitals counts as none: the German file of the game holds `flex`, `greet`, `sleep` and `wait` for emotes.
 pub fn without_own_text(
     profile: &Profile,
     game_folder: Option<&str>,
     lang: crate::language::Lang,
 ) -> std::collections::HashSet<String> {
     let texts = game_folder.map(|folder| ini_texts(folder, lang)).unwrap_or_default();
+    let english = match game_folder {
+        Some(folder) if lang != crate::language::Lang::En => ini_texts(folder, crate::language::Lang::En),
+        _ => Default::default(),
+    };
     profile
         .labels
         .iter()
-        .filter(|(_, (label, _))| texts.get(label.trim_start_matches('@')).is_none_or(|t| t.is_empty()))
+        .filter(|(_, (label, _))| {
+            let key = label.trim_start_matches('@');
+            texts.get(key).is_none_or(|t| {
+                t.trim().is_empty() || english.get(key).is_some_and(|e| e.trim().eq_ignore_ascii_case(t.trim()))
+            })
+        })
         .map(|(action, _)| action.to_string())
         .collect()
 }
@@ -1247,13 +1264,19 @@ mod tests {
         let game = std::env::temp_dir().join(format!("versekit-controls-own-text-{}", crate::testdir::run_tag()));
         let german = game.join("data").join("Localization").join("german_(germany)");
         std::fs::create_dir_all(&german).expect("folder");
-        std::fs::write(german.join("global.ini"), "ui_CIEject=Aussteigen\r\nui_CIUse=\r\n").expect("ini");
+        std::fs::write(german.join("global.ini"), "ui_CIEject=Aussteigen\r\nui_CIUse=\r\nui_CIRespawn=respawn\r\n").expect("ini");
+        let english = game.join("data").join("Localization").join("english");
+        std::fs::create_dir_all(&english).expect("folder");
+        std::fs::write(english.join("global.ini"), "ui_CIEject=Eject\r\nui_CIRespawn=Respawn\r\n").expect("ini");
         let folder = game.to_string_lossy().into_owned();
         let without = without_own_text(&profile, Some(&folder), crate::language::Lang::De);
         assert!(!without.contains("v_eject"), "a German text");
+        // The German file of the game holds the English word in small letters for some emotes (`flex`, `greet`).
         for action in ["v_respawn", "pl_use", "v_free", "v_hidden"] {
-            assert!(without.contains(action), "{action}: no German text (missing, empty or no label)");
+            assert!(without.contains(action), "{action}: no German text (missing, empty, English or no label)");
         }
+        let in_english = without_own_text(&profile, Some(&folder), crate::language::Lang::En);
+        assert!(!in_english.contains("v_eject") && !in_english.contains("v_respawn"), "{in_english:?}");
         assert_eq!(without_own_text(&profile, None, crate::language::Lang::De).len(), profile.labels.len(), "no game folder");
         let _ = std::fs::remove_dir_all(game);
         assert_eq!(one_line("Andocken\\n(Einleiten)"), "Andocken (Einleiten)");

@@ -180,6 +180,9 @@ pub enum Outcome {
     NoGroup,
     /// Every key of the set is taken.
     NoFreeKey,
+    /// The game takes no keyboard key for this action (`keyboard=""` in its factory setting, [`Profile::no_keyboard`]):
+    /// it drops such a line when it saves. Nothing is put in.
+    NoKeyboard,
     /// The keyboard line of the action holds a mouse button (`mouse`) and the mouse line of the action is free: the
     /// button moves to the mouse line, where it keeps working, and the keyboard line takes `key`.
     Move { mouse: String, key: String },
@@ -259,6 +262,7 @@ impl Outcome {
             Outcome::Unknown => "sd_f_unbekannt",
             Outcome::NoGroup => "sd_f_ohne_gruppe",
             Outcome::NoFreeKey => "sd_f_voll",
+            Outcome::NoKeyboard => "sd_f_ohne_tastatur",
             Outcome::Move { .. } => "sd_f_verschieben",
             Outcome::NotSendable(_) => "sd_f_maus",
             Outcome::Relocate { .. } => "sd_f_umziehen",
@@ -327,6 +331,9 @@ pub fn plan(
         };
         let outcome = if !known {
             Outcome::Unknown
+        } else if profile.no_keyboard.contains(action) && !matches!(resolved.how, How::NotSendable { .. } | How::MouseOnly) {
+            // The game drops a keyboard line here when it saves (also one that stands in the file now).
+            Outcome::NoKeyboard
         } else if resolved.deleted {
             // A line of the player on a mouse beside the emptied one: a key would take its place ([`stays_on_mouse`]).
             let own_mouse = own.iter().filter(|(id, _)| id.starts_with("mo")).flat_map(|(_, l)| l.iter()).any(|b| b.action == action);
@@ -414,7 +421,7 @@ pub fn count(items: &[Item]) -> Count {
                 count.addable += 1
             }
             Outcome::Deleted => count.deleted += 1,
-            Outcome::NoGroup | Outcome::NoFreeKey => {}
+            Outcome::NoGroup | Outcome::NoFreeKey | Outcome::NoKeyboard => {}
         }
         count.without_key += 1;
     }
@@ -983,12 +990,16 @@ mod tests {
     #[test]
     fn actions_that_share_a_stick_button_each_get_a_key_of_their_own_and_none_beside_a_mouse_line() {
         // Three actions on one stick button (one of them with its key before it), one with a key on the mouse device,
-        // one with a mouse button of the player, one with a factory mouse button.
+        // one with a mouse button of the player, one with a factory mouse button. The fields as the game writes them
+        // (4.10.2): the toggles of mining and salvage have `keyboard=""`, and the game drops a keyboard line there
+        // when it saves (seen 27.11.2026, also with the line first); the setting actions have `keyboard=" "`.
         let profile = Profile::from_xml(
             r#"<ActionMaps>
               <actionmap name="seat_general" UILabel="@s">
-                <action name="v_toggle_mining_mode" UILabel="@mi"/>
-                <action name="v_toggle_salvage_mode" UILabel="@sa"/>
+                <action name="v_toggle_mining_mode" UILabel="@mi" keyboard="" gamepad=" " joystick=" "/>
+                <action name="v_toggle_salvage_mode" UILabel="@sa" keyboard="" gamepad=" " joystick=" "/>
+                <action name="v_set_mining_mode" UILabel="@smi" keyboard=" " gamepad=" " joystick=" "/>
+                <action name="v_set_salvage_mode" UILabel="@ssa" keyboard=" " gamepad=" " joystick=" "/>
                 <action name="v_light_amplification_toggle" UILabel="@li" keyboard="ralt+l"/>
               </actionmap>
               <actionmap name="spaceship_movement" UILabel="@m">
@@ -1004,7 +1015,14 @@ mod tests {
     <rebind input="kb1_rctrl+r"/>
     <rebind input="js2_button19"/>
    </action>
+   <action name="v_set_mining_mode">
+    <rebind input="js2_button19"/>
+   </action>
+   <action name="v_set_salvage_mode">
+    <rebind input="js2_button19"/>
+   </action>
    <action name="v_toggle_mining_mode">
+    <rebind input="kb1_rctrl+np_5"/>
     <rebind input="js2_button19"/>
    </action>
    <action name="v_toggle_salvage_mode">
@@ -1022,7 +1040,15 @@ mod tests {
    </action>
   </actionmap>
  "#;
-        let actions = ["v_toggle_mining_mode", "v_toggle_salvage_mode", "v_light_amplification_toggle", "v_toggle_jump_request", "v_master_mode_set_scm"];
+        let actions = [
+            "v_set_mining_mode",
+            "v_set_salvage_mode",
+            "v_light_amplification_toggle",
+            "v_toggle_jump_request",
+            "v_master_mode_set_scm",
+            "v_toggle_mining_mode",
+            "v_toggle_salvage_mode",
+        ];
         let items = super::plan(&names(&actions), &own(body), &profile, &[], false);
         let (Outcome::Add(mining), Outcome::Add(salvage)) = (&items[0].outcome, &items[1].outcome) else {
             panic!("both on the shared button get a key: {items:?}");
@@ -1031,6 +1057,12 @@ mod tests {
         assert_eq!(items[2].outcome, Outcome::HasKey, "the own key before the stick line stays");
         assert_eq!(items[3].outcome, Outcome::HasKey, "a key on the mouse device is a key: none comes beside it");
         assert_eq!(items[4].outcome, Outcome::HasKey, "the mouse button stays, the deck presses it, no key beside it");
+        // `keyboard=""`: no key is put in, also where a keyboard line stands in the file now (the game drops it).
+        assert_eq!(items[5].outcome, Outcome::NoKeyboard, "{items:?}");
+        assert_eq!(items[6].outcome, Outcome::NoKeyboard, "{items:?}");
+        let counted = count(&items);
+        assert_eq!((counted.without_key, counted.addable), (4, 2), "no key, and none to put in: {counted:?}");
+        assert_eq!(items[5].outcome.text_key(), "sd_f_ohne_tastatur");
         let adds: Vec<(String, String, String)> = items
             .iter()
             .filter_map(|i| match &i.outcome {
@@ -1042,11 +1074,11 @@ mod tests {
         let text = joysticks_write::fill_text(&file, &adds, &[], &[]).expect("written");
         assert!(joysticks_write::keyboard_and_these_mice(&file, &text, &[]).is_ok(), "the stick and mouse lines stay");
         // The game keeps a keyboard line only before the stick lines of the action, as it writes it itself.
-        for action in ["v_toggle_mining_mode", "v_toggle_salvage_mode"] {
+        for action in ["v_set_mining_mode", "v_set_salvage_mode"] {
             assert_eq!(first_rebind(&text, action).as_deref().map(|i| &i[..4]), Some("kb1_"), "{action}: {text}");
         }
         let back = own(text.split("profileName=\"default\">").nth(1).and_then(|t| t.split("</ActionProfiles>").next()).expect("body"));
-        for (action, key) in [("v_toggle_mining_mode", mining), ("v_toggle_salvage_mode", salvage)] {
+        for (action, key) in [("v_set_mining_mode", mining), ("v_set_salvage_mode", salvage)] {
             let resolved = game_binding::resolve(action, &back, &profile);
             assert!(matches!(&resolved.how, How::Keyboard { input, .. } if input == key), "{action}: {resolved:?}");
             let lines: Vec<&Binding> = back.iter().flat_map(|(_, l)| l.iter()).filter(|b| b.action == action).collect();
@@ -1227,6 +1259,35 @@ mod tests {
         assert!(crate::game_files::backups(&file).is_empty(), "not even a copy");
         assert!(load_record(&paths).is_none(), "no record");
         let _ = std::fs::remove_dir_all(home);
+    }
+
+    /// Makes the made-up game write its log now: it runs.
+    fn game_starts(paths: &Paths) {
+        let log = paths.game_log(None).expect("log");
+        std::fs::File::options().write(true).open(&log).and_then(|f| f.set_modified(std::time::SystemTime::now())).expect("now");
+    }
+
+    #[test]
+    fn a_game_started_after_the_preview_stops_putting_in_taking_back_and_the_whole_file() {
+        let (paths, home, file) = world("start-nach-vorschau", 7200, &with_bom());
+        // The preview is worked out while the game is quiet; then the game starts before the click.
+        let items = plan(&names(&["v_free"]), &own(""), &profile(), &[]);
+        game_starts(&paths);
+        let refused = apply(&paths, &items, 1).expect_err("the game runs since the preview");
+        assert!(refused.game_not_quiet(), "{refused:?}");
+        assert_eq!(std::fs::read(&file).expect("file"), with_bom(), "nothing written");
+        assert!(crate::game_files::backups(&file).is_empty() && load_record(&paths).is_none());
+        // Put in while quiet, then the game starts: the way back and the whole file are refused too.
+        let (paths, home2, file) = world("start-nach-eintragen", 7200, &with_bom());
+        apply(&paths, &items, 2).expect("written while quiet");
+        let written = std::fs::read(&file).expect("file");
+        game_starts(&paths);
+        assert!(undo(&paths).expect_err("the game runs").game_not_quiet());
+        assert!(restore_copy(&paths).expect_err("the game runs").game_not_quiet());
+        assert_eq!(std::fs::read(&file).expect("file"), written, "the file stays as the game loaded it");
+        assert!(load_record(&paths).is_some(), "the way back stays for later");
+        let _ = std::fs::remove_dir_all(home);
+        let _ = std::fs::remove_dir_all(home2);
     }
 
     #[test]

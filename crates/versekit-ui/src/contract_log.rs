@@ -207,7 +207,7 @@ impl LogData {
             ("Retake the Outpost", "2026-10-18T15:02:40", log::COMPLETED, &["Arclight Pistol"], 0),
             ("Deliver Supplies", "2026-10-17T21:12:03", log::ABORTED, &[], 0),
             (
-                "Verified Bounty: Brendon Broad | HRT (Großes Mehrbesatzungsschiff, mittlere Unterstützung)",
+                "Verified Bounty: Brendon Broad | HRT (Large Multi-Crew Ship, Medium Support)",
                 "2026-10-17T20:40:00",
                 log::FAILED,
                 &[],

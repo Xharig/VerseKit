@@ -46,7 +46,9 @@ impl FakeVerse {
                 {"id": "v_shield_up", "art": "tastatur", "taste": "F5", "name": "Schilde hoch", "gruppe": "Energie"},
                 {"id": "v_shield_down", "art": "tastatur", "taste": "F6", "name": "Schilde runter", "gruppe": "Energie"},
                 {"id": "v_eject", "art": "tastatur", "taste": "Alt rechts + Y", "name": "Aussteigen", "gruppe": "Schiff"},
-                {"id": "v_self_destruct", "art": "tastatur", "taste": "Rück", "name": "Selbstzerstörung", "gruppe": "Schiff"}
+                {"id": "v_self_destruct", "art": "tastatur", "taste": "Rück", "name": "Selbstzerstörung", "gruppe": "Schiff"},
+                {"id": "emote_cs_yes", "art": "tastatur", "taste": "Ziffernblock 4", "name": "ja", "gruppe": "Emotes"},
+                {"id": "emote_wave", "art": "tastatur", "taste": "Strg rechts + Y", "name": "Winken", "gruppe": "Emotes"}
             ]}),
             commands: Vec::new(),
             refuse: false,
@@ -363,6 +365,63 @@ fn every_symbol_and_colour_a_shipped_profile_names_is_one_the_plugin_draws() {
     }
 }
 
+#[test]
+fn no_shipped_profile_presses_an_action_the_game_takes_no_key_for_or_the_helmet_of_empty_hands() {
+    // The toggles of mining and salvage have keyboard="" (the game drops a keyboard line there); the old helmet works
+    // only with empty hands. Mining and salvage press M, the helmet Left Alt + H.
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../streamdeck-plugin/profiles");
+    let mut wrong = Vec::new();
+    let mut industrial = 0;
+    for entry in std::fs::read_dir(&folder).expect("profiles").flatten() {
+        if entry.path().extension().and_then(|e| e.to_str()) != Some("streamDeckProfile") {
+            continue;
+        }
+        let bytes = std::fs::read(entry.path()).expect("profile");
+        for entry_in in versekit_core::zip::entries(&bytes).expect("zip") {
+            if !entry_in.name.to_ascii_lowercase().ends_with("/manifest.json") {
+                continue;
+            }
+            let text = String::from_utf8_lossy(&versekit_core::zip::read(&bytes, &entry_in).expect("read")).into_owned();
+            for old in ["\"v_toggle_mining_mode\"", "\"v_toggle_salvage_mode\"", "\"toggleEquipHelmet\""] {
+                if text.contains(old) {
+                    wrong.push(format!("{:?}: {old}", entry.file_name()));
+                }
+            }
+            industrial += text.matches("\"v_cycle_industrial_mode\"").count();
+        }
+    }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+    assert!(industrial >= 24, "mining and salvage on every device and language press M: {industrial}");
+}
+
+#[test]
+fn lock_target_stands_on_the_first_part_of_dogfight_on_the_devices_with_parts() {
+    // Robert 27.11.: „Ziel sperren“ had slipped to Dogfight 3 (MK.2) and 2 (Neo); it changed places with „Raketen +“.
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../streamdeck-plugin/profiles");
+    for device in ["MK2", "Neo", "Mini"] {
+        for lang in ["DE", "EN"] {
+            let bytes = std::fs::read(folder.join(format!("VerseKit-StreamDeck-{device}-{lang}.streamDeckProfile"))).expect("profile");
+            let mut pages = Vec::new();
+            for entry in versekit_core::zip::entries(&bytes).expect("zip") {
+                if !entry.name.to_ascii_lowercase().ends_with("/manifest.json") {
+                    continue;
+                }
+                let page: Value = serde_json::from_slice(&versekit_core::zip::read(&bytes, &entry).expect("read")).unwrap_or_default();
+                let locks = page["Controllers"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .flat_map(|c| c["Actions"].as_object().into_iter().flat_map(|m| m.values()))
+                    .any(|a| a["Settings"]["aktion"] == "v_target_lock_selected");
+                if locks {
+                    pages.push(page["Name"].as_str().unwrap_or("").to_string());
+                }
+            }
+            assert_eq!(pages, ["Dogfight 1"], "{device} {lang}");
+        }
+    }
+}
+
 /// The game actions VerseKit was told to press, without the reports.
 fn game_presses(verse: &FakeVerse) -> Vec<(String, Phase)> {
     verse
@@ -526,6 +585,75 @@ fn a_key_held_with_alt_gr_says_unsafe_in_the_colour_of_warnings_whether_the_key_
     }
     plugin.on_event(&appear("K2", Action::GameAction, json!({"aktion": "v_gear"})), &mut verse);
     assert_eq!(plugin.look(&plugin.keys["K2"].clone()).badge, None, "a safe key keeps the line empty");
+}
+
+#[test]
+fn the_switch_of_verse_kit_shows_the_key_on_every_game_action_key_and_the_warnings_stay() {
+    let (mut plugin, mut verse) = ready();
+    verse.bindings = json!({"aktionen": [
+        {"id": "v_gear", "art": "tastatur", "taste": "N", "name": "Fahrwerk", "gruppe": "Flug"},
+        {"id": "v_lights", "art": "tastatur", "taste": "L", "name": "Licht", "gruppe": "Schiff"},
+        {"id": "v_quantum", "art": "tastatur", "taste": "Alt rechts + B", "unsicher": true, "name": "Quantum", "gruppe": "Flug"},
+        {"id": "v_free", "art": "nicht_belegt", "taste": "", "name": "Frei", "gruppe": "Flug"}
+    ]});
+    verse.set("belegung_stand", json!("t"));
+    plugin.poll(&mut verse);
+    for (context, action) in [("K1", "v_gear"), ("K2", "v_lights"), ("K3", "v_quantum"), ("K4", "v_free")] {
+        plugin.on_event(&appear(context, Action::GameAction, json!({"aktion": action})), &mut verse);
+    }
+    let badge = |plugin: &Plugin, context: &str| plugin.look(&plugin.keys[context].clone()).badge.map(|b| b.word);
+    // Off (the default): no key below the name.
+    assert_eq!((badge(&plugin, "K1"), badge(&plugin, "K2")), (None, None));
+    // On: every game action key shows its key; the warnings stay as they are.
+    verse.set(streamdeck::FIELD_KEYS_SHOWN, json!(true));
+    plugin.poll(&mut verse);
+    assert_eq!(badge(&plugin, "K1").as_deref(), Some("N"));
+    assert_eq!(badge(&plugin, "K2").as_deref(), Some("L"));
+    assert_eq!(badge(&plugin, "K3").as_deref(), Some("Alt Gr unsicher"), "the warning of Alt Gr stays");
+    assert_eq!(badge(&plugin, "K4").as_deref(), Some(language::t_in(Lang::De, "sd_ga_nicht_belegt").as_str()), "unbound stays");
+    // Off again: only a key that asks for it itself.
+    verse.set(streamdeck::FIELD_KEYS_SHOWN, json!(false));
+    plugin.on_event(&appear("K5", Action::GameAction, json!({"aktion": "v_lights", "taste_anzeigen": true})), &mut verse);
+    plugin.poll(&mut verse);
+    assert_eq!((badge(&plugin, "K2"), badge(&plugin, "K5").as_deref()), (None, Some("L")));
+}
+
+#[test]
+fn the_switch_to_show_the_keys_is_kept_and_holds_without_verse_kit_also_after_a_new_start() {
+    let folder = std::env::temp_dir().join(format!("versekit-sd-tasten-anzeigen-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).expect("folder");
+    let file = folder.join(versekit_core::streamdeck::KEY_TABLE_FILE);
+    let mut plugin = Plugin::new("PLUGIN", Vec::new());
+    let keys = std::sync::Arc::new(FakeKeys::default());
+    plugin.table_file = Some(file.clone());
+    plugin.local = Some(keys.clone());
+    let mut verse = FakeVerse::new();
+    verse.bindings = json!({"aktionen": [
+        {"id": "v_toggle_guns_mode", "art": "tastatur", "taste": "Strg rechts + Num 4", "eingabe": "rctrl+np_4", "halten": "folgen", "name": "Waffenmodus umschalten", "karte": "seat_general"}
+    ]});
+    verse.set(streamdeck::FIELD_KEYS_SHOWN, json!(true));
+    plugin.poll(&mut verse);
+    plugin.on_event(&appear("G", Action::GameAction, json!({"aktion": "v_toggle_guns_mode"})), &mut verse);
+    let badge = |plugin: &Plugin| plugin.look(&plugin.keys["G"].clone()).badge.map(|b| b.word);
+    assert!(badge(&plugin).is_some(), "the key below the name");
+    // VerseKit is closed: the line stays.
+    verse.away = true;
+    plugin.poll(&mut verse);
+    assert!(badge(&plugin).is_some_and(|k| k.contains("4")), "without VerseKit: {:?}", badge(&plugin));
+    // The plugin starts anew while VerseKit is away: the line stays as the switch was last.
+    let mut again = Plugin::new("PLUGIN", Vec::new());
+    again.table = crate::table::Table::load(Some(&file));
+    again.table_file = Some(file.clone());
+    again.local = Some(keys);
+    again.poll(&mut verse);
+    again.on_event(&appear("G", Action::GameAction, json!({"aktion": "v_toggle_guns_mode"})), &mut verse);
+    assert!(badge(&again).is_some_and(|k| k.contains("4")), "after a new start without VerseKit: {:?}", badge(&again));
+    // Switched off in VerseKit: kept too.
+    verse.away = false;
+    verse.set(streamdeck::FIELD_KEYS_SHOWN, json!(false));
+    again.poll(&mut verse);
+    assert!(!crate::table::Table::load(Some(&file)).keys_shown, "off is kept");
+    let _ = std::fs::remove_dir_all(folder);
 }
 
 #[test]
@@ -912,7 +1040,7 @@ fn the_property_inspector_gets_pages_actions_and_texts_in_the_language_of_verse_
     assert_eq!(payload["sprache"], "de");
     assert_eq!(payload["verbunden"], true);
     assert_eq!(payload["seiten"].as_array().expect("pages").len(), streamdeck::PAGES.len());
-    assert_eq!(payload["aktionen"].as_array().expect("actions").len(), 6);
+    assert_eq!(payload["aktionen"].as_array().expect("actions").len(), 8);
     assert_eq!(payload["texte"]["sd_ga_nur_maus"], "Nur Maus");
     let out = plugin.on_event(&json!({"event": "sendToPlugin", "context": "K1", "payload": {"frage": "steuerung"}}), &mut verse);
     assert!(out.is_empty());
@@ -1198,6 +1326,77 @@ fn a_key_of_an_older_profile_gets_its_new_game_action_where_it_appears_and_one_o
     let new = json!({"aktion": "v_ifcs_speed_limiter_toggle", "name": "Begrenzer"});
     assert!(events(&plugin.on_event(&appear("E", Action::GameAction, new), &mut verse), "setSettings").is_empty());
     assert_eq!(updated_settings(&json!({"aktion": "v_ifcs_throttle_swap_mode", "name": "Cruise"}), Lang::En).expect("new")["name"], "Limiter");
+}
+
+#[test]
+fn the_helmet_key_of_an_older_profile_goes_to_the_helmet_that_works_with_a_weapon_in_hand_and_names_are_put_right() {
+    // German and English profile: „Helm an-/ablegen“ (toggleEquipHelmet) works only with empty hands.
+    for (name, lang, now) in [("Helm", Lang::De, "Helm"), ("Helmet", Lang::En, "Helmet"), ("Helmet", Lang::De, "Helm")] {
+        let old = json!({"aktion": "toggleEquipHelmet", "name": name, "symbol": "hard-hat", "farbe": "charakter"});
+        let new = updated_settings(&old, lang).expect("updated");
+        assert_eq!((new["aktion"].as_str(), new["name"].as_str()), (Some("toggleAttachHelmet"), Some(now)), "{name} {lang:?}");
+        assert_eq!(new["symbol"], "hard-hat", "the rest of the key stays");
+    }
+    // Mining and salvage press M (cycle industrial mode): the game drops a keyboard line of the toggles.
+    for (old, name, lang, now) in [
+        ("v_toggle_mining_mode", "Bergbau", Lang::De, "Bergbau"),
+        ("v_toggle_mining_mode", "Mining", Lang::En, "Mining"),
+        ("v_toggle_salvage_mode", "Bergung", Lang::De, "Bergung"),
+        ("v_toggle_salvage_mode", "Salvage", Lang::En, "Salvage"),
+    ] {
+        let new = updated_settings(&json!({"aktion": old, "name": name, "symbol": "pickaxe"}), lang).expect("updated");
+        assert_eq!((new["aktion"].as_str(), new["name"].as_str()), (Some("v_cycle_industrial_mode"), Some(now)), "{old} {name}");
+    }
+    let greet = updated_settings(&json!({"aktion": "emote_greet", "name": "Grüssen"}), Lang::De).expect("greet");
+    assert_eq!((greet["aktion"].as_str(), greet["name"].as_str()), (Some("emote_greet"), Some("Grüßen")));
+    for burst in ["Salve +", "Burst +"] {
+        let old = json!({"aktion": "v_weapon_countermeasure_decoy_burst_increase", "name": burst});
+        assert_eq!(updated_settings(&old, Lang::De).expect("burst")["name"], "Flares +", "{burst}");
+    }
+    // A key the player named himself, and a key brought up to date, stay.
+    assert!(updated_settings(&json!({"aktion": "toggleEquipHelmet", "name": "Kopf"}), Lang::De).is_none());
+    assert!(updated_settings(&json!({"aktion": "toggleAttachHelmet", "name": "Helm"}), Lang::De).is_none());
+    assert!(updated_settings(&json!({"aktion": "emote_greet", "name": "Grüßen"}), Lang::De).is_none());
+    // The helmet the keys press now is one the plugin knows a factory key and a short name of.
+    let factory: Value = serde_json::from_str(include_str!("../../../../streamdeck-plugin/werkstasten.json")).expect("json");
+    assert_eq!(factory["aktionen"]["toggleAttachHelmet"]["eingabe"], "lalt+h");
+    assert_eq!(factory["aktionen"]["v_cycle_industrial_mode"]["eingabe"], "m");
+    assert_eq!(versekit_core::streamdeck::short_name("toggleAttachHelmet", Lang::De), Some("HELM"));
+}
+
+#[test]
+fn the_version_key_shows_the_version_of_verse_kit_also_without_it_and_a_press_does_nothing() {
+    let (mut plugin, mut verse) = ready();
+    plugin.on_event(&appear("V", Action::Version, json!({})), &mut verse);
+    let word = versekit_core::streamdeck::version_word(env!("CARGO_PKG_VERSION"));
+    let look = plugin.look(&plugin.keys["V"].clone());
+    assert_eq!((look.label.as_str(), look.badge.expect("badge").word), ("VerseKit", word.clone()));
+    let out = plugin.on_event(&json!({"event": "keyDown", "context": "V"}), &mut verse);
+    assert!(events(&out, "showAlert").is_empty() && without(&verse.commands).is_empty(), "nothing happens");
+    verse.away = true;
+    plugin.poll(&mut verse);
+    assert_eq!(plugin.look(&plugin.keys["V"].clone()).badge.expect("badge").word, word, "without VerseKit too");
+    assert_eq!(versekit_core::streamdeck::version_word("5.7.0-beta.6"), "5.7.0 · Beta 6");
+    assert_eq!(versekit_core::streamdeck::version_word("5.7.0-rc.1"), "5.7.0 · RC 1");
+    assert_eq!(versekit_core::streamdeck::version_word("5.7.0"), "5.7.0");
+}
+
+#[test]
+fn a_hand_signal_says_below_its_name_that_it_plays_only_with_a_weapon_drawn() {
+    let (mut plugin, mut verse) = ready();
+    plugin.on_event(&appear("J", Action::Emote, json!({"aktion": "emote_cs_yes", "name": "Ja", "symbol": "check"})), &mut verse);
+    let look = plugin.look(&plugin.keys["J"].clone());
+    assert_eq!(look.label, "Ja");
+    let badge = look.badge.expect("badge");
+    assert_eq!((badge.word.as_str(), badge.tone), ("mit Waffe", Tone::Muted), "a hint, no warning");
+    // Another emote shows only its name; the key asked for stays the word below a hand signal too.
+    plugin.on_event(&appear("W", Action::Emote, json!({"aktion": "emote_wave", "name": "Winken"})), &mut verse);
+    assert_eq!(plugin.look(&plugin.keys["W"].clone()).badge, None);
+    let shown = json!({"aktion": "emote_cs_yes", "name": "Ja", "taste_anzeigen": true});
+    plugin.on_event(&appear("K", Action::Emote, shown), &mut verse);
+    assert_eq!(plugin.look(&plugin.keys["K"].clone()).badge.expect("badge").word, "Ziffernblock 4");
+    assert!(versekit_core::streamdeck::needs_weapon("player_emotes.emote_cs_stop"));
+    assert!(!versekit_core::streamdeck::needs_weapon("emote_salute"));
 }
 
 /// The last list of game actions VerseKit was told.
