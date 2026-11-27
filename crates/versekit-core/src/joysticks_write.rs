@@ -985,31 +985,62 @@ pub fn unbind_added(
     Ok((done, found))
 }
 
-/// Like [`keyboard_only`], with the mouse lines `mo1_<mouse>` of `mice` allowed to come (`added`) or go: every other
-/// joystick, gamepad and mouse line stays as it was.
-pub(crate) fn keyboard_and_these_mice(old: &str, new: &str, mice: &[String], added: bool) -> Result<(), Failure> {
-    let (before, after) = (other_device_lines(old), other_device_lines(new));
-    let (mut longer, shorter) = if added { (after, before) } else { (before, after) };
-    for line in &shorter {
-        let Some(at) = longer.iter().position(|l| l == line) else { return Err(Failure::OthersTouched) };
-        longer.remove(at);
-    }
-    let allowed = |line: &str| mice.iter().any(|m| line.eq_ignore_ascii_case(&format!("<rebind input=\"mo1_{m}\"/>")));
-    if longer.iter().all(|line| allowed(line)) { Ok(()) } else { Err(Failure::OthersTouched) }
+/// Like [`keyboard_only`], with the mouse lines `mo1_<mouse>` of `mice` allowed to come or go: every other joystick,
+/// gamepad and mouse line stays as it was.
+pub(crate) fn keyboard_and_these_mice(old: &str, new: &str, mice: &[String]) -> Result<(), Failure> {
+    let (mut before, mut after) = (other_device_lines(old), other_device_lines(new));
+    // What stands on both sides cancels out; what is left came or went.
+    before.retain(|line| match after.iter().position(|l| l == line) {
+        Some(at) => {
+            after.remove(at);
+            false
+        }
+        None => true,
+    });
+    let allowed = |line: &String| mice.iter().any(|m| line.eq_ignore_ascii_case(&format!("<rebind input=\"mo1_{m}\"/>")));
+    if before.iter().chain(after.iter()).all(allowed) { Ok(()) } else { Err(Failure::OthersTouched) }
 }
 
 /// Keyboard keys put in, and for the actions of `mice` `(action, section, mouse button)` the mouse button moved from
 /// the keyboard line to the mouse line `mo1_`: the keyboard line takes the new key, the mouse button keeps working.
+/// The lines of `dropped` `(action, input with its device)` go first (an own key that is not safe).
 ///
 /// # Errors
 ///
 /// See [`bind_action_text`].
-pub fn fill_text(text: &str, adds: &[(String, String, String)], mice: &[(String, String, String)]) -> Result<String, Failure> {
-    let mut out = bind_many_text(text, adds)?;
+pub fn fill_text(
+    text: &str,
+    adds: &[(String, String, String)],
+    mice: &[(String, String, String)],
+    dropped: &[(String, String)],
+) -> Result<String, Failure> {
+    let (mut out, _) = unbind_lines_text(text, dropped)?;
+    out = bind_many_text(&out, adds)?;
     for (action, section, mouse) in mice {
         out = bind_action_text(&out, action, section, "mo1", mouse)?;
     }
     Ok(out)
+}
+
+/// The mouse inputs among lines `(action, input with its device)`: those on `mo1_`, without the device.
+pub fn mouse_inputs(lines: &[(String, String)]) -> Vec<String> {
+    lines.iter().filter_map(|(_, full)| full.strip_prefix("mo1_").map(String::from)).collect()
+}
+
+/// Does `action` in `text` have a line on the device `prefix` (`kb1_`, `mo1_`) that holds an input?
+fn has_line(text: &str, action: &str, prefix: &str) -> Result<bool, Failure> {
+    let document = parse(text).ok_or(Failure::Unreadable)?;
+    Ok(document.descendants().any(|n| {
+        is_element(n, "action")
+            && n.attribute("name") == Some(action)
+            && n.children().any(|r| {
+                is_element(r, "rebind")
+                    && r.attribute("input").is_some_and(|v| {
+                        let v = v.trim().to_ascii_lowercase();
+                        v.starts_with(prefix) && v.len() > prefix.len()
+                    })
+            })
+    }))
 }
 
 /// [`fill_text`] written to the file: one copy, one writing; besides the keyboard only the mouse lines of `mice` come.
@@ -1022,16 +1053,18 @@ pub fn fill(
     paths: &Paths,
     adds: &[(String, String, String)],
     mice: &[(String, String, String)],
+    dropped: &[(String, String)],
     file: Option<&str>,
 ) -> Result<Done, Failure> {
-    if adds.is_empty() {
+    if adds.is_empty() && dropped.is_empty() {
         return Err(Failure::Nothing);
     }
     let read = open(paths, file, None)?;
-    let new = fill_text(&read.text, adds, mice)?;
-    let moved: Vec<String> = mice.iter().map(|(_, _, m)| m.clone()).collect();
-    keyboard_and_these_mice(&read.text, &new, &moved, true)?;
-    commit(paths, &read, &new, adds.len())
+    let new = fill_text(&read.text, adds, mice, dropped)?;
+    let mut moved: Vec<String> = mice.iter().map(|(_, _, m)| m.clone()).collect();
+    moved.extend(mouse_inputs(dropped));
+    keyboard_and_these_mice(&read.text, &new, &moved)?;
+    commit(paths, &read, &new, adds.len() + dropped.len())
 }
 
 /// Does the keyboard line of `action` in `text` still hold `kb1_<key>`?
@@ -1061,9 +1094,20 @@ pub fn unfill_text(
     mice: &[(String, String, String, String)],
     relocated: &[(String, String, String, String)],
     refilled: &[(String, String, String)],
+    restored: &[(String, String, String)],
 ) -> Result<(String, Vec<String>), Failure> {
     let mut out = text.to_string();
     let mut found = Vec::new();
+    // An own line that went for the factory key `(action, section, input with its device)` comes back where the
+    // action has no line on that device again.
+    for (action, section, full) in restored {
+        let Some((device, input)) = full.split_once('_') else { continue };
+        if has_line(&out, action, &format!("{device}_"))? {
+            continue;
+        }
+        out = bind_action_text(&out, action, section, device, input)?;
+        found.push(action.clone());
+    }
     for (action, section, key) in refilled {
         if holds_key(&out, action, key)? {
             out = bind_action_text(&out, action, section, "kb1", "")?;
@@ -1082,9 +1126,13 @@ pub fn unfill_text(
         if !holds_key(&out, action, key)? {
             continue;
         }
-        // An empty old key was the factory's: the own line goes, and the factory key counts again.
+        // An empty old key was the factory's: the own line goes, and the factory key counts again. An old key on the
+        // mouse line (`mo1_…`) goes back there, and the keyboard line goes.
         out = if old.is_empty() {
             unbind_lines_text(&out, &[(action.clone(), format!("kb1_{key}"))])?.0
+        } else if let Some(mouse) = old.strip_prefix("mo1_") {
+            let without = unbind_lines_text(&out, &[(action.clone(), format!("kb1_{key}"))])?.0;
+            bind_action_text(&without, action, section, "mo1", mouse)?
         } else {
             bind_action_text(&out, action, section, "kb1", old)?
         };
@@ -1093,7 +1141,10 @@ pub fn unfill_text(
     let plain: Vec<(String, String)> = adds
         .iter()
         .filter(|(a, _)| {
-            !mice.iter().any(|(m, ..)| m == a) && !relocated.iter().any(|(r, ..)| r == a) && !refilled.iter().any(|(r, ..)| r == a)
+            !mice.iter().any(|(m, ..)| m == a)
+                && !relocated.iter().any(|(r, ..)| r == a)
+                && !refilled.iter().any(|(r, ..)| r == a)
+                && !restored.iter().any(|(r, ..)| r == a)
         })
         .cloned()
         .collect();
@@ -1113,12 +1164,15 @@ pub fn unfill(
     mice: &[(String, String, String, String)],
     relocated: &[(String, String, String, String)],
     refilled: &[(String, String, String)],
+    restored: &[(String, String, String)],
     file: Option<&str>,
 ) -> Result<(Done, Vec<String>), Failure> {
     let read = open(paths, file, None)?;
-    let (new, found) = unfill_text(&read.text, adds, mice, relocated, refilled)?;
-    let moved: Vec<String> = mice.iter().map(|(_, _, m, _)| m.clone()).collect();
-    keyboard_and_these_mice(&read.text, &new, &moved, false)?;
+    let (new, found) = unfill_text(&read.text, adds, mice, relocated, refilled, restored)?;
+    let mut moved: Vec<String> = mice.iter().map(|(_, _, m, _)| m.clone()).collect();
+    moved.extend(relocated.iter().filter_map(|(_, _, old, _)| old.strip_prefix("mo1_").map(String::from)));
+    moved.extend(restored.iter().filter_map(|(_, _, full)| full.strip_prefix("mo1_").map(String::from)));
+    keyboard_and_these_mice(&read.text, &new, &moved)?;
     let done = commit(paths, &read, &new, found.len())?;
     Ok((done, found))
 }

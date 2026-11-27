@@ -1,0 +1,408 @@
+{
+  "aktionen": {
+    "ammoRepool": {
+      "eingabe": "lalt+1",
+      "halten": "folgen"
+    },
+    "crouch": {
+      "eingabe": "c",
+      "halten": "folgen"
+    },
+    "customize": {
+      "eingabe": "j",
+      "halten": "hoechstens:250"
+    },
+    "downedRevivalRequest": {
+      "eingabe": "m",
+      "halten": "mindestens:1500"
+    },
+    "emote_cs_no": {
+      "eingabe": "np_6",
+      "halten": "folgen"
+    },
+    "emote_cs_stop": {
+      "eingabe": "np_2",
+      "halten": "folgen"
+    },
+    "emote_cs_yes": {
+      "eingabe": "np_4",
+      "halten": "folgen"
+    },
+    "jump_hold": {
+      "eingabe": "space",
+      "halten": "folgen"
+    },
+    "mobiglas": {
+      "eingabe": "f1",
+      "halten": "folgen"
+    },
+    "notification_accept": {
+      "eingabe": "lbracket",
+      "halten": "folgen"
+    },
+    "notification_decline": {
+      "eingabe": "rbracket",
+      "halten": "folgen"
+    },
+    "pc_interaction_mode": {
+      "eingabe": "f",
+      "halten": "folgen"
+    },
+    "pc_personal_thought": {
+      "eingabe": "lalt+f",
+      "halten": "folgen"
+    },
+    "pc_pit_inventory": {
+      "eingabe": "i",
+      "halten": "hoechstens:250"
+    },
+    "pl_exit": {
+      "eingabe": "y",
+      "halten": "folgen"
+    },
+    "player.zoom_in": {
+      "eingabe": "mwheel_up",
+      "halten": "folgen"
+    },
+    "player.zoom_out": {
+      "eingabe": "mwheel_down",
+      "halten": "folgen"
+    },
+    "prone": {
+      "eingabe": "lctrl",
+      "halten": "folgen"
+    },
+    "reload": {
+      "eingabe": "r",
+      "halten": "hoechstens:250"
+    },
+    "reloadSecondary": {
+      "eingabe": "lalt+b",
+      "halten": "hoechstens:250"
+    },
+    "selectUnarmedCombat": {
+      "eingabe": "6",
+      "halten": "hoechstens:250"
+    },
+    "select_gadget_pit": {
+      "eingabe": "5",
+      "halten": "hoechstens:250"
+    },
+    "select_meleeweapon_pit": {
+      "eingabe": "v",
+      "halten": "hoechstens:250"
+    },
+    "select_primary_pit": {
+      "eingabe": "1",
+      "halten": "hoechstens:250"
+    },
+    "select_secondary_pit": {
+      "eingabe": "2",
+      "halten": "hoechstens:250"
+    },
+    "select_sidearm_pit": {
+      "eingabe": "3",
+      "halten": "hoechstens:250"
+    },
+    "spaceship_view.v_view_zoom_in": {
+      "eingabe": "mwheel_up",
+      "halten": "folgen"
+    },
+    "spaceship_view.v_view_zoom_out": {
+      "eingabe": "mwheel_down",
+      "halten": "folgen"
+    },
+    "thirdperson": {
+      "eingabe": "f4",
+      "halten": "hoechstens:250"
+    },
+    "toggle_contact": {
+      "eingabe": "f11",
+      "halten": "folgen"
+    },
+    "toggle_flashlight": {
+      "eingabe": "t",
+      "halten": "folgen"
+    },
+    "toggle_lowered": {
+      "eingabe": "lalt+r",
+      "halten": "hoechstens:250"
+    },
+    "turret_change_position": {
+      "eingabe": "s",
+      "halten": "folgen"
+    },
+    "turret_gyromode": {
+      "eingabe": "e",
+      "halten": "folgen"
+    },
+    "turret_mouse_mode_cycle": {
+      "eingabe": "q",
+      "halten": "folgen"
+    },
+    "turret_recenter": {
+      "eingabe": "c",
+      "halten": "folgen"
+    },
+    "turret_remote_cycle_next": {
+      "eingabe": "d",
+      "halten": "folgen"
+    },
+    "turret_remote_cycle_prev": {
+      "eingabe": "a",
+      "halten": "folgen"
+    },
+    "v_atc_request": {
+      "eingabe": "lalt+n",
+      "halten": "hoechstens:250"
+    },
+    "v_brake": {
+      "eingabe": "x",
+      "halten": "folgen"
+    },
+    "v_dec_scan_focus_level": {
+      "eingabe": "mwheel_down",
+      "halten": "folgen"
+    },
+    "v_engineering_assignment_engine_decrease": {
+      "eingabe": "f6+lalt",
+      "halten": "hoechstens:250"
+    },
+    "v_engineering_assignment_engine_increase": {
+      "eingabe": "f6",
+      "halten": "hoechstens:250"
+    },
+    "v_engineering_assignment_reset": {
+      "eingabe": "f8",
+      "halten": "folgen"
+    },
+    "v_engineering_assignment_shields_decrease": {
+      "eingabe": "f7+lalt",
+      "halten": "hoechstens:250"
+    },
+    "v_engineering_assignment_shields_increase": {
+      "eingabe": "f7",
+      "halten": "hoechstens:250"
+    },
+    "v_engineering_assignment_weapons_decrease": {
+      "eingabe": "f5+lalt",
+      "halten": "hoechstens:250"
+    },
+    "v_engineering_assignment_weapons_increase": {
+      "eingabe": "f5",
+      "halten": "hoechstens:250"
+    },
+    "v_horn": {
+      "eingabe": "space",
+      "halten": "folgen"
+    },
+    "v_ifcs_speed_limiter_decrement": {
+      "eingabe": "lalt+mwheel_down",
+      "halten": "folgen"
+    },
+    "v_ifcs_speed_limiter_increment": {
+      "eingabe": "lalt+mwheel_up",
+      "halten": "folgen"
+    },
+    "v_ifcs_vector_decoupling_toggle": {
+      "eingabe": "c",
+      "halten": "hoechstens:250"
+    },
+    "v_inc_scan_focus_level": {
+      "eingabe": "mwheel_up",
+      "halten": "folgen"
+    },
+    "v_invoke_ping": {
+      "eingabe": "tab",
+      "halten": "folgen"
+    },
+    "v_jettison_volatile_cargo": {
+      "eingabe": "lalt+j",
+      "halten": "folgen"
+    },
+    "v_lights": {
+      "eingabe": "l",
+      "halten": "folgen"
+    },
+    "v_lock_rotation": {
+      "eingabe": "rshift",
+      "halten": "folgen"
+    },
+    "v_mgv_switch_brake_on_idle": {
+      "eingabe": "c",
+      "halten": "folgen"
+    },
+    "v_mining_use_consumable1": {
+      "eingabe": "lalt+1",
+      "halten": "folgen"
+    },
+    "v_mining_use_consumable2": {
+      "eingabe": "lalt+2",
+      "halten": "folgen"
+    },
+    "v_mining_use_consumable3": {
+      "eingabe": "lalt+3",
+      "halten": "folgen"
+    },
+    "v_mining_use_permanent_modifier": {
+      "eingabe": "lalt+4",
+      "halten": "folgen"
+    },
+    "v_power_toggle": {
+      "eingabe": "u",
+      "halten": "folgen"
+    },
+    "v_power_toggle_shields": {
+      "eingabe": "o",
+      "halten": "folgen"
+    },
+    "v_power_toggle_thrusters": {
+      "eingabe": "i",
+      "halten": "folgen"
+    },
+    "v_power_toggle_weapons": {
+      "eingabe": "p",
+      "halten": "folgen"
+    },
+    "v_salvage_cycle_modifiers_focused": {
+      "eingabe": "mouse2",
+      "halten": "folgen"
+    },
+    "v_salvage_focus_all_heads": {
+      "eingabe": "lalt+s",
+      "halten": "folgen"
+    },
+    "v_salvage_focus_fracture": {
+      "eingabe": "lalt+w",
+      "halten": "folgen"
+    },
+    "v_salvage_focus_left": {
+      "eingabe": "lalt+a",
+      "halten": "folgen"
+    },
+    "v_salvage_focus_right": {
+      "eingabe": "lalt+d",
+      "halten": "folgen"
+    },
+    "v_salvage_reset_gimbal": {
+      "eingabe": "lalt+g",
+      "halten": "folgen"
+    },
+    "v_salvage_toggle_gimbal_mode": {
+      "eingabe": "g",
+      "halten": "folgen"
+    },
+    "v_space_brake": {
+      "eingabe": "x",
+      "halten": "folgen"
+    },
+    "v_starmap": {
+      "eingabe": "f2",
+      "halten": "folgen"
+    },
+    "v_target_cycle_attacker_fwd": {
+      "eingabe": "4",
+      "halten": "hoechstens:250"
+    },
+    "v_target_cycle_friendly_fwd": {
+      "eingabe": "6",
+      "halten": "hoechstens:250"
+    },
+    "v_target_cycle_hostile_fwd": {
+      "eingabe": "5",
+      "halten": "hoechstens:250"
+    },
+    "v_target_cycle_hostile_reset": {
+      "eingabe": "5",
+      "halten": "hoechstens:250"
+    },
+    "v_target_cycle_in_view_fwd": {
+      "eingabe": "t",
+      "halten": "hoechstens:250"
+    },
+    "v_target_cycle_in_view_reset": {
+      "eingabe": "t",
+      "halten": "hoechstens:250"
+    },
+    "v_target_cycle_subitem_fwd": {
+      "eingabe": "r",
+      "halten": "hoechstens:250"
+    },
+    "v_toggle_jump_request": {
+      "eingabe": "mouse1",
+      "halten": "hoechstens:250"
+    },
+    "v_toggle_landing_system": {
+      "eingabe": "n",
+      "halten": "hoechstens:250"
+    },
+    "v_toggle_mining_laser_fire": {
+      "eingabe": "mouse1",
+      "halten": "folgen"
+    },
+    "v_toggle_mining_laser_type": {
+      "eingabe": "lalt+mouse1",
+      "halten": "folgen"
+    },
+    "v_transform_cycle": {
+      "eingabe": "lalt+k",
+      "halten": "hoechstens:250"
+    },
+    "v_view_look_behind": {
+      "eingabe": "comma",
+      "halten": "mindestens:150"
+    },
+    "v_vtol_toggle": {
+      "eingabe": "k",
+      "halten": "hoechstens:250"
+    },
+    "v_weapon_countermeasure_decoy_launch": {
+      "eingabe": "h",
+      "halten": "folgen"
+    },
+    "v_weapon_countermeasure_noise_launch": {
+      "eingabe": "j",
+      "halten": "folgen"
+    },
+    "v_weapon_cycle_missile_fwd": {
+      "eingabe": "mwheel_down",
+      "halten": "folgen"
+    },
+    "v_weapon_gimbals_state_toggle": {
+      "eingabe": "g",
+      "halten": "hoechstens:250"
+    },
+    "v_weapon_increase_max_missiles": {
+      "eingabe": "g",
+      "halten": "hoechstens:250"
+    },
+    "v_weapon_reset_max_missiles": {
+      "eingabe": "lalt+g",
+      "halten": "hoechstens:250"
+    },
+    "vehicle_general.v_view_zoom_in": {
+      "eingabe": "mwheel_up",
+      "halten": "folgen"
+    },
+    "vehicle_general.v_view_zoom_out": {
+      "eingabe": "mwheel_down",
+      "halten": "folgen"
+    },
+    "visor_wipe": {
+      "eingabe": "lalt+x",
+      "halten": "folgen"
+    },
+    "weapon_auxiliary_action": {
+      "eingabe": "u",
+      "halten": "folgen"
+    },
+    "weapon_change_firemode": {
+      "eingabe": "b",
+      "halten": "folgen"
+    }
+  },
+  "fassung": 1,
+  "hinweis": "Werksbelegung der Spielaktionen der VerseKit-Profile, aus der defaultProfile.xml des Spiels (tests/deck_keys_real.rs). Das Plugin drückt sie, solange es von VerseKit noch keine Tabelle bekam.",
+  "sprache": "de",
+  "von_versekit": false
+}

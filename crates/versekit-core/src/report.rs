@@ -291,6 +291,14 @@ pub fn wrap(text: &str, width: usize) -> Vec<String> {
     result
 }
 
+/// The lines of a start trail the report shows: the last [`START_SHOWN`], and before them every older line about a
+/// hotkey (`Hotkey: F13 angemeldet (ok)`, `Such-Hotkey: …`), in their order. ⚠ Cut to the last lines alone, the
+/// first hotkey fell out, and it read as if it were missing.
+pub fn shown_trail(lines: &[String]) -> Vec<String> {
+    let from = lines.len().saturating_sub(START_SHOWN);
+    lines[..from].iter().filter(|l| l.contains("Hotkey: ")).chain(&lines[from..]).cloned().collect()
+}
+
 /// Equal lines in a row as one line (`… (3×)`), the time of the first stays.
 ///
 /// ⚠ Only what is equal **directly one after the other**; and the text
@@ -760,8 +768,7 @@ pub fn build(facts: &Facts, redactor: &Redactor) -> String {
     if !start.is_empty() {
         page.heading(2, &text(lang, "bf_h_start"));
         page.body(INDENT, &[text(lang, "bf_n_start"), String::new()]);
-        let from = start.len().saturating_sub(START_SHOWN);
-        page.body(INDENT, &start[from..]);
+        page.body(INDENT, &shown_trail(&start));
     }
     // The page of the report itself is not part of the list: the report is
     // made while it is built and would stand last and unfinished every time.
@@ -782,8 +789,7 @@ pub fn build(facts: &Facts, redactor: &Redactor) -> String {
         let trail = redacted(dense(&other.trail));
         page.heading(2, &filled(lang, "bf_h_start_von", &[("0", Arg::from(other.name.as_str()))]));
         page.body(INDENT, &[text(lang, "bf_n_start"), String::new()]);
-        let from = trail.len().saturating_sub(START_SHOWN);
-        page.body(INDENT, &trail[from..]);
+        page.body(INDENT, &shown_trail(&trail));
     }
 
     if !facts.update_lines.is_empty() {
@@ -817,6 +823,26 @@ mod tests {
     use super::*;
     use crate::paths::{Host, Paths};
     use crate::pypath::Flavor;
+
+    #[test]
+    fn every_hotkey_line_of_a_start_trail_stays_in_the_report() {
+        // As the overlay writes it: the hotkeys first, then more lines than the report shows.
+        let mut trail = vec![
+            "21:04:01  Start".to_string(),
+            "21:04:01  Hotkey: F13 angemeldet (ok)".to_string(),
+            "21:04:01  Such-Hotkey: Strg+Alt+H angemeldet (ok)".to_string(),
+        ];
+        trail.extend((0..20).map(|n| format!("21:04:{:02}  Schritt {n}", n + 2)));
+        let shown = shown_trail(&trail);
+        let first = shown.iter().find(|l| l.contains("Hotkey: ")).expect("a hotkey line");
+        assert!(first.ends_with("Hotkey: F13 angemeldet (ok)"), "the first hotkey line is the overlay's: {shown:?}");
+        assert!(shown.iter().any(|l| l.contains("Such-Hotkey: ")));
+        assert!(!shown.iter().any(|l| l.ends_with("  Start")), "other old lines stay out");
+        assert_eq!(shown.len(), 2 + START_SHOWN);
+        assert!(shown.last().is_some_and(|l| l.ends_with("Schritt 19")));
+        // A short trail stays as it is.
+        assert_eq!(shown_trail(&trail[..5]), trail[..5].to_vec());
+    }
 
     fn lines(items: &[&str]) -> Vec<String> {
         items.iter().map(|s| s.to_string()).collect()

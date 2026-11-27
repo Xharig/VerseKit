@@ -180,6 +180,114 @@ impl<T: Clone + Send + 'static> LogLook<T> {
     }
 }
 
+/// The size and time of a file, `None` where it is not there.
+pub(super) type Stamp = Option<(u64, std::time::SystemTime)>;
+
+/// The stamps of `files`, in their order.
+pub(super) fn stamps(files: &[String]) -> Vec<Stamp> {
+    files.iter().map(|f| std::fs::metadata(f).ok().and_then(|m| Some((m.len(), m.modified().ok()?)))).collect()
+}
+
+/// What a tile was made of last, and when: worked out again only when its key changed (the stamps of its files,
+/// the language …), so the files are not read at every count of the overview. With `fresh` the kept answer is
+/// worked out anew in a thread of its own once it is older, the kept one standing until then.
+pub(super) struct TileMemo<K, T> {
+    kept: Arc<Mutex<Option<(K, std::time::Instant, T)>>>,
+    busy: Arc<AtomicBool>,
+}
+
+impl<K, T> Default for TileMemo<K, T> {
+    fn default() -> Self {
+        TileMemo { kept: Arc::default(), busy: Arc::default() }
+    }
+}
+
+impl<K: PartialEq + Clone + Send + 'static, T: Clone + Send + 'static> TileMemo<K, T> {
+    /// The answer for `key`: the kept one where the key is the same, else `work` now (and kept).
+    pub(super) fn get(&self, key: K, work: impl FnOnce() -> T) -> T {
+        let mut kept = self.kept.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((known, _, answer)) = kept.as_ref()
+            && *known == key
+        {
+            return answer.clone();
+        }
+        let answer = work();
+        *kept = Some((key, std::time::Instant::now(), answer.clone()));
+        answer
+    }
+
+    /// As [`TileMemo::get`]; a kept answer older than `fresh` is worked out anew by `work` in a thread of its own on
+    /// a copy of `paths`, and the kept one is given until it is done.
+    pub(super) fn get_fresh(
+        &self,
+        paths: &Paths,
+        key: K,
+        fresh: std::time::Duration,
+        work: impl Fn(&Paths) -> T + Send + 'static,
+    ) -> T {
+        {
+            let kept = self.kept.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some((known, at, answer)) = kept.as_ref()
+                && *known == key
+            {
+                if at.elapsed() >= fresh && !self.busy.swap(true, Ordering::AcqRel) {
+                    let (store, busy, own, key) = (self.kept.clone(), self.busy.clone(), paths.working_copy(), key.clone());
+                    let started = std::thread::Builder::new().name("uebersicht-kachel".into()).spawn_with_language(move || {
+                        let answer = work(&own);
+                        *store.lock().unwrap_or_else(std::sync::PoisonError::into_inner) =
+                            Some((key, std::time::Instant::now(), answer));
+                        busy.store(false, Ordering::Release);
+                    });
+                    if started.is_err() {
+                        self.busy.store(false, Ordering::Release);
+                    }
+                }
+                return answer.clone();
+            }
+        }
+        self.get(key, || work(paths))
+    }
+}
+
+/// How long the translation tile stands before it is worked out again beside the window (its times say „today“,
+/// and a fetch may have started).
+const TRANSLATION_FRESH: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// The translation tile: the source of each channel and how it stands. ⚠ It asks the folders of every channel and
+/// the files of the translation; a folder on a drive that sleeps holds it for a while, so the overview keeps it
+/// ([`TileMemo`]) and works it out beside the window.
+pub(super) fn translation_tile(paths: &Paths, lang: Lang) -> Glance {
+    let today = translation::today();
+    let source_line = |name: &str, source: &str, channel: Option<&str>| {
+        if source.is_empty() {
+            return (format!("{name}: {}", t_in(lang, "s_uv_keine_quelle")), String::new());
+        }
+        let status = translation::status_text(paths, source, channel, lang, &today);
+        (format!("{name}: {}", translation::display_name(source)), status)
+    };
+    let main = paths.game_folder();
+    let flavor = paths.host.flavor;
+    let main_name = main
+        .as_deref()
+        .map(|f| flavor.basename(f.trim_end_matches(flavor.sep())))
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| "LIVE".to_string());
+    let (line, status) = source_line(&main_name, &paths.setting(translation::SETTING_SOURCE).unwrap_or_default(), None);
+    let mut details: Vec<String> = Some(status).filter(|s| !s.is_empty()).into_iter().collect();
+    let sources = translation::channel_sources(paths);
+    for (name, folder, p4k) in paths.installed_channels() {
+        if !p4k || !translation::CHANNELS.contains(&name.as_str()) || main.as_deref() == Some(folder.as_str()) {
+            continue;
+        }
+        let source = sources.iter().find(|(k, _)| *k == name).and_then(|(_, v)| v.as_str()).unwrap_or("");
+        let (text, status) = source_line(&name, source, Some(&name));
+        details.push(if status.is_empty() { text } else { format!("{text} · {status}") });
+    }
+    // "Jetzt nach neuer Übersetzung sehen" where a channel has a source to look at (4.12).
+    let check = (!crate::game_texts_page::checkable(paths).is_empty()).then_some(TileAction::TranslationCheck);
+    Glance { action: check, ..glance(line, details) }
+}
+
 /// The state of the servers of CIG for the services tile: the one kept, and the page asked again in a
 /// thread of its own when it is older than five minutes (`serverstatus.state`).
 #[derive(Clone, Default)]
@@ -565,37 +673,12 @@ impl SamplePage {
         }
         lap.lap("bauplaene");
 
-        // Translation: the source of each channel and how it stands.
-        let today = translation::today();
-        let source_line = |name: &str, source: &str, channel: Option<&str>| {
-            if source.is_empty() {
-                return (format!("{name}: {}", t_in(lang, "s_uv_keine_quelle")), String::new());
-            }
-            let status = translation::status_text(paths, source, channel, lang, &today);
-            (format!("{name}: {}", translation::display_name(source)), status)
-        };
-        let main = paths.game_folder();
-        let flavor = paths.host.flavor;
-        let main_name = main
-            .as_deref()
-            .map(|f| flavor.basename(f.trim_end_matches(flavor.sep())))
-            .filter(|n| !n.is_empty())
-            .unwrap_or_else(|| "LIVE".to_string());
-        let (line, status) =
-            source_line(&main_name, &paths.setting(translation::SETTING_SOURCE).unwrap_or_default(), None);
-        let mut details: Vec<String> = Some(status).filter(|s| !s.is_empty()).into_iter().collect();
-        let sources = translation::channel_sources(paths);
-        for (name, folder, p4k) in paths.installed_channels() {
-            if !p4k || !translation::CHANNELS.contains(&name.as_str()) || main.as_deref() == Some(folder.as_str()) {
-                continue;
-            }
-            let source = sources.iter().find(|(k, _)| *k == name).and_then(|(_, v)| v.as_str()).unwrap_or("");
-            let (text, status) = source_line(&name, source, Some(&name));
-            details.push(if status.is_empty() { text } else { format!("{text} · {status}") });
-        }
-        // "Jetzt nach neuer Übersetzung sehen" where a channel has a source to look at (4.12).
-        let check = (!crate::game_texts_page::checkable(paths).is_empty()).then_some(TileAction::TranslationCheck);
-        out.insert("uebersetzung", Glance { action: check, ..glance(line, details) });
+        // Translation: the source of each channel and how it stands; worked out again when the settings or the
+        // notes of the translation changed, else beside the window once a minute.
+        let files = [paths.settings_file(), paths.app_file(translation::NOTE_FILE)];
+        let key = (stamps(&files), lang);
+        let tile = self.translation_memo.get_fresh(paths, key, TRANSLATION_FRESH, move |own| translation_tile(own, lang));
+        out.insert("uebersetzung", tile);
         lap.lap("uebersetzung");
 
         // Play time: all of it, and the last seven days.
@@ -1408,6 +1491,67 @@ mod tests {
         assert_eq!(days.len(), 1, "noted once");
         assert_eq!((days[0].cpu, days[0].gpu, days[0].class), (8.5, Some(12.75), Some(4)));
         assert_eq!(Some(days[0].day.clone()), machine_info::history::day_of(now));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A tile is worked out again only when its key changed; with `fresh` an old answer is renewed in a thread of its
+    /// own while the kept one stands.
+    #[test]
+    fn a_tile_is_worked_out_again_only_when_its_files_changed() {
+        use std::sync::atomic::AtomicUsize;
+        let dir = std::env::temp_dir().join(format!("versekit-kachel-merken-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("hangar.json").to_string_lossy().into_owned();
+        std::fs::write(&file, "{}").unwrap();
+        let memo: TileMemo<Vec<Stamp>, usize> = TileMemo::default();
+        let works = Arc::new(AtomicUsize::new(0));
+        let count = |memo: &TileMemo<Vec<Stamp>, usize>| {
+            let works = works.clone();
+            memo.get(stamps(std::slice::from_ref(&file)), move || works.fetch_add(1, Ordering::SeqCst) + 1)
+        };
+        assert_eq!(count(&memo), 1);
+        for _ in 0..5 {
+            assert_eq!(count(&memo), 1, "the file did not change: nothing worked out again");
+        }
+        std::fs::write(&file, "{\"schiffe\": []}").unwrap();
+        assert_eq!(count(&memo), 2, "the file changed");
+        assert_eq!(works.load(Ordering::SeqCst), 2);
+        // Renewed beside the window once it is older than `fresh`; the kept answer stands meanwhile.
+        let host = super::super::real_data::host_apart(&dir);
+        let paths = Paths::new(host);
+        let fresh: TileMemo<u8, usize> = TileMemo::default();
+        let renewed = Arc::new(AtomicUsize::new(0));
+        let work = |renewed: Arc<AtomicUsize>| move |_: &Paths| renewed.fetch_add(1, Ordering::SeqCst) + 10;
+        assert_eq!(fresh.get_fresh(&paths, 0, std::time::Duration::from_secs(3600), work(renewed.clone())), 10);
+        assert_eq!(fresh.get_fresh(&paths, 0, std::time::Duration::from_secs(3600), work(renewed.clone())), 10, "fresh");
+        assert_eq!(fresh.get_fresh(&paths, 0, std::time::Duration::ZERO, work(renewed.clone())), 10, "the kept one stands");
+        let start = std::time::Instant::now();
+        while fresh.get_fresh(&paths, 0, std::time::Duration::from_secs(3600), work(renewed.clone())) == 10 {
+            assert!(start.elapsed() < std::time::Duration::from_secs(10), "renewed in its thread");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert_eq!(renewed.load(Ordering::SeqCst), 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The translation tile is kept while nothing it reads changed, and worked out again when the settings change.
+    #[test]
+    fn the_translation_tile_is_kept_until_its_settings_change() {
+        use versekit_core::jsonio::Value;
+        let dir = std::env::temp_dir().join(format!("versekit-kachel-uebersetzung-merken-{}", versekit_core::testdir::run_tag()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let host = super::super::real_data::host_apart(&dir);
+        let paths = Paths::new(host.clone());
+        let page = SamplePage::with_settings(Paths::new(host));
+        let tile = |page: &SamplePage| page.tiles_of_4_12(&paths, DE, 0).remove("uebersetzung").expect("tile");
+        let first = tile(&page);
+        let key = |paths: &Paths| (stamps(&[paths.settings_file(), paths.app_file(translation::NOTE_FILE)]), DE);
+        // The kept tile is given back as long as the key stands: a changed answer of the work would not show.
+        assert_eq!(page.translation_memo.get(key(&paths), || panic!("worked out again")), first);
+        paths.set_setting(translation::SETTING_SOURCE, Value::str("luftwerft_de"));
+        assert_ne!(tile(&page), first, "the settings changed");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

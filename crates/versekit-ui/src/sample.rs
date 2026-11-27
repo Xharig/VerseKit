@@ -672,6 +672,12 @@ pub struct SamplePage {
     machine_look: glance_tiles::MachineLook,
     /// The state of the servers of CIG, for the services tile, asked beside the window.
     status_look: glance_tiles::StatusLook,
+    /// The translation tile, by the stamps of the settings and the notes of the translation and the language.
+    translation_memo: glance_tiles::TileMemo<(Vec<glance_tiles::Stamp>, versekit_core::language::Lang), glance::Glance>,
+    /// The hangar file as read, by its stamp, for the tiles of the pages made of it.
+    hangar_memo: glance_tiles::TileMemo<Vec<glance_tiles::Stamp>, std::sync::Arc<Option<versekit_core::jsonio::Map>>>,
+    /// The farm tile, by the stamps of its files, the language and the game values it was worked out with.
+    farm_memo: glance_tiles::TileMemo<(Vec<glance_tiles::Stamp>, versekit_core::language::Lang, usize), glance::Glance>,
     /// The pages whose area carries the mark "NEU" (`controls::NEW_SINCE`, gone once the page was open).
     new_pages: Vec<&'static str>,
     /// The gallery of what is new while it is open (once after an update).
@@ -1681,6 +1687,9 @@ impl SamplePage {
             place_look: glance_tiles::PlaceLook::default(),
             machine_look: glance_tiles::MachineLook::default(),
             status_look: glance_tiles::StatusLook::default(),
+            translation_memo: glance_tiles::TileMemo::default(),
+            hangar_memo: glance_tiles::TileMemo::default(),
+            farm_memo: glance_tiles::TileMemo::default(),
             new_pages: controls::sample_new_pages(),
             gallery: None,
             overlay_rows: versekit_core::overlay::ROWS_DEFAULT,
@@ -8105,8 +8114,6 @@ fn usage_page_id(key: &str) -> Option<&'static str> {
         "hf_ueber" => Some("ueber"),
         "hf_diagnose" => Some("diagnose"),
         ASOP_PAGE => Some("asop"),
-        // The receiver of the counters has no id for the bank page: its views count with the Basetool connection.
-        "hf_bank" => Some("basetool"),
         // Any other page by its name in the overview, where the receiver knows that name; otherwise none.
         _ => versekit_core::overview::page_name(key).filter(|id| versekit_core::usage::PAGES.contains(id)),
     }
@@ -8739,17 +8746,22 @@ mod tests {
         assert_eq!(usage_page_id("hf_diagnose"), Some("diagnose"));
         assert_eq!(usage_page_id("hf_meinlager"), Some("meinlager"));
         assert_eq!(usage_page_id("eigene_seite"), None);
-        // Every page of the side bar has an id the receiver takes, the handle search included; the flight log is
-        // not counted until the receiver knows it.
-        for (page, id) in [("s_os_seite", "orgaverbinden"), (ORG_STOCK_PAGE, "orgalager"), (ORG_ORDERS_PAGE, "orgaauftraege")] {
+        // Every page of the side bar has an id the receiver takes, the handle search and the pages new in VerseKit 5
+        // included.
+        for (page, id) in [
+            ("s_os_seite", "orgaverbinden"),
+            (ORG_STOCK_PAGE, "orgalager"),
+            (ORG_ORDERS_PAGE, "orgaauftraege"),
+            ("hf_st_flugbuch", "statistik_flugbuch"),
+            ("hf_finanzen", "finanzen"),
+            ("hf_streamdeck", "streamdeck"),
+            ("hf_bank", "bank"),
+            ("hf_signatur", "signatur"),
+        ] {
             assert_eq!(usage_page_id(page), Some(id), "{page}");
         }
-        let not_counted = ["hf_st_flugbuch", "hf_finanzen", "hf_streamdeck"];
-        for page in not_counted {
-            assert_eq!(usage_page_id(page), None, "{page}");
-        }
         for (_, pages) in NAV {
-            for (page, _) in pages.iter().filter(|(page, _)| !not_counted.contains(page)) {
+            for (page, _) in pages.iter() {
                 let id = usage_page_id(page).unwrap_or_else(|| panic!("{page} has no id"));
                 assert!(versekit_core::usage::PAGES.contains(&id), "{page} → {id}");
             }

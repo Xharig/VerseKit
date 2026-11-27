@@ -26,6 +26,7 @@ mod pack;
 mod paint;
 mod plugin;
 mod render;
+mod table;
 mod verse;
 mod ws;
 
@@ -133,6 +134,11 @@ fn run(launch: &Launch) -> std::io::Result<()> {
     let mut verse = verse::Http::new(Paths::new(Host::current()));
     let mut plugin = plugin::Plugin::new(&launch.uuid, shipped_profiles());
     (plugin.pages, plugin.profile_actions) = shipped_content(&plugin.profiles);
+    // The keys of the game actions the plugin keeps and presses itself while VerseKit is closed.
+    let table_file = std::path::PathBuf::from(versekit_core::streamdeck::key_table_path(&Paths::new(Host::current())));
+    plugin.table = table::Table::load(Some(&table_file));
+    plugin.table_file = Some(table_file);
+    plugin.local = Some(std::sync::Arc::new(versekit_core::streamdeck_keys::SystemKeys));
     let send = |link: &mut WsClient, out: Vec<Value>| -> std::io::Result<()> {
         for message in out {
             link.send_text(&message.to_string())?;

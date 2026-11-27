@@ -550,6 +550,12 @@ pub struct OverlayApp {
     pub nudged: Vec<(i32, i32)>,
 }
 
+/// Does the interface of the Stream Deck run: switched on, on the own data of a real start, never in the self-check
+/// (`--probe`), so the real plugin never meets a test overlay and no window of the Stream Deck program comes up.
+pub fn deck_wanted(on: bool, probe: bool, real: bool, other_data: bool) -> bool {
+    on && !probe && real && !other_data
+}
+
 /// The probe of Windows and the one of X11; on macOS a placeholder type.
 pub mod probe_type {
     #[cfg(windows)]
@@ -2067,7 +2073,7 @@ impl OverlayApp {
     /// The interface of the Stream Deck as its setting says: started the first time it is on (only on the own data,
     /// never in the self-check), on or off afterwards; the state it shows, and what its keys asked of the overlay.
     fn follow_deck(&mut self, now: f64) {
-        let wanted = self.settings.streamdeck && self.args.probe.is_none() && self.args.real && self.args.data.is_none();
+        let wanted = deck_wanted(self.settings.streamdeck, self.args.probe.is_some(), self.args.real, self.args.data.is_some());
         if wanted
             && self.deck.is_none()
             && let (Some(paths), Some(parts)) = (&self.paths, self.deck_parts.take())
@@ -2119,8 +2125,10 @@ impl OverlayApp {
                 crate::streamdeck_host::Order::Sounds => self.toggle_sounds(),
             }
         }
-        // A window of the Stream Deck program never comes up over the game: the newer plugin waits for its end.
+        // A window of the Stream Deck program never comes up over the game: the newer plugin waits for its end. Under
+        // `--probe` it never comes up at all.
         if !self.game_real
+            && self.args.probe.is_none()
             && let Some(file) = self.deck_plugin_waiting.take()
             && !versekit_core::browser::open_stream_deck_plugin(&file)
         {
@@ -3855,6 +3863,15 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_stream_deck_interface_never_runs_in_the_self_check() {
+        assert!(deck_wanted(true, false, true, false), "on, a real start on the own data");
+        assert!(!deck_wanted(true, true, true, false), "--probe: never, the plugin must not meet a test overlay");
+        assert!(!deck_wanted(true, false, false, false), "no real start");
+        assert!(!deck_wanted(true, false, true, true), "other data");
+        assert!(!deck_wanted(false, false, true, false), "switched off");
+    }
 
     #[test]
     fn the_window_of_the_overlay_carries_the_class_of_the_program() {

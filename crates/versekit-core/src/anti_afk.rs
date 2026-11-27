@@ -1259,9 +1259,12 @@ mod windows_system {
         GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
     };
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-        GetLastInputInfo, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
-        KEYEVENTF_SCANCODE, LASTINPUTINFO, SendInput,
+        GetLastInputInfo, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+        KEYEVENTF_SCANCODE, LASTINPUTINFO, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN,
+        MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEEVENTF_XDOWN,
+        MOUSEEVENTF_XUP, MOUSEINPUT, SendInput,
     };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{XBUTTON1, XBUTTON2};
     use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
     use super::{GAME_EXE, HOLD, JoyStates, Key, KeyEvent, Platform, SendError, StickWatch, System, press_with};
@@ -1368,17 +1371,48 @@ mod windows_system {
         }
     }
 
-    /// The inputs of key events of the Stream Deck: scan codes without the own mark.
+    /// The inputs of key events of the Stream Deck: scan codes without the own mark; a mouse button down or up, a
+    /// wheel step on its down (its up sends nothing).
     fn unmarked_inputs(events: &[KeyEvent]) -> Vec<INPUT> {
         events
             .iter()
             .copied()
-            .map(|event| {
+            .filter_map(|event| {
+                if event.key.is_mouse() {
+                    return mouse_event(event);
+                }
                 let mut input = keyboard_event(event);
                 input.Anonymous.ki.dwExtraInfo = 0;
-                input
+                Some(input)
             })
             .collect()
+    }
+
+    /// One event of a mouse button or a wheel step ([`crate::anti_afk_key::MOUSE_KEYS`]); `None` for the up of a
+    /// wheel step.
+    fn mouse_event(event: KeyEvent) -> Option<INPUT> {
+        const WHEEL_STEP: i32 = 120;
+        let (flags, data): (u32, i32) = match (event.key.scan, event.up) {
+            (0xFF01, false) => (MOUSEEVENTF_LEFTDOWN, 0),
+            (0xFF01, true) => (MOUSEEVENTF_LEFTUP, 0),
+            (0xFF02, false) => (MOUSEEVENTF_RIGHTDOWN, 0),
+            (0xFF02, true) => (MOUSEEVENTF_RIGHTUP, 0),
+            (0xFF03, false) => (MOUSEEVENTF_MIDDLEDOWN, 0),
+            (0xFF03, true) => (MOUSEEVENTF_MIDDLEUP, 0),
+            (0xFF04, false) => (MOUSEEVENTF_XDOWN, i32::from(XBUTTON1)),
+            (0xFF04, true) => (MOUSEEVENTF_XUP, i32::from(XBUTTON1)),
+            (0xFF05, false) => (MOUSEEVENTF_XDOWN, i32::from(XBUTTON2)),
+            (0xFF05, true) => (MOUSEEVENTF_XUP, i32::from(XBUTTON2)),
+            (0xFF10, false) => (MOUSEEVENTF_WHEEL, WHEEL_STEP),
+            (0xFF11, false) => (MOUSEEVENTF_WHEEL, -WHEEL_STEP),
+            _ => return None,
+        };
+        Some(INPUT {
+            r#type: INPUT_MOUSE,
+            Anonymous: INPUT_0 {
+                mi: MOUSEINPUT { dx: 0, dy: 0, mouseData: data as u32, dwFlags: flags, time: 0, dwExtraInfo: 0 },
+            },
+        })
     }
 
     /// Key events of a key of the Stream Deck: without the own mark, so anti-AFK counts them as the player's.
@@ -1483,6 +1517,33 @@ mod windows_system {
             // SAFETY: as above.
             let ki = unsafe { inputs[0].Anonymous.ki };
             assert_eq!((ki.wScan, ki.dwFlags & KEYEVENTF_KEYUP != 0), (0x1A, true));
+        }
+
+        #[test]
+        fn a_mouse_button_and_a_wheel_step_of_the_stream_deck_go_out_as_mouse_input() {
+            let keys = crate::anti_afk_key::parse_with_mouse("lalt+mwheel_up").expect("keys");
+            let down = unmarked_inputs(&crate::anti_afk::key_events(&keys, false));
+            assert_eq!(down.len(), 2, "Alt and one wheel step");
+            assert_eq!(down[0].r#type, INPUT_KEYBOARD);
+            assert_eq!(down[1].r#type, INPUT_MOUSE);
+            // SAFETY: a mouse input, built above.
+            let mi = unsafe { down[1].Anonymous.mi };
+            assert_eq!((mi.dwFlags, mi.mouseData as i32), (MOUSEEVENTF_WHEEL, 120));
+            let up = unmarked_inputs(&crate::anti_afk::key_events(&keys, true));
+            assert_eq!(up.len(), 1, "the wheel step has no up, Alt comes up");
+            let back = crate::anti_afk_key::parse_with_mouse("mwheel_down").expect("keys");
+            // SAFETY: as above.
+            let mi = unsafe { unmarked_inputs(&crate::anti_afk::key_events(&back, false))[0].Anonymous.mi };
+            assert_eq!(mi.mouseData as i32, -120);
+            let side = crate::anti_afk_key::parse_with_mouse("mo1_mouse4").expect("keys");
+            let both: Vec<MOUSEINPUT> = [false, true]
+                .iter()
+                // SAFETY: as above.
+                .map(|up| unsafe { unmarked_inputs(&crate::anti_afk::key_events(&side, *up))[0].Anonymous.mi })
+                .collect();
+            assert_eq!((both[0].dwFlags, both[0].mouseData), (MOUSEEVENTF_XDOWN, u32::from(XBUTTON1)));
+            assert_eq!((both[1].dwFlags, both[1].mouseData), (MOUSEEVENTF_XUP, u32::from(XBUTTON1)));
+            assert!(both.iter().all(|mi| mi.dwExtraInfo == 0), "counted as the player's");
         }
     }
 }

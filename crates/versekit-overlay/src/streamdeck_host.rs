@@ -560,6 +560,9 @@ impl Host for DeckHost {
                     "taste": key,
                     "unsicher": matches!(&r.how, How::Keyboard { input, .. } if versekit_core::streamdeck_fill::alt_gr(input)),
                     "quelle": if r.own { "eigene" } else { "standard" },
+                    // What the plugin keeps to press the key itself while VerseKit does not run.
+                    "eingabe": match &r.how { How::Keyboard { input, .. } => input.clone(), _ => String::new() },
+                    "halten": store.timings.get(&r.action).copied().unwrap_or_default().word(),
                 })
             })
             .collect();

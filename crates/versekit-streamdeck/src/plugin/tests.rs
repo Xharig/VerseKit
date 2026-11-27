@@ -190,6 +190,104 @@ fn without_verse_kit_every_key_says_so_and_a_press_gives_a_warning() {
     assert_eq!(plugin.look(&plugin.keys["K1"].clone()).icon, "layers");
 }
 
+/// The system as a test wants it: the game in front, every key event written down.
+#[derive(Default)]
+struct FakeKeys {
+    sent: std::sync::Mutex<Vec<versekit_core::anti_afk::KeyEvent>>,
+}
+
+impl versekit_core::streamdeck_keys::KeySink for FakeKeys {
+    fn game_in_front(&self) -> bool {
+        true
+    }
+    fn send(&self, events: &[versekit_core::anti_afk::KeyEvent]) -> Result<(), versekit_core::anti_afk::SendError> {
+        self.sent.lock().unwrap().extend_from_slice(events);
+        Ok(())
+    }
+}
+
+impl FakeKeys {
+    /// The keys that went down, by the names of the game.
+    fn downs(&self) -> Vec<String> {
+        self.sent
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|e| !e.up)
+            .map(|e| versekit_core::anti_afk_key::name_of(e.key).unwrap_or("?").to_string())
+            .collect()
+    }
+}
+
+#[test]
+fn without_verse_kit_the_game_actions_press_the_kept_keys_and_show_their_german_names() {
+    let folder = std::env::temp_dir().join(format!("versekit-sd-ohne-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).expect("folder");
+    let file = folder.join(versekit_core::streamdeck::KEY_TABLE_FILE);
+    let keys = std::sync::Arc::new(FakeKeys::default());
+    let mut plugin = Plugin::new("PLUGIN", Vec::new());
+    plugin.table_file = Some(file.clone());
+    plugin.local = Some(keys.clone());
+    let mut verse = FakeVerse::new();
+    verse.bindings = json!({"aktionen": [
+        {"id": "v_toggle_guns_mode", "art": "tastatur", "taste": "Strg rechts + Num 4", "eingabe": "rctrl+np_4", "halten": "folgen", "name": "Waffenmodus umschalten", "karte": "seat_general"},
+        {"id": "v_ifcs_speed_limiter_increment", "art": "tastatur", "taste": "Strg rechts + F1", "eingabe": "rctrl+f1", "halten": "folgen", "name": "Begrenzer erhöhen", "karte": "spaceship_movement"},
+        {"id": "v_ifcs_speed_limiter_decrement", "art": "tastatur", "taste": "Alt links + Z", "eingabe": "lalt+z", "halten": "folgen", "name": "Begrenzer senken", "karte": "spaceship_movement"}
+    ]});
+    plugin.poll(&mut verse);
+    plugin.on_event(&appear("G", Action::GameAction, json!({"aktion": "v_toggle_guns_mode"})), &mut verse);
+    plugin.on_event(&dial("R", json!({"aktion_links": "v_ifcs_speed_limiter_decrement", "aktion_rechts": "v_ifcs_speed_limiter_increment"})), &mut verse);
+    plugin.on_event(&appear("O", Action::Overlay, json!({})), &mut verse);
+    assert!(file.is_file(), "the plugin keeps the keys of VerseKit");
+    // VerseKit is closed.
+    verse.away = true;
+    plugin.poll(&mut verse);
+    let commands_before = verse.commands.len();
+    let look = plugin.look(&plugin.keys["G"].clone());
+    assert_eq!(look.label, "Waffenmodus umschalten", "the German name of the game, kept");
+    assert!(look.badge.is_none() && look.icon_tone != Tone::Warning, "no „Kein VerseKit“ on a game action: {look:?}");
+    let out = plugin.on_event(&json!({"event": "keyDown", "context": "G"}), &mut verse);
+    assert!(events(&out, "showAlert").is_empty(), "{out:?}");
+    plugin.on_event(&json!({"event": "keyUp", "context": "G"}), &mut verse);
+    plugin.on_event(&json!({"event": "dialRotate", "context": "R", "payload": {"ticks": -2}}), &mut verse);
+    assert_eq!(keys.downs(), ["rctrl", "np_4", "lalt", "z", "lalt", "z"], "pressed by the plugin itself");
+    assert_eq!(verse.commands.len(), commands_before, "nothing went to VerseKit");
+    // A key of VerseKit itself says it needs VerseKit.
+    assert_eq!(plugin.look(&plugin.keys["O"].clone()).badge.expect("badge").word, "Kein VerseKit");
+    // A plugin started anew without VerseKit has the kept keys and their language.
+    let mut again = Plugin::new("PLUGIN", Vec::new());
+    again.table = crate::table::Table::load(Some(&file));
+    again.local = Some(keys.clone());
+    again.poll(&mut verse);
+    again.on_event(&appear("G", Action::GameAction, json!({"aktion": "v_toggle_guns_mode"})), &mut verse);
+    assert_eq!(again.look(&again.keys["G"].clone()).label, "Waffenmodus umschalten");
+    let _ = std::fs::remove_dir_all(folder);
+}
+
+#[test]
+fn without_any_kept_keys_a_game_action_presses_its_factory_key_with_its_short_name() {
+    let keys = std::sync::Arc::new(FakeKeys::default());
+    let mut plugin = Plugin::new("PLUGIN", Vec::new());
+    plugin.local = Some(keys.clone());
+    let mut verse = FakeVerse::new();
+    verse.away = true;
+    plugin.poll(&mut verse);
+    plugin.on_event(&appear("W", Action::GameAction, json!({"aktion": "v_power_toggle_weapons"})), &mut verse);
+    plugin.on_event(&appear("E", Action::GameAction, json!({"aktion": "v_engineering_assignment_engine_decrease"})), &mut verse);
+    plugin.on_event(&appear("A", Action::GameAction, json!({"aktion": "ammoRepool"})), &mut verse);
+    let look = plugin.look(&plugin.keys["A"].clone());
+    assert_eq!(look.label, versekit_core::streamdeck::written("MUNITION BÜNDELN", Lang::De), "the German short name the plugin brings");
+    assert!(look.badge.is_none(), "{look:?}");
+    for context in ["W", "E"] {
+        plugin.on_event(&json!({"event": "keyDown", "context": context}), &mut verse);
+        plugin.on_event(&json!({"event": "keyUp", "context": context}), &mut verse);
+    }
+    assert_eq!(keys.downs(), ["p", "lalt", "f6"], "the factory keys, Alt before F6");
+    // An action the factory gives no key and nothing was kept for: it needs VerseKit once, and says so.
+    plugin.on_event(&appear("N", Action::GameAction, json!({"aktion": "v_toggle_guns_mode"})), &mut verse);
+    assert_eq!(plugin.look(&plugin.keys["N"].clone()).badge.expect("badge").word, "Kein VerseKit");
+}
+
 #[test]
 fn a_page_key_opens_its_page_and_an_unknown_page_warns_without_sending() {
     let (mut plugin, mut verse) = ready();
@@ -788,6 +886,21 @@ fn the_profile_in_the_language_of_verse_kit_is_offered_once_and_a_device_without
     // A device kind without a profile is told to VerseKit.
     plugin.on_event(&json!({"event": "deviceDidConnect", "device": "PED", "deviceInfo": {"type": 5, "name": "Stream Deck Pedal"}}), &mut verse);
     assert!(verse.commands.contains(&Command::DeviceHint(Some("Stream Deck Pedal".into()))));
+}
+
+#[test]
+fn a_virtual_deck_gets_no_profile_and_no_hint() {
+    // As the Stream Deck program reports the deck of a tool: kind 14, „MCP Deck“; beside it a real XL.
+    let mut plugin = Plugin::new("PLUGIN", vec!["VerseKit-StreamDeck-XL-DE".into()]);
+    let mut verse = FakeVerse::new();
+    plugin.poll(&mut verse);
+    plugin.on_event(&json!({"event": "didReceiveGlobalSettings", "payload": {"settings": {}}}), &mut verse);
+    let out = plugin.on_event(&json!({"event": "deviceDidConnect", "device": "MCP", "deviceInfo": {"type": 14, "name": "MCP Deck"}}), &mut verse);
+    assert!(events(&out, "switchToProfile").is_empty(), "no profile for the virtual deck");
+    assert!(!verse.commands.contains(&Command::DeviceHint(Some("MCP Deck".into()))), "no hint about it either");
+    let out = plugin.on_event(&json!({"event": "deviceDidConnect", "device": "XL", "deviceInfo": {"type": 2, "name": "Stream Deck XL"}}), &mut verse);
+    assert_eq!(events(&out, "switchToProfile").len(), 1, "the real device beside it gets its profile");
+    assert!(!verse.commands.iter().any(|c| matches!(c, Command::DeviceHint(Some(_)))), "{:?}", verse.commands);
 }
 
 #[test]

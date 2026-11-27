@@ -374,6 +374,15 @@ pub fn key_file_path(paths: &Paths) -> String {
     paths.config_file(KEY_FILE)
 }
 
+/// The keys of the game actions the plugin last got from VerseKit, kept by the plugin beside the key file: it presses
+/// them itself while VerseKit does not run.
+pub const KEY_TABLE_FILE: &str = "streamdeck_tasten.json";
+
+/// Where the plugin keeps [`KEY_TABLE_FILE`].
+pub fn key_table_path(paths: &Paths) -> String {
+    paths.config_file(KEY_TABLE_FILE)
+}
+
 /// Writes the key file (whole or not at all).
 ///
 /// # Errors
@@ -493,6 +502,72 @@ pub fn app_found(host: &crate::paths::Host) -> Option<AppFound> {
         hints.running = running_program("streamdeck.exe");
     }
     app_from(&hints, std::path::Path::is_file, std::path::Path::is_dir)
+}
+
+/// The folders where the Stream Deck program keeps its profiles (`%APPDATA%\Elgato\StreamDeck\ProfilesV3`, the
+/// older `ProfilesV2`).
+pub fn elgato_profile_folders(host: &crate::paths::Host) -> Vec<std::path::PathBuf> {
+    let Some(appdata) = host.var_set("APPDATA") else { return Vec::new() };
+    let base = std::path::Path::new(appdata).join("Elgato").join("StreamDeck");
+    ["ProfilesV3", "ProfilesV2"].iter().map(|name| base.join(name)).collect()
+}
+
+/// A profile of the Stream Deck program, as the `manifest.json` of its folder says.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ElgatoProfile {
+    pub name: String,
+    /// The device it belongs to (`Device.UUID`).
+    pub device: String,
+    /// The program it is bound to (`AppIdentifier`), empty when none.
+    pub app: String,
+    /// When its manifest was written (nanoseconds since 1970).
+    pub changed: u128,
+}
+
+/// The profiles in the folders `*.sdProfile` of `folders`; folders without a readable manifest are left out.
+pub fn elgato_profiles(folders: &[std::path::PathBuf]) -> Vec<ElgatoProfile> {
+    let mut out = Vec::new();
+    for folder in folders {
+        let Ok(entries) = std::fs::read_dir(folder) else { continue };
+        for entry in entries.flatten() {
+            if !entry.file_name().to_string_lossy().to_ascii_lowercase().ends_with(".sdprofile") {
+                continue;
+            }
+            let manifest = entry.path().join("manifest.json");
+            let Ok(text) = std::fs::read_to_string(&manifest) else { continue };
+            let Ok(value) = serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')) else { continue };
+            let changed = std::fs::metadata(&manifest)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map_or(0, |d| d.as_nanos());
+            out.push(ElgatoProfile {
+                name: value["Name"].as_str().unwrap_or("").to_string(),
+                device: value["Device"]["UUID"].as_str().unwrap_or("").to_string(),
+                app: value["AppIdentifier"].as_str().unwrap_or("").to_string(),
+                changed,
+            });
+        }
+    }
+    out
+}
+
+/// The profiles named VerseKit that stand beside another one named VerseKit for the same device: all but the one
+/// in use there (bound to the game, else the newest). Their names, sorted. VerseKit never removes them itself.
+pub fn spare_profiles(profiles: &[ElgatoProfile]) -> Vec<String> {
+    let ours: Vec<&ElgatoProfile> = profiles.iter().filter(|p| p.name.starts_with("VerseKit")).collect();
+    let mut spare = Vec::new();
+    let mut devices: Vec<&str> = ours.iter().map(|p| p.device.as_str()).collect();
+    devices.sort_unstable();
+    devices.dedup();
+    for device in devices {
+        let here: Vec<&ElgatoProfile> = ours.iter().copied().filter(|p| p.device == device).collect();
+        let bound = |p: &ElgatoProfile| p.app.to_ascii_lowercase().ends_with("starcitizen.exe");
+        let kept = here.iter().copied().max_by_key(|p| (bound(p), p.changed));
+        spare.extend(here.iter().filter(|p| !kept.is_some_and(|k| std::ptr::eq(k, **p))).map(|p| p.name.clone()));
+    }
+    spare.sort();
+    spare
 }
 
 /// The program file of a running process whose file is called `name` (small letters); `None` without one.
@@ -1171,6 +1246,42 @@ mod tests {
     use super::*;
 
     const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn older_and_doubled_profiles_of_verse_kit_for_one_device_are_found_and_the_one_in_use_is_not() {
+        let root = std::env::temp_dir().join(format!("versekit-elgato-profile-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let v3 = root.join("ProfilesV3");
+        let game = r"C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe";
+        // (folder, name, device, app): the one bound to the game on the Plus XL, two older beside it, one with the
+        // same name and no binding, the only one of the phone, a profile of the player, one without a manifest.
+        let made = [
+            ("A", "VerseKit Plus XL", "plus", game),
+            ("B", "VerseKit Plus XL alt (26.11.)", "plus", ""),
+            ("C", "VerseKit Plus XL alt 2 (26.11.)", "plus", ""),
+            ("D", "VerseKit Plus XL", "plus", ""),
+            ("E", "VerseKit Mobile", "phone", ""),
+            ("F", "Main", "plus", "*"),
+        ];
+        for (folder, name, device, app) in made {
+            let dir = v3.join(format!("{folder}.sdProfile"));
+            std::fs::create_dir_all(&dir).expect("folder");
+            let app = if app.is_empty() { String::new() } else { format!(r#""AppIdentifier":"{app}","#) };
+            let text = format!(r#"{{{app}"Device":{{"Model":"20GBX9901","UUID":"{device}"}},"Name":"{name}","Version":"3.0"}}"#);
+            std::fs::write(dir.join("manifest.json"), text).expect("manifest");
+        }
+        std::fs::create_dir_all(v3.join("G.sdProfile")).expect("folder");
+        let profiles = elgato_profiles(&[v3.clone(), root.join("ProfilesV2")]);
+        assert_eq!(profiles.len(), 6, "{profiles:?}");
+        let spare = spare_profiles(&profiles);
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(spare, ["VerseKit Plus XL", "VerseKit Plus XL alt (26.11.)", "VerseKit Plus XL alt 2 (26.11.)"]);
+        // Without a binding to the game the newest stays.
+        let plain = |name: &str, changed| ElgatoProfile { name: name.into(), device: "d".into(), app: String::new(), changed };
+        assert_eq!(spare_profiles(&[plain("VerseKit Neo", 2), plain("VerseKit Neo", 5)]), ["VerseKit Neo"]);
+        assert_eq!(spare_profiles(&[plain("VerseKit Neo", 2)]), Vec::<String>::new(), "alone: nothing");
+        assert_eq!(spare_profiles(&[plain("Main", 2), plain("Main", 5)]), Vec::<String>::new(), "not of VerseKit");
+    }
 
     #[test]
     fn the_key_file_goes_out_and_comes_back_and_refuses_what_it_is_not() {

@@ -127,7 +127,8 @@ fn resolve_in(action: &str, all: &controls::Devices, own: &[(String, Vec<Binding
     ordered.extend(slot(true).filter(|e| e.kind == Some(Kind::Mouse)));
     ordered.extend(slot(false).filter(|e| e.kind == Some(Kind::Keyboard)));
     ordered.extend(slot(false).filter(|e| e.kind == Some(Kind::Mouse)));
-    let sendable = ordered.iter().find_map(|e| anti_afk_key::parse(&e.input).map(|keys| (**e, keys)));
+    // A mouse button or wheel step is sent by the deck too ([`anti_afk_key::parse_with_mouse`]).
+    let sendable = ordered.iter().find_map(|e| anti_afk_key::parse_with_mouse(&e.input).map(|keys| (**e, keys)));
     let how = if let Some((entry, keys)) = sendable {
         let own = entry.source == Source::Mine;
         return Resolved {
@@ -301,8 +302,10 @@ mod tests {
     }
 
     #[test]
-    fn only_on_mouse_stick_or_pad_says_so_and_nothing_bound_is_unbound() {
-        assert_eq!(how("v_mouse", "").how, How::MouseOnly);
+    fn only_on_stick_or_pad_says_so_a_mouse_button_is_pressed_and_nothing_bound_is_unbound() {
+        // The deck presses a mouse button itself.
+        let mouse = how("v_mouse", "");
+        assert!(matches!(&mouse.how, How::Keyboard { input, keys } if input == "mouse2" && keys[0].is_mouse()), "{mouse:?}");
         assert_eq!(how("v_pad", "").how, How::GamepadOnly);
         assert_eq!(how("v_nothing", "").how, How::Unbound);
         let stick = how(
@@ -313,9 +316,17 @@ mod tests {
     }
 
     #[test]
-    fn a_keyboard_binding_with_a_mouse_button_cannot_be_sent() {
+    fn a_keyboard_binding_with_a_mouse_button_is_pressed_with_alt_first_and_an_unknown_name_cannot_be_sent() {
         let r = how("v_toggle_mining_laser_type", "");
-        assert_eq!(r.how, How::NotSendable { input: "lalt+mouse1".into() });
+        let How::Keyboard { input, keys } = &r.how else { panic!("{r:?}") };
+        assert_eq!(input, "lalt+mouse1");
+        assert_eq!(keys[0], crate::anti_afk_key::key_of("lalt").expect("alt"));
+        assert!(keys[1].is_mouse());
+        let odd = how(
+            "visor_wipe",
+            r#"<actionmap name="spaceship_general"><action name="visor_wipe"><rebind input="kb1_lalt+gibtsnicht"/></action></actionmap>"#,
+        );
+        assert!(matches!(odd.how, How::NotSendable { .. }), "{odd:?}");
     }
 
     #[test]

@@ -34,7 +34,7 @@ use regex::Regex;
 use crate::jsonio::{Map, Value, map_set};
 use crate::logscan::split_names;
 use crate::paths::Paths;
-use crate::text::{PY_SPACE, decode_ignore, lines_universal, py_strip};
+use crate::text::{PY_SPACE, decode_ignore, lines_universal, py_isspace, py_strip};
 
 /// The language-neutral key of the notification in the `global.ini`.
 pub const INI_KEY: &str = "crafting_hud_notification_received_blueprint";
@@ -416,7 +416,33 @@ pub struct BackRoute<'a> {
 struct BackState {
     store: Option<(String, Map)>,
     index: Option<(String, HashMap<String, BTreeSet<String>>)>,
+    /// The index of every translation there is ([`BackRoute::every_translation`]), built only when the current
+    /// ones do not know a name; kept for the state of the current ones.
+    older: Option<(String, TextIndex)>,
     texts: HashMap<String, Arc<HashMap<String, String>>>,
+}
+
+/// The texts of the item names, without descriptions: translated text → keys, once as written and once in
+/// [`compact`] form.
+#[derive(Default)]
+struct TextIndex {
+    exact: HashMap<String, BTreeSet<String>>,
+    compact: HashMap<String, BTreeSet<String>>,
+}
+
+/// The stored reverse lookups of an older version hold "no English name" for names that only the older
+/// translations know: the state carries this mark so that they are looked up again.
+const STORE_FORMAT: &str = "2";
+
+/// A text without blanks and hyphens: `Bergbau-Laser` and `Bergbaulaser` are one name in two spellings of the
+/// same language.
+fn compact(text: &str) -> String {
+    text.chars().filter(|c| !py_isspace(*c) && *c != '-').collect()
+}
+
+/// Is the key a name and not a description? Only names go into the index of the older translations.
+fn name_only_key(key: &str) -> bool {
+    item_key(key) && !key.to_lowercase().contains("desc")
 }
 
 static BACK: LazyLock<Mutex<BackState>> = LazyLock::new(|| Mutex::new(BackState::default()));
@@ -500,6 +526,24 @@ pub(crate) fn item_texts(text: &str) -> HashMap<String, String> {
     out
 }
 
+/// The item names of a `global.ini` into `index`, descriptions left out.
+fn index_names(index: &mut TextIndex, text: &str) {
+    for line in lines_universal(text) {
+        let Some(sep) = line.find('=').filter(|&s| s >= 1) else { continue };
+        let key = line[..sep].split(',').next().unwrap_or("");
+        if !name_only_key(key) {
+            continue;
+        }
+        let text = plain(&line[sep + 1..]);
+        if text.is_empty() {
+            continue;
+        }
+        let key = key.to_lowercase();
+        index.compact.entry(compact(&text)).or_default().insert(key.clone());
+        index.exact.entry(text).or_default().insert(key);
+    }
+}
+
 /// The names of a stored list, like `list(value)` in Python.
 fn value_list(value: &Value) -> Vec<String> {
     match value {
@@ -519,15 +563,70 @@ impl BackRoute<'_> {
     /// The unpacked `global.ini` files (path, language folder), sorted by language folder.
     fn ini_files(&self) -> Vec<(String, String)> {
         let Some(folder) = self.paths.localization_folder(None) else { return Vec::new() };
-        let Ok(entries) = fs::read_dir(&folder) else { return Vec::new() };
-        let mut names: Vec<String> = entries.filter_map(|e| e.ok()?.file_name().into_string().ok()).collect();
+        self.language_inis(&folder).into_iter().filter(|(p, _)| crate::paths::is_file(p)).collect()
+    }
+
+    /// The `global.ini` of every language folder in `folder` (path, language folder), sorted by language folder,
+    /// also where the file itself is not there.
+    fn language_inis(&self, folder: &str) -> Vec<(String, String)> {
+        let Ok(entries) = fs::read_dir(folder) else { return Vec::new() };
+        let mut names: Vec<String> = entries
+            .filter_map(|e| {
+                let e = e.ok()?;
+                e.file_type().ok()?.is_dir().then_some(())?;
+                e.file_name().into_string().ok()
+            })
+            .collect();
         names.sort();
         let flavor = self.paths.host.flavor;
-        names
-            .into_iter()
-            .map(|language| (flavor.join_all(&folder, &[&language, "global.ini"]), language))
-            .filter(|(p, _)| crate::paths::is_file(p))
-            .collect()
+        names.into_iter().map(|language| (flavor.join_all(folder, &[&language, "global.ini"]), language)).collect()
+    }
+
+    /// Every translation there is on this computer: the current ones, the copies VerseKit kept before it replaced
+    /// a translated `global.ini` (`global.ini.versekit-…`), and the translated `global.ini` files of the other
+    /// installed channels with their copies. A name the game wrote to the log under an earlier translation is
+    /// found there.
+    fn every_translation(&self) -> Vec<String> {
+        let main = self.paths.localization_folder(None);
+        let mut folders: Vec<String> = main.iter().cloned().collect();
+        for (_, channel, _) in self.paths.installed_channels() {
+            if let Some(folder) = self.paths.localization_folder(Some(&channel))
+                && !folders.iter().any(|f| realpath(f) == realpath(&folder))
+            {
+                folders.push(folder);
+            }
+        }
+        let mut out = Vec::new();
+        for folder in &folders {
+            for (ini, language) in self.language_inis(folder) {
+                if language.to_lowercase() == "english" {
+                    continue;
+                }
+                if crate::paths::is_file(&ini) {
+                    out.push(ini.clone());
+                }
+                out.extend(crate::translation::backups_of(&ini));
+            }
+        }
+        out
+    }
+
+    /// The keys whose text in [`Self::every_translation`] is `wanted`, and those whose text is `wanted` in
+    /// [`compact`] form.
+    fn older_keys(&self, state: &mut BackState, wanted: &str, mark: &str) -> (BTreeSet<String>, BTreeSet<String>) {
+        if state.older.as_ref().is_none_or(|(stand, _)| stand != mark) {
+            state.older = None;
+            let mut index = TextIndex::default();
+            for path in self.every_translation() {
+                let Ok(bytes) = fs::read(&path) else { continue };
+                index_names(&mut index, &decode_ignore(strip_bom(&bytes)));
+            }
+            state.older = Some((mark.to_string(), index));
+        }
+        let Some((_, index)) = state.older.as_ref() else { return Default::default() };
+        let exact = index.exact.get(wanted).cloned().unwrap_or_default();
+        let loose = index.compact.get(&compact(wanted)).cloned().unwrap_or_default();
+        (exact, loose)
     }
 
     /// The unpacked `global.ini` files other than the English one.
@@ -645,11 +744,14 @@ impl EnglishNames for BackRoute<'_> {
         if py_strip(name).is_empty() {
             return Vec::new();
         }
-        let files = self.translated_files();
-        if files.is_empty() {
+        // Without a current translation the kept copies may still know the name; without a game folder there is
+        // nothing to look in.
+        if self.paths.localization_folder(None).is_none() {
             return Vec::new();
         }
-        let mark = files.iter().map(|p| ini_mark(p).unwrap_or_else(|| p.clone())).collect::<Vec<_>>().join("|");
+        let files = self.translated_files();
+        let current = files.iter().map(|p| ini_mark(p).unwrap_or_else(|| p.clone())).collect::<Vec<_>>().join("|");
+        let mark = format!("{STORE_FORMAT}|{current}");
         let mut state = BACK.lock().unwrap_or_else(|e| e.into_inner());
         self.back_store(&mut state, &mark);
         let wanted = py_strip(name).to_lowercase();
@@ -658,7 +760,13 @@ impl EnglishNames for BackRoute<'_> {
         {
             return value_list(value);
         }
-        let keys = Self::keys_for(&mut state, &wanted, &files, &mark);
+        // The current translations first; a name they do not know may come from an earlier translation or another
+        // spelling of it (`Bergbau-Laser` for `Bergbaulaser`), but only where nothing is found as written.
+        let mut keys = Self::keys_for(&mut state, &wanted, &files, &mark);
+        if keys.is_empty() {
+            let (exact, loose) = self.older_keys(&mut state, &wanted, &mark);
+            keys = if exact.is_empty() { loose } else { exact };
+        }
         let english: Vec<String> = if keys.is_empty() {
             Vec::new()
         } else {
@@ -794,6 +902,79 @@ mod tests {
         clear_back_caches();
         let empty = BackRoute { paths: &paths, archive: &NoArchive };
         assert_eq!(empty.english_names("Doppelt"), ["Parallax A", "Parallax B"]);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    /// An installation as after a switch of the German translation: the current one keeps the English names of
+    /// the mining lasers, the copy VerseKit kept of the one before has them in German, and the test channel has a
+    /// German name of its own.
+    fn switched_translation(base: &Path) -> Paths {
+        use crate::paths::Host;
+        let _ = fs::remove_dir_all(base);
+        let live = base.join("LIVE");
+        let loc = live.join("data").join("Localization");
+        let german = loc.join("german_(germany)");
+        fs::create_dir_all(&german).unwrap();
+        fs::create_dir_all(loc.join("english")).unwrap();
+        fs::write(live.join("Game.log"), "").unwrap();
+        fs::write(
+            german.join("global.ini"),
+            "item_Mining_MiningLaser_Greycat_Default_S0=Arbor MHV Mining Laser\n\
+             item_Mining_MiningLaser_Thermyte_2_S2=Helix II Mining Laser\nitem_NameFoo=Foo-Bar\n",
+        )
+        .unwrap();
+        fs::write(
+            german.join("global.ini.versekit-20261124-043850"),
+            "item_Mining_MiningLaser_Greycat_Default_S0=Arbor MHV Bergbau-Laser\n\
+             item_Mining_MiningLaser_Greycat_Default_SV=Arbor MHV Bergbau-Laser\n\
+             item_Mining_MiningLaser_Thermyte_2_S2=Helix II Bergbaulaser\n\
+             item_Mining_MiningLaser_Thermyte_2_S2_Desc=Nur Beschreibung\n\
+             item_NameBar=FooBar\n",
+        )
+        .unwrap();
+        let ptu_german = base.join("PTU").join("data").join("Localization").join("german_(germany)");
+        fs::create_dir_all(&ptu_german).unwrap();
+        let ptu_texts = "item_NameHelm=Testhelm\nitem_NameKahnA=Kahn-Bar\nitem_NameKahnB=KahnBar\n";
+        fs::write(ptu_german.join("global.ini"), ptu_texts).unwrap();
+        fs::write(
+            loc.join("english").join("global.ini"),
+            "item_Mining_MiningLaser_Greycat_Default_S0=Arbor MHV Mining Laser\n\
+             item_Mining_MiningLaser_Greycat_Default_SV=Arbor MHV Mining Laser\n\
+             item_Mining_MiningLaser_Thermyte_2_S2=Helix II Mining Laser\n\
+             item_Mining_MiningLaser_Thermyte_2_S2_Desc=Description\n\
+             item_NameFoo=Foo Bar\nitem_NameBar=Other Bar\nitem_NameHelm=Test Helmet\n\
+             item_NameKahnA=Kahn Exact\nitem_NameKahnB=Kahn Loose\n",
+        )
+        .unwrap();
+        let home = base.join("home");
+        let (live, home) = (live.to_string_lossy(), home.to_string_lossy());
+        let vars = [(crate::paths::ENV_INSTALL_DIR, &*live), (crate::envvars::ENV_HOME, &*home)];
+        Paths::new(Host::new(crate::pypath::Flavor::native(), &vars, &home))
+    }
+
+    #[test]
+    fn the_back_route_knows_the_names_of_the_translations_kept_before_and_of_the_other_channels() {
+        let base = std::env::temp_dir().join(format!("versekit-rueckweg-alt-{}", crate::testdir::run_tag()));
+        let paths = switched_translation(&base);
+        let route = BackRoute { paths: &paths, archive: &NoArchive };
+        // From the copy of the translation before: as written, and in another spelling of the same name.
+        assert_eq!(route.english_names("Helix II Bergbaulaser"), ["Helix II Mining Laser"]);
+        assert_eq!(route.english_names("Arbor MHV Bergbaulaser"), ["Arbor MHV Mining Laser"]);
+        // From the translation of the test channel.
+        assert_eq!(route.english_names("Testhelm"), ["Test Helmet"]);
+        // What the current translation knows as written wins over another spelling in the copy (`FooBar`).
+        assert_eq!(route.english_names("Foo-Bar"), ["Foo Bar"]);
+        // So it does among the older ones: `Kahn-Bar` as written, not also `KahnBar`.
+        assert_eq!(route.english_names("Kahn-Bar"), ["Kahn Exact"]);
+        // A description is no name, and a name no translation has stays unknown.
+        assert!(route.english_names("Nur Beschreibung").is_empty());
+        assert!(route.english_names("Helix III Bergbaulaser").is_empty());
+        // The stored lookups of an older version ("no English name" for both lasers) do not hold any longer.
+        let mark = route.translated_files().iter().map(|p| ini_mark(p).unwrap()).collect::<Vec<_>>().join("|");
+        let old = format!(r#"{{"stand": {mark:?}, "namen": {{"helix ii bergbaulaser": []}}}}"#);
+        fs::write(paths.app_file(BACK_FILE), old).unwrap();
+        clear_back_caches();
+        assert_eq!(route.english_names("Helix II Bergbaulaser"), ["Helix II Mining Laser"]);
         let _ = fs::remove_dir_all(&base);
     }
 

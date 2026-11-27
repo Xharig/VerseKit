@@ -214,6 +214,7 @@ pub const KNOWN_FILES: &[&str] = &[
     "statistik.json",
     "streamdeck.json",
     "streamdeck_eintraege.json",
+    "streamdeck_tasten.json",
     "titel-original.json",
     "uebersetzung.json",
     "uebersetzung_abfragen.json",

@@ -578,7 +578,7 @@ fn a_known_name_goes_only_in_the_subfolder_the_program_puts_it_in() {
 #[test]
 fn every_file_name_of_the_program_is_known_or_named_as_no_data() {
     // Names that are no data of the program in its own subfolders, each with where it lies.
-    const NO_DATA: [&str; 13] = [
+    const NO_DATA: [&str; 14] = [
         // The admin password of the org server: in the data folder of that server, which an org hosts on its own
         // machine. Neither the program on a player's computer nor its uninstaller ever sees that folder.
         versekit_orgserver::setup::PASSWORD_FILE,
@@ -604,6 +604,8 @@ fn every_file_name_of_the_program_is_known_or_named_as_no_data() {
         "contracts.json",
         "locations.json",
         "ergebnis.json",
+        // The layout of the dials inside the Stream Deck plugin, written into its package, never into a data folder.
+        "layouts/regler.json",
     ];
     let pattern =
         regex::Regex::new(r#"const [A-Z_0-9]+: &(?:'static )?str = "([^"]+\.(?:json|txt|bin|log|zip))""#).unwrap();

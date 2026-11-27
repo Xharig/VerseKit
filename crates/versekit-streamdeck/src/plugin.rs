@@ -79,6 +79,10 @@ pub const PROFILE_DEVICES: [(u64, &str, Option<&str>); 6] = [
     (13, "VerseKit-StreamDeck-PlusXL", Some("20GBX9901")),
 ];
 
+/// The kinds of device the Stream Deck program reports for a virtual deck (`deviceInfo.type` 14, „MCP Deck“): no
+/// hardware, so neither a profile nor the hint that one is missing.
+pub const VIRTUAL_KINDS: [u64; 1] = [14];
+
 /// The symbol of a page key: that of the page where the profiles have one, otherwise the one of the action.
 pub fn page_icon(page: &str) -> &'static str {
     match page {
@@ -174,6 +178,14 @@ pub struct Plugin {
     pub pages: HashMap<String, Vec<String>>,
     /// The number of the last wish of VerseKit for a page of the device, switched or passed over.
     page_wish: Option<u64>,
+    /// The keys of the game actions the plugin presses itself while VerseKit does not run ([`crate::table`]).
+    pub table: crate::table::Table,
+    /// Where the table is kept; `None` keeps nothing (a test).
+    pub table_file: Option<std::path::PathBuf>,
+    /// What presses the keys while VerseKit does not run; `None` presses nothing (a test that does not ask for it).
+    pub local: Option<std::sync::Arc<dyn versekit_core::streamdeck_keys::KeySink>>,
+    /// The keys the plugin holds down itself.
+    local_keys: versekit_core::streamdeck_keys::GameKeys,
 }
 
 /// The reasons of [`Plugin::game_block`] that are a missing binding on the keyboard: a press on such a key opens the
@@ -311,11 +323,36 @@ impl Plugin {
             hold_hint: HashMap::new(),
             pages: HashMap::new(),
             page_wish: None,
+            table: crate::table::Table::factory(),
+            table_file: None,
+            local: None,
+            local_keys: versekit_core::streamdeck_keys::GameKeys::default(),
         }
     }
 
     fn now(&self) -> Instant {
         self.fixed_now.unwrap_or_else(Instant::now)
+    }
+
+    /// Does VerseKit not answer (not started, closed, interface off)? Then the plugin presses the game actions itself.
+    fn offline(&self) -> bool {
+        self.missing.is_some() || self.state.is_none()
+    }
+
+    /// One game action down or up: through VerseKit while it answers, else by the plugin itself with its table.
+    fn send_game(&mut self, action: &str, phase: Phase, verse: &mut dyn Verse) -> Result<(), ()> {
+        if !self.offline() {
+            return verse.command(&Command::GameAction { action: action.to_string(), phase }).map_err(|_| ());
+        }
+        let Some(sink) = self.local.clone() else { return Err(()) };
+        let now = self.now();
+        if phase == Phase::Up {
+            self.local_keys.up(action, sink.as_ref(), now);
+            return Ok(());
+        }
+        let entry = self.table.get(action).ok_or(())?;
+        let keys = versekit_core::anti_afk_key::parse_with_mouse(&entry.input).ok_or(())?;
+        self.local_keys.down(action, &keys, entry.timing, sink.as_ref(), now).map_err(|_| ())
     }
 
     /// A game action key that counts its switch (only a key, not a dial).
@@ -328,8 +365,9 @@ impl Plugin {
         vec![json!({"event": "getGlobalSettings", "context": self.uuid})]
     }
 
+    /// The language of VerseKit; while it does not answer, the one of the table it gave last.
     fn lang(&self) -> Lang {
-        self.state.as_ref().map_or(Lang::De, State::language)
+        self.state.as_ref().map_or(self.table.lang, State::language)
     }
 
     fn t(&self, key: &str) -> String {
@@ -480,6 +518,14 @@ impl Plugin {
 
     fn load_bindings(&mut self, verse: &mut dyn Verse) {
         let Ok(value) = verse.bindings() else { return };
+        // The plugin keeps the keys of the player and the names of the game, to press them while VerseKit is closed.
+        let table = crate::table::Table::from_bindings(&value, self.lang());
+        if !table.entries.is_empty() && table != self.table {
+            if let Some(file) = &self.table_file {
+                table.save(file);
+            }
+            self.table = table;
+        }
         self.bindings = value["aktionen"]
             .as_array()
             .map(|list| {
@@ -682,7 +728,12 @@ impl Plugin {
             self.game_style(key, &mut look);
             Self::profile_look(key, &mut look);
         }
-        if self.missing.is_some() || self.state.is_none() {
+        if self.offline() {
+            // A game action needs no VerseKit: its name and key come from the table the plugin keeps.
+            if matches!(action, Action::GameAction | Action::Emote) {
+                self.game_look(key, &mut look);
+                return look;
+            }
             look.icon = "unplug";
             look.icon_tone = Tone::Warning;
             look.badge = self.badge("sd_z_getrennt", false, Tone::Warning);
@@ -762,7 +813,7 @@ impl Plugin {
                 }
                 None => look.badge = self.badge("sd_z_ab", false, Tone::Muted),
             },
-            Action::GameAction | Action::Emote => self.game_look(key, state, &mut look),
+            Action::GameAction | Action::Emote => self.game_look(key, &mut look),
             _ => {}
         }
         look
@@ -806,7 +857,12 @@ impl Plugin {
     }
 
     /// Why a game action cannot be sent right now: the text key and the symbol; `None` when it can.
-    fn game_block(&self, action: &str, state: &State) -> Option<(&'static str, &'static str)> {
+    fn game_block(&self, action: &str) -> Option<(&'static str, &'static str)> {
+        let Some(state) = self.state.as_ref().filter(|_| self.missing.is_none()) else {
+            // Without VerseKit: the table the plugin keeps; an action it has no key for needs VerseKit.
+            let sendable = self.table.get(action).is_some_and(|e| versekit_core::anti_afk_key::parse_with_mouse(&e.input).is_some());
+            return (!sendable || self.local.is_none()).then_some(("sd_z_getrennt", "unplug"));
+        };
         match state.get("spielaktion").and_then(|v| v["gesperrt"].as_str()) {
             Some("admin") => return Some(("sd_ga_admin", "shield-alert")),
             Some("spiel_admin") => return Some(("sd_ga_spiel_admin", "shield-alert")),
@@ -852,27 +908,38 @@ impl Plugin {
     /// `actionmap`; the key keeps its own where it names one ([`Plugin::profile_look`] comes after).
     fn game_style(&self, key: &Key, look: &mut Look) {
         let Some(first) = Self::game_actions(key).into_iter().next() else { return };
-        let map = self.bindings.get(&first).map_or("", |b| b.map.as_str());
+        let map = match self.bindings.get(&first) {
+            Some(binding) => binding.map.as_str(),
+            None => self.table.get(&first).map_or("", |e| e.map.as_str()),
+        };
         if let Some(style) = crate::game_style::of(&first, map) {
             look.icon = style.icon;
             look.colour = Some(style.colour);
         }
     }
 
-    fn game_look(&self, key: &Key, state: &State, look: &mut Look) {
+    fn game_look(&self, key: &Key, look: &mut Look) {
         let actions = Self::game_actions(key);
         let Some(first) = actions.first() else {
             look.badge = self.badge("sd_ga_waehlen", false, Tone::Muted);
             return;
         };
-        // The long name of the game only where the key brings no short name of its own.
+        // The long name of the game only where the key brings no short name of its own; without VerseKit the name
+        // the table keeps, else the short name the plugin brings in the language of the table.
         let short = key.settings["name"].as_str().is_some_and(|n| !n.trim().is_empty());
-        if let Some(binding) = self.bindings.get(first)
-            && !short
-        {
-            look.label = binding.name.clone();
+        if !short {
+            let kept = self.table.get(first).map(|e| e.name.clone()).filter(|n| !n.is_empty());
+            let name = match self.bindings.get(first) {
+                Some(binding) if !self.offline() => Some(binding.name.clone()),
+                _ => kept.or_else(|| {
+                    versekit_core::streamdeck::short_name(first, self.lang()).map(|s| versekit_core::streamdeck::written(s, self.lang()))
+                }),
+            };
+            if let Some(name) = name {
+                look.label = name;
+            }
         }
-        let blocked = actions.iter().find_map(|a| self.game_block(a, state));
+        let blocked = actions.iter().find_map(|a| self.game_block(a));
         match blocked {
             Some((text, icon)) => {
                 look.icon = icon;
@@ -889,7 +956,12 @@ impl Plugin {
             // The key of the game only where the key asks for it (`taste_anzeigen`); without it the name stands larger.
             None => {
                 let wanted = key.settings["taste_anzeigen"].as_bool().unwrap_or(false);
-                let shown = self.bindings.get(first).map(|b| b.key.clone()).unwrap_or_default();
+                let shown = match self.bindings.get(first) {
+                    Some(binding) if !self.offline() => binding.key.clone(),
+                    _ => self.table.get(first).map_or_else(String::new, |e| {
+                        versekit_core::controls::input_readable(&e.input, Some(versekit_core::joysticks::Kind::Keyboard))
+                    }),
+                };
                 if wanted && !shown.is_empty() {
                     look.badge = Some(Badge { word: shown, filled: false, tone: Tone::Muted });
                 }
@@ -904,7 +976,8 @@ impl Plugin {
     /// A key pressed.
     fn press(&mut self, context: &str, verse: &mut dyn Verse) -> Vec<Value> {
         let Some(key) = self.keys.get(context).cloned() else { return Vec::new() };
-        if self.missing.is_some() || self.state.is_none() {
+        // Without VerseKit only the game actions work: the plugin presses them itself.
+        if self.offline() && !matches!(key.action, Action::GameAction | Action::Emote) {
             return vec![Self::alert(context)];
         }
         let command = match key.action {
@@ -944,7 +1017,7 @@ impl Plugin {
                 }
                 if Self::counts(&key) {
                     // A counted switch is sent when the key comes up: held long, it is set back instead.
-                    if let Some((reason, _)) = self.state.as_ref().and_then(|s| self.game_block(&action, s)) {
+                    if let Some((reason, _)) = self.game_block(&action) {
                         return self.refused_game(context, reason, verse);
                     }
                     self.pressed.insert(context.to_string(), now);
@@ -973,10 +1046,10 @@ impl Plugin {
     }
 
     fn game_down(&mut self, context: &str, action: &str, verse: &mut dyn Verse) -> Vec<Value> {
-        if let Some((reason, _)) = self.state.as_ref().and_then(|s| self.game_block(action, s)) {
+        if let Some((reason, _)) = self.game_block(action) {
             return self.refused_game(context, reason, verse);
         }
-        match verse.command(&Command::GameAction { action: action.to_string(), phase: Phase::Down }) {
+        match self.send_game(action, Phase::Down, verse) {
             Ok(()) => {
                 self.held.insert(context.to_string(), action.to_string());
                 Vec::new()
@@ -1004,7 +1077,7 @@ impl Plugin {
 
     /// A dangerous game action pressed: nothing is sent yet, the ring on the key begins to fill.
     fn start_guard(&mut self, context: &str, action: &str, verse: &mut dyn Verse) -> Vec<Value> {
-        if let Some((reason, _)) = self.state.as_ref().and_then(|s| self.game_block(action, s)) {
+        if let Some((reason, _)) = self.game_block(action) {
             return self.refused_game(context, reason, verse);
         }
         let now = self.now();
@@ -1074,7 +1147,7 @@ impl Plugin {
         }
         let mut out = Vec::new();
         if let Some(action) = self.held.remove(context)
-            && verse.command(&Command::GameAction { action, phase: Phase::Up }).is_err()
+            && self.send_game(&action, Phase::Up, verse).is_err()
         {
             return vec![Self::alert(context)];
         }
@@ -1095,8 +1168,8 @@ impl Plugin {
             return out;
         }
         let Some(action) = Self::game_actions(key).into_iter().next() else { return vec![Self::alert(context)] };
-        let down = verse.command(&Command::GameAction { action: action.clone(), phase: Phase::Down });
-        let up = verse.command(&Command::GameAction { action, phase: Phase::Up });
+        let down = self.send_game(&action, Phase::Down, verse);
+        let up = self.send_game(&action, Phase::Up, verse);
         if down.is_err() || up.is_err() {
             return vec![Self::alert(context)];
         }
@@ -1184,13 +1257,20 @@ impl Plugin {
     /// Is a dial in the middle of its series, or waiting for the limit? Then [`Plugin::tick`] wants to be called
     /// every [`DIAL_FRAME`].
     pub fn busy(&self) -> bool {
-        !self.motion.is_empty() || !self.dial_waiting.is_empty() || !self.guarded.is_empty() || !self.hold_hint.is_empty()
+        !self.motion.is_empty()
+            || !self.dial_waiting.is_empty()
+            || !self.guarded.is_empty()
+            || !self.hold_hint.is_empty()
+            || self.local_keys.count() > 0
     }
 
-    /// The next pictures of the dials whose time has come, the pictures that waited for the limit, and the dangerous
-    /// game actions held down.
+    /// The next pictures of the dials whose time has come, the pictures that waited for the limit, the dangerous
+    /// game actions held down, and the keys the plugin holds itself (let go as their timing says).
     pub fn tick(&mut self, verse: &mut dyn Verse) -> Vec<Value> {
         let now = self.now();
+        if let Some(sink) = self.local.clone() {
+            self.local_keys.watch(sink.as_ref(), Some(Duration::ZERO), now);
+        }
         let mut out = self.follow_guards(verse);
         let due: Vec<String> = self.motion.iter().filter(|(_, (_, _, at))| *at <= now).map(|(c, _)| c.clone()).collect();
         for context in due {
@@ -1227,12 +1307,12 @@ impl Plugin {
         let Some(action) = key.settings[side].as_str().filter(|s| !s.is_empty()).map(String::from) else {
             return vec![Self::alert(context)];
         };
-        if let Some((reason, _)) = self.state.as_ref().and_then(|s| self.game_block(&action, s)) {
+        if let Some((reason, _)) = self.game_block(&action) {
             return self.refused_game(context, reason, verse);
         }
         for _ in 0..ticks.unsigned_abs().min(10) {
-            let down = verse.command(&Command::GameAction { action: action.clone(), phase: Phase::Down });
-            let up = verse.command(&Command::GameAction { action: action.clone(), phase: Phase::Up });
+            let down = self.send_game(&action, Phase::Down, verse);
+            let up = self.send_game(&action, Phase::Up, verse);
             if down.is_err() || up.is_err() {
                 return vec![Self::alert(context)];
             }
@@ -1370,6 +1450,10 @@ impl Plugin {
         let mut hint: Option<String> = None;
         let mut changed = false;
         for device in self.devices.clone() {
+            // A device without keys of its own (the virtual deck of a tool) gets no profile and no hint.
+            if VIRTUAL_KINDS.contains(&device.kind) {
+                continue;
+            }
             let Some(base) = profile_base(device.kind) else {
                 hint = Some(device.name.clone());
                 continue;
@@ -1401,6 +1485,9 @@ impl Plugin {
         let contexts: Vec<String> = self.held.keys().cloned().collect();
         for context in contexts {
             let _ = self.release(&context, verse);
+        }
+        if let Some(sink) = self.local.clone() {
+            self.local_keys.release_all(sink.as_ref());
         }
     }
 }

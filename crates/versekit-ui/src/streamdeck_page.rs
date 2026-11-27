@@ -69,6 +69,20 @@ fn shipped_version() -> Option<String> {
     streamdeck::plugin_file_version(&std::fs::read(file).ok()?)
 }
 
+/// What the page says after setting up about older or doubled VerseKit profiles in the Stream Deck program;
+/// `None` without any.
+fn spare_profiles_text(spare: &[String]) -> Option<String> {
+    let quoted: Vec<String> = spare.iter().map(|name| tf("sd_s_profil_name", &[("0", Arg::from(name.as_str()))])).collect();
+    match quoted.len() {
+        0 => None,
+        1 => Some(tf("sd_s_alte_profile_1", &[("0", Arg::from(quoted[0].as_str()))])),
+        n => Some(tf("sd_s_alte_profile", &[("0", Arg::from(n)), ("1", Arg::from(quoted.join(", ").as_str()))])),
+    }
+}
+
+/// Names worked out for actions: the actions and their names.
+type Named = (Vec<String>, Vec<String>);
+
 /// The plan worked out in a thread: the items and the names of the actions.
 type Planned = Option<Result<(Vec<Item>, Vec<String>), String>>;
 
@@ -92,6 +106,11 @@ pub struct StreamDeckState {
     planned: Arc<Mutex<Planned>>,
     planning: bool,
     record: Option<Record>,
+    /// The names of the actions of the record, worked out in a thread: the actions they were worked out for and
+    /// the names.
+    record_named: Arc<Mutex<Option<Named>>>,
+    /// The actions the names of the record were last asked for.
+    record_naming: Option<Vec<String>>,
     message: Option<(String, bool)>,
     /// When the plugin file was handed to the Stream Deck program.
     opened: Option<Instant>,
@@ -190,6 +209,48 @@ fn not_quiet_text(reason: Option<&versekit_core::game_start::NotQuiet>) -> Strin
     }
 }
 
+/// The name of a game action as the deck shows it: the text of the game in the language of the program, the short
+/// name of the profiles where the game has none, the technical name made readable where the game does not know it.
+fn action_namer(paths: &Paths, profile: &versekit_core::controls::Profile) -> impl Fn(&str) -> String {
+    action_namer_in(profile, paths.game_folder(), versekit_core::language::current())
+}
+
+/// [`action_namer`] with the texts of the game folder `folder` in `lang`.
+fn action_namer_in(
+    profile: &versekit_core::controls::Profile,
+    folder: Option<String>,
+    lang: versekit_core::language::Lang,
+) -> impl Fn(&str) -> String {
+    let labels = match &folder {
+        Some(folder) => versekit_core::controls::labels_from_folder(profile, folder, lang),
+        None => Default::default(),
+    };
+    let without_text = versekit_core::controls::without_own_text(profile, folder.as_deref(), lang);
+    move |action: &str| {
+        let plain = action.split_once('.').map_or(action, |(_, p)| p);
+        let label = labels.get(plain);
+        let game = label.map_or_else(|| versekit_core::controls::technical_readable(plain), |l| l.name.clone());
+        let own_text = !without_text.contains(plain) && label.is_some_and(|l| l.real);
+        streamdeck::game_action_name(plain, &game, own_text, lang)
+    }
+}
+
+/// The names of the actions of the keys put in last, as the plan names them.
+fn record_names(paths: &Paths, actions: &[String]) -> Vec<String> {
+    let profile = versekit_gamedata::control_profile::profile(paths);
+    let name_of = action_namer(paths, &profile);
+    actions.iter().map(|action| name_of(action)).collect()
+}
+
+/// The name of the action of line `r` of the keys put in last: the name of the game once it was worked out for
+/// these actions, until then the technical name made readable.
+fn record_line_name(named: Option<&(Vec<String>, Vec<String>)>, actions: &[String], r: usize) -> String {
+    match named {
+        Some((for_actions, names)) if for_actions == actions && r < names.len() => names[r].clone(),
+        _ => versekit_core::controls::technical_readable(&actions[r]),
+    }
+}
+
 /// The plan for the game actions of the plugin, with the bindings, the factory setting and the hotkeys of VerseKit.
 fn work_out_plan(paths: &Paths, in_use: &[String], keep_deleted: bool) -> Result<(Vec<Item>, Vec<String>), String> {
     let profile = versekit_gamedata::control_profile::profile(paths);
@@ -200,21 +261,7 @@ fn work_out_plan(paths: &Paths, in_use: &[String], keep_deleted: bool) -> Result
     let hotkeys: Vec<versekit_core::overlay::Hotkey> =
         versekit_core::overlay::HotkeyChoice::read_all(paths).iter().filter_map(|c| c.hotkey()).collect();
     let mut items = streamdeck_fill::plan(in_use, &own, &profile, &hotkeys, keep_deleted);
-    let lang = versekit_core::language::current();
-    let folder = paths.game_folder();
-    let labels = match &folder {
-        Some(folder) => versekit_core::controls::labels_from_folder(&profile, folder, lang),
-        None => Default::default(),
-    };
-    // As on the deck: the short name of the profiles where the game has no text in the language of the program.
-    let without_text = versekit_core::controls::without_own_text(&profile, folder.as_deref(), lang);
-    let name_of = |action: &str| {
-        let plain = action.split_once('.').map_or(action, |(_, p)| p);
-        let label = labels.get(plain);
-        let game = label.map_or_else(|| versekit_core::controls::technical_readable(plain), |l| l.name.clone());
-        let own_text = !without_text.contains(plain) && label.is_some_and(|l| l.real);
-        streamdeck::game_action_name(plain, &game, own_text, lang)
-    };
+    let name_of = action_namer(paths, &profile);
     // The action the key alone presses, by its name: the line of the plan says it.
     for item in &mut items {
         if let Outcome::Relocate { alone: Some(alone), .. } = &mut item.outcome {
@@ -446,7 +493,15 @@ impl StreamDeckState {
         }
         if versekit_core::browser::open_stream_deck_plugin(&file) {
             self.opened = Some(Instant::now());
-            self.message = Some((t("sd_s_bestaetigen"), true));
+            let mut text = t("sd_s_bestaetigen");
+            if let Some(paths) = &self.paths {
+                let folders = streamdeck::elgato_profile_folders(&paths.host);
+                if let Some(spare) = spare_profiles_text(&streamdeck::spare_profiles(&streamdeck::elgato_profiles(&folders))) {
+                    text.push_str("\n\n");
+                    text.push_str(&spare);
+                }
+            }
+            self.message = Some((text, true));
         } else {
             self.message = Some((tf("sd_s_oeffnen_fehler", &[("0", Arg::from(file.as_str()))]), false));
         }
@@ -472,6 +527,24 @@ impl StreamDeckState {
         if spawned.is_err() {
             self.planning = false;
         }
+    }
+
+    /// Starts working out the names of the actions of the record in a thread, once for each set of actions.
+    fn keep_naming_record(&mut self, ui: &Ui) {
+        let Some(paths) = &self.paths else { return };
+        let Some(record) = &self.record else { return };
+        let actions: Vec<String> = record.entries.iter().map(|(action, _, _)| action.clone()).collect();
+        if self.record_naming.as_ref() == Some(&actions) {
+            return;
+        }
+        self.record_naming = Some(actions.clone());
+        let (paths, named, ctx) = (Paths::new(paths.host.clone()), self.record_named.clone(), ui.ctx().clone());
+        let lang = versekit_core::language::current();
+        let _ = std::thread::Builder::new().name("streamdeck-record-names".into()).spawn(move || {
+            let names = versekit_core::language::with_language(lang, || record_names(&paths, &actions));
+            *lock(&named) = Some((actions, names));
+            ctx.request_repaint();
+        });
     }
 
     fn write_plan(&mut self, items: &[Item]) {
@@ -576,6 +649,13 @@ fn plan_rows(items: &[Item], show_done: bool) -> Vec<PlanRow> {
     rows
 }
 
+/// The first modifier of `input` that VerseKit does not give out ([`streamdeck_fill::SAFE_MODIFIERS`]).
+fn busy_of(input: &str) -> String {
+    let parts: Vec<&str> = input.split('+').collect();
+    let modifiers = &parts[..parts.len().saturating_sub(1)];
+    modifiers.iter().find(|m| !streamdeck_fill::SAFE_MODIFIERS.contains(m)).or(modifiers.first()).map_or_else(String::new, |m| m.to_string())
+}
+
 /// One line of the plan: the name of the action and what happens with it.
 fn plan_line(item: &Item, name: &str) -> String {
     let what = match &item.outcome {
@@ -597,16 +677,27 @@ fn plan_line(item: &Item, name: &str) -> String {
         Outcome::Relocate { from, key, alone, .. } => {
             let kind = Some(versekit_core::joysticks::Kind::Keyboard);
             let readable = |input: &str| versekit_core::controls::input_readable(input, kind);
-            let base = readable(from.rsplit('+').next().unwrap_or(from));
-            let args = [("0", Arg::from(readable(from))), ("1", Arg::from(readable(key))), ("2", Arg::from(base))];
+            // „Strg + Umschalt + L wird Strg rechts + A, weil Umschalt im Spiel allein schon etwas auslöst: Nachbrenner“.
+            let (third, keys) = if streamdeck_fill::alt_gr(from) {
+                (readable(from.rsplit('+').next().unwrap_or(from)), ("sd_f_umziehen", "sd_f_umziehen_mit"))
+            } else {
+                (readable(&busy_of(from)), ("sd_f_umziehen_taste", "sd_f_umziehen_taste_mit"))
+            };
+            let args = [("0", Arg::from(readable(from))), ("1", Arg::from(readable(key))), ("2", Arg::from(third))];
             match alone {
                 Some(alone) => {
                     let mut with = args.to_vec();
                     with.push(("3", Arg::from(alone.as_str())));
-                    tf("sd_f_umziehen_mit", &with)
+                    tf(keys.1, &with)
                 }
-                None => tf("sd_f_umziehen", &args),
+                None => tf(keys.0, &args),
             }
+        }
+        Outcome::Restore { from, factory, .. } => {
+            let kind = Some(versekit_core::joysticks::Kind::Keyboard);
+            let readable = |input: &str| versekit_core::controls::input_readable(input, kind);
+            let args = [("0", Arg::from(readable(from))), ("1", Arg::from(readable(factory))), ("2", Arg::from(readable(&busy_of(from))))];
+            tf("sd_f_werk", &args)
         }
         Outcome::Refill(key) => {
             let shown = versekit_core::controls::input_readable(key, Some(versekit_core::joysticks::Kind::Keyboard));
@@ -621,6 +712,7 @@ fn plan_line(item: &Item, name: &str) -> String {
 pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     state.keep_asking(ui);
     state.keep_counting(ui);
+    state.keep_naming_record(ui);
     // Keys are missing: the preview stands open at once (after setting up, after a press on such a key, from the bar).
     state.open_preview_by_itself();
     // Once the plugin asks, the request to confirm is done: the state row says "Connected".
@@ -794,7 +886,10 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                         let adds = items
                             .iter()
                             .any(|i| {
-                                matches!(i.outcome, Outcome::Add(_) | Outcome::Move { .. } | Outcome::Relocate { .. } | Outcome::Refill(_))
+                                matches!(
+                                    i.outcome,
+                                    Outcome::Add(_) | Outcome::Move { .. } | Outcome::Relocate { .. } | Outcome::Restore { .. } | Outcome::Refill(_)
+                                )
                             });
                         let none = t("sd_f_nichts_frei");
                         let reason = if adds { write_blocked.as_deref() } else { Some(none.as_str()) };
@@ -810,9 +905,11 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                 let r = r - plan_rows;
                 if let Some(record) = &state.record {
                     if r < record.entries.len() {
-                        let (action, _, key) = &record.entries[r];
+                        let (_, _, key) = &record.entries[r];
                         let shown = versekit_core::controls::input_readable(key, Some(versekit_core::joysticks::Kind::Keyboard));
-                        ui.label(format!("{}: {shown}", versekit_core::controls::technical_readable(action)));
+                        let actions: Vec<String> = record.entries.iter().map(|(action, _, _)| action.clone()).collect();
+                        let name = record_line_name(lock(&state.record_named).as_ref(), &actions, r);
+                        ui.label(format!("{name}: {shown}"));
                     } else {
                         ui.horizontal(|row| {
                             let (back_word, all_word) = (t("sd_f_rueckgaengig"), t("sd_f_ganz"));
@@ -938,21 +1035,46 @@ mod tests {
             group: "player".into(),
             outcome: Outcome::Relocate {
                 from: "ralt+p".into(),
-                key: "lalt+lshift+b".into(),
+                key: "rctrl+b".into(),
                 alone: Some("Energie Waffen".into()),
                 factory: false,
+                on_mouse: false,
             },
         };
         let line = plan_line(&moved, "Zoom");
         let kind = Some(versekit_core::joysticks::Kind::Keyboard);
         let readable = |i: &str| versekit_core::controls::input_readable(i, kind);
-        assert!(line.starts_with("Zoom: ") && line.contains(&readable("ralt+p")) && line.contains(&readable("lalt+lshift+b")), "{line}");
+        assert!(line.starts_with("Zoom: ") && line.contains(&readable("ralt+p")) && line.contains(&readable("rctrl+b")), "{line}");
         assert!(line.ends_with("Energie Waffen"), "{line}");
         let without = Item {
-            outcome: Outcome::Relocate { from: "ralt+q".into(), key: "lalt+lshift+c".into(), alone: None, factory: true },
-            ..moved
+            outcome: Outcome::Relocate { from: "ralt+q".into(), key: "rctrl+c".into(), alone: None, factory: true, on_mouse: false },
+            ..moved.clone()
         };
         assert!(!plan_line(&without, "Quantum").contains(": :"), "no empty name at the end");
+        // A key with Shift moves, and the line names Shift and what it does alone.
+        let shifted = Item {
+            outcome: Outcome::Relocate {
+                from: "lctrl+lshift+l".into(),
+                key: "rctrl+a".into(),
+                alone: Some("Nachbrenner".into()),
+                factory: false,
+                on_mouse: false,
+            },
+            ..moved.clone()
+        };
+        let line = plan_line(&shifted, "Waffenmodus");
+        let args = [
+            ("0", Arg::from(readable("lctrl+lshift+l"))),
+            ("1", Arg::from(readable("rctrl+a"))),
+            ("2", Arg::from(readable("lctrl"))),
+            ("3", Arg::from("Nachbrenner")),
+        ];
+        assert_eq!(line, format!("Waffenmodus: {}", tf("sd_f_umziehen_taste_mit", &args)));
+        // Back to the factory key: the line says the own key goes and the factory key counts again.
+        let back = Item { outcome: Outcome::Restore { from: "lctrl+lshift+d".into(), factory: "t".into(), on_mouse: false }, ..moved };
+        let line = plan_line(&back, "Ziele");
+        assert!(line.contains(&readable("lctrl+lshift+d")) && line.contains(&readable("t")), "{line}");
+        assert_eq!(t_in_de("sd_f_werk").matches('{').count(), 3);
     }
 
     #[test]
@@ -1046,6 +1168,45 @@ mod tests {
         let mut full = counted_state(&[Outcome::HasKey], true, "1");
         full.open_preview_by_itself();
         assert!(lock(&full.planned).is_none());
+    }
+
+    #[test]
+    fn the_keys_put_in_are_named_with_the_text_of_the_game_like_the_plan() {
+        use versekit_core::language::Lang;
+        let profile = versekit_core::controls::Profile::from_xml(
+            r#"<ActionMaps><actionmap name="spaceship_targeting" UILabel="@g">
+                <action name="v_target_cycle_attacker_fwd" UILabel="@ui_v_target_cycle_attacker_fwd"/>
+              </actionmap></ActionMaps>"#,
+        )
+        .expect("profile");
+        let game = std::env::temp_dir().join(format!("versekit-eingetragen-namen-{}", std::process::id()));
+        let german = game.join("data").join("Localization").join("german_(germany)");
+        std::fs::create_dir_all(&german).expect("folder");
+        std::fs::write(german.join("global.ini"), "ui_v_target_cycle_attacker_fwd=Angreifer vorwärts\r\n").expect("ini");
+        let name_of = action_namer_in(&profile, Some(game.to_string_lossy().into_owned()), Lang::De);
+        let actions = vec!["v_target_cycle_attacker_fwd".to_string()];
+        let names: Vec<String> = actions.iter().map(|a| name_of(a)).collect();
+        let _ = std::fs::remove_dir_all(&game);
+        assert_eq!(names, ["Angreifer vorwärts"], "the German text of the game");
+        // The line of the record takes these names once they were worked out for its actions.
+        let named = (actions.clone(), names.clone());
+        assert_eq!(record_line_name(Some(&named), &actions, 0), "Angreifer vorwärts");
+        // Until then, or for other actions, the technical name made readable.
+        let technical = versekit_core::controls::technical_readable("v_target_cycle_attacker_fwd");
+        assert_eq!(record_line_name(None, &actions, 0), technical);
+        let other = vec!["v_target_cycle_attacker_back".to_string()];
+        assert_eq!(record_line_name(Some(&named), &other, 0), versekit_core::controls::technical_readable(&other[0]));
+    }
+
+    #[test]
+    fn setting_up_names_the_older_profiles_and_says_that_verse_kit_does_not_delete_them() {
+        assert_eq!(spare_profiles_text(&[]), None, "none: nothing said");
+        let one = spare_profiles_text(&["VerseKit Plus XL alt".into()]).expect("one");
+        assert_eq!(one, tf("sd_s_alte_profile_1", &[("0", Arg::from(tf("sd_s_profil_name", &[("0", Arg::from("VerseKit Plus XL alt"))])))]));
+        let two = spare_profiles_text(&["VerseKit A".into(), "VerseKit B".into()]).expect("two");
+        assert!(two.contains("VerseKit A") && two.contains("VerseKit B") && two.contains('2'), "{two}");
+        assert!(t_in_de("sd_s_alte_profile").contains("löscht sie nicht selbst"), "never deleted by VerseKit");
+        assert!(versekit_core::language::t_in(versekit_core::language::Lang::En, "sd_s_alte_profile").contains("does not delete"));
     }
 
     #[test]

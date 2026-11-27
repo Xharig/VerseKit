@@ -84,6 +84,10 @@ pub const MIN_WORDS: usize = 2;
 /// The collection file in the app folder.
 pub const FILE_NAME: &str = "bestand.json";
 
+/// The start of the name of the copy kept before [`Collection::align`] merges two entries into one, followed by
+/// the time and `.json`.
+pub const MERGE_BACKUP: &str = "bestand.vor-zusammenfuehrung-";
+
 /// The mark holding the highest blueprint count ever seen.
 pub const HIGH_WATER_FILE: &str = "hochwasser.json";
 
@@ -425,6 +429,28 @@ pub fn restorable(data: &Map) -> usize {
         .count()
 }
 
+/// The entry `present` takes the time of `other` where that is older; an empty time counts as unknown.
+fn take_older_time(present: &mut Value, other: &Value) {
+    let time = |e: &Value| field(e, "zeit").filter(|v| truthy(v)).map(py_str).unwrap_or_default();
+    let (mine, theirs) = (time(present), time(other));
+    if !theirs.is_empty()
+        && (mine.is_empty() || theirs < mine)
+        && let Value::Object(map) = present
+    {
+        map_set(map, "zeit", Value::Str(theirs));
+    }
+}
+
+/// The entry `present` takes the source of `other` where that ranks higher, as [`Collection::add`] does.
+fn take_higher_source(present: &mut Value, other: &Value) {
+    if rank(field(other, "quelle")) > rank(field(present, "quelle"))
+        && let Some(source) = field(other, "quelle").cloned()
+        && let Value::Object(map) = present
+    {
+        map_set(map, "quelle", source);
+    }
+}
+
 /// An old name whose words are contained in exactly one catalog name,
 /// otherwise the name unchanged.
 ///
@@ -764,15 +790,21 @@ impl Collection<'_> {
     /// Align stored names with the catalog. Number of corrected entries; 0
     /// means "nothing to do".
     ///
-    /// ⚠ If the blueprint already exists under the correct name, the existing
-    /// entry stays (earlier find).
+    /// ⚠ If the blueprint already exists under the correct name, the two become one: the existing entry stays
+    /// with its name, takes the higher source by [`RANK`] and the older time of the two (`Helix II Bergbaulaser`
+    /// from reading an old log with a German translation and `Helix II Mining Laser` are one blueprint). Before
+    /// such a merge the
+    /// collection as it was is kept beside it ([`MERGE_BACKUP`]) and the merge is noted; where that copy cannot
+    /// be written, nothing changes.
     ///
     /// ⚠ A name that is not text is left as is; Python aborts there.
     pub fn align(&self, data: &mut Map) -> usize {
         let Ok(known) = self.catalog.known() else { return 0 };
+        let before = data.clone();
         let bp = blueprints_mut(data);
         let snapshot: Vec<String> = bp.iter().map(|(k, _)| k.clone()).collect();
         let mut fixed = 0;
+        let mut merged: Vec<(String, String)> = Vec::new();
         for key in snapshot {
             let Some(entry) = get(bp, &key) else { continue };
             let old_name = match field(entry, "name").filter(|v| truthy(v)) {
@@ -786,15 +818,47 @@ impl Collection<'_> {
             }
             let Some(mut entry) = pop(bp, &key) else { continue };
             let new_key = name_key(&new_name);
-            if !bp.iter().any(|(k, _)| *k == new_key) {
-                if let Value::Object(map) = &mut entry {
-                    map_set(map, "name", Value::Str(new_name));
+            match get_mut(bp, &new_key) {
+                None => {
+                    if let Value::Object(map) = &mut entry {
+                        map_set(map, "name", Value::Str(new_name));
+                    }
+                    bp.push((new_key, entry));
                 }
-                bp.push((new_key, entry));
+                Some(present) => {
+                    take_older_time(present, &entry);
+                    take_higher_source(present, &entry);
+                    merged.push((old_name, new_name));
+                }
             }
             fixed += 1;
         }
+        if !merged.is_empty() {
+            match self.keep_before_merge(&before) {
+                Ok(copy) => {
+                    let pairs: Vec<String> = merged.iter().map(|(from, to)| format!("{from} -> {to}")).collect();
+                    let text = format!("merged into the catalog name: {}; before: {copy}", pairs.join(", "));
+                    errors::note("collection.align", &text);
+                }
+                Err(e) => {
+                    errors::record("collection.align", &e);
+                    *data = before;
+                    return 0;
+                }
+            }
+        }
         fixed
+    }
+
+    /// Keeps the collection as it was before a merge beside the collection file; the path of the copy.
+    fn keep_before_merge(&self, before: &Map) -> io::Result<String> {
+        let flavor = self.paths.host.flavor;
+        let folder = flavor.dirname(&self.path());
+        let target = flavor.join(&folder, &format!("{MERGE_BACKUP}{}.json", jsonio::time_stamp()));
+        jsonio::make_dirs(&folder)?;
+        let text = jsonio::dumps(&Value::Object(before.clone()), Some(1), false);
+        jsonio::write_text_atomic(&target, &text, jsonio::Newline::Keep)?;
+        Ok(target)
     }
 
     /// Add a blueprint. True if it was not in there before or so far came
@@ -1279,6 +1343,131 @@ mod tests {
         for empty in [Value::Null, Value::str(""), Value::int(0), Value::Bool(false), Value::Array(Vec::new())] {
             assert_eq!(of(empty.clone()), None, "{empty:?}");
         }
+    }
+
+    /// The case of the report: reading an old log with a German translation that named the mining lasers in German
+    /// put both in a second time, beside the entries under the English name.
+    #[test]
+    fn a_blueprint_read_under_its_translated_name_merges_into_the_entry_of_its_catalog_name() {
+        let home = scratch("uebersetzt-doppelt");
+        let paths = paths_in(&home);
+        let names = Names(vec![
+            ("arbor mhv bergbaulaser", vec!["Arbor MHV Mining Laser"]),
+            ("helix ii bergbaulaser", vec!["Helix II Mining Laser"]),
+            ("Lancet Heilstrahl", vec!["Lancet MH1 Healing Beam"]),
+        ]);
+        let catalog = Fixed(vec![
+            ("arbor mhv mining laser", Some("Arbor MHV Mining Laser")),
+            ("helix ii mining laser", Some("Helix II Mining Laser")),
+            ("lancet mh1 healing beam", Some("Lancet MH1 Healing Beam")),
+            ("helm", Some("Helm")),
+        ]);
+        let c = Collection { paths: &paths, catalog: &catalog, names: &names, exports: &NoExports, clock: fixed };
+        let mut data = data_with(vec![
+            ("arbor mhv mining laser", entry("Arbor MHV Mining Laser", "log", "2026-10-05 20:00:00")),
+            ("helix ii mining laser", entry("Helix II Mining Laser", "basetool", "2026-11-09 12:00:00")),
+            ("helm", entry("Helm", "log", "2026-09-01 10:00:00")),
+            ("arbor mhv bergbaulaser", entry("arbor mhv bergbaulaser", "nachlese", "2026-11-14 15:54:00")),
+            ("helix ii bergbaulaser", entry("helix ii bergbaulaser", "nachlese", "2026-11-14 15:54:00")),
+            ("lancet heilstrahl", entry("Lancet Heilstrahl", "nachlese", "2026-08-01 09:00:00")),
+        ]);
+        assert_eq!(c.align(&mut data), 3);
+        let wanted = ["arbor mhv mining laser", "helix ii mining laser", "helm", "lancet mh1 healing beam"];
+        assert_eq!(keys(&data), wanted.iter().map(|k| k.to_string()).collect::<BTreeSet<_>>());
+        // The entry of the catalog name stays, with the higher source and the older time of the two: the reading
+        // of the log proves the Helix in the game, the Basetool did not.
+        assert_eq!(
+            entry_of(&data, "arbor mhv mining laser"),
+            Some(&entry("Arbor MHV Mining Laser", "log", "2026-10-05 20:00:00"))
+        );
+        assert_eq!(
+            entry_of(&data, "helix ii mining laser"),
+            Some(&entry("Helix II Mining Laser", "nachlese", "2026-11-09 12:00:00"))
+        );
+        // A name the collection does not have yet comes in under its English name, with its own source and time.
+        assert_eq!(
+            entry_of(&data, "lancet mh1 healing beam"),
+            Some(&entry("Lancet MH1 Healing Beam", "nachlese", "2026-08-01 09:00:00"))
+        );
+        // The collection as it was is kept beside it, with the entries that went.
+        let copies = merge_copies(&c);
+        assert_eq!(copies.len(), 1, "one copy before the merge");
+        let kept = fs::read_to_string(&copies[0]).unwrap();
+        assert!(kept.contains("helix ii bergbaulaser") && kept.contains("arbor mhv bergbaulaser"), "{kept}");
+        // Once merged, there is nothing left to do: no second change, no second copy.
+        assert_eq!(c.align(&mut data), 0);
+        assert_eq!(merge_copies(&c).len(), 1);
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    /// The copies kept before a merge, beside the collection file.
+    fn merge_copies(c: &Collection<'_>) -> Vec<std::path::PathBuf> {
+        let file = std::path::PathBuf::from(c.path());
+        let Ok(entries) = fs::read_dir(file.parent().unwrap()) else { return Vec::new() };
+        entries
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().starts_with(MERGE_BACKUP))
+            .map(|e| e.path())
+            .collect()
+    }
+
+    #[test]
+    fn a_translated_entry_older_than_the_entry_of_its_catalog_name_gives_it_its_time() {
+        let home = scratch("uebersetzt-aelter");
+        let paths = paths_in(&home);
+        let names = Names(vec![("helix ii bergbaulaser", vec!["Helix II Mining Laser"])]);
+        let catalog = Fixed(vec![("helix ii mining laser", Some("Helix II Mining Laser"))]);
+        let c = Collection { paths: &paths, catalog: &catalog, names: &names, exports: &NoExports, clock: fixed };
+        let mut data = data_with(vec![
+            ("helix ii mining laser", entry("Helix II Mining Laser", "basetool", "2026-11-09 12:00:00")),
+            ("helix ii bergbaulaser", entry("helix ii bergbaulaser", "nachlese", "2026-10-01 08:00:00")),
+        ]);
+        assert_eq!(c.align(&mut data), 1);
+        let merged = entry("Helix II Mining Laser", "nachlese", "2026-10-01 08:00:00");
+        assert_eq!(blueprints(&data), [("helix ii mining laser".to_string(), merged)]);
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_name_without_a_way_back_stays_and_nothing_is_kept_aside() {
+        let home = scratch("uebersetzt-unbekannt");
+        let paths = paths_in(&home);
+        let names = Names(Vec::new());
+        let catalog = Fixed(vec![("helix ii mining laser", Some("Helix II Mining Laser"))]);
+        let c = Collection { paths: &paths, catalog: &catalog, names: &names, exports: &NoExports, clock: fixed };
+        let mut data = data_with(vec![
+            ("helix ii mining laser", entry("Helix II Mining Laser", "log", "2026-11-09 12:00:00")),
+            ("helix ii bergbaulaser", entry("helix ii bergbaulaser", "nachlese", "2026-11-14 15:54:00")),
+        ]);
+        let before = data.clone();
+        assert_eq!(c.align(&mut data), 0);
+        assert_eq!(data, before);
+        assert!(merge_copies(&c).is_empty());
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_merge_whose_copy_cannot_be_written_changes_nothing() {
+        let home = scratch("uebersetzt-ohne-kopie");
+        let paths = paths_in(&home);
+        let names = Names(vec![("helix ii bergbaulaser", vec!["Helix II Mining Laser"])]);
+        let catalog = Fixed(vec![("helix ii mining laser", Some("Helix II Mining Laser"))]);
+        // A file where the folder of the collection would be: the copy cannot go there.
+        let c_blocked =
+            Collection { paths: &paths, catalog: &catalog, names: &names, exports: &NoExports, clock: fixed };
+        let file = std::path::PathBuf::from(c_blocked.path());
+        let folder = file.parent().unwrap();
+        let _ = fs::remove_dir_all(folder);
+        fs::create_dir_all(folder.parent().unwrap()).unwrap();
+        fs::write(folder, "kein Ordner").unwrap();
+        let mut data = data_with(vec![
+            ("helix ii mining laser", entry("Helix II Mining Laser", "log", "2026-11-09 12:00:00")),
+            ("helix ii bergbaulaser", entry("helix ii bergbaulaser", "nachlese", "2026-11-14 15:54:00")),
+        ]);
+        let before = data.clone();
+        assert_eq!(c_blocked.align(&mut data), 0);
+        assert_eq!(data, before);
+        let _ = fs::remove_dir_all(&home);
     }
 
     #[test]
