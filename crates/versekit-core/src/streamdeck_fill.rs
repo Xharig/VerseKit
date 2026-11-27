@@ -1041,6 +1041,10 @@ mod tests {
         let file = format!(r#"<ActionMaps version="1"><ActionProfiles version="1" profileName="default">{body}</ActionProfiles></ActionMaps>"#);
         let text = joysticks_write::fill_text(&file, &adds, &[], &[]).expect("written");
         assert!(joysticks_write::keyboard_and_these_mice(&file, &text, &[]).is_ok(), "the stick and mouse lines stay");
+        // The game keeps a keyboard line only before the stick lines of the action, as it writes it itself.
+        for action in ["v_toggle_mining_mode", "v_toggle_salvage_mode"] {
+            assert_eq!(first_rebind(&text, action).as_deref().map(|i| &i[..4]), Some("kb1_"), "{action}: {text}");
+        }
         let back = own(text.split("profileName=\"default\">").nth(1).and_then(|t| t.split("</ActionProfiles>").next()).expect("body"));
         for (action, key) in [("v_toggle_mining_mode", mining), ("v_toggle_salvage_mode", salvage)] {
             let resolved = game_binding::resolve(action, &back, &profile);
@@ -1057,6 +1061,36 @@ mod tests {
                 "{action}: {devices:?}"
             );
         }
+    }
+
+    /// The input of the first `rebind` of `action` in the text of a file.
+    fn first_rebind(text: &str, action: &str) -> Option<String> {
+        let document = joysticks_write::parse(text)?;
+        let node = document.descendants().find(|n| joysticks_write::is_element(*n, "action") && n.attribute("name") == Some(action))?;
+        node.children().find(|n| joysticks_write::is_element(*n, "rebind")).and_then(|r| r.attribute("input")).map(String::from)
+    }
+
+    /// As in the file of the player before beta 4: the key of the mining mode behind the line of the stick, the key of
+    /// the jump on the mouse line behind nothing. Moved, the new key stands before the stick lines of each.
+    #[test]
+    fn a_key_put_in_or_moved_stands_before_the_stick_lines_where_the_game_keeps_it() {
+        let profile = shift_profile();
+        let maps = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<ActionMaps version=\"1\">\r\n <ActionProfiles version=\"1\" profileName=\"default\">\r\n  <actionmap name=\"seat_general\">\r\n   <action name=\"v_toggle_guns_mode\">\r\n    <rebind input=\"js2_button19\"/>\r\n    <rebind input=\"kb1_lctrl+lshift+l\"/>\r\n   </action>\r\n  </actionmap>\r\n  <actionmap name=\"spaceship_movement\">\r\n   <action name=\"v_toggle_jump_request\">\r\n    <rebind input=\"js1_button4\"/>\r\n    <rebind input=\"gp1_dpad_up\"/>\r\n    <rebind input=\"mo1_lctrl+lshift+m\"/>\r\n   </action>\r\n  </actionmap>\r\n </ActionProfiles>\r\n</ActionMaps>\r\n";
+        let (paths, home, file) = world("vorne", 7200, maps.as_bytes());
+        let read = || own_of(&std::fs::read_to_string(&file).expect("file"));
+        let items = super::plan(&names(&["v_toggle_guns_mode", "v_toggle_jump_request"]), &read(), &profile, &[], true);
+        apply(&paths, &items, 42).expect("written");
+        let text = std::fs::read_to_string(&file).expect("file");
+        for action in ["v_toggle_guns_mode", "v_toggle_jump_request"] {
+            let first = first_rebind(&text, action).expect("a line");
+            assert!(first.starts_with("kb1_rctrl+"), "{action}: the safe key first: {text}");
+        }
+        assert!(text.contains("js2_button19") && text.contains("js1_button4") && text.contains("gp1_dpad_up"), "{text}");
+        // The way back puts the old lines back.
+        undo(&paths).expect("undone");
+        let back = std::fs::read_to_string(&file).expect("file");
+        assert!(back.contains("kb1_lctrl+lshift+l") && back.contains("mo1_lctrl+lshift+m"), "{back}");
+        let _ = std::fs::remove_dir_all(home);
     }
 
     /// The factory setting as the game has it around Shift and Ctrl: Shift alone is the afterburner, Ctrl alone strafes

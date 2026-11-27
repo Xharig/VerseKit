@@ -90,7 +90,13 @@ fn every_key_of_the_deck_is_safe_and_its_own_after_the_plan() {
         if !safe {
             problems += 1;
         }
-        let source = if resolved.own { "eigen" } else { "werk" };
+        // The player's own mouse button stays; the deck presses it.
+        let on_mouse = matches!(&resolved.how, How::Keyboard { keys, .. } if keys.last().is_some_and(|k| k.is_mouse()));
+        let source = match (resolved.own, on_mouse) {
+            (true, true) => "eigen (Maus)",
+            (true, false) => "eigen",
+            (false, _) => "werk",
+        };
         out.push_str(&format!("{name}|{plan}|{key}|{source}|{}|{}\n", if safe { "ja" } else { "NEIN" }, others.join(", ")));
     }
     out.push_str(&format!("\nnicht sicher oder nicht sendbar: {problems}\n"));

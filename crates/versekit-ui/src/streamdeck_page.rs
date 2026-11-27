@@ -103,6 +103,8 @@ pub struct StreamDeckState {
     keep_deleted: bool,
     /// The actions of the plan that already have a key are shown (folded under one line until then).
     show_done: bool,
+    /// The keys of the plan that move are shown (folded under one line until then).
+    show_moves: bool,
     planned: Arc<Mutex<Planned>>,
     planning: bool,
     record: Option<Record>,
@@ -631,15 +633,31 @@ pub fn missing_bar(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) ->
 enum PlanRow {
     /// The item with this index.
     Item(usize),
+    /// The line that folds the keys that move to a safe key or back to the factory key: how many.
+    Moves(usize),
     /// The line that folds the actions with a key already: how many.
     Done(usize),
 }
 
-/// The rows of the list of the plan: first what needs something (written, on the mouse, deleted, no free key),
-/// then one line for the actions that already have a key, and these only when `show_done`.
-fn plan_rows(items: &[Item], show_done: bool) -> Vec<PlanRow> {
-    let (done, needs): (Vec<usize>, Vec<usize>) = (0..items.len()).partition(|&i| items[i].outcome == Outcome::HasKey);
-    let mut rows: Vec<PlanRow> = needs.into_iter().map(PlanRow::Item).collect();
+/// Does the plan move this key (a safe key of its own, or back to the factory key)?
+fn moves(outcome: &Outcome) -> bool {
+    matches!(outcome, Outcome::Relocate { .. } | Outcome::Restore { .. })
+}
+
+/// The rows of the list of the plan: one line for the keys that move, and these only when `show_moves`; then what
+/// needs something else (written, on the mouse, deleted, no free key); then one line for the actions that already
+/// have a key, and these only when `show_done`.
+fn plan_rows(items: &[Item], show_moves: bool, show_done: bool) -> Vec<PlanRow> {
+    let moved: Vec<usize> = (0..items.len()).filter(|&i| moves(&items[i].outcome)).collect();
+    let done: Vec<usize> = (0..items.len()).filter(|&i| items[i].outcome == Outcome::HasKey).collect();
+    let mut rows = Vec::new();
+    if !moved.is_empty() {
+        rows.push(PlanRow::Moves(moved.len()));
+        if show_moves {
+            rows.extend(moved.iter().copied().map(PlanRow::Item));
+        }
+    }
+    rows.extend((0..items.len()).filter(|i| !moved.contains(i) && !done.contains(i)).map(PlanRow::Item));
     if !done.is_empty() {
         rows.push(PlanRow::Done(done.len()));
         if show_done {
@@ -647,6 +665,27 @@ fn plan_rows(items: &[Item], show_done: bool) -> Vec<PlanRow> {
         }
     }
     rows
+}
+
+/// The head of the folded moves: how many keys move, and what their modifier does alone in the game (the names of
+/// those actions, each once, at most three).
+fn moves_head(items: &[Item]) -> String {
+    let count = items.iter().filter(|i| moves(&i.outcome)).count();
+    let mut why: Vec<String> = Vec::new();
+    for item in items {
+        if let Outcome::Relocate { alone: Some(alone), .. } = &item.outcome
+            && !why.contains(alone)
+            && why.len() < 3
+        {
+            why.push(alone.clone());
+        }
+    }
+    let reason = if why.is_empty() { t("sd_f_umzug_grund") } else { why.join(", ") };
+    if count == 1 {
+        tf("sd_f_umzug_kopf_1", &[("0", Arg::from(reason))])
+    } else {
+        tf("sd_f_umzug_kopf", &[("0", Arg::from(count)), ("1", Arg::from(reason))])
+    }
 }
 
 /// The first modifier of `input` that VerseKit does not give out ([`streamdeck_fill::SAFE_MODIFIERS`]).
@@ -745,9 +784,12 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
         .unwrap_or_default();
     let deleted_rows = if deleted.is_empty() { 0 } else { 2 };
     let mut deleted_switched = None;
-    let rows_of_plan: Vec<PlanRow> = plan.as_ref().map(|(items, _)| plan_rows(items, state.show_done)).unwrap_or_default();
-    let plan_rows = plan.as_ref().map_or(0, |_| deleted_rows + rows_of_plan.len() + 1);
+    let rows_of_plan: Vec<PlanRow> =
+        plan.as_ref().map(|(items, _)| plan_rows(items, state.show_moves, state.show_done)).unwrap_or_default();
+    // The buttons first, then the deleted lines, then the list: „Eintragen“ stands in sight however long the list is.
+    let plan_rows = plan.as_ref().map_or(0, |_| 1 + deleted_rows + rows_of_plan.len());
     let mut fold_switched = false;
+    let mut moves_switched = false;
     let (count_text, check_blocked) = state.count_text();
     let write_blocked = state.write_blocked();
     let record_rows = state.record.as_ref().map_or(0, |r| r.entries.len() + 1);
@@ -837,6 +879,24 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
             (_, r) => {
                 let r = r - 1;
                 if let Some((items, names)) = &plan {
+                    if r == 0 {
+                        let adds = items.iter().any(|i| {
+                            matches!(
+                                i.outcome,
+                                Outcome::Add(_) | Outcome::Move { .. } | Outcome::Relocate { .. } | Outcome::Restore { .. } | Outcome::Refill(_)
+                            )
+                        });
+                        let none = t("sd_f_nichts_frei");
+                        let reason = if adds { write_blocked.as_deref() } else { Some(none.as_str()) };
+                        ui.horizontal(|row| {
+                            let (yes, no) = (t("sd_f_eintragen"), t("sd_f_abbrechen"));
+                            let go = widgets::Button::new(&yes, ButtonKind::Strong, scheme).icon("check").blocked(reason);
+                            write = row.add(go).clicked() && reason.is_none();
+                            cancel = row.add(widgets::Button::new(&no, ButtonKind::Normal, scheme)).clicked();
+                        });
+                        return;
+                    }
+                    let r = r - 1;
                     if r == 0 && deleted_rows > 0 {
                         let head = tf("sd_f_geloescht_kopf", &[("0", Arg::from(deleted.len()))]);
                         let which = if state.keep_deleted { "sd_f_geloescht_zeile" } else { "sd_f_geloescht_mit" };
@@ -863,6 +923,18 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                             ui.label(plan_line(&items[*i], &names[*i]));
                             return;
                         }
+                        Some(PlanRow::Moves(_)) => {
+                            ui.horizontal_wrapped(|row| {
+                                row.label(moves_head(items));
+                                let (word, icon) = if state.show_moves {
+                                    (t("sd_f_ausblenden"), "chevron-up")
+                                } else {
+                                    (t("sd_f_anzeigen"), "chevron-down")
+                                };
+                                moves_switched = row.add(widgets::Button::new(&word, ButtonKind::Normal, scheme).icon(icon)).clicked();
+                            });
+                            return;
+                        }
                         Some(PlanRow::Done(count)) => {
                             let text = if *count == 1 {
                                 t("sd_f_haben_taste_1")
@@ -881,25 +953,6 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
                             return;
                         }
                         None => {}
-                    }
-                    if r == rows_of_plan.len() {
-                        let adds = items
-                            .iter()
-                            .any(|i| {
-                                matches!(
-                                    i.outcome,
-                                    Outcome::Add(_) | Outcome::Move { .. } | Outcome::Relocate { .. } | Outcome::Restore { .. } | Outcome::Refill(_)
-                                )
-                            });
-                        let none = t("sd_f_nichts_frei");
-                        let reason = if adds { write_blocked.as_deref() } else { Some(none.as_str()) };
-                        ui.horizontal(|row| {
-                            let (yes, no) = (t("sd_f_eintragen"), t("sd_f_abbrechen"));
-                            let go = widgets::Button::new(&yes, ButtonKind::Strong, scheme).icon("check").blocked(reason);
-                            write = row.add(go).clicked() && reason.is_none();
-                            cancel = row.add(widgets::Button::new(&no, ButtonKind::Normal, scheme)).clicked();
-                        });
-                        return;
                     }
                 }
                 let r = r - plan_rows;
@@ -932,6 +985,9 @@ pub fn show_page(ui: &mut Ui, scheme: &Scheme, state: &mut StreamDeckState) {
     }
     if fold_switched {
         state.show_done = !state.show_done;
+    }
+    if moves_switched {
+        state.show_moves = !state.show_moves;
     }
     // The plan and the count are worked out again with the new choice.
     if let Some(on) = deleted_switched {
@@ -981,18 +1037,77 @@ mod tests {
             item("e", Outcome::Deleted),
             item("f", Outcome::NoFreeKey),
         ];
-        let folded = plan_rows(&items, false);
+        let folded = plan_rows(&items, false, false);
         assert_eq!(folded, [PlanRow::Item(1), PlanRow::Item(3), PlanRow::Item(4), PlanRow::Item(5), PlanRow::Done(2)]);
-        let open = plan_rows(&items, true);
+        let open = plan_rows(&items, false, true);
         assert_eq!(&open[5..], [PlanRow::Item(0), PlanRow::Item(2)], "unfolded: below the line");
         let all_bound = [item("a", Outcome::HasKey)];
-        assert_eq!(plan_rows(&all_bound, false), [PlanRow::Done(1)]);
-        assert_eq!(plan_rows(&items[1..2], false), [PlanRow::Item(0)], "nothing bound already: no line");
+        assert_eq!(plan_rows(&all_bound, false, false), [PlanRow::Done(1)]);
+        assert_eq!(plan_rows(&items[1..2], false, false), [PlanRow::Item(0)], "nothing bound already: no line");
+        // The keys that move fold under one line at the top.
+        let relocate = Outcome::Relocate {
+            from: "lctrl+lshift+l".into(),
+            key: "rctrl+a".into(),
+            alone: Some("Boost".into()),
+            factory: false,
+            on_mouse: false,
+        };
+        let restore = Outcome::Restore { from: "lshift+r".into(), factory: "lalt+1".into(), on_mouse: false };
+        let moving = [item("m", relocate), item("n", Outcome::Add("rctrl+b".into())), item("o", restore)];
+        assert_eq!(plan_rows(&moving, false, false), [PlanRow::Moves(2), PlanRow::Item(1)]);
+        assert_eq!(plan_rows(&moving, true, false), [PlanRow::Moves(2), PlanRow::Item(0), PlanRow::Item(2), PlanRow::Item(1)]);
+        let head = moves_head(&moving);
+        assert!(head.contains('2') && head.contains("Boost"), "{head}");
         assert_eq!(t_in_de("sd_f_haben_taste_1"), "1 Aktion hat schon eine Taste.");
     }
 
     fn t_in_de(key: &str) -> String {
         versekit_core::language::t_in(versekit_core::language::Lang::De, key)
+    }
+
+    #[test]
+    fn with_a_long_plan_the_button_to_put_in_stands_in_sight_and_the_moves_are_folded() {
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::Queryable as _;
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        let items: Vec<Item> = (0..60)
+            .map(|n| Item {
+                action: format!("v_{n}"),
+                group: "g".into(),
+                outcome: Outcome::Relocate {
+                    from: format!("lctrl+lshift+{}", (b'a' + (n % 26) as u8) as char),
+                    key: format!("rctrl+{}", (b'a' + (n % 26) as u8) as char),
+                    alone: Some("Boost".into()),
+                    factory: false,
+                    on_mouse: false,
+                },
+            })
+            .collect();
+        let names: Vec<String> = (0..60).map(|n| format!("Aktion {n}")).collect();
+        let state = StreamDeckState { planned: Arc::new(Mutex::new(Some(Ok((items, names))))), ..StreamDeckState::default() };
+        let height = 700.0;
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(1000.0, height))
+            .with_context_setup(crate::install)
+            .with_accessibility_check(false)
+            .allow_missing_glyphs()
+            .build_ui_state(
+                |ui, state: &mut StreamDeckState| {
+                    egui::ScrollArea::vertical().show(ui, |ui| show_page(ui, versekit_core::theme::current(), state));
+                },
+                state,
+            );
+        harness.run_steps(3);
+        let word = t("sd_f_eintragen");
+        let rect = harness.get_by_label(&word).rect();
+        assert!(rect.max.y <= height, "„Eintragen“ in sight without scrolling: {rect:?}");
+        assert!(harness.query_by_label_contains("Aktion 59").is_none(), "the moves are folded");
+        assert!(harness.query_by_label_contains("60 Tasten ziehen").is_some(), "the head says how many move");
+        harness.get_by_label(&t("sd_f_anzeigen")).click();
+        harness.run_steps(3);
+        assert!(harness.query_by_label_contains("Aktion 59").is_some(), "shown after „Anzeigen“");
+        let rect = harness.get_by_label(&word).rect();
+        assert!(rect.max.y <= height, "„Eintragen“ stays in sight with the whole list open: {rect:?}");
     }
 
     #[test]

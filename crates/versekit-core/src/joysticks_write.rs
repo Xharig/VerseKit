@@ -841,15 +841,22 @@ pub fn bind_action_text(
         let child = format!("<action name=\"{}\">{nl}    {}{nl}   </action>", escape(action), rebind(&full));
         return Ok(apply(text, vec![append_child(text, group, &child)]));
     };
+    // ⚠ The game reads the line of the keyboard and the mouse only where it stands before the stick and pad lines of
+    // the action, as it writes it itself: behind them it drops it when saving or puts it on the mouse place. So a
+    // keyboard or mouse line goes first.
+    let first_place = matches!(prefix.as_str(), "kb" | "mo");
+    let rebinds: Vec<Node> = target.children().filter(|n| is_element(*n, "rebind")).collect();
+    let kept_first = rebinds.iter().find(|b| !b.attribute("input").unwrap_or("").trim().is_empty()).copied();
     let mut edits = Vec::new();
     let mut replaced = false;
-    for binding in target.children().filter(|n| is_element(*n, "rebind")) {
+    for binding in &rebinds {
         let existing = binding.attribute("input").unwrap_or("").trim();
         let kind = prefix_pattern().captures(existing);
         if let Some(kind) = &kind
             && kind[1] == prefix
         {
-            if replaced {
+            let in_place = !first_place || kept_first.is_some_and(|f| f == *binding);
+            if replaced || !in_place {
                 edits.push(Edit { range: whole_line(text, binding.range()), with: String::new() });
             } else if let Some(attr) = binding.attribute_node("input") {
                 edits.push(Edit { range: attr.range_value(), with: escape(&full) });
@@ -860,7 +867,21 @@ pub fn bind_action_text(
         }
     }
     if !replaced {
-        edits.push(append_child(text, target, &rebind(&full)));
+        match kept_first.filter(|_| first_place) {
+            Some(first) => {
+                let at = first.range().start;
+                let line = text[..at].rfind('\n').map_or(0, |i| i + 1);
+                // On a line of its own: a line before it with its indent; else right before it on the same line.
+                let edit = match line_indent(text, at) {
+                    Some(indent) => {
+                        Edit { range: line..line, with: format!("{indent}{}{nl}", rebind(&full)) }
+                    }
+                    _ => Edit { range: at..at, with: rebind(&full) },
+                };
+                edits.push(edit);
+            }
+            None => edits.push(append_child(text, target, &rebind(&full))),
+        }
     }
     Ok(apply(text, edits))
 }
@@ -1203,6 +1224,19 @@ mod tests {
             .filter(|b| b.action == action)
             .map(|b| b.input.clone())
             .collect()
+    }
+
+    #[test]
+    fn a_keyboard_line_goes_first_in_its_action_also_where_the_action_stands_on_one_line() {
+        let text = r#"<ActionMaps><ActionProfiles profileName="default"><actionmap name="seat_general"><action name="v_x"><rebind input="js2_button19"/></action></actionmap></ActionProfiles></ActionMaps>"#;
+        let out = bind_action_text(text, "v_x", "seat_general", "kb1", "rctrl+a").expect("bound");
+        assert!(out.contains(r#"<action name="v_x"><rebind input="kb1_rctrl+a"/><rebind input="js2_button19"/></action>"#), "{out}");
+        // A pad line still goes to the end, a keyboard line behind the stick moves to the front.
+        let pad = bind_action_text(&out, "v_x", "seat_general", "gp1", "a").expect("bound");
+        assert!(pad.contains(r#"<rebind input="js2_button19"/><rebind input="gp1_a"/></action>"#), "{pad}");
+        let behind = text.replace(r#"<rebind input="js2_button19"/>"#, r#"<rebind input="js2_button19"/><rebind input="kb1_lalt+b"/>"#);
+        let moved = bind_action_text(&behind, "v_x", "seat_general", "kb1", "rctrl+c").expect("bound");
+        assert!(moved.contains(r#"<action name="v_x"><rebind input="kb1_rctrl+c"/><rebind input="js2_button19"/></action>"#), "{moved}");
     }
 
     #[test]

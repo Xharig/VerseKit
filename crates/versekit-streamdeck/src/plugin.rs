@@ -186,6 +186,35 @@ pub struct Plugin {
     pub local: Option<std::sync::Arc<dyn versekit_core::streamdeck_keys::KeySink>>,
     /// The keys the plugin holds down itself.
     local_keys: versekit_core::streamdeck_keys::GameKeys,
+    /// Switches to a page sent and not seen yet, by device: the page and when; a switch is seen when a key of the
+    /// plugin appears on that device.
+    switch_waiting: HashMap<String, (u64, Instant)>,
+    /// The page of the shipped profile each device last showed after a switch of the plugin.
+    device_page: HashMap<String, u64>,
+    /// Devices whose profile the Stream Deck program does not take for the one of the plugin: a switch there brought
+    /// no key, only its question whether to install the profile. No further switch goes there in this run.
+    pub unlinked: Vec<String>,
+}
+
+/// How long a switch to a page may take before the device counts as showing a profile not linked to the plugin.
+pub const SWITCH_WAIT: Duration = Duration::from_secs(2);
+
+/// Keys of older shipped profiles the plugin brings up to date where they appear (the Stream Deck program never
+/// updates an installed profile): the game action and the short name it had, the game action and the short names
+/// (German, English) it has now.
+pub const KEY_UPDATES: [(&str, &str, &str, [&str; 2]); 1] =
+    [("v_ifcs_throttle_swap_mode", "Cruise", "v_ifcs_speed_limiter_toggle", ["Begrenzer", "Limiter"])];
+
+/// The settings of a key brought up to date by [`KEY_UPDATES`]; `None` where nothing changes. Only a key that still
+/// has the old game action and the old short name: what the player set himself stays.
+pub fn updated_settings(settings: &Value, lang: Lang) -> Option<Value> {
+    let (_, _, action, names) = KEY_UPDATES
+        .iter()
+        .find(|(old, name, _, _)| settings["aktion"].as_str() == Some(*old) && settings["name"].as_str() == Some(*name))?;
+    let mut updated = settings.clone();
+    updated["aktion"] = json!(action);
+    updated["name"] = json!(if lang == Lang::En { names[1] } else { names[0] });
+    Some(updated)
 }
 
 /// The reasons of [`Plugin::game_block`] that are a missing binding on the keyboard: a press on such a key opens the
@@ -327,7 +356,51 @@ impl Plugin {
             table_file: None,
             local: None,
             local_keys: versekit_core::streamdeck_keys::GameKeys::default(),
+            switch_waiting: HashMap::new(),
+            device_page: HashMap::new(),
+            unlinked: Vec::new(),
         }
+    }
+
+    /// A switch of `device` to `page` of the shipped profile `profile`, only where keys of the plugin show on that
+    /// device and its profile was not found unlinked. `watch`: the page differs for sure from the one shown, so a
+    /// switch that brings no key tells an unlinked profile.
+    fn switch_page(&mut self, device: &str, profile: &str, page: u64, watch: bool) -> Vec<Value> {
+        if self.unlinked.iter().any(|d| d == device) || !self.keys.values().any(|k| k.device == device) {
+            return Vec::new();
+        }
+        if watch {
+            self.switch_waiting.insert(device.to_string(), (page, self.now()));
+        }
+        vec![json!({"event": "switchToProfile", "context": self.uuid, "device": device, "payload": {"profile": profile_name(profile), "page": page}})]
+    }
+
+    /// A key of the plugin appeared on `device`: a switch sent there was seen.
+    fn switch_seen(&mut self, device: &str) {
+        if let Some((page, _)) = self.switch_waiting.remove(device) {
+            self.device_page.insert(device.to_string(), page);
+        }
+    }
+
+    /// The switches not seen within [`SWITCH_WAIT`]: their device shows a profile the Stream Deck program does not
+    /// link to the plugin (it asks to install the profile instead); no further switch goes there.
+    fn follow_switches(&mut self) -> Vec<Value> {
+        let now = self.now();
+        let late: Vec<String> = self
+            .switch_waiting
+            .iter()
+            .filter(|(_, (_, at))| now.saturating_duration_since(*at) >= SWITCH_WAIT)
+            .map(|(d, _)| d.clone())
+            .collect();
+        let mut out = Vec::new();
+        for device in late {
+            self.switch_waiting.remove(&device);
+            if !self.unlinked.contains(&device) {
+                self.unlinked.push(device.clone());
+            }
+            out.push(note(&format!("Seitenwechsel ohne Tasten auf Gerät {device}: Profil nicht mit dem Plugin verbunden, keine weiteren Wechsel")));
+        }
+        out
     }
 
     fn now(&self) -> Instant {
@@ -387,16 +460,23 @@ impl Plugin {
                 };
                 let controller =
                     if payload["controller"].as_str() == Some("Encoder") { Controller::Encoder } else { Controller::Keypad };
+                // A key of an older shipped profile gets its new game action, kept by the Stream Deck program.
+                let updated = updated_settings(&payload["settings"], self.lang());
                 let key = Key {
                     action,
-                    settings: payload["settings"].clone(),
+                    settings: updated.clone().unwrap_or_else(|| payload["settings"].clone()),
                     device: message["device"].as_str().unwrap_or("").to_string(),
                     controller,
                 };
                 let line = format!("willAppear {} {context} Gerät {} {:?}", action.id(), key.device, controller);
+                self.switch_seen(&key.device);
                 self.keys.insert(context.clone(), key);
                 self.shown.remove(&context);
                 let mut out = vec![note(&line), event("setTitle", &context, json!({"title": ""}))];
+                if let Some(settings) = updated {
+                    out.push(note(&format!("Taste {context} auf den neuen Stand gebracht")));
+                    out.push(event("setSettings", &context, settings));
+                }
                 out.extend(self.draw(&context));
                 out.extend(self.report_game_actions(verse));
                 out
@@ -1180,15 +1260,16 @@ impl Plugin {
 
     /// The switch to the page an emote key goes back to, in the shipped profile of its device; nothing when the
     /// key names no page or the device has no shipped profile.
-    fn back_to_page(&self, key: &Key) -> Vec<Value> {
+    fn back_to_page(&mut self, key: &Key) -> Vec<Value> {
         let Some(page) = key.settings["zurueck_seite"].as_u64() else { return Vec::new() };
-        let Some(device) = self.devices.iter().find(|d| d.id == key.device) else { return Vec::new() };
+        let Some(device) = self.devices.iter().find(|d| d.id == key.device).cloned() else { return Vec::new() };
         let Some(base) = profile_base(device.kind) else { return Vec::new() };
         let profile = format!("{base}-{}", if self.lang() == Lang::En { "EN" } else { "DE" });
         if !self.profiles.contains(&profile) {
             return Vec::new();
         }
-        vec![json!({"event": "switchToProfile", "context": self.uuid, "device": device.id, "payload": {"profile": profile_name(&profile), "page": page}})]
+        // The emote page is another one than the page it goes back to: a switch that brings no key is unlinked.
+        self.switch_page(&device.id, &profile, page, true)
     }
 
     /// A new wish of VerseKit for a page of the device: every device with a shipped profile switches to that page of
@@ -1204,15 +1285,21 @@ impl Plugin {
         }
         let suffix = if self.lang() == Lang::En { "EN" } else { "DE" };
         let mut out = Vec::new();
-        for device in &self.devices {
+        for device in self.devices.clone() {
             let Some(base) = profile_base(device.kind) else { continue };
             let profile = format!("{base}-{suffix}");
             let Some(number) = self.profiles.contains(&profile).then(|| self.pages.get(&profile)).flatten().and_then(|p| page.number_in(p))
             else {
                 continue;
             };
-            out.push(json!({"event": "switchToProfile", "context": self.uuid, "device": device.id, "payload": {"profile": profile_name(&profile), "page": number}}));
-            out.push(note(&format!("Seite {} ({number}) für Gerät {}", page.id(), device.id)));
+            // Watched only where the page shown is known to be another one.
+            let number = number as u64;
+            let watch = self.device_page.get(&device.id).is_some_and(|shown| *shown != number);
+            let switch = self.switch_page(&device.id, &profile, number, watch);
+            if !switch.is_empty() {
+                out.extend(switch);
+                out.push(note(&format!("Seite {} ({number}) für Gerät {}", page.id(), device.id)));
+            }
         }
         out
     }
@@ -1262,6 +1349,7 @@ impl Plugin {
             || !self.guarded.is_empty()
             || !self.hold_hint.is_empty()
             || self.local_keys.count() > 0
+            || !self.switch_waiting.is_empty()
     }
 
     /// The next pictures of the dials whose time has come, the pictures that waited for the limit, the dangerous
@@ -1271,7 +1359,9 @@ impl Plugin {
         if let Some(sink) = self.local.clone() {
             self.local_keys.watch(sink.as_ref(), Some(Duration::ZERO), now);
         }
-        let mut out = self.follow_guards(verse);
+        let switches = self.follow_switches();
+        let mut out = switches;
+        out.extend(self.follow_guards(verse));
         let due: Vec<String> = self.motion.iter().filter(|(_, (_, _, at))| *at <= now).map(|(c, _)| c.clone()).collect();
         for context in due {
             let ended = match self.motion.get_mut(&context) {

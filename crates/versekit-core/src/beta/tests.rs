@@ -390,6 +390,45 @@ fn a_beta_whose_files_are_not_all_there_yet_is_asked_again_and_not_remembered_as
     assert_eq!(checked.offer.map(|r| r.version).as_deref(), Some(TAG));
 }
 
+/// A click on the update while the remembered list still holds a beta whose installer was not uploaded yet (the
+/// files of a release come one after the other): the click asks GitHub again and finds the installer, instead of
+/// sending the player to fetch it by hand.
+#[test]
+#[cfg(windows)]
+fn a_click_on_a_beta_remembered_before_its_installer_was_up_asks_again_and_finds_it() {
+    use crate::update_flow::{self, Done, Env, Fetch};
+    let codes = testers();
+    let full = built(&codes, |_| {});
+    let (dir, paths) = paths_in("beta-halb-hochgeladen");
+    assert!(choose(&paths, Stage::Beta));
+    assert!(save_code(&paths, &codes[0]));
+    // A look in the seconds when GitHub had the key ring but not yet the installer of Windows.
+    let mut early = full.release.clone();
+    early.assets.retain(|a| !a.name.ends_with(SUFFIX));
+    let now = updater::now();
+    let github = |release: &Release| Fake { bodies: full.net.bodies.clone(), ..Fake::default() }.with(updater::API, api_answer(release));
+    updater::check(&github(&early), &paths, "5.6.1", true, now);
+    assert_eq!(status(&paths), Status::Fits(TAG.into()), "the key ring opened: the bar offers the beta");
+    // The click soon after: the list is fresh, GitHub has every file now. The download is refused here (nothing
+    // is installed or started); what counts is that the installer was found.
+    let env = Env {
+        net: std::sync::Arc::new(github(&full.release)),
+        download_net: std::sync::Arc::new(Fake::default()),
+        own_version: "5.6.1".into(),
+        appimage: None,
+        program: dir.path().join("VerseKit.exe"),
+        temp: dir.path().to_path_buf(),
+        start: std::sync::Arc::new(|_: &std::path::Path| Err(std::io::Error::other("nothing starts"))),
+        game_running: std::sync::Arc::new(|| false),
+        alive_wait: std::time::Duration::from_millis(10),
+    };
+    let fetch = Fetch { with_prerelease: true, beta: true, without_backup: false };
+    let done = update_flow::fetch_newest(&env, &paths, fetch, &mut |_| {}, &|v: &str| assert_eq!(v, TAG));
+    assert_ne!(done, Done::Stopped(Some(crate::language::t("selbst_holen"))), "never „fetch it yourself“ for a beta");
+    assert!(matches!(done, Done::Stopped(Some(_))), "the download was tried and refused here: {done:?}");
+    assert!(cache_read(&paths)[0].assets.iter().any(|a| a.name.ends_with(SUFFIX)), "the remembered beta has its installer now");
+}
+
 #[test]
 fn leaving_the_stage_deletes_the_code_and_what_it_opened() {
     let codes = testers();

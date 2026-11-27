@@ -1034,6 +1034,8 @@ fn ready_with_ipad() -> (Plugin, FakeVerse) {
     let mut verse = FakeVerse::new();
     plugin.poll(&mut verse);
     plugin.on_event(&json!({"event": "deviceDidConnect", "device": "D1", "deviceInfo": {"type": 3, "name": "iPad"}}), &mut verse);
+    // The iPad shows the profile of the plugin: a key of it is there.
+    plugin.on_event(&appear("K0", Action::Overlay, json!({})), &mut verse);
     (plugin, verse)
 }
 
@@ -1138,6 +1140,64 @@ fn an_emote_tapped_goes_back_to_its_page_and_held_stays() {
     let up = ("v_lights".to_string(), Phase::Up);
     assert_eq!(game_commands(&verse), vec![down.clone(), up.clone(), down, up]);
     assert!(verse.commands.contains(&Command::GameActionsInUse(vec!["v_lights".into()])), "VerseKit learns the emote");
+}
+
+#[test]
+fn an_emote_goes_back_only_on_its_own_device_and_an_unlinked_profile_is_asked_once_only() {
+    let (mut plugin, mut verse) = ready_with_ipad();
+    // A second device of the same kind shows another profile: no key of the plugin appears there.
+    plugin.on_event(&json!({"event": "deviceDidConnect", "device": "D2", "deviceInfo": {"type": 3, "name": "iPad 2"}}), &mut verse);
+    ipad_pages(&mut plugin);
+    plugin.on_event(&appear("E1", Action::Emote, json!({"aktion": "v_lights", "zurueck_seite": 5})), &mut verse);
+    // Linked: the tap sends the emote, the device goes back, the key of the page appears.
+    let start = Instant::now();
+    plugin.fixed_now = Some(start);
+    let tap = press_for(&mut plugin, &mut verse, "E1", Duration::from_millis(120));
+    let switch = events(&tap, "switchToProfile");
+    assert_eq!((switch.len(), switch[0]["device"].as_str()), (1, Some("D1")), "only the device it was pressed on");
+    plugin.on_event(&appear("P5", Action::GameAction, json!({"aktion": "v_lights"})), &mut verse);
+    plugin.fixed_now = Some(start + SWITCH_WAIT * 2);
+    plugin.tick(&mut verse);
+    assert!(plugin.unlinked.is_empty(), "the switch was seen");
+    // A wish of VerseKit goes to the device that shows the plugin, never to the one that shows another profile.
+    verse.set(streamdeck::FIELD_DEVICE_PAGE, wish(1));
+    let out = plugin.poll(&mut verse);
+    let devices: Vec<&str> = events(&out, "switchToProfile").iter().filter_map(|s| s["device"].as_str()).collect();
+    assert_eq!(devices, ["D1"]);
+    // Unlinked: the program asks to install the profile instead and shows no key; after the wait no switch goes
+    // there again, while the emote still goes to the game.
+    let tap = press_for(&mut plugin, &mut verse, "E1", Duration::from_millis(120));
+    assert_eq!(events(&tap, "switchToProfile").len(), 1);
+    let later = plugin.fixed_now.expect("now") + SWITCH_WAIT + Duration::from_millis(10);
+    plugin.fixed_now = Some(later);
+    plugin.tick(&mut verse);
+    assert_eq!(plugin.unlinked, ["D1"]);
+    let commands_before = game_commands(&verse).len();
+    let again = press_for(&mut plugin, &mut verse, "E1", Duration::from_millis(120));
+    assert!(events(&again, "switchToProfile").is_empty(), "no second question of the Stream Deck program");
+    assert_eq!(game_commands(&verse).len(), commands_before + 2, "the emote went to the game");
+    verse.set(streamdeck::FIELD_DEVICE_PAGE, wish(2));
+    assert!(events(&plugin.poll(&mut verse), "switchToProfile").is_empty(), "no wish goes there either");
+}
+
+#[test]
+fn a_key_of_an_older_profile_gets_its_new_game_action_where_it_appears_and_one_of_the_player_stays() {
+    let (mut plugin, mut verse) = ready();
+    let old = json!({"aktion": "v_ifcs_throttle_swap_mode", "name": "Cruise", "symbol": "gauge", "farbe": "violett"});
+    let out = plugin.on_event(&appear("C", Action::GameAction, old), &mut verse);
+    let set = events(&out, "setSettings");
+    assert_eq!(set.len(), 1, "kept by the Stream Deck program");
+    assert_eq!(set[0]["context"], "C");
+    assert_eq!(set[0]["payload"]["aktion"], "v_ifcs_speed_limiter_toggle");
+    assert_eq!(set[0]["payload"]["name"], "Begrenzer");
+    assert_eq!(set[0]["payload"]["symbol"], "gauge", "the rest of the key stays");
+    assert_eq!(plugin.keys["C"].settings["aktion"], "v_ifcs_speed_limiter_toggle", "and pressed so at once");
+    // The same action under a name of the player, or the new key: nothing changes.
+    let own = json!({"aktion": "v_ifcs_throttle_swap_mode", "name": "Mein Cruise"});
+    assert!(events(&plugin.on_event(&appear("D", Action::GameAction, own), &mut verse), "setSettings").is_empty());
+    let new = json!({"aktion": "v_ifcs_speed_limiter_toggle", "name": "Begrenzer"});
+    assert!(events(&plugin.on_event(&appear("E", Action::GameAction, new), &mut verse), "setSettings").is_empty());
+    assert_eq!(updated_settings(&json!({"aktion": "v_ifcs_throttle_swap_mode", "name": "Cruise"}), Lang::En).expect("new")["name"], "Limiter");
 }
 
 /// The last list of game actions VerseKit was told.
