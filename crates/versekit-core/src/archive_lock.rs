@@ -29,7 +29,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
-use crate::game_start::run_state;
+use crate::game_start::{ENV_NO_PROCESS, RunState, game_process, run_state_with};
 use crate::paths::{ENV_TEST_MACHINE, FOLLOWS_LIVE, Paths, TEST_CHANNELS, UNDER_AGREEMENT};
 
 /// How often a waiting reading looks whether the game is closed now.
@@ -68,7 +68,19 @@ pub fn waiting_for(topic: &str) -> bool {
 
 /// Whether the archive may be read now: the game is certainly closed, or the machine is a made-up one.
 pub fn may_read(paths: &Paths) -> bool {
-    paths.host.var(ENV_TEST_MACHINE).is_some() || !run_state(paths).blocks_writing()
+    if paths.host.var(ENV_TEST_MACHINE).is_some() {
+        return true;
+    }
+    let process = if paths.host.var(ENV_NO_PROCESS).is_some() { None } else { game_process() };
+    archive_free(process, run_state_with(paths, process))
+}
+
+/// Whether the archive may be read with the answer of the process list `process` and the run state `state`: the
+/// game is certainly closed, or the process list says it is not there. A Game.log written in the last minutes
+/// (`mission_log::GAME_IDLE_SEC`) keeps deleting and writing back after the game was closed, but not a reading: the
+/// build of the catalog would wait five minutes after the end of the game for nothing.
+fn archive_free(process: Option<bool>, state: RunState) -> bool {
+    process == Some(false) || !state.blocks_writing()
 }
 
 /// Whether `archive` may be read now: [`may_read`], and the launcher is not patching it ([`launcher_log::patching`]),
@@ -234,6 +246,29 @@ mod tests {
         // The made-up machine of the checks has no game of the player.
         let made_up = machine(&[(crate::game_start::ENV_NO_PROCESS, "1"), (ENV_TEST_MACHINE, "x")]);
         assert!(may_read(&made_up));
+    }
+
+    /// Reported on 16.11.: the game closed at 23:21 and the catalog was still not built at 23:24. The Game.log
+    /// written at the end of the game kept the run state at running for five minutes, though the process list said
+    /// the game was gone. A reading of the archive goes on then; without the process list, or with the game in it,
+    /// it waits.
+    #[test]
+    fn a_reading_goes_on_when_the_process_list_says_the_game_is_gone_though_its_log_is_fresh() {
+        let game = std::env::temp_dir().join(format!("versekit-sperre-ende-{}", crate::testdir::run_tag()));
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(game.join("Game.log"), "").unwrap();
+        let folder = game.to_string_lossy().into_owned();
+        let paths =
+            machine(&[(crate::game_start::ENV_NO_PROCESS, "1"), (crate::paths::ENV_INSTALL_DIR, folder.as_str())]);
+        // Deleting and writing still wait for the quiet log.
+        let closed = run_state_with(&paths, Some(false));
+        assert_eq!(closed, RunState::Running, "a log written just now");
+        assert!(archive_free(Some(false), closed), "the game is not in the process list");
+        assert!(!archive_free(Some(true), run_state_with(&paths, Some(true))), "the game is in the list");
+        assert!(!archive_free(None, run_state_with(&paths, None)), "no process list: the log decides");
+        assert!(!archive_free(None, RunState::Unknown), "nobody can say");
+        assert!(archive_free(None, RunState::Idle), "the log lies quiet");
+        let _ = std::fs::remove_dir_all(&game);
     }
 
     /// What a reading waits for is told to the page: the game first, then the launcher, else nothing.

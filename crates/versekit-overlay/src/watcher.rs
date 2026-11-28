@@ -33,6 +33,7 @@ use versekit_core::collection::{self, Catalog, Collection, Known};
 use versekit_core::contracts::Patterns;
 use versekit_core::errors;
 use versekit_core::export::{FileExports, now_unix};
+use versekit_core::flugbuch;
 use versekit_core::game_start;
 use versekit_core::given::GivenBy;
 use versekit_core::graphics_apply;
@@ -48,6 +49,7 @@ use versekit_core::paths::{Host, Paths, Recovered, name_key};
 use versekit_core::phrases::{self, BackRoute, NoArchive};
 use versekit_core::refinery_jobs;
 use versekit_core::shard::Joins;
+use versekit_core::stats_report;
 use versekit_core::stock_journal;
 use versekit_core::watchlist;
 use versekit_core::writeguard;
@@ -89,6 +91,25 @@ pub enum News {
     OwnHandle(String),
     /// The HUD told that the player left or entered an armistice zone (the newest notice of what was just read).
     Zone(armistice::Zone),
+    /// The log asks for a page of the Stream Deck (the newest wish of what was just read).
+    DevicePage(versekit_core::streamdeck::DevicePage),
+    /// Whether the running log of the game was found in this round.
+    LogFound(bool),
+    /// The readable name of the last ship of the running session the player sat in or chose a target from.
+    Ship(Option<String>),
+}
+
+/// Tells the window the newest wish for a page of the Stream Deck in `text`, when it is news at `now` (seconds,
+/// UTC): a log read late (the overlay started after the game) holds old ones that must not switch the page.
+fn tell_device_page(run: &Run, text: &str, now: i64) {
+    if let Some(page) = device_page_news(text, now) {
+        run.tell(News::DevicePage(page));
+    }
+}
+
+/// The newest wish for a page of the Stream Deck in `text`, when it is news at `now`.
+fn device_page_news(text: &str, now: i64) -> Option<versekit_core::streamdeck::DevicePage> {
+    versekit_core::streamdeck::device_page_in(text).filter(|(_, at)| armistice::is_news(*at, now)).map(|(page, _)| page)
 }
 
 /// What the window asks of the thread.
@@ -415,9 +436,9 @@ impl Contracts {
 /// The shard of the running session, from the text the contracts read anyway: the whole running log at the start,
 /// then each new section. Nothing of the log is read for it alone.
 ///
-/// The joins, and when the running log was last searched for them.
+/// The joins, when the running log was last searched for them, and the class of the last ship of the session.
 #[derive(Default)]
-struct Shards(Joins, Option<Instant>);
+struct Shards(Joins, Option<Instant>, Option<String>);
 
 /// How often a log without a known shard is searched for the join.
 const RECOVER_EVERY: Duration = Duration::from_secs(30);
@@ -428,6 +449,14 @@ impl Shards {
         self.0.clear();
         self.0.take(log);
         run.tell(News::Shard(self.0.clone()));
+        self.2 = flugbuch::last_ship_in(log);
+        self.tell_ship(run);
+    }
+
+    /// Tells the window the readable name of the last ship, or that there is none.
+    fn tell_ship(&self, run: &Run) {
+        let names = || stats_report::saved_names(run.paths, stats_report::NAME_FILE);
+        run.tell(News::Ship(self.2.as_deref().map(|class| stats_report::display_name(class, true, &names()))));
     }
 
     /// No shard is known although the log goes on (`grew`): the joins are looked for in the running log, not more
@@ -456,6 +485,11 @@ impl Shards {
         if self.0.take(text) || cleared {
             run.tell(News::Shard(self.0.clone()));
         }
+        let ship = flugbuch::last_ship_in(text).or_else(|| if fresh { None } else { self.2.clone() });
+        if ship != self.2 {
+            self.2 = ship;
+            self.tell_ship(run);
+        }
     }
 
     /// The game ended: there is no shard any more.
@@ -465,6 +499,9 @@ impl Shards {
         if !self.0.list().is_empty() {
             self.0.clear();
             run.tell(News::Shard(self.0.clone()));
+        }
+        if self.2.take().is_some() {
+            self.tell_ship(run);
         }
     }
 }
@@ -1226,7 +1263,9 @@ fn run(
         }
         zones.refresh(paths);
         zones.tell(&run, &tail.last_text);
+        tell_device_page(&run, &tail.last_text, now_unix());
         take_catalog(&mut run, &mut periodic, &mut contracts);
+        run.tell(News::LogFound(tail.path.is_some()));
         run.tell_count(tail.path.is_some());
         let denied = writeguard::take_denied();
         if !denied.is_empty() {
@@ -2077,6 +2116,22 @@ mod tests {
         )
     }
 
+    /// Leaving the seat just read asks for the page on foot; one read late (the overlay started after the game) does
+    /// not, and other lines ask for nothing.
+    #[test]
+    fn a_fresh_release_of_the_seat_asks_for_the_page_on_foot_and_an_old_one_does_not() {
+        let moment = "2026-11-25T20:26:33.338Z";
+        let at = versekit_core::logtime::seconds(moment).expect("a stamp");
+        let released = format!(
+            "<{moment}> [Notice] <Vehicle Control Flow> CVehicleMovementBase::ClearDriver: Local client node [200000000001] \
+             releasing control token for 'ANVL_Lightning_F8C_465232524500' [465232524500] [Team_CGP4][Vehicle]\n"
+        );
+        let page = versekit_core::streamdeck::DevicePage::OnFoot;
+        assert_eq!(device_page_news(&released, at + 3), Some(page));
+        assert_eq!(device_page_news(&released, at + armistice::STALE_AFTER + 1), None, "read late: no switch");
+        assert_eq!(device_page_news(&notice_line(moment, "Schutzzone verlassen"), at + 3), None);
+    }
+
     /// A zone notice just read is told with the zone it names, an old one (a log read late) is not, and the newest of
     /// a section counts.
     #[test]
@@ -2282,6 +2337,27 @@ mod tests {
         );
         tell_log_lines(&run, "nothing\n");
         assert!(told.try_iter().next().is_none(), "nothing to show, nothing said");
+        // The last ship: told when it changes, kept over sections without one, gone with a new log and the end.
+        let ships = |told: &std::sync::mpsc::Receiver<News>| -> Vec<Option<String>> {
+            told.try_iter()
+                .filter_map(|news| match news {
+                    News::Ship(name) => Some(name),
+                    _ => None,
+                })
+                .collect()
+        };
+        let seat = "<2026-10-31T18:10:00.000Z> <Vehicle Control Flow> CreateDriver: Local client node [5] granted \
+                    control token for 'AEGS_Sabre_465232524500' [9]\n";
+        shards.section(&run, seat, false);
+        assert_eq!(ships(&told), [Some("AEGS Sabre".to_string())]);
+        shards.section(&run, "nothing\n", false);
+        shards.section(&run, seat, false);
+        assert!(ships(&told).is_empty(), "the same ship is not told again");
+        shards.section(&run, "nothing\n", true);
+        assert_eq!(ships(&told), [None], "a new log: no ship yet");
+        shards.whole(&run, seat);
+        shards.ended(&run);
+        assert_eq!(ships(&told), [Some("AEGS Sabre".to_string()), None]);
         let _ = std::fs::remove_dir_all(home);
     }
 

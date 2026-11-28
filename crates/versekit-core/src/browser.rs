@@ -53,6 +53,12 @@ pub fn open_in_browser(url: &str) -> bool {
     open_native(url)
 }
 
+/// Opens the plugin file of the Stream Deck (`….streamDeckPlugin`) with the Stream Deck program, which asks the
+/// player itself; false for any other file or when nothing could open it.
+pub fn open_stream_deck_plugin(path: &str) -> bool {
+    path.ends_with(".streamDeckPlugin") && std::path::Path::new(path).is_file() && open_native(path)
+}
+
 /// Opens a folder in the file manager (`_show_folder`); false when it is no
 /// folder or nothing could open it.
 pub fn show_folder(path: &str) -> bool {

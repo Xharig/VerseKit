@@ -692,10 +692,17 @@ fn german() -> Vec<u8> {
         .build()
 }
 
+/// The folder of the checks of this run below the temporary folder of the build: a run of its own (two runs of the
+/// same checks at the same time) never empties the folders of the other.
+#[allow(dead_code, reason = "not every check file uses it")]
+pub fn run_root() -> PathBuf {
+    Path::new(env!("CARGO_TARGET_TMPDIR")).join("versekit-gamedata").join(versekit_core::testdir::run_tag())
+}
+
 /// Writes the fixture archive into a fresh channel folder below the target
 /// folder and returns the folder.
 pub fn channel(name: &str) -> PathBuf {
-    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("versekit-gamedata").join(name).join("LIVE");
+    let folder = run_root().join(name).join("LIVE");
     if folder.exists() {
         fs::remove_dir_all(&folder).unwrap();
     }
@@ -718,7 +725,7 @@ pub fn channel(name: &str) -> PathBuf {
 /// with a test key of its own).
 #[allow(dead_code, reason = "only the key tests use it")]
 pub fn encrypted_channel(name: &str) -> PathBuf {
-    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("versekit-gamedata").join(name).join("LIVE");
+    let folder = run_root().join(name).join("LIVE");
     if folder.exists() {
         fs::remove_dir_all(&folder).unwrap();
     }

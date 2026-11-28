@@ -423,7 +423,28 @@ struct Shared {
 }
 
 fn now_seconds() -> f64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64())
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+    now - clock_shift(now)
+}
+
+/// The checks put "today" a few minutes before now: run right after midnight, those minutes lay on the day before.
+/// Their clock is moved once to noon of the local day the run started on, and goes on from there.
+#[cfg(test)]
+fn clock_shift(now: f64) -> f64 {
+    static SHIFT: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    *SHIFT.get_or_init(|| {
+        formats::local_time(now as i64)
+            .map_or(0.0, |t| f64::from(t.hour * 3600 + t.minute * 60 + t.second) - f64::from(TEST_START))
+    })
+}
+
+/// The moment of the local day the clock of the checks starts at, in seconds after midnight: noon.
+#[cfg(test)]
+const TEST_START: u32 = 12 * 3600;
+
+#[cfg(not(test))]
+fn clock_shift(_: f64) -> f64 {
+    0.0
 }
 
 /// The state of the five pages.

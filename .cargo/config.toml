@@ -13,3 +13,6 @@ rustflags = ["-C", "target-feature=+crt-static"]
 # registry alone. A program file started directly does not get it.
 [env]
 VERSEKIT_TESTUMGEBUNG = { value = "target/testumgebung", relative = true }
+# Every test runs on a thread of the test runner with 2 MiB of stack; a whole page drawn in a debug build (frames
+# without optimisation) can need more. 8 MiB for those threads, so a check fails on its asserts, not on the stack.
+RUST_MIN_STACK = "8388608"

@@ -207,6 +207,8 @@ pub struct Line {
     pub text: Message,
     /// The open objectives, in the order of the log.
     pub goals: Vec<String>,
+    /// Objectives done and objectives in all (visible, with a wording); `None` while the log named none.
+    pub steps: Option<(usize, usize)>,
     /// Silent since a change of server: grey, with an explanation.
     pub grey: bool,
     /// How many contracts of this title run (at least one): the game lets the same contract run twice, for
@@ -394,6 +396,7 @@ impl Live {
                 title: title.clone(),
                 text: text.clone(),
                 goals: self.objectives.open_for(first.get(title.as_str()).copied()),
+                steps: self.objectives.progress_for(first.get(title.as_str()).copied()),
                 grey: self.unclear.contains(title),
                 count: self.missions.ids_of(title).len().max(1),
                 complete: self.complete.contains(title),

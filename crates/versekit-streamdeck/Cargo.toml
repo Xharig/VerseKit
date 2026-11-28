@@ -1,0 +1,31 @@
+[package]
+name = "versekit-streamdeck"
+description = "VerseKit: Plugin für das Stream Deck (Tasten, Zustände, Spielaktionen)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "versekit-streamdeck"
+path = "src/main.rs"
+
+[dependencies]
+# The key pictures in the house style: symbols through resvg, the writing in Lato through ab_glyph (both already
+# in the workspace through egui).
+ab_glyph = "0.2.32"
+resvg = { version = "0.45.1", default-features = false }
+base64.workspace = true
+getrandom.workspace = true
+ring.workspace = true
+serde_json.workspace = true
+versekit-core.workspace = true
+
+[build-dependencies]
+serde_json.workspace = true
+
+[dev-dependencies]
+# The checks of the shipped profiles measure their key pictures.
+image.workspace = true

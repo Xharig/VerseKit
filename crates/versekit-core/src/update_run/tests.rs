@@ -80,8 +80,14 @@ fn a_call_that_hangs_in_a_test_fails_with_a_clear_message_instead_of_hanging_the
     assert!(started.elapsed() < Duration::from_secs(4), "did not wait for it: {:?}", started.elapsed());
 }
 
-/// A process number that is certainly not alive: a child that has ended.
-fn dead_pid() -> u32 {
+/// A process number that is certainly not alive: a child that has ended. Its handle stays open while the value
+/// lives, so the system does not hand the number to a new process meanwhile (many checks start processes).
+struct DeadPid {
+    pid: u32,
+    _ended: std::process::Child,
+}
+
+fn dead_pid() -> DeadPid {
     let mut child = if cfg!(windows) {
         let mut c = std::process::Command::new("cmd");
         c.args(["/c", "exit", "0"]);
@@ -98,13 +104,13 @@ fn dead_pid() -> u32 {
     .unwrap();
     let pid = child.id();
     child.wait().unwrap();
-    pid
+    DeadPid { pid, _ended: child }
 }
 
 #[test]
 fn a_process_lives_or_not() {
     assert!(pid_alive(i64::from(std::process::id())));
-    assert!(!pid_alive(i64::from(dead_pid())));
+    assert!(!pid_alive(i64::from(dead_pid().pid)));
     assert!(!pid_alive(0) && !pid_alive(-5) && !pid_alive(i64::from(u32::MAX) + 1));
 }
 
@@ -119,7 +125,8 @@ fn the_lock_lets_one_run_through_and_an_orphaned_one_goes() {
     assert!(!lock_held(&paths, now + LOCK_MAX_AGE + 1.0));
     assert!(take_lock(&paths, std::process::id(), now + LOCK_MAX_AGE + 1.0));
     // A process that has ended.
-    hand_lock_to(&paths, dead_pid(), now);
+    let dead = dead_pid();
+    hand_lock_to(&paths, dead.pid, now);
     assert!(!lock_held(&paths, now));
     assert!(take_lock(&paths, std::process::id(), now));
     release_lock(&paths);
@@ -450,7 +457,7 @@ fn sign_later(paths: &Paths, job: &SetupJob) -> std::thread::JoinHandle<bool> {
     let (setup, log) = (job.setup.clone(), job.log.clone());
     std::thread::spawn(move || {
         let started = Instant::now();
-        while !run.exists() && started.elapsed() < Duration::from_secs(10) {
+        while !run.exists() && started.elapsed() < Duration::from_secs(60) {
             std::thread::sleep(Duration::from_millis(5));
         }
         std::thread::sleep(Duration::from_millis(300));
@@ -460,6 +467,32 @@ fn sign_later(paths: &Paths, job: &SetupJob) -> std::thread::JoinHandle<bool> {
     })
 }
 
+/// Ends the process of its number when it goes (a stand-in started by a check), so its file can go with the
+/// throwaway folder.
+#[cfg(windows)]
+struct EndOnDrop(u32);
+
+#[cfg(windows)]
+impl Drop for EndOnDrop {
+    fn drop(&mut self) {
+        end_process(self.0);
+    }
+}
+
+#[cfg(windows)]
+fn end_process(pid: u32) {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_TERMINATE, TerminateProcess};
+    // SAFETY: a handle opened here, used once and closed.
+    unsafe {
+        let handle = OpenProcess(PROCESS_TERMINATE, 0, pid);
+        if !handle.is_null() {
+            TerminateProcess(handle, 1);
+            CloseHandle(handle);
+        }
+    }
+}
+
 #[cfg(windows)]
 #[test]
 fn the_installer_is_started_directly_and_the_program_steps_down_only_after_its_sign() {
@@ -467,8 +500,11 @@ fn the_installer_is_started_directly_and_the_program_steps_down_only_after_its_s
     let now = updater::now();
     assert!(take_lock(&paths, std::process::id(), now));
     let signer = sign_later(&paths, &job);
-    let pid = launch(&paths, &job, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(10), &living(3))
+    // The stand-in of the installer lives two minutes, and its sign is waited for as long: on a loaded computer the sign comes seconds late, and a stand-in that
+    // has ended by then counts as an installer that ended at once. It is ended when the check is done.
+    let pid = launch(&paths, &job, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(120), &living(120))
         .expect("started");
+    let _end = EndOnDrop(pid);
     assert!(!signer.join().unwrap(), "the installer file is held until its sign has come");
     let run = read_run(&paths).expect("the run mark");
     assert_eq!((run.target.as_str(), run.previous.as_str()), ("v5.0.1", "5.0.0"));
@@ -520,11 +556,12 @@ fn an_installer_without_a_sign_is_ended_and_the_program_stays() {
     let now = updater::now();
     assert!(take_lock(&paths, std::process::id(), now));
     let started = Instant::now();
-    let error = launch(&paths, &job, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(1), &living(8))
+    // The loader would live 30 s: ended well before that, the wait was its own 1 s and not the life of the loader.
+    let error = launch(&paths, &job, &mark("v5.0.1", "5.0.0", now), Vec::new(), Duration::from_secs(1), &living(30))
         .expect_err("no sign");
     let took = started.elapsed();
     assert!(error.to_string().contains("gave no sign within 1 s"), "{error}");
-    assert!(took >= Duration::from_secs(1) && took < Duration::from_secs(6), "waited its time: {took:?}");
+    assert!(took >= Duration::from_secs(1) && took < Duration::from_secs(20), "waited its time: {took:?}");
     assert!(read_run(&paths).is_none(), "no run mark");
     assert!(log_of(&job).contains("Installer gave no sign within 1 s - stopped, nothing installed"), "{}", log_of(&job));
     // A program file that still runs cannot be deleted: the loader was ended.
@@ -550,12 +587,12 @@ fn the_wait_for_the_sign_watches_the_loader_and_the_log_for_its_whole_time() {
             .spawn()
             .unwrap()
     };
-    // No sign: the whole time, not less.
-    let mut child = ping(4);
+    // No sign: the whole time, not less, and not the life of the loader (30 s).
+    let mut child = ping(30);
     let started = Instant::now();
     assert_eq!(await_life_sign(&mut child, &log, offset, Duration::from_millis(700)), Sign::Silent);
     let took = started.elapsed();
-    assert!(took >= Duration::from_millis(700) && took < Duration::from_secs(3), "{took:?}");
+    assert!(took >= Duration::from_millis(700) && took < Duration::from_secs(20), "{took:?}");
     // A sign after the offset counts as soon as it comes.
     let writer = {
         let log = log.clone();
@@ -565,8 +602,9 @@ fn the_wait_for_the_sign_watches_the_loader_and_the_log_for_its_whole_time() {
         })
     };
     let started = Instant::now();
-    assert_eq!(await_life_sign(&mut child, &log, offset, Duration::from_secs(10)), Sign::Started);
-    assert!(started.elapsed() < Duration::from_secs(3));
+    // As soon as it comes: the wait would last 25 s otherwise.
+    assert_eq!(await_life_sign(&mut child, &log, offset, Duration::from_secs(25)), Sign::Started);
+    assert!(started.elapsed() < Duration::from_secs(20), "{:?}", started.elapsed());
     writer.join().unwrap();
     assert!(!signed(&log, fs::metadata(&log).unwrap().len()), "nothing after the end");
     let _ = child.kill();
@@ -659,8 +697,10 @@ fn the_installer_waits_for_every_other_process_of_the_program_file_too() {
     let _ = other.wait();
     assert_eq!(job.wait_for, [std::process::id(), other.id()]);
     // The own process stands once, also when the program file is the running one.
+    // (A second run of the same checks at the same time runs from that file too and is waited for as well.)
     let own = setup_job(&paths, &downloaded, &std::env::current_exe().unwrap(), dir.path());
-    assert_eq!(own.wait_for, [std::process::id()]);
+    assert_eq!(own.wait_for.first(), Some(&std::process::id()), "{:?}", own.wait_for);
+    assert_eq!(own.wait_for.iter().filter(|pid| **pid == std::process::id()).count(), 1, "{:?}", own.wait_for);
 }
 
 #[test]
@@ -730,8 +770,10 @@ fn the_leftovers_of_an_update_in_the_temporary_folder_go() {
 #[test]
 fn the_process_list_finds_the_running_test_program_by_its_file() {
     let own = std::env::current_exe().unwrap();
-    // This very test runs from that file, and the own process does not count.
-    assert_eq!(processes_of(&own), Some(Vec::new()));
+    // This very test runs from that file, and the own process does not count. (A second run of the same checks at
+    // the same time is a process of that file too, so only the own number is looked for.)
+    let found = processes_of(&own).expect("the list");
+    assert!(!found.contains(&std::process::id()), "{found:?}");
     assert_eq!(processes_of(&own.with_file_name("gibt-es-nicht.exe")), Some(Vec::new()));
     // A process of another file is found by that file, and only of that file: a copy of `ping` that waits a
     // few seconds, without a window.

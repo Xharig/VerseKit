@@ -1,0 +1,7 @@
+{
+  "hinweis": "Start der aktuellen VerseKit-Version fuer die vierte Stelle der Plugin-Version: Zeit des Commits seit diesem Start in Schritten von minuten_je_schritt (Stream Deck spielt ein Plugin nur bei hoeherer Version ein). Bei jedem Wechsel der Cargo-Version hier version und Start mitziehen; der Test version_start_matches_the_version_of_verse_kit wird sonst rot. Hoechstens 65535 Schritte je Version (455 Tage bei 10 Minuten), sonst bricht der Bau ab mit der Meldung, einen neuen Start einzutragen. Zwei Bauten aus denselben 10 Minuten tragen dieselbe Version, dann spielt Stream Deck den zweiten nicht ein (vorher deinstallieren).",
+  "version": "5.7.0",
+  "start": "2026-11-26T00:00:00Z",
+  "start_unix": 1795651200,
+  "minuten_je_schritt": 10
+}

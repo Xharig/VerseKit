@@ -145,6 +145,10 @@ def inside(setup1, setup2):
               and os.path.isfile(os.path.join(extension, 'COPYRIGHT.txt'))
               and os.path.isfile(os.path.join(extension, 'QUELLE.txt')),
               'the Hangar-Exporter with licence, copyright and source lies in erweiterung')
+        # A real setup cannot be built without the Stream Deck plugin; a check setup has it when it was packed.
+        if os.path.isfile(os.path.join(HERE, '..', 'target', 'streamdeck', 'VerseKit.streamDeckPlugin')):
+            check(os.path.isfile(os.path.join(target, 'VerseKit.streamDeckPlugin')),
+                  'the Stream Deck plugin lies next to the program')
         check(value(UNINSTALL_KEY, 'DisplayVersion') == '5.0.0-pruefung1', '"Apps & Features" shows the first version')
         check(value(UNINSTALL_KEY, 'DisplayName') == 'VerseKit Pruefung', 'and the name')
         check(value(PROGRAM_KEY, 'Programm') == program, 'the setup names its program file for the helper of 5.2.2 and earlier')

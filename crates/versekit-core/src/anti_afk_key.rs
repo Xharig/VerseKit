@@ -170,7 +170,8 @@ pub fn name_of(key: Key) -> Option<&'static str> {
 }
 
 /// The keys of a keyboard input of the game (`lalt+k`, `kb1_lalt+k`) in the order they go down: the modifiers
-/// first, the key last. `None` for an empty input or one with a name without a scan code.
+/// first, the key last, also where the game writes the key first (`f6+lalt`). `None` for an empty input or one with
+/// a name without a scan code.
 pub fn parse(input: &str) -> Option<Vec<Key>> {
     let input = input.trim();
     let input = input.strip_prefix("kb1_").unwrap_or(input);
@@ -178,7 +179,58 @@ pub fn parse(input: &str) -> Option<Vec<Key>> {
         return None;
     }
     let keys: Option<Vec<Key>> = input.split('+').map(key_of).collect();
-    keys.filter(|keys| !keys.is_empty())
+    keys.filter(|keys| !keys.is_empty()).map(modifiers_first)
+}
+
+/// The modifiers (Shift, Ctrl, Alt) before the other keys, each group in its order.
+fn modifiers_first(keys: Vec<Key>) -> Vec<Key> {
+    const MODIFIERS: [&str; 6] = ["lshift", "rshift", "lctrl", "rctrl", "lalt", "ralt"];
+    let is_modifier = |key: &Key| name_of(*key).is_some_and(|name| MODIFIERS.contains(&name));
+    let (mut first, rest): (Vec<Key>, Vec<Key>) = keys.into_iter().partition(is_modifier);
+    first.extend(rest);
+    first
+}
+
+/// The mouse buttons and wheel steps a key of the Stream Deck presses, by the names of the game, as codes no
+/// keyboard sends ([`Key::is_mouse`]).
+pub const MOUSE_KEYS: [(&str, u16); 7] = [
+    ("mouse1", 0xFF01),
+    ("mouse2", 0xFF02),
+    ("mouse3", 0xFF03),
+    ("mouse4", 0xFF04),
+    ("mouse5", 0xFF05),
+    ("mwheel_up", 0xFF10),
+    ("mwheel_down", 0xFF11),
+];
+
+impl Key {
+    /// Is this a mouse button or a wheel step ([`MOUSE_KEYS`]) and no key of the keyboard?
+    pub fn is_mouse(&self) -> bool {
+        self.scan >= 0xFF00
+    }
+}
+
+/// Like [`parse`], with one mouse button or wheel step allowed as the last key (`mouse4`, `lalt+mwheel_up`), also
+/// from the mouse line (`mo1_…`): what a key of the Stream Deck can press. Only the Stream Deck sends these.
+pub fn parse_with_mouse(input: &str) -> Option<Vec<Key>> {
+    let input = input.trim();
+    let input = input.strip_prefix("kb1_").or_else(|| input.strip_prefix("mo1_")).unwrap_or(input);
+    let parts: Vec<String> = input.split('+').map(|p| p.trim().to_ascii_lowercase()).collect();
+    let mouse: Vec<u16> = parts.iter().filter_map(|p| MOUSE_KEYS.iter().find(|(n, _)| n == p).map(|(_, code)| *code)).collect();
+    match mouse.as_slice() {
+        [] => parse(input),
+        [code] => {
+            let others: Vec<&String> = parts.iter().filter(|p| !MOUSE_KEYS.iter().any(|(n, _)| n == p)).collect();
+            let mut keys = Vec::new();
+            for other in others {
+                keys.push(key_of(other)?);
+            }
+            let mut keys = modifiers_first(keys);
+            keys.push(Key { scan: *code, extended: false });
+            Some(keys)
+        }
+        _ => None,
+    }
 }
 
 /// Where the keys come from.
@@ -378,6 +430,30 @@ mod tests {
         assert_eq!(chord(r#"<rebind input="kb1_ "/><rebind input="kb2_lalt+k"/>"#).input, "lalt+k");
         assert_eq!(parse(""), None);
         assert_eq!(parse("lalt+"), None, "a modifier without a key name after it");
+    }
+
+    #[test]
+    fn the_keys_of_signs_go_out_at_the_place_the_game_reads_not_as_a_sign() {
+        // The game names a key by its place (DirectInput, US keyboard); the scan code of that place is sent,
+        // whatever the layout of the system makes of it.
+        let places = [
+            ("minus", 0x0C),
+            ("equals", 0x0D),
+            ("y", 0x15),
+            ("lbracket", 0x1A),
+            ("rbracket", 0x1B),
+            ("semicolon", 0x27),
+            ("apostrophe", 0x28),
+            ("grave", 0x29),
+            ("backslash", 0x2B),
+            ("z", 0x2C),
+            ("comma", 0x33),
+            ("period", 0x34),
+            ("slash", 0x35),
+        ];
+        for (name, scan) in places {
+            assert_eq!(key_of(name), Some(plain(scan)), "{name}");
+        }
     }
 
     #[test]

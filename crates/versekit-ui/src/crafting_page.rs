@@ -1206,16 +1206,18 @@ fn choose_hint(ui: &mut Ui, scheme: &Scheme) {
 }
 
 fn head(ui: &mut Ui, scheme: &Scheme, sure: usize, all: usize, unclear: usize) {
+    let of = tn("s_he_von", &[Arg::from(all)]).trim_start().to_string();
     ui.horizontal_wrapped(|row| {
         row.label(RichText::new(sure.to_string()).heading().color(color(scheme.accent)));
-        row.label(sub(scheme, tn("s_he_von", &[Arg::from(all)]).trim_start().to_string()));
+        row.label(sub(scheme, of.clone()));
         if unclear > 0 {
             row.label(sub(scheme, tn("s_he_dazu_unklar", &[Arg::from(unclear)]).trim_start().to_string()));
         }
     });
     let fraction = sure as f32 / all.max(1) as f32;
     let bar_width = ui.available_width();
-    widgets::progress(ui, scheme, fraction, bar_width);
+    // The bar is named as the line above it reads: "12 von 40 herstellbar, davon hast du den Bauplan".
+    widgets::progress(ui, scheme, fraction, bar_width, &format!("{sure} {of}"));
     ui.add_space(6.0);
 }
 

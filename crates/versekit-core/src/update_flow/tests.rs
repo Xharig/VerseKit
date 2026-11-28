@@ -212,8 +212,12 @@ fn under_windows_a_failed_download_at_the_end_keeps_no_pause() {
     assert_eq!(update_run::download_pause_left(&c.paths, "v5.0.1", ended.now + 1.0), None, "no pause at the end");
     assert!(lock_free(&c));
     let running = Job { at_exit: false, ..ended };
+    let begun = std::time::Instant::now();
     assert!(matches!(run_quiet(&running, &release).0, Done::Stopped(Some(_))));
-    assert!(update_run::download_pause_left(&c.paths, "v5.0.1", running.now + 1.0).is_some(), "a pause while it runs");
+    // The pause counts from the moment the download failed: the time of the round plus what the run took, which on a
+    // loaded computer is more than a second. Asked right after the run.
+    let after = running.now + begun.elapsed().as_secs_f64() + 1.0;
+    assert!(update_run::download_pause_left(&c.paths, "v5.0.1", after).is_some(), "a pause while it runs");
 }
 
 #[cfg(windows)]
@@ -650,8 +654,9 @@ fn env_for(c: &Case, net: Arc<dyn Net>, start: Arc<StartFn>) -> Env {
     }
 }
 
+/// Waits for the fetch on its thread to end, at most two minutes (a loaded computer is slow; the wait ends with it).
 fn wait_until_idle(runner: &Runner) -> State {
-    let end = std::time::Instant::now() + Duration::from_secs(20);
+    let end = std::time::Instant::now() + Duration::from_secs(120);
     while runner.is_busy() && std::time::Instant::now() < end {
         std::thread::sleep(Duration::from_millis(5));
     }

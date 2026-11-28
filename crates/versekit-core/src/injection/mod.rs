@@ -87,8 +87,17 @@ static GAME_FILES: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// The lock file the game files are shared through with the other processes of the run, once
 /// [`share_game_files_between_processes`] has set it.
-/// Beside it the file of its holder note ([`holder_file`]).
-static GAME_FILES_SHARED: std::sync::RwLock<Option<(jsonio::ProcessLock, String)>> = std::sync::RwLock::new(None);
+/// Beside it the file of its holder note ([`holder_file`]) and the lock of the turn ([`jsonio::turn_file`]).
+static GAME_FILES_SHARED: std::sync::RwLock<Option<Shared>> = std::sync::RwLock::new(None);
+
+/// The locks of the game files shared with the other processes.
+struct Shared {
+    lock: jsonio::ProcessLock,
+    /// Held by the process that waits for [`Shared::lock`] while it waits: a process that let go of the game files
+    /// and wants them again queues behind it instead of taking them back before the waiting one got its turn.
+    turn: Option<jsonio::ProcessLock>,
+    holder: String,
+}
 
 /// How long a writer waits for another process that writes the game files: a run of the background holds them
 /// while it reads a file of megabytes and writes it back, so this is far longer than the wait for the JSON files.
@@ -110,8 +119,12 @@ pub fn set_game_files_wait(limit: std::time::Duration) {
 pub fn share_game_files_between_processes(lock_file: &str) -> bool {
     match jsonio::ProcessLock::open(lock_file) {
         Ok(lock) => {
+            // Without the lock of the turn the game files are still shared, only not in turn.
+            let turn = jsonio::ProcessLock::open(&jsonio::turn_file(lock_file))
+                .map_err(|e| errors::record("injection.sperre", &format!("turn lock file {lock_file}: {e}")))
+                .ok();
             *GAME_FILES_SHARED.write().unwrap_or_else(std::sync::PoisonError::into_inner) =
-                Some((lock, holder_file(lock_file)));
+                Some(Shared { lock, turn, holder: holder_file(lock_file) });
             true
         }
         Err(e) => {
@@ -164,11 +177,10 @@ pub struct GameFileGuard {
 impl Drop for GameFileGuard {
     fn drop(&mut self) {
         if self.shared
-            && let Some((lock, holder)) =
-                GAME_FILES_SHARED.read().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref()
+            && let Some(shared) = GAME_FILES_SHARED.read().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref()
         {
-            note_holder(holder, "");
-            lock.release();
+            note_holder(&shared.holder, "");
+            shared.lock.release();
         }
     }
 }
@@ -187,7 +199,7 @@ pub fn game_file_lock() -> GameFileGuard {
     let wait = std::time::Duration::from_millis(GAME_FILES_WAIT_MS.load(std::sync::atomic::Ordering::Relaxed));
     let shared = match GAME_FILES_SHARED.read().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref() {
         None => false,
-        Some((lock, holder)) => match lock.acquire(wait) {
+        Some(Shared { lock, turn, holder }) => match lock.acquire_in_turn(turn.as_ref(), wait) {
             jsonio::Taken::Held => {
                 note_holder(holder, &holder_line(place));
                 true

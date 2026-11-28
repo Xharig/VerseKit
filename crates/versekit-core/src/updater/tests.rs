@@ -201,6 +201,23 @@ fn a_test_build_rc_updates_itself_to_the_next_rc_and_on_to_the_finished_version(
 }
 
 #[test]
+fn a_repository_of_test_versions_that_is_not_there_is_no_error_of_a_beta() {
+    let (_dir, paths) = paths_in("updater-beta-ohne-testrepo", &[]);
+    // As on the net: the repository of the test versions answers 404, the main repository the releases.
+    let net = Fake::default().with(API, br#"[{"tag_name":"v5.7.0-beta.3","prerelease":true,"assets":[]}]"#.to_vec());
+    let (checked, caught) = errors::captured(|| check(&net, &paths, "5.7.0-beta.3", true, 1000.0));
+    assert_eq!(net.asked(), [TEST_API.to_string(), API.to_string()]);
+    assert_eq!(checked.fetched, Some(true));
+    assert!(caught.iter().all(|c| c.label != "updater.check"), "nothing written down: {caught:?}");
+    // Any other trouble of the test versions is still written down, and a missing main repository too.
+    let broken = Fake::default().with(TEST_API, b"kein json".to_vec()).with(API, b"[]".to_vec());
+    let (_, caught) = errors::captured(|| check(&broken, &paths, "5.7.0-beta.3", true, 2000.0));
+    assert!(caught.iter().any(|c| c.label == "updater.check" && !c.note), "{caught:?}");
+    let (_, caught) = errors::captured(|| check(&Fake::default(), &paths, "5.7.0", true, 3000.0));
+    assert!(caught.iter().any(|c| c.label == "updater.check"), "the main repository missing is an error: {caught:?}");
+}
+
+#[test]
 fn a_test_build_asks_the_test_versions_too_and_a_finished_one_does_not() {
     let test_base = "https://github.com/Xharig/VerseKit-Testfassungen/releases/download";
     let (_dir, paths) = paths_in("updater-test-repo", &[]);

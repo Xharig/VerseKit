@@ -6,6 +6,95 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.7.0 - 2026-11-28
+
+> VerseKit steuert jetzt das Stream Deck: ein eigenes Plugin mit fertigen
+> Profilen für jede Gerätegröße, eine neue Seite „Tasten & Stream Deck“ und
+> ein Klick, der fehlende Tasten im Spiel einträgt. Dazu viele Fehler behoben,
+> von Mein Lager über den Bauplan-Scan bis zur Einrichtung, und ein
+> Datenordner auf einem zweiten Laufwerk bleibt, wo er ist.
+
+### Neu
+
+- **Stream-Deck-Plugin:** VerseKit bringt ein eigenes Plugin für die
+  Elgato-Software mit, samt Profilen für jede Gerätegröße von Mini bis
+  Stream Deck + XL.
+  Die Tasten tragen Kurznamen und Symbole im Hausstil, Seitentasten sind
+  magenta, Waffen, Schilde und andere Bereiche haben eigene Farben. Unter
+  Tasten & Stream Deck richtet „Stream Deck einrichten“ alles mit einem Klick
+  ein; nach einem VerseKit-Update zieht das Plugin selbst nach. Farben je
+  Bereich als Idee von oGundalf.
+- **Seite „Tasten & Stream Deck“:** Alle Tastenkürzel von VerseKit und alles
+  zum Stream Deck stehen auf einer Seite, mit Schaltern für „Tasten anzeigen“
+  (die Spieltaste klein unter jedem Symbol), „Regler kompakt“ und „Seite
+  automatisch wechseln“.
+- **Fehlende Tasten eintragen:** Hat eine Taste des Decks im Spiel keine
+  Belegung, zeigt VerseKit das auf der Taste, in einer Leiste und in einem
+  Zähler. „Fehlende Stream-Deck-Tasten eintragen“ belegt sie mit sicheren,
+  freien Tasten, auf Wunsch auch gelöschte; die Datei von vorher lässt sich
+  zurückholen. Joystick, Gamepad und Maus bleiben unberührt.
+- **Regler (Stream Deck +):** Die Regler zeigen Namen oder, kompakt, ein
+  großes Symbol, dazu einen Info-Regler mit Contested-Zeit, Schiff und Status.
+  Die Texte der Regler stehen auch in der Elgato-Software auf Deutsch.
+- **Seitenwechsel:** Verlasst ihr den Pilotensitz, springt das Deck auf die
+  Seite „Zu Fuß“. Nach einem Emote springt es zurück (Tippen) oder bleibt
+  (Halten). Wunsch von Autobrake, Tippen und Halten als Idee von vonCurryWurst.
+- **Sicher drücken:** Gefährliche Tasten wie Auswerfen wollen gehalten werden;
+  Tasten, die das Spiel nur beim Halten auslöst, hält das Deck so lange wie im
+  Spiel. Das Deck funktioniert auch, wenn VerseKit gerade nicht läuft.
+- **Profile zum Herunterladen:** Jedes Release trägt die Stream-Deck-Profile
+  als ZIP mit Anleitung, dazu gibt es auf der Webseite eine eigene Seite
+  „Stream Deck“ mit Einrichtung und häufigen Fragen.
+- **scmdb.net:** Beim Verbinden meldet VerseKit alle Baupläne, die scmdb.net
+  noch nicht kennt, beim ersten Mal den ganzen Bestand. Wunsch von MindBurnt.
+
+### Verbessert
+
+- **Dogfight auf MK.2, Neo und Mini:** „Ziel sperren“ liegt jetzt vorn,
+  „Raketen +“ dahinter. Dazu Helm und „Bergbau/Bergung M“ an den richtigen
+  Plätzen und klarere Texte. Gemeldet von vonCurryWurst.
+- **Mein Hangar › Hangar Extension:** Unter „Oder eine Datei einlesen“
+  öffnet je ein Knopf die Hangar Extension für Firefox, Chrome und Edge.
+- **Mein Lager › Lager-Scans:** Liest ein Scan nichts, sagt VerseKit jetzt den
+  Grund (Spiel nicht vorn, Zeiger außerhalb, keine Texterkennung, keine Karte
+  am Zeiger). Bei Windows-Skalierung wie 150 % am 4K-Bildschirm trifft der
+  Scan die richtige Stelle. Gemeldet von SirHinkebein.
+- **Beta-Update:** Lädt eine neue Beta noch hoch, fragt ein Klick auf das
+  Update erneut nach, statt euch zum Herunterladen von Hand zu schicken.
+- **Webseite:** Alle Bilder zeigen den Stand von 5.7.0, dazu ein Bild zum
+  Stream Deck.
+- **Bauplan-Scan:** Fragt seltener nach, etwa bei Armbrüsten wie der
+  Nighthunter.
+- **Ladeanzeigen:** Sicherung schreiben und einspielen zeigt einen Balken
+  „n von m Dateien“; Assistent, Start des RSI Launchers, Übersichtskacheln und
+  Profilbilder zeigen, dass sie laden. Jeder Balken nennt Bildschirmlesern,
+  was er zählt.
+
+### Behoben
+
+- **Baupläne doppelt in der Übersetzung:** Derselbe Bauplan unter zwei
+  übersetzten Namen, etwa bei Bergbaulasern, steht wieder einmal da.
+- **Datenordner auf einem zweiten Laufwerk:** War das Laufwerk beim Start
+  noch nicht bereit, wechselte VerseKit auf einen anderen Ordner und wirkte
+  leer. Jetzt wartet es kurz und sagt, welches Laufwerk fehlt. Ein Umzug des
+  Datenordners nimmt auch die Kanal-Ordner mit, und „Jetzt neu starten“
+  startet das ganze Programm samt Overlay neu.
+- **Mein Lager:** Schiffskomponenten standen doppelt da, etwa „MegaFlux“ und
+  „Mil/3/B MegaFlux“; vorhandene Doppel werden zusammengeführt. Gescannte Orte
+  wie „QV Logistics Station“ nimmt es auch von Hand an. Gemeldet von Lord
+  Cyberus [KRT].
+- **Fehlerton beim Tippen:** Holte das Overlay-Kürzel das Hauptfenster zurück,
+  piepte Windows bei jedem Buchstaben. Gemeldet von Horthy [KRT].
+- **Einrichtung:** Verweigerte Windows die Verknüpfungen oder den Eintrag unter
+  „Apps & Features“, brach sie ab. Jetzt installiert sie weiter und sagt, was
+  fehlt. Gemeldet von Keendary [KRT].
+- **Fracht:** MOLE mit 32 SCU Fracht und 96 SCU Erz getrennt, 890 Jump mit 388
+  SCU, Retaliator und Aurora Mk II mit Frachtmodulen.
+- **Nach Spielende und Patch:** Die Bauplan-Liste wartete nach dem Spiel fünf
+  Minuten, „Neu einsetzen“ neben dem Overlay bis zu zwei, und nach einem Patch
+  wartete das Einlesen, solange der Shader-Lauf des Spiels lief.
+- **Französisch:** Die Veil hatte Größe 2.
+
 ## v5.6.4 - 2026-11-26
 
 > Eine Fehlerbehebung für alle, die ihren Hangar aus Opera GX oder einem

@@ -168,9 +168,22 @@ impl Pictures {
             }
             None => {
                 ui.painter().rect(rect, radius, color(scheme.field), Stroke::new(1.0, color(scheme.line)), StrokeKind::Inside);
+                // A picture on its way shows the spinner in its box; one that will not come keeps the quiet box.
+                if self.is_waiting(url) {
+                    let side = (size * 0.45).max(8.0);
+                    egui::Spinner::new()
+                        .size(side)
+                        .color(color(scheme.accent))
+                        .paint_at(ui, Rect::from_center_size(rect.center(), Vec2::splat(side)));
+                }
             }
         }
         response
+    }
+
+    /// Is the picture of `url` on its way?
+    pub fn is_waiting(&self, url: &str) -> bool {
+        matches!(self.slots.get(url), Some(Slot::Waiting))
     }
 }
 
@@ -190,6 +203,36 @@ pub(crate) mod tests {
         let mut out = std::io::Cursor::new(Vec::new());
         picture.write_to(&mut out, image::ImageFormat::Png).expect("png");
         out.into_inner()
+    }
+
+    /// A picture on its way shows the spinner in its box; one that will not come keeps the quiet box. The spinner is
+    /// the one path the box draws.
+    #[test]
+    fn a_picture_on_its_way_shows_the_spinner_and_one_that_will_not_come_the_quiet_box() {
+        let scheme = versekit_core::theme::schemes().first().expect("a scheme");
+        let ctx = egui::Context::default();
+        let paths_drawn = |pictures: &mut Pictures, url: &str| {
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                pictures.show(ui, scheme, url, 48.0);
+            });
+            output.textures_delta.clear();
+            fn count(shape: &egui::epaint::Shape) -> usize {
+                match shape {
+                    egui::epaint::Shape::Path(_) => 1,
+                    egui::epaint::Shape::Vec(shapes) => shapes.iter().map(count).sum(),
+                    _ => 0,
+                }
+            }
+            output.shapes.iter().map(|clipped| count(&clipped.shape)).sum::<usize>()
+        };
+        // Without a way to fetch it the picture will not come.
+        let mut pictures = Pictures::none();
+        assert_eq!(paths_drawn(&mut pictures, "https://example.invalid/a.png"), 0, "the quiet box");
+        assert!(!pictures.is_waiting("https://example.invalid/a.png"));
+        // A picture asked for and not yet answered.
+        pictures.slots.insert("https://example.invalid/b.png".to_string(), Slot::Waiting);
+        assert!(pictures.is_waiting("https://example.invalid/b.png"));
+        assert!(paths_drawn(&mut pictures, "https://example.invalid/b.png") > 0, "the spinner in the box");
     }
 
     #[test]

@@ -1461,3 +1461,27 @@ fn count_list(
     }
     (counts, wrong, important)
 }
+
+/// A picture of 3840 × 2160 taken at a scaling of 150 % (`4k/ScreenShot-2026-11-26_21-01-36-083.jpg` in
+/// `VERSEKIT_STOCK_PICTURES`): the card at the pointer 2240,1280 gives its name and the amount 1 for sure, also where
+/// the pointer came in scaled points (1493,853) and is taken in physical ones as the scan does.
+#[test]
+#[ignore = "reads test pictures of the game"]
+fn a_card_on_a_screen_of_4k_at_150_percent_is_read_at_the_pointer_in_physical_points() {
+    let Some(folder) = std::env::var_os("VERSEKIT_STOCK_PICTURES") else { return };
+    let file = Path::new(&folder).join("4k").join("ScreenShot-2026-11-26_21-01-36-083.jpg");
+    let bitmap = bitmap_of(&file);
+    assert_eq!((bitmap.width, bitmap.height), (3840, 2160));
+    let (names, texts) = names_and_texts();
+    let physical = versekit_core::screen_grab::physical_of((1493, 853), Some((2240, 1280)), Some(144));
+    for pointer in [(2240, 1280), physical] {
+        let at = (i64::from(pointer.0), i64::from(pointer.1));
+        let outcome = read_card(&bitmap, at, &mut Recognition::new(&bitmap), &names, texts.as_ref()).expect("read");
+        assert_eq!(
+            (outcome.certainty, outcome.name.as_deref(), outcome.quantity, outcome.quantity_read),
+            (Certainty::Sure, Some("CF-227 Badger Repeater"), 1.0, true),
+            "{pointer:?}: {:?}",
+            outcome.lines
+        );
+    }
+}

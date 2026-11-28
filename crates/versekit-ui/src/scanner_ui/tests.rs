@@ -1004,7 +1004,11 @@ fn stopping_a_fetch_stops_its_thread_before_it_looks_at_the_game() {
     // Left alone, the same fetch asks once its wait is over.
     let seen = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     state.start_fetch_from(&ctx, 1.0, Box::new(Watched(seen.clone())), delay, game_picture::WAIT);
-    std::thread::sleep(after);
+    // Waited for until it looks (its thread may come late on a loaded computer), at most a minute.
+    let end = std::time::Instant::now() + Duration::from_secs(60);
+    while seen.load(Ordering::SeqCst) == 0 && std::time::Instant::now() < end {
+        std::thread::sleep(Duration::from_millis(10));
+    }
     assert!(seen.load(Ordering::SeqCst) >= 1, "not stopped: it looks");
     state.cancel_fetch();
 }

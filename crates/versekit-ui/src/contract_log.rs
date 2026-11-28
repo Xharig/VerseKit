@@ -207,7 +207,7 @@ impl LogData {
             ("Retake the Outpost", "2026-10-18T15:02:40", log::COMPLETED, &["Arclight Pistol"], 0),
             ("Deliver Supplies", "2026-10-17T21:12:03", log::ABORTED, &[], 0),
             (
-                "Verified Bounty: Brendon Broad | HRT (Großes Mehrbesatzungsschiff, mittlere Unterstützung)",
+                "Verified Bounty: Brendon Broad | HRT (Large Multi-Crew Ship, Medium Support)",
                 "2026-10-17T20:40:00",
                 log::FAILED,
                 &[],
@@ -987,7 +987,8 @@ mod tests {
         data.rescan(None);
         let started = std::time::Instant::now();
         while !data.poll() {
-            assert!(started.elapsed().as_secs() < 30, "the reading did not finish");
+            // A bound against a hang, far above what the reading takes on a loaded computer.
+            assert!(started.elapsed().as_secs() < 180, "the reading did not finish");
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
         assert_eq!(data.missions.len(), 1);

@@ -44,6 +44,10 @@ Push-Location $repo
 try {
     cargo build --release --locked -p versekit-app --features test-build
     if ($LASTEXITCODE -ne 0) { throw "cargo build failed ($LASTEXITCODE)" }
+    # The Stream Deck plugin beside the program, as the installer puts it: "Set up Stream Deck" opens it.
+    $plugins = Join-Path $Target 'streamdeck'
+    & (Join-Path $PSScriptRoot 'streamdeck_paket.ps1') -Target $plugins | Out-Null
+    Copy-Item -Force (Join-Path $plugins 'VerseKit.streamDeckPlugin') (Join-Path $Target 'release')
 }
 finally {
     Pop-Location

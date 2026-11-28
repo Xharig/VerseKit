@@ -74,6 +74,34 @@ fn the_foot_bar_shows_work_and_not_a_wait() {
     assert_eq!(done, None, "waiting for the game is no work: no bar");
 }
 
+/// The bar of the build has a name for a screen reader, what is being built, and the percent as its value; in the
+/// middle of an empty list and in the strip over a list.
+#[test]
+fn the_bar_of_the_build_says_what_it_shows() {
+    use egui::accesskit::Role;
+    use egui_kittest::Harness;
+    use egui_kittest::kittest::{NodeT, Queryable};
+    for language in [Choice::De, Choice::En] {
+        set_thread_language(language);
+        let name = t("kat_fortschritt_kopf");
+        let seen = snapshot(Step::Contracts, 0.31, false);
+        for strip_view in [false, true] {
+            let mut harness = Harness::builder()
+                .with_context_setup(crate::install)
+                .with_accessibility_check(false)
+                .allow_missing_glyphs()
+                .build_ui(|ui| {
+                    let scheme = versekit_core::theme::current();
+                    if strip_view { strip(ui, scheme, &seen) } else { block(ui, scheme, &seen) }
+                });
+            harness.run();
+            let bar = harness.get_by_role_and_label(Role::ProgressIndicator, &name);
+            assert_eq!(bar.accesskit_node().numeric_value(), Some(31.0), "{language:?} strip {strip_view}");
+        }
+    }
+    set_thread_language(Choice::De);
+}
+
 #[test]
 fn the_end_of_a_build_stays_a_few_seconds() {
     let ctx = egui::Context::default();
@@ -82,9 +110,11 @@ fn the_end_of_a_build_stays_a_few_seconds() {
     let drawn = |at: f64, time: f64, blueprints: Option<usize>| {
         let mut shown = false;
         let input = egui::RawInput { time: Some(time), ..egui::RawInput::default() };
-        let _ = ctx.run_ui(input, |ui| {
+        ctx.run_ui(input, |ui| {
             shown = ended(ui, scheme, &Ended { blueprints, at });
-        });
+        })
+        .textures_delta
+        .clear();
         shown
     };
     assert!(drawn(10.0, 10.0, Some(540)), "at once");

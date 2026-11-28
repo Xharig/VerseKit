@@ -37,6 +37,7 @@ use versekit_core::mining_data::MiningData;
 use versekit_core::paths::Paths;
 use versekit_core::stock::{self, Cost, Refused, Row, Store};
 use versekit_core::stock_data::{ITEM_KINDS, Kind, MATERIAL_KINDS, StockData, lower, truthy};
+use versekit_core::stock_scan_book::{Journal, merge_twins};
 use versekit_core::theme::{Color, IconTint, Scheme};
 
 use crate::color;
@@ -265,6 +266,8 @@ enum Job {
 /// What the stock page holds.
 pub struct StockState {
     files: Option<(String, String)>,
+    /// The journal of the stock scans: when an entry was last set by a scan.
+    scan_journal: Option<String>,
     raw: Vec<Value>,
     trade: Vec<Value>,
     data: StockData,
@@ -351,6 +354,7 @@ impl Default for StockState {
     fn default() -> Self {
         StockState {
             files: None,
+            scan_journal: None,
             raw: entries_of(SAMPLE_RAW),
             trade: entries_of(SAMPLE_TRADE),
             data: StockData::sample(),
@@ -588,6 +592,7 @@ impl StockState {
         let trade = paths.app_file(stock::TRADE_FILE);
         let mut state = StockState {
             files: Some((raw, trade)),
+            scan_journal: Some(paths.app_file(versekit_core::stock_scan_book::FILE)),
             raw: Vec::new(),
             trade: Vec::new(),
             data: StockData::load(|name| paths.app_file(name)),
@@ -716,6 +721,26 @@ impl StockState {
         self.seen = [modified(raw), modified(trade)];
         self.raw = stock::load(raw, "materials.load");
         self.trade = stock::load(trade, "trade_cargo.load");
+        // An item booked under a second name (`Mil/3/B MegaFlux (Mil/3/B)` beside `MegaFlux`) is put together with
+        // the one of the list and written back, so that every page and the sync see one entry.
+        let journal = self.scan_journal.as_deref().map(Journal::load_file).unwrap_or_default();
+        let data = &self.data;
+        if merge_twins(&mut self.trade, &journal, &|name| data.item_name(name).map(str::to_string))
+            && stock::save(trade, &self.trade, "trade_cargo.save")
+        {
+            self.seen[1] = modified(trade);
+        }
+        // A place the stock holds (a scan books the place of the Game.log, which the list of the terminals may not
+        // name) is a known place: the forms take it and offer it.
+        let held: Vec<String> = self
+            .raw
+            .iter()
+            .chain(&self.trade)
+            .filter_map(|e| e.get("ort").and_then(Value::as_str).map(str::to_string))
+            .collect();
+        for place in held {
+            self.data.add_place(&place);
+        }
     }
 
     /// Reads the files again when they changed on disk; an entry in the form
@@ -3705,6 +3730,45 @@ mod tests {
         for dir in [&folder, &home, &home2, &home3] {
             let _ = std::fs::remove_dir_all(dir);
         }
+    }
+
+    /// Lord Cyberus: the scans booked at "QV Logistics Station", a place of the Game.log the list of the terminals
+    /// does not name, and one component under two names. Read, the stock holds one entry of it, and the form takes the
+    /// place copied from a scanned entry.
+    #[test]
+    fn a_place_the_stock_holds_is_known_and_twins_are_one_entry() {
+        let places = r#"{"format": 1, "orte": ["Levski", "Orison"]}"#;
+        let trade = r#"{"format": 1, "posten": [
+            {"ware": "MegaFlux", "menge": 5, "ort": "QV Logistics Station", "gestohlen": false, "stueck": true},
+            {"ware": "Mil/3/B MegaFlux (Mil/3/B)", "menge": 6, "ort": "QV Logistics Station", "gestohlen": false, "stueck": true}
+        ]}"#;
+        // Both were scanned there, the second name later: one stack read twice, it counts 6, not 11.
+        let journal = r#"{"scans": [
+            {"id": 1, "zeit": 100, "ziel": "eigen", "ort": "QV Logistics Station", "name": "MegaFlux", "menge": 5, "stueck": true},
+            {"id": 2, "zeit": 200, "ziel": "eigen", "ort": "QV Logistics Station", "name": "Mil/3/B MegaFlux (Mil/3/B)", "menge": 6, "stueck": true}
+        ]}"#;
+        let (paths, home) = data_folder(
+            "cyberus-ort",
+            &[(PLACES_FILE, places), (stock::TRADE_FILE, trade), (versekit_core::stock_scan_book::FILE, journal)],
+        );
+        let mut state = StockState::with_files(&paths);
+        let on_disk = stock::load(&paths.app_file(stock::TRADE_FILE), "test");
+        for entries in [&state.trade, &on_disk] {
+            assert_eq!(entries.len(), 1, "{entries:?}");
+            assert_eq!(entries[0].get("ware").and_then(Value::as_str), Some("MegaFlux"));
+            assert_eq!(stock::number_of(&entries[0], "menge"), 6.0);
+        }
+        assert!(state.data.knows_place("QV Logistics Station"));
+        assert!(state.data.places().iter().any(|p| p == "QV Logistics Station"), "offered as a suggestion");
+        assert!(!state.data.knows_place("Nirgendwo am Rand"), "the list still stops a typo");
+        state.item_form.name = "MegaFlux".into();
+        state.item_form.amount = "1".into();
+        state.item_form.place = "QV Logistics Station".into();
+        state.save_item();
+        assert_eq!(state.item_form.errors.place, None);
+        assert_eq!(state.trade.len(), 1);
+        assert_eq!(stock::number_of(&state.trade[0], "menge"), 7.0);
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     #[test]

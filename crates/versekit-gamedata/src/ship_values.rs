@@ -88,12 +88,14 @@ impl ShipValues {
         values
     }
 
-    /// The field `werte` of a ship of the catalog: `scm` (m/s), `masse` (length, width, height in metres) and `fracht`
-    /// (SCU), each only where the data have it; `None` when they have none. `controller` is the identifier of the
-    /// flight controller the ship has at the factory. `outside` is the cargo space of the ship beyond its cargo grids
-    /// that was counted (`ship_slots::cargo_outside_grids`: the mining pods), `Some(0.0)` for a ship without any, and
-    /// `None` for a ship with cargo space that cannot be counted: no `fracht` then. `fabricator_grids` is how many
-    /// of its cargo grids sit at a fabricator port; they are neither cargo space nor unreadable grids.
+    /// The field `werte` of a ship of the catalog: `scm` (m/s), `masse` (length, width, height in metres), `fracht`
+    /// (SCU of the cargo grids) and `erz` (SCU of the mining pods, only for a ship that has any), each only where the
+    /// data have it; `None` when they have none. The ore of the pods is no cargo: the MOLE carries 32 SCU of cargo and
+    /// 96 SCU of ore, as the game and the shops count it. `controller` is the identifier of the flight controller the
+    /// ship has at the factory. `outside` is the cargo space of the ship beyond its cargo grids that was counted
+    /// (`ship_slots::cargo_outside_grids`: the mining pods), `Some(0.0)` for a ship without any, and `None` for a ship
+    /// with cargo space that cannot be counted: no `fracht` then. `fabricator_grids` is how many of its cargo grids
+    /// sit at a fabricator port; they are neither cargo space nor unreadable grids.
     pub fn of(&self, ship: &Json, controller: Option<&str>, outside: Option<f64>, fabricator_grids: u64) -> Option<Value> {
         let mut out: Map = Vec::new();
         if let Some(scm) = controller.and_then(|guid| self.scm.get(&guid.to_ascii_lowercase())) {
@@ -107,13 +109,51 @@ impl ShipValues {
         let size = self.sizes.get(&guid);
         let fits = |scu: f64| size.is_none_or(|size| cargo_fits(scu, size));
         let readable = unreadable == 0 && outside.is_some();
-        let extra = outside.unwrap_or(0.0);
-        let total = ship["cargoScu"].as_f64().map(|grids| grids + extra);
-        if let Some(scu) = total.filter(|v| v.is_finite() && *v >= 0.0 && readable && fits(*v)) {
+        let ore = outside.unwrap_or(0.0);
+        let known = known_cargo(ship["className"].as_str().unwrap_or_default());
+        // The data win once they count as much themselves.
+        let grids = ship["cargoScu"].as_f64().filter(|v| v.is_finite() && *v >= 0.0).map(|v| known.map_or(v, |k| v.max(k)));
+        // Both together must fit the box of the ship; each is shown on its own.
+        if let Some(scu) = grids.filter(|v| readable && fits(*v + ore)) {
             out.push(("fracht".to_string(), Value::Float(scu)));
+            if ore > 0.0 {
+                out.push(("erz".to_string(), Value::Float(ore)));
+            }
+            // The most it holds with cargo modules, where that is more than the factory loadout holds.
+            if let Some(modules) = module_cargo(ship["className"].as_str().unwrap_or_default()).filter(|m| *m > scu) {
+                out.push(("fracht_module".to_string(), Value::Float(modules)));
+            }
         }
         (!out.is_empty()).then_some(Value::Object(out))
     }
+}
+
+/// Ships whose hold the DataForge does not hold as cargo grids, with their cargo as the game shows it: the
+/// beginning of the class name and the SCU. The 890 Jump (LIVE 4.10.3, `ORIG_890Jump`) has six grids on its hangar
+/// deck in its loadout (2 × 30 + 4 × 10 = 100 SCU) and nothing else that holds a capacity, while its hold behind the
+/// cargo lift carries the rest: 388 SCU in all (starcitizen.tools, UEX 4.8.3).
+const KNOWN_CARGO: [(&str, f64); 1] = [("orig_890jump", 388.0)];
+
+/// Ships whose cargo depends on the modules they carry, with the most cargo they hold with cargo modules: the class
+/// name and the SCU. Their factory loadout has modules without cargo, so `fracht` is the cargo without them.
+/// - Retaliator (`AEGS_Retaliator`, LIVE 4.10.3): `AEGS_Retaliator_Module_Front_Base` and `…_Rear_Base` hold no grid
+///   (0 SCU); the cargo modules hold the grids `AEGS_Retaliator_Front_CargoGrid_Main` 3.75 × 6.25 × 2.5 m (30 SCU),
+///   `…_Left` and `…_Right` 2.5 × 1.25 × 2.5 m (4 SCU each) and `AEGS_Retaliator_Rear_CargoGrid` 3.75 × 7.5 × 2.5 m
+///   (36 SCU): 38 + 36 = 74 SCU, as starcitizen.tools (front 38, rear 36) and UEX say.
+/// - Aurora Mk II (`RSI_Aurora_Mk2`): 2 SCU in its rack; the cargo module (TS) adds 6 SCU, 8 SCU in all
+///   (starcitizen.tools; its grid `RSI_Aurora_Mk2_Module_CargoGrid` is 1.25 × 3.75 × 1.25 m, 3 SCU, on both sides).
+const MODULE_CARGO: [(&str, f64); 2] = [("aegs_retaliator", 74.0), ("rsi_aurora_mk2", 8.0)];
+
+/// The cargo with cargo modules of [`MODULE_CARGO`] for a ship class (the whole name, in any case); `None` for any
+/// other.
+fn module_cargo(class: &str) -> Option<f64> {
+    MODULE_CARGO.iter().find(|(name, _)| class.eq_ignore_ascii_case(name)).map(|(_, scu)| *scu)
+}
+
+/// The cargo of [`KNOWN_CARGO`] for a ship class, by the beginning of its name in any case; `None` for any other.
+fn known_cargo(class: &str) -> Option<f64> {
+    let class = class.to_ascii_lowercase();
+    KNOWN_CARGO.iter().find(|(start, _)| class.starts_with(start)).map(|(_, scu)| *scu)
 }
 
 /// What a `ResourceContainer` capacity holds in SCU: in standard (`standardCargoUnits`), centi (`centiSCU`) or micro
@@ -297,19 +337,58 @@ mod tests {
     }
 
     #[test]
-    fn the_mining_pods_add_their_capacity_to_the_grids() {
-        // The Mole in LIVE 4.10.3: eight pods of 12 SCU and the rear lift of 32 SCU; the Prospector: four pods of 8
-        // SCU and no grid at all.
+    fn the_hold_of_the_890_jump_that_the_data_lack_is_counted_and_the_data_win_once_they_have_more() {
+        let jump = |class: &str, grids: f64| {
+            values()
+                .of(&serde_json::json!({"guid": "bb", "className": class, "cargoScu": grids, "cargoGridsWithIssue": 0}), None, Some(0.0), 0)
+                .and_then(|v| v.get("fracht").cloned())
+        };
+        // LIVE 4.10.3: the six grids of the hangar deck give 100 SCU; the game shows 388.
+        assert_eq!(jump("ORIG_890Jump", 100.0), Some(Value::Float(388.0)));
+        assert_eq!(jump("ORIG_890Jump_Drug_01", 100.0), Some(Value::Float(388.0)), "its variants too");
+        assert_eq!(jump("ORIG_890Jump", 400.0), Some(Value::Float(400.0)), "the data count more themselves");
+        // Counter-check: another ship keeps the sum of its grids.
+        assert_eq!(jump("ORIG_600i_Explorer", 44.0), Some(Value::Float(44.0)));
+    }
+
+    #[test]
+    fn a_ship_whose_cargo_hangs_on_its_modules_names_what_it_holds_with_cargo_modules() {
+        let of = |class: &str, grids: f64| {
+            values()
+                .of(&serde_json::json!({"guid": "bb", "className": class, "cargoScu": grids, "cargoGridsWithIssue": 0}), None, Some(0.0), 0)
+                .expect("values")
+        };
+        let retaliator = of("AEGS_Retaliator", 0.0);
+        assert_eq!(
+            (retaliator.get("fracht"), retaliator.get("fracht_module")),
+            (Some(&Value::Float(0.0)), Some(&Value::Float(74.0))),
+            "the factory modules hold nothing, the cargo modules 38 + 36"
+        );
+        let aurora = of("RSI_Aurora_Mk2", 2.0);
+        assert_eq!((aurora.get("fracht"), aurora.get("fracht_module")), (Some(&Value::Float(2.0)), Some(&Value::Float(8.0))));
+        // Counter-check: a ship without cargo modules, and another class that only begins like one, have no line.
+        assert_eq!(of("AEGS_Hammerhead_GS", 64.0).get("fracht_module"), None);
+        assert_eq!(of("RSI_Aurora_Mk2_MissileModule_TEMP", 2.0).get("fracht_module"), None);
+    }
+
+    #[test]
+    fn the_ore_of_the_mining_pods_stands_beside_the_cargo_not_in_it() {
+        // The Mole in LIVE 4.10.3: eight pods of 12 SCU and the rear lift of 32 SCU (the wiki and UEX: 32 SCU cargo,
+        // 96 SCU ore); the Prospector: four pods of 8 SCU and no grid at all.
         let mole = values().of(&ship("aa", serde_json::json!(32.0), 0), None, Some(96.0), 0).expect("values");
-        assert_eq!(mole.get("fracht"), Some(&Value::Float(128.0)));
+        assert_eq!((mole.get("fracht"), mole.get("erz")), (Some(&Value::Float(32.0)), Some(&Value::Float(96.0))));
         let prospector = values().of(&ship("bb", serde_json::json!(0.0), 0), None, Some(32.0), 0).expect("values");
-        assert_eq!(prospector.get("fracht"), Some(&Value::Float(32.0)));
-        // Counter-check: pods that do not fit into the box of the ship are no cargo.
+        assert_eq!((prospector.get("fracht"), prospector.get("erz")), (Some(&Value::Float(0.0)), Some(&Value::Float(32.0))));
+        // A ship without pods has no ore line at all.
+        let plain = values().of(&ship("bb", serde_json::json!(46.0), 0), None, Some(0.0), 0).expect("values");
+        assert_eq!((plain.get("fracht"), plain.get("erz")), (Some(&Value::Float(46.0)), None));
+        // Counter-check: pods that do not fit into the box of the ship together with the grids are neither.
         let small = ShipValues {
             sizes: HashMap::from([("aa".to_string(), [4.0, 3.0, 2.0])]),
             scm: HashMap::new(),
             pods: HashMap::new(),
         };
-        assert_eq!(small.of(&ship("aa", serde_json::json!(0.0), 0), None, Some(96.0), 0).and_then(|v| v.get("fracht").cloned()), None);
+        let overfull = small.of(&ship("aa", serde_json::json!(0.0), 0), None, Some(96.0), 0).expect("size");
+        assert_eq!((overfull.get("fracht"), overfull.get("erz")), (None, None));
     }
 }

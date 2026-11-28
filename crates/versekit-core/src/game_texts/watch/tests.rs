@@ -62,7 +62,8 @@ fn settle(watch: &mut Watch, paths: &Arc<Paths>, now: f64) -> Vec<Notice> {
     let start = Instant::now();
     let mut told = watch.tick(paths, now);
     while watch.busy() {
-        assert!(start.elapsed() < Duration::from_secs(60), "the run ends");
+        // A bound against a hang, far above the time a run takes on a loaded computer.
+        assert!(start.elapsed() < Duration::from_secs(300), "the run ends");
         std::thread::sleep(Duration::from_millis(5));
         told.extend(watch.tick(paths, now));
     }

@@ -61,7 +61,9 @@ fn a_booking_and_a_sync_that_saves_under_the_stock_lock_do_not_wait_for_each_oth
         let _ = done.send(("booking", matches!(outcome, Outcome::Booked(_))));
     });
     for _ in 0..2 {
-        let (who, good) = finished.recv_timeout(Duration::from_secs(20)).expect("neither waits for the other for ever");
+        // Both locks are ones for the whole process, which other checks take too: two minutes on a loaded computer,
+        // while waiting for each other would last for ever.
+        let (who, good) = finished.recv_timeout(Duration::from_secs(120)).expect("neither waits for the other for ever");
         assert!(good, "{who} went through");
     }
     assert_eq!(trade_amount(&paths_in(&dir), "Parallax", "Orison", true), Some(5.0));
@@ -239,6 +241,63 @@ fn a_set_keeps_the_rest_of_the_entry() {
     assert_eq!(entries[0].get("uex"), Some(&Value::int(77)));
 }
 
+/// Lord Cyberus: a card read through a translation names the item `Mil/3/B MegaFlux (Mil/3/B)`. It is booked as the
+/// `MegaFlux` of the list, and the entries the stock has of it under both names become the one the scan sets.
+#[test]
+fn a_name_with_its_class_code_is_booked_as_the_listed_item() {
+    let dir = Dir::new("lagerscan-klassencode");
+    let paths = paths_in(&dir);
+    let file = paths.app_file(stock::TRADE_FILE);
+    let mut entries = Vec::new();
+    stock::trade_add_item(&mut entries, "MegaFlux", "5", "Orison", false, None, None).expect("booked");
+    stock::trade_add_item(&mut entries, "Mil/3/B MegaFlux (Mil/3/B)", "6", "Orison", false, None, None)
+        .expect("booked");
+    assert!(stock::save(&file, &entries, "test"));
+    let Outcome::Booked(scan) =
+        run(&context(&paths, Target::Own, None, 1), Reading::Sure(pieces("Mil/3/B MegaFlux (Mil/3/B)", 7.0)))
+    else {
+        panic!("set")
+    };
+    assert_eq!(scan.item.name, "MegaFlux", "the journal names the item of the list");
+    assert_eq!(scan.before, Some(11.0), "both entries counted as what lay there");
+    let entries = stock::load(&file, "test");
+    assert_eq!(entries.len(), 1, "one entry is left");
+    assert_eq!(entries[0].get("ware").and_then(Value::as_str), Some("MegaFlux"));
+    assert_eq!(stock::number_of(&entries[0], "menge"), 7.0, "the scan sets, it does not add");
+    // Undone, the amount before comes back in the one entry.
+    undo(&paths, None, scan.id).expect("undone");
+    assert_eq!(trade_amount(&paths, "MegaFlux", "Orison", true), Some(11.0));
+}
+
+/// Both names scanned at one place before (Lord Cyberus: 5 and 6): one stack read twice, so what lay there is the
+/// amount of the later scan, not their sum.
+#[test]
+fn twins_scanned_before_count_as_their_later_scan() {
+    let dir = Dir::new("lagerscan-klassencode-zeit");
+    let paths = paths_in(&dir);
+    let file = paths.app_file(stock::TRADE_FILE);
+    let mut entries = Vec::new();
+    stock::trade_add_item(&mut entries, "MegaFlux", "5", "Orison", false, None, None).expect("booked");
+    stock::trade_add_item(&mut entries, "Mil/3/B MegaFlux (Mil/3/B)", "6", "Orison", false, None, None)
+        .expect("booked");
+    assert!(stock::save(&file, &entries, "test"));
+    let journal = r#"{"scans": [
+        {"id": 1, "zeit": 100, "ziel": "eigen", "ort": "Orison", "name": "Mil/3/B MegaFlux (Mil/3/B)", "menge": 6, "stueck": true, "danach": 6},
+        {"id": 2, "zeit": 200, "ziel": "eigen", "ort": "Orison", "name": "MegaFlux", "menge": 5, "stueck": true, "danach": 5}
+    ], "fragen": [], "bestaetigungen": []}"#;
+    jsonio::write_text_atomic(&paths.app_file(FILE), journal, jsonio::Newline::Native).expect("journal");
+    let times = Journal::load(&paths).scan_times();
+    assert_eq!(times.get(&("megaflux".to_string(), "orison".to_string())), Some(&200));
+    let Outcome::Booked(scan) = run(&context(&paths, Target::Own, None, 1), Reading::Sure(pieces("MegaFlux", 7.0)))
+    else {
+        panic!("set")
+    };
+    assert_eq!(scan.before, Some(5.0), "the later scan, not 11");
+    let entries = stock::load(&file, "test");
+    assert_eq!(entries.len(), 1);
+    assert_eq!(stock::number_of(&entries[0], "menge"), 7.0);
+}
+
 /// Without a known place nothing is booked and nothing is written down.
 #[test]
 fn without_a_place_nothing_is_booked() {
@@ -393,6 +452,22 @@ fn what_is_not_a_reading_is_not_booked() {
 
 /// Every notice names the stock first, in both languages, and the two stocks differ in what they say.
 #[test]
+fn every_reason_for_nothing_read_has_a_notice_of_its_own() {
+    let target = Target::Own;
+    let reasons = [Outcome::Nothing(target), Outcome::NoGame(target), Outcome::Outside(target), Outcome::NoLanguage(target)];
+    for lang in Lang::ALL {
+        let details: Vec<String> = reasons.iter().map(|o| o.notice_in(lang).detail).collect();
+        for (i, a) in details.iter().enumerate() {
+            assert!(!details[i + 1..].contains(a), "{lang:?}: {a} twice");
+        }
+    }
+    let de = |o: &Outcome| o.notice_in(Lang::De).detail;
+    assert!(de(&Outcome::Outside(target)).contains("außerhalb"), "{}", de(&Outcome::Outside(target)));
+    assert!(de(&Outcome::NoLanguage(target)).contains("Sprachpaket"));
+    assert!(de(&Outcome::Nothing(target)).contains("Mauszeiger"));
+}
+
+#[test]
 fn every_notice_names_its_stock() {
     let dir = Dir::new("lagerscan-hinweis");
     let paths = paths_in(&dir);
@@ -404,6 +479,8 @@ fn every_notice_names_its_stock() {
         unit,
         Outcome::Asked { target: Target::Own, candidates: 2 },
         Outcome::Nothing(Target::Unit),
+        Outcome::Outside(Target::Own),
+        Outcome::NoLanguage(Target::Unit),
         Outcome::NoPlace(Target::Unit),
         Outcome::NoPlace(Target::Own),
         Outcome::NotLogistician,

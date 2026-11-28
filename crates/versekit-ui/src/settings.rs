@@ -558,6 +558,12 @@ pub fn restart_bar(ui: &mut Ui, scheme: &Scheme, texts: &UpdateTexts) -> Option<
     notice_bar(ui, scheme, "rotate-cw", texts)
 }
 
+/// Keys of the Stream Deck have no binding in the game: the same bar, with the button to put them in (Update) and
+/// the later button (News).
+pub fn keys_bar(ui: &mut Ui, scheme: &Scheme, texts: &UpdateTexts) -> Option<UpdateChoice> {
+    notice_bar(ui, scheme, "keyboard", texts)
+}
+
 /// The bar of [`update_bar`] and [`restart_bar`]: icon, message, a strong
 /// and a plain button.
 fn notice_bar(ui: &mut Ui, scheme: &Scheme, icon: &str, texts: &UpdateTexts) -> Option<UpdateChoice> {

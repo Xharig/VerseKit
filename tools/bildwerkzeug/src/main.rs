@@ -369,7 +369,7 @@ fn gallery_pictures(dir: &str, english: bool) {
 fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
     // The pictures of the start page and of every stop of the tour (`assets/seite.js`). The hangar is drawn by
     // `echt`: its slots come from the game data of the made-up installation.
-    let pages: [(&str, Option<&str>); 48] = [
+    let pages: [(&str, Option<&str>); 50] = [
         ("uebersicht", None),
         ("notizen", Some("hf_notizen")),
         ("liste", Some("hf_liste")),
@@ -385,6 +385,7 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
         ("laeden", Some("hf_laeden")),
         ("verkauf", Some("hf_verkauf")),
         ("routen", Some("hf_routen")),
+        ("finanzen", Some("hf_finanzen")),
         ("kartellbank", Some("hf_bank")),
         ("bedarf", Some("hf_bedarf")),
         ("einkaufsliste", Some("hf_einkaufsliste")),
@@ -397,6 +398,7 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
         ("statistik-flugbuch", Some("hf_st_flugbuch")),
         ("allgemein", Some("hf_allgemein")),
         ("anzeige", Some("hf_overlay")),
+        ("streamdeck", Some("hf_streamdeck")),
         ("darstellung", Some("hf_darstellung")),
         ("ordner", Some("hf_ordner")),
         ("module", Some("hf_module")),
@@ -428,7 +430,12 @@ fn website_pictures(dir: &str, english: bool, only: Option<&str>) {
         }
         // The Cartel Bank page is only in the menu of a window with its switch on and a connection standing: the
         // picture takes the page on its made-up bank.
-        let page = if name == "kartellbank" { SamplePage::preview_still_bank() } else { SamplePage::preview_still() };
+        let page = match name {
+            "kartellbank" => SamplePage::preview_still_bank(),
+            // The plugin connected and keys missing, as the tour tells of the page.
+            "streamdeck" => SamplePage::preview_still_streamdeck(),
+            _ => SamplePage::preview_still(),
+        };
         page_picture(dir, english, name, key, page);
     }
 }
@@ -519,6 +526,29 @@ fn touch(name: &str, english: bool, s: &mut Shots) {
             None => println!("{name}: Karte „{title}“ nicht gefunden"),
         }
         s.steps(12);
+        // The page stops at its end with the row "Upscaling-Modell" half under the bar of the page: a little back,
+        // so that the row stands whole and the card of the shader cache still in view.
+        s.harness.event(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: vec2(0.0, 30.0),
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Unknown,
+            modifiers: egui::Modifiers::NONE,
+        });
+        s.steps(12);
+        return;
+    }
+    if name == "streamdeck" {
+        // The state of the plugin stands in the hint of the row "Zustand": the pointer rests on its sign, so that
+        // "Verbunden" shows.
+        let label = versekit_core::language::t("sd_s_status");
+        match s.texts(&label).first().copied() {
+            Some(row) => {
+                s.hover(row.right_center() + vec2(12.0, 0.0));
+                s.steps(12);
+            }
+            None => println!("{name}: Zeile „{label}“ nicht gefunden"),
+        }
         return;
     }
     if name == "notizen" {
@@ -745,7 +775,7 @@ fn page_picture(dir: &str, english: bool, name: &str, key: Option<&'static str>,
         s.steps(12);
         touch(name, english, &mut s);
         // A picture of a hover keeps the pointer where it rests.
-        if name != "hangarwerte" && name != "signatur" {
+        if name != "hangarwerte" && name != "signatur" && name != "streamdeck" {
             s.harness.remove_cursor();
             s.steps(3);
         }
@@ -972,12 +1002,13 @@ fn real_pictures(dir: &str, english: bool, only: Option<&str>, market: Option<&s
 
 /// The tab Signatur of the mining page on a made-up installation: the scanner on, a few pictures taught (several of
 /// one number among them) and one suspect pattern. Named `screenshot-signatur.png`, in English
-/// `screenshot-signatur-en.png`.
-fn signature_picture(dir: &str, english: bool) {
+/// `screenshot-signatur-en.png`. `market` as for [`real_pictures`]: without it the catalog loads and its bar stands
+/// at the foot of the picture.
+fn signature_picture(dir: &str, english: bool, market: Option<&std::path::Path>) {
     use versekit_core::jsonio::{self, Value};
     use versekit_core::signature_scan::{self as scan, ByVariant, Gray, Variant};
     const CROPS: &str = include_str!("../../../crates/versekit-core/tests/data/signatur-pruefbilder.json");
-    let (tmp, host) = install::build(SETTINGS_OF_4_12, None);
+    let (tmp, host) = install::build(SETTINGS_OF_4_12, market);
     let paths = versekit_core::paths::Paths::new(host.clone());
     paths.set_setting(versekit_core::signature_watch::SETTING, Value::Bool(true));
     let files = scan::OwnFiles::in_folder(|name| paths.app_file(name));
@@ -1110,6 +1141,7 @@ fn overlay_picture(dir: &str, english: bool) {
         title: title.into(),
         text: Message::Plain(tf("ov_a_zeile_mit", &[("0", Arg::from(title)), ("1", Arg::from(tail))])),
         goals: Vec::new(),
+        steps: None,
         grey: false,
         count: 1,
         complete: false,
@@ -1367,6 +1399,7 @@ fn contracts_picture(dir: &str, english: bool, all_open: bool) {
                 ],
             )),
             goals: goals(&["Barge-Inverter abholen", "Barge-Inverter zu Port Tressler bringen", "Wachen ausschalten"]),
+            steps: None,
             grey: false,
             count: 1,
             // With `all_open` both lines keep their objectives: the window has to grow.
@@ -1388,6 +1421,7 @@ fn contracts_picture(dir: &str, english: bool, all_open: bool) {
                 ],
             )),
             goals: goals(&["Zum Außenposten fliegen", "Angreifer ausschalten", "Funkturm reparieren"]),
+            steps: None,
             grey: false,
             count: 1,
             complete: false,
@@ -1553,7 +1587,7 @@ fn main() {
     }
 
     if what == "signatur" {
-        signature_picture(&dir, english);
+        signature_picture(&dir, english, market.as_deref());
         return;
     }
 

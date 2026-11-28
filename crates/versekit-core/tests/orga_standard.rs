@@ -238,7 +238,8 @@ fn a_server_that_names_another_host_or_is_none_is_refused() {
     assert_eq!(client().discover(&empty).unwrap_err().code, E_NO_STANDARD);
 }
 
-/// Waits until `done` holds for the view of `hub`.
+/// Waits until `done` holds for the view of `hub` (at most two minutes: on a loaded computer the threads of the hub
+/// take their time; the wait ends as soon as it holds).
 fn wait_for(hub: &Hub, done: impl Fn(&View) -> bool) -> View {
     let start = Instant::now();
     loop {
@@ -246,7 +247,7 @@ fn wait_for(hub: &Hub, done: impl Fn(&View) -> bool) -> View {
         if done(&view) {
             return view;
         }
-        assert!(start.elapsed() < Duration::from_secs(20), "waited in vain: {view:?}");
+        assert!(start.elapsed() < Duration::from_secs(120), "waited in vain: {view:?}");
         std::thread::sleep(Duration::from_millis(20));
     }
 }

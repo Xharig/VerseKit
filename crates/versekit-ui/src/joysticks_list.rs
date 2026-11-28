@@ -215,7 +215,12 @@ fn load_names(paths: &Paths, lang: Lang, key: String) -> Names {
     } else {
         controls::names_from_folder(&profile, &folder, lang)
     };
-    Names { key, profile, labels, groups }
+    // Some texts of the game hold a line break (`\n`): the table shows the name on one line.
+    let mut shown = OrderedMap::new();
+    for (action, label) in labels.iter() {
+        shown.set(action, Label { name: controls::one_line(&label.name), ..label.clone() });
+    }
+    Names { key, profile, labels: shown, groups }
 }
 
 impl ListState {

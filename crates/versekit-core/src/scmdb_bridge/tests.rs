@@ -195,6 +195,53 @@ fn scratch(name: &str) -> (std::path::PathBuf, String, Host) {
     (root, folder, host)
 }
 
+/// Waits until `done` holds, at most 30 s (a loaded computer is slow); panics with `what` else.
+fn wait_until(what: &str, done: impl Fn() -> bool) {
+    let end = std::time::Instant::now() + Duration::from_secs(30);
+    while !done() {
+        assert!(std::time::Instant::now() < end, "not within 30 s: {what}");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+/// How many events the history of `bridge` holds.
+fn history_len(bridge: &Bridge) -> usize {
+    lock(&bridge.shared).history.len()
+}
+
+/// Starts `bridge`, trying again while the port is still held by a server of a start before (its loop lets go of
+/// it a few beats after the stop).
+fn start_again(bridge: &mut Bridge, setup: impl Fn() -> Setup) {
+    let end = std::time::Instant::now() + Duration::from_secs(30);
+    while !bridge.start(setup()) {
+        assert!(std::time::Instant::now() < end, "the port stays taken: {:?}", bridge.status());
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[test]
+fn a_reading_thread_of_a_stopped_run_writes_nothing_into_the_next_one() {
+    let shared = Mutex::new(Shared {
+        history: VecDeque::new(),
+        listeners: Vec::new(),
+        next_listener: 0,
+        channel: "UNKNOWN".into(),
+        snapshot: None,
+        status: Status::default(),
+        stock: None,
+    });
+    let event = || Value::Object(vec![("type".into(), Value::str("mission_start"))]);
+    let running = AtomicBool::new(false);
+    publish(&shared, &running, vec![event()]);
+    assert_eq!(lock(&shared).history.len(), 1, "a running thread publishes");
+    let stopped = AtomicBool::new(true);
+    publish(&shared, &stopped, vec![event()]);
+    reset(&shared, &stopped, "LIVE");
+    let after = lock(&shared);
+    assert_eq!(after.history.len(), 1, "a stopped thread adds nothing");
+    assert_eq!(after.channel, "UNKNOWN", "and resets nothing");
+}
+
 fn free_port() -> u16 {
     std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port()
 }
@@ -270,10 +317,15 @@ fn the_server_answers_only_scmdb_and_this_computer_and_streams_history_state_and
     };
     let mut bridge = Bridge::new();
     assert!(bridge.start(setup(vars.clone())), "the server starts on 127.0.0.1");
-    std::thread::sleep(Duration::from_millis(500));
+    wait_until("the log is read", || {
+        let shared = lock(&bridge.shared);
+        let active = shared.snapshot.as_ref().and_then(|s| s.get("active"));
+        shared.history.len() == 1 && matches!(active, Some(Value::Array(a)) if a.len() == 1)
+    });
     let started = std::time::Instant::now();
     let (status, heads, body) = ask(port, "/ping", &[("Origin", "https://scmdb.net")]);
-    assert!(started.elapsed() < Duration::from_millis(500), "/ping answers within 500 ms");
+    // At once, not after a beat of the heartbeat (15 s); the bound leaves room for a loaded computer.
+    assert!(started.elapsed() < Duration::from_secs(5), "/ping answers at once: {:?}", started.elapsed());
     assert_eq!(status, "HTTP/1.1 200 OK");
     assert_eq!(
         body,
@@ -328,6 +380,165 @@ fn the_server_answers_only_scmdb_and_this_computer_and_streams_history_state_and
     let _ = std::fs::remove_dir_all(root);
 }
 
+/// The catalog of the stock tests: Spectre, Arrow, Gladius and Talon.
+fn spectre_and_arrow() -> EnglishName<'static> {
+    Box::new(|name: &str| {
+        let short = name.split(" (").next().unwrap_or(name);
+        ["Spectre", "Arrow", "Gladius", "Talon"].contains(&short).then(|| short.to_string())
+    })
+}
+
+#[test]
+fn the_stock_becomes_replayed_blueprints_each_product_once_without_those_of_the_session() {
+    let english = spectre_and_arrow();
+    let names: Vec<String> = ["Arrow", "Spectre (Sth/1/A)", "Unbekannt", "Arrow (Dmg/1/A)"].map(String::from).to_vec();
+    let skip: HashSet<String> = HashSet::from(["Spectre".to_string()]);
+    let (events, unmatched) = stock_events(&names, &|name| english(name), "LIVE", &skip, 1_786_297_415.422);
+    assert_eq!(unmatched, ["Unbekannt"], "a name without a catalog entry is not sent");
+    assert_eq!(events.len(), 1, "Spectre comes with the session, Arrow once: {events:?}");
+    // The same fields as a blueprint of the log, without a contract, marked as replay.
+    assert_eq!(
+        message(&events[0]),
+        "data: {\"type\": \"blueprint_received\", \"channel\": \"LIVE\", \"productName\": \"Arrow\", \"missionGuid\": \
+         null, \"missionDebugName\": null, \"missionContractDefinitionId\": null, \"missionTrigger\": null, \"ts\": \
+         1786297415.422, \"replay\": true}\n\n"
+    );
+}
+
+/// The stock of the scratch folder's blueprint list: the names given, in their order.
+fn put_stock(paths: &Paths, names: &[&str]) {
+    let entry = |name: &&str| {
+        format!("\"{}\": {{\"name\": \"{name}\", \"quelle\": \"log\", \"zeit\": \"2026-11-01\"}}", name.to_lowercase())
+    };
+    let text =
+        format!("{{\"version\": 3, \"bauplaene\": {{{}}}}}", names.iter().map(entry).collect::<Vec<_>>().join(", "));
+    let file = paths.app_file(crate::collection::FILE_NAME);
+    std::fs::create_dir_all(std::path::Path::new(&file).parent().unwrap()).unwrap();
+    std::fs::write(file, text).unwrap();
+}
+
+/// (type, product, replay) of an event.
+type Seen = (String, String, bool);
+
+/// Opens a subscription and reads its messages up to the state now; the stream stays open for live events.
+fn subscribe_to(port: u16) -> (BufReader<TcpStream>, Vec<Seen>) {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    stream.write_all(format!("GET /events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n").as_bytes()).unwrap();
+    let mut reader = BufReader::new(stream);
+    let mut seen = Vec::new();
+    loop {
+        let event = jsonio::loads(&next_message(&mut reader)).unwrap();
+        let kind = text(&event, "type");
+        let done = kind == "state_snapshot";
+        seen.push((kind, text(&event, "productName"), get(&event, "replay") == &Value::Bool(true)));
+        if done {
+            return (reader, seen);
+        }
+    }
+}
+
+/// One subscription up to the state now, closed again.
+fn subscription(port: u16) -> Vec<Seen> {
+    subscribe_to(port).1
+}
+
+/// The products of the blueprint events, in their order.
+fn blueprints(seen: &[Seen]) -> Vec<String> {
+    seen.iter().filter(|(kind, _, _)| kind == "blueprint_received").map(|(_, product, _)| product.clone()).collect()
+}
+
+/// The list of blueprints sent once the bridge wrote it (it writes right after the page got them): read fresh, with a
+/// moment for it.
+fn sent_once(paths: &Paths, want: &[&str]) -> Vec<String> {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let mut sent: Vec<String> = sent_products(paths).into_iter().collect();
+        sent.sort();
+        if sent == want || std::time::Instant::now() > deadline {
+            return sent;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// Each subscription brings the stock the scmdb page has not received yet, before the session: the whole stock the
+/// first time, nothing the next, what was added in between after that; a blueprint the page got live does not come
+/// again; after the switch was off, everything again. A blueprint of the stock that the session brings comes once,
+/// with the session.
+#[test]
+fn every_subscription_brings_the_stock_not_sent_yet_and_after_the_switch_was_off_all_of_it() {
+    let (root, folder, host) = scratch("scmdb-bestand");
+    let log = std::path::Path::new(&folder).join("Game.log");
+    std::fs::write(&log, format!("{}\n", lines()[..4].join("\n"))).unwrap();
+    let port = free_port();
+    let mut vars = host.clone();
+    vars.set_var(ENV_PORT, &port.to_string());
+    let paths = Paths::new(vars.clone());
+    put_stock(&paths, &["Arrow", "Spectre", "Unbekannt"]);
+    let setup = |host: Host| Setup {
+        host,
+        version: "5.6.5".into(),
+        namer: Box::new(|_| spectre_and_arrow()),
+        poll: Duration::from_millis(100),
+    };
+    let mut bridge = Bridge::new();
+    assert!(bridge.start(setup(vars.clone())));
+    std::thread::sleep(Duration::from_millis(500));
+
+    // The first time: the whole stock, before the session; Spectre once, with the session.
+    let first = subscription(port);
+    assert_eq!(first[0], ("blueprint_received".into(), "Arrow".into(), true), "the stock first, as replay: {first:?}");
+    assert_eq!(first[1].0, "mission_start", "then the session: {first:?}");
+    assert_eq!(blueprints(&first), ["Arrow", "Spectre"], "Spectre once, with the session: {first:?}");
+    assert_eq!(sent_once(&paths, &["Arrow", "Spectre"]), ["Arrow", "Spectre"], "kept as sent");
+
+    // The next time: nothing of the stock.
+    let second = subscription(port);
+    assert_eq!(second[0].0, "mission_start", "no stock at the next subscription: {second:?}");
+    assert_eq!(blueprints(&second), ["Spectre"]);
+
+    // Played without the page: Gladius came into the stock meanwhile; the next subscription brings it, and only it.
+    put_stock(&paths, &["Arrow", "Spectre", "Unbekannt", "Gladius"]);
+    let (mut live, third) = subscribe_to(port);
+    assert_eq!(third[0], ("blueprint_received".into(), "Gladius".into(), true), "what was added: {third:?}");
+    assert_eq!(blueprints(&third), ["Gladius", "Spectre"]);
+    // Talon comes live while the page listens; it counts as sent and does not come again with the stock.
+    let mut file = std::fs::OpenOptions::new().append(true).open(&log).unwrap();
+    writeln!(
+        file,
+        "<2026-08-09T17:55:00.000Z> [Notice] <SHUDEvent_OnNotification> Added notification \"Bauplan erhalten: Talon: \" [140]"
+    )
+    .unwrap();
+    drop(file);
+    let talon = jsonio::loads(&next_message(&mut live)).unwrap();
+    assert_eq!((text(&talon, "productName"), talon.get("replay")), ("Talon".into(), None), "live");
+    drop(live);
+    assert_eq!(sent_once(&paths, &["Arrow", "Gladius", "Spectre", "Talon"]), ["Arrow", "Gladius", "Spectre", "Talon"]);
+    put_stock(&paths, &["Arrow", "Spectre", "Unbekannt", "Gladius", "Talon"]);
+    let fourth = subscription(port);
+    assert_eq!(
+        blueprints(&fourth),
+        ["Spectre", "Talon"],
+        "Talon with the session only, not from the stock: {fourth:?}"
+    );
+
+    // The switch off and on again: everything again.
+    bridge.stop();
+    forget_stock(&paths);
+    assert!(sent_products(&paths).is_empty(), "emptied while the switch is off");
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(bridge.start(setup(vars.clone())));
+    std::thread::sleep(Duration::from_millis(500));
+    let again = subscription(port);
+    let mut stock: Vec<String> =
+        again.iter().take_while(|(kind, _, _)| kind == "blueprint_received").map(|s| s.1.clone()).collect();
+    stock.sort();
+    assert_eq!(stock, ["Arrow", "Gladius"], "the stock again, without what the session brings: {again:?}");
+    assert_eq!(blueprints(&again).iter().filter(|p| *p == "Spectre" || *p == "Talon").count(), 2, "{again:?}");
+    bridge.stop();
+    let _ = std::fs::remove_dir_all(root);
+}
+
 #[test]
 fn switched_off_and_on_again_the_history_holds_each_event_once() {
     let (root, folder, host) = scratch("scmdb-neu-an");
@@ -344,11 +555,11 @@ fn switched_off_and_on_again_the_history_holds_each_event_once() {
     };
     let mut bridge = Bridge::new();
     assert!(bridge.start(setup(vars.clone())));
-    std::thread::sleep(Duration::from_millis(500));
+    wait_until("the log is read", || history_len(&bridge) == 1);
     bridge.stop();
-    std::thread::sleep(Duration::from_millis(300));
-    assert!(bridge.start(setup(vars)), "the port is free again after the stop");
-    std::thread::sleep(Duration::from_millis(500));
+    start_again(&mut bridge, || setup(vars.clone()));
+    wait_until("the log is read again", || history_len(&bridge) >= 1 && lock(&bridge.shared).snapshot.is_some());
+    assert_eq!(history_len(&bridge), 1, "the contract of the log is in the history once, not once per start");
 
     let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
     stream.write_all(format!("GET /events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n").as_bytes()).unwrap();
@@ -411,15 +622,7 @@ fn a_port_the_system_refuses_is_not_called_in_use_and_the_trail_says_why() {
     bridge.stop();
     // A refusal before does not stick: the next start that listens clears it (once the stopped server has let go
     // of the port, a few beats of its loop later).
-    let mut started = false;
-    for _ in 0..40 {
-        if refused.start(setup(vars.clone())) {
-            started = true;
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    assert!(started, "{:?}", refused.status());
+    start_again(&mut refused, || setup(vars.clone()));
     assert_eq!((refused.status().state, refused.status().error), (State::Waiting, None));
     refused.stop();
     assert_eq!(trail_line(false, &refused.status()), "scmdb-Brücke: aus");

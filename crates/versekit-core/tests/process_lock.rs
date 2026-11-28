@@ -112,6 +112,18 @@ fn child_entry() {
         "writer" => {
             let name = std::env::var(NAME).expect("Name");
             let count: usize = std::env::var(COUNT).expect("Anzahl").parse().expect("Zahl");
+            // The program goes on without the lock of the other process after a while, so a stuck process never
+            // freezes this one; that is another check. Here the sharing is checked: on a loaded computer (a virus
+            // scanner looks at every write) a turn may wait longer than that while the other one saves.
+            jsonio::set_process_wait(Duration::from_secs(600));
+            // What the lock reports (a wait given up, a file system without locks) goes into a file the test shows.
+            let reported = dir.join(format!("meldungen-{name}.txt"));
+            versekit_core::errors::set_sink(move |label, text| {
+                use std::io::Write as _;
+                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&reported) {
+                    let _ = writeln!(file, "{label}: {text}");
+                }
+            });
             // Both start together: on a busy computer the second may be started long after the first is done.
             std::fs::write(dir.join(format!("bereit-{name}.txt")), "ja").expect("Meldung");
             assert!(wait_for(&dir.join("los.txt"), Duration::from_secs(120)), "das Startzeichen kommt");
@@ -142,11 +154,66 @@ fn child_entry() {
             std::fs::write(marker(&dir), "ja").expect("Marke");
             std::thread::sleep(Duration::from_millis(hold));
         }
+        // Take the lock for a moment, let go and take it again at once, until told to stop: a process that saves
+        // again and again, as the overlay while a log runs fast.
+        "hammer" => {
+            let hold: u64 = std::env::var(HOLD_MS).ok().and_then(|v| v.parse().ok()).unwrap_or(30);
+            let stop = dir.join("halt.txt");
+            let mut first = true;
+            loop {
+                let _lock = jsonio::lock_saves();
+                if first {
+                    std::fs::write(marker(&dir), "ja").expect("Marke");
+                    first = false;
+                }
+                std::thread::sleep(Duration::from_millis(hold));
+                // Asked while the lock is held: between letting go and taking it back nothing else happens, so a
+                // slow disk does not open a gap the waiting process could slip through.
+                if stop.exists() {
+                    break;
+                }
+            }
+        }
         other => panic!("unbekannte Rolle {other}"),
     }
 }
 
-fn run_writers(share: bool) -> Vec<String> {
+/// What the error log of this process received.
+static REPORTED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// A process that saves again and again (it lets go of the lock and takes it back at once) does not keep the
+/// other one out: that one gets its turn at the next letting go and reports nothing. Without the lock of the turn
+/// the one that let go took the lock back each time before the waiting one asked again, and that one waited the
+/// whole wait in vain (`jsonio.sperre`) though each hold took a moment.
+#[test]
+fn a_process_that_saves_again_and_again_lets_the_other_one_have_its_turn() {
+    let _one = serial();
+    let dir = Dir::new("sperre-reihe");
+    assert!(jsonio::share_saves_between_processes(&lock_file(dir.path())), "Sperrdatei öffnet");
+    versekit_core::errors::set_sink(|label, text| {
+        if label == "jsonio.sperre" {
+            REPORTED.lock().unwrap_or_else(|e| e.into_inner()).push(text.to_string());
+        }
+    });
+    let hammer = spawn("hammer", dir.path(), &[(HOLD_MS, "30".to_string())]);
+    assert!(wait_for(&marker(dir.path()), Duration::from_secs(60)), "der andere Prozess speichert");
+    jsonio::set_process_wait(Duration::from_secs(2));
+    let mut longest = Duration::ZERO;
+    for _ in 0..5 {
+        let start = Instant::now();
+        drop(jsonio::lock_saves());
+        longest = longest.max(start.elapsed());
+    }
+    jsonio::set_process_wait(jsonio::PROCESS_WAIT);
+    std::fs::write(dir.path().join("halt.txt"), "halt").expect("Halt");
+    finish(hammer);
+    let reported = std::mem::take(&mut *REPORTED.lock().unwrap_or_else(|e| e.into_inner()));
+    assert!(reported.is_empty(), "vergeblich gewartet: {reported:?}");
+    assert!(longest < Duration::from_secs(1), "eine Runde des anderen genügt, gewartet {longest:?}");
+}
+
+/// The list both writers made, and what the lock reported in them.
+fn run_writers(share: bool) -> (Vec<String>, String) {
     let dir = Dir::new("sperre-schreiber");
     let list = list_file(dir.path());
     jsonio::save_json(&list, &Value::Array(Vec::new()), 1, false).expect("Liste anlegen");
@@ -162,14 +229,18 @@ fn run_writers(share: bool) -> Vec<String> {
     std::fs::write(dir.path().join("los.txt"), "los").expect("Startzeichen");
     finish(a);
     finish(b);
-    read_names(&list)
+    let reported: String = ["a", "b"]
+        .iter()
+        .filter_map(|name| std::fs::read_to_string(dir.path().join(format!("meldungen-{name}.txt"))).ok())
+        .collect();
+    (read_names(&list), reported)
 }
 
 #[test]
 fn two_processes_lose_no_write() {
     let _one = serial();
-    let names = run_writers(true);
-    assert_eq!(names.len(), 300, "jeder der 300 Einträge steht in der Liste");
+    let (names, reported) = run_writers(true);
+    assert_eq!(names.len(), 300, "jeder der 300 Einträge steht in der Liste; Meldungen der Sperre: {reported:?}");
     let unique: std::collections::HashSet<_> = names.iter().collect();
     assert_eq!(unique.len(), 300);
 }
@@ -179,7 +250,7 @@ fn two_processes_lose_no_write() {
 #[test]
 fn without_the_shared_lock_the_same_scenario_loses_writes() {
     let _one = serial();
-    let names = run_writers(false);
+    let (names, _) = run_writers(false);
     assert!(names.len() < 300, "ohne gemeinsame Sperre gehen Einträge verloren, es blieben {}", names.len());
 }
 

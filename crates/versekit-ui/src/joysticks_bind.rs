@@ -231,6 +231,12 @@ fn base_name(key: Key, physical: Option<Key>) -> Option<String> {
     physical.and_then(key_name).or_else(|| key_name(key))
 }
 
+/// The hint under a key caught with the right Alt on the keyboard (Alt Gr): the game presses the key alone too.
+fn alt_gr_hint(detected: Option<&(String, String)>) -> Option<String> {
+    let (device, input) = detected?;
+    (device.starts_with("kb") && versekit_core::streamdeck_fill::alt_gr(input)).then(|| t("s_js_b_altgr"))
+}
+
 /// The modifiers in front of a key: those held down in the box, by side; a modifier the flags report without
 /// its key held counts as the left one. ⚠ Right Alt on a German layout (Alt Gr) reports Ctrl as well: without
 /// a Ctrl key held that Ctrl is left out.
@@ -788,6 +794,11 @@ impl BindState {
                     ui.add_space(4.0);
                     ui.add(egui::Label::new(RichText::new(&open.conflict).small().color(color(scheme.gold))).wrap());
                 }
+                // Alt Gr is the player's choice; the window only says what it does in the game.
+                if let Some(hint) = alt_gr_hint(open.detected.as_ref()) {
+                    ui.add_space(4.0);
+                    ui.add(egui::Label::new(RichText::new(hint).small().color(color(scheme.gold))).wrap());
+                }
                 ui.add_space(4.0);
                 ui.add(egui::Label::new(RichText::new(t("s_js_spiel_zu")).small().color(color(scheme.sub))).wrap());
                 if let Some(reason) = &open.failure {
@@ -1059,6 +1070,11 @@ mod tests {
         let alt_gr = egui::Modifiers { ctrl: true, alt: true, ..NONE };
         let at = [down(Key::AltRight, Key::AltRight, alt_gr), down(Key::Q, Key::Q, alt_gr)];
         assert_eq!(names(&at, &[]), ["ralt+q"]);
+        // It is the player's choice: taken as caught, with a hint what it does in the game.
+        assert_eq!(alt_gr_hint(Some(&("kb1".into(), "ralt+q".into()))), Some(t("s_js_b_altgr")));
+        assert_eq!(alt_gr_hint(Some(&("kb1".into(), "lalt+q".into()))), None);
+        assert_eq!(alt_gr_hint(Some(&("js1".into(), "button3".into()))), None);
+        assert_eq!(alt_gr_hint(None), None);
         // Shift makes `/` of the 7 on a German layout: the place counts, not the sign.
         let seven = [down(Key::ShiftLeft, Key::ShiftLeft, SHIFT), down(Key::Slash, Key::Num7, SHIFT)];
         assert_eq!(names(&seven, &[]), ["lshift+7"]);

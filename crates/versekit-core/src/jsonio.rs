@@ -1015,7 +1015,31 @@ impl ProcessLock {
     pub fn release(&self) {
         let _ = self.file.unlock();
     }
+
+    /// [`ProcessLock::acquire`] in turn, waiting at most `limit` in all: first the lock of the turn `turn`, held
+    /// while waiting for this one and let go of as soon as this one is held. A process that takes the lock again and
+    /// again (it lets go and takes it back at once) would else take it back each time before the waiting one asks
+    /// again, and that one waited the whole `limit` in vain though each hold took a moment. Without the lock of the
+    /// turn, or when it is not had in time, this lock is asked for directly in the time that is left.
+    pub fn acquire_in_turn(&self, turn: Option<&ProcessLock>, limit: Duration) -> Taken {
+        let start = std::time::Instant::now();
+        let queued = turn.filter(|turn| matches!(turn.acquire(limit), Taken::Held));
+        let taken = self.acquire(limit.saturating_sub(start.elapsed()));
+        if let Some(turn) = queued {
+            turn.release();
+        }
+        taken
+    }
 }
+
+/// The lock of the turn beside the lock file `lock_file` ([`ProcessLock::acquire_in_turn`]): `<name>-reihe.lock`,
+/// named like a lock file, so the moves and backups of the data folder leave it alone as they leave the locks.
+pub fn turn_file(lock_file: &str) -> String {
+    format!("{}-reihe.lock", lock_file.strip_suffix(".lock").unwrap_or(lock_file))
+}
+
+/// The lock of the turn of [`PROCESS_LOCK`], once [`share_saves_between_processes`] has set it.
+static PROCESS_TURN: RwLock<Option<ProcessLock>> = RwLock::new(None);
 
 /// The lock file this process shares with the others, once [`share_saves_between_processes`] has set it.
 static PROCESS_LOCK: RwLock<Option<ProcessLock>> = RwLock::new(None);
@@ -1034,6 +1058,11 @@ pub fn set_process_wait(limit: Duration) {
 pub fn share_saves_between_processes(lock_file: &str) -> bool {
     match ProcessLock::open(lock_file) {
         Ok(lock) => {
+            // Without the lock of the turn the saves are still shared, only not in turn.
+            let turn = ProcessLock::open(&turn_file(lock_file))
+                .map_err(|e| errors::record("jsonio.sperre", &format!("turn lock file {lock_file}: {e}")))
+                .ok();
+            *PROCESS_TURN.write().unwrap_or_else(|e| e.into_inner()) = turn;
             *PROCESS_LOCK.write().unwrap_or_else(|e| e.into_inner()) = Some(lock);
             true
         }
@@ -1102,7 +1131,10 @@ fn take_process_lock() -> bool {
         return false;
     };
     let limit = Duration::from_millis(PROCESS_WAIT_MS.load(Ordering::Relaxed));
-    match lock.acquire(limit) {
+    let turn = PROCESS_TURN.read().unwrap_or_else(|e| e.into_inner());
+    let taken = lock.acquire_in_turn(turn.as_ref(), limit);
+    drop(turn);
+    match taken {
         Taken::Held => true,
         Taken::TimedOut => {
             errors::record("jsonio.sperre", &format!("another process held the write lock for {limit:?}, going on without it"));
@@ -1506,7 +1538,8 @@ mod tests {
         });
         assert!(rx.recv_timeout(Duration::from_millis(200)).is_err(), "der andere Faden wartet, solange der äußere hält");
         drop(outer);
-        assert!(rx.recv_timeout(Duration::from_secs(5)).is_ok(), "nach dem äußeren Loslassen kommt der andere dran");
+        // The write lock is one for the whole process: other checks may take it first, on a loaded computer for a while.
+        assert!(rx.recv_timeout(Duration::from_secs(120)).is_ok(), "nach dem äußeren Loslassen kommt der andere dran");
         other.join().unwrap();
     }
 

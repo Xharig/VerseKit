@@ -59,7 +59,11 @@ fn write_cache(dir: &Path, releases: Vec<Release>) {
 }
 
 fn sha(bytes: &[u8]) -> String {
-    let file = std::env::temp_dir().join(format!("versekit-sum-{}-{}", std::process::id(), bytes.len()));
+    // A file of its own for every call: checks of this run work side by side, and two of them sum contents of the
+    // same length (one removed the file of the other before it was read).
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let number = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let file = std::env::temp_dir().join(format!("versekit-sum-{}-{number}", versekit_core::testdir::run_tag()));
     std::fs::write(&file, bytes).unwrap();
     let sum = updater::checksum_of(&file).unwrap();
     let _ = std::fs::remove_file(file);
@@ -313,6 +317,9 @@ fn a_build_of_the_source_is_told_to_use_git_pull_and_asked_nothing() {
         env.appimage = None;
         env
     });
+    // The clock of the window stands still: the line stays six seconds of it, and on a loaded computer the frames of
+    // the click take longer than that.
+    bench.time = Some(1000.0);
     bench.click(&t("s_ul_jetzt"));
     assert_eq!(bench.notice(), Some(t("update_quellcode")));
     assert_eq!(bench.page.page_key(), "hf_ueber");

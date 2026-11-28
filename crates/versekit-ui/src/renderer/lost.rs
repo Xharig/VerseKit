@@ -275,6 +275,71 @@ mod tests {
         }
     }
 
+    /// How long a check on a real device may take before it counts as hung.
+    const HUNG: Duration = Duration::from_secs(120);
+
+    /// Runs `work` on a thread of its own and waits at most [`HUNG`]: a graphics driver that never answers fails the
+    /// check with this message instead of holding the whole run; a panic of `work` comes through as it is.
+    /// The checks that lose a real device run one at a time, also across processes (two runs of the checks side by
+    /// side): a device destroyed while another is lost held the graphics driver.
+    fn bounded(what: &'static str, work: impl FnOnce() + Send + 'static) {
+        static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _here = ONE_AT_A_TIME.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(std::env::temp_dir().join("versekit-grafiktests.lock"));
+        let _everywhere = file.ok().filter(|file| file.lock().is_ok());
+        bounded_for(what, HUNG, work);
+    }
+
+    /// [`bounded`] with its own `limit`.
+    fn bounded_for(what: &'static str, limit: Duration, work: impl FnOnce() + Send + 'static) {
+        let (done, finished) = std::sync::mpsc::channel();
+        let thread = std::thread::Builder::new()
+            .name(what.into())
+            .spawn(move || {
+                work();
+                let _ = done.send(());
+            })
+            .expect("a thread for the check");
+        match finished.recv_timeout(limit) {
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                panic!("{what}: no answer of the graphics driver within {limit:?}, the check is given up")
+            }
+            _ => {
+                if let Err(payload) = thread.join() {
+                    std::panic::resume_unwind(payload);
+                }
+            }
+        }
+    }
+
+    /// Waits for the device after its loss, at most 30 s: a driver that does not answer then must not hold the run.
+    fn settle(device: &wgpu::Device) {
+        let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: Some(Duration::from_secs(30)) });
+    }
+
+    #[test]
+    fn a_check_on_a_hung_driver_ends_with_a_message_and_a_panic_comes_through() {
+        let (sender, hold) = std::sync::mpsc::channel::<()>();
+        let started = std::time::Instant::now();
+        let hung = catch_unwind(AssertUnwindSafe(|| {
+            bounded_for("hangs", Duration::from_millis(200), move || {
+                let _ = hold.recv();
+            })
+        }));
+        drop(sender);
+        let text = hung.expect_err("gives up").downcast_ref::<String>().cloned().unwrap_or_default();
+        assert!(text.starts_with("hangs: no answer of the graphics driver"), "{text}");
+        assert!(started.elapsed() < Duration::from_secs(60), "{:?}", started.elapsed());
+        let passed = catch_unwind(|| bounded_for("fails", HUNG, || panic!("eigener Fehler")));
+        let text = passed.expect_err("comes through").downcast_ref::<&str>().copied().unwrap_or_default();
+        assert_eq!(text, "eigener Fehler");
+        bounded_for("works", HUNG, || {});
+    }
+
     /// A device without a window, on the graphics interfaces of the program; `None` where there is no adapter.
     fn device() -> Option<(wgpu::Device, wgpu::Queue)> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -301,61 +366,67 @@ mod tests {
     /// Then the device tells the loss, the panic comes back as the loss, and the window starts anew.
     #[test]
     fn a_lost_device_ends_the_window_for_a_new_start_instead_of_a_crash() {
-        let Some((device, queue)) = device() else {
-            eprintln!("no graphics adapter here: the test has nothing to draw on");
-            return;
-        };
-        let loss: &'static Loss = Box::leak(Box::new(Loss::new()));
-        watch_into(loss, &device, None, || true);
-        let mut renderer = Renderer::new(&device, wgpu::TextureFormat::Rgba8Unorm, RendererOptions::default());
-        // A frame on the working device draws.
-        assert_eq!(loss.guard(|| frame(&mut renderer, &device, &queue)), Ok(()));
-        assert!(!loss.lost());
+        bounded("lost-device-frame", || {
+            let Some((device, queue)) = device() else {
+                eprintln!("no graphics adapter here: the test has nothing to draw on");
+                return;
+            };
+            let loss: &'static Loss = Box::leak(Box::new(Loss::new()));
+            watch_into(loss, &device, None, || true);
+            let mut renderer = Renderer::new(&device, wgpu::TextureFormat::Rgba8Unorm, RendererOptions::default());
+            // A frame on the working device draws.
+            assert_eq!(loss.guard(|| frame(&mut renderer, &device, &queue)), Ok(()));
+            assert!(!loss.lost());
 
-        device.destroy();
-        let _ = device.poll(wgpu::PollType::wait_indefinitely());
-        assert!(loss.lost(), "the device tells its loss");
-        assert!(loss.restarting());
+            device.destroy();
+            settle(&device);
+            assert!(loss.lost(), "the device tells its loss");
+            assert!(loss.restarting());
 
-        let drawn = loss.guard(|| frame(&mut renderer, &device, &queue));
-        let text = drawn.expect_err("the frame on the lost device ends the window");
-        assert!(text.starts_with("Destroyed"), "{text}");
+            let drawn = loss.guard(|| frame(&mut renderer, &device, &queue));
+            let text = drawn.expect_err("the frame on the lost device ends the window");
+            assert!(text.starts_with("Destroyed"), "{text}");
+        });
     }
 
     /// A real device lost under a window that draws nothing (the overlay waiting hidden): no frame reaches the panic,
     /// the window is closed by the loss itself and its end starts the program anew.
     #[test]
     fn a_lost_device_under_a_window_that_draws_nothing_closes_it_for_a_new_start() {
-        let Some((device, _queue)) = device() else {
-            eprintln!("no graphics adapter here: the test has nothing to lose");
-            return;
-        };
-        let loss: &'static Loss = Box::leak(Box::new(Loss::new()));
-        let ctx = eframe::egui::Context::default();
-        watch_into(loss, &device, Some(ctx.clone()), || true);
-        device.destroy();
-        let _ = device.poll(wgpu::PollType::wait_indefinitely());
-        let mut out = ctx.run_ui(Default::default(), |_| {});
-        out.textures_delta.clear();
-        let commands = out.viewport_output.get(&eframe::egui::ViewportId::ROOT).map(|v| v.commands.clone());
-        assert!(
-            commands.is_some_and(|c| c.contains(&eframe::egui::ViewportCommand::Close)),
-            "the window is closed for the new start"
-        );
-        assert!(matches!(after_run(Ok(Ok(())), loss), Err(text) if text.starts_with("Destroyed")));
+        bounded("lost-device-idle", || {
+            let Some((device, _queue)) = device() else {
+                eprintln!("no graphics adapter here: the test has nothing to lose");
+                return;
+            };
+            let loss: &'static Loss = Box::leak(Box::new(Loss::new()));
+            let ctx = eframe::egui::Context::default();
+            watch_into(loss, &device, Some(ctx.clone()), || true);
+            device.destroy();
+            settle(&device);
+            let mut out = ctx.run_ui(Default::default(), |_| {});
+            out.textures_delta.clear();
+            let commands = out.viewport_output.get(&eframe::egui::ViewportId::ROOT).map(|v| v.commands.clone());
+            assert!(
+                commands.is_some_and(|c| c.contains(&eframe::egui::ViewportCommand::Close)),
+                "the window is closed for the new start"
+            );
+            assert!(matches!(after_run(Ok(Ok(())), loss), Err(text) if text.starts_with("Destroyed")));
+        });
     }
 
     /// The panic of egui-wgpu itself on a lost device, which [`Loss::guard`] stands in for: should a later egui-wgpu
     /// draw on without it, this fails and the guard can be looked at again.
     #[test]
     fn egui_wgpu_panics_on_a_lost_device() {
-        let Some((device, queue)) = device() else { return };
-        let mut renderer = Renderer::new(&device, wgpu::TextureFormat::Rgba8Unorm, RendererOptions::default());
-        device.destroy();
-        let drawn = catch_unwind(AssertUnwindSafe(|| frame(&mut renderer, &device, &queue)));
-        let payload = drawn.expect_err("egui-wgpu panics");
-        let text = payload.downcast_ref::<String>().cloned().unwrap_or_default();
-        assert!(text.starts_with("Failed to create staging buffer"), "{text}");
+        bounded("lost-device-panic", || {
+            let Some((device, queue)) = device() else { return };
+            let mut renderer = Renderer::new(&device, wgpu::TextureFormat::Rgba8Unorm, RendererOptions::default());
+            device.destroy();
+            let drawn = catch_unwind(AssertUnwindSafe(|| frame(&mut renderer, &device, &queue)));
+            let payload = drawn.expect_err("egui-wgpu panics");
+            let text = payload.downcast_ref::<String>().cloned().unwrap_or_default();
+            assert!(text.starts_with("Failed to create staging buffer"), "{text}");
+        });
     }
 
     #[test]

@@ -28,7 +28,7 @@
 <link rel="preload" href="../assets/schrift/xharig-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="../assets/schrift/xharig-sans-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/basis.css?v=2">
-<link rel="stylesheet" href="../assets/seite.css?v=10">
+<link rel="stylesheet" href="../assets/seite.css?v=11">
 </head>
 <body>
 
@@ -41,7 +41,7 @@
       <a class="weg" href="../#merkmale" data-de="Funktionen" data-en="Features">Funktionen</a>
       <a class="weg" href="../rundgang/" data-de="Rundgang" data-en="Tour">Rundgang</a>
       <a class="kopf-laden" href="../herunterladen/" data-de="Herunterladen" data-en="Download">Herunterladen</a>
-      <a class="weg" href="../herunterladen/#sicher" data-de="Sicher?" data-en="Safe?">Sicher?</a>
+      <a class="weg" href="../streamdeck/" data-de="Stream Deck" data-en="Stream Deck">Stream Deck</a>
       <a class="weg weg-breit" href="../deine-daten/" data-de="Deine Daten" data-en="Your data">Deine Daten</a>
       <a class="weg" href="./" aria-current="page" data-de="FAQ" data-en="FAQ">FAQ</a>
       <a class="weg" href="../aenderungen/" data-de="Änderungen" data-en="Changelog">Änderungen</a>
@@ -53,6 +53,7 @@
           <a href="../herunterladen/" data-de="Herunterladen" data-en="Download">Herunterladen</a>
           <a href="../herunterladen/#sicher" data-de="Ist das sicher?" data-en="Is it safe?">Ist das sicher?</a>
           <a href="../deine-daten/" data-de="Deine Daten" data-en="Your data">Deine Daten</a>
+          <a href="../streamdeck/" data-de="Stream Deck" data-en="Stream Deck">Stream Deck</a>
           <a href="./" aria-current="page" data-de="Häufige Fragen" data-en="FAQ">Häufige Fragen</a>
           <a href="../aenderungen/" data-de="Änderungen" data-en="Changelog">Änderungen</a>
           <a href="https://xharig.com/">xharig.com</a>
@@ -218,6 +219,22 @@
            data-en="Yes. Under Settings → Overlay → Shown in the overlay, switch off “Armistice zone notice”. The overlay then no longer tells you when you leave or enter an armistice zone and no longer opens briefly for it. Every other line of the overlay can be switched off there one by one as well.">Ja. Unter Einstellungen → Overlay → Anzeigen im Overlay den Schalter „Schutzzone-Hinweis“ ausschalten. Dann zeigt das Overlay nicht mehr an, wenn du eine Schutzzone verlässt oder betrittst, und klappt dafür auch nicht mehr kurz auf. Jede andere Zeile des Overlays lässt sich dort genauso einzeln abschalten.</p>
       </details>
       <details>
+        <summary data-de="Darf VerseKit in Spieldateien schreiben? Läuft alles nur bei mir?" data-en="May VerseKit write to game files? Does everything stay on my PC?">Darf VerseKit in Spieldateien schreiben? Läuft alles nur bei mir?</summary>
+        <p data-de="VerseKit läuft nur auf deinem PC. Es schreibt nur die Dateien, die auch die Einstellungen im Spiel schreiben: deine Tastenbelegung (actionmaps.xml), die user.cfg und die Übersetzungsdatei. Den Speicher des Spiels, seinen Netzverkehr und den laufenden Spielprozess fasst es nie an, und es schleust nichts ein. Das Stream Deck drückt pro Knopf genau eine Taste, wie jede Tastatur. Für CIG können wir nicht sprechen, aber nichts davon geht über das hinaus, was du in den Spieloptionen von Hand einstellen kannst."
+           data-en="VerseKit runs only on your PC. It only writes the files the game's own settings write: your key bindings (actionmaps.xml), user.cfg and the translation file. It never touches the game's memory, its network traffic or the running game process, and it injects nothing. The Stream Deck presses one key per button, like any keyboard. We cannot speak for CIG, but nothing of it goes beyond what you can set by hand in the game's options.">VerseKit läuft nur auf deinem PC. Es schreibt nur die Dateien, die auch die Einstellungen im Spiel schreiben: deine Tastenbelegung (actionmaps.xml), die user.cfg und die Übersetzungsdatei. Den Speicher des Spiels, seinen Netzverkehr und den laufenden Spielprozess fasst es nie an, und es schleust nichts ein. Das Stream Deck drückt pro Knopf genau eine Taste, wie jede Tastatur. Für CIG können wir nicht sprechen, aber nichts davon geht über das hinaus, was du in den Spieloptionen von Hand einstellen kannst.</p>
+      </details>
+      <details>
+        <summary data-de="Wo bekomme ich das Stream-Deck-Plugin?" data-en="Where do I get the Stream Deck plugin?">Wo bekomme ich das Stream-Deck-Plugin?</summary>
+        <p data-de="Nicht im Elgato Marketplace: Das Plugin kommt mit VerseKit, weil VerseKit die Tasten in deine Spielbelegung einträgt und das Plugin sie sich merkt (danach gehen die Spieltasten auch ohne laufendes VerseKit). Unter Einstellungen → Tasten &amp; Stream Deck auf „Einrichten“ klicken, dann installiert VerseKit Plugin und Profil. Zeigt das Stream Deck danach noch „?“ auf den Tasten, das Plugin von Hand installieren: Windows-Taste + R, %LOCALAPPDATA%\Programs eingeben, den Ordner „VerseKit“ (bei älteren Installationen „SC BP Watcher“) öffnen und die Datei „VerseKit.streamDeckPlugin“ doppelklicken, in Stream Deck auf Installieren."
+           data-en="Not in the Elgato Marketplace: the plugin comes with VerseKit, because VerseKit enters the keys into your game bindings and the plugin remembers them (after that the game keys work even without VerseKit running). Under Settings → Keys &amp; Stream Deck click “Set up”, then VerseKit installs plugin and profile. If the Stream Deck still shows “?” on the keys afterwards, install the plugin by hand: press Windows key + R, type %LOCALAPPDATA%\Programs, open the folder “VerseKit” (in older installations “SC BP Watcher”) and double-click the file “VerseKit.streamDeckPlugin”, then click Install in Stream Deck.">Nicht im Elgato Marketplace: Das Plugin kommt mit VerseKit, weil VerseKit die Tasten in deine Spielbelegung einträgt und das Plugin sie sich merkt (danach gehen die Spieltasten auch ohne laufendes VerseKit). Unter Einstellungen → Tasten &amp; Stream Deck auf „Einrichten“ klicken, dann installiert VerseKit Plugin und Profil. Zeigt das Stream Deck danach noch „?“ auf den Tasten, das Plugin von Hand installieren: Windows-Taste + R, %LOCALAPPDATA%\Programs eingeben, den Ordner „VerseKit“ (bei älteren Installationen „SC BP Watcher“) öffnen und die Datei „VerseKit.streamDeckPlugin“ doppelklicken, in Stream Deck auf Installieren.</p>
+        <p><a href="../streamdeck/" data-de="Profile, Einrichtung und weitere Fragen zum Stream Deck" data-en="Profiles, setup and more questions about the Stream Deck">Profile, Einrichtung und weitere Fragen zum Stream Deck</a></p>
+      </details>
+      <details>
+        <summary data-de="Stream Deck fragt „Profil installieren?“ – was tun?" data-en="Stream Deck asks “Install profile?” – what now?">Stream Deck fragt „Profil installieren?“ – was tun?</summary>
+        <p data-de="Das fragt Stream Deck, wenn das VerseKit-Plugin eine Seite aufrufen will, dein VerseKit-Profil aber nicht mit dem Plugin verbunden ist (zum Beispiel ein älteres oder von Hand importiertes Profil). Einmal auf „Profil(e) installieren“ klicken: Du bekommst ein neues, verbundenes VerseKit-Profil mit den aktuellen Tasten, danach kommt die Frage nicht mehr. Das alte VerseKit-Profil in Stream Deck löschen, damit es nicht doppelt da ist, und beim neuen unter den Profil-Einstellungen wieder „Star Citizen“ als Programm wählen, falls du es dort verknüpft hattest. Ein Update des Plugins tauscht ein schon installiertes Profil nicht aus, deshalb kann die Frage nach einem Update einmal kommen."
+           data-en="Stream Deck asks this when the VerseKit plugin wants to open a page but your VerseKit profile is not connected to the plugin (for example an older or hand-imported profile). Click “Install profile(s)” once: you get a new, connected VerseKit profile with the current keys, and the question no longer comes. Delete the old VerseKit profile in Stream Deck so it is not there twice, and in the profile settings of the new one choose “Star Citizen” as the program again if you had linked it. An update of the plugin does not replace a profile that is already installed, so the question can come once after an update.">Das fragt Stream Deck, wenn das VerseKit-Plugin eine Seite aufrufen will, dein VerseKit-Profil aber nicht mit dem Plugin verbunden ist (zum Beispiel ein älteres oder von Hand importiertes Profil). Einmal auf „Profil(e) installieren“ klicken: Du bekommst ein neues, verbundenes VerseKit-Profil mit den aktuellen Tasten, danach kommt die Frage nicht mehr. Das alte VerseKit-Profil in Stream Deck löschen, damit es nicht doppelt da ist, und beim neuen unter den Profil-Einstellungen wieder „Star Citizen“ als Programm wählen, falls du es dort verknüpft hattest. Ein Update des Plugins tauscht ein schon installiertes Profil nicht aus, deshalb kann die Frage nach einem Update einmal kommen.</p>
+      </details>
+      <details>
         <summary data-de="Wo liegen meine Daten, und wie sichere ich sie?" data-en="Where is my data, and how do I back it up?">Wo liegen meine Daten, und wie sichere ich sie?</summary>
         <p data-de="Den Ordner siehst und änderst du unter Einstellungen → Installation &amp; Pfade („Ordner für deine Daten“). Eine Sicherung zum Mitnehmen gibt es unter Einstellungen → Sichern &amp; Zurücksetzen."
            data-en="You can see and change the folder under Settings → Installation &amp; paths (“Folder for your data”). A backup to take along is under Settings → Backup &amp; reset.">Den Ordner siehst und änderst du unter Einstellungen → Installation &amp; Pfade („Ordner für deine Daten“). Eine Sicherung zum Mitnehmen gibt es unter Einstellungen → Sichern &amp; Zurücksetzen.</p>
@@ -376,7 +393,9 @@
         <p class="fuss-titel" data-de="VerseKit" data-en="VerseKit">VerseKit</p>
         <a href="../rundgang/" data-de="Rundgang" data-en="Tour">Rundgang</a>
         <a href="../herunterladen/" data-de="Herunterladen" data-en="Download">Herunterladen</a>
+        <a href="../herunterladen/#sicher" data-de="Ist das sicher?" data-en="Is it safe?">Ist das sicher?</a>
         <a href="../deine-daten/" data-de="Deine Daten" data-en="Your data">Deine Daten</a>
+        <a href="../streamdeck/" data-de="Stream Deck" data-en="Stream Deck">Stream Deck</a>
         <a href="./" data-de="Häufige Fragen" data-en="FAQ">Häufige Fragen</a>
         <a href="../aenderungen/" data-de="Änderungen" data-en="Changelog">Änderungen</a>
         <a href="https://github.com/Xharig/VerseKit">GitHub</a>
@@ -417,7 +436,7 @@
   </div>
 </footer>
 
-<script src="../assets/seite.js?v=12"></script>
+<script src="../assets/seite.js?v=13"></script>
 <script src="../assets/besuch.js?v=1"></script>
 
 </body>

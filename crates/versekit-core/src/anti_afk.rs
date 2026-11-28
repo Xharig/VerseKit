@@ -1199,6 +1199,35 @@ impl Runner {
 /// The real system: Windows does it all, elsewhere nothing is supported.
 pub struct System;
 
+/// Sends key events as the player's own (a key of the Stream Deck), not marked as anti-AFK's.
+///
+/// # Errors
+///
+/// [`SendError`] where the system took not all events, or cannot send keys.
+pub fn send_player_keys(events: &[KeyEvent]) -> Result<(), SendError> {
+    #[cfg(windows)]
+    {
+        windows_system::send_unmarked(events)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = events;
+        Err(SendError("no api".into()))
+    }
+}
+
+/// Does this program run with administrator rights? `None` where that cannot be told.
+pub fn self_elevated() -> Option<bool> {
+    #[cfg(windows)]
+    {
+        windows_system::self_elevated()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 #[cfg(not(windows))]
 impl Platform for System {
     fn supported(&self) -> bool {
@@ -1230,9 +1259,12 @@ mod windows_system {
         GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
     };
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-        GetLastInputInfo, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
-        KEYEVENTF_SCANCODE, LASTINPUTINFO, SendInput,
+        GetLastInputInfo, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+        KEYEVENTF_SCANCODE, LASTINPUTINFO, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN,
+        MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEEVENTF_XDOWN,
+        MOUSEEVENTF_XUP, MOUSEINPUT, SendInput,
     };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{XBUTTON1, XBUTTON2};
     use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
     use super::{GAME_EXE, HOLD, JoyStates, Key, KeyEvent, Platform, SendError, StickWatch, System, press_with};
@@ -1339,6 +1371,69 @@ mod windows_system {
         }
     }
 
+    /// The inputs of key events of the Stream Deck: scan codes without the own mark; a mouse button down or up, a
+    /// wheel step on its down (its up sends nothing).
+    fn unmarked_inputs(events: &[KeyEvent]) -> Vec<INPUT> {
+        events
+            .iter()
+            .copied()
+            .filter_map(|event| {
+                if event.key.is_mouse() {
+                    return mouse_event(event);
+                }
+                let mut input = keyboard_event(event);
+                input.Anonymous.ki.dwExtraInfo = 0;
+                Some(input)
+            })
+            .collect()
+    }
+
+    /// One event of a mouse button or a wheel step ([`crate::anti_afk_key::MOUSE_KEYS`]); `None` for the up of a
+    /// wheel step.
+    fn mouse_event(event: KeyEvent) -> Option<INPUT> {
+        const WHEEL_STEP: i32 = 120;
+        let (flags, data): (u32, i32) = match (event.key.scan, event.up) {
+            (0xFF01, false) => (MOUSEEVENTF_LEFTDOWN, 0),
+            (0xFF01, true) => (MOUSEEVENTF_LEFTUP, 0),
+            (0xFF02, false) => (MOUSEEVENTF_RIGHTDOWN, 0),
+            (0xFF02, true) => (MOUSEEVENTF_RIGHTUP, 0),
+            (0xFF03, false) => (MOUSEEVENTF_MIDDLEDOWN, 0),
+            (0xFF03, true) => (MOUSEEVENTF_MIDDLEUP, 0),
+            (0xFF04, false) => (MOUSEEVENTF_XDOWN, i32::from(XBUTTON1)),
+            (0xFF04, true) => (MOUSEEVENTF_XUP, i32::from(XBUTTON1)),
+            (0xFF05, false) => (MOUSEEVENTF_XDOWN, i32::from(XBUTTON2)),
+            (0xFF05, true) => (MOUSEEVENTF_XUP, i32::from(XBUTTON2)),
+            (0xFF10, false) => (MOUSEEVENTF_WHEEL, WHEEL_STEP),
+            (0xFF11, false) => (MOUSEEVENTF_WHEEL, -WHEEL_STEP),
+            _ => return None,
+        };
+        Some(INPUT {
+            r#type: INPUT_MOUSE,
+            Anonymous: INPUT_0 {
+                mi: MOUSEINPUT { dx: 0, dy: 0, mouseData: data as u32, dwFlags: flags, time: 0, dwExtraInfo: 0 },
+            },
+        })
+    }
+
+    /// Key events of a key of the Stream Deck: without the own mark, so anti-AFK counts them as the player's.
+    pub(super) fn send_unmarked(events: &[KeyEvent]) -> Result<(), SendError> {
+        let inputs = unmarked_inputs(events);
+        // SAFETY: the array lives during the call and the size is that of one element.
+        let sent = unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
+        if sent as usize == inputs.len() {
+            return Ok(());
+        }
+        // SAFETY: reads the last error of this thread.
+        let error = unsafe { GetLastError() };
+        Err(SendError(format!("SendInput {sent}/{}, error {error}", inputs.len())))
+    }
+
+    /// Does this program run with administrator rights?
+    pub(super) fn self_elevated() -> Option<bool> {
+        // SAFETY: the pseudo handle of this process needs no closing.
+        elevated(unsafe { GetCurrentProcess() })
+    }
+
     fn send(events: &[KeyEvent]) -> Result<(), SendError> {
         let inputs: Vec<INPUT> = events.iter().copied().map(keyboard_event).collect();
         // SAFETY: the array lives during the call and the size is that of one element.
@@ -1395,6 +1490,60 @@ mod windows_system {
 
         fn watch_sticks(&self) -> Option<Box<dyn StickWatch>> {
             Listener::start().map(|listener| Box::new(listener) as Box<dyn StickWatch>)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::KEYEVENTF_UNICODE;
+
+        #[test]
+        fn a_key_of_the_stream_deck_goes_out_as_a_scan_code_without_a_virtual_key_or_a_sign() {
+            // Without a virtual key the layout of the system has nothing to turn: Ü on German, [ on US is the
+            // same key the game reads as lbracket.
+            let lbracket = crate::anti_afk_key::key_of("lbracket").expect("key");
+            let ralt = crate::anti_afk_key::key_of("ralt").expect("key");
+            for input in unmarked_inputs(&crate::anti_afk::key_events(&[ralt, lbracket], false)) {
+                // SAFETY: the inputs are keyboard inputs, built above.
+                let ki = unsafe { input.Anonymous.ki };
+                assert_eq!(input.r#type, INPUT_KEYBOARD);
+                assert_eq!(ki.wVk, 0, "no virtual key");
+                assert_ne!(ki.dwFlags & KEYEVENTF_SCANCODE, 0, "the scan code counts");
+                assert_eq!(ki.dwFlags & KEYEVENTF_UNICODE, 0, "no sign");
+                assert_eq!(ki.dwExtraInfo, 0, "counted as the player's");
+            }
+            let inputs = unmarked_inputs(&crate::anti_afk::key_events(&[lbracket], true));
+            // SAFETY: as above.
+            let ki = unsafe { inputs[0].Anonymous.ki };
+            assert_eq!((ki.wScan, ki.dwFlags & KEYEVENTF_KEYUP != 0), (0x1A, true));
+        }
+
+        #[test]
+        fn a_mouse_button_and_a_wheel_step_of_the_stream_deck_go_out_as_mouse_input() {
+            let keys = crate::anti_afk_key::parse_with_mouse("lalt+mwheel_up").expect("keys");
+            let down = unmarked_inputs(&crate::anti_afk::key_events(&keys, false));
+            assert_eq!(down.len(), 2, "Alt and one wheel step");
+            assert_eq!(down[0].r#type, INPUT_KEYBOARD);
+            assert_eq!(down[1].r#type, INPUT_MOUSE);
+            // SAFETY: a mouse input, built above.
+            let mi = unsafe { down[1].Anonymous.mi };
+            assert_eq!((mi.dwFlags, mi.mouseData as i32), (MOUSEEVENTF_WHEEL, 120));
+            let up = unmarked_inputs(&crate::anti_afk::key_events(&keys, true));
+            assert_eq!(up.len(), 1, "the wheel step has no up, Alt comes up");
+            let back = crate::anti_afk_key::parse_with_mouse("mwheel_down").expect("keys");
+            // SAFETY: as above.
+            let mi = unsafe { unmarked_inputs(&crate::anti_afk::key_events(&back, false))[0].Anonymous.mi };
+            assert_eq!(mi.mouseData as i32, -120);
+            let side = crate::anti_afk_key::parse_with_mouse("mo1_mouse4").expect("keys");
+            let both: Vec<MOUSEINPUT> = [false, true]
+                .iter()
+                // SAFETY: as above.
+                .map(|up| unsafe { unmarked_inputs(&crate::anti_afk::key_events(&side, *up))[0].Anonymous.mi })
+                .collect();
+            assert_eq!((both[0].dwFlags, both[0].mouseData), (MOUSEEVENTF_XDOWN, u32::from(XBUTTON1)));
+            assert_eq!((both[1].dwFlags, both[1].mouseData), (MOUSEEVENTF_XUP, u32::from(XBUTTON1)));
+            assert!(both.iter().all(|mi| mi.dwExtraInfo == 0), "counted as the player's");
         }
     }
 }
@@ -1631,6 +1780,13 @@ mod tests {
         let text = folder.path().to_string_lossy().into_owned();
         let host = crate::paths::Host::new(crate::pypath::Flavor::Posix, &[("VERSEKIT_HOME", &text)], &text);
         (folder, Paths::new(host))
+    }
+
+    /// A runner on `platform` that writes into the data folder of `paths` and whose own threads wait an hour: the
+    /// beats of a check are its own calls of `tick`, never one of the thread that comes in between on a slow run.
+    fn quiet(platform: Arc<dyn Platform>, paths: &Paths) -> Runner {
+        let hour = Duration::from_secs(3600);
+        Runner::with_timing(platform, Some(Paths::new(paths.host.clone())), hour, hour)
     }
 
     #[test]
@@ -2063,7 +2219,7 @@ mod tests {
         // The file of an earlier run says "on": the new run writes "off" at once.
         Snapshot { on: true, sent: 9, joystick: true, ..Snapshot::default() }.write(&paths).unwrap();
         let fake = Fake::ready();
-        let runner = Runner::with_platform(fake.clone(), Some(Paths::new(paths.host.clone())));
+        let runner = quiet(fake.clone(), &paths);
         assert_eq!(Snapshot::read(&paths), Snapshot::default(), "off from the start");
         assert!(runner.supported() && !runner.enabled() && !runner.joy_running());
         assert!(runner.set_enabled(true));
@@ -2093,7 +2249,7 @@ mod tests {
         let after = Snapshot::read(&paths);
         assert!(!after.on && !after.joystick && after.sent == 1 && after.reason.is_none(), "{after:?}");
         // The stop comes through a runner of its own, whose interval has not run yet.
-        let blocked = Runner::with_platform(fake.clone(), Some(Paths::new(paths.host.clone())));
+        let blocked = quiet(fake.clone(), &paths);
         blocked.set_enabled(true);
         assert_eq!(blocked.tick(), Outcome::Blocked);
         let stop = Snapshot::read(&paths);
@@ -2111,7 +2267,7 @@ mod tests {
     fn the_snapshot_says_why_it_does_not_press_with_the_time_and_the_source_of_the_last_input() {
         let (_folder, paths) = paths_in("antiafk-grund");
         let fake = Fake::ready();
-        let runner = Runner::with_platform(fake.clone(), Some(Paths::new(paths.host.clone())));
+        let runner = quiet(fake.clone(), &paths);
         assert!(runner.set_enabled(true));
         let now =
             || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
@@ -2120,11 +2276,14 @@ mod tests {
         assert_eq!(Snapshot::read(&paths).reason, Some(Reason::NotInFront));
         fake.front.store(true, Ordering::SeqCst);
         fake.used(4.0, Source::Keyboard);
+        // Four seconds before the beat: the beat lies between the two looks at the clock, however slow the run.
+        let before = now();
         assert_eq!(runner.tick(), Outcome::Active);
+        let after = now();
         let waiting = Snapshot::read(&paths);
         assert_eq!((waiting.reason, waiting.input_source), (Some(Reason::Waiting), Some(Source::Keyboard)));
-        let ago = now() - waiting.input_at.expect("the time of the last input");
-        assert!((3..=6).contains(&ago), "the last input four seconds ago: {ago}");
+        let at = waiting.input_at.expect("the time of the last input");
+        assert!((before - 5..=after - 3).contains(&at), "the last input four seconds before the beat: {at} in {before}..{after}");
         fake.used(1.0, Source::Mouse);
         assert_eq!(runner.tick(), Outcome::Active);
         assert_eq!(Snapshot::read(&paths).input_source, Some(Source::Mouse));
@@ -2217,7 +2376,7 @@ mod tests {
         let (_folder, paths) = paths_in("antiafk-zeit");
         assert_eq!(interval_for(&paths), INTERVAL, "five minutes without the setting");
         let fake = Fake::ready();
-        let runner = Runner::with_platform(fake.clone(), Some(Paths::new(paths.host.clone())));
+        let runner = quiet(fake.clone(), &paths);
         assert!(runner.set_enabled(true));
         fake.away(21.0);
         assert_eq!(runner.tick(), Outcome::Active, "21 seconds are not five minutes");
@@ -2318,7 +2477,7 @@ mod tests {
     fn the_runner_presses_the_binding_of_the_player_and_alt_x_without_one() {
         let (paths, file, _folder) = anti_afk_key::test_world("antiafk-belegung");
         let fake = Fake::ready();
-        let runner = Runner::with_platform(fake.clone(), Some(Paths::new(paths.host.clone())));
+        let runner = quiet(fake.clone(), &paths);
         assert!(runner.set_enabled(true));
         assert_eq!(Snapshot::read(&paths).key, Some(("lalt+x".to_string(), Origin::Default)), "no file");
         assert_eq!(runner.tick(), Outcome::Sent);
@@ -2358,7 +2517,7 @@ mod tests {
         let fake = Fake::ready();
         *fake.input.lock().unwrap() = (2.0, Some(Source::KeyboardInjected));
         *fake.injected_off.lock().unwrap() = 400.0;
-        let runner = Runner::with_platform(fake.clone(), Some(Paths::new(paths.host.clone())));
+        let runner = quiet(fake.clone(), &paths);
         assert!(runner.set_enabled(true));
         assert_eq!(runner.tick(), Outcome::Active, "a key of the macro software two seconds ago");
         assert_eq!(Snapshot::read(&paths).input_source, Some(Source::KeyboardInjected));
@@ -2465,7 +2624,7 @@ mod tests {
         // A folder where the file should be: nothing can be written there.
         std::fs::create_dir_all(paths.app_file(FILE)).unwrap();
         let fake = Fake::ready();
-        let runner = Runner::with_platform(fake.clone(), Some(Paths::new(paths.host.clone())));
+        let runner = quiet(fake.clone(), &paths);
         assert!(runner.shared.unpublished.load(Ordering::Relaxed), "the first write failed and is remembered");
         assert!(runner.set_enabled(true));
         // The obstacle goes; the next beat writes the file.
@@ -2480,7 +2639,7 @@ mod tests {
     fn a_beat_that_sees_nothing_new_writes_nothing() {
         let (_folder, paths) = paths_in("antiafk-unveraendert");
         let fake = Fake::ready();
-        let runner = Runner::with_platform(fake.clone(), Some(Paths::new(paths.host.clone())));
+        let runner = quiet(fake.clone(), &paths);
         assert!(runner.set_enabled(true));
         fake.front.store(false, Ordering::SeqCst);
         assert_eq!(runner.tick(), Outcome::NotInFront);

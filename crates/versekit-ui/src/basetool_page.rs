@@ -97,11 +97,22 @@ pub struct Wire {
     /// Puts blueprints (by name) back into the collection when the player
     /// takes back what was removed here; set where the blueprint sync exists.
     pub restore: Option<Arc<dyn Fn(Vec<String>) + Send + Sync>>,
+    /// The throwaway folder of a preview, removed when the last copy of the wire goes.
+    pub scratch: Option<Arc<ScratchFolder>>,
+}
+
+/// A throwaway folder that is removed when the value goes.
+pub struct ScratchFolder(std::path::PathBuf);
+
+impl Drop for ScratchFolder {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
 
 impl Wire {
     /// A sync against the made-up Basetool with its settings in a throwaway
-    /// folder. `worker` starts the sync in the background.
+    /// folder, which goes with the wire. `worker` starts the sync in the background.
     pub fn preview(worker: bool) -> Wire {
         // One folder per preview: windows of one process do not share settings.
         static COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -109,7 +120,9 @@ impl Wire {
         let folder = std::env::temp_dir().join(format!("versekit-vorschau-{}-{number}", std::process::id()));
         // A folder an earlier process with the same number left behind holds nothing for this one.
         let _ = std::fs::remove_dir_all(&folder);
-        Wire::in_folder(&folder.to_string_lossy(), worker)
+        let mut wire = Wire::in_folder(&folder.to_string_lossy(), worker);
+        wire.scratch = Some(Arc::new(ScratchFolder(folder)));
+        wire
     }
 
     /// Like [`Wire::preview`], with the settings in `folder`.
@@ -137,6 +150,7 @@ impl Wire {
             demo: Some(world.demo),
             file_store: None,
             restore: None,
+            scratch: None,
         }
     }
 
@@ -240,6 +254,7 @@ impl Wire {
             demo: None,
             file_store,
             restore: Some(restore),
+            scratch: None,
         })
     }
 
@@ -291,6 +306,7 @@ impl Wire {
             demo: None,
             file_store: None,
             restore: None,
+            scratch: None,
         }
     }
 
@@ -1319,8 +1335,10 @@ mod tests {
         page.wire().cloned().expect("wire")
     }
 
+    /// Waits for `done`, at most `seconds`, and never less than two minutes: the made-up Basetool answers from
+    /// threads of its own, slow on a loaded computer; the wait ends as soon as `done` holds.
     fn wait_for(seconds: u64, mut done: impl FnMut() -> bool) -> bool {
-        let end = Instant::now() + Duration::from_secs(seconds);
+        let end = Instant::now() + Duration::from_secs(seconds.max(120));
         while Instant::now() < end {
             if done() {
                 return true;
@@ -1382,6 +1400,20 @@ mod tests {
             wait_for(20, || wire.sync.login_state().get().1.as_deref() == Some(&Login::Connected)),
             "the code was not granted"
         );
+    }
+
+    /// The throwaway folder of a preview goes with the last copy of its wire: every preview window (and every check
+    /// that opens the sample page) made one, and none went.
+    #[test]
+    fn the_folder_of_a_preview_goes_with_its_last_wire() {
+        let wire = Wire::preview(false);
+        let folder = wire.scratch.as_ref().expect("a throwaway folder").0.clone();
+        assert!(folder.is_dir(), "{folder:?}");
+        let copy = wire.clone();
+        drop(wire);
+        assert!(folder.is_dir(), "a copy still works in it");
+        drop(copy);
+        assert!(!folder.exists(), "gone with the last copy: {folder:?}");
     }
 
     /// Before anything is switched on there is nothing to connect with: the

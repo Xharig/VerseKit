@@ -48,6 +48,14 @@ pub(crate) const FIRST_START: &str = "--erster-start";
 /// The overlay the main window starts (the end of the assistant, a restart): the main window holds the single
 /// instance then, and the overlay goes on beside it instead of bringing it to the front.
 pub(crate) const BY_MAIN_WINDOW: &str = "--vom-hauptfenster";
+/// The overlay the main window starts after a switch of the data folder opens the main window again: the player
+/// asked for the restart there.
+pub(crate) const REOPEN_MAIN_WINDOW: &str = "--hauptfenster-wieder";
+
+/// Does the start ask to open the main window again ([`REOPEN_MAIN_WINDOW`])?
+pub(crate) fn reopens_main_window(args: &[String]) -> bool {
+    args.iter().any(|a| a == REOPEN_MAIN_WINDOW)
+}
 
 /// Does the assistant have to run before anything else (`versekit_core::setup::needed`)? On a copy of the data
 /// writing is locked to the copy first: asking whether the data folder can be written writes a trial file.
@@ -253,6 +261,7 @@ fn main() -> eframe::Result {
         return learn_window::run(&args);
     }
     let by_main_window = args.iter().any(|a| a == BY_MAIN_WINDOW);
+    let reopen_main = reopens_main_window(&args);
     let kind = StartKind::from_args(&args);
     let role = role_of(&args);
     let args_for_edition = args.clone();
@@ -340,8 +349,9 @@ fn main() -> eframe::Result {
             env!("CARGO_PKG_VERSION"),
         );
     }
-    // A backup made right now is told in the main window: it opens on the overview.
-    if backed_up {
+    // A backup made right now is told in the main window: it opens on the overview. A restart the player asked
+    // for in the main window opens it again too.
+    if backed_up || reopen_main {
         overlay.open_overview = true;
     }
     // A start by hand opens the main window by itself, unless the player switched that off.
@@ -1004,6 +1014,11 @@ mod tests {
         (address, rx)
     }
 
+    /// How long a report that goes out is waited for: it comes from a thread of its own, which reads the settings
+    /// and writes the day first, and on a loaded computer beside the other checks of the program that took more
+    /// than 15 s. The wait ends as soon as it is there.
+    const REPORT_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+
     /// The host of a throwaway home with a target for the report.
     fn host_for(name: &str, extra: &[(&str, &str)], address: &str) -> (versekit_core::paths::Host, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("versekit-nutzung-{}-{name}", versekit_core::testdir::run_tag()));
@@ -1022,11 +1037,10 @@ mod tests {
 
     #[test]
     fn the_one_start_reports_that_the_program_runs_once_a_day_to_the_receiver() {
-        use std::time::Duration;
         let (address, rx) = receiver();
         let (host, dir) = host_for("meldet", &[], &address);
         start_usage(host, "5.0.0");
-        let body = rx.recv_timeout(Duration::from_secs(15)).expect("the start reports to the receiver");
+        let body = rx.recv_timeout(REPORT_WAIT).expect("the start reports to the receiver");
         assert!(body.contains("\"v\": \"5.0.0\"") && body.contains("\"os\""), "{body}");
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1040,7 +1054,7 @@ mod tests {
         let (host, dir) = host_for("start-eigen", &[], &address);
         let mut own = versekit_overlay::Args::parse(Vec::<String>::new());
         assert!(begin_own_run(&mut own, &old_system(), command, false, host, "5.0.0"));
-        assert!(rx.recv_timeout(Duration::from_secs(15)).is_ok(), "the one start reports");
+        assert!(rx.recv_timeout(REPORT_WAIT).is_ok(), "the one start reports");
         let _ = std::fs::remove_dir_all(dir);
         // A copy of the data, a check, a data folder named from outside: nothing goes out.
         let cases = [

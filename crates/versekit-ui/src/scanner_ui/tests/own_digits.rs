@@ -301,7 +301,8 @@ fn a_suspect_pattern_stands_first_in_its_digit_is_counted_in_its_head_and_edged_
     let yellow = color(versekit_core::theme::current().yellow);
     let edged = rects(&shapes).iter().filter(|r| r.stroke.color == yellow && r.stroke.width == 2.0).count();
     assert_eq!(edged, 1, "one pattern edged in yellow");
-    // Without a suspect pattern no card is edged.
+    // Without a suspect pattern no card is edged (a context of its own: its clock starts at 0 again).
+    let ctx = context();
     let (mut clean, number) = standing("scanner-ui-ohne-verdacht");
     card(&ctx, &mut clean, vec![], 0.0);
     clean.typed = number.to_string();

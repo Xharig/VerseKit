@@ -1828,7 +1828,7 @@ mod tests {
         let (reading_tx, go_rx) = (Mutex::new(reading_tx), Mutex::new(go_rx));
         let stopping = |language: &str, folder: &str| {
             let _ = reading_tx.lock().unwrap_or_else(|e| e.into_inner()).send(());
-            let _ = go_rx.lock().unwrap_or_else(|e| e.into_inner()).recv_timeout(Duration::from_secs(60));
+            let _ = go_rx.lock().unwrap_or_else(|e| e.into_inner()).recv_timeout(Duration::from_secs(120));
             read_from_archive(language, folder)
         };
         std::thread::scope(|scope| {
@@ -1839,7 +1839,10 @@ mod tests {
                 let _one_writer = injection::game_file_lock();
                 let _ = took_tx.send(());
             });
-            let free = took_rx.recv_timeout(Duration::from_secs(5)).is_ok();
+            // The lock of the game files is one for the whole process: other checks may hold it for a while on a
+            // loaded computer. 30 s, while the reading stops for up to 120 s: a work that held the lock over the
+            // reading would keep it all that time.
+            let free = took_rx.recv_timeout(Duration::from_secs(30)).is_ok();
             let _ = go_tx.send(());
             (free, worker.join().expect("the work ends"))
         })

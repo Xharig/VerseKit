@@ -446,13 +446,15 @@ fn the_rows_of_the_timeline_are_as_tall_as_their_text() {
     crate::install(&ctx);
     let line = |text: &str| Entry::Line { time: "10:00:00".into(), icon: "map-pin", text: text.into(), tip: text.into() };
     let mut heights = (0.0, 0.0, 0.0);
-    let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+    ctx.run_ui(egui::RawInput::default(), |ui| {
         heights = (
             entry_height(ui, &line("kurz"), 300.0, 60.0),
             entry_height(ui, &line(LONG_CONTRACT), 300.0, 60.0),
             entry_height(ui, &line(LONG_CONTRACT), 1500.0, 60.0),
         );
-    });
+    })
+    .textures_delta
+    .clear();
     assert!(heights.1 > heights.0 * 1.8, "the long line takes several rows: {heights:?}");
     assert!((heights.2 - heights.0).abs() < 0.5, "wide enough, it is one row: {heights:?}");
 }

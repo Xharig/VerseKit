@@ -88,7 +88,7 @@ pub const ONE_AREA_SETTING: &str = "uebersicht_ein_bereich";
 
 /// The pages that can be pinned: (page name of 4.12, text key of its name in
 /// v5) (`cards.PAGES`).
-pub const PAGES: [(&str, &str); 49] = [
+pub const PAGES: [(&str, &str); 50] = [
     ("liste", "hf_liste"),
     ("fortschritt", "hf_fortschritt"),
     ("auftragslog", "hf_auftragslog"),
@@ -118,6 +118,7 @@ pub const PAGES: [(&str, &str); 49] = [
     ("statistik_flugbuch", "hf_st_flugbuch"),
     ("allgemein", "hf_allgemein"),
     ("anzeige", "hf_overlay"),
+    ("streamdeck", "hf_streamdeck"),
     ("darstellung", "hf_darstellung"),
     ("ordner", "hf_ordner"),
     ("module", "hf_module"),

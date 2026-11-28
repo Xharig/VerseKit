@@ -531,33 +531,43 @@ const OWN_ICON: usize = 1;
 /// the icon was loaded from a file and so must be given back with `DestroyIcon`; the other two
 /// belong to the system.
 fn load_icon() -> (isize, bool) {
+    // A folder given with `use_icon_folder` comes before the resources: the self-check runs in the
+    // program file that carries its own icon and still has to load (and give back) one from a file.
+    let given = ICON_FOLDER.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    if let Some(icon) = given.and_then(|folder| icon_from_folder(&folder)) {
+        return (icon, true);
+    }
     // SAFETY: the module of this program and the number of an icon in its resources.
     let own = unsafe { LoadIconW(GetModuleHandleW(std::ptr::null()), OWN_ICON as *const u16) };
     if !own.is_null() {
         return (own as isize, false);
     }
-    let given = ICON_FOLDER.lock().unwrap_or_else(|e| e.into_inner()).clone();
     let folders = std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(std::path::Path::to_path_buf))
         .into_iter()
         .flat_map(|dir| [Some(dir.clone()), dir.parent().map(std::path::Path::to_path_buf)])
         .flatten();
-    for folder in given.into_iter().chain(folders) {
-        let file = folder.join("icon.ico");
-        if file.is_file() {
-            let name = wide(&file.to_string_lossy());
-            // SAFETY: a plain file name that lives for the call.
-            let icon = unsafe {
-                LoadImageW(std::ptr::null_mut(), name.as_ptr(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE)
-            };
-            if !icon.is_null() {
-                return (icon as isize, true);
-            }
+    for folder in folders {
+        if let Some(icon) = icon_from_folder(&folder) {
+            return (icon, true);
         }
     }
     // SAFETY: loads a standard icon of the system.
     (unsafe { LoadIconW(std::ptr::null_mut(), IDI_APPLICATION) as isize }, false)
+}
+
+/// The `icon.ico` of `folder`, loaded from the file, if there is one that loads.
+fn icon_from_folder(folder: &std::path::Path) -> Option<isize> {
+    let file = folder.join("icon.ico");
+    if !file.is_file() {
+        return None;
+    }
+    let name = wide(&file.to_string_lossy());
+    // SAFETY: a plain file name that lives for the call.
+    let icon =
+        unsafe { LoadImageW(std::ptr::null_mut(), name.as_ptr(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE) };
+    (!icon.is_null()).then_some(icon as isize)
 }
 
 /// The icon next to the clock. Dropping it takes the icon away.
@@ -920,7 +930,9 @@ mod tests {
         use windows_sys::Win32::UI::WindowsAndMessaging::WM_COMMAND;
         // The recorder takes the calls to the shell: nothing is shown, only the invisible window exists.
         let tray = Tray::start(Arc::new(Recorder::default()), "tip", "5.0.0", None);
-        let until = std::time::Instant::now() + Duration::from_secs(10);
+        // The window and its queue run on a thread of their own: on a loaded computer that takes its time, so the
+        // waits below end on what they look for, with a bound far above it.
+        let until = std::time::Instant::now() + Duration::from_secs(60);
         while tray.window() == 0 && std::time::Instant::now() < until {
             std::thread::sleep(Duration::from_millis(20));
         }

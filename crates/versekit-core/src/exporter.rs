@@ -39,6 +39,11 @@ pub fn chrome_page() -> &'static str {
     CHROME_STORE.unwrap_or(HANGAR_EXPORTER)
 }
 
+/// The store entries of the Hangar Extension (AlyxOne), as its post in the RSI Community Hub links them.
+pub const EXTENSION_FIREFOX: &str = "https://addons.mozilla.org/firefox/addon/star-citizen-hangar-extension/";
+pub const EXTENSION_CHROME: &str = "https://chromewebstore.google.com/detail/jeoidbfcbdplammndhpflojejmpkjcfm";
+pub const EXTENSION_EDGE: &str = "https://microsoftedge.microsoft.com/addons/detail/agahppbhmogalnjlaolmjbbemlcjbioe";
+
 /// A browser the Hangar-Exporter is offered for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Browser {
@@ -64,6 +69,24 @@ impl Browser {
         match self {
             Browser::Firefox => "as_exporter_firefox_h",
             Browser::Chrome | Browser::Edge => "as_exporter_chrome_h",
+        }
+    }
+
+    /// The store entry of the Hangar Extension for this browser.
+    pub fn extension_store(self) -> &'static str {
+        match self {
+            Browser::Firefox => EXTENSION_FIREFOX,
+            Browser::Chrome => EXTENSION_CHROME,
+            Browser::Edge => EXTENSION_EDGE,
+        }
+    }
+
+    /// The text key of what its button for the Hangar Extension does.
+    pub fn extension_hint(self) -> &'static str {
+        match self {
+            Browser::Firefox => "s_hgl_extension_firefox_h",
+            Browser::Chrome => "s_hgl_extension_chrome_h",
+            Browser::Edge => "s_hgl_extension_edge_h",
         }
     }
 
@@ -182,7 +205,26 @@ pub fn installed(browser: Browser) -> Option<PathBuf> {
 
 /// Opens what the button of `browser` stands for; false when nothing could be opened.
 pub fn open(browser: Browser) -> bool {
-    match plan(browser, bundled().as_deref(), installed(browser)) {
+    launch(plan(browser, bundled().as_deref(), installed(browser)))
+}
+
+/// What the button of `browser` for the Hangar Extension opens: its store entry in that browser, else in the
+/// default browser.
+pub fn extension_plan(browser: Browser, installed: Option<PathBuf>) -> Opening {
+    let page = browser.extension_store();
+    match installed {
+        Some(program) => Opening::Page { program, url: page },
+        None => Opening::Default(page),
+    }
+}
+
+/// Opens the store entry of the Hangar Extension for `browser`; false when nothing could be opened.
+pub fn open_extension(browser: Browser) -> bool {
+    launch(extension_plan(browser, installed(browser)))
+}
+
+fn launch(opening: Opening) -> bool {
+    match opening {
         Opening::File { program, file } => start(&program, file.as_os_str()),
         Opening::Page { program, url } => start(&program, std::ffi::OsStr::new(url)),
         Opening::Default(url) => crate::browser::open_in_browser(url),
@@ -259,13 +301,43 @@ mod tests {
     }
 
     #[test]
+    fn the_hangar_extension_opens_its_own_store_entry_per_browser_over_https() {
+        let stores = [
+            (Browser::Firefox, "addons.mozilla.org"),
+            (Browser::Chrome, "chromewebstore.google.com"),
+            (Browser::Edge, "microsoftedge.microsoft.com"),
+        ];
+        let program = PathBuf::from("/usr/bin/browser");
+        for (browser, host) in stores {
+            let url = browser.extension_store();
+            assert!(url.starts_with(&format!("https://{host}/")), "{browser:?}: {url}");
+            assert!(!url.contains('?') && !url.contains('#'), "{browser:?} without a tracking tail: {url}");
+            assert!(crate::browser::web_address(url), "{url}");
+            assert_eq!(extension_plan(browser, Some(program.clone())), Opening::Page { program: program.clone(), url });
+            assert_eq!(extension_plan(browser, None), Opening::Default(url), "{browser:?} not installed");
+        }
+        let all: std::collections::HashSet<_> = Browser::ALL.iter().map(|b| b.extension_store()).collect();
+        assert_eq!(all.len(), 3, "one entry per browser");
+        let exporter = [chrome_page(), HANGAR_EXPORTER];
+        assert!(all.iter().all(|url| !exporter.contains(url)), "not the pages of the Hangar-Exporter");
+    }
+
+    #[test]
     fn every_button_has_its_words_in_both_languages() {
         for browser in Browser::ALL {
-            for key in [browser.label(), browser.hint()] {
+            for key in [browser.label(), browser.hint(), browser.extension_hint()] {
                 for lang in [crate::language::Lang::De, crate::language::Lang::En] {
                     assert!(crate::language::text_in(lang, key).is_some_and(|t| !t.is_empty()), "{key}");
                 }
             }
+        }
+        // A missing English text falls back to the German one, so the two have to differ.
+        let extension = Browser::ALL.map(Browser::extension_hint);
+        for key in ["s_hgl_extension_holen", "s_hgl_extension_fuer"].iter().chain(&extension) {
+            let de = crate::language::text_in(crate::language::Lang::De, key).unwrap_or_default();
+            let en = crate::language::text_in(crate::language::Lang::En, key).unwrap_or_default();
+            assert!(de.contains("Hangar Extension") && en.contains("Hangar Extension"), "{key}: {de} / {en}");
+            assert_ne!(de, en, "{key} has its own English text");
         }
     }
 }

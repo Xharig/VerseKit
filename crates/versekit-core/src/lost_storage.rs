@@ -22,16 +22,25 @@
 //! that carry the mark of the program ([`data_removal::marked`]). Exactly one of them is taken and the pointers
 //! are written anew; with none or several the folder is left alone, nothing is created below it
 //! ([`jsonio::refuse_creating`]), and the player is told which places were found ([`Paths::lost_message`]).
+//!
+//! ⚠⚠ A folder whose drive, share or mount point does not answer is not missing: it is waited for a few seconds
+//! ([`ROOT_WAIT`]), and when the root still does not answer no other folder is looked for or taken, no pointer is
+//! written, nothing is created below it, and the player is told the drive is not reachable.
 
 use std::time::{Duration, Instant};
 
 use crate::jsonio::{self, Value};
 use crate::language::{self, Arg};
 use crate::paths::{EARLIER_FOLDER_NAMES, NEW_FOLDER_NAME, Paths, SETTINGS_FILE, STORAGE_KEY};
+use crate::pypath::Flavor;
 use crate::data_removal;
 
 /// How long the answer for one missing folder stands before the places are looked at again.
 const MEMO: Duration = Duration::from_secs(5);
+/// How long a root that does not answer is waited for, once per missing folder and run.
+const ROOT_WAIT: Duration = if cfg!(test) { Duration::from_millis(60) } else { Duration::from_secs(4) };
+/// The pause between two questions to a root that does not answer.
+const ROOT_PAUSE: Duration = if cfg!(test) { Duration::from_millis(10) } else { Duration::from_millis(500) };
 
 /// What was found out for a pointer to a folder that is not there.
 #[derive(Clone, Debug)]
@@ -42,6 +51,8 @@ pub(crate) struct LostMemo {
     pub(crate) found: Vec<String>,
     /// The one folder taken instead, when exactly one was found.
     pub(crate) taken: Option<String>,
+    /// The root of `missing` (drive, share, mount point) that did not answer; nothing was looked for then.
+    pub(crate) unreachable: Option<String>,
     pub(crate) at: Instant,
 }
 
@@ -52,28 +63,91 @@ pub struct Lost {
     pub missing: String,
     /// The folders with data of the program found at the usual places; empty or several.
     pub found: Vec<String>,
+    /// The drive, share or mount point of `missing` that does not answer; `found` is empty then.
+    pub unreachable: Option<String>,
+}
+
+/// The root of `path` whose absence means its drive is not there rather than the folder: the drive (`E:\`) or share
+/// (`\\server\share\`) under Windows, the mount point under the usual places for them (`/media/<user>/<disk>`,
+/// `/run/media/<user>/<disk>`, `/mnt/<disk>`, `/Volumes/<disk>`) elsewhere. `None` for a path without one.
+pub(crate) fn storage_root(flavor: Flavor, path: &str) -> Option<String> {
+    match flavor {
+        Flavor::Windows => {
+            let (drive, _, _) = flavor.splitroot(path);
+            (!drive.is_empty()).then(|| format!("{}\\", drive.replace('/', "\\")))
+        }
+        Flavor::Posix => {
+            let parts: Vec<&str> = path.split('/').filter(|p| !p.is_empty()).collect();
+            if !path.starts_with('/') {
+                return None;
+            }
+            let depth = match parts.as_slice() {
+                ["media", _, _, ..] => 3,
+                ["run", "media", _, _, ..] => 4,
+                ["mnt", _, ..] | ["Volumes", _, ..] => 2,
+                _ => return None,
+            };
+            Some(format!("/{}", parts[..depth].join("/")))
+        }
+    }
 }
 
 impl Paths {
+    /// Whether the root of `folder` ([`storage_root`]) does not answer right now; asked once, without waiting.
+    pub(crate) fn root_down(&self, folder: &str) -> bool {
+        storage_root(self.host.flavor, folder).is_some_and(|root| !self.host.root_ready(&root))
+    }
+
+    /// The root of `folder` that does not answer, after waiting [`ROOT_WAIT`] for it when `wait`; `None` when it
+    /// answers or `folder` has none.
+    fn unready_root(&self, folder: &str, wait: bool) -> Option<String> {
+        let root = storage_root(self.host.flavor, folder)?;
+        let start = Instant::now();
+        loop {
+            if self.host.root_ready(&root) {
+                return None;
+            }
+            if !wait || start.elapsed() >= ROOT_WAIT {
+                return Some(root);
+            }
+            std::thread::sleep(ROOT_PAUSE);
+        }
+    }
+
     /// The folder to use when the pointer names `missing` and nothing is there: the one folder with data found
-    /// elsewhere (the pointers are written anew), else `missing` itself, left as it is.
+    /// elsewhere (the pointers are written anew), else `missing` itself, left as it is. With a root of `missing`
+    /// that does not answer, always `missing` itself, and nothing is looked for.
     pub(crate) fn storage_missing(&self, missing: &str) -> String {
-        if let Some(memo) = self.lost_memo()
-            && self.same_place(&memo.missing, missing)
+        let before = self.lost_memo().filter(|memo| self.same_place(&memo.missing, missing));
+        if let Some(memo) = &before
             && memo.at.elapsed() < MEMO
         {
-            return memo.taken.unwrap_or_else(|| missing.to_string());
+            return memo.taken.clone().unwrap_or_else(|| missing.to_string());
         }
+        let memo = |found: Vec<String>, taken: Option<String>, unreachable: Option<String>| {
+            Some(LostMemo { missing: missing.to_string(), found, taken, unreachable, at: Instant::now() })
+        };
         // ⚠ The answer "nothing found" stands before the search: what the search reads may ask for the data folder
         // again (the error log), and that must not start a second search.
-        let at = Instant::now();
-        self.set_lost_memo(Some(LostMemo { missing: missing.to_string(), found: Vec::new(), taken: None, at }));
+        let waited = before.and_then(|memo| memo.unreachable);
+        self.set_lost_memo(memo(Vec::new(), None, waited.clone()));
+        jsonio::refuse_creating(missing, true);
+        if let Some(root) = self.unready_root(missing, waited.is_none()) {
+            self.set_lost_memo(memo(Vec::new(), None, Some(root)));
+            return missing.to_string();
+        }
+        if fs_is_dir(missing) {
+            // The drive answered while it was waited for, and the folder is there.
+            self.set_lost_memo(None);
+            jsonio::refuse_creating(missing, false);
+            return missing.to_string();
+        }
         let found = self.data_folders_besides(missing);
         let taken = match found.as_slice() {
             [only] => Some(only.clone()),
             _ => None,
         };
-        self.set_lost_memo(Some(LostMemo { missing: missing.to_string(), found, taken: taken.clone(), at }));
+        self.set_lost_memo(memo(found, taken.clone(), None));
         match taken {
             Some(only) => {
                 jsonio::refuse_creating(missing, false);
@@ -95,7 +169,7 @@ impl Paths {
         let _ = self.app_folder();
         let memo = self.lost_memo()?;
         (memo.taken.is_none() && !fs_is_dir(&memo.missing))
-            .then_some(Lost { missing: memo.missing, found: memo.found })
+            .then_some(Lost { missing: memo.missing, found: memo.found, unreachable: memo.unreachable })
     }
 
     /// The sentence for the player about [`Paths::storage_lost`]; `None` when the data folder is there.
@@ -107,6 +181,9 @@ impl Paths {
     pub fn lost_message_in(&self, lang: language::Lang) -> Option<String> {
         let lost = self.storage_lost()?;
         let missing = Arg::from(lost.missing.as_str());
+        if let Some(root) = &lost.unreachable {
+            return Some(language::tf_in(lang, "ablage_laufwerk_fehlt", &[("0", missing), ("1", Arg::from(root.as_str()))]));
+        }
         Some(if lost.found.is_empty() {
             language::tf_in(lang, "ablage_fehlt", &[("0", missing)])
         } else {

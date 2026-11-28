@@ -6,6 +6,94 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v5.7.0 - 2026-11-28
+
+> VerseKit now drives the Stream Deck: a plugin of its own with ready-made
+> profiles for every device size, a new page “Keys & Stream Deck” and one
+> click that adds missing keys in the game. Plus many fixes, from My Inventory
+> to the blueprint scan and the setup, and a data folder on a second drive
+> stays where it is.
+
+### New
+
+- **Stream Deck plugin:** VerseKit ships its own plugin for the Elgato
+  software, with profiles for every device size from Mini to Stream Deck +
+  XL. The keys carry short names and icons in the house style, page keys are
+  magenta, and weapons, shields and other areas have colours of their own.
+  Under Keys & Stream Deck, “Set up Stream Deck” sets everything up with one
+  click; after a VerseKit update the plugin follows by itself. Colours per
+  area as an idea of oGundalf.
+- **Page “Keys & Stream Deck”:** All shortcuts of VerseKit and everything about
+  the Stream Deck stand on one page, with switches for “Show keys” (the game
+  key small under each icon), “Compact dials” and “Switch page
+  automatically”.
+- **Add missing keys:** When a key of the deck has no binding in the game,
+  VerseKit shows it on the key, in a bar and in a counter. “Add missing Stream
+  Deck keys” binds them to safe, free keys, deleted ones too if you like; the
+  file from before can be brought back. Joystick, gamepad and mouse stay as
+  they are.
+- **Dials (Stream Deck +):** The dials show names or, compact, a large icon,
+  plus an info dial with the Contested time, ship and status. The texts of
+  the dials are in German in the Elgato software too.
+- **Page switch:** When you leave the pilot seat, the deck jumps to the page
+  “On Foot”. After an emote it jumps back (tap) or stays (hold). Wish of
+  Autobrake, tap and hold as an idea of vonCurryWurst.
+- **Pressing safely:** Dangerous keys such as ejecting want to be held; keys the
+  game only fires when held are held by the deck as long as in the game. The
+  deck also works while VerseKit is not running.
+- **Profiles to download:** Every release carries the Stream Deck profiles as
+  a ZIP with instructions, and the website has a page “Stream Deck” of its own
+  with setup and frequent questions.
+- **scmdb.net:** When connecting, VerseKit reports every blueprint scmdb.net
+  does not know yet, the first time your whole stock. Wish of MindBurnt.
+
+### Improved
+
+- **Dogfight on MK.2, Neo and Mini:** “Lock Target” now comes first,
+  “Missiles +” behind it. Also the helmet and the mining and salvage keys in
+  the right places and clearer texts. Reported by vonCurryWurst.
+- **My hangar › Hangar Extension:** Under “Or import a file”, one button each
+  opens the Hangar Extension for Firefox, Chrome and Edge.
+- **My Inventory › Stock scans:** When a scan reads nothing, VerseKit now says
+  why (game not in front, pointer outside, no text recognition, no card at
+  the pointer). With Windows scaling such as 150 % on a 4K screen the scan
+  hits the right spot. Reported by SirHinkebein.
+- **Beta update:** When a new beta is still uploading, a click on the update
+  asks again instead of sending you to download it by hand.
+- **Website:** All pictures show the state of 5.7.0, plus a picture of the
+  Stream Deck.
+- **Blueprint scan:** Asks less, for example for crossbows such as the
+  Nighthunter.
+- **Loading shown:** Writing and putting back a backup shows a bar “n of m
+  files”; the assistant, the start of the RSI Launcher, overview tiles and
+  profile pictures show that they are loading. Every bar tells screen readers
+  what it counts.
+
+### Fixed
+
+- **Blueprints twice in translation:** The same blueprint under two translated
+  names, for example mining lasers, stands there once again.
+- **Data folder on a second drive:** When the drive was not ready at start,
+  VerseKit switched to another folder and looked empty. Now it waits a moment
+  and says which drive is missing. Moving the data folder takes the channel
+  folders along, and “Restart now” restarts the whole program including the
+  overlay.
+- **My Inventory:** Ship components stood there twice, such as “MegaFlux” and
+  “Mil/3/B MegaFlux”; existing doubles are put together. Scanned places such
+  as “QV Logistics Station” are accepted when typed by hand too. Reported by
+  Lord Cyberus [KRT].
+- **Error sound while typing:** When the overlay shortcut brought the main
+  window back, Windows beeped at every letter. Reported by Horthy [KRT].
+- **Setup:** When Windows denied it the shortcuts or the entry under “Apps &
+  Features”, it stopped. Now it goes on and says what is missing. Reported by
+  Keendary [KRT].
+- **Cargo:** MOLE with 32 SCU cargo and 96 SCU ore apart, 890 Jump with 388
+  SCU, Retaliator and Aurora Mk II with cargo modules.
+- **After the game and a patch:** The blueprint list waited five minutes after
+  the game, “Insert again” up to two beside the overlay, and after a patch
+  reading waited while the shader run of the game went on.
+- **French:** The Veil had size 2.
+
 ## v5.6.4 - 2026-11-26
 
 > A fix for everyone who sends their hangar to VerseKit from Opera GX or a

@@ -1747,13 +1747,25 @@ pub const PROGRESS_HEIGHT: f32 = 8.0;
 
 /// Progress as a thin track in the switch color, the done part in the
 /// accent, the percentage next to it. `width` is the whole widget.
-pub fn progress(ui: &mut Ui, scheme: &Scheme, fraction: f32, width: f32) -> Response {
+///
+/// `name` is what a screen reader says for the bar (what is in progress); its value is the percent.
+pub fn progress(ui: &mut Ui, scheme: &Scheme, fraction: f32, width: f32, name: &str) -> Response {
     let fraction = fraction.clamp(0.0, 1.0);
     ui.horizontal(|ui| {
         let label = format!("{} %", (fraction * 100.0).round() as i64);
         let label_width = line_galley(ui, "100 %", TextStyle::Body).size().x;
         let track_width = (width.min(ui.available_width()) - label_width - ui.spacing().item_spacing.x).max(20.0);
         let (rect, response) = ui.allocate_exact_size(vec2(track_width, PROGRESS_HEIGHT), Sense::hover());
+        // As egui's own `ProgressBar` (0.37) tells it: the role, the name where there is one, the percent as value.
+        response.widget_info(|| {
+            let mut info = if name.is_empty() {
+                WidgetInfo::new(Role::ProgressIndicator)
+            } else {
+                WidgetInfo::labeled(Role::ProgressIndicator, true, name)
+            };
+            info.value = Some(f64::from((fraction * 100.0).round()));
+            info
+        });
         let radius = CornerRadius::same(if scheme.square || scheme.flat_gauges { 0 } else { (PROGRESS_HEIGHT / 2.0) as u8 });
         ui.painter().rect_filled(rect, radius, color(scheme.track));
         let mut done = rect;
@@ -4280,7 +4292,7 @@ mod tests {
                 switch_row(ui, s, "nur fehlende", &mut on);
                 tab_bar(ui, s, &["A", "B"], &mut tab_chosen);
                 list_row(ui, s, true, "Arclight Pistole");
-                progress(ui, s, 0.4, 200.0);
+                progress(ui, s, 0.4, 200.0, "Fortschritt");
                 collapsing("Fundorte").show(ui, |ui| ui.label("Daymar"));
                 checked_field(ui, s, &mut text, "Qualität", 200.0, Some("Qualität geht nur von 0 bis 1000."));
                 loading(ui, s, "Lädt …");

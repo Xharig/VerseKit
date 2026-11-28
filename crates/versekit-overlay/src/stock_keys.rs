@@ -24,25 +24,44 @@ use std::sync::mpsc::Sender;
 use versekit_core::logsource::LogSource;
 use versekit_core::paths::Paths;
 use versekit_core::refinery_scan::Reason;
-use versekit_core::stock_scan;
+use versekit_core::stock_scan::{self, GameRead};
 use versekit_core::stock_scan_book::{self, Outcome, Reading, Run, Target, UnitStock};
 use versekit_core::writeguard;
 
 /// A hotkey of the stock scan and the scan it started.
 pub type StockKey = crate::refinery::KeyJob<Outcome>;
 
-/// Reads the info card under `pointer` in the window of the game ([`stock_scan::read_game`]) with the names of the
-/// stock and the texts of the game of `paths`. `None` when the game is not in front or the reading failed (a
-/// failure other than a missing language of the text recognition goes to the error log).
-fn read_card(paths: &Paths, pointer: (i32, i32)) -> Option<Reading> {
+/// Reads the info card under `pointer` in the window of the game ([`stock_scan::read_game_seen`]) with the names of
+/// the stock and the texts of the game of `paths`. Where nothing comes of it, the outcome that says why: the game
+/// not in front, the pointer outside it, no language of the text recognition, no card at the pointer. Each goes to
+/// the error log with the pointer, the window, the size of the picture and the scaling.
+fn read_card(paths: &Paths, target: Target, pointer: (i32, i32)) -> Result<Reading, Box<Outcome>> {
     let context = stock_scan::scan_context(paths);
-    match stock_scan::read_game(pointer, &context.names, context.texts.as_ref()) {
-        Ok(read) => read.map(|outcome| outcome.reading()),
-        Err(error) => {
-            if error.reason != Reason::NoLanguage {
-                versekit_core::errors::record("overlay.lager_hotkey", &error);
+    let (seen, read) = stock_scan::read_game_seen(pointer, &context.names, context.texts.as_ref());
+    let log = |why: &str| versekit_core::errors::record("overlay.lager_hotkey", &format!("{why}: {seen}"));
+    match read {
+        Ok(GameRead::Card(card)) => {
+            let reading = card.reading();
+            if reading == Reading::Nothing {
+                log("keine lagerkarte am zeiger");
             }
-            None
+            Ok(reading)
+        }
+        Ok(GameRead::NotInFront) => {
+            log("spiel nicht im vordergrund");
+            Err(Box::new(Outcome::NoGame(target)))
+        }
+        Ok(GameRead::Outside) => {
+            log("zeiger ausserhalb des spiels");
+            Err(Box::new(Outcome::Outside(target)))
+        }
+        Err(error) if error.reason == Reason::NoLanguage => {
+            log("keine sprache der texterkennung");
+            Err(Box::new(Outcome::NoLanguage(target)))
+        }
+        Err(error) => {
+            log(&error.to_string());
+            Err(Box::new(Outcome::Failed(target)))
         }
     }
 }
@@ -57,7 +76,10 @@ pub fn scan(paths: &Paths, target: Target, pointer: Option<(i32, i32)>, now: i64
     let Some((place, place_since)) = stock_scan_book::current_place_since(paths) else {
         return Outcome::NoPlace(target);
     };
-    let reading = read_card(paths, pointer).unwrap_or(Reading::Nothing);
+    let reading = match read_card(paths, target, pointer) {
+        Ok(reading) => reading,
+        Err(missed) => return *missed,
+    };
     let link = (target == Target::Unit && reading != Reading::Nothing).then(|| {
         let account = LogSource::new(paths, LogSource::sources_of(paths)).own_account(None);
         stock_scan_book::org::OrgLink::system(paths, account, env!("CARGO_PKG_VERSION"))

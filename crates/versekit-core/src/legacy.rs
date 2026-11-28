@@ -379,9 +379,14 @@ mod tests {
         assert_eq!(p.drop_explanation_lines(), 0);
         assert!(fs::metadata(&file).is_err(), "no file is created");
 
-        // Just written and not complete: left alone.
+        // Just written and not complete: left alone. Writing can take longer than "just" on a loaded computer: the
+        // write lock is taken first (the same thread may take it again) and the time of change set to now right
+        // before the call.
+        let held = jsonio::lock_saves();
         put(&file, "{\"_hinweis\": \"x\", \"spra");
+        crate::testdir::freshen(std::path::Path::new(&file)).unwrap();
         assert_eq!(p.drop_explanation_lines(), 0);
+        drop(held);
         assert_eq!(fs::read_to_string(&file).unwrap(), "{\"_hinweis\": \"x\", \"spra");
 
         // Broken for a while: set aside by the reading as always, nothing of it is written back.

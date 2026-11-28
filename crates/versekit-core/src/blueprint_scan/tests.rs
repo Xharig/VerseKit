@@ -517,6 +517,84 @@ fn the_kind_of_a_personal_weapon_agrees_with_energy_and_ballistic() {
     assert_eq!((reading.certainty, reading.name.as_deref()), (Certainty::Sure, Some("Parallax Energy Assault Rifle")));
 }
 
+/// The crossbows are personal weapons the catalog keeps without a class (`Novian "Nighthunter" Crossbow`, recipe
+/// `crossbow_ballistic`): the kind their hint names does not speak against them. A kind on an item that is no
+/// personal weapon, or a class that is no kind of weapon, still does.
+#[test]
+fn the_kind_of_a_crossbow_without_a_class_does_not_contradict() {
+    use crate::catalog_cache::Blueprint;
+    let item = |name: &str, kind: &str| {
+        entry_of(&Blueprint { name: name.into(), kind: kind.into(), size: Some(3), ..Blueprint::default() })
+    };
+    let mut names = Names::new();
+    names.add(item("Novian \"Nighthunter\" Crossbow", "WeaponPersonal"));
+    names.add(item("Novian \"Ghostmaker\" Crossbow", "WeaponPersonal"));
+    names.add(item("Novian Crossbow", "WeaponPersonal"));
+    names.add(item("Arclight Pistol Battery (30 cap)", "WeaponAttachment"));
+    for line in ["Novian \"Nighthunter\" Crossbow (Bal)", "Novian \"Nighthunter\" Crossbow (Ele)"] {
+        let reading = match_line(line, &names);
+        assert_eq!(
+            (reading.certainty, reading.name.as_deref()),
+            (Certainty::Sure, Some("Novian \"Nighthunter\" Crossbow")),
+            "{line}"
+        );
+    }
+    let lines = with_joined(&["Novian \"Nighthunter\"".to_string(), "Crossbow (Bal)".to_string()]);
+    assert_eq!(best_of_lines(&lines, &names).certainty, Certainty::Sure, "broken onto two lines");
+    assert_ne!(match_line("Novian Crossbow (Ind)", &names).certainty, Certainty::Sure, "no kind of weapon");
+    let magazine = match_line("Arclight Pistol Battery (30 cap) (Bal)", &names);
+    assert_ne!(magazine.certainty, Certainty::Sure, "a magazine has no kind: {magazine:?}");
+}
+
+/// `ADP-mk4 Arms Woodland` read sure in two passes and `ADP Arms Woodland` (the same with `mk4` lost) in the third:
+/// the whole name is taken, the recognition does not add words. The other way round, or the whole name sure in one
+/// pass only, it is still asked.
+#[test]
+fn a_pass_that_lost_a_word_does_not_speak_against_the_whole_name() {
+    let mut names = Names::new();
+    for name in ["ADP-mk4 Arms Woodland", "ADP Arms Woodland", "ADP-mk4 Legs Woodland"] {
+        names.add(entry(name, None, Some(1), Some('A')));
+    }
+    let read = |line: &str| match_line(line, &names);
+    let lost = vec![read("ADP-mk4 Arms Woodland"), read("ADP- Arms Woodland"), read("ADP-mk4 Arms Woodland")];
+    assert_eq!(lost[1].name.as_deref(), Some("ADP Arms Woodland"), "the pass alone reads the shorter name");
+    let outcome = combine(&lost);
+    assert_eq!((outcome.certainty, outcome.name.as_deref()), (Certainty::Sure, Some("ADP-mk4 Arms Woodland")));
+    assert_eq!(decide(&outcome, |_| false), Action::Add("ADP-mk4 Arms Woodland".into()));
+
+    let once = vec![read("ADP-mk4 Arms Woodland"), read("ADP Arms Woodland"), Reading::none("")];
+    assert_ne!(combine(&once).certainty, Certainty::Sure, "the whole name sure in one pass only");
+    let added = vec![read("ADP Arms Woodland"), read("ADP-mk4 Arms Woodland"), read("ADP Arms Woodland")];
+    assert_eq!(combine(&added).certainty, Certainty::Unclear, "a pass with more words than the others");
+    let other = vec![read("ADP-mk4 Arms Woodland"), read("ADP-mk4 Legs Woodland"), read("ADP-mk4 Arms Woodland")];
+    assert_eq!(combine(&other).certainty, Certainty::Unclear, "another word is no lost one");
+}
+
+/// Hits that share no word (`Comer Scraper Module`, `Lindstrom`) are text around the pointer that is no hint: no
+/// question, nothing read. Hits alike (`Monde Arms Hiro`, `Monde Arms Purgatory Camo`), or one of them read sure in
+/// two passes, are still asked.
+#[test]
+fn hits_that_have_nothing_to_do_with_one_another_are_nothing_read() {
+    let none = Reading::none("");
+    let unrelated = combine(&[sure("Comer Scraper Module"), likely("Lindstrom"), none.clone()]);
+    assert_eq!(unrelated.certainty, Certainty::None, "{unrelated:?}");
+    assert_eq!(decide(&unrelated, |_| false), Action::NotFound);
+    // Both names on two lines of one pass: unclear in that pass, nothing read in the end.
+    let mut names = Names::new();
+    names.add(entry("Comer Scraper Module", None, Some(1), Some('A')));
+    names.add(entry("Lindstrom", None, Some(1), Some('A')));
+    let pass = best_of_lines(&with_joined(&["Comer Scraper Module".to_string(), "Lindstrom".to_string()]), &names);
+    assert_eq!(pass.certainty, Certainty::Unclear);
+    assert_eq!(combine(&[pass.clone(), pass.clone(), pass]).certainty, Certainty::None);
+
+    let alike = combine(&[likely("Monde Arms Hiro"), likely("Monde Arms Purgatory Camo"), none.clone()]);
+    assert_eq!(alike.certainty, Certainty::Unclear, "names alike are asked");
+    let backed = combine(&[sure("Sedulity"), sure("Sedulity"), likely("GammaMax")]);
+    assert_eq!(backed.certainty, Certainty::Unclear, "one read sure in two passes is asked");
+    let three = combine(&[likely("Monde Arms Hiro"), likely("Monde Arms Delta Camo"), likely("Lindstrom")]);
+    assert_eq!(three.certainty, Certainty::Unclear, "two of three alike are asked");
+}
+
 /// Brackets that belong to the name of the catalog (`Singe Cannon (S1)`) are no tag: the name read whole is sure.
 #[test]
 fn brackets_of_the_name_itself_are_no_tag() {

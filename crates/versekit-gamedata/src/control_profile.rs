@@ -39,7 +39,7 @@ pub const ENTRY: &str = "Data/Libs/Config/defaultProfile.xml";
 /// The file in the data folder of the program.
 pub const CACHE_FILE: &str = "aktionsnamen.json";
 /// Changes when what is kept changes, or the way the mark is made: older files then count for nothing.
-pub const CACHE_VERSION: i64 = 4;
+pub const CACHE_VERSION: i64 = 7;
 
 /// The `defaultProfile.xml` of the archive as XML text.
 ///
@@ -81,12 +81,23 @@ fn to_value(profile: &Profile, mark: &str) -> Value {
         })
         .collect();
     let groups = profile.groups.iter().map(|(k, g)| (k.to_string(), Value::str(g.as_str()))).collect();
+    // The `actionmap`s: without them a name with an `actionmap` before a dot is unknown, and the groups have no name.
+    let maps = profile
+        .maps
+        .iter()
+        .map(|(k, (l, c))| (k.to_string(), Value::Array(vec![Value::str(l.as_str()), Value::str(c.as_str())])))
+        .collect();
     Value::Object(vec![
         ("fassung".into(), Value::int(CACHE_VERSION)),
         ("stand".into(), Value::str(mark)),
         ("etiketten".into(), Value::Object(labels)),
         ("standard".into(), Value::Object(standard)),
         ("gruppen".into(), Value::Object(groups)),
+        ("karten".into(), Value::Object(maps)),
+        // How the game takes the key of an action, where it does not simply follow it.
+        ("halten".into(), Value::Object(profile.timings.iter().map(|(k, t)| (k.to_string(), Value::str(t.word().as_str()))).collect())),
+        // The actions the game takes no keyboard line for.
+        ("ohne_tastatur".into(), Value::Array(profile.no_keyboard.iter().map(|a| Value::str(a.as_str())).collect())),
     ])
 }
 
@@ -117,6 +128,18 @@ fn from_value(value: &Value, mark: &str) -> Option<Profile> {
             profile.groups.set(action, group.to_string());
         }
     }
+    for (map, pair) in value.get("karten")?.as_object()? {
+        let Value::Array(pair) = pair else { continue };
+        let text = |i: usize| pair.get(i).and_then(Value::as_str).unwrap_or_default().to_string();
+        profile.maps.set(map, (text(0), text(1)));
+    }
+    for (action, word) in value.get("halten")?.as_object()? {
+        if let Some(timing) = word.as_str().and_then(versekit_core::controls::Timing::parse) {
+            profile.timings.set(action, timing);
+        }
+    }
+    let Some(Value::Array(list)) = value.get("ohne_tastatur") else { return None };
+    profile.no_keyboard.extend(list.iter().filter_map(Value::as_str).map(String::from));
     Some(profile)
 }
 
@@ -159,16 +182,69 @@ mod tests {
     #[test]
     fn a_profile_survives_the_kept_file_and_a_foreign_mark_is_not_taken() {
         let profile = Profile::from_xml(
-            r#"<p><actionmap name="g"><action name="a" UILabel="@l" UIDescription="@d" keyboard="f" joystick="button1"/></actionmap></p>"#,
+            r#"<p><ActivationMode name="delayed_press" onPress="1" multiTap="1" pressTriggerThreshold="0.25" releaseTriggerThreshold="-1"/>
+               <actionmap name="g"><action name="a" UILabel="@l" UIDescription="@d" keyboard="f" joystick="button1" activationMode="delayed_press"/></actionmap></p>"#,
         )
         .expect("profile");
         let value = to_value(&profile, "mark:1:2");
         let text = jsonio::dumps(&value, Some(2), false);
         let back = from_value(&jsonio::loads(&text).expect("json"), "mark:1:2").expect("kept");
+        assert_eq!(back.timing_of("a"), versekit_core::controls::Timing::AtLeast(250), "how the game takes the key comes back");
+        // A file of before without it is read anew from the archive.
+        let mut old = jsonio::loads(&text).expect("json");
+        if let Value::Object(fields) = &mut old {
+            fields.retain(|(k, _)| k != "halten");
+        }
+        assert!(from_value(&old, "mark:1:2").is_none());
         assert_eq!(back.labels.get("a"), Some(&("@l".to_string(), "@d".to_string())));
         assert_eq!(back.defaults.get("a").map(Vec::len), Some(2));
         assert_eq!(back.groups.get("a").map(String::as_str), Some("g"));
+        assert_eq!(back.maps.get("g"), profile.maps.get("g"), "the actionmaps come back");
+        assert_eq!(back.maps.len(), profile.maps.len());
         assert!(from_value(&value, "other:1:2").is_none(), "another archive");
+    }
+
+    #[test]
+    fn the_actions_without_a_keyboard_field_are_known_apart_from_those_with_a_blank_one_and_survive_the_kept_file() {
+        // As the game writes them (4.10.2): `keyboard=""` takes no keyboard line, `keyboard=" "` does.
+        let profile = Profile::from_xml(
+            r#"<p><actionmap name="seat_general">
+                 <action name="v_toggle_mining_mode" UILabel="@mi" keyboard="" joystick=" "/>
+                 <action name="v_set_mining_mode" UILabel="@smi" keyboard=" " joystick=" "/>
+                 <action name="v_cycle_industrial_mode" UILabel="@in" keyboard="m"/>
+                 <action name="v_without" UILabel="@w"/>
+               </actionmap></p>"#,
+        )
+        .expect("profile");
+        assert_eq!(profile.no_keyboard.iter().map(String::as_str).collect::<Vec<_>>(), ["v_toggle_mining_mode"]);
+        let text = jsonio::dumps(&to_value(&profile, "mark:1:2"), Some(2), false);
+        let back = from_value(&jsonio::loads(&text).expect("json"), "mark:1:2").expect("kept");
+        assert_eq!(back.no_keyboard, profile.no_keyboard, "comes back from the kept file");
+        // A file of before without the list is read anew from the archive.
+        let mut old = jsonio::loads(&text).expect("json");
+        if let Value::Object(fields) = &mut old {
+            fields.retain(|(k, _)| k != "ohne_tastatur");
+        }
+        assert!(from_value(&old, "mark:1:2").is_none());
+    }
+
+    #[test]
+    fn a_name_with_its_actionmap_is_known_from_the_kept_file_too() {
+        let profile = Profile::from_xml(
+            r#"<p><actionmap name="player" UILabel="@ui_CGFPS" UICategory="@ui_CCFPS"><action name="zoom_in" UILabel="@z" keyboard="ralt+p"/></actionmap></p>"#,
+        )
+        .expect("profile");
+        let text = jsonio::dumps(&to_value(&profile, "mark:1:2"), Some(2), false);
+        let back = from_value(&jsonio::loads(&text).expect("json"), "mark:1:2").expect("kept");
+        assert_eq!(versekit_core::game_binding::qualified("player.zoom_in", &back), (Some("player"), "zoom_in"));
+        assert!(versekit_core::game_binding::known("player.zoom_in", &[], &back));
+        assert_eq!(back.maps.get("player"), Some(&("@ui_CGFPS".to_string(), "@ui_CCFPS".to_string())), "the name of the group");
+        // A file of before without the actionmaps is read anew from the archive.
+        let mut old = jsonio::loads(&text).expect("json");
+        if let Value::Object(fields) = &mut old {
+            fields.retain(|(k, _)| k != "karten");
+        }
+        assert!(from_value(&old, "mark:1:2").is_none());
         assert!(from_value(&Value::Null, "mark:1:2").is_none());
     }
 

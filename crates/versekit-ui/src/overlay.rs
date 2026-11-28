@@ -2261,6 +2261,7 @@ mod tests {
             title: title.into(),
             text: Message::Plain(text.into()),
             goals: goals.iter().map(|g| (*g).to_string()).collect(),
+            steps: None,
             grey,
             count: 1,
             complete: false,

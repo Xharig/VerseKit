@@ -916,6 +916,15 @@ fn ship_values(state: &HangarState, entry: &Map) -> Vec<(String, String)> {
         if let Some(scu) = number(field("fracht")).filter(|v| *v >= 0.0) {
             lines.push((t("s_hg_werte_fracht"), formats::amount(lang, scu, "SCU")));
         }
+        // A ship whose cargo hangs on its modules: what it holds with cargo modules (Retaliator 0, up to 74 SCU).
+        if let Some(scu) = number(field("fracht_module")).filter(|v| *v > 0.0) {
+            let amount = formats::amount(lang, scu, "SCU");
+            lines.push((t("s_hg_werte_fracht_module"), tf("s_hg_werte_bis", &[("0", Arg::from(amount))])));
+        }
+        // The mining pods hold ore, no cargo: their own line (MOLE 32 SCU cargo, 96 SCU ore).
+        if let Some(scu) = number(field("erz")).filter(|v| *v > 0.0) {
+            lines.push((t("s_hg_werte_erz"), formats::amount(lang, scu, "SCU")));
+        }
     }
     // The UEX list writes the maker into the name; the price rows are joined by that name.
     let name = hangar::field_text(entry, "name");
@@ -1299,6 +1308,22 @@ pub(crate) fn exporter_buttons(ui: &mut Ui, scheme: &Scheme) {
     });
 }
 
+/// One button per browser for getting the Hangar Extension: each opens its store entry
+/// (`exporter::extension_plan`).
+fn extension_buttons(ui: &mut Ui, scheme: &Scheme) {
+    use versekit_core::exporter::{self, Browser};
+    ui.horizontal_wrapped(|row| {
+        for browser in Browser::ALL {
+            let word = t(browser.label());
+            let spoken = tf("s_hgl_extension_fuer", &[("browser", Arg::from(word.as_str()))]);
+            let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("external-link").spoken(&spoken);
+            if row.add(button).on_hover_text(t(browser.extension_hint())).clicked() {
+                exporter::open_extension(browser);
+            }
+        }
+    });
+}
+
 /// Fetching from the pledge store: first straight from the Hangar-Exporter,
 /// then from an export file or a file dropped onto the window.
 fn import_part(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
@@ -1318,6 +1343,8 @@ fn import_part(ui: &mut Ui, scheme: &Scheme, state: &mut HangarState) {
     ui.add_space(8.0);
     ui.label(RichText::new(t("s_hgl_datei_titel")).strong());
     small(ui, &t("s_hgl_datei_text"), scheme.sub);
+    small(ui, &t("s_hgl_extension_holen"), scheme.sub);
+    extension_buttons(ui, scheme);
     small(ui, &t("s_hgl_import_json"), scheme.gold);
     // With the hangar shared over the Basetool, its ships win over a file.
     if state.basetool_ships_on() {
@@ -2671,6 +2698,63 @@ mod tests {
         assert!(findings.is_empty(), "{}", findings.join("\n"));
     }
 
+    #[test]
+    fn the_hangar_extension_has_a_named_button_per_browser_and_nothing_of_it_is_cut() {
+        use versekit_core::exporter::Browser;
+        let _language = crate::language_lock();
+        steady_scheme();
+        let mut findings = Vec::new();
+        for choice in [versekit_core::language::Choice::De, versekit_core::language::Choice::En] {
+            versekit_core::language::set_thread_language(choice);
+            let (mut state, dir) = page_on("extension-knoepfe", r#"{"format": 1, "schiffe": []}"#);
+            let ctx = egui::Context::default();
+            crate::install(&ctx);
+            ctx.enable_accesskit();
+            let names: Vec<String> = Browser::ALL
+                .iter()
+                .map(|b| tf("s_hgl_extension_fuer", &[("browser", Arg::from(t(b.label())))]))
+                .collect();
+            let line = t("s_hgl_extension_holen");
+            for width in [320.0_f32, 380.0, 900.0] {
+                let scheme = versekit_core::theme::current();
+                let mut output = None;
+                for _ in 0..3 {
+                    let input = egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 4000.0))),
+                        ..Default::default()
+                    };
+                    let mut out = ctx.run_ui(input, |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| show_page(ui, scheme, &mut state));
+                    });
+                    out.textures_delta.clear();
+                    output = Some(out);
+                }
+                let output = output.expect("a frame");
+                let texts = texts_with_clip(&output);
+                match texts.iter().find(|(drawn, _, _)| *drawn == line) {
+                    Some((_, rect, clip)) if rect.min.x >= clip.min.x - 0.5 && rect.max.x <= clip.max.x + 0.5 => {}
+                    found => findings.push(format!("{choice:?} {width}: {line:?} not whole: {found:?}")),
+                }
+                let update = output.platform_output.accesskit_update.expect("accesskit is on");
+                for name in &names {
+                    let bounds: Vec<_> = update
+                        .nodes
+                        .iter()
+                        .filter(|(_, n)| n.role() == Role::Button && n.label() == Some(name.as_str()))
+                        .filter_map(|(_, n)| n.bounds())
+                        .collect();
+                    match bounds.as_slice() {
+                        [b] if b.x0 >= -0.5 && b.x1 <= f64::from(width) + 0.5 => {}
+                        found => findings.push(format!("{choice:?} {width}: {name:?} once inside the page: {found:?}")),
+                    }
+                }
+            }
+            let _ = std::fs::remove_dir_all(dir);
+        }
+        versekit_core::language::set_thread_language(versekit_core::language::Choice::De);
+        assert!(findings.is_empty(), "{}", findings.join("\n"));
+    }
+
     /// A page on `hangar.json` in a new folder, with a UEX list of two ships.
     fn page_on(name: &str, start: &str) -> (HangarState, std::path::PathBuf) {
         let dir =
@@ -2887,7 +2971,7 @@ mod tests {
         draw(&mut state);
         assert_eq!(state.sync.asked(Trigger::PageOpen), 1);
         // A frame on another page.
-        let _ = ctx.run_ui(egui::RawInput::default(), |_| {});
+        ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
         draw(&mut state);
         assert_eq!(state.sync.asked(Trigger::PageOpen), 2);
         assert!(state.sync.wait_idle(WAIT));
@@ -4499,7 +4583,10 @@ mod tests {
         let ships = format!(
             r#"{{"format": {}, "werte_stand": 1, "spielversion": "4.10", "schiffe": {{"aegsgladius": {{"name": "Aegis Gladius",
             "id": "AEGS_Gladius", "plaetze": [], "slots": [], "werte": {{"scm": 226.0, "masse": [21.0, 17.5, 5.5],
-            "fracht": 0.0}}}}}}, "hersteller": {{"aegisdynamics": "aegs"}}}}"#,
+            "fracht": 0.0}}}}, "argomole": {{"name": "Argo MOLE", "id": "ARGO_MOLE", "plaetze": [], "slots": [],
+            "werte": {{"fracht": 32.0, "erz": 96.0}}}}, "aegsretaliator": {{"name": "Aegis Retaliator", "id": "AEGS_Retaliator",
+            "plaetze": [], "slots": [], "werte": {{"fracht": 0.0, "fracht_module": 74.0}}}}}},
+            "hersteller": {{"aegisdynamics": "aegs", "argoastronautics": "argo"}}}}"#,
             ships::ERKUL_FILE_FORMAT
         );
         std::fs::write(&game, ships).expect("ships");
@@ -4517,6 +4604,8 @@ mod tests {
         stores.erkul.ships = ErkulShips::load(&game.to_string_lossy());
         let hangar = r#"{"format": 1, "schiffe": [
             {"name": "Gladius", "hersteller": "Aegis Dynamics", "herkunft": "pledge", "belegung": {}},
+            {"name": "MOLE", "hersteller": "Argo Astronautics", "herkunft": "pledge", "belegung": {}},
+            {"name": "Retaliator", "hersteller": "Aegis Dynamics", "herkunft": "pledge", "belegung": {}},
             {"name": "Carrack", "hersteller": "Anvil Aerospace", "herkunft": "pledge", "belegung": {}}]}"#;
         let data = match jsonio::loads(hangar) {
             Ok(Value::Object(map)) => map,
@@ -4622,7 +4711,8 @@ mod tests {
                     crate::install(&ctx);
                     crate::apply_size(&ctx, points);
                     ctx.global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
-                    let screen = egui::vec2(width, 900.0);
+                    // Tall enough for the four ships of the page at the largest size.
+                    let screen = egui::vec2(width, 1400.0);
                     let texts = hovered_on(&ctx, &mut state, screen, "Gladius");
                     let place = format!("{choice:?} Größe {points} Breite {width}");
                     for wanted in &shown {
@@ -4637,6 +4727,38 @@ mod tests {
                                     findings.push(format!("{place}: „{wanted}“ außerhalb des Bildschirms {rect:?}"));
                                 }
                             }
+                        }
+                    }
+                    if texts.iter().any(|(text, _, _)| *text == t("s_hg_werte_erz")) {
+                        findings.push(format!("{place}: der Gladius hat keine Bergbaukapseln, zeigt aber Erz"));
+                    }
+                    // The MOLE: 32 SCU cargo and the 96 SCU ore of its pods on a line of their own, not 128 SCU cargo.
+                    let mole = hovered_on(&ctx, &mut state, screen, "MOLE");
+                    for wanted in [t("s_hg_werte_fracht"), "32 SCU".to_string(), t("s_hg_werte_erz"), "96 SCU".to_string()] {
+                        match mole.iter().find(|(text, _, _)| *text == wanted) {
+                            None => findings.push(format!("{place}: MOLE „{wanted}“ fehlt")),
+                            Some((_, rect, clip)) if !clip.expand(0.5).contains_rect(*rect) => {
+                                findings.push(format!("{place}: MOLE „{wanted}“ abgeschnitten {rect:?} in {clip:?}"))
+                            }
+                            Some(_) => {}
+                        }
+                    }
+                    if mole.iter().any(|(text, _, _)| text == "128 SCU") {
+                        findings.push(format!("{place}: MOLE zeigt Fracht und Erz zusammen (128 SCU)"));
+                    }
+                    if mole.iter().any(|(text, _, _)| *text == t("s_hg_werte_fracht_module")) {
+                        findings.push(format!("{place}: der MOLE hat keine Frachtmodule, zeigt aber welche"));
+                    }
+                    // The Retaliator: 0 SCU as it leaves the factory, and what it holds with cargo modules.
+                    let retaliator = hovered_on(&ctx, &mut state, screen, "Retaliator");
+                    let up_to = tf("s_hg_werte_bis", &[("0", Arg::from(formats::amount(lang, 74.0, "SCU")))]);
+                    for wanted in [t("s_hg_werte_fracht"), "0 SCU".to_string(), t("s_hg_werte_fracht_module"), up_to] {
+                        match retaliator.iter().find(|(text, _, _)| *text == wanted) {
+                            None => findings.push(format!("{place}: Retaliator „{wanted}“ fehlt")),
+                            Some((_, rect, clip)) if !clip.expand(0.5).contains_rect(*rect) => {
+                                findings.push(format!("{place}: Retaliator „{wanted}“ abgeschnitten {rect:?} in {clip:?}"))
+                            }
+                            Some(_) => {}
                         }
                     }
                     let carrack = hovered_on(&ctx, &mut state, screen, "Carrack");

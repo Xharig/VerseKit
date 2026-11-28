@@ -259,9 +259,11 @@ pub fn load_original(paths: &Paths) -> HashMap<String, String> {
     }
 }
 
-/// Every name key of `lines` that `table` gives no tag, or a tag with gaps (`–`) where the English `original` (keys in
-/// lower case) has fewer, takes the tag of the original under the same key: the key is the same in every language, so
-/// a language whose words are not known, or known only in part, gets its tags.
+/// Every name key of `lines` takes the tag of the English `original` (keys in lower case) under the same key where
+/// `table` gives none or another one, unless the original's has more gaps (`–`): the key is the same in every
+/// language, so a language whose words are not known, or known only in part, gets its tags, and a translation that
+/// tells a value wrong does not win over the game. (The French text of `item_DescSHLD_ASAS_S01_Veil` says
+/// `Taille : 2`, the English one `Size: 1`, as does the other description of the Veil.)
 pub fn fill_from_original<S: AsRef<str>>(
     table: &mut HashMap<String, String>,
     lines: &[S],
@@ -280,7 +282,7 @@ pub fn fill_from_original<S: AsRef<str>>(
         }
         let gaps = |tag: &str| tag.matches('–').count();
         let Some(tag) = original.get(&lower) else { continue };
-        if table.get(key).is_none_or(|own| gaps(own) > gaps(tag)) {
+        if table.get(key).is_none_or(|own| own != tag && gaps(tag) <= gaps(own)) {
             table.insert(key.to_string(), tag.clone());
         }
     }
@@ -322,7 +324,7 @@ mod tests {
     }
 
     /// A language whose words are not known: the tag of the English original by the same key; a tag of the file
-    /// itself stays.
+    /// itself that tells other values gives way to the original's.
     #[test]
     fn a_language_without_known_words_takes_the_tags_of_the_english_original() {
         let english = [
@@ -344,7 +346,7 @@ mod tests {
         assert_eq!(table.len(), 1, "only the known words give a tag: {table:?}");
         fill_from_original(&mut table, &other, &original);
         assert_eq!(table.get("item_NamePOWR_A").map(String::as_str), Some("(Mil/3/B)"));
-        assert_eq!(table.get("item_NameCOOL_B").map(String::as_str), Some("(Ind/2/C)"), "the own tag stays");
+        assert_eq!(table.get("item_NameCOOL_B").map(String::as_str), Some("(Civ/1/A)"), "the game wins");
         assert_eq!(table.len(), 2);
 
         // Known in part (Dutch: class and grade read, the size not): the gap is filled from the original.
@@ -353,6 +355,38 @@ mod tests {
         assert_eq!(table.get("item_NamePOWR_A").map(String::as_str), Some("(Mil/–/B)"), "the own tag has a gap");
         fill_from_original(&mut table, &dutch, &original);
         assert_eq!(table.get("item_NamePOWR_A").map(String::as_str), Some("(Mil/3/B)"));
+    }
+
+    /// The French translation has two descriptions of the Veil, `Taille : 2` under `item_DescSHLD_ASAS_S01_Veil` and
+    /// `Taille : 1` under `item_Desc_SHLD_ASAS_S01_Veil`; the English original says `Size: 1` for both (lines of
+    /// LIVE 4.10.3). Both names of the Veil get size 1.
+    #[test]
+    fn the_veil_is_size_one_in_french_as_in_the_game() {
+        let english = [
+            "item_DescSHLD_ASAS_S01_Veil=Item Type: Shield Generator\\nManufacturer: Ascension Astro\\nSize: 1\\nGrade: B\\nClass: Stealth",
+            "item_Desc_SHLD_ASAS_S01_Veil=Item Type: Shield Generator\\nManufacturer: Ascension Astro\\nSize: 1\\nGrade: B\\nClass: Stealth\\n\\nAn advanced cooling system",
+            "item_NameSHLD_ASAS_S01_Veil=Veil",
+            "item_Name_SHLD_ASAS_S01_Veil=Veil",
+        ];
+        let original: HashMap<String, String> =
+            build_table(&english).into_iter().map(|(key, tag)| (key.to_lowercase(), tag)).collect();
+        let french = [
+            "item_DescSHLD_ASAS_S01_Veil=Type d'objet : Générateur de bouclier\\nFabricant : Ascension Astro\\nTaille : 2\\nGrade : B\\nClasse : Furtivité",
+            "item_Desc_SHLD_ASAS_S01_Veil=Type d'objet : Générateur de bouclier\\nFabricant : Ascension Astro\\nTaille : 1\\nGrade : B\\nClasse : Furtivité\\n\\nUn système de refroidissement",
+            "item_NameSHLD_ASAS_S01_Veil=Veil",
+            "item_Name_SHLD_ASAS_S01_Veil=Veil",
+        ];
+        let mut table = build_table(&french);
+        assert_eq!(table.get("item_NameSHLD_ASAS_S01_Veil").map(String::as_str), Some("(Sth/2/B)"), "as written");
+        fill_from_original(&mut table, &french, &original);
+        for key in ["item_NameSHLD_ASAS_S01_Veil", "item_Name_SHLD_ASAS_S01_Veil"] {
+            assert_eq!(table.get(key).map(String::as_str), Some("(Sth/1/B)"), "{key}");
+        }
+        // An original with a gap does not take a full tag of the translation away.
+        let gap = HashMap::from([("item_name_shld_asas_s01_veil".to_string(), "(Sth/–/B)".to_string())]);
+        let mut table = build_table(&french);
+        fill_from_original(&mut table, &french, &gap);
+        assert_eq!(table.get("item_Name_SHLD_ASAS_S01_Veil").map(String::as_str), Some("(Sth/1/B)"));
     }
 
     #[test]

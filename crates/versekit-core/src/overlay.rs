@@ -1568,6 +1568,8 @@ pub struct Settings {
     pub sections: Sections,
     /// The most contracts the game allows at a time, for the head of the bar (`3/10`).
     pub contracts_max: i64,
+    /// The interface for the Stream Deck plugin runs (`streamdeck_an`, off by default).
+    pub streamdeck: bool,
 }
 
 impl Default for Settings {
@@ -1615,6 +1617,7 @@ impl Default for Settings {
             events: Events::default(),
             sections: Sections::default(),
             contracts_max: CONTRACTS_MAX_DEFAULT,
+            streamdeck: false,
         }
     }
 }
@@ -1698,6 +1701,7 @@ impl Settings {
                 Some(CONTRACTS_MAX_RANGE.0),
                 Some(CONTRACTS_MAX_RANGE.1),
             ),
+            streamdeck: paths.setting_bool(crate::streamdeck::SETTING_ON, false),
         }
     }
 }

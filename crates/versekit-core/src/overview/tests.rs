@@ -39,7 +39,7 @@ fn ids(list: &[&str]) -> Vec<String> {
 
 #[test]
 fn the_flight_log_is_among_the_pages_that_can_be_pinned() {
-    assert_eq!(PAGES.len(), 49, "the count of the pages that can be pinned");
+    assert_eq!(PAGES.len(), 50, "the count of the pages that can be pinned");
     assert_eq!(page_key("statistik_flugbuch"), Some("hf_st_flugbuch"));
     assert_eq!(page_name("hf_st_flugbuch"), Some("statistik_flugbuch"));
     let names: std::collections::HashSet<_> = PAGES.iter().map(|(name, _)| name).collect();

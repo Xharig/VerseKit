@@ -661,12 +661,18 @@ mod tests {
         let recorder = Arc::new(Recorder::default());
         let spawner: Arc<dyn Spawner> = recorder.clone();
         let file = file_in(&home, "tool.exe");
+        // The free entry waits longer than the tied one: once it started, the tied one was due before it.
         let tied = Entry { wait: 1, ..entry(&file, When::Game) };
-        let free = Entry { wait: 1, ..entry(&file, When::Launcher) };
+        let free = Entry { wait: 2, ..entry(&file, When::Launcher) };
         assert_eq!(launch(&tied, spawner.clone(), Flavor::Posix, true), Ok(()));
         assert_eq!(launch(&free, spawner, Flavor::Posix, true), Ok(()));
         on_game_ended();
-        std::thread::sleep(Duration::from_millis(2200));
+        let waited = std::time::Instant::now();
+        while recorder.program_calls().is_empty() {
+            assert!(waited.elapsed() < Duration::from_secs(120), "the free entry did not start");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        std::thread::sleep(Duration::from_millis(1500));
         let calls = recorder.program_calls();
         assert_eq!(calls.len(), 1, "only the one that has nothing to do with the game starts: {calls:?}");
         let _ = std::fs::remove_dir_all(home);

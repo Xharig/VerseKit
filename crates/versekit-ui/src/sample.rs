@@ -112,6 +112,10 @@ const SAMPLE_UPDATE: &str = "9.9";
 /// How often the foot bar looks at the process list and the game log on real data (seconds).
 const GAME_LOOK_SECONDS: f64 = 2.0;
 
+/// How long the spinner of a start handed over stays in place of the button (seconds): about as long as the launcher
+/// needs to show its window.
+const START_SHOWN: f64 = 6.0;
+
 /// Whether the game is in the process list (`game_start::game_process`); `None` when it cannot be read or a
 /// made-up machine of a test asks not to look (`game_start::ENV_NO_PROCESS`).
 fn game_process_of(paths: &Paths) -> Option<bool> {
@@ -390,6 +394,9 @@ pub struct SamplePage {
     spawner: std::sync::Arc<dyn game_start::Spawner>,
     /// How a start went (the lookup and the start run in a thread of their own).
     start_done: StartDone,
+    /// A start of the game under way: when it was clicked, and whether it was handed over. The button gives way to
+    /// a spinner meanwhile, so the launcher is not started twice.
+    starting: Option<(f64, bool)>,
     /// When the copy-version button was clicked.
     copied_at: Option<f64>,
     /// The blueprints the list shows: the user's catalog or the sample.
@@ -477,6 +484,10 @@ pub struct SamplePage {
     connection: basetool_page::ConnectionState,
     /// The page "Connect org": the orgs of the open org standard.
     orgs: crate::org_connect_page::OrgConnectState,
+    /// The page of the Stream Deck plugin.
+    streamdeck: crate::streamdeck_page::StreamDeckState,
+    /// The page of keys without the shortcuts above the Stream Deck: only for its picture on the website.
+    streamdeck_only: bool,
     org_lots: crate::org_data_stock_page::OrgLotsState,
     org_orders: crate::org_data_orders_page::OrgOrdersState,
     org_index: crate::org_data::IndexCache,
@@ -670,6 +681,12 @@ pub struct SamplePage {
     machine_look: glance_tiles::MachineLook,
     /// The state of the servers of CIG, for the services tile, asked beside the window.
     status_look: glance_tiles::StatusLook,
+    /// The translation tile, by the stamps of the settings and the notes of the translation and the language.
+    translation_memo: glance_tiles::TileMemo<(Vec<glance_tiles::Stamp>, versekit_core::language::Lang), glance::Glance>,
+    /// The hangar file as read, by its stamp, for the tiles of the pages made of it.
+    hangar_memo: glance_tiles::TileMemo<Vec<glance_tiles::Stamp>, std::sync::Arc<Option<versekit_core::jsonio::Map>>>,
+    /// The farm tile, by the stamps of its files, the language and the game values it was worked out with.
+    farm_memo: glance_tiles::TileMemo<(Vec<glance_tiles::Stamp>, versekit_core::language::Lang, usize), glance::Glance>,
     /// The pages whose area carries the mark "NEU" (`controls::NEW_SINCE`, gone once the page was open).
     new_pages: Vec<&'static str>,
     /// The gallery of what is new while it is open (once after an update).
@@ -829,6 +846,8 @@ pub struct MainSignals {
     ended: Arc<AtomicBool>,
     /// The page the overlay asked for (the code of its signal), 0 for none: the last request counts.
     page: Arc<AtomicU8>,
+    /// The page a key of the Stream Deck asked for, by its key in the menu; the last request counts.
+    page_key: Arc<std::sync::Mutex<Option<String>>>,
     /// The overlay asked for the demand of the unit (it started).
     demand_wanted: Arc<AtomicBool>,
     /// The demand last handed to the overlay, and when it was last tried.
@@ -881,11 +900,25 @@ impl MainSignals {
         {
             ctx.data_mut(|d| d.insert_temp(egui::Id::unique(SNAP_BUTTON_ID), button));
         }
+        let (paged, woken) = (signals.clone(), ctx.clone());
+        window_signal::on_data(move |kind, bytes| {
+            if kind == window_signal::DataKind::Page
+                && let Some(key) = window_signal::page_of(&bytes)
+            {
+                paged.note_page(key);
+                woken.request_repaint();
+            }
+        });
         window_signal::serve(system_handle(window), Role::Main, move |signal| {
             noted.note(signal);
             ctx.request_repaint();
         });
         signals
+    }
+
+    /// Keeps the page a key of the Stream Deck asked for, for the next frame.
+    pub fn note_page(&self, key: &str) {
+        *self.page_key.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(key.to_string());
     }
 
     /// Keeps `signal` for the next frame.
@@ -947,6 +980,14 @@ impl MainSignals {
             code if code == Signal::OpenStockScan as u8 => ("hf_meinlager", "hf_gruppe_logistik"),
             code if code == Signal::OpenBank as u8 => ("hf_bank", "hf_gruppe_handel"),
             _ => ("", ""),
+        };
+        // A page of the Stream Deck: any page of the menu, with its group.
+        let asked = self.page_key.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+        let (key, group) = match asked.as_deref().and_then(|k| Some((k, group_of(k)?))) {
+            Some((asked, group)) if key.is_empty() => {
+                (versekit_core::streamdeck::PAGES.iter().copied().find(|k| *k == asked).unwrap_or(""), group)
+            }
+            _ => (key, group),
         };
         if !key.is_empty() {
             page.open_page(ctx, key, group);
@@ -1482,6 +1523,7 @@ impl SamplePage {
             start_look: game_start::Look::default(),
             spawner: std::sync::Arc::new(game_start::System),
             start_done: std::sync::mpsc::channel(),
+            starting: None,
             copied_at: None,
             blueprints: blueprint_list::ListData::sample(),
             blueprints_none: false,
@@ -1524,6 +1566,8 @@ impl SamplePage {
             finance: finance_page::FinanceState::sample(),
             connection: basetool_page::ConnectionState::new(None),
             orgs: crate::org_connect_page::OrgConnectState::sample(),
+            streamdeck: crate::streamdeck_page::StreamDeckState::default(),
+            streamdeck_only: false,
             org_lots: crate::org_data_stock_page::OrgLotsState::default(),
             org_orders: crate::org_data_orders_page::OrgOrdersState::default(),
             org_index: crate::org_data::IndexCache::default(),
@@ -1654,6 +1698,9 @@ impl SamplePage {
             place_look: glance_tiles::PlaceLook::default(),
             machine_look: glance_tiles::MachineLook::default(),
             status_look: glance_tiles::StatusLook::default(),
+            translation_memo: glance_tiles::TileMemo::default(),
+            hangar_memo: glance_tiles::TileMemo::default(),
+            farm_memo: glance_tiles::TileMemo::default(),
             new_pages: controls::sample_new_pages(),
             gallery: None,
             overlay_rows: versekit_core::overlay::ROWS_DEFAULT,
@@ -1741,6 +1788,16 @@ impl SamplePage {
         let mut page = Self::preview_still();
         page.bank = bank_page::BankState::default();
         page.bank_sample = true;
+        page
+    }
+
+    /// [`Self::preview_still`] with the Stream Deck plugin connected and keys missing
+    /// ([`crate::streamdeck_page::StreamDeckState::example`]), the shortcuts above it left out: for the picture of
+    /// the page of keys, which shows what the page does for the Stream Deck.
+    pub fn preview_still_streamdeck() -> Self {
+        let mut page = Self::preview_still();
+        page.streamdeck = crate::streamdeck_page::StreamDeckState::example();
+        page.streamdeck_only = true;
         page
     }
 
@@ -1911,6 +1968,713 @@ impl SamplePage {
         }
     }
 
+    /// The settings of the overlay page (`shortcuts` false) or its twelve shortcuts alone, which stand on the page of
+    /// keys and Stream Deck (`shortcuts` true). Both write the same settings. Gives whether the overlay page asked
+    /// for the page of the shortcuts.
+    fn overlay_settings(&mut self, page: &mut egui::Ui, scheme: &Scheme, shortcuts: bool) -> bool {
+        // The groups of the overlay page, in the numbers the rows below use; for the shortcuts alone their fourth holds
+        // all twelve in place of the row that leads to them.
+        let mut table: Vec<(&'static str, &'static [Row])> = settings_of("hf_overlay").to_vec();
+        if shortcuts {
+            table[SHORTCUT_GROUP] = SHORTCUT_ROWS;
+        }
+        let rows = table.as_slice();
+        let mut to_keys = false;
+        let mut groups = group_sizes(rows);
+        // The switch of the bank stands only while the bank is connected: the rows after it move up.
+        let bank_at = versekit_core::overlay::Section::ALL
+            .iter()
+            .position(|section| *section == versekit_core::overlay::Section::Bank)
+            .unwrap_or(usize::MAX);
+        let bank_hidden = !self.area_shown(versekit_core::basetool::scopes::SETTING_BANK);
+        if bank_hidden {
+            groups[5].1 -= 1;
+        }
+        let choices: Vec<String> = rows[1].1[0].2.iter().map(|c| label(c)).collect();
+        let texts = settings::OverlayTexts {
+            corners: [&choices[0], &choices[1], &choices[2], &choices[3]],
+            free: &choices[4],
+            bar_top: &choices[5],
+            bar_bottom: &choices[6],
+        };
+        let (clickable, place, bar) =
+            (&mut self.overlay_clickable, &mut self.overlay_place, &mut self.bar_side);
+        let lines = &mut self.overlay_rows;
+        let (modifiers, key) = (&mut self.hotkey_modifiers, &mut self.hotkey_key);
+        let hotkey_before = hotkey_text(*modifiers, *key);
+        let (scan_modifiers, scan_key, scan_on) =
+            (&mut self.scan_modifiers, &mut self.scan_key, &mut self.scan_hotkey_on);
+        let scan_before = hotkey_text(*scan_modifiers, *scan_key);
+        let mut scan_refused = false;
+        let (search_modifiers, search_key, search_on) =
+            (&mut self.search_modifiers, &mut self.search_key, &mut self.search_hotkey_on);
+        let search_before = search_on.then(|| hotkey_text(*search_modifiers, *search_key)).flatten();
+        let mut search_refused = false;
+        let (picture_modifiers, picture_key, picture_on) =
+            (&mut self.picture_modifiers, &mut self.picture_key, &mut self.picture_hotkey_on);
+        let picture_before =
+            picture_on.then(|| hotkey_text(*picture_modifiers, *picture_key)).flatten();
+        let mut picture_refused = false;
+        let (main_modifiers, main_key, main_on) =
+            (&mut self.main_modifiers, &mut self.main_key, &mut self.main_hotkey_on);
+        let main_before = main_on.then(|| hotkey_text(*main_modifiers, *main_key)).flatten();
+        let mut main_refused = false;
+        let (blueprint_modifiers, blueprint_key, blueprint_on) =
+            (&mut self.blueprint_modifiers, &mut self.blueprint_key, &mut self.blueprint_hotkey_on);
+        let blueprint_before =
+            blueprint_on.then(|| hotkey_text(*blueprint_modifiers, *blueprint_key)).flatten();
+        let mut blueprint_refused = false;
+        let (stock_modifiers, stock_key, stock_on) =
+            (&mut self.stock_modifiers, &mut self.stock_key, &mut self.stock_hotkey_on);
+        let stock_before = stock_on.then(|| hotkey_text(*stock_modifiers, *stock_key)).flatten();
+        let mut stock_refused = false;
+        let (unit_modifiers, unit_key, unit_on) =
+            (&mut self.unit_modifiers, &mut self.unit_key, &mut self.unit_hotkey_on);
+        let unit_before = unit_on.then(|| hotkey_text(*unit_modifiers, *unit_key)).flatten();
+        let mut unit_refused = false;
+        let (antiafk_modifiers, antiafk_key, antiafk_on) =
+            (&mut self.antiafk_modifiers, &mut self.antiafk_key, &mut self.antiafk_hotkey_on);
+        let antiafk_before =
+            antiafk_on.then(|| hotkey_text(*antiafk_modifiers, *antiafk_key)).flatten();
+        let mut antiafk_refused = false;
+        let (scanner_hk_modifiers, scanner_hk_key, scanner_hk_on) =
+            (&mut self.scanner_hk_modifiers, &mut self.scanner_hk_key, &mut self.scanner_hk_on);
+        let scanner_hk_before =
+            scanner_hk_on.then(|| hotkey_text(*scanner_hk_modifiers, *scanner_hk_key)).flatten();
+        let mut scanner_hk_refused = false;
+        let (clear_hk_modifiers, clear_hk_key, clear_hk_on) =
+            (&mut self.clear_hk_modifiers, &mut self.clear_hk_key, &mut self.clear_hk_on);
+        let clear_hk_before =
+            clear_hk_on.then(|| hotkey_text(*clear_hk_modifiers, *clear_hk_key)).flatten();
+        let mut clear_hk_refused = false;
+        let (learn_hk_modifiers, learn_hk_key, learn_hk_on) =
+            (&mut self.learn_hk_modifiers, &mut self.learn_hk_key, &mut self.learn_hk_on);
+        let learn_hk_before =
+            learn_hk_on.then(|| hotkey_text(*learn_hk_modifiers, *learn_hk_key)).flatten();
+        let mut learn_hk_refused = false;
+        // Anti-AFK presses keys: only where the system can (Windows).
+        let antiafk_possible = versekit_core::anti_afk::supported();
+        // The blueprint scan reads letters with the recognition of the system: only where it can.
+        let blueprint_possible =
+            versekit_core::screen_grab::supported() && versekit_core::win_ocr::supported();
+        // The refinery scan reads the screen: only where that works.
+        let scan_possible = versekit_core::refinery_scan::screen::supported();
+        // The picture of the game grabs the screen: only where that works.
+        let picture_possible = versekit_core::screen_grab::supported();
+        let (auto, opacity) = (&mut self.overlay_auto, &mut self.overlay_opacity);
+        let opaque = self.overlay_opaque;
+        let (popup, seconds) = (&mut self.overlay_popup, &mut self.overlay_seconds);
+        let events = &mut self.overlay_events;
+        let sections = &mut self.overlay_sections;
+        let contracts_max = &mut self.overlay_contracts_max;
+        let fps = &mut self.overlay_fps;
+        let server_fps = &mut self.overlay_server_fps;
+        let players = &mut self.overlay_players;
+        let info_bar = &mut self.overlay_info_bar;
+        let info_bar_always = &mut self.overlay_info_bar_always;
+        let overlay_always = &mut self.overlay_always;
+        let info_bar_corner = &mut self.overlay_info_bar_corner;
+        let (overlay_size, info_bar_size) = (&mut self.overlay_size, &mut self.overlay_info_bar_size);
+        let handles = &mut self.handles;
+        let scanner = &mut self.mining.scanner;
+        let (volume, play_sound, sound_playing) =
+            (self.volume, self.play_sound, &mut self.sound_playing);
+        let mut reset = false;
+        let mut hotkey_refused = false;
+        // A key another shortcut holds: the row that holds it.
+        let mut hotkey_taken: Option<usize> = None;
+        // Switched off in the settings file, the overlay's own hotkey holds no key either.
+        let overlay_on = self.hotkey_on;
+        let (desktop, mut shortcut_copied) = (&self.desktop, false);
+        // The cards this page shows, by their numbers in the table: the shortcuts alone, or all with one row in
+        // place of the shortcuts that leads to them.
+        let shown: Vec<usize> = if shortcuts { vec![SHORTCUT_GROUP] } else { (0..groups.len()).collect() };
+        let shown_groups: Vec<(String, usize)> = shown.iter().map(|g| groups[*g].clone()).collect();
+        // The signature window, an editor on pictures of the game, over the whole width under the other cards.
+        let wide: Vec<usize> = shown.iter().position(|g| *g == 9).into_iter().collect();
+        settings::settings_page_wide(
+            page,
+            scheme,
+            if shortcuts { "tastenkuerzel" } else { "overlay" },
+            &group_refs(&shown_groups),
+            &wide,
+            &mut |ui, g, r| {
+                let g = shown[g];
+                let r = if bank_hidden && g == 5 && r >= bank_at { r + 1 } else { r };
+                let (name, hint, choices) = rows[g].1[r];
+                let name = label(name);
+                // The opacity of an overlay drawn without transparency says why it has no effect.
+                let hint = if (g, r, opaque) == (0, 5, true) { "ov_s_deck_ohne_h" } else { hint };
+                let hint = label(hint);
+                let hint = hint.as_str();
+                if g == SHORTCUT_GROUP && !shortcuts {
+                    // The shortcuts stand on the page of keys and Stream Deck: a button leads there.
+                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
+                        let word = language::t("hf_streamdeck");
+                        let button = widgets::Button::new(&word, ButtonKind::Normal, scheme).icon("keyboard");
+                        to_keys |= row.add(button).clicked();
+                    });
+                } else if (g, r) == (0, 0) {
+                    // Comes and folds with the game, no switch: a small heading over the two switches
+                    // that change it, its hint on hover.
+                    subheading(ui, scheme, &name, hint);
+                } else if g == 0 {
+                    // What the overlay shows and how: one line each, the hint on hover.
+                    settings::setting_line(ui, scheme, &name, hint, false, |row| match r {
+                        1 => {
+                            row.add(widgets::Toggle::new(overlay_always, scheme));
+                        }
+                        2 => {
+                            row.add(widgets::Toggle::new(clickable, scheme));
+                        }
+                        3 => {
+                            row.add(widgets::Toggle::new(auto, scheme));
+                        }
+                        // A number: − field + with its unit.
+                        4 => {
+                            widgets::number_field(
+                                row,
+                                scheme,
+                                "overlay-zeilen",
+                                lines,
+                                OVERLAY_ROWS.0..=OVERLAY_ROWS.1,
+                                &label(choices[0]),
+                            );
+                        }
+                        5 => {
+                            settings::slider_with_value(row, scheme, &name, opacity, (30, 100), false, |n| {
+                                format!("{n} %")
+                            });
+                        }
+                        _ => window_size_slider(row, scheme, &name, overlay_size),
+                    });
+                } else if g == 2 && r == 0 {
+                    // Always, or only on news.
+                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
+                        if widgets::radio(row, scheme, !*popup, &label(choices[0])).clicked() {
+                            *popup = false;
+                        }
+                        if widgets::radio(row, scheme, *popup, &label(choices[1])).clicked() {
+                            *popup = true;
+                        }
+                    });
+                } else if g == 2 {
+                    // The seconds belong to „only on news“: grey while the overlay is always there.
+                    let on_news = *popup;
+                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
+                        row.add_enabled_ui(on_news, |row| {
+                            widgets::number_field(
+                                row,
+                                scheme,
+                                "overlay-sekunden",
+                                seconds,
+                                2..=60,
+                                &label(choices[0]),
+                            );
+                        });
+                    });
+                } else if g == 3 {
+                    // A shortcut in one line: its switch (the overlay's own is always on, its switch
+                    // stands on and grey), its name, the modifier keys and the key.
+                    let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
+                    let keys = hotkey_names();
+                    let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
+                    // The six as the overlay registers them, before this frame's change.
+                    let rows_before = [
+                        (*modifiers, *key, overlay_on),
+                        (*scan_modifiers, *scan_key, *scan_on && scan_possible),
+                        (*search_modifiers, *search_key, *search_on),
+                        (*picture_modifiers, *picture_key, *picture_on && picture_possible),
+                        (*main_modifiers, *main_key, *main_on),
+                        (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
+                        (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
+                        (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
+                        (*antiafk_modifiers, *antiafk_key, *antiafk_on && antiafk_possible),
+                        (*scanner_hk_modifiers, *scanner_hk_key, *scanner_hk_on && picture_possible),
+                        (*clear_hk_modifiers, *clear_hk_key, *clear_hk_on),
+                        (*learn_hk_modifiers, *learn_hk_key, *learn_hk_on && picture_possible),
+                    ];
+                    let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
+                        match r {
+                            0 => (None, &mut *modifiers, &mut *key, "overlay"),
+                            1 => (Some(&mut *scan_on), &mut *scan_modifiers, &mut *scan_key, "overlay-scan"),
+                            2 => (Some(&mut *search_on), &mut *search_modifiers, &mut *search_key, "overlay-suche"),
+                            3 => (Some(&mut *picture_on), &mut *picture_modifiers, &mut *picture_key, "overlay-bild"),
+                            4 => (Some(&mut *main_on), &mut *main_modifiers, &mut *main_key, "overlay-haupt"),
+                            5 => (
+                                Some(&mut *blueprint_on),
+                                &mut *blueprint_modifiers,
+                                &mut *blueprint_key,
+                                "overlay-bauplan",
+                            ),
+                            6 => (Some(&mut *stock_on), &mut *stock_modifiers, &mut *stock_key, "overlay-lager"),
+                            7 => (Some(&mut *unit_on), &mut *unit_modifiers, &mut *unit_key, "overlay-staffellager"),
+                            8 => (
+                                Some(&mut *antiafk_on),
+                                &mut *antiafk_modifiers,
+                                &mut *antiafk_key,
+                                "overlay-antiafk",
+                            ),
+                            9 => (
+                                Some(&mut *scanner_hk_on),
+                                &mut *scanner_hk_modifiers,
+                                &mut *scanner_hk_key,
+                                "overlay-scanner",
+                            ),
+                            10 => (
+                                Some(&mut *clear_hk_on),
+                                &mut *clear_hk_modifiers,
+                                &mut *clear_hk_key,
+                                "overlay-leeren",
+                            ),
+                            _ => (
+                                Some(&mut *learn_hk_on),
+                                &mut *learn_hk_modifiers,
+                                &mut *learn_hk_key,
+                                "overlay-anlernen",
+                            ),
+                        };
+                    // The refinery scan, the picture of the game and the blueprint scan read the
+                    // screen: only where that works.
+                    let possible = match r {
+                        1 => scan_possible,
+                        3 => picture_possible,
+                        5..=7 => blueprint_possible,
+                        8 => antiafk_possible,
+                        // The signature scanner reads the screen too.
+                        9 => picture_possible,
+                        // The teaching shows pictures of the scanner.
+                        11 => picture_possible,
+                        _ => true,
+                    };
+                    let before = (*held, *chosen);
+                    // The keys only while the shortcut is on.
+                    let switch = possible.then_some(switch).flatten();
+                    shortcut_line(ui, scheme, &name, hint, switch, r == 0, |line| {
+                        if !possible {
+                            let reason = language::t("s_nicht_moegl");
+                            line.label(RichText::new(reason).color(color(scheme.sub)));
+                            return;
+                        }
+                        let mut words: Vec<(&str, bool)> =
+                            names.iter().zip(held.iter()).map(|(w, on)| (w.as_str(), *on)).collect();
+                        widgets::hotkey_picker(line, scheme, id, &mut words, &keys, chosen, &name);
+                        for (on, (_, pressed)) in held.iter_mut().zip(words) {
+                            *on = pressed;
+                        }
+                    });
+                    // A letter or a digit without Strg, Alt or Umschalt is no hotkey: the saved one
+                    // stays, and the reason is said below the page. F13 by itself is one (Kuehlwagen).
+                    let refused = keep_hotkey(held, chosen, before);
+                    match r {
+                        0 => hotkey_refused |= refused,
+                        1 => scan_refused |= refused,
+                        2 => search_refused |= refused,
+                        3 => picture_refused |= refused,
+                        4 => main_refused |= refused,
+                        5 => blueprint_refused |= refused,
+                        6 => stock_refused |= refused,
+                        7 => unit_refused |= refused,
+                        8 => antiafk_refused |= refused,
+                        9 => scanner_hk_refused |= refused,
+                        10 => clear_hk_refused |= refused,
+                        _ => learn_hk_refused |= refused,
+                    }
+                    // A key another shortcut that is on holds already: the change goes back (a switch
+                    // turned on goes off again), and the reason is said below the page. One press must
+                    // not do two things.
+                    let rows_now = [
+                        (*modifiers, *key, overlay_on),
+                        (*scan_modifiers, *scan_key, *scan_on && scan_possible),
+                        (*search_modifiers, *search_key, *search_on),
+                        (*picture_modifiers, *picture_key, *picture_on && picture_possible),
+                        (*main_modifiers, *main_key, *main_on),
+                        (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
+                        (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
+                        (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
+                        (*antiafk_modifiers, *antiafk_key, *antiafk_on && antiafk_possible),
+                        (*scanner_hk_modifiers, *scanner_hk_key, *scanner_hk_on && picture_possible),
+                        (*clear_hk_modifiers, *clear_hk_key, *clear_hk_on),
+                        (*learn_hk_modifiers, *learn_hk_key, *learn_hk_on && picture_possible),
+                    ];
+                    let changed =(rows_now[r].0, rows_now[r].1) != before;
+                    let turned_on = rows_now[r].2 && !rows_before[r].2;
+                    let holder = any_holder(r, &active_hotkeys(rows_now));
+                    // A shortcut just switched on that still has its default key, which another one
+                    // holds now: it gives way to a spare key, as the overlay does at its next start
+                    // (`overlay::resolve`), and does not spring back off.
+                    let spare = (turned_on && !changed && holder.is_some())
+                        .then(|| spare_for(r, &active_hotkeys(rows_now), (rows_now[r].0, rows_now[r].1)))
+                        .flatten();
+                    if let Some((spare_modifiers, spare_key)) = spare {
+                        let (held, chosen) = match r {
+                            0 => (&mut *modifiers, &mut *key),
+                            1 => (&mut *scan_modifiers, &mut *scan_key),
+                            2 => (&mut *search_modifiers, &mut *search_key),
+                            3 => (&mut *picture_modifiers, &mut *picture_key),
+                            4 => (&mut *main_modifiers, &mut *main_key),
+                            5 => (&mut *blueprint_modifiers, &mut *blueprint_key),
+                            6 => (&mut *stock_modifiers, &mut *stock_key),
+                            7 => (&mut *unit_modifiers, &mut *unit_key),
+                            8 => (&mut *antiafk_modifiers, &mut *antiafk_key),
+                            9 => (&mut *scanner_hk_modifiers, &mut *scanner_hk_key),
+                            10 => (&mut *clear_hk_modifiers, &mut *clear_hk_key),
+                            _ => (&mut *learn_hk_modifiers, &mut *learn_hk_key),
+                        };
+                        (*held, *chosen) = (spare_modifiers, spare_key);
+                    } else if (changed || turned_on)
+                        && let Some(by) = holder
+                    {
+                        let (held, chosen, on) = match r {
+                            0 => (&mut *modifiers, &mut *key, None),
+                            1 => (&mut *scan_modifiers, &mut *scan_key, Some(&mut *scan_on)),
+                            2 => (&mut *search_modifiers, &mut *search_key, Some(&mut *search_on)),
+                            3 => (&mut *picture_modifiers, &mut *picture_key, Some(&mut *picture_on)),
+                            4 => (&mut *main_modifiers, &mut *main_key, Some(&mut *main_on)),
+                            5 => (&mut *blueprint_modifiers, &mut *blueprint_key, Some(&mut *blueprint_on)),
+                            6 => (&mut *stock_modifiers, &mut *stock_key, Some(&mut *stock_on)),
+                            7 => (&mut *unit_modifiers, &mut *unit_key, Some(&mut *unit_on)),
+                            8 => (&mut *antiafk_modifiers, &mut *antiafk_key, Some(&mut *antiafk_on)),
+                            9 => (&mut *scanner_hk_modifiers, &mut *scanner_hk_key, Some(&mut *scanner_hk_on)),
+                            10 => (&mut *clear_hk_modifiers, &mut *clear_hk_key, Some(&mut *clear_hk_on)),
+                            _ => (&mut *learn_hk_modifiers, &mut *learn_hk_key, Some(&mut *learn_hk_on)),
+                        };
+                        if changed {
+                            (*held, *chosen) = before;
+                        } else if let Some(on) = on {
+                            *on = false;
+                        }
+                        hotkey_taken = Some(by);
+                    } else if let Some(by) = earlier_holder(r, &active_hotkeys(rows_now)) {
+                        // Read so from the settings: not registered, and the line says by which.
+                        let by = language::t(versekit_core::overlay::Shortcut::ALL[by].short_key());
+                        let text = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(by))]);
+                        ui.horizontal(|line| {
+                            line.add_space(widgets::TOGGLE_SIZE.x + line.spacing().item_spacing.x);
+                            line.add(egui::Label::new(RichText::new(text).color(color(scheme.yellow))).wrap());
+                        });
+                    }
+                    if r == 4 {
+                        // Under Wayland: the way through a shortcut of the desktop, whose command
+                        // shows the main window of a running program.
+                        shortcut_copied |= desktop.shortcut_hint(ui, scheme);
+                    }
+                } else if g == 7 {
+                    // The settings of the handle search, which shows in the bar: what they are for
+                    // as the small heading, then their rows.
+                    subheading(ui, scheme, hint, "");
+                    crate::handle_page::show_settings(ui, scheme, handles);
+                } else if g == 8 {
+                    // The sounds of the scans: the name, what it means on hover, a button that plays
+                    // it at the volume set and, while it plays, a word that says so.
+                    let cue = Cue::SCAN[r];
+                    let now = ui.input(|i| i.time);
+                    let sounding = sound_playing.is_some_and(|(c, until)| c == cue && now < until);
+                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                        let play = label(choices[0]);
+                        let spoken = tf("s_ton_anhoeren_n", &[("0", Arg::from(name.as_str()))]);
+                        let silent = (volume <= 0).then(|| t("s_ton_stumm"));
+                        let button = widgets::Button::new(&play, ButtonKind::Normal, scheme)
+                            .icon("volume-2")
+                            .spoken(&spoken)
+                            .blocked(silent.as_deref());
+                        if row.add(button).clicked() && volume > 0 {
+                            play_sound(cue, volume);
+                            *sound_playing = Some((cue, now + cue.duration().as_secs_f64() + 0.4));
+                            row.ctx().request_repaint();
+                        }
+                        if sounding {
+                            row.label(RichText::new(t("s_ton_spielt")).color(color(scheme.accent)));
+                            row.ctx().request_repaint_after(std::time::Duration::from_millis(100));
+                        }
+                    });
+                } else if g == 9 {
+                    // The window with the scanned material: its place and the search frame on two
+                    // models side by side or one below the other (the frame has no row of its own), its
+                    // size and the extra line in the overlay.
+                    if r == 0 {
+                        let frame_row = rows[g].1[3];
+                        let (frame_name, frame_hint) = (label(frame_row.0), label(frame_row.1));
+                        scanner_ui::model_cards(
+                            ui,
+                            scheme,
+                            scanner,
+                            [&name, hint, &label(choices[0])],
+                            [&frame_name, &frame_hint, &label(frame_row.2[0])],
+                        );
+                    } else if r != 3 {
+                        settings::setting_row(ui, scheme, &name, hint, false, |row| match r {
+                            // The size in per mille of the game window's height.
+                            1 => {
+                                let mut size = i64::from(scanner.layout.size.0);
+                                let range = (i64::from(Size::MIN.0), i64::from(Size::MAX.0));
+                                settings::slider_with_value(row, scheme, &name, &mut size, range, false, |n| {
+                                    format!("{n} ‰")
+                                });
+                                scanner.layout.size = Size(size as i32);
+                            }
+                            2 => {
+                                row.add(widgets::Toggle::new(&mut scanner.layout.overlay_line, scheme));
+                            }
+                            // Above the signature or in the info bar.
+                            4 => {
+                                for (place, word) in Place::ALL.into_iter().zip(choices) {
+                                    if widgets::radio(row, scheme, scanner.layout.place == place, &label(word))
+                                        .clicked()
+                                    {
+                                        scanner.layout.place = place;
+                                    }
+                                }
+                            }
+                            5 => {
+                                let range = versekit_core::signature_window::LINGER_RANGE;
+                                let linger = &mut scanner.layout.linger;
+                                settings::slider_with_value(row, scheme, &name, linger, range, false, |n| {
+                                    format!("{n} s")
+                                });
+                            }
+                            // The seconds between "Spielbild holen" and the picture.
+                            6 if !picture_possible => {
+                                let reason = language::t("s_nicht_moegl");
+                                row.label(RichText::new(reason).color(color(scheme.sub)));
+                            }
+                            6 => {
+                                for seconds in versekit_core::game_picture::DELAYS {
+                                    let chosen = scanner.delay == seconds;
+                                    if widgets::radio(row, scheme, chosen, &format!("{seconds} s")).clicked()
+                                    {
+                                        scanner.delay = seconds;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        });
+                    }
+                } else if g == 4 {
+                    // The events that open the overlay: one switch each.
+                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                        let event = versekit_core::overlay::Event::ALL[r];
+                        let mut on = events.contains(event);
+                        if row.add(widgets::Toggle::new(&mut on, scheme)).changed() {
+                            *events = events.with(event, on);
+                        }
+                    });
+                } else if g == 5 && r == versekit_core::overlay::Section::ALL.len() {
+                    // After the switches: the most contracts the game allows, for the head of the bar.
+                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                        let range = versekit_core::overlay::CONTRACTS_MAX_RANGE;
+                        let id = "auftraege-hoechstzahl";
+                        widgets::number_field(row, scheme, id, contracts_max, range.0..=range.1, "");
+                    });
+                } else if g == 5 {
+                    // What the open overlay shows: one switch each.
+                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                        let section = versekit_core::overlay::Section::ALL[r];
+                        let mut on = sections.contains(section);
+                        if row.add(widgets::Toggle::new(&mut on, scheme)).changed() {
+                            *sections = sections.with(section, on);
+                        }
+                    });
+                } else if g == 6 && r == 3 {
+                    // The size of the bar with its card and lines, apart from the overlay's.
+                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                        window_size_slider(row, scheme, &name, info_bar_size);
+                    });
+                } else if g == 6 && r == 2 {
+                    // Where the bar starts: top left, middle or right.
+                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                        let corners = versekit_core::info_bar::Corner::ALL;
+                        for (corner, word) in corners.into_iter().zip(choices) {
+                            if widgets::radio(row, scheme, *info_bar_corner == corner, &label(word))
+                                .clicked()
+                            {
+                                *info_bar_corner = corner;
+                            }
+                        }
+                    });
+                } else if g == 6 {
+                    // The bar itself, whether it shows without the game too, and the frame rates
+                    // (in the bar while it is on, else beside the shard in the overlay).
+                    let switch = match r {
+                        0 => &mut *info_bar,
+                        1 => &mut *info_bar_always,
+                        4 => &mut *fps,
+                        5 => &mut *server_fps,
+                        _ => &mut *players,
+                    };
+                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
+                        row.add(widgets::Toggle::new(switch, scheme));
+                    });
+                } else if r == 0 {
+                    // The place: its name as the small heading (a row without a control is one), under
+                    // it the field of the four corners with free movement in the middle row and the bar
+                    // beside it.
+                    subheading(ui, scheme, &name, hint);
+                    // The field right under its heading, at the left of the card: no space before it.
+                    settings::overlay_place(ui, scheme, place, bar, &texts);
+                    ui.add_space(6.0);
+                } else {
+                    // Forget the place: back to the middle, free, bar on top.
+                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
+                        if row
+                            .add(widgets::Button::new(&label(choices[0]), ButtonKind::Normal, scheme))
+                            .clicked()
+                        {
+                            reset = true;
+                        }
+                    });
+                }
+            },
+        );
+        if shortcut_copied {
+            self.copied_at = Some(page.input(|i| i.time));
+        }
+        // The hotkey of the picture as the hint under its button in the signature window names it, while it is on
+        // and can be had; on both pages, as either can change it.
+        self.mining.scanner.hotkey = (self.picture_hotkey_on && picture_possible)
+            .then(|| hotkey_text(self.picture_modifiers, self.picture_key))
+            .flatten()
+            .map(|text| glance_tiles::hotkey_in(language::current(), &text));
+        // A letter or a digit left without a modifier: why, and which combination stays.
+        for (refused, modifiers, key) in [
+            (hotkey_refused, self.hotkey_modifiers, self.hotkey_key),
+            (scan_refused, self.scan_modifiers, self.scan_key),
+            (search_refused, self.search_modifiers, self.search_key),
+            (picture_refused, self.picture_modifiers, self.picture_key),
+            (main_refused, self.main_modifiers, self.main_key),
+            (blueprint_refused, self.blueprint_modifiers, self.blueprint_key),
+            (stock_refused, self.stock_modifiers, self.stock_key),
+            (unit_refused, self.unit_modifiers, self.unit_key),
+            (antiafk_refused, self.antiafk_modifiers, self.antiafk_key),
+            (scanner_hk_refused, self.scanner_hk_modifiers, self.scanner_hk_key),
+            (clear_hk_refused, self.clear_hk_modifiers, self.clear_hk_key),
+            (learn_hk_refused, self.learn_hk_modifiers, self.learn_hk_key),
+        ] {
+            if refused {
+                let saved = hotkey_text(modifiers, key).unwrap_or_default();
+                let text = language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from(saved))]);
+                self.pin_notice = Some((page.input(|i| i.time), text));
+            }
+        }
+        // A key another shortcut holds: which one, and that the key stays as it was.
+        if let Some(by) = hotkey_taken {
+            let rows = [
+                (self.hotkey_modifiers, self.hotkey_key),
+                (self.scan_modifiers, self.scan_key),
+                (self.search_modifiers, self.search_key),
+                (self.picture_modifiers, self.picture_key),
+                (self.main_modifiers, self.main_key),
+                (self.blueprint_modifiers, self.blueprint_key),
+                (self.stock_modifiers, self.stock_key),
+                (self.unit_modifiers, self.unit_key),
+                (self.antiafk_modifiers, self.antiafk_key),
+                (self.scanner_hk_modifiers, self.scanner_hk_key),
+                (self.clear_hk_modifiers, self.clear_hk_key),
+                (self.learn_hk_modifiers, self.learn_hk_key),
+            ];
+            let (modifiers, key) = rows[by];
+            let combination = hotkey_text(modifiers, key).unwrap_or_default();
+            let by = language::t(versekit_core::overlay::Shortcut::ALL[by].short_key());
+            let text = language::tf(
+                "s_hk_doppelt",
+                &[("0", language::Arg::from(combination)), ("1", language::Arg::from(by))],
+            );
+            self.pin_notice = Some((page.input(|i| i.time), text));
+        }
+        // A new hotkey: the running overlay takes it with the settings (it registers all of them). The
+        // ones of the handle search and of the picture count only while they are on, so switching
+        // one on says it too.
+        let search_now = self
+            .search_hotkey_on
+            .then(|| hotkey_text(self.search_modifiers, self.search_key))
+            .flatten();
+        let picture_now = self
+            .picture_hotkey_on
+            .then(|| hotkey_text(self.picture_modifiers, self.picture_key))
+            .flatten();
+        let main_now =
+            self.main_hotkey_on.then(|| hotkey_text(self.main_modifiers, self.main_key)).flatten();
+        let blueprint_now = self
+            .blueprint_hotkey_on
+            .then(|| hotkey_text(self.blueprint_modifiers, self.blueprint_key))
+            .flatten();
+        let stock_now =
+            self.stock_hotkey_on.then(|| hotkey_text(self.stock_modifiers, self.stock_key)).flatten();
+        let unit_now =
+            self.unit_hotkey_on.then(|| hotkey_text(self.unit_modifiers, self.unit_key)).flatten();
+        let antiafk_now = self
+            .antiafk_hotkey_on
+            .then(|| hotkey_text(self.antiafk_modifiers, self.antiafk_key))
+            .flatten();
+        let scanner_hk_now = self
+            .scanner_hk_on
+            .then(|| hotkey_text(self.scanner_hk_modifiers, self.scanner_hk_key))
+            .flatten();
+        let clear_hk_now =
+            self.clear_hk_on.then(|| hotkey_text(self.clear_hk_modifiers, self.clear_hk_key)).flatten();
+        let learn_hk_now =
+            self.learn_hk_on.then(|| hotkey_text(self.learn_hk_modifiers, self.learn_hk_key)).flatten();
+        let now_hotkeys = [
+            hotkey_text(self.hotkey_modifiers, self.hotkey_key),
+            hotkey_text(self.scan_modifiers, self.scan_key),
+            search_now,
+            picture_now,
+            main_now,
+            blueprint_now,
+            stock_now,
+            unit_now,
+            antiafk_now,
+            scanner_hk_now,
+            clear_hk_now,
+            learn_hk_now,
+        ];
+        let before_hotkeys = [
+            hotkey_before,
+            scan_before,
+            search_before,
+            picture_before,
+            main_before,
+            blueprint_before,
+            stock_before,
+            unit_before,
+            antiafk_before,
+            scanner_hk_before,
+            clear_hk_before,
+            learn_hk_before,
+        ];
+        for (before, now) in before_hotkeys.into_iter().zip(now_hotkeys) {
+            if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
+                && (self.overlay_runs)()
+            {
+                let said = language::tf("s_hk_ok", &[("0", language::Arg::from(now))]);
+                self.pin_notice = Some((page.input(|i| i.time), said));
+            }
+        }
+        // Everything back (4.12 `reset_position`): the middle of the main screen in the default
+        // size, the corner freed and the bar on top, or a fixed corner would send it back to where
+        // it could not be reached. The settings go with the others at the end of the frame.
+        if reset {
+            self.overlay_place = settings::OverlayPlace::Free;
+            self.bar_side = settings::BarSide::Top;
+            let mut waits_hidden = false;
+            if let Some(store) = &self.store {
+                versekit_core::overlay::forget_place(&store.paths);
+                // Without the game the overlay waits hidden: brought back, it still cannot be
+                // seen, so the button says why and how to show it.
+                // The game state the foot bar looked at last, while it is fresh; else asked anew.
+                let now = page.input(|i| i.time);
+                let running = match self.game_seen {
+                    Some((at, running)) if now - at < GAME_LOOK_SECONDS => running,
+                    _ => game_running_for_foot(&store.paths, (self.game_process)(&store.paths)),
+                };
+                waits_hidden = !self.overlay_always && !running;
+            }
+            self.place_reset_at = Some(page.ctx().input(|i| i.time));
+            self.place_reset_waits = waits_hidden;
+        }
+        to_keys
+    }
+
     /// The row of tabs of a page that has views: the blueprint list (list, progress), the crafting page
     /// (crafting, what to farm) and the mining page (mining, refineries). Other pages have none.
     fn page_tabs(&mut self, ui: &mut egui::Ui, scheme: &Scheme) {
@@ -2057,9 +2821,14 @@ impl SamplePage {
         self.extension_frame(ui, true);
         // How a start of the game went: the reason it did not work stands in the foot like in 4.12.
         while let Ok(result) = self.start_done.1.try_recv() {
-            if let Err(reason) = result {
-                let said = tf("s_sp_start_nein", &[("0", Arg::from(reason.as_str()))]);
-                self.pin_notice = Some((ui.input(|i| i.time), said));
+            match result {
+                Err(reason) => {
+                    let said = tf("s_sp_start_nein", &[("0", Arg::from(reason.as_str()))]);
+                    self.pin_notice = Some((ui.input(|i| i.time), said));
+                    // Said why: the button is back at once for another try.
+                    self.starting = None;
+                }
+                Ok(_) => self.starting = self.starting.map(|(since, _)| (since, true)),
             }
         }
         if self.reload_waiting {
@@ -2359,6 +3128,7 @@ impl SamplePage {
         page.shops = shops_page::ShopsState::with_files(&paths);
         page.connect_system(&paths);
         page.connect_orgs(&paths);
+        page.streamdeck = streamdeck_page_state(&paths);
         page.contracts = contract_log::LogData::load(&paths);
         page.stats = statistics_page::StatsState::of(&paths);
         page.finance = finance_page::FinanceState::of(&paths);
@@ -3982,14 +4752,22 @@ impl SamplePage {
             if found.as_ref().is_some_and(|f| !f.looked) {
                 nav.ctx().request_repaint_after(std::time::Duration::from_millis(500));
             }
-            if found.as_ref().is_none_or(|f| f.starter) {
+            // A start handed over keeps the spinner a few seconds: the launcher takes that long to show its window.
+            let now = nav.input(|i| i.time);
+            if self.starting.is_some_and(|(since, handed)| handed && now - since >= START_SHOWN) {
+                self.starting = None;
+            }
+            if self.starting.is_some() {
+                widgets::loading(&mut nav, scheme, &t("s_sp_start_lauft"));
+                nav.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+            } else if found.as_ref().is_none_or(|f| f.starter) {
                 let start = t("s_sp_start_knopf");
                 let launch = widgets::Button::new(&start, ButtonKind::Strong, scheme).icon("rocket").wide();
                 if nav.add(launch).clicked() && self.loading.is_none() {
-                    let now = nav.input(|i| i.time);
                     if let Some(store) = &self.store {
                         // The lookup of the way and the start run in a thread of their own.
                         self.pin_notice = Some((now, t("s_sp_start_lauft")));
+                        self.starting = Some((now, false));
                         let (spawner, done, paths) = (
                             std::sync::Arc::clone(&self.spawner),
                             self.start_done.0.clone(),
@@ -4122,6 +4900,14 @@ impl SamplePage {
                     _ => {}
                 }
                 page.add_space(4.0);
+            }
+            // Keys of the Stream Deck without a binding in the game: the bar on every page but their own, where the
+            // preview stands.
+            if self.page != versekit_core::streamdeck::PAGE_KEYS
+                && crate::streamdeck_page::missing_bar(&mut page, scheme, &mut self.streamdeck)
+            {
+                self.page = versekit_core::streamdeck::PAGE_KEYS.to_string();
+                self.usage_route = Some("sprung");
             }
             // The way back after a jump, above the head; gone once another page is open.
             if self.came_from.as_ref().is_some_and(|(_, to)| *to != self.page) {
@@ -4916,686 +5702,8 @@ impl SamplePage {
                         });
                     }
                     "hf_overlay" => {
-                        let rows = settings_of("hf_overlay");
-                        let mut groups = group_sizes(rows);
-                        // The switch of the bank stands only while the bank is connected: the rows after it move up.
-                        let bank_at = versekit_core::overlay::Section::ALL
-                            .iter()
-                            .position(|section| *section == versekit_core::overlay::Section::Bank)
-                            .unwrap_or(usize::MAX);
-                        let bank_hidden = !self.area_shown(versekit_core::basetool::scopes::SETTING_BANK);
-                        if bank_hidden {
-                            groups[5].1 -= 1;
-                        }
-                        let choices: Vec<String> = rows[1].1[0].2.iter().map(|c| label(c)).collect();
-                        let texts = settings::OverlayTexts {
-                            corners: [&choices[0], &choices[1], &choices[2], &choices[3]],
-                            free: &choices[4],
-                            bar_top: &choices[5],
-                            bar_bottom: &choices[6],
-                        };
-                        let (clickable, place, bar) =
-                            (&mut self.overlay_clickable, &mut self.overlay_place, &mut self.bar_side);
-                        let lines = &mut self.overlay_rows;
-                        let (modifiers, key) = (&mut self.hotkey_modifiers, &mut self.hotkey_key);
-                        let hotkey_before = hotkey_text(*modifiers, *key);
-                        let (scan_modifiers, scan_key, scan_on) =
-                            (&mut self.scan_modifiers, &mut self.scan_key, &mut self.scan_hotkey_on);
-                        let scan_before = hotkey_text(*scan_modifiers, *scan_key);
-                        let mut scan_refused = false;
-                        let (search_modifiers, search_key, search_on) =
-                            (&mut self.search_modifiers, &mut self.search_key, &mut self.search_hotkey_on);
-                        let search_before = search_on.then(|| hotkey_text(*search_modifiers, *search_key)).flatten();
-                        let mut search_refused = false;
-                        let (picture_modifiers, picture_key, picture_on) =
-                            (&mut self.picture_modifiers, &mut self.picture_key, &mut self.picture_hotkey_on);
-                        let picture_before =
-                            picture_on.then(|| hotkey_text(*picture_modifiers, *picture_key)).flatten();
-                        let mut picture_refused = false;
-                        let (main_modifiers, main_key, main_on) =
-                            (&mut self.main_modifiers, &mut self.main_key, &mut self.main_hotkey_on);
-                        let main_before = main_on.then(|| hotkey_text(*main_modifiers, *main_key)).flatten();
-                        let mut main_refused = false;
-                        let (blueprint_modifiers, blueprint_key, blueprint_on) =
-                            (&mut self.blueprint_modifiers, &mut self.blueprint_key, &mut self.blueprint_hotkey_on);
-                        let blueprint_before =
-                            blueprint_on.then(|| hotkey_text(*blueprint_modifiers, *blueprint_key)).flatten();
-                        let mut blueprint_refused = false;
-                        let (stock_modifiers, stock_key, stock_on) =
-                            (&mut self.stock_modifiers, &mut self.stock_key, &mut self.stock_hotkey_on);
-                        let stock_before = stock_on.then(|| hotkey_text(*stock_modifiers, *stock_key)).flatten();
-                        let mut stock_refused = false;
-                        let (unit_modifiers, unit_key, unit_on) =
-                            (&mut self.unit_modifiers, &mut self.unit_key, &mut self.unit_hotkey_on);
-                        let unit_before = unit_on.then(|| hotkey_text(*unit_modifiers, *unit_key)).flatten();
-                        let mut unit_refused = false;
-                        let (antiafk_modifiers, antiafk_key, antiafk_on) =
-                            (&mut self.antiafk_modifiers, &mut self.antiafk_key, &mut self.antiafk_hotkey_on);
-                        let antiafk_before =
-                            antiafk_on.then(|| hotkey_text(*antiafk_modifiers, *antiafk_key)).flatten();
-                        let mut antiafk_refused = false;
-                        let (scanner_hk_modifiers, scanner_hk_key, scanner_hk_on) =
-                            (&mut self.scanner_hk_modifiers, &mut self.scanner_hk_key, &mut self.scanner_hk_on);
-                        let scanner_hk_before =
-                            scanner_hk_on.then(|| hotkey_text(*scanner_hk_modifiers, *scanner_hk_key)).flatten();
-                        let mut scanner_hk_refused = false;
-                        let (clear_hk_modifiers, clear_hk_key, clear_hk_on) =
-                            (&mut self.clear_hk_modifiers, &mut self.clear_hk_key, &mut self.clear_hk_on);
-                        let clear_hk_before =
-                            clear_hk_on.then(|| hotkey_text(*clear_hk_modifiers, *clear_hk_key)).flatten();
-                        let mut clear_hk_refused = false;
-                        let (learn_hk_modifiers, learn_hk_key, learn_hk_on) =
-                            (&mut self.learn_hk_modifiers, &mut self.learn_hk_key, &mut self.learn_hk_on);
-                        let learn_hk_before =
-                            learn_hk_on.then(|| hotkey_text(*learn_hk_modifiers, *learn_hk_key)).flatten();
-                        let mut learn_hk_refused = false;
-                        // Anti-AFK presses keys: only where the system can (Windows).
-                        let antiafk_possible = versekit_core::anti_afk::supported();
-                        // The blueprint scan reads letters with the recognition of the system: only where it can.
-                        let blueprint_possible =
-                            versekit_core::screen_grab::supported() && versekit_core::win_ocr::supported();
-                        // The refinery scan reads the screen: only where that works.
-                        let scan_possible = versekit_core::refinery_scan::screen::supported();
-                        // The picture of the game grabs the screen: only where that works.
-                        let picture_possible = versekit_core::screen_grab::supported();
-                        let (auto, opacity) = (&mut self.overlay_auto, &mut self.overlay_opacity);
-                        let opaque = self.overlay_opaque;
-                        let (popup, seconds) = (&mut self.overlay_popup, &mut self.overlay_seconds);
-                        let events = &mut self.overlay_events;
-                        let sections = &mut self.overlay_sections;
-                        let contracts_max = &mut self.overlay_contracts_max;
-                        let fps = &mut self.overlay_fps;
-                        let server_fps = &mut self.overlay_server_fps;
-                        let players = &mut self.overlay_players;
-                        let info_bar = &mut self.overlay_info_bar;
-                        let info_bar_always = &mut self.overlay_info_bar_always;
-                        let overlay_always = &mut self.overlay_always;
-                        let info_bar_corner = &mut self.overlay_info_bar_corner;
-                        let (overlay_size, info_bar_size) = (&mut self.overlay_size, &mut self.overlay_info_bar_size);
-                        let handles = &mut self.handles;
-                        let scanner = &mut self.mining.scanner;
-                        let (volume, play_sound, sound_playing) =
-                            (self.volume, self.play_sound, &mut self.sound_playing);
-                        let mut reset = false;
-                        let mut hotkey_refused = false;
-                        // A key another shortcut holds: the row that holds it.
-                        let mut hotkey_taken: Option<usize> = None;
-                        // Switched off in the settings file, the overlay's own hotkey holds no key either.
-                        let overlay_on = self.hotkey_on;
-                        let (desktop, mut shortcut_copied) = (&self.desktop, false);
-                        settings::settings_page_wide(
-                            page,
-                            scheme,
-                            "overlay",
-                            &group_refs(&groups),
-                            // Cards of rows in the columns of cards; the signature window, an editor on pictures of
-                            // the game, over the whole width under them.
-                            &[9],
-                            &mut |ui, g, r| {
-                                let r = if bank_hidden && g == 5 && r >= bank_at { r + 1 } else { r };
-                                let (name, hint, choices) = rows[g].1[r];
-                                let name = label(name);
-                                // The opacity of an overlay drawn without transparency says why it has no effect.
-                                let hint = if (g, r, opaque) == (0, 5, true) { "ov_s_deck_ohne_h" } else { hint };
-                                let hint = label(hint);
-                                let hint = hint.as_str();
-                                if (g, r) == (0, 0) {
-                                    // Comes and folds with the game, no switch: a small heading over the two switches
-                                    // that change it, its hint on hover.
-                                    subheading(ui, scheme, &name, hint);
-                                } else if g == 0 {
-                                    // What the overlay shows and how: one line each, the hint on hover.
-                                    settings::setting_line(ui, scheme, &name, hint, false, |row| match r {
-                                        1 => {
-                                            row.add(widgets::Toggle::new(overlay_always, scheme));
-                                        }
-                                        2 => {
-                                            row.add(widgets::Toggle::new(clickable, scheme));
-                                        }
-                                        3 => {
-                                            row.add(widgets::Toggle::new(auto, scheme));
-                                        }
-                                        // A number: − field + with its unit.
-                                        4 => {
-                                            widgets::number_field(
-                                                row,
-                                                scheme,
-                                                "overlay-zeilen",
-                                                lines,
-                                                OVERLAY_ROWS.0..=OVERLAY_ROWS.1,
-                                                &label(choices[0]),
-                                            );
-                                        }
-                                        5 => {
-                                            settings::slider_with_value(row, scheme, &name, opacity, (30, 100), false, |n| {
-                                                format!("{n} %")
-                                            });
-                                        }
-                                        _ => window_size_slider(row, scheme, &name, overlay_size),
-                                    });
-                                } else if g == 2 && r == 0 {
-                                    // Always, or only on news.
-                                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
-                                        if widgets::radio(row, scheme, !*popup, &label(choices[0])).clicked() {
-                                            *popup = false;
-                                        }
-                                        if widgets::radio(row, scheme, *popup, &label(choices[1])).clicked() {
-                                            *popup = true;
-                                        }
-                                    });
-                                } else if g == 2 {
-                                    // The seconds belong to „only on news“: grey while the overlay is always there.
-                                    let on_news = *popup;
-                                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
-                                        row.add_enabled_ui(on_news, |row| {
-                                            widgets::number_field(
-                                                row,
-                                                scheme,
-                                                "overlay-sekunden",
-                                                seconds,
-                                                2..=60,
-                                                &label(choices[0]),
-                                            );
-                                        });
-                                    });
-                                } else if g == 3 {
-                                    // A shortcut in one line: its switch (the overlay's own is always on, its switch
-                                    // stands on and grey), its name, the modifier keys and the key.
-                                    let names: Vec<String> = choices.iter().map(|w| label(w)).collect();
-                                    let keys = hotkey_names();
-                                    let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
-                                    // The six as the overlay registers them, before this frame's change.
-                                    let rows_before = [
-                                        (*modifiers, *key, overlay_on),
-                                        (*scan_modifiers, *scan_key, *scan_on && scan_possible),
-                                        (*search_modifiers, *search_key, *search_on),
-                                        (*picture_modifiers, *picture_key, *picture_on && picture_possible),
-                                        (*main_modifiers, *main_key, *main_on),
-                                        (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
-                                        (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
-                                        (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
-                                        (*antiafk_modifiers, *antiafk_key, *antiafk_on && antiafk_possible),
-                                        (*scanner_hk_modifiers, *scanner_hk_key, *scanner_hk_on && picture_possible),
-                                        (*clear_hk_modifiers, *clear_hk_key, *clear_hk_on),
-                                        (*learn_hk_modifiers, *learn_hk_key, *learn_hk_on && picture_possible),
-                                    ];
-                                    let (switch, held, chosen, id): (Option<&mut bool>, &mut [bool; 3], &mut usize, &str) =
-                                        match r {
-                                            0 => (None, &mut *modifiers, &mut *key, "overlay"),
-                                            1 => (Some(&mut *scan_on), &mut *scan_modifiers, &mut *scan_key, "overlay-scan"),
-                                            2 => (Some(&mut *search_on), &mut *search_modifiers, &mut *search_key, "overlay-suche"),
-                                            3 => (Some(&mut *picture_on), &mut *picture_modifiers, &mut *picture_key, "overlay-bild"),
-                                            4 => (Some(&mut *main_on), &mut *main_modifiers, &mut *main_key, "overlay-haupt"),
-                                            5 => (
-                                                Some(&mut *blueprint_on),
-                                                &mut *blueprint_modifiers,
-                                                &mut *blueprint_key,
-                                                "overlay-bauplan",
-                                            ),
-                                            6 => (Some(&mut *stock_on), &mut *stock_modifiers, &mut *stock_key, "overlay-lager"),
-                                            7 => (Some(&mut *unit_on), &mut *unit_modifiers, &mut *unit_key, "overlay-staffellager"),
-                                            8 => (
-                                                Some(&mut *antiafk_on),
-                                                &mut *antiafk_modifiers,
-                                                &mut *antiafk_key,
-                                                "overlay-antiafk",
-                                            ),
-                                            9 => (
-                                                Some(&mut *scanner_hk_on),
-                                                &mut *scanner_hk_modifiers,
-                                                &mut *scanner_hk_key,
-                                                "overlay-scanner",
-                                            ),
-                                            10 => (
-                                                Some(&mut *clear_hk_on),
-                                                &mut *clear_hk_modifiers,
-                                                &mut *clear_hk_key,
-                                                "overlay-leeren",
-                                            ),
-                                            _ => (
-                                                Some(&mut *learn_hk_on),
-                                                &mut *learn_hk_modifiers,
-                                                &mut *learn_hk_key,
-                                                "overlay-anlernen",
-                                            ),
-                                        };
-                                    // The refinery scan, the picture of the game and the blueprint scan read the
-                                    // screen: only where that works.
-                                    let possible = match r {
-                                        1 => scan_possible,
-                                        3 => picture_possible,
-                                        5..=7 => blueprint_possible,
-                                        8 => antiafk_possible,
-                                        // The signature scanner reads the screen too.
-                                        9 => picture_possible,
-                                        // The teaching shows pictures of the scanner.
-                                        11 => picture_possible,
-                                        _ => true,
-                                    };
-                                    let before = (*held, *chosen);
-                                    // The keys only while the shortcut is on.
-                                    let switch = possible.then_some(switch).flatten();
-                                    shortcut_line(ui, scheme, &name, hint, switch, r == 0, |line| {
-                                        if !possible {
-                                            let reason = language::t("s_nicht_moegl");
-                                            line.label(RichText::new(reason).color(color(scheme.sub)));
-                                            return;
-                                        }
-                                        let mut words: Vec<(&str, bool)> =
-                                            names.iter().zip(held.iter()).map(|(w, on)| (w.as_str(), *on)).collect();
-                                        widgets::hotkey_picker(line, scheme, id, &mut words, &keys, chosen, &name);
-                                        for (on, (_, pressed)) in held.iter_mut().zip(words) {
-                                            *on = pressed;
-                                        }
-                                    });
-                                    // A letter or a digit without Strg, Alt or Umschalt is no hotkey: the saved one
-                                    // stays, and the reason is said below the page. F13 by itself is one (Kuehlwagen).
-                                    let refused = keep_hotkey(held, chosen, before);
-                                    match r {
-                                        0 => hotkey_refused |= refused,
-                                        1 => scan_refused |= refused,
-                                        2 => search_refused |= refused,
-                                        3 => picture_refused |= refused,
-                                        4 => main_refused |= refused,
-                                        5 => blueprint_refused |= refused,
-                                        6 => stock_refused |= refused,
-                                        7 => unit_refused |= refused,
-                                        8 => antiafk_refused |= refused,
-                                        9 => scanner_hk_refused |= refused,
-                                        10 => clear_hk_refused |= refused,
-                                        _ => learn_hk_refused |= refused,
-                                    }
-                                    // A key another shortcut that is on holds already: the change goes back (a switch
-                                    // turned on goes off again), and the reason is said below the page. One press must
-                                    // not do two things.
-                                    let rows_now = [
-                                        (*modifiers, *key, overlay_on),
-                                        (*scan_modifiers, *scan_key, *scan_on && scan_possible),
-                                        (*search_modifiers, *search_key, *search_on),
-                                        (*picture_modifiers, *picture_key, *picture_on && picture_possible),
-                                        (*main_modifiers, *main_key, *main_on),
-                                        (*blueprint_modifiers, *blueprint_key, *blueprint_on && blueprint_possible),
-                                        (*stock_modifiers, *stock_key, *stock_on && blueprint_possible),
-                                        (*unit_modifiers, *unit_key, *unit_on && blueprint_possible),
-                                        (*antiafk_modifiers, *antiafk_key, *antiafk_on && antiafk_possible),
-                                        (*scanner_hk_modifiers, *scanner_hk_key, *scanner_hk_on && picture_possible),
-                                        (*clear_hk_modifiers, *clear_hk_key, *clear_hk_on),
-                                        (*learn_hk_modifiers, *learn_hk_key, *learn_hk_on && picture_possible),
-                                    ];
-                                    let changed =(rows_now[r].0, rows_now[r].1) != before;
-                                    let turned_on = rows_now[r].2 && !rows_before[r].2;
-                                    let holder = any_holder(r, &active_hotkeys(rows_now));
-                                    // A shortcut just switched on that still has its default key, which another one
-                                    // holds now: it gives way to a spare key, as the overlay does at its next start
-                                    // (`overlay::resolve`), and does not spring back off.
-                                    let spare = (turned_on && !changed && holder.is_some())
-                                        .then(|| spare_for(r, &active_hotkeys(rows_now), (rows_now[r].0, rows_now[r].1)))
-                                        .flatten();
-                                    if let Some((spare_modifiers, spare_key)) = spare {
-                                        let (held, chosen) = match r {
-                                            0 => (&mut *modifiers, &mut *key),
-                                            1 => (&mut *scan_modifiers, &mut *scan_key),
-                                            2 => (&mut *search_modifiers, &mut *search_key),
-                                            3 => (&mut *picture_modifiers, &mut *picture_key),
-                                            4 => (&mut *main_modifiers, &mut *main_key),
-                                            5 => (&mut *blueprint_modifiers, &mut *blueprint_key),
-                                            6 => (&mut *stock_modifiers, &mut *stock_key),
-                                            7 => (&mut *unit_modifiers, &mut *unit_key),
-                                            8 => (&mut *antiafk_modifiers, &mut *antiafk_key),
-                                            9 => (&mut *scanner_hk_modifiers, &mut *scanner_hk_key),
-                                            10 => (&mut *clear_hk_modifiers, &mut *clear_hk_key),
-                                            _ => (&mut *learn_hk_modifiers, &mut *learn_hk_key),
-                                        };
-                                        (*held, *chosen) = (spare_modifiers, spare_key);
-                                    } else if (changed || turned_on)
-                                        && let Some(by) = holder
-                                    {
-                                        let (held, chosen, on) = match r {
-                                            0 => (&mut *modifiers, &mut *key, None),
-                                            1 => (&mut *scan_modifiers, &mut *scan_key, Some(&mut *scan_on)),
-                                            2 => (&mut *search_modifiers, &mut *search_key, Some(&mut *search_on)),
-                                            3 => (&mut *picture_modifiers, &mut *picture_key, Some(&mut *picture_on)),
-                                            4 => (&mut *main_modifiers, &mut *main_key, Some(&mut *main_on)),
-                                            5 => (&mut *blueprint_modifiers, &mut *blueprint_key, Some(&mut *blueprint_on)),
-                                            6 => (&mut *stock_modifiers, &mut *stock_key, Some(&mut *stock_on)),
-                                            7 => (&mut *unit_modifiers, &mut *unit_key, Some(&mut *unit_on)),
-                                            8 => (&mut *antiafk_modifiers, &mut *antiafk_key, Some(&mut *antiafk_on)),
-                                            9 => (&mut *scanner_hk_modifiers, &mut *scanner_hk_key, Some(&mut *scanner_hk_on)),
-                                            10 => (&mut *clear_hk_modifiers, &mut *clear_hk_key, Some(&mut *clear_hk_on)),
-                                            _ => (&mut *learn_hk_modifiers, &mut *learn_hk_key, Some(&mut *learn_hk_on)),
-                                        };
-                                        if changed {
-                                            (*held, *chosen) = before;
-                                        } else if let Some(on) = on {
-                                            *on = false;
-                                        }
-                                        hotkey_taken = Some(by);
-                                    } else if let Some(by) = earlier_holder(r, &active_hotkeys(rows_now)) {
-                                        // Read so from the settings: not registered, and the line says by which.
-                                        let by = language::t(versekit_core::overlay::Shortcut::ALL[by].short_key());
-                                        let text = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(by))]);
-                                        ui.horizontal(|line| {
-                                            line.add_space(widgets::TOGGLE_SIZE.x + line.spacing().item_spacing.x);
-                                            line.add(egui::Label::new(RichText::new(text).color(color(scheme.yellow))).wrap());
-                                        });
-                                    }
-                                    if r == 4 {
-                                        // Under Wayland: the way through a shortcut of the desktop, whose command
-                                        // shows the main window of a running program.
-                                        shortcut_copied |= desktop.shortcut_hint(ui, scheme);
-                                    }
-                                } else if g == 7 {
-                                    // The settings of the handle search, which shows in the bar: what they are for
-                                    // as the small heading, then their rows.
-                                    subheading(ui, scheme, hint, "");
-                                    crate::handle_page::show_settings(ui, scheme, handles);
-                                } else if g == 8 {
-                                    // The sounds of the scans: the name, what it means on hover, a button that plays
-                                    // it at the volume set and, while it plays, a word that says so.
-                                    let cue = Cue::SCAN[r];
-                                    let now = ui.input(|i| i.time);
-                                    let sounding = sound_playing.is_some_and(|(c, until)| c == cue && now < until);
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        let play = label(choices[0]);
-                                        let spoken = tf("s_ton_anhoeren_n", &[("0", Arg::from(name.as_str()))]);
-                                        let silent = (volume <= 0).then(|| t("s_ton_stumm"));
-                                        let button = widgets::Button::new(&play, ButtonKind::Normal, scheme)
-                                            .icon("volume-2")
-                                            .spoken(&spoken)
-                                            .blocked(silent.as_deref());
-                                        if row.add(button).clicked() && volume > 0 {
-                                            play_sound(cue, volume);
-                                            *sound_playing = Some((cue, now + cue.duration().as_secs_f64() + 0.4));
-                                            row.ctx().request_repaint();
-                                        }
-                                        if sounding {
-                                            row.label(RichText::new(t("s_ton_spielt")).color(color(scheme.accent)));
-                                            row.ctx().request_repaint_after(std::time::Duration::from_millis(100));
-                                        }
-                                    });
-                                } else if g == 9 {
-                                    // The window with the scanned material: its place and the search frame on two
-                                    // models side by side or one below the other (the frame has no row of its own), its
-                                    // size and the extra line in the overlay.
-                                    if r == 0 {
-                                        // The hotkey of the picture as the hint under its button names it, while it is
-                                        // on and can be had.
-                                        scanner.hotkey = (*picture_on && picture_possible)
-                                            .then(|| hotkey_text(*picture_modifiers, *picture_key))
-                                            .flatten()
-                                            .map(|text| glance_tiles::hotkey_in(language::current(), &text));
-                                        let frame_row = rows[g].1[3];
-                                        let (frame_name, frame_hint) = (label(frame_row.0), label(frame_row.1));
-                                        scanner_ui::model_cards(
-                                            ui,
-                                            scheme,
-                                            scanner,
-                                            [&name, hint, &label(choices[0])],
-                                            [&frame_name, &frame_hint, &label(frame_row.2[0])],
-                                        );
-                                    } else if r != 3 {
-                                        settings::setting_row(ui, scheme, &name, hint, false, |row| match r {
-                                            // The size in per mille of the game window's height.
-                                            1 => {
-                                                let mut size = i64::from(scanner.layout.size.0);
-                                                let range = (i64::from(Size::MIN.0), i64::from(Size::MAX.0));
-                                                settings::slider_with_value(row, scheme, &name, &mut size, range, false, |n| {
-                                                    format!("{n} ‰")
-                                                });
-                                                scanner.layout.size = Size(size as i32);
-                                            }
-                                            2 => {
-                                                row.add(widgets::Toggle::new(&mut scanner.layout.overlay_line, scheme));
-                                            }
-                                            // Above the signature or in the info bar.
-                                            4 => {
-                                                for (place, word) in Place::ALL.into_iter().zip(choices) {
-                                                    if widgets::radio(row, scheme, scanner.layout.place == place, &label(word))
-                                                        .clicked()
-                                                    {
-                                                        scanner.layout.place = place;
-                                                    }
-                                                }
-                                            }
-                                            5 => {
-                                                let range = versekit_core::signature_window::LINGER_RANGE;
-                                                let linger = &mut scanner.layout.linger;
-                                                settings::slider_with_value(row, scheme, &name, linger, range, false, |n| {
-                                                    format!("{n} s")
-                                                });
-                                            }
-                                            // The seconds between "Spielbild holen" and the picture.
-                                            6 if !picture_possible => {
-                                                let reason = language::t("s_nicht_moegl");
-                                                row.label(RichText::new(reason).color(color(scheme.sub)));
-                                            }
-                                            6 => {
-                                                for seconds in versekit_core::game_picture::DELAYS {
-                                                    let chosen = scanner.delay == seconds;
-                                                    if widgets::radio(row, scheme, chosen, &format!("{seconds} s")).clicked()
-                                                    {
-                                                        scanner.delay = seconds;
-                                                    }
-                                                }
-                                            }
-                                            _ => {}
-                                        });
-                                    }
-                                } else if g == 4 {
-                                    // The events that open the overlay: one switch each.
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        let event = versekit_core::overlay::Event::ALL[r];
-                                        let mut on = events.contains(event);
-                                        if row.add(widgets::Toggle::new(&mut on, scheme)).changed() {
-                                            *events = events.with(event, on);
-                                        }
-                                    });
-                                } else if g == 5 && r == versekit_core::overlay::Section::ALL.len() {
-                                    // After the switches: the most contracts the game allows, for the head of the bar.
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        let range = versekit_core::overlay::CONTRACTS_MAX_RANGE;
-                                        let id = "auftraege-hoechstzahl";
-                                        widgets::number_field(row, scheme, id, contracts_max, range.0..=range.1, "");
-                                    });
-                                } else if g == 5 {
-                                    // What the open overlay shows: one switch each.
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        let section = versekit_core::overlay::Section::ALL[r];
-                                        let mut on = sections.contains(section);
-                                        if row.add(widgets::Toggle::new(&mut on, scheme)).changed() {
-                                            *sections = sections.with(section, on);
-                                        }
-                                    });
-                                } else if g == 6 && r == 3 {
-                                    // The size of the bar with its card and lines, apart from the overlay's.
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        window_size_slider(row, scheme, &name, info_bar_size);
-                                    });
-                                } else if g == 6 && r == 2 {
-                                    // Where the bar starts: top left, middle or right.
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        let corners = versekit_core::info_bar::Corner::ALL;
-                                        for (corner, word) in corners.into_iter().zip(choices) {
-                                            if widgets::radio(row, scheme, *info_bar_corner == corner, &label(word))
-                                                .clicked()
-                                            {
-                                                *info_bar_corner = corner;
-                                            }
-                                        }
-                                    });
-                                } else if g == 6 {
-                                    // The bar itself, whether it shows without the game too, and the frame rates
-                                    // (in the bar while it is on, else beside the shard in the overlay).
-                                    let switch = match r {
-                                        0 => &mut *info_bar,
-                                        1 => &mut *info_bar_always,
-                                        4 => &mut *fps,
-                                        5 => &mut *server_fps,
-                                        _ => &mut *players,
-                                    };
-                                    settings::setting_row(ui, scheme, &name, hint, false, |row| {
-                                        row.add(widgets::Toggle::new(switch, scheme));
-                                    });
-                                } else if r == 0 {
-                                    // The place: its name as the small heading (a row without a control is one), under
-                                    // it the field of the four corners with free movement in the middle row and the bar
-                                    // beside it.
-                                    subheading(ui, scheme, &name, hint);
-                                    // The field right under its heading, at the left of the card: no space before it.
-                                    settings::overlay_place(ui, scheme, place, bar, &texts);
-                                    ui.add_space(6.0);
-                                } else {
-                                    // Forget the place: back to the middle, free, bar on top.
-                                    settings::setting_line(ui, scheme, &name, hint, false, |row| {
-                                        if row
-                                            .add(widgets::Button::new(&label(choices[0]), ButtonKind::Normal, scheme))
-                                            .clicked()
-                                        {
-                                            reset = true;
-                                        }
-                                    });
-                                }
-                            },
-                        );
-                        if shortcut_copied {
-                            self.copied_at = Some(page.input(|i| i.time));
-                        }
-                        // A letter or a digit left without a modifier: why, and which combination stays.
-                        for (refused, modifiers, key) in [
-                            (hotkey_refused, self.hotkey_modifiers, self.hotkey_key),
-                            (scan_refused, self.scan_modifiers, self.scan_key),
-                            (search_refused, self.search_modifiers, self.search_key),
-                            (picture_refused, self.picture_modifiers, self.picture_key),
-                            (main_refused, self.main_modifiers, self.main_key),
-                            (blueprint_refused, self.blueprint_modifiers, self.blueprint_key),
-                            (stock_refused, self.stock_modifiers, self.stock_key),
-                            (unit_refused, self.unit_modifiers, self.unit_key),
-                            (antiafk_refused, self.antiafk_modifiers, self.antiafk_key),
-                            (scanner_hk_refused, self.scanner_hk_modifiers, self.scanner_hk_key),
-                            (clear_hk_refused, self.clear_hk_modifiers, self.clear_hk_key),
-                            (learn_hk_refused, self.learn_hk_modifiers, self.learn_hk_key),
-                        ] {
-                            if refused {
-                                let saved = hotkey_text(modifiers, key).unwrap_or_default();
-                                let text = language::tf("s_bs_hotkey_nein", &[("0", language::Arg::from(saved))]);
-                                self.pin_notice = Some((page.input(|i| i.time), text));
-                            }
-                        }
-                        // A key another shortcut holds: which one, and that the key stays as it was.
-                        if let Some(by) = hotkey_taken {
-                            let rows = [
-                                (self.hotkey_modifiers, self.hotkey_key),
-                                (self.scan_modifiers, self.scan_key),
-                                (self.search_modifiers, self.search_key),
-                                (self.picture_modifiers, self.picture_key),
-                                (self.main_modifiers, self.main_key),
-                                (self.blueprint_modifiers, self.blueprint_key),
-                                (self.stock_modifiers, self.stock_key),
-                                (self.unit_modifiers, self.unit_key),
-                                (self.antiafk_modifiers, self.antiafk_key),
-                                (self.scanner_hk_modifiers, self.scanner_hk_key),
-                                (self.clear_hk_modifiers, self.clear_hk_key),
-                                (self.learn_hk_modifiers, self.learn_hk_key),
-                            ];
-                            let (modifiers, key) = rows[by];
-                            let combination = hotkey_text(modifiers, key).unwrap_or_default();
-                            let by = language::t(versekit_core::overlay::Shortcut::ALL[by].short_key());
-                            let text = language::tf(
-                                "s_hk_doppelt",
-                                &[("0", language::Arg::from(combination)), ("1", language::Arg::from(by))],
-                            );
-                            self.pin_notice = Some((page.input(|i| i.time), text));
-                        }
-                        // A new hotkey: the running overlay takes it with the settings (it registers all of them). The
-                        // ones of the handle search and of the picture count only while they are on, so switching
-                        // one on says it too.
-                        let search_now = self
-                            .search_hotkey_on
-                            .then(|| hotkey_text(self.search_modifiers, self.search_key))
-                            .flatten();
-                        let picture_now = self
-                            .picture_hotkey_on
-                            .then(|| hotkey_text(self.picture_modifiers, self.picture_key))
-                            .flatten();
-                        let main_now =
-                            self.main_hotkey_on.then(|| hotkey_text(self.main_modifiers, self.main_key)).flatten();
-                        let blueprint_now = self
-                            .blueprint_hotkey_on
-                            .then(|| hotkey_text(self.blueprint_modifiers, self.blueprint_key))
-                            .flatten();
-                        let stock_now =
-                            self.stock_hotkey_on.then(|| hotkey_text(self.stock_modifiers, self.stock_key)).flatten();
-                        let unit_now =
-                            self.unit_hotkey_on.then(|| hotkey_text(self.unit_modifiers, self.unit_key)).flatten();
-                        let antiafk_now = self
-                            .antiafk_hotkey_on
-                            .then(|| hotkey_text(self.antiafk_modifiers, self.antiafk_key))
-                            .flatten();
-                        let scanner_hk_now = self
-                            .scanner_hk_on
-                            .then(|| hotkey_text(self.scanner_hk_modifiers, self.scanner_hk_key))
-                            .flatten();
-                        let clear_hk_now =
-                            self.clear_hk_on.then(|| hotkey_text(self.clear_hk_modifiers, self.clear_hk_key)).flatten();
-                        let learn_hk_now =
-                            self.learn_hk_on.then(|| hotkey_text(self.learn_hk_modifiers, self.learn_hk_key)).flatten();
-                        let now_hotkeys = [
-                            hotkey_text(self.hotkey_modifiers, self.hotkey_key),
-                            hotkey_text(self.scan_modifiers, self.scan_key),
-                            search_now,
-                            picture_now,
-                            main_now,
-                            blueprint_now,
-                            stock_now,
-                            unit_now,
-                            antiafk_now,
-                            scanner_hk_now,
-                            clear_hk_now,
-                            learn_hk_now,
-                        ];
-                        let before_hotkeys = [
-                            hotkey_before,
-                            scan_before,
-                            search_before,
-                            picture_before,
-                            main_before,
-                            blueprint_before,
-                            stock_before,
-                            unit_before,
-                            antiafk_before,
-                            scanner_hk_before,
-                            clear_hk_before,
-                            learn_hk_before,
-                        ];
-                        for (before, now) in before_hotkeys.into_iter().zip(now_hotkeys) {
-                            if let Some(now) = now.filter(|now| before.as_ref() != Some(now))
-                                && (self.overlay_runs)()
-                            {
-                                let said = language::tf("s_hk_ok", &[("0", language::Arg::from(now))]);
-                                self.pin_notice = Some((page.input(|i| i.time), said));
-                            }
-                        }
-                        // Everything back (4.12 `reset_position`): the middle of the main screen in the default
-                        // size, the corner freed and the bar on top, or a fixed corner would send it back to where
-                        // it could not be reached. The settings go with the others at the end of the frame.
-                        if reset {
-                            self.overlay_place = settings::OverlayPlace::Free;
-                            self.bar_side = settings::BarSide::Top;
-                            let mut waits_hidden = false;
-                            if let Some(store) = &self.store {
-                                versekit_core::overlay::forget_place(&store.paths);
-                                // Without the game the overlay waits hidden: brought back, it still cannot be
-                                // seen, so the button says why and how to show it.
-                                // The game state the foot bar looked at last, while it is fresh; else asked anew.
-                                let now = page.input(|i| i.time);
-                                let running = match self.game_seen {
-                                    Some((at, running)) if now - at < GAME_LOOK_SECONDS => running,
-                                    _ => game_running_for_foot(&store.paths, (self.game_process)(&store.paths)),
-                                };
-                                waits_hidden = !self.overlay_always && !running;
-                            }
-                            self.place_reset_at = Some(page.ctx().input(|i| i.time));
-                            self.place_reset_waits = waits_hidden;
+                        if self.overlay_settings(page, scheme, false) {
+                            jump = Some(("hf_streamdeck".to_string(), "hf_gruppe_einst"));
                         }
                     }
                     "hf_darstellung" => {
@@ -5717,8 +5825,8 @@ impl SamplePage {
                         // A switch of the data folder waits for a restart: the bar on top.
                         if self.data_folder.restart_bar(page, scheme) {
                             if self.real() {
-                                // The window starts again and closes; a refused start is said and the bar stays.
-                                if !self.restart_now(page.ctx()) {
+                                // The whole program starts again; a refused start is said and the bar stays.
+                                if !self.restart_program(page.ctx()) {
                                     self.data_folder.restart_again();
                                 }
                             } else {
@@ -5938,6 +6046,13 @@ impl SamplePage {
                         widgets::status_box(page, scheme, scheme.yellow, "shield-alert", &infos[0], &infos[1]);
                     }
                     "s_os_seite" => crate::org_connect_page::show_page(page, scheme, &mut self.orgs),
+                    "hf_streamdeck" => {
+                        // All shortcuts first, then the Stream Deck.
+                        if !self.streamdeck_only {
+                            self.overlay_settings(page, scheme, true);
+                        }
+                        crate::streamdeck_page::show_page(page, scheme, &mut self.streamdeck);
+                    }
                     ORG_STOCK_PAGE => {
                         let link = self.orgs.link();
                         crate::org_data_stock_page::show_page(page, scheme, &mut self.org_lots, &link)
@@ -6462,7 +6577,7 @@ impl SamplePage {
             ui.end_row();
 
             ui.label(t("s_mu_fortschritt"));
-            widgets::progress(ui, scheme, self.value as f32 / 100.0, field_width);
+            widgets::progress(ui, scheme, self.value as f32 / 100.0, field_width, &t("s_mu_fortschritt"));
             ui.end_row();
 
             ui.label(t("s_mu_hinweis"));
@@ -6737,6 +6852,7 @@ const NAV: [(&str, &[(&str, &str)]); 10] = [
         &[
             ("hf_allgemein", "settings"),
             ("hf_overlay", "app-window"),
+            ("hf_streamdeck", "keyboard"),
             ("hf_darstellung", "palette"),
             ("hf_ordner", "folder"),
             ("hf_module", "puzzle"),
@@ -6777,10 +6893,34 @@ type Row = (&'static str, &'static str, &'static [&'static str]);
 /// The setting groups of a page: (group title, rows).
 type Groups = &'static [(&'static str, &'static [Row])];
 
+/// The twelve shortcuts, one line each: switch, name, modifier keys, key. They stand on the page of keys and Stream Deck
+/// and are drawn by the overlay settings as their group [`SHORTCUT_GROUP`].
+const SHORTCUT_ROWS: (&str, &[Row]) = (
+    "s_ov_gruppe_kuerzel",
+    &[
+        ("s_ei_ov_taste", "s_ei_ov_taste_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_scan", "s_hk_scan_h_2", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_suche", "s_hk_suche_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_bild", "s_hk_bild_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_haupt", "s_hk_haupt_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_bauplan", "s_hk_bauplan_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_lager", "s_hk_lager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_staffellager", "s_hk_staffellager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_antiafk", "s_hk_antiafk_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_scanner", "s_hk_scanner_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_leeren", "s_hk_leeren_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+        ("s_hk_anlernen", "s_hk_anlernen_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
+    ],
+);
+
+/// The number of the group of the shortcuts among the groups of the overlay page.
+const SHORTCUT_GROUP: usize = 3;
+
 /// The settings of the pages: (page, groups). The pages draw their rows
 /// from here and the menu filter searches the same table, so whatever a
 /// page shows can be found.
-const PAGE_SETTINGS: [(&str, Groups); 7] = [
+const PAGE_SETTINGS: [(&str, Groups); 8] = [
+    ("hf_streamdeck", &[SHORTCUT_ROWS]),
     (
         "k_basetool_verbindung",
         &[
@@ -6853,24 +6993,8 @@ const PAGE_SETTINGS: [(&str, Groups); 7] = [
                     ("s_ov_dauer", "ov_s_dauer_h", &["s_ov_sek_sichtbar"]),
                 ],
             ),
-            // The twelve shortcuts, one line each: switch, name, modifier keys, key.
-            (
-                "s_ov_gruppe_kuerzel",
-                &[
-                    ("s_ei_ov_taste", "s_ei_ov_taste_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_scan", "s_hk_scan_h_2", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_suche", "s_hk_suche_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_bild", "s_hk_bild_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_haupt", "s_hk_haupt_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_bauplan", "s_hk_bauplan_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_lager", "s_hk_lager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_staffellager", "s_hk_staffellager_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_antiafk", "s_hk_antiafk_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_scanner", "s_hk_scanner_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_leeren", "s_hk_leeren_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                    ("s_hk_anlernen", "s_hk_anlernen_h", &["s_ei_taste_strg", "Alt", "s_ei_taste_umschalt"]),
-                ],
-            ),
+            // The shortcuts stand on the page of keys and Stream Deck: one row that leads there.
+            ("s_ov_gruppe_kuerzel", &[("s_ov_kuerzel_wo", "s_ov_kuerzel_wo_h", &[])]),
             // The events that open the folded or waiting overlay, one switch each (the order of
             // `versekit_core::overlay::Event::ALL`).
             (
@@ -7094,8 +7218,12 @@ fn shortcut_line(
                     (*on, false)
                 }
                 None => {
+                    // Grey: an always-on shortcut says on hover why it cannot be switched off.
                     let mut fixed = always;
-                    line.add_enabled(false, widgets::Toggle::new(&mut fixed, scheme));
+                    let switch = line.add_enabled(false, widgets::Toggle::new(&mut fixed, scheme));
+                    if always {
+                        switch.on_disabled_hover_text(versekit_core::language::t("s_hk_immer_an_h"));
+                    }
                     (always, !always)
                 }
             };
@@ -7384,7 +7512,7 @@ fn searched_settings(page: &str, sample: bool) -> Groups {
 
 /// (group title, number of rows) as [`settings::settings_page`] takes them
 /// once the titles are written out (see [`group_refs`]).
-fn group_sizes(groups: Groups) -> Vec<(String, usize)> {
+fn group_sizes(groups: &[(&str, &[Row])]) -> Vec<(String, usize)> {
     groups.iter().map(|(title, rows)| (label(title), rows.len())).collect()
 }
 
@@ -7743,6 +7871,17 @@ fn base_infos(page: &str) -> Vec<String> {
         "hf_bedarf" => texts(&["s_bd_rohstoffe", "s_bd_gegenstaende", "s_bd_auftraege", "s_bt_jetzt"]),
         "hf_bank" => texts(&["s_bank_konten", "s_bank_antraege", "s_bank_warteschlange", "s_bank_neu"]),
         "hf_finanzen" => texts(&["s_fi_quellen", "s_fi_konto","s_fi_einnahmen", "s_fi_ausgaben", "s_fi_ergebnis"]),
+        "hf_streamdeck" => texts(&[
+            "sd_s_gruppe",
+            "sd_s_an",
+            "sd_s_status",
+            "sd_s_einrichten",
+            "sd_s_programm",
+            "sd_f_pruefen",
+            "sd_s_regler_kompakt",
+            "sd_s_seite_auto",
+            "sd_s_tasten_anzeigen",
+        ]),
         "hf_einkaufsliste" => texts(&[
             "s_ek_lead",
             "s_wk_route",
@@ -7832,6 +7971,7 @@ fn search_words(page: &str) -> &'static [&'static str] {
     match page {
         "k_basetool_verbindung" | "hf_staffellager" | "hf_bedarf" => &["basetool"],
         "s_os_seite" => &["orga", "org", "panel", "webpanel", "standard"],
+        "hf_streamdeck" => &["stream deck", "streamdeck", "elgato", "taste", "tasten", "kuerzel", "hotkey", "plugin", "key"],
         ORG_STOCK_PAGE => &["orga", "org", "lager", "bestand", "staffel", "stock"],
         ORG_ORDERS_PAGE => &["orga", "org", "auftraege", "lieferung", "staffel", "orders", "delivery"],
         "hf_bank" => &["basetool", "kartellbank", "bank", "konto", "account"],
@@ -8013,8 +8153,6 @@ fn usage_page_id(key: &str) -> Option<&'static str> {
         "hf_ueber" => Some("ueber"),
         "hf_diagnose" => Some("diagnose"),
         ASOP_PAGE => Some("asop"),
-        // The receiver of the counters has no id for the bank page: its views count with the Basetool connection.
-        "hf_bank" => Some("basetool"),
         // Any other page by its name in the overview, where the receiver knows that name; otherwise none.
         _ => versekit_core::overview::page_name(key).filter(|id| versekit_core::usage::PAGES.contains(id)),
     }
@@ -8063,6 +8201,11 @@ const CONTRACT_FINDER_PAGE: &str = "s_af_seite";
 const ORG_STOCK_PAGE: &str = "s_ol_seite";
 /// The page of the orders of an org.
 const ORG_ORDERS_PAGE: &str = "s_oa_seite";
+
+/// The page of the Stream Deck on the data of `paths`; a copy of the data gets it without the interface.
+fn streamdeck_page_state(paths: &Paths) -> crate::streamdeck_page::StreamDeckState {
+    crate::streamdeck_page::StreamDeckState::with_paths(paths, paths.given().data.is_some())
+}
 
 /// The group a page belongs to; empty for the page at the top of the menu, which has none.
 /// The menu group of the page `page`, for tools that open a page by its key.
@@ -8145,7 +8288,13 @@ fn overview_tile_content(
     let short = room.y < SHORT_TILE;
     let mut shown = 0;
     let lamps = counted.as_ref().and_then(|glance| glance.lamps);
+    // A line that says its data are still being read or asked for gets the spinner: the tile is not empty, it loads.
+    let loading = counted.is_some() && [t("s_uv_lese"), t("s_uv_cig_fragt")].iter().any(|said| said == line);
     let key_line = |ui: &mut egui::Ui| {
+        if loading {
+            widgets::loading(ui, scheme, line);
+            return;
+        }
         // The key figure large and bold, as the big number of 4.12.
         tiles::key_line(ui, line, figure, tone_color(scheme, line_tone));
         if let Some(lamps) = &lamps {
@@ -8457,6 +8606,34 @@ mod tests {
         assert!(!closes(&signals, &mut page), "and the request is not kept for later");
     }
 
+    /// A key of the Stream Deck opens any page of the menu, shows a hidden window, and a page that is not in the menu
+    /// opens nothing.
+    #[test]
+    fn a_page_of_the_stream_deck_opens_with_its_group_and_an_unknown_one_does_not() {
+        let ctx = egui::Context::default();
+        let mut page = SamplePage::preview();
+        let signals = MainSignals::default();
+        let step = |signals: &MainSignals, page: &mut SamplePage| {
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| signals.apply(ui.ctx(), page));
+            output.textures_delta.clear();
+            let root = output.viewport_output.get(&egui::ViewportId::ROOT);
+            root.is_some_and(|v| v.commands.contains(&egui::ViewportCommand::Visible(true)))
+        };
+        signals.note_page("hf_bergung");
+        assert!(step(&signals, &mut page), "shown");
+        assert_eq!(page.page, "hf_bergung");
+        signals.note_page("s_af_seite");
+        assert!(!step(&signals, &mut page), "not a page of the menu: nothing");
+        assert_eq!(page.page, "hf_bergung");
+        // Every page a key may ask for is a page of the menu.
+        for key in versekit_core::streamdeck::PAGES {
+            assert!(group_of(key).is_some(), "{key}");
+        }
+        let menu: Vec<&str> =
+            std::iter::once(TOP_PAGE.0).chain(NAV.iter().flat_map(|(_, pages)| pages.iter().map(|(p, _)| *p))).collect();
+        assert_eq!(menu, versekit_core::streamdeck::PAGES, "the list of the Stream Deck is the menu");
+    }
+
     /// A window the player closed is only hidden: the overview and the pages the overlay asks for show it again,
     /// a change of the settings does not.
     #[test]
@@ -8614,17 +8791,22 @@ mod tests {
         assert_eq!(usage_page_id("hf_diagnose"), Some("diagnose"));
         assert_eq!(usage_page_id("hf_meinlager"), Some("meinlager"));
         assert_eq!(usage_page_id("eigene_seite"), None);
-        // Every page of the side bar has an id the receiver takes, the handle search included; the flight log is
-        // not counted until the receiver knows it.
-        for (page, id) in [("s_os_seite", "orgaverbinden"), (ORG_STOCK_PAGE, "orgalager"), (ORG_ORDERS_PAGE, "orgaauftraege")] {
+        // Every page of the side bar has an id the receiver takes, the handle search and the pages new in VerseKit 5
+        // included.
+        for (page, id) in [
+            ("s_os_seite", "orgaverbinden"),
+            (ORG_STOCK_PAGE, "orgalager"),
+            (ORG_ORDERS_PAGE, "orgaauftraege"),
+            ("hf_st_flugbuch", "statistik_flugbuch"),
+            ("hf_finanzen", "finanzen"),
+            ("hf_streamdeck", "streamdeck"),
+            ("hf_bank", "bank"),
+            ("hf_signatur", "signatur"),
+        ] {
             assert_eq!(usage_page_id(page), Some(id), "{page}");
         }
-        let not_counted = ["hf_st_flugbuch", "hf_finanzen"];
-        for page in not_counted {
-            assert_eq!(usage_page_id(page), None, "{page}");
-        }
         for (_, pages) in NAV {
-            for (page, _) in pages.iter().filter(|(page, _)| !not_counted.contains(page)) {
+            for (page, _) in pages.iter() {
                 let id = usage_page_id(page).unwrap_or_else(|| panic!("{page} has no id"));
                 assert!(versekit_core::usage::PAGES.contains(&id), "{page} → {id}");
             }
@@ -9708,7 +9890,8 @@ mod tests {
         assert!(wire.sync.set_setting(SETTING_ORGSTOCK, Value::Bool(true)));
         assert!(page.page_hidden("hf_staffellager"), "switched on, but not connected");
         wire.sync.connect();
-        let end = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        // The made-up login runs on a thread of its own: waited for, at most two minutes on a loaded computer.
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(120);
         while !wire.sync.connection().connected() && std::time::Instant::now() < end {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
@@ -9759,6 +9942,45 @@ mod tests {
         let lit: Vec<bool> = hits.iter().map(|h| nav_lit(h, &hits, "")).collect();
         assert_eq!(lit, [true, false, false]);
         assert!(nav_lit("Overlay", &hits[..1], "Darstellung"));
+    }
+
+    /// A tile whose data are still being read ("Wird gelesen …", "wird abgefragt …") shows the spinner beside the line,
+    /// a tile with its data none. The spinner is the one path the tile draws.
+    #[test]
+    fn a_tile_that_still_loads_shows_the_spinner_and_one_with_its_data_none() {
+        use versekit_core::language::{Choice, set_thread_language};
+        let _language = crate::language_lock();
+        set_thread_language(Choice::De);
+        let scheme = theme::schemes().first().expect("a scheme");
+        let ctx = egui::Context::default();
+        crate::install(&ctx);
+        let paths_drawn = |line: String| {
+            let mut real = glance::Overview::default();
+            real.tiles.insert("standort", glance::Glance::new(line, Vec::new()));
+            let mut paths = 0;
+            for _ in 0..2 {
+                let input = egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(400.0, 300.0))),
+                    ..Default::default()
+                };
+                let mut output = ctx.run_ui(input, |ui| {
+                    overview_tile_content(ui, scheme, "standort", Some(&real));
+                });
+                output.textures_delta.clear();
+                fn count(shape: &egui::epaint::Shape) -> usize {
+                    match shape {
+                        egui::epaint::Shape::Path(_) => 1,
+                        egui::epaint::Shape::Vec(shapes) => shapes.iter().map(count).sum(),
+                        _ => 0,
+                    }
+                }
+                paths = output.shapes.iter().map(|clipped| count(&clipped.shape)).sum();
+            }
+            paths
+        };
+        assert!(paths_drawn(t("s_uv_lese")) > 0, "reading: the spinner");
+        assert!(paths_drawn(t("s_uv_cig_fragt")) > 0, "asking: the spinner");
+        assert_eq!(paths_drawn("Area18 seit 18:30".to_string()), 0, "with its data: no spinner");
     }
 
     /// A tile colors its lines as it is told (the accent for what is fine, gold for a look, red for what is wrong)

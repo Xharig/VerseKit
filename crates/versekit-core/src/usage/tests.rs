@@ -442,7 +442,10 @@ fn the_lists_match_the_receiver() {
             ("MAX_MISS_PAIRS".to_string(), MAX_MISS_PAIRS as i64)
         ]
     );
-    assert_eq!(lists.pages.len(), 69);
+    assert_eq!(lists.pages.len(), 74);
+    for new in ["signatur", "finanzen", "bank", "statistik_flugbuch", "streamdeck"] {
+        assert!(PAGES.contains(&new) && lists.pages.contains(new), "{new} is counted and taken");
+    }
     assert!(PAGES.contains(&"handlesuche") && lists.pages.contains("handlesuche"), "the handle search is counted");
 }
 

@@ -655,6 +655,11 @@ impl World {
         ];
         let details = self.granted.as_ref().is_some_and(|g| g.iter().any(|r| r == "exchange.demand.details"));
         if details {
+            // What a player of the org typed reads in the language of the preview.
+            let (requesting, comment) = match crate::language::current() {
+                crate::language::Lang::En => ("Cargo Command", "Please by Friday"),
+                crate::language::Lang::De => ("Frachtkommando", "Bitte bis Freitag"),
+            };
             let order = object(vec![
                 ("id", Value::str("o-12")),
                 ("number", Value::int(12)),
@@ -662,9 +667,9 @@ impl World {
                 ("status", Value::str("OPEN")),
                 ("priority", Value::int(1)),
                 ("unit", named("Alpha")),
-                ("requestingUnit", named("Fracht")),
+                ("requestingUnit", named(requesting)),
                 ("handle", Value::str("PlayerTwo")),
-                ("comment", Value::str("Bitte bis Freitag")),
+                ("comment", Value::str(comment)),
                 ("materials", Value::Array(vec![material("Laranite", amount(10.0, SCU), 600, &[])])),
                 ("items", Value::Array(vec![item("FR-66 Shield", 1, true)])),
             ]);
@@ -1304,9 +1309,10 @@ mod tests {
         dir.to_string_lossy().into_owned()
     }
 
-    /// Waits for `done`, at most `seconds`.
+    /// Waits for `done`, at most `seconds`, and never less than two minutes: the made-up Basetool answers from
+    /// threads of its own, slow on a loaded computer; the wait ends as soon as `done` holds.
     fn wait_for(seconds: u64, mut done: impl FnMut() -> bool) -> bool {
-        let end = std::time::Instant::now() + std::time::Duration::from_secs(seconds);
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(seconds.max(120));
         while std::time::Instant::now() < end {
             if done() {
                 return true;

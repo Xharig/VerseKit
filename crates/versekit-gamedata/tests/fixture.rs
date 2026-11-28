@@ -238,7 +238,7 @@ fn reading_leaves_the_channel_folder_unchanged() {
 
 #[test]
 fn missing_archive_is_an_error() {
-    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("versekit-gamedata").join("no-archive");
+    let folder = common::run_root().join("no-archive");
     fs::create_dir_all(&folder).unwrap();
     assert!(matches!(GameData::open(&folder), Err(Error::Archive { .. })));
 }

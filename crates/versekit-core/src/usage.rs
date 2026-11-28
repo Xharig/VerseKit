@@ -96,7 +96,7 @@ fn known_action(key: &str) -> bool {
 /// by the view it shows: `bergung` for a wreck, `zerlegen` for the calculation of a part.
 /// `statistik_auswertung` stays in the list: the receiver knows it, and the counts under it are added to
 /// `statistik` by [`ALIASES`].
-pub const PAGES: [&str; 66] = [
+pub const PAGES: [&str; 71] = [
     "uebersicht",
     "liste",
     "fortschritt",
@@ -163,6 +163,12 @@ pub const PAGES: [&str; 66] = [
     "bereich_spiel_einst",
     "bereich_basetool",
     "bereich_info",
+    // New pages of VerseKit 5.
+    "signatur",
+    "finanzen",
+    "bank",
+    "statistik_flugbuch",
+    "streamdeck",
 ];
 
 /// A page that is left within these seconds is a miss (`MISS_SECONDS`).

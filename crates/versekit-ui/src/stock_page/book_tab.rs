@@ -555,9 +555,10 @@ mod tests {
         harness
     }
 
-    /// Runs frames until the booking on its thread came back (at most ten seconds).
+    /// Runs frames until the booking on its thread came back (at most a minute: the stock lock is one for the whole
+    /// process, and the other checks of the stock take it too).
     fn finish_work(harness: &mut egui_kittest::Harness<'static, BookTab>) {
-        let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(60);
         harness.run_steps(1);
         while harness.state().working.is_some() {
             assert!(std::time::Instant::now() < until, "the booking came back");
@@ -591,7 +592,7 @@ mod tests {
             let entries = stock::load(&paths.app_file(stock::TRADE_FILE), "test");
             let _ = done.send(entries.first().map(|entry| stock::number_of(entry, "menge")));
         });
-        let booked = finished.recv_timeout(std::time::Duration::from_secs(30)).expect("the frame does not wait for ever");
+        let booked = finished.recv_timeout(std::time::Duration::from_secs(120)).expect("the frame does not wait for ever");
         assert_eq!(booked, Some(4.0));
     }
 

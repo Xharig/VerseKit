@@ -43,6 +43,7 @@ VerseKit liegt als schmales Overlay über Star Citizen und meldet jeden neuen Ba
 - **Für deine Orga, über eine offene Schnittstelle:** VerseKit verbindet sich mit dem Panel deiner Orga und zeigt deren Lager, Baupläne und Aufträge neben deinen eigenen. Deinen Bestand teilst du auf Klick zurück. Die Schnittstelle ist ein offener Standard, den jede Orga in ihr Panel einbauen kann, und wer keins hat, hostet den fertigen Orga-Server selbst. Mehr unten unter *Für Orgas*.
 - **Übersetzung je Kanal:** Deutsch, Französisch, Spanisch, Bayrisch, Niederländisch und mehr, getrennt für LIVE, HOTFIX und PTU.
 - **Spiel-Einstellungen von außen:** Steuerung, Grafik samt Shader-Cache, Achsen und Sichtfeld, ohne ins Spiel zu wechseln.
+- **Stream Deck:** Ein eigenes Plugin mit fertigen Profilen für jede Gerätegröße, von Mini bis Stream Deck + XL, mit über 160 Spielaktionen. Fehlende Tasten trägt VerseKit mit einem Klick ins Spiel ein. Die Profile liegen als ZIP an jedem Release, die Anleitung steht auf der **[Stream-Deck-Seite](https://versekit.xharig.com/streamdeck/)**.
 
 ## Herunterladen
 
@@ -50,6 +51,7 @@ VerseKit liegt als schmales Overlay über Star Citizen und meldet jeden neuen Ba
 |---|---|---|
 | **Windows** | [`VerseKit-Setup.exe`](https://github.com/Xharig/VerseKit/releases/latest) | Installer mit Startmenü-Eintrag, sauber deinstallierbar |
 | **Linux** | [`VerseKit-x86_64.AppImage`](https://github.com/Xharig/VerseKit/releases/latest) | Eine Datei, einmal ausführbar machen |
+| **Stream Deck** | [`VerseKit-StreamDeck-Profile.zip`](https://github.com/Xharig/VerseKit/releases/latest/download/VerseKit-StreamDeck-Profile.zip) | Profile für jede Gerätegröße, das Plugin richtet VerseKit selbst ein |
 
 Starten, und ein Assistent richtet in etwa einer Minute alles ein. VerseKit ist kostenlos und quelloffen, braucht kein Konto und hält sich selbst aktuell: Es sieht alle zehn Minuten nach und spielt eine neue Version ein, sobald Star Citizen geschlossen ist, unter Windows auch beim Beenden von VerseKit. Die Warnung von Windows beim ersten Start ist kein Virenfund, mehr dazu unten unter *Installation im Einzelnen*.
 

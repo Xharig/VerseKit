@@ -186,6 +186,9 @@ pub enum DataKind {
     Demand = 1,
     /// What the overlay shows of the Kartellbank (`basetool::bank::handover`), from the main window to the overlay.
     Bank = 2,
+    /// The key of a page of the menu (`hf_bergbau`), from the overlay to the main window: a key of the Stream Deck
+    /// asked for it. Only keys of [`crate::streamdeck::PAGES`] are opened.
+    Page = 3,
 }
 
 impl DataKind {
@@ -193,9 +196,15 @@ impl DataKind {
         match code {
             1 => Some(DataKind::Demand),
             2 => Some(DataKind::Bank),
+            3 => Some(DataKind::Page),
             _ => None,
         }
     }
+}
+
+/// The page key a [`DataKind::Page`] handing over carries; `None` for one that may not be opened.
+pub fn page_of(bytes: &[u8]) -> Option<&str> {
+    std::str::from_utf8(bytes).ok().filter(|key| crate::streamdeck::page_allowed(key))
 }
 
 /// The most bytes one handing over carries; longer data are not sent.
@@ -259,12 +268,13 @@ mod imp {
 
     use windows_sys::Win32::Foundation::{HANDLE, HWND, LPARAM, LRESULT, WPARAM};
     use windows_sys::Win32::System::DataExchange::COPYDATASTRUCT;
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetActiveWindow, GetFocus, SetFocus};
     use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GetPropW, HWND_NOTOPMOST, HWND_TOPMOST, IsIconic, IsWindowVisible, PostMessageW,
-        RegisterWindowMessageW, RemovePropW, SMTO_ABORTIFHUNG, SMTO_BLOCK, SW_SHOWNOACTIVATE, SWP_ASYNCWINDOWPOS,
-        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SendMessageTimeoutW, SetPropW, SetWindowPos, ShowWindowAsync, WM_CLOSE,
-        WM_COPYDATA, WM_NCDESTROY, WM_NULL,
+        RegisterWindowMessageW, RemovePropW, SIZE_MINIMIZED, SMTO_ABORTIFHUNG, SMTO_BLOCK, SW_SHOWNOACTIVATE,
+        SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SendMessageTimeoutW, SetPropW, SetWindowPos,
+        ShowWindowAsync, WM_CLOSE, WM_COPYDATA, WM_NCDESTROY, WM_NULL, WM_SIZE, WM_SYSKEYDOWN,
     };
 
     use super::{ANSWER_WAIT, DATA_MAX, DataKind, Role, Signal, deliver_data, mark_value, needs_show};
@@ -355,7 +365,38 @@ mod imp {
             }
         }
         // SAFETY: passes the message on as received.
-        unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
+        let result = unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) };
+        if may_have_lost_focus(msg, wparam, lparam) {
+            // SAFETY: a window of this thread, inside its own message.
+            unsafe { take_lost_focus(hwnd) };
+        }
+        result
+    }
+
+    /// A message after which the window may stand without the keyboard: it was shown again from the taskbar
+    /// state (any size but minimized), or a key came as a system key without Alt, which Windows sends to the
+    /// active window only while no window has the focus.
+    fn may_have_lost_focus(msg: u32, wparam: WPARAM, lparam: LPARAM) -> bool {
+        const ALT_DOWN: LPARAM = 1 << 29;
+        (msg == WM_SIZE && wparam != SIZE_MINIMIZED as WPARAM) || (msg == WM_SYSKEYDOWN && lparam & ALT_DOWN == 0)
+    }
+
+    /// Gives the window the keyboard when it is the active window, not minimized, and no window has the focus.
+    ///
+    /// ⚠ A minimized window that is activated gets no focus, and showing it again without activating it
+    /// (`bring_to_front`, the hotkey of the overlay) does not give it one either. Every key then reaches the
+    /// window as a system key, and its character goes on to the default handling, which plays the error sound:
+    /// one sound for every letter typed, while the letters still appear (Horthy, 22.11.2026).
+    ///
+    /// # Safety
+    /// `hwnd` is a window of the calling thread.
+    unsafe fn take_lost_focus(hwnd: HWND) {
+        // SAFETY: plain reads of the state of this thread's input and one focus change on its own window.
+        unsafe {
+            if GetActiveWindow() == hwnd && GetFocus().is_null() && IsIconic(hwnd) == 0 {
+                SetFocus(hwnd);
+            }
+        }
     }
 
     pub fn serve(hwnd: isize, role: Role, key: &str, on_signal: impl Fn(Signal) + Send + Sync + 'static) -> bool {
@@ -779,6 +820,16 @@ mod tests {
         }
         assert_eq!(Signal::from_code(0), None);
         assert_eq!(Signal::from_code(16), None);
+    }
+
+    /// A page handed over by a key of the Stream Deck opens only when it is one of the menu.
+    #[test]
+    fn only_pages_of_the_menu_are_taken_from_a_handing_over() {
+        assert_eq!(DataKind::from_code(DataKind::Page as usize), Some(DataKind::Page));
+        assert_eq!(page_of(b"hf_bergbau"), Some("hf_bergbau"));
+        assert_eq!(page_of(b"s_af_seite"), None);
+        assert_eq!(page_of(b"hf_bergbau\0"), None);
+        assert_eq!(page_of(&[0xFF, 0xFE]), None);
     }
 
     /// A handing over goes as one message and back whole; anything cut, too long, of an unknown kind or without the
@@ -1207,6 +1258,125 @@ mod tests {
         // SAFETY: the window made above.
         unsafe { DestroyWindow(window as _) };
         assert_eq!(find_as(Role::FirstBackup, key), None);
+    }
+
+    /// A number no other call in this test run gives.
+    #[cfg(windows)]
+    fn unique() -> u32 {
+        static COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Runs `f` in a thread that sits on a desktop of its own, never shown: its windows reach neither the screen nor
+    /// the keyboard of the player. The desktop goes away afterwards.
+    #[cfg(windows)]
+    fn on_hidden_desktop<R: Send + 'static>(f: impl FnOnce() -> R + Send + 'static) -> R {
+        use windows_sys::Win32::System::StationsAndDesktops::{CloseDesktop, CreateDesktopW, SetThreadDesktop};
+        std::thread::spawn(move || {
+            let name: Vec<u16> = format!("VerseKit-Pruefung-Fokus-{}-{}", std::process::id(), unique())
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
+            // SAFETY: a new desktop for this thread only (GENERIC_ALL); it is closed after the closure has ended.
+            let desktop = unsafe {
+                CreateDesktopW(name.as_ptr(), std::ptr::null(), std::ptr::null(), 0, 0x1000_0000, std::ptr::null())
+            };
+            assert!(!desktop.is_null(), "no desktop");
+            // SAFETY: this thread has no window yet.
+            assert!(unsafe { SetThreadDesktop(desktop) } != 0, "the thread stays on the visible desktop");
+            let result = f();
+            // SAFETY: the desktop made above; its windows are gone.
+            unsafe { CloseDesktop(desktop) };
+            result
+        })
+        .join()
+        .expect("check thread")
+    }
+
+    /// Takes the messages of this thread for `millis` milliseconds.
+    #[cfg(windows)]
+    fn pump(millis: u64) {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            DispatchMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage,
+        };
+        let until = std::time::Instant::now() + std::time::Duration::from_millis(millis);
+        while std::time::Instant::now() < until {
+            // SAFETY: plain zeroed data the system fills.
+            let mut msg: MSG = unsafe { std::mem::zeroed() };
+            // SAFETY: the messages of this thread, handed on as received.
+            while unsafe { PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) } != 0 {
+                unsafe {
+                    TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
+    /// Horthy, 22.11.2026: the error sound for every letter typed. A minimized main window that is active holds no
+    /// keyboard focus; `bring_to_front` (the hotkey of the overlay) shows it again without activating it, which gave
+    /// it none: every key came as a system key, and the default handling of its character plays the sound. Now the
+    /// window takes the keyboard when it is shown again, and at the latest with the first such key; a key with Alt
+    /// changes nothing. A window of this test on a desktop of its own, never on the screen of the player.
+    #[cfg(windows)]
+    #[test]
+    fn a_main_window_shown_again_without_activation_takes_the_keyboard() {
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetActiveWindow, GetFocus, SetFocus};
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DestroyWindow, IsIconic, SW_MINIMIZE, SW_SHOW, SendMessageW, ShowWindow, WM_SYSKEYDOWN,
+            WS_OVERLAPPEDWINDOW,
+        };
+        let seen = on_hidden_desktop(|| {
+            let class: Vec<u16> = "STATIC\0".encode_utf16().collect();
+            // SAFETY: a plain top-level window of a system class on the desktop of this thread; destroyed below.
+            let window = unsafe {
+                CreateWindowExW(
+                    0,
+                    class.as_ptr(),
+                    std::ptr::null(),
+                    WS_OVERLAPPEDWINDOW,
+                    0,
+                    0,
+                    200,
+                    100,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null(),
+                )
+            };
+            assert!(!window.is_null());
+            let key = format!("pruefung-fokus-{}", unique());
+            assert!(serve_as(window as isize, Role::Main, &key, |_| {}));
+            let focus = || unsafe { GetFocus() } == window;
+            let no_focus = || unsafe { GetFocus() }.is_null();
+            let mut seen = Vec::new();
+            // SAFETY: the window of this thread made above.
+            unsafe { ShowWindow(window, SW_SHOW) };
+            pump(100);
+            seen.push(("shown: the keyboard", focus()));
+            unsafe { ShowWindow(window, SW_MINIMIZE) };
+            pump(100);
+            seen.push(("minimized: active without the keyboard", unsafe { GetActiveWindow() } == window && no_focus()));
+            bring_to_front(window as isize);
+            pump(300);
+            seen.push(("shown again: not minimized", unsafe { IsIconic(window) } == 0));
+            seen.push(("shown again: the keyboard", focus()));
+            // The A key once, as the keyboard sends it: repeat count 1, scan code 0x1E; bit 29 says Alt is down.
+            let letter: isize = 1 | (0x1E << 16);
+            // SAFETY: the window of this thread; no window of this thread has the focus afterwards.
+            unsafe { SetFocus(std::ptr::null_mut()) };
+            unsafe { SendMessageW(window, WM_SYSKEYDOWN, 0x41, letter | (1 << 29)) };
+            seen.push(("a key with Alt: still without the keyboard", no_focus()));
+            unsafe { SendMessageW(window, WM_SYSKEYDOWN, 0x41, letter) };
+            seen.push(("a key without the keyboard: the keyboard", focus()));
+            // SAFETY: the window made above.
+            unsafe { DestroyWindow(window) };
+            seen
+        });
+        let wrong: Vec<_> = seen.iter().filter(|(_, ok)| !ok).map(|(what, _)| *what).collect();
+        assert!(wrong.is_empty(), "not so: {wrong:?}");
     }
 
     /// A window of a thread that takes its messages answers, a window that is gone does not. A hidden window of this

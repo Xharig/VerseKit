@@ -219,12 +219,37 @@ fn set_own_held(paths: &Paths, item: &ScannedItem, place: &str, amount: Option<f
     };
     let pieces = item.measure == Measure::Pieces;
     let quality = item.quality.map(i64::from);
+    // An item in pieces may lie there under a second name as well (`Mil/3/B MegaFlux (Mil/3/B)` beside `MegaFlux`):
+    // they become one entry first, as the stock page reads them, and the scan sets that one.
+    if pieces {
+        merge_twins(&mut entries, &Journal::load(paths), &|_| None);
+    }
+    let twins = if pieces { stock::find_item_twins(&entries, &item.name, place) } else { Vec::new() };
     let at = if raw {
         stock::find_raw(&entries, &item.name, quality, place)
+    } else if pieces {
+        twins.first().copied()
     } else {
         stock::find_trade(&entries, &item.name, place, pieces)
     };
-    let before = at.map(|i| stock::number_of(&entries[i], "menge"));
+    let before = match at {
+        Some(_) if pieces => Some(twins.iter().map(|&i| stock::number_of(&entries[i], "menge")).sum()),
+        Some(i) => Some(stock::number_of(&entries[i], "menge")),
+        None => None,
+    };
+    if let Some(first) = at.filter(|_| pieces) {
+        // The entry takes the name of the scan only where its own has more around it (`Mil/3/B MegaFlux (Mil/3/B)`
+        // becomes `MegaFlux`); the way it is written stays.
+        let held = entries[first].get("ware").and_then(Value::as_str).unwrap_or_default();
+        let (held_low, read_low) =
+            (crate::stock_data::lower(py_strip(held)), crate::stock_data::lower(py_strip(&item.name)));
+        if amount.is_some() && held_low != read_low && read_low.chars().count() < held_low.chars().count() {
+            stock::rename(&mut entries, first, &item.name);
+        }
+        for &i in twins.iter().skip(1).rev() {
+            entries.remove(i);
+        }
+    }
     match (at, amount) {
         (Some(i), Some(a)) => {
             stock::set_amount(&mut entries, i, a);
@@ -533,7 +558,12 @@ impl Confirm {
 impl Journal {
     /// Reads the file; a missing or unreadable one is an empty journal.
     pub fn load(paths: &Paths) -> Journal {
-        let Ok(data) = jsonio::read_json(&paths.app_file(FILE)) else { return Journal::default() };
+        Journal::load_file(&paths.app_file(FILE))
+    }
+
+    /// [`Journal::load`] from the path of the file.
+    pub fn load_file(file: &str) -> Journal {
+        let Ok(data) = jsonio::read_json(file) else { return Journal::default() };
         let list = |key: &str| match data.get(key) {
             Some(Value::Array(items)) => items.clone(),
             _ => Vec::new(),
@@ -581,6 +611,27 @@ impl Journal {
     pub fn newest_first(&self) -> Vec<&Scan> {
         self.scans.iter().rev().collect()
     }
+
+    /// When an entry of the own stock in pieces was last set by a scan that was not taken back, by its name and
+    /// place in lower case. An entry without one was typed by hand, or its scan is older than the journal keeps.
+    pub fn scan_times(&self) -> std::collections::HashMap<(String, String), i64> {
+        let mut times = std::collections::HashMap::new();
+        for scan in self.scans.iter().filter(|s| s.target == Target::Own && !s.undone) {
+            if scan.item.measure != Measure::Pieces {
+                continue;
+            }
+            let key = (stock_place(&scan.item.name), stock_place(&scan.place));
+            let at = times.entry(key).or_insert(scan.at);
+            *at = (*at).max(scan.at);
+        }
+        times
+    }
+}
+
+/// [`stock::merge_item_twins`] with the times of the scans of `journal` and the names of the goods list `known`.
+pub fn merge_twins(entries: &mut Vec<Value>, journal: &Journal, known: &dyn Fn(&str) -> Option<String>) -> bool {
+    let times = journal.scan_times();
+    stock::merge_item_twins(entries, known, &|name, place| times.get(&(stock_place(name), stock_place(place))).copied())
 }
 
 /// Whether the two scans are of the same item at the same place in the same stock.
@@ -616,8 +667,12 @@ pub enum Outcome {
     Reserved { target: Target, name: String, reserved: f64 },
     /// Nothing read.
     Nothing(Target),
-    /// The game was not in front, or the pointer stood outside it.
+    /// The game was not in front.
     NoGame(Target),
+    /// The mouse pointer stood outside the window of the game.
+    Outside(Target),
+    /// Windows has no language for its text recognition.
+    NoLanguage(Target),
     /// The place of the player is not known: nothing is booked.
     NoPlace(Target),
     /// The scan into the stock of the unit needs "Book as a logistician".
@@ -640,6 +695,8 @@ impl Outcome {
             | Outcome::Reserved { target, .. }
             | Outcome::Nothing(target)
             | Outcome::NoGame(target)
+            | Outcome::Outside(target)
+            | Outcome::NoLanguage(target)
             | Outcome::NoPlace(target)
             | Outcome::Failed(target) => *target,
             Outcome::NotLogistician | Outcome::NoRight | Outcome::UnknownInUnit(_) => Target::Unit,
@@ -724,6 +781,8 @@ impl Outcome {
                 let away = language::t_in(lang, "s_bpscan_kein_spiel");
                 return Notice { away: true, ..Notice::for_target(target, NoticeKind::Nothing, title, away) };
             }
+            Outcome::Outside(_) => (NoticeKind::Nothing, say("s_lsc_zeiger_aussen")),
+            Outcome::NoLanguage(_) => (NoticeKind::Nothing, say("s_rf_lesen_keine_sprache")),
             Outcome::NoPlace(_) => (NoticeKind::Nothing, say("s_lsc_kein_ort")),
             Outcome::NotLogistician => (NoticeKind::Nothing, say("s_lsc_kein_logistiker")),
             Outcome::NoRight => (NoticeKind::Nothing, say("s_lsc_kein_recht")),
@@ -796,9 +855,23 @@ fn book(run: &Run<'_>, item: ScannedItem, place: &str) -> Outcome {
     book_held(run, item, place)
 }
 
+/// An item in pieces under the name of the goods list where the list knows it: the card of the game may show the
+/// class code before the name (a translation) and behind it (the tag of VerseKit), `Mil/3/B MegaFlux (Mil/3/B)`.
+fn listed_name(paths: &Paths, item: ScannedItem) -> ScannedItem {
+    if item.measure != Measure::Pieces {
+        return item;
+    }
+    let catalog = crate::stock_data::StockData::load_catalog(|name| paths.app_file(name));
+    match catalog.item_name(&item.name) {
+        Some(name) if name != item.name => ScannedItem { name: name.to_string(), ..item },
+        _ => item,
+    }
+}
+
 /// [`book`] for a caller that holds the lock of the stock files and the saves already.
 fn book_held(run: &Run<'_>, item: ScannedItem, place: &str) -> Outcome {
     let target = run.target;
+    let item = listed_name(run.paths, item);
     let mut journal = Journal::load(run.paths);
     let round = open_round(&journal, run, place);
     let before_in_round: Vec<&Scan> = journal

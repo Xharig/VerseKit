@@ -169,7 +169,7 @@ fn the_page_asks_for_data_when_it_opens_and_never_on_a_clock() {
     let mut state = OrgLotsState::default();
     let draw = |state: &mut OrgLotsState| {
         let link = orgs.link();
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| show_page(ui, theme::current(), state, &link));
+        ctx.run_ui(egui::RawInput::default(), |ui| show_page(ui, theme::current(), state, &link)).textures_delta.clear();
     };
     draw(&mut state);
     let start = std::time::Instant::now();
@@ -192,11 +192,13 @@ fn the_open_watch_notices_a_page_that_was_left_and_comes_back() {
     let mut watch = crate::org_data::OpenWatch::default();
     let frame = |watch: &mut crate::org_data::OpenWatch, drawn: bool| {
         let mut opened = false;
-        let _ = ctx.run_ui(egui::RawInput::default(), |_| {
+        ctx.run_ui(egui::RawInput::default(), |_| {
             if drawn {
                 opened = watch.opened(&ctx);
             }
-        });
+        })
+        .textures_delta
+        .clear();
         opened
     };
     assert!(frame(&mut watch, true), "the first frame opens it");

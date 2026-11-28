@@ -108,6 +108,7 @@ pub mod startprograms_page;
 pub mod statistics_page;
 pub mod stock_page;
 pub mod stock_share;
+pub mod streamdeck_page;
 pub mod streamer;
 pub mod suggest;
 pub mod thanks_page;
@@ -418,7 +419,7 @@ pub(crate) fn language_lock() -> LanguageGuard {
 /// its condition holds, so the limit only matters for a fault; `VERSEKIT_TESTS_WARTEN` shortens it for the counter-check.
 #[cfg(test)]
 fn wait_limit() -> std::time::Duration {
-    let seconds = std::env::var("VERSEKIT_TESTS_WARTEN").ok().and_then(|value| value.parse::<u64>().ok()).unwrap_or(60);
+    let seconds = std::env::var("VERSEKIT_TESTS_WARTEN").ok().and_then(|value| value.parse::<u64>().ok()).unwrap_or(180);
     std::time::Duration::from_secs(seconds)
 }
 

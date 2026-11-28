@@ -45,7 +45,7 @@ struct Allowed {
     reason: &'static str,
 }
 
-const ALLOWED: [Allowed; 7] = [
+const ALLOWED: [Allowed; 9] = [
     Allowed {
         file: "crates/versekit-core/src/legacy.rs",
         at: Where::Anywhere,
@@ -80,6 +80,16 @@ const ALLOWED: [Allowed; 7] = [
         file: "en/index.html",
         at: Where::LinesWith("alternateName"),
         reason: "the other names the program is known by to search engines (decision of 7 November 2026: stays)",
+    },
+    Allowed {
+        file: "fragen/index.html",
+        at: Where::LinesWith("%LOCALAPPDATA%\\Programs"),
+        reason: "the way to the plugin file by hand: users of older installations find the folder under the earlier name",
+    },
+    Allowed {
+        file: "en/fragen/index.html",
+        at: Where::LinesWith("%LOCALAPPDATA%\\Programs"),
+        reason: "the way to the plugin file by hand: users of older installations find the folder under the earlier name",
     },
 ];
 

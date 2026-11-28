@@ -309,7 +309,7 @@ fn order_row(ui: &mut Ui, scheme: &Scheme, order: &OrgOrder, open: bool) -> bool
         }
         2 => {
             let width = cell.available_width();
-            widgets::progress(cell, scheme, progress_of(order), width);
+            widgets::progress(cell, scheme, progress_of(order), width, &order.title);
         }
         _ => {
             cell.add(egui::Label::new(order.due.as_str()).wrap());

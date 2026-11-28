@@ -68,6 +68,7 @@ mod afk;
 mod app;
 mod blueprint;
 mod stock_keys;
+mod streamdeck_host;
 mod files;
 mod fps;
 mod notice;

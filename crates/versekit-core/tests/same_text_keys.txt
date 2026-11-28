@@ -11,6 +11,24 @@ s_pv_quelle_erkul
 # The sell page: the view "Route" is written the same in both languages.
 s_vk_ro_ansicht_route
 
+# The Stream Deck key "Emote": the game's own word, the same in both languages.
+sd_a_emote
+
+# The Stream Deck key that shows the version: "Version" and the name "VerseKit" read the same in both languages.
+sd_a_version
+sd_k_version
+
+# The short names on Stream Deck keys with a state: product and game words, the same in both languages.
+sd_k_overlay
+sd_k_anti_afk
+sd_k_contested
+sd_k_mining_scanner
+
+# The names over the info dials: a game word, the currency of the game and a word the same in both languages.
+sd_info_contested
+sd_info_konto
+sd_info_status
+
 # An amount with the unit SCU, which the game writes the same in both languages.
 s_p9_menge
 s_p9_menge_n

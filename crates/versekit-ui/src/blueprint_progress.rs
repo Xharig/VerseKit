@@ -206,7 +206,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, data: &ListData, state: &mut ProgressS
             head.label(RichText::new(of.trim()).color(color(scheme.sub)));
         });
         let width = ui.available_width();
-        widgets::progress(ui, scheme, share as f32, width);
+        widgets::progress(ui, scheme, share as f32, width, &t("s_fo_gesamt_kopf"));
         Some(areas)
     })
     .inner?;
@@ -233,7 +233,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, data: &ListData, state: &mut ProgressS
                         state.open_areas.insert(key);
                     }
                 }
-                widgets::progress(ui, scheme, area_have as f32 / area_total.max(1) as f32, width);
+                widgets::progress(ui, scheme, area_have as f32 / area_total.max(1) as f32, width, &title);
                 if open {
                     ui.indent(("fortschritt-bereich", key), |inner| {
                         let mut rows: Vec<(&String, &(usize, usize))> = kinds.iter().collect();
@@ -251,7 +251,7 @@ pub fn show(ui: &mut Ui, scheme: &Scheme, data: &ListData, state: &mut ProgressS
                                     right.label(RichText::new(count).color(color(scheme.sub)));
                                     let bar = right.available_width().min(260.0);
                                     let part = *kind_have as f32 / (*kind_total).max(1) as f32;
-                                    widgets::progress(right, scheme, part, bar);
+                                    widgets::progress(right, scheme, part, bar, kind);
                                 });
                             });
                             let rect = row.response.rect;
@@ -402,6 +402,44 @@ mod tests {
             }
         }
         assert!(findings.is_empty(), "{}", findings.join("\n"));
+    }
+
+    /// Every bar of the page, the whole, each area and each kind folded out, has a name for a screen reader: the
+    /// heading it stands under, in both languages.
+    #[test]
+    fn every_bar_says_what_it_counts() {
+        use egui::accesskit::Role;
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::{NodeT, Queryable};
+        let _language = crate::language_lock();
+        let data = ListData::sample();
+        for choice in [language::Choice::De, language::Choice::En] {
+            language::set_thread_language(choice);
+            let state =
+                ProgressState { open_areas: bp::TOP_GROUPS.iter().copied().collect(), ..ProgressState::default() };
+            let mut harness = Harness::builder()
+                .with_size(egui::vec2(900.0, 3000.0))
+                .with_context_setup(crate::install)
+                .with_accessibility_check(false)
+                .allow_missing_glyphs()
+                .build_ui_state(
+                    |ui, state: &mut ProgressState| {
+                        show(ui, versekit_core::theme::current(), &data, state);
+                    },
+                    state,
+                );
+            harness.run_steps(3);
+            let bars: Vec<_> = harness.query_all_by_role(Role::ProgressIndicator).collect();
+            assert!(bars.len() > 2, "{choice:?}: the whole, areas and kinds, {}", bars.len());
+            let nameless: Vec<String> = bars
+                .iter()
+                .filter(|bar| bar.accesskit_node().label().is_none_or(|l| l.trim().is_empty()))
+                .map(|bar| format!("{:?}", bar.accesskit_node().numeric_value()))
+                .collect();
+            assert!(nameless.is_empty(), "{choice:?}: bars without a name: {nameless:?}");
+            assert!(harness.query_by_role_and_label(Role::ProgressIndicator, &t("s_fo_gesamt_kopf")).is_some());
+        }
+        language::set_thread_language(language::Choice::De);
     }
 
     /// The texts of a few frames of the page at `width`, and how far it sticks out.

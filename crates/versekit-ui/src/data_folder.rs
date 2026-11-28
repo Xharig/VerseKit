@@ -424,11 +424,20 @@ pub fn report_of(outcome: &Outcome) -> Report {
         Outcome::Nested => bad("s_pf_verschachtelt", &[]),
         Outcome::Switched => good("s_pf_umgestellt", &[]),
         Outcome::UsedExisting => good("s_pf_uebernommen", &[]),
-        Outcome::Moved { copied, kept, .. } if kept.is_empty() => good("s_pf_fertig", &[("0", Arg::from(*copied))]),
-        Outcome::Moved { copied, kept, old } => good(
-            "s_pf_fertig_rest",
-            &[("0", Arg::from(*copied)), ("1", Arg::from(kept.len())), ("2", Arg::from(redact::redact(old)))],
-        ),
+        Outcome::Moved { copied, kept, old, stayed } => {
+            let mut report = if kept.is_empty() {
+                good("s_pf_fertig", &[("0", Arg::from(*copied))])
+            } else {
+                good(
+                    "s_pf_fertig_rest",
+                    &[("0", Arg::from(*copied)), ("1", Arg::from(kept.len())), ("2", Arg::from(redact::redact(old)))],
+                )
+            };
+            if !stayed.is_empty() {
+                report.text = format!("{} {}", report.text, tf("s_pf_bleibt", &[("0", Arg::from(stayed.join(", ")))]));
+            }
+            report
+        }
         Outcome::Failed { failed, copied } => {
             bad("s_pf_misslungen", &[("0", Arg::from(*failed)), ("1", Arg::from(*copied))])
         }
@@ -571,7 +580,7 @@ mod tests {
                 // The frame that took the answer in has drawn the old page: one more.
                 return frame(ctx, state, Some(paths), Vec::new());
             }
-            assert!(started.elapsed() < Duration::from_secs(20), "the move does not end");
+            assert!(started.elapsed() < Duration::from_secs(120), "the move does not end");
             std::thread::sleep(Duration::from_millis(10));
         }
     }
@@ -696,7 +705,7 @@ mod tests {
         let nodes = question_nodes(&ctx, &mut state, &paths);
         frame(&ctx, &mut state, Some(&paths), click(button(&nodes, "Ohne Daten wechseln")));
         settle(&ctx, &mut state, &paths);
-        assert_eq!(paths.app_folder(), target);
+        assert_eq!(paths.app_folder(), target, "report of the switch: {:?}", state.report());
         assert!(std::path::Path::new(&join(&old, "Bauplaene/bestand.json")).exists());
         assert!(!std::path::Path::new(&join(&target, "Bauplaene")).exists());
     }
@@ -836,10 +845,11 @@ mod tests {
             Outcome::Nested,
             Outcome::Switched,
             Outcome::UsedExisting,
-            Outcome::Moved { copied: 4, kept: Vec::new(), old: "alt".into() },
-            Outcome::Moved { copied: 4, kept: vec!["a".into(), "b".into()], old: "alt".into() },
+            Outcome::Moved { copied: 4, kept: Vec::new(), old: "alt".into(), stayed: Vec::new() },
+            Outcome::Moved { copied: 4, kept: vec!["a".into(), "b".into()], old: "alt".into(), stayed: Vec::new() },
             Outcome::Failed { failed: 2, copied: 1 },
             Outcome::NotSaved,
+            Outcome::Moved { copied: 4, kept: Vec::new(), old: "alt".into(), stayed: vec!["Sicherungen".into()] },
         ];
         for lang in [LangChoice::De, LangChoice::En] {
             set_thread_language(lang);
@@ -851,5 +861,8 @@ mod tests {
         set_thread_language(LangChoice::De);
         assert!(report_of(&outcomes[5]).text.starts_with("Umgezogen und geprüft: 4. Im alten Ordner blieben 2:"));
         assert!(!report_of(&outcomes[6]).good && report_of(&outcomes[4]).good);
+        let stayed = report_of(&outcomes[8]).text;
+        assert!(stayed.starts_with("Umgezogen und geprüft: 4.") && stayed.contains("Sicherungen"), "{stayed}");
+        assert!(!report_of(&outcomes[4]).text.contains("Sicherungen"), "nothing named where nothing stayed");
     }
 }

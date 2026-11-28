@@ -163,8 +163,134 @@ fn child_entry() {
             std::fs::write(dir.join("haelt.txt"), "ja").expect("mark");
             std::thread::sleep(Duration::from_millis(hold));
         }
+        // Write the notes into the text file of the game again and again, in turn in two languages, as the overlay
+        // and the main window do after a switch of the language; every report of a lock waited for in vain is kept.
+        "notes" => {
+            let name = std::env::var(NAME).expect("name");
+            let count: usize = std::env::var(COUNT).expect("count").parse().expect("number");
+            let paths = notes_paths(&dir);
+            assert!(paths.share_saves(), "both locks shared");
+            injection::set_game_files_wait(NOTES_WAIT);
+            let reports = dir.join(format!("meldungen-{name}.txt"));
+            REPORTS_TO.lock().unwrap_or_else(|e| e.into_inner()).replace(reports.clone());
+            versekit_core::errors::set_sink(|label, text| {
+                if label.ends_with(".sperre")
+                    && let Some(file) = REPORTS_TO.lock().unwrap_or_else(|e| e.into_inner()).as_ref()
+                {
+                    let old = std::fs::read_to_string(file).unwrap_or_default();
+                    let _ = std::fs::write(file, format!("{old}{label}: {text}\n"));
+                }
+            });
+            std::fs::write(&reports, "").expect("reports");
+            std::fs::write(dir.join(format!("bereit-{name}.txt")), "ja").expect("ready");
+            assert!(wait_for(&dir.join("los.txt"), Duration::from_secs(120)), "the start comes");
+            // Made once: between two writings nothing else happens, as in a process that writes again and again.
+            let (ini, inputs) = (notes_ini(&dir), notes_inputs());
+            for round in 0..count {
+                let language = if round % 2 == 0 { "german_(germany)" } else { "english" };
+                let outcome = injection::apply_texts(&paths, &ini, language, &inputs, false);
+                assert!(matches!(outcome, injection::Outcome::Done(_)), "written: {outcome:?}");
+            }
+        }
         other => panic!("unknown role {other}"),
     }
+}
+
+/// How long a process of [`two_processes_writing_the_notes_at_once_never_wait_in_vain`] waits for the other one:
+/// far below the wait of the program. On a busy machine one writing of a debug build may take as long
+/// (`held … for 5 s`): that is no starving, see [`starved`].
+const NOTES_WAIT: Duration = Duration::from_secs(5);
+
+/// Whether a report of a lock waited for in vain tells of starving: the holder had taken the lock only a moment
+/// before (`held … for 0 s`), so the waiting one missed its turn again and again. A holder that held it the whole
+/// wait in one writing (a slow machine) is no starving.
+fn starved(report: &str) -> bool {
+    let held = report.split(" for ").nth(1).and_then(|rest| rest.split(' ').next()).and_then(|s| s.parse::<u64>().ok());
+    held.is_none_or(|seconds| seconds + 1 < NOTES_WAIT.as_secs())
+}
+
+/// Where the child process keeps the reports of the locks.
+static REPORTS_TO: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+/// The data folder and the game folder of the notes test, both in `dir`, alike for both processes.
+fn notes_paths(dir: &Path) -> versekit_core::paths::Paths {
+    use versekit_core::paths::{Host, Paths};
+    let root = dir.to_string_lossy().into_owned();
+    let (data, game, config) = (format!("{root}/data"), format!("{root}/StarCitizen/LIVE"), format!("{root}/config"));
+    // The home folder of every system (Windows reads USERPROFILE, not HOME) and the configuration folder, where the
+    // lock files of the shared locks lie: all in the throwaway folder. Without them the home stays a bare "~", taken
+    // as a folder below the folder the check runs in.
+    Paths::new(Host::new(
+        versekit_core::pypath::Flavor::native(),
+        &[
+            ("HOME", root.as_str()),
+            ("USERPROFILE", root.as_str()),
+            ("APPDATA", config.as_str()),
+            ("XDG_CONFIG_HOME", config.as_str()),
+            ("VERSEKIT_HOME", data.as_str()),
+            ("SC_INSTALL_DIR", game.as_str()),
+        ],
+        &root,
+    ))
+}
+
+fn notes_ini(dir: &Path) -> String {
+    dir.join("StarCitizen/LIVE/data/Localization/german_(germany)/global.ini").to_string_lossy().into_owned()
+}
+
+fn notes_inputs() -> injection::Inputs {
+    let missions = jsonio::loads(
+        r#"{"Bounty_title_001": {"bp": ["Calico Helmet"], "sicher": true, "rep": 800,
+            "titel_key": "Bounty_title_001", "text_key": "Bounty_desc_001"}}"#,
+    )
+    .expect("contracts")
+    .as_object()
+    .expect("object")
+    .clone();
+    injection::Inputs { missions, version: "5.6.5".into(), ..injection::Inputs::default() }
+}
+
+/// A text file of the size of the game's (some 80 000 lines, over 10 MB) in `dir`, with the data folder beside it.
+fn notes_fixture(dir: &Path) {
+    let mut text = String::from("\u{feff}Frontend_PU_Version=Star Citizen 4.4\nBounty_title_001=Kopfgeld\n");
+    text.push_str("Bounty_desc_001=Fang ihn.\n");
+    for line in 0..80_000 {
+        text.push_str(&format!(
+            "item_Desc_{line:05}=Hersteller: X\\nGröße: 1\\nGütegrad: A\\nKlasse: Militär\\n{}\n",
+            "x".repeat(100)
+        ));
+    }
+    let ini = notes_ini(dir);
+    std::fs::create_dir_all(Path::new(&ini).parent().expect("folder")).expect("game folder");
+    std::fs::create_dir_all(dir.join("data")).expect("data folder");
+    std::fs::write(&ini, text).expect("text file");
+}
+
+/// The overlay and the main window write the notes at once after a switch of the language, each again and again:
+/// each waits for the other only while that one writes, and no `injection.sperre` (nor `jsonio.sperre`) is reported.
+/// Without the lock of the turn the one that let go took the lock back each time before the waiting one asked
+/// again: that one waited the whole wait in vain (`held … for 0 s`) and then wrote without the lock.
+#[test]
+fn two_processes_writing_the_notes_at_once_never_wait_in_vain() {
+    let _serial = serial();
+    let dir = Dir::new("spielsperre-hinweise");
+    notes_fixture(dir.path());
+    let children: Vec<Child> = ["overlay", "hauptfenster"]
+        .iter()
+        .map(|name| spawn("notes", dir.path(), &[(NAME, (*name).to_string()), (COUNT, "6".to_string())]))
+        .collect();
+    for name in ["overlay", "hauptfenster"] {
+        assert!(wait_for(&dir.path().join(format!("bereit-{name}.txt")), Duration::from_secs(120)), "{name} ready");
+    }
+    std::fs::write(dir.path().join("los.txt"), "los").expect("start");
+    children.into_iter().for_each(finish);
+    for name in ["overlay", "hauptfenster"] {
+        let reports = std::fs::read_to_string(dir.path().join(format!("meldungen-{name}.txt"))).expect("reports");
+        let starving: Vec<&str> = reports.lines().filter(|report| starved(report)).collect();
+        assert!(starving.is_empty(), "{name} waited in vain: {starving:?}");
+    }
+    let written = std::fs::read_to_string(notes_ini(dir.path())).expect("text file");
+    assert_eq!(written.matches("VerseKit v5.6.5").count(), 1, "one menu line, nothing stacked");
 }
 
 /// Two writers at once, each [`WRITINGS`] times: how many pairs that did not fit they saw, and the stand at the end.

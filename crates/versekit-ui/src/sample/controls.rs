@@ -61,7 +61,8 @@ const REMOVED_PAGES: [(&str, &str); 11] = [
 const SEEN_FILE: &str = "gesehen.json";
 /// Which area came with which version (the names as `gesehen.json` keeps them, 4.12 `NEW_SINCE`). The page of an
 /// area is `hf_<area>`; an area without such a page carries no mark. A new area: one line here.
-pub(super) const NEW_SINCE: [(&str, &str); 26] = [
+pub(super) const NEW_SINCE: [(&str, &str); 27] = [
+    ("streamdeck", "5.7.0"),
     ("statistik", "3.58.0"),
     ("darstellung", "3.58.0"),
     ("basetool", "3.61.0"),
@@ -874,11 +875,23 @@ pub(in crate::sample) mod tests {
         until(&mut bench, |_, _| !recorder.calls().is_empty());
         assert_eq!(recorder.calls(), [Started { command: vec!["lutris".into(), "rungame/x".into()], env: Vec::new() }]);
         assert_eq!(bench.notice(), Some(language::t("s_sp_start_lauft")));
-        // A spawner that fails: the reason stands in the foot.
+        // Meanwhile the button gives way to the spinner with its text: no second start by a second click.
+        let texts = bench.settle();
+        assert!(!has(&texts), "no button while the launcher starts");
+        assert!(
+            texts.iter().any(|(text, _)| *text == language::t("s_sp_start_lauft")),
+            "the spinner says it: {texts:?}"
+        );
+        // The launcher has had its time: the button is back.
+        bench.page.starting = bench.page.starting.map(|(_, handed)| (f64::MIN, handed));
+        let texts = until(&mut bench, |_, texts| has(texts));
+        assert!(has(&texts), "the button comes back");
+        // A spawner that fails: the reason stands in the foot, and the button is back at once.
         bench.page.spawner = std::sync::Arc::new(Broken);
         bench.click(&word);
         until(&mut bench, |bench, _| bench.notice() != Some(language::t("s_sp_start_lauft")));
         assert_eq!(bench.notice(), Some(tf("s_sp_start_nein", &[("0", Arg::from("kaputt"))])));
+        assert!(bench.page.starting.is_none(), "after a failure the button is back at once");
         // The command removed: the way found counts again, here none, so no button.
         bench.page.start_command.clear();
         bench.page.commit_start_command(0.0);
@@ -996,6 +1009,28 @@ pub(in crate::sample) mod tests {
             "the restart button is still there"
         );
         let _ = (std::fs::remove_dir_all(dir), std::fs::remove_dir_all(dir2));
+    }
+
+    /// In the main window (it can start the whole program anew) the restart after a switch of the data folder
+    /// starts no second window beside the running ones: it hands the restart of every process of the run to the
+    /// main window, once.
+    #[test]
+    fn the_data_folder_restart_in_the_main_window_restarts_the_whole_program() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("neustart-ganz", "", &[]);
+        let mut bench = Bench::new(page);
+        bench.page.offer_restart(true);
+        let before = started().len();
+        bench.page.restart_with = starts;
+        bench.page.data_folder.pretend_switched(&Outcome::Switched);
+        bench.page.go_to("hf_ordner");
+        bench.click(&language::t("s_da_neustart_knopf"));
+        assert_eq!(started().len(), before, "no new window of its own");
+        assert!(!bench.closed, "the window waits for the restart of the whole program");
+        assert!(bench.page.take_whole_restart(), "the whole program is to start anew");
+        assert!(!bench.page.take_whole_restart(), "once");
+        assert!(!bench.page.take_restart(), "no restore is told");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     thread_local! {
@@ -1118,9 +1153,9 @@ pub(in crate::sample) mod tests {
             "„Wann sichtbar“ and „Tastenkürzel“ side by side: {when:?} {keys:?}"
         );
         assert!((when.width() - display.width()).abs() < 1.0, "in the columns of cards: {when:?}");
-        // All the shortcuts, the two of the stock scan and the one of Anti-AFK included, stand in one card: the page
-        // may scroll a little below this height, never more (960 with eight shortcuts, 1087 with twelve).
-        const PAGE_HEIGHT: f32 = 1090.0;
+        // The card „Tastenkürzel“ holds the row that leads to the page of keys: the first four cards end within this
+        // height.
+        const PAGE_HEIGHT: f32 = 990.0;
         assert!(keys.bottom() <= PAGE_HEIGHT, "the shortcuts end at {PAGE_HEIGHT} at most: {keys:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1187,7 +1222,7 @@ pub(in crate::sample) mod tests {
         // Tall enough for the picker of the scan, the second one of the page.
         bench.height = 1800.0;
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&texts, &language::t("s_hk_scan")), "the row: {texts:?}");
@@ -1235,7 +1270,7 @@ pub(in crate::sample) mod tests {
         // the search is the last.
         bench.page.picture_hotkey_on = false;
         bench.page.main_hotkey_on = false;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         // A little down the page, so that the picker below the last row of the first group stands in the window.
         bench.frame(vec![egui::Event::PointerMoved(Pos2::new(800.0, 450.0))]);
         bench.frame(vec![egui::Event::MouseWheel {
@@ -1302,7 +1337,7 @@ pub(in crate::sample) mod tests {
         bench.page.overlay_runs = || true;
         // The handle search without its picker: the one of the picture is the third of the page.
         bench.page.search_hotkey_on = false;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&texts, &language::t("s_hk_bild")), "the row: {texts:?}");
@@ -1353,7 +1388,7 @@ pub(in crate::sample) mod tests {
         // The search and the picture without their pickers: the one of the main window is the third of the page.
         bench.page.search_hotkey_on = false;
         bench.page.picture_hotkey_on = false;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&texts, &language::t("s_hk_haupt")), "the row: {texts:?}");
@@ -1380,7 +1415,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("haupt-taste-belegt", settings, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
@@ -1397,7 +1432,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("antiafk-taste", "{}", &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let shown = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(t, _)| t == text);
         assert!(shown(&texts, &language::t("s_hk_antiafk")), "the row: {texts:?}");
@@ -1435,7 +1470,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("antiafk-taste-belegt", settings, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
@@ -1458,7 +1493,7 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         bench.settle();
         assert!(!bench.page.picture_hotkey_on, "switched off in the settings");
         let current = |page: &SamplePage| hotkey_text(page.picture_modifiers, page.picture_key);
@@ -1480,7 +1515,7 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         bench.settle();
         let name = bench.place(&language::t("s_hk_bild"), 0);
         bench.click_at(name - egui::vec2(30.0, -4.0));
@@ -1508,7 +1543,7 @@ pub(in crate::sample) mod tests {
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         bench.settle();
         let search = hotkey_text(bench.page.search_modifiers, bench.page.search_key);
         assert_eq!(search.as_deref(), Some("Alt+Umschalt+H"));
@@ -1531,7 +1566,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("taste-doppelt-zeile", settings, &[]);
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         let line = language::tf("s_hk_belegt_durch", &[("0", language::Arg::from(language::t("s_hk_kurz_overlay")))]);
         assert!(texts.iter().any(|(t, _)| *t == line), "{line} in {texts:?}");
@@ -1549,9 +1584,42 @@ pub(in crate::sample) mod tests {
         assert_eq!(read, versekit_core::overlay::HotkeyChoice::Combination(f9), "the overlay registers the search");
         let mut bench = Bench::new(page);
         bench.height = 3000.0;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let texts = bench.settle();
         assert!(!texts.iter().any(|(t, _)| *t == line), "no holder while the overlay's hotkey is off: {texts:?}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The shortcuts stand on the page of keys and Stream Deck, all twelve with the Stream Deck below; the overlay page
+    /// shows none of them, only a row whose button leads there. The grey switch of the overlay's own shortcut says on
+    /// hover why it is always on.
+    #[test]
+    fn the_shortcuts_stand_on_the_page_of_keys_and_the_overlay_page_leads_there() {
+        let _language = crate::language_lock();
+        let (page, dir) = real_page("kuerzel-seite", "{}", &[]);
+        let mut bench = Bench::new(page);
+        bench.height = 2400.0;
+        let shown = |texts: &[(String, Pos2)], key: &str| texts.iter().any(|(t, _)| *t == language::t(key));
+        let rows: Vec<&str> = super::super::SHORTCUT_ROWS.1.iter().map(|(name, ..)| *name).collect();
+        assert_eq!(rows.len(), versekit_core::overlay::SHORTCUTS, "all twelve shortcuts");
+        bench.page.go_to("hf_streamdeck");
+        let texts = bench.settle();
+        for row in &rows {
+            assert!(shown(&texts, row), "{row} on the page of keys: {texts:?}");
+        }
+        assert!(shown(&texts, "sd_s_gruppe"), "the Stream Deck stays on the page");
+        bench.page.go_to("hf_overlay");
+        let texts = bench.settle();
+        assert!(shown(&texts, "s_ov_kuerzel_wo"), "the row that leads to the shortcuts: {texts:?}");
+        // The name of the page stands in the menu and on the one button that leads there; the twelve rows of the
+        // shortcuts would bring it once each. (Their names read as the short words the overlay page uses
+        // elsewhere, `s_hk_kurz_*`, so the names alone cannot tell.)
+        let word = language::t("hf_streamdeck");
+        let places = texts.iter().filter(|(t, _)| *t == word).count();
+        assert_eq!(places, 2, "menu and one button, no rows of shortcuts");
+        bench.click_nth(&word, places - 1);
+        bench.settle();
+        assert_eq!(bench.page.page, "hf_streamdeck", "the button opens the page of keys");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2721,7 +2789,7 @@ pub(in crate::sample) mod tests {
         let _language = crate::language_lock();
         let (page, dir) = real_page("kuerzel", "{\n  \"hotkey\": \"Strg+Alt+B\"\n}\n", &[]);
         let mut bench = Bench::new(page);
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         let before = bench.page.hotkey_modifiers;
         assert_eq!(before, [true, true, false], "Strg+Alt as stored");
         // Strg off: Alt is left, fine. Alt off as well: nothing would be left.
@@ -2743,7 +2811,7 @@ pub(in crate::sample) mod tests {
         let (page, dir) = real_page("kuerzel-allein", "{\n  \"hotkey\": \"Alt+F13\"\n}\n", &[]);
         let mut bench = Bench::new(page);
         bench.page.overlay_runs = || true;
-        bench.page.go_to("hf_overlay");
+        bench.page.go_to("hf_streamdeck");
         assert_eq!(hotkey_text(bench.page.hotkey_modifiers, bench.page.hotkey_key).as_deref(), Some("Alt+F13"));
         bench.click("Alt");
         bench.settle();
@@ -3161,31 +3229,45 @@ pub(in crate::sample) mod tests {
     #[test]
     fn the_mark_of_what_is_new_stays_gone_once_the_area_was_opened() {
         let _language = crate::language_lock();
-        // Someone who comes from an older version has a file of seen areas without this one.
+        // The areas the newest version brought, and the version before it (the newest of all other areas).
+        let own = env!("CARGO_PKG_VERSION");
+        let newest = newest_areas(own);
+        let pages: Vec<&str> = newest.iter().filter_map(|area| page_of_area(area)).collect();
+        assert!(!pages.is_empty(), "the newest version brought a page: {newest:?}");
+        let before = NEW_SINCE
+            .iter()
+            .filter(|(area, since)| !newest.contains(area) && version_parts(since) <= version_parts(own))
+            .map(|(_, since)| *since)
+            .max_by_key(|since| version_parts(since))
+            .expect("an older area");
+        // Someone who comes from that version has a file of seen areas without the new ones.
         let (page, dir) = real_page("neu-marke", "", &[]);
         drop(page);
-        std::fs::write(dir.join("gesehen.json"), "{\"zuletzt\": \"4.9.0\", \"bereiche\": {}}").unwrap();
+        std::fs::write(dir.join("gesehen.json"), format!("{{\"zuletzt\": \"{before}\", \"bereiche\": {{}}}}")).unwrap();
         let paths = Paths::new(super::super::real_data::host_in(&dir, &[]));
         // The gallery of this version was closed already: it would take the click below.
-        versekit_core::gallery::mark_shown(&paths, env!("CARGO_PKG_VERSION"));
+        versekit_core::gallery::mark_shown(&paths, own);
         let page = SamplePage::with_settings(paths);
-        assert_eq!(page.new_pages, ["hf_meinlager"], "the mark shows for someone who updates, only on what is new");
+        assert_eq!(page.new_pages, pages, "the mark shows for someone who updates, only on what is new");
         let mut bench = Bench::new(page);
-        bench.click_nth(&language::t("hf_meinlager"), 0);
-        assert!(bench.page.new_pages.is_empty(), "the area was opened");
+        // Opened whichever way (a page of a group that stands closed in the menu is opened by its jump).
+        for page in &pages {
+            bench.page.go_to(page);
+            bench.settle();
+        }
+        assert!(bench.page.new_pages.is_empty(), "the areas were opened: {:?}", bench.page.new_pages);
         let stored = std::fs::read_to_string(dir.join("gesehen.json")).unwrap();
-        assert!(stored.contains("\"meinlager\""), "and it is written down: {stored}");
+        for area in &newest {
+            assert!(stored.contains(&format!("\"{area}\"")), "and {area} is written down: {stored}");
+        }
         // The next start: the mark does not come back.
         let paths = Paths::new(super::super::real_data::host_in(&dir, &[]));
         assert!(SamplePage::with_settings(paths).new_pages.is_empty(), "gone for good");
         // A tool of the developers brings it back.
         let mut again = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[])));
         again.forget_seen();
-        assert_eq!(again.new_pages, ["hf_meinlager"]);
-        assert_eq!(
-            SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[]))).new_pages,
-            ["hf_meinlager"]
-        );
+        assert_eq!(again.new_pages, pages);
+        assert_eq!(SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&dir, &[]))).new_pages, pages);
         // A fresh install marks nothing and writes down every area as seen.
         let fresh = folder("neu-marke-frisch");
         let page = SamplePage::with_settings(Paths::new(super::super::real_data::host_in(&fresh, &[])));

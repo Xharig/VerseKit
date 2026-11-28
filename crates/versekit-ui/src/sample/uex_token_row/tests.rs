@@ -46,9 +46,10 @@ fn texts_of(row: &mut UexTokenRow, copy: bool) -> Vec<String> {
     crate::install(&ctx);
     let mut texts = Vec::new();
     for _ in 0..2 {
-        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
             let _ = row.control(ui, scheme, copy);
         });
+        output.textures_delta.clear();
         texts.clear();
         for clipped in &output.shapes {
             collect(&clipped.shape, &mut texts);
@@ -63,13 +64,15 @@ fn the_field_never_shows_the_token_also_not_in_streamer_mode() {
     let _language = crate::language_lock();
     language::set_thread_language(language::Choice::De);
     let mut row = UexTokenRow { typed: MADE_UP.to_string(), ..UexTokenRow::default() };
+    // The mode for this thread alone: switched on for the whole program, every check drawing beside this one would
+    // cover what it learned.
     for streamer in [false, true] {
-        versekit_core::streamer::set_active(streamer);
+        versekit_core::streamer::set_thread_active(Some(streamer));
         let texts = texts_of(&mut row, false);
         assert!(texts.iter().any(|text| *text == t("s_uex_speichern")), "the row is drawn: {texts:?}");
         assert!(!texts.iter().any(|text| text.contains(MADE_UP) || text.contains("vk-test")), "{texts:?}");
     }
-    versekit_core::streamer::set_active(false);
+    versekit_core::streamer::set_thread_active(None);
 }
 
 #[test]

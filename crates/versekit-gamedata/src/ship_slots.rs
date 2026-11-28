@@ -51,9 +51,11 @@ pub const PARTS_FILE: &str = versekit_core::erkul_slots::GAME_PARTS_FILE;
 /// The format of [`SHIPS_FILE`]: the one of `erkul-schiffe.json`.
 pub const SHIPS_FORMAT: i64 = versekit_core::ships::ERKUL_FILE_FORMAT;
 /// Which base values of the ships [`SHIPS_FILE`] holds (`werte_stand`, 1: size, SCM speed and cargo; 2: the cargo
-/// counts the mining pods of the Mole, the Prospector and the Golem, and the 135c and the Nomad have none). Its format
-/// is the one of erkul's file and stays; a file with another mark is read again once (`values_store`).
-pub const VALUES_MARK: i64 = 2;
+/// counts the mining pods of the Mole, the Prospector and the Golem, and the 135c and the Nomad have none; 3: the
+/// mining pods stand as ore (`erz`) beside the cargo, no longer in it; 4: ships whose cargo hangs on their modules
+/// name what they hold with cargo modules, `fracht_module`). Its format is the one of erkul's file and stays; a file
+/// with another mark is read again once (`values_store`).
+pub const VALUES_MARK: i64 = 4;
 /// The format of [`PARTS_FILE`]: the one of `erkul-teile.json` with the class name and the tags a paint
 /// requires; a file of an older format is read again once (`values_store`).
 pub const PARTS_FORMAT: i64 = versekit_core::erkul_slots::GAME_PARTS_FORMAT;

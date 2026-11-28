@@ -662,17 +662,84 @@ pub fn is_shader_run(command_line: &str) -> bool {
 /// run. `command_line` is asked for only when the name fits; a command line that cannot be read (`None`) does not
 /// clear the process: in doubt it is the game.
 pub fn counts_as_game(exe: &str, command_line: impl FnOnce() -> Option<String>) -> bool {
-    exe.eq_ignore_ascii_case(GAME_EXE) && !command_line().is_some_and(|line| is_shader_run(&line))
+    counts_as_program(exe, GAME_EXE, command_line)
+}
+
+/// [`counts_as_game`] for the program file named `wanted` (in lower case): the checks look for a stand-in of their
+/// own name, so that no other program on the computer takes their stand-in for the game.
+pub fn counts_as_program(exe: &str, wanted: &str, command_line: impl FnOnce() -> Option<String>) -> bool {
+    seen_as_program(exe, wanted, command_line).is_some_and(|seen| seen != Seen::ShaderRun)
+}
+
+/// What a process of the game's program is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Seen {
+    /// The game: its command line was read and has no shader switch.
+    Game,
+    /// The shader run of the launcher (`-PSOCacheGen`).
+    ShaderRun,
+    /// Its command line cannot be read (another user, a protected process): the game or the shader run.
+    Unsure,
+}
+
+/// What the process of the program `exe` is; `None` for any program but `StarCitizen.exe` (its command line is then
+/// not asked for).
+pub fn seen_as(exe: &str, command_line: impl FnOnce() -> Option<String>) -> Option<Seen> {
+    seen_as_program(exe, GAME_EXE, command_line)
+}
+
+/// [`seen_as`] for the program file named `wanted` (in lower case), as [`counts_as_program`].
+fn seen_as_program(exe: &str, wanted: &str, command_line: impl FnOnce() -> Option<String>) -> Option<Seen> {
+    if !exe.eq_ignore_ascii_case(wanted) {
+        return None;
+    }
+    Some(match command_line() {
+        Some(line) if is_shader_run(&line) => Seen::ShaderRun,
+        Some(_) => Seen::Game,
+        None => Seen::Unsure,
+    })
+}
+
+/// The most telling of the processes of the game's program: the game before one that cannot be read, that before
+/// the shader run; `None` for none at all.
+fn most_telling(found: impl IntoIterator<Item = Seen>) -> Option<Seen> {
+    found.into_iter().min_by_key(|seen| match seen {
+        Seen::Game => 0,
+        Seen::Unsure => 1,
+        Seen::ShaderRun => 2,
+    })
 }
 
 /// Does a command line of a process under Wine (its pieces joined by blanks) name the game and not the shader run?
 pub fn counts_as_wine_game(command_line: &str) -> bool {
-    command_line.to_lowercase().contains(GAME_EXE) && !is_shader_run(command_line)
+    counts_as_wine_program(command_line, GAME_EXE)
 }
 
-/// Is the game in the process list? The shader run (`StarCitizen.exe -PSOCacheGen`) is not the game. `None` when
-/// the list cannot be read (and on systems where this program does not know how to read it).
+/// [`counts_as_wine_game`] for the program file named `wanted` (in lower case).
+fn counts_as_wine_program(command_line: &str, wanted: &str) -> bool {
+    command_line.to_lowercase().contains(wanted) && !is_shader_run(command_line)
+}
+
+/// Is the game in the process list? The shader run (`StarCitizen.exe -PSOCacheGen`) is not the game; a process of
+/// the game's program whose command line cannot be read is (in doubt it runs, for every writer). `None` when the
+/// list cannot be read (and on systems where this program does not know how to read it).
 pub fn game_process() -> Option<bool> {
+    program_process(GAME_EXE)
+}
+
+/// [`game_process`] for the program file named `wanted` (in lower case).
+fn program_process(wanted: &str) -> Option<bool> {
+    program_process_seen(wanted).map(|seen| seen.is_some_and(|seen| seen != Seen::ShaderRun))
+}
+
+/// What the process list holds of the game's program ([`most_telling`]): `Some(None)` when nothing, `None` when the
+/// list cannot be read.
+pub fn game_process_seen() -> Option<Option<Seen>> {
+    program_process_seen(GAME_EXE)
+}
+
+/// [`game_process_seen`] for the program file named `wanted` (in lower case).
+fn program_process_seen(wanted: &str) -> Option<Option<Seen>> {
     #[cfg(windows)]
     {
         use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
@@ -687,26 +754,29 @@ pub fn game_process() -> Option<bool> {
         // SAFETY: an all-zero entry is a valid empty one; its size is set as the call wants.
         let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
         entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
-        let mut found = false;
+        let mut found = Vec::new();
         // SAFETY: `entry` carries its size; the snapshot is valid until closed.
         let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
         while more {
             let end = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
             let name = String::from_utf16_lossy(&entry.szExeFile[..end]);
-            if counts_as_game(&name, || windows_command_line(entry.th32ProcessID)) {
-                found = true;
-                break;
+            if let Some(seen) = seen_as_program(&name, wanted, || windows_command_line(entry.th32ProcessID)) {
+                found.push(seen);
+                if seen == Seen::Game {
+                    break;
+                }
             }
             // SAFETY: as above.
             more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
         }
         // SAFETY: the handle from above, closed once.
         unsafe { CloseHandle(snapshot) };
-        Some(found)
+        Some(most_telling(found))
     }
     #[cfg(target_os = "linux")]
     {
-        // The game runs under Wine: its processes carry `StarCitizen.exe` in their command line.
+        // The game runs under Wine: its processes carry `StarCitizen.exe` in their command line, which can always
+        // be read here; a process without it is no game.
         let entries = std::fs::read_dir("/proc").ok()?;
         for entry in entries.flatten() {
             let name = entry.file_name();
@@ -714,15 +784,16 @@ pub fn game_process() -> Option<bool> {
                 continue;
             }
             if let Ok(line) = std::fs::read(entry.path().join("cmdline"))
-                && counts_as_wine_game(&String::from_utf8_lossy(&line).replace('\0', " "))
+                && counts_as_wine_program(&String::from_utf8_lossy(&line).replace('\0', " "), wanted)
             {
-                return Some(true);
+                return Some(Some(Seen::Game));
             }
         }
-        Some(false)
+        Some(None)
     }
     #[cfg(not(any(windows, target_os = "linux")))]
     {
+        let _ = wanted;
         None
     }
 }
@@ -781,7 +852,61 @@ fn windows_command_line(pid: u32) -> Option<String> {
 /// Seconds since a Game.log was written, or `None` without one.
 fn age_of(path: &str) -> Option<f64> {
     let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok()?;
-    Some(std::time::SystemTime::now().duration_since(modified).map_or(0.0, |d| d.as_secs_f64()))
+    age_since(std::time::SystemTime::now(), modified)
+}
+
+/// How long ago `modified` was at `now`, in seconds. ⚠ A time more than two seconds ahead (a clock set wrong, a file
+/// copied from another computer) says nothing: it would count as written just now for ever.
+fn age_since(now: std::time::SystemTime, modified: std::time::SystemTime) -> Option<f64> {
+    match now.duration_since(modified) {
+        Ok(age) => Some(age.as_secs_f64()),
+        Err(ahead) if ahead.duration().as_secs_f64() <= 2.0 => Some(0.0),
+        Err(_) => None,
+    }
+}
+
+/// Why the files of the game must not be written now.
+#[derive(Clone, Debug, PartialEq)]
+pub enum NotQuiet {
+    /// `StarCitizen.exe` is in the process list.
+    Process,
+    /// A Game.log was written `age` seconds ago; `listed`: the process list says the game is not there.
+    LogFresh { age: f64, listed: bool },
+    /// The process list cannot be read and there is no Game.log.
+    Unknown,
+}
+
+impl NotQuiet {
+    /// Whole minutes until a fresh log counts as quiet; `None` for the other reasons.
+    pub fn minutes_left(&self) -> Option<u64> {
+        match self {
+            NotQuiet::LogFresh { age, .. } => {
+                Some(((crate::mission_log::GAME_IDLE_SEC - age).max(0.0) / 60.0).ceil().max(1.0) as u64)
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Why the game counts as running, from the answer of the process list and the ages of the logs; `None` when it is
+/// quiet. In the process list, or a log written lately in any channel: it runs. Not in the list and no fresh log:
+/// quiet, also without any log. Without the list a log that lies quiet is the word, and no log at all is nothing to
+/// go by.
+pub fn not_quiet_with(process: Option<bool>, ages: &[f64]) -> Option<NotQuiet> {
+    if process == Some(true) {
+        return Some(NotQuiet::Process);
+    }
+    let youngest = ages.iter().copied().fold(f64::INFINITY, f64::min);
+    if youngest < crate::mission_log::GAME_IDLE_SEC {
+        return Some(NotQuiet::LogFresh { age: youngest, listed: process == Some(false) });
+    }
+    (process.is_none() && ages.is_empty()).then_some(NotQuiet::Unknown)
+}
+
+/// Why the files of the game must not be written now ([`not_quiet_with`]); `None` when they may.
+pub fn not_quiet(paths: &Paths) -> Option<NotQuiet> {
+    let process = if paths.host.var(ENV_NO_PROCESS).is_some() { None } else { game_process() };
+    not_quiet_with(process, &log_ages(paths))
 }
 
 /// Does the game run? The process list first, then the Game.log of **every** channel that is installed
@@ -793,21 +918,57 @@ pub fn run_state(paths: &Paths) -> RunState {
     run_state_with(paths, process)
 }
 
-/// [`run_state`] with the answer of the process list given (the tests give it).
-pub fn run_state_with(paths: &Paths, process: Option<bool>) -> RunState {
-    let mut ages: Vec<f64> = crate::overlay::log_age(paths).into_iter().collect();
+/// Does the game run, for a reader of the game files (the values of the Data.p4k read again after a patch)? As
+/// [`run_state`], with one difference: a process of the game's program whose command line cannot be read
+/// ([`Seen::Unsure`], it may be the shader run the launcher starts after every patch) does not count by itself; the
+/// Game.log decides, as when the list cannot be read. Writers keep [`run_state`]: for them it runs (rule of
+/// 2026-10-22).
+pub fn read_state(paths: &Paths) -> RunState {
+    let seen = if paths.host.var(ENV_NO_PROCESS).is_some() { None } else { game_process_seen() };
+    read_state_with(paths, seen)
+}
+
+/// [`read_state`] with the answer of the process list given (the tests give it).
+pub fn read_state_with(paths: &Paths, seen: Option<Option<Seen>>) -> RunState {
+    let process = match seen {
+        None | Some(Some(Seen::Unsure)) => None,
+        Some(Some(Seen::Game)) => Some(true),
+        Some(Some(Seen::ShaderRun) | None) => Some(false),
+    };
+    run_state_with(paths, process)
+}
+
+/// The ages of the Game.log of the folder the program reads and of every installed channel, in seconds.
+fn log_ages(paths: &Paths) -> Vec<f64> {
+    let mut ages: Vec<f64> = paths.game_log(None).and_then(|log| age_of(&log)).into_iter().collect();
     for (_, folder, _) in paths.installed_channels() {
         ages.extend(paths.game_log(Some(&folder)).and_then(|log| age_of(&log)));
     }
-    // In the process list, or a log written lately in any channel: it runs.
-    if process == Some(true) || ages.iter().any(|age| *age < crate::mission_log::GAME_IDLE_SEC) {
-        return RunState::Running;
+    ages
+}
+
+/// The game ended lately: not in the process list, but a Game.log written less than
+/// `mission_log::GAME_IDLE_SEC` ago. Gives the whole minutes until it counts as quiet ([`run_state`]); `None` while
+/// it runs or is quiet already, or where the process list cannot tell.
+pub fn ended_lately(paths: &Paths) -> Option<u64> {
+    let process = if paths.host.var(ENV_NO_PROCESS).is_some() { None } else { game_process() };
+    minutes_until_quiet(process, &log_ages(paths))
+}
+
+/// [`ended_lately`] with the answer of the process list and the ages of the logs given.
+pub fn minutes_until_quiet(process: Option<bool>, ages: &[f64]) -> Option<u64> {
+    match not_quiet_with(process, ages) {
+        Some(reason @ NotQuiet::LogFresh { listed: true, .. }) => reason.minutes_left(),
+        _ => None,
     }
-    // Nothing written lately and not in the list: the list can tell it is not there; without it, a log that
-    // lies quiet is the word, and no log at all is nothing to go by.
-    match (process, ages.is_empty()) {
-        (None, true) => RunState::Unknown,
-        _ => RunState::Idle,
+}
+
+/// [`run_state`] with the answer of the process list given (the tests give it).
+pub fn run_state_with(paths: &Paths, process: Option<bool>) -> RunState {
+    match not_quiet_with(process, &log_ages(paths)) {
+        None => RunState::Idle,
+        Some(NotQuiet::Unknown) => RunState::Unknown,
+        Some(_) => RunState::Running,
     }
 }
 
@@ -911,6 +1072,36 @@ pub fn on_path(program: &str, path: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_reason_the_game_counts_as_running_is_told_and_a_log_from_the_future_says_nothing() {
+        assert_eq!(not_quiet_with(Some(true), &[]), Some(NotQuiet::Process));
+        assert_eq!(not_quiet_with(Some(false), &[30.0]), Some(NotQuiet::LogFresh { age: 30.0, listed: true }));
+        assert_eq!(not_quiet_with(None, &[30.0]), Some(NotQuiet::LogFresh { age: 30.0, listed: false }));
+        assert_eq!(not_quiet_with(None, &[]), Some(NotQuiet::Unknown));
+        // The process list says the game is not there: no log is no reason to wait.
+        assert_eq!(not_quiet_with(Some(false), &[]), None);
+        assert_eq!(not_quiet_with(Some(false), &[400.0]), None);
+        assert_eq!(not_quiet_with(None, &[400.0]), None);
+        // A log written an hour ahead of the clock is no fresh log; a second ahead is.
+        let (now, s) = (std::time::SystemTime::now(), std::time::Duration::from_secs);
+        assert_eq!(age_since(now, now + s(3600)), None);
+        assert_eq!(age_since(now, now + s(1)), Some(0.0));
+        assert_eq!(age_since(now + s(90), now), Some(90.0));
+        assert_eq!(NotQuiet::LogFresh { age: 30.0, listed: false }.minutes_left(), Some(5));
+    }
+
+    #[test]
+    fn a_game_ended_lately_says_how_many_minutes_are_left_until_it_counts_as_quiet() {
+        // Not in the process list, the log written 10 s ago: 290 s left, five minutes.
+        assert_eq!(minutes_until_quiet(Some(false), &[10.0, 4000.0]), Some(5));
+        assert_eq!(minutes_until_quiet(Some(false), &[250.0]), Some(1), "50 s left: one minute");
+        assert_eq!(minutes_until_quiet(Some(false), &[299.5]), Some(1));
+        assert_eq!(minutes_until_quiet(Some(false), &[300.0]), None, "quiet already");
+        assert_eq!(minutes_until_quiet(Some(false), &[]), None, "no log");
+        assert_eq!(minutes_until_quiet(Some(true), &[10.0]), None, "it runs");
+        assert_eq!(minutes_until_quiet(None, &[10.0]), None, "the list cannot tell");
+    }
     use crate::jsonio::Value;
     use crate::paths::{ENV_INSTALL_DIR, Host};
 
@@ -1154,11 +1345,10 @@ mod tests {
         assert!(paths.set_setting(STARTER_SETTING, Value::str("lutris rungame/x")));
         assert!(start_programs::save(&paths, &[entry(When::Launcher)]));
         assert_eq!(start_game(&paths, &spawner), Ok(()));
-        for _ in 0..40 {
-            if recorder.program_calls().len() == 2 {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
+        // The program follows on a thread of its own: waited for, at most 30 s (a loaded computer is slow).
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while recorder.program_calls().len() < 2 && std::time::Instant::now() < until {
+            std::thread::sleep(std::time::Duration::from_millis(10));
         }
         assert_eq!(recorder.calls().len(), 1, "the launcher started");
         assert_eq!(recorder.program_calls().len(), 2, "and the program with it");
@@ -1186,14 +1376,12 @@ mod tests {
         let _ = std::fs::remove_dir_all(home);
     }
 
-    /// Polls until the lookup has run (a thread of its own), at most three seconds.
+    /// Polls until the lookup has run (a thread of its own), at most 30 s (a loaded computer is slow).
     fn looked(look: &mut Look, paths: &Paths, renew: bool, wanted: bool) -> Found {
         let mut found = look.poll(paths, renew);
-        for _ in 0..60 {
-            if found.looked && found.starter == wanted {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !(found.looked && found.starter == wanted) && std::time::Instant::now() < until {
+            std::thread::sleep(std::time::Duration::from_millis(10));
             found = look.poll(paths, false);
         }
         found
@@ -1281,6 +1469,66 @@ mod tests {
     }
 
     #[test]
+    fn a_game_process_that_cannot_be_read_holds_writing_but_reading_goes_by_the_log() {
+        let home = scratch("laeuft-unsicher");
+        let live = format!("{home}/StarCitizen/LIVE");
+        touch(&format!("{live}/Game.log"), "x");
+        age(&format!("{live}/Game.log"), 3600);
+        let paths = linux(&home, &[(ENV_INSTALL_DIR, live.as_str()), (ENV_NO_PROCESS, "1")]);
+        // StarCitizen.exe with a command line that cannot be read (maybe the shader run after a patch), the log
+        // lies quiet: writers wait (in doubt it runs), the reader of the game files does not.
+        let unsure = Some(Some(Seen::Unsure));
+        assert_eq!(run_state_with(&paths, game_from(unsure)), RunState::Running, "for writing it runs");
+        assert_eq!(read_state_with(&paths, unsure), RunState::Idle, "for reading the quiet log decides");
+        // A fresh log: it runs for both.
+        age(&format!("{live}/Game.log"), 0);
+        assert_eq!(read_state_with(&paths, unsure), RunState::Running);
+        age(&format!("{live}/Game.log"), 3600);
+        // Counter-checks: the game read as the game runs for both; the shader run and nothing do not.
+        assert_eq!(read_state_with(&paths, Some(Some(Seen::Game))), RunState::Running);
+        assert_eq!(read_state_with(&paths, Some(Some(Seen::ShaderRun))), RunState::Idle);
+        assert_eq!(read_state_with(&paths, Some(None)), RunState::Idle);
+        // No log at all and a process that cannot be read: nobody can say, the reader waits too.
+        let nothing = scratch("laeuft-unsicher-leer");
+        let none = linux(&nothing, &[(ENV_NO_PROCESS, "1")]);
+        assert_eq!(read_state_with(&none, unsure), RunState::Unknown);
+        let _ = std::fs::remove_dir_all(home);
+        let _ = std::fs::remove_dir_all(nothing);
+    }
+
+    /// What [`game_process`] makes of an answer of [`game_process_seen`].
+    fn game_from(seen: Option<Option<Seen>>) -> Option<bool> {
+        seen.map(|seen| seen.is_some_and(|seen| seen != Seen::ShaderRun))
+    }
+
+    #[test]
+    fn a_process_of_the_game_is_seen_as_the_game_the_shader_run_or_unsure_and_the_game_tells_most() {
+        let line = |text: &'static str| move || Some(text.to_string());
+        assert_eq!(seen_as("StarCitizen.exe", line("StarCitizen.exe -nosplash")), Some(Seen::Game));
+        assert_eq!(seen_as("starcitizen.exe", line("StarCitizen.exe -PSOCacheGen")), Some(Seen::ShaderRun));
+        assert_eq!(seen_as("StarCitizen.exe", || None), Some(Seen::Unsure));
+        assert_eq!(seen_as("RSI Launcher.exe", never_asked), None);
+        // Several processes: the game before one that cannot be read, that before the shader run.
+        assert_eq!(most_telling([Seen::ShaderRun, Seen::Unsure, Seen::Game]), Some(Seen::Game));
+        assert_eq!(most_telling([Seen::ShaderRun, Seen::Unsure]), Some(Seen::Unsure));
+        assert_eq!(most_telling([Seen::ShaderRun]), Some(Seen::ShaderRun));
+        assert_eq!(most_telling([]), None);
+        // game_process keeps its answer: a process that cannot be read counts for every writer.
+        assert_eq!(game_from(Some(Some(Seen::Unsure))), Some(true));
+        assert_eq!(game_from(Some(Some(Seen::ShaderRun))), Some(false));
+    }
+
+    /// When a command line cannot be read: a process of another account (the system process, number 4) is closed to
+    /// this one; its own process is open. No program is started under the name of the game.
+    #[cfg(windows)]
+    #[test]
+    fn the_command_line_of_a_process_of_another_account_cannot_be_read() {
+        assert_eq!(windows_command_line(4), None, "the system process");
+        let own = windows_command_line(std::process::id()).expect("its own process");
+        assert!(!own.is_empty());
+    }
+
+    #[test]
     fn the_test_channels_are_known_by_the_name_of_their_folder() {
         // The two channels under an agreement are known to the test build only; PTU is public and says nothing.
         let secret = |name: &'static str| crate::edition::IS_TEST_BUILD.then_some(name);
@@ -1344,13 +1592,23 @@ mod tests {
     }
 
     /// A copy of the command interpreter under the name of the game, started with `tail` as its command line.
+    /// The name of the stand-in of the game the checks start. Never the name of the game: every program on the
+    /// computer that looks for the game (the running VerseKit, the brakes of other runs) would take it for the game.
+    const STAND_IN_EXE: &str = "vk-test-game.exe";
+
+    #[test]
+    fn no_check_starts_a_process_named_like_the_game() {
+        assert!(!STAND_IN_EXE.eq_ignore_ascii_case(GAME_EXE), "the stand-in is named like the game");
+        assert!(!counts_as_game(STAND_IN_EXE, || None), "the program counts the stand-in as the game");
+    }
+
     #[cfg(windows)]
     fn fake_game(name: &str, tail: &str) -> (std::process::Child, std::path::PathBuf) {
         use std::os::windows::process::CommandExt;
         let dir = std::env::temp_dir().join(format!("versekit-start-{}-{name}", crate::testdir::run_tag()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("folder");
-        let exe = dir.join("StarCitizen.exe");
+        let exe = dir.join(STAND_IN_EXE);
         let system = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string());
         std::fs::copy(Path::new(&system).join("System32").join("cmd.exe"), &exe).expect("copy");
         let child = std::process::Command::new(&exe).raw_arg(tail).spawn().expect("start");
@@ -1365,8 +1623,8 @@ mod tests {
         let (mut game, game_dir) = fake_game("spiel", &format!("{waits} -nosplash"));
         let shader_line = windows_command_line(shader.id()).expect("readable");
         let game_line = windows_command_line(game.id()).expect("readable");
-        let shader_counts = counts_as_game("StarCitizen.exe", || windows_command_line(shader.id()));
-        let game_counts = counts_as_game("StarCitizen.exe", || windows_command_line(game.id()));
+        let shader_counts = counts_as_program(STAND_IN_EXE, STAND_IN_EXE, || windows_command_line(shader.id()));
+        let game_counts = counts_as_program(STAND_IN_EXE, STAND_IN_EXE, || windows_command_line(game.id()));
         let _ = shader.kill();
         let _ = game.kill();
         let _ = shader.wait();
@@ -1383,12 +1641,12 @@ mod tests {
     #[test]
     fn the_process_list_holds_a_game_but_not_a_shader_run() {
         let waits = "/c ping -n 20 127.0.0.1 >nul & rem";
-        // A real game on this machine would make every answer true; then only the last one says anything.
-        let before = game_process();
+        // The list is searched for the stand-in, under its own name: the same way as for the game.
+        let before = program_process(STAND_IN_EXE);
         let (mut shader, shader_dir) = fake_game("liste-shader", &format!("{waits} -PSOCacheGen"));
-        let with_shader = game_process();
+        let with_shader = program_process(STAND_IN_EXE);
         let (mut game, game_dir) = fake_game("liste-spiel", &format!("{waits} -nosplash"));
-        let with_game = game_process();
+        let with_game = program_process(STAND_IN_EXE);
         let _ = shader.kill();
         let _ = game.kill();
         let _ = shader.wait();

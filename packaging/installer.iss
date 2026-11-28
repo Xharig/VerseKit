@@ -54,6 +54,10 @@
 #ifndef ExtensionDir
   #define ExtensionDir "..\dist\erweiterung"
 #endif
+; The Stream Deck plugin (tools\streamdeck_paket.ps1 writes it); the page "Keys & Stream Deck" opens it from {app}.
+#ifndef StreamDeckPlugin
+  #define StreamDeckPlugin "..\target\streamdeck\VerseKit.streamDeckPlugin"
+#endif
 #ifndef OutputName
   #define OutputName "VerseKit-Setup"
 #endif
@@ -105,6 +109,9 @@ OutputBaseFilename={#OutputName}
 SetupIconFile=..\icon.ico
 UninstallDisplayIcon={app}\{#ProgramFile}
 UninstallDisplayName={#AppName}
+; The entry in "Apps & Features" only where Setup may write it: an antivirus or a lock on exactly that key otherwise
+; stops the whole installation (access denied). Without it the uninstaller in the folder still works.
+CreateUninstallRegKey=UninstallEntryPossible
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -130,6 +137,16 @@ deutsch.DeleteDataQuestion=Sollen auch deine VerseKit-Daten gelöscht werden?%n%
 english.DeleteDataQuestion=Also delete your VerseKit data?%n%nThis includes your blueprints, your inventory, your settings and everything else VerseKit has saved. VerseKit's folders and the files with VerseKit's file names are deleted, at these places:%n%n%1%nOther files stay.%n%n%2VerseKit's own backups (from the first start and before updates) are deleted too. This cannot be undone. Choose "No" if you want to install VerseKit again later and keep your data.
 deutsch.DeletingData=VerseKit-Daten werden gelöscht …
 english.DeletingData=Deleting VerseKit data …
+deutsch.MissingIntro=VerseKit ist installiert. An einer Stelle hat Windows Setup aber den Zugriff verweigert (oft ist das ein Virenschutz):
+english.MissingIntro=VerseKit is installed. At one place, though, Windows denied Setup access (often an antivirus):
+deutsch.MissingShortcuts=• Die Verknüpfungen im Startmenü fehlen. Starte VerseKit über diese Datei (Rechtsklick › „An Start anheften“ legt eine Verknüpfung an):%n    %1
+english.MissingShortcuts=• The shortcuts in the Start menu are missing. Start VerseKit with this file (right-click › "Pin to Start" makes a shortcut):%n    %1
+deutsch.MissingDesktop=• Die Verknüpfung auf dem Desktop fehlt. Rechtsklick auf diese Datei › „Senden an“ › „Desktop (Verknüpfung erstellen)“:%n    %1
+english.MissingDesktop=• The desktop shortcut is missing. Right-click this file › "Send to" › "Desktop (create shortcut)":%n    %1
+deutsch.MissingUninstall=• Der Eintrag unter „Apps & Features“ fehlt. Deinstallieren kannst du VerseKit trotzdem mit dieser Datei:%n    %1
+english.MissingUninstall=• The entry in "Apps & Features" is missing. You can still uninstall VerseKit with this file:%n    %1
+deutsch.MissingFix=Nachholen: VerseKit im Virenschutz als Ausnahme eintragen und Setup noch einmal starten. Deine Daten bleiben dabei, wie sie sind.
+english.MissingFix=To catch up: add VerseKit as an exception in your antivirus and run Setup once more. Your data stay as they are.
 deutsch.DeleteDataFailed=Ein Teil deiner VerseKit-Daten konnte nicht gelöscht werden (vielleicht ist eine Datei noch geöffnet). Er liegt noch an den genannten Orten und kann von Hand gelöscht werden.
 english.DeleteDataFailed=Part of your VerseKit data could not be deleted (perhaps a file is still open). It is still at the places shown and can be deleted by hand.
 
@@ -143,6 +160,12 @@ Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreve
 ; The Hangar-Exporter for Firefox (signed by Mozilla) with its licence and the address of its source. The
 ; installer only puts the file there; it installs nothing into a browser.
 Source: "{#ExtensionDir}\*"; DestDir: "{app}\erweiterung"; Flags: ignoreversion
+; The Stream Deck plugin with its profiles. A real setup cannot be built without it; a check setup may lack it.
+#ifdef TestRun
+Source: "{#StreamDeckPlugin}"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+#else
+Source: "{#StreamDeckPlugin}"; DestDir: "{app}"; Flags: ignoreversion
+#endif
 
 ; Removed before the new files come: an older Hangar-Exporter, and the shortcuts of the earlier product names.
 ; Only the exact names an earlier installer made, never a pattern: a shortcut the user made with the product
@@ -170,10 +193,12 @@ Type: files; Name: "{autodesktop}\Verse-Kit.lnk"; Tasks: desktopicon
 Type: files; Name: "{app}\{#OldProgramFile}"
 ; old-names: end
 
+; Only where Setup may write: a shortcut it may not save (access denied) otherwise brings an error box of its own
+; for each shortcut. What is left out is named once at the end ([Code] ReportMissing).
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#ProgramFile}"
-Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#ProgramFile}"; Tasks: desktopicon
+Name: "{code:ShortcutFolder}\{#AppName}"; Filename: "{app}\{#ProgramFile}"; Check: ShortcutsPossible
+Name: "{code:ShortcutFolder}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"; Check: ShortcutsPossible
+Name: "{code:DesktopFolder}\{#AppName}"; Filename: "{app}\{#ProgramFile}"; Tasks: desktopicon; Check: DesktopPossible
 
 [Registry]
 ; The start with Windows, when it was chosen, on a new installation only: over an existing one the program
@@ -232,6 +257,10 @@ var
   Stuck: Boolean;
   { The program was ended and checked at the start of the uninstall. }
   UninstallStarted: Boolean;
+  { Whether Setup may write the shortcuts and the entry in "Apps & Features"; each asked once (Checked). }
+  ShortcutsChecked, ShortcutsOk: Boolean;
+  DesktopChecked, DesktopOk: Boolean;
+  UninstallChecked, UninstallOk: Boolean;
 
 function OpenProcess(DesiredAccess: DWORD; InheritHandle: BOOL; ProcessId: DWORD): THandle;
   external 'OpenProcess@kernel32.dll stdcall'; { privacy-ok: a function of a Windows library, no address }
@@ -249,6 +278,94 @@ function ProcessIdToSessionId(ProcessId: DWORD; var SessionId: DWORD): BOOL;
 function IsNewInstallation(): Boolean;
 begin
   Result := not WasInstalled;
+end;
+
+{ The folder of the start menu shortcuts. A check setup puts them into the folder of /VKVERKNUEPFUNGEN instead, so
+  that it never writes into the real start menu. }
+function ShortcutFolder(Param: String): String;
+begin
+  Result := ExpandConstant('{group}');
+#ifdef TestRun
+  if ExpandConstant('{param:VKVERKNUEPFUNGEN|}') <> '' then
+    Result := ExpandConstant('{param:VKVERKNUEPFUNGEN|}');
+#endif
+end;
+
+{ The folder of the desktop shortcut; a check setup takes the folder of /VKVERKNUEPFUNGEN as for the start menu. }
+function DesktopFolder(Param: String): String;
+begin
+  Result := ExpandConstant('{autodesktop}');
+#ifdef TestRun
+  if ExpandConstant('{param:VKVERKNUEPFUNGEN|}') <> '' then
+    Result := ExpandConstant('{param:VKVERKNUEPFUNGEN|}');
+#endif
+end;
+
+{ May Setup save a file in `Dir`? Saves an empty file there and removes it; a folder made for the test only goes
+  again (when empty). }
+function FolderWritable(const Dir: String): Boolean;
+var
+  Existed: Boolean;
+  Probe: String;
+begin
+  Existed := DirExists(Dir);
+  Result := ForceDirectories(Dir);
+  if Result then
+  begin
+    Probe := AddBackslash(Dir) + 'versekit-schreibprobe.lnk';
+    Result := SaveStringToFile(Probe, '', False);
+    if Result then
+      DeleteFile(Probe);
+  end;
+  if not Existed then
+    RemoveDir(Dir);
+  if not Result then
+    Log('No write access, left out: ' + Dir);
+end;
+
+function ShortcutsPossible(): Boolean;
+begin
+  if not ShortcutsChecked then
+  begin
+    ShortcutsOk := FolderWritable(ShortcutFolder(''));
+    ShortcutsChecked := True;
+  end;
+  Result := ShortcutsOk;
+end;
+
+function DesktopPossible(): Boolean;
+begin
+  if not DesktopChecked then
+  begin
+    DesktopOk := FolderWritable(DesktopFolder(''));
+    DesktopChecked := True;
+  end;
+  Result := DesktopOk;
+end;
+
+{ May Setup write the entry in "Apps & Features"? Writes a value into its key and removes it again (the key itself
+  Setup writes right after). }
+function UninstallEntryPossible(): Boolean;
+var
+  Key: String;
+begin
+  if not UninstallChecked then
+  begin
+    Key := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{' + '{#AppIdGuid}' + '}_is1';
+#ifdef TestRun
+    { A check setup with /VKEINTRAGGESPERRT=1 tries a key Windows refuses (a name longer than 255 signs), so the
+      write fails for real without changing any rights. }
+    if ExpandConstant('{param:VKEINTRAGGESPERRT|}') = '1' then
+      Key := 'Software\Xharig\' + StringOfChar('x', 300);
+#endif
+    UninstallOk := RegWriteStringValue(HKEY_CURRENT_USER, Key, 'VerseKitSchreibprobe', '1');
+    if UninstallOk then
+      RegDeleteValue(HKEY_CURRENT_USER, Key, 'VerseKitSchreibprobe')
+    else
+      Log('No write access, left out: HKCU\' + Key);
+    UninstallChecked := True;
+  end;
+  Result := UninstallOk;
 end;
 
 { Was Setup started with the switch `Switch` (without a value, case does not matter)? }
@@ -380,6 +497,27 @@ begin
   end;
 end;
 
+{ After the installation: what was left out for lack of access, and how to catch it up; in the log, in the update
+  log, and as a message (a silent run takes it without waiting). }
+procedure ReportMissing();
+var
+  Text: String;
+begin
+  Text := '';
+  if ShortcutsChecked and not ShortcutsOk then
+    Text := Text + FmtMessage(CustomMessage('MissingShortcuts'), [ExpandConstant('{app}\{#ProgramFile}')]) + #13#10#13#10;
+  if DesktopChecked and not DesktopOk then
+    Text := Text + FmtMessage(CustomMessage('MissingDesktop'), [ExpandConstant('{app}\{#ProgramFile}')]) + #13#10#13#10;
+  if UninstallChecked and not UninstallOk then
+    Text := Text + FmtMessage(CustomMessage('MissingUninstall'), [ExpandConstant('{uninstallexe}')]) + #13#10#13#10;
+  if Text = '' then
+    Exit;
+  Text := CustomMessage('MissingIntro') + #13#10#13#10 + Text + CustomMessage('MissingFix');
+  Log('Left out for lack of access: ' + Text);
+  UpdateLog('Installed without everything (access denied): see the setup log');
+  SuppressibleMsgBox(Text, mbInformation, MB_OK, IDOK);
+end;
+
 { Once the new program file is in place: the start with Windows that runs the program file of the earlier name
   runs the new one (the value keeps its name, so a switch of the task manager stays as it is), and the earlier
   program file goes. Only after the copy: a cancelled installation keeps the program that ran. }
@@ -392,6 +530,7 @@ begin
   else if CurStep = ssPostInstall then
   begin
     Installed := True;
+    ReportMissing();
     if not FileExists(ExpandConstant('{app}\{#ProgramFile}')) then
       Exit;
     // old-names: begin

@@ -67,6 +67,22 @@ pub fn link_folder(link: &std::path::Path, target: &std::path::Path) {
     std::os::unix::fs::symlink(target, link).expect("link made");
 }
 
+/// Sets the time of change of `path` to now without writing into it. The writing of a file can be held for a second
+/// and more (a virus scanner looks at it as it is closed), so a check of "just written" that needs the time of
+/// change close to now sets it right before it looks; only the attributes are opened, which nobody scans.
+pub fn freshen(path: &std::path::Path) -> std::io::Result<()> {
+    let mut options = std::fs::OpenOptions::new();
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        // FILE_WRITE_ATTRIBUTES alone.
+        options.access_mode(0x100);
+    }
+    #[cfg(not(windows))]
+    options.write(true);
+    options.open(path)?.set_modified(SystemTime::now())
+}
+
 /// A folder of [`fresh`] that is removed when the value goes.
 pub struct Dir(PathBuf);
 

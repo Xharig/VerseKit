@@ -765,10 +765,17 @@ pub(crate) mod tests {
         };
 
         // The state of the game is read in a thread: drawn again until it stands there (a minute at most).
+        // The log counts as fresh by its time of change: it is touched on every round, so a slow start of the
+        // window (a loaded computer) does not let it grow old meanwhile.
+        let fresh = || {
+            let _ = std::fs::File::options().write(true).open(&log).and_then(|f| f.set_modified(SystemTime::now()));
+        };
         let end = std::time::Instant::now() + Duration::from_secs(60);
+        fresh();
         let mut texts = look(&mut page);
         while !shows(&texts, &language::t("ov_spiel_an")) && std::time::Instant::now() < end {
             std::thread::sleep(Duration::from_millis(20));
+            fresh();
             texts = look(&mut page);
         }
         let foot: Vec<&String> = texts.iter().map(|(text, _)| text).filter(|text| text.contains("·")).collect();

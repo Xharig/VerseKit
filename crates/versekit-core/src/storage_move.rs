@@ -41,8 +41,22 @@ use crate::{errors, writeguard};
 pub const MOVE_EXTENSIONS: [&str; 2] = [".json", ".txt"];
 
 /// The subfolders VerseKit makes itself. All of their content is ours,
-/// whatever the type of the file.
-pub const OWN_FOLDERS: [&str; 7] = ["Bauplaene", "Einstellungen", "Intern", "Diagnose", "Patches", "export", "Staende"];
+/// whatever the type of the file; the data of the side channels
+/// ([`crate::paths::CHANNEL_DATA_FOLDER`]) with every channel folder in it.
+pub const OWN_FOLDERS: [&str; 8] = [
+    "Bauplaene",
+    "Einstellungen",
+    "Intern",
+    "Diagnose",
+    "Patches",
+    "export",
+    "Staende",
+    crate::paths::CHANNEL_DATA_FOLDER,
+];
+
+/// Own folders a move leaves in the old data folder, and says so ([`Outcome::Moved`]): the backup of the first
+/// start stays where it was made, and the installer of an update is fetched anew.
+pub const STAYING_FOLDERS: [&str; 2] = [crate::first_backup::FOLDER, crate::updater::INSTALLER_FOLDER_IN_DATA];
 
 /// The name of the file written to find out whether a folder takes files.
 const PROBE_NAME: &str = ".schreibprobe";
@@ -100,8 +114,8 @@ pub enum Outcome {
     /// Switched to the data that lie at the target.
     UsedExisting,
     /// Moved: files copied and checked, `kept` stayed in the old folder
-    /// (relative names).
-    Moved { copied: usize, kept: Vec<String>, old: String },
+    /// (relative names), `stayed` are the folders of [`STAYING_FOLDERS`] that lie in the old folder and stay there.
+    Moved { copied: usize, kept: Vec<String>, old: String, stayed: Vec<String> },
     /// Not switched: `failed` files could not be copied safely, `copied` went through.
     Failed { failed: usize, copied: usize },
     /// Not switched: the new place could not be written into the pointer files.
@@ -447,7 +461,13 @@ impl Paths {
                     return Outcome::NotSaved;
                 }
                 let (_, kept) = self.remove_old_storage(&old, target);
-                Outcome::Moved { copied: moved.copied, kept, old }
+                let f = self.host.flavor;
+                let stayed = STAYING_FOLDERS
+                    .iter()
+                    .filter(|name| fs::metadata(f.join(&old, name)).is_ok_and(|m| m.is_dir()))
+                    .map(|name| name.to_string())
+                    .collect();
+                Outcome::Moved { copied: moved.copied, kept, old, stayed }
             }
         }
     }
@@ -640,6 +660,44 @@ mod tests {
         let Outcome::Moved { copied, kept, .. } = outcome else { panic!("{outcome:?}") };
         assert_eq!((copied, kept.len()), (2, 0));
         assert_eq!(fs::read_to_string(join(&target, "Staende/LIVE_4.10.0.stand")).unwrap(), "stand");
+    }
+
+    /// The data of the side channels go along whole, every channel folder with every file in it; the backup of the
+    /// first start stays in the old folder and is named.
+    #[test]
+    fn the_channel_folders_go_along_whole_and_what_stays_is_named() {
+        let root = scratch("kanaele");
+        let p = machine(&root);
+        let folder = p.app_folder();
+        let channels = crate::paths::CHANNEL_DATA_FOLDER;
+        let files = [
+            format!("{channels}/TECH-PREVIEW/einstellungen.json"),
+            format!("{channels}/TECH-PREVIEW/katalog.bin"),
+            format!("{channels}/PTU/{}/PTU_5.0.0-PTU.1.stand", crate::stands::FOLDER),
+            format!("{channels}/PTU/Patches/eigen-5.0.0.json"),
+            format!("{channels}/PTU/einstellungen.json"),
+        ];
+        for file in &files {
+            put(&join(&folder, file), file);
+        }
+        put(&join(&folder, "Bauplaene/bestand.json"), "{}");
+        put(&join(&folder, &format!("{}/erster-start.zip", crate::first_backup::FOLDER)), "zip");
+        let mut expected: Vec<String> = files.to_vec();
+        expected.push("Bauplaene/bestand.json".into());
+        expected.sort();
+        assert_eq!(rels(&p.storage_items(&folder)), expected);
+
+        let target = join(&root, "Neu");
+        let outcome = p.apply_storage_move(&target, Choice::TakeAlong);
+        let Outcome::Moved { copied, kept, stayed, .. } = outcome else { panic!("{outcome:?}") };
+        assert_eq!((copied, kept.len()), (files.len() + 1, 0));
+        for file in &files {
+            assert_eq!(fs::read_to_string(join(&target, file)).unwrap(), *file, "{file} is at the new place");
+            assert!(!Path::new(&join(&folder, file)).exists(), "{file} is gone from the old place");
+        }
+        assert!(!Path::new(&join(&folder, channels)).exists(), "the emptied channel folder goes too");
+        assert_eq!(stayed, [crate::first_backup::FOLDER]);
+        assert!(Path::new(&join(&folder, &format!("{}/erster-start.zip", crate::first_backup::FOLDER))).exists());
     }
 
     #[test]

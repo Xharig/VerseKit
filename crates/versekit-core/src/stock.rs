@@ -662,6 +662,123 @@ pub fn find_trade(entries: &[Value], name: &str, place: &str, pieces: bool) -> O
     })
 }
 
+/// Every entry of an item in pieces of the trade stock that is `name` at `place` (not stolen), the name compared by
+/// [`crate::paths::name_key`]: `Mil/3/B MegaFlux (Mil/3/B)` is `MegaFlux`. In the order of the file.
+pub fn find_item_twins(entries: &[Value], name: &str, place: &str) -> Vec<usize> {
+    use crate::stock_data::lower;
+    let key = crate::paths::name_key(name);
+    let place = lower(py_strip(place));
+    (0..entries.len())
+        .filter(|&i| {
+            let e = &entries[i];
+            is_pieces(e)
+                && !truthy(get(e, "gestohlen"))
+                && crate::paths::name_key(text_of(get(e, "ware"))) == key
+                && lower(py_strip(text_of(get(e, "ort")))) == place
+        })
+        .collect()
+}
+
+/// Puts together the entries of items in pieces that are the same item under two names (the name of the list and
+/// the one a translation of the game shows, `MegaFlux` and `Mil/3/B MegaFlux (Mil/3/B)`) at the same place with
+/// the same stolen mark. They are most likely one stack read twice, so the amount is not added up where a scan is
+/// among them: of scanned entries the one scanned last counts; where an entry typed by hand is beside a scanned one
+/// (no time to compare), the larger amount counts. Only entries all typed by hand add up, their price the average.
+/// `scanned` gives the time an entry (by its name and place as written) was last set by a scan, `None` for one
+/// typed by hand. The first entry stays, with the name of the list (`known` gives it; the shortest name where it
+/// knows none). A single entry under such a name gets the name of the list. `true` when anything changed.
+pub fn merge_item_twins(
+    entries: &mut Vec<Value>,
+    known: &dyn Fn(&str) -> Option<String>,
+    scanned: &dyn Fn(&str, &str) -> Option<i64>,
+) -> bool {
+    use crate::stock_data::lower;
+    let field = |e: &Value, key: &str| py_strip(text_of(get(e, key))).to_string();
+    // The times by the names as written, before an entry takes the name of the list.
+    let stamps: Vec<Option<i64>> = entries
+        .iter()
+        .map(|e| if is_pieces(e) { scanned(&field(e, "ware"), &field(e, "ort")) } else { None })
+        .collect();
+    let mut changed = false;
+    let mut groups: Vec<((String, String, bool), Vec<usize>)> = Vec::new();
+    for (i, entry) in entries.iter_mut().enumerate() {
+        if !is_pieces(entry) {
+            continue;
+        }
+        let name = field(entry, "ware");
+        if let Some(listed) = known(&name).filter(|listed| lower(listed) != lower(&name)) {
+            set(entry, "ware", Value::str(listed));
+            changed = true;
+        }
+        let group = (
+            crate::paths::name_key(&field(entry, "ware")),
+            lower(&field(entry, "ort")),
+            truthy(get(entry, "gestohlen")),
+        );
+        match groups.iter_mut().find(|(g, _)| *g == group) {
+            Some((_, members)) => members.push(i),
+            None => groups.push((group, vec![i])),
+        }
+    }
+    let mut gone = Vec::new();
+    for (_, members) in groups.into_iter().filter(|(_, m)| m.len() > 1) {
+        let amount = |i: usize| number_of(&entries[i], "menge");
+        let all_scanned = members.iter().all(|&i| stamps[i].is_some());
+        let winner = if members.iter().all(|&i| stamps[i].is_none()) {
+            None
+        } else if all_scanned {
+            members.iter().copied().max_by(|&a, &b| stamps[a].cmp(&stamps[b]).then(amount(a).total_cmp(&amount(b))))
+        } else {
+            members.iter().copied().max_by(|&a, &b| amount(a).total_cmp(&amount(b)))
+        };
+        let (total, cost) = match winner {
+            Some(w) => (amount(w), cost_of(&entries[w]).or_else(|| members.iter().find_map(|&i| cost_of(&entries[i])))),
+            // A price only some of them have stays: the others' is not known, and dropping it loses what was typed.
+            None => members.iter().fold((0.0, None), |(sum, cost), &i| {
+                let mixed = match (cost, cost_of(&entries[i])) {
+                    (Some(a), Some(b)) => mixed_cost(sum, Some(a), amount(i), Some(b)),
+                    (a, b) => a.or(b),
+                };
+                (sum + amount(i), mixed)
+            }),
+        };
+        let names: Vec<String> = members.iter().map(|&i| field(&entries[i], "ware")).collect();
+        let name = names
+            .iter()
+            .find(|n| known(n).is_some())
+            .or_else(|| names.iter().min_by_key(|n| n.chars().count()))
+            .cloned()
+            .unwrap_or_default();
+        let uex = members.iter().find_map(|&i| get(&entries[i], "uex").cloned());
+        let first = members[0];
+        let target = &mut entries[first];
+        set(target, "menge", Value::Float(total));
+        set_cost(target, cost.map(|c| py_round(c, 4)));
+        set(target, "ware", Value::str(name));
+        if let Some(uex) = uex {
+            set(target, "uex", uex);
+        }
+        gone.extend(members.into_iter().skip(1));
+        changed = true;
+    }
+    gone.sort_unstable();
+    for i in gone.into_iter().rev() {
+        entries.remove(i);
+    }
+    changed
+}
+
+/// Gives the entry at `index` the name `name` and leaves everything else of it as it is; `false` without that entry.
+pub fn rename(entries: &mut [Value], index: usize, name: &str) -> bool {
+    match entries.get_mut(index) {
+        Some(entry) => {
+            set(entry, "ware", Value::str(py_strip(name)));
+            true
+        }
+        None => false,
+    }
+}
+
 /// Sets the amount of the entry at `index` and leaves everything else of it as it is; `false` without that entry.
 pub fn set_amount(entries: &mut [Value], index: usize, amount: f64) -> bool {
     match entries.get_mut(index) {
@@ -1361,5 +1478,96 @@ mod tests {
         assert_eq!(read.errors[1].1, LineError::TooShort);
         assert_eq!(piece_word("Hadanite 500 5Stk."), Some(14));
         assert_eq!(piece_word("Hadanite 500 5"), None);
+    }
+
+    /// `MegaFlux` and `Mil/3/B MegaFlux (Mil/3/B)` at the same station are one entry under the name of the list;
+    /// typed by hand, both of them, their amounts add up.
+    #[test]
+    fn an_item_under_a_second_name_is_put_together_with_the_listed_one() {
+        let listed = |name: &str| match crate::paths::name_key(name).as_str() {
+            "megaflux" => Some("MegaFlux".to_string()),
+            "absolutezero" => Some("AbsoluteZero".to_string()),
+            _ => None,
+        };
+        let mut entries = Vec::new();
+        let qv = "QV Logistics Station";
+        // Goods in SCU first: booked after them, an item never joins their stack.
+        trade_add(&mut entries, "Mil/3/B MegaFlux (Mil/3/B)", "4", qv, false, "").unwrap();
+        trade_add_item(&mut entries, "MegaFlux", "5", qv, false, Some(1755), None).unwrap();
+        trade_add_item(&mut entries, "Mil/3/B MegaFlux (Mil/3/B)", "6", qv, false, None, None).unwrap();
+        trade_add_item(&mut entries, "Cmp/2/B AbsoluteZero (Cmp/2/B)", "1", qv, false, None, None).unwrap();
+        // Another place, a stolen stack and goods in SCU stay their own.
+        trade_add_item(&mut entries, "Mil/3/B MegaFlux (Mil/3/B)", "2", "Orison", false, None, None).unwrap();
+        trade_add_item(&mut entries, "Mil/3/B MegaFlux (Mil/3/B)", "3", qv, true, None, None).unwrap();
+        assert!(merge_item_twins(&mut entries, &listed, &|_, _| None));
+        let row = |name: &str, place: &str, stolen: bool| {
+            entries
+                .iter()
+                .filter(|e| is_pieces(e) && text_of(get(e, "ware")) == name && text_of(get(e, "ort")) == place)
+                .filter(|e| truthy(get(e, "gestohlen")) == stolen)
+                .map(|e| number_of(e, "menge"))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(row("MegaFlux", qv, false), vec![11.0], "5 and 6 are one stack of 11");
+        assert_eq!(entries[1].get("uex"), Some(&Value::int(1755)), "the first entry keeps its number");
+        assert_eq!(text_of(get(&entries[0], "ware")), "Mil/3/B MegaFlux (Mil/3/B)", "goods keep their name");
+        assert_eq!(row("AbsoluteZero", qv, false), vec![1.0], "a single one gets the name of the list");
+        assert_eq!(row("MegaFlux", "Orison", false), vec![2.0]);
+        assert_eq!(row("MegaFlux", qv, true), vec![3.0], "a stolen stack stays apart");
+        assert_eq!(entries.iter().filter(|e| !is_pieces(e)).count(), 1, "goods in SCU are not touched");
+        assert_eq!(entries.len(), 5);
+        // Read once more nothing changes.
+        assert!(!merge_item_twins(&mut entries, &listed, &|_, _| None));
+    }
+
+    /// Lord Cyberus: `MegaFlux 5` and `Mil/3/B MegaFlux (Mil/3/B) 6` at one station are one stack read twice, not 11.
+    /// Both scanned: the one scanned last counts. A scanned one beside one typed by hand: the larger counts.
+    #[test]
+    fn twins_with_a_scan_among_them_are_not_added_up() {
+        let qv = "QV Logistics Station";
+        let two = |first: &str, second: &str| {
+            let mut entries = Vec::new();
+            trade_add_item(&mut entries, first, "5", qv, false, None, None).unwrap();
+            trade_add_item(&mut entries, second, "6", qv, false, None, None).unwrap();
+            entries
+        };
+        let (plain, coded) = ("MegaFlux", "Mil/3/B MegaFlux (Mil/3/B)");
+        let merged = |mut entries: Vec<Value>, times: &[(&str, i64)]| {
+            let times: Vec<(String, i64)> = times.iter().map(|(n, t)| (n.to_string(), *t)).collect();
+            let scanned = |name: &str, place: &str| {
+                assert_eq!(place, qv);
+                times.iter().find(|(n, _)| n == name).map(|(_, t)| *t)
+            };
+            assert!(merge_item_twins(&mut entries, &|_| None, &scanned));
+            assert_eq!(entries.len(), 1);
+            (text_of(get(&entries[0], "ware")).to_string(), number_of(&entries[0], "menge"))
+        };
+        // Both scanned: the later scan wins, whichever amount is larger.
+        assert_eq!(merged(two(plain, coded), &[(plain, 100), (coded, 200)]), (plain.to_string(), 6.0));
+        assert_eq!(merged(two(plain, coded), &[(plain, 300), (coded, 200)]), (plain.to_string(), 5.0));
+        // A scan beside a hand entry: no time to compare, the larger amount.
+        assert_eq!(merged(two(plain, coded), &[(plain, 300)]), (plain.to_string(), 6.0));
+        assert_eq!(merged(two(plain, coded), &[(coded, 300)]), (plain.to_string(), 6.0));
+        // Both by hand: added.
+        assert_eq!(merged(two(plain, coded), &[]), (plain.to_string(), 11.0));
+    }
+
+    /// Without the list the shorter name stays; a price only one of them has is kept.
+    #[test]
+    fn twins_without_the_list_keep_the_shorter_name_and_the_price() {
+        let mut entries = Vec::new();
+        trade_add_item(&mut entries, "Mil/2/A JS-400 (Mil/2/A)", "1", "Levski", false, None, None).unwrap();
+        trade_add_item_with_cost(&mut entries, "JS-400", "2", "Levski", false, None, 900.0).unwrap();
+        assert!(merge_item_twins(&mut entries, &|_| None, &|_, _| None));
+        assert_eq!(entries.len(), 1);
+        assert_eq!(text_of(get(&entries[0], "ware")), "JS-400");
+        assert_eq!(number_of(&entries[0], "menge"), 3.0);
+        assert_eq!(cost_of(&entries[0]), Some(900.0));
+        // Names that are not the same item are never joined.
+        let mut other = Vec::new();
+        trade_add_item(&mut other, "JS-400", "1", "Levski", false, None, None).unwrap();
+        trade_add_item(&mut other, "JS-300", "1", "Levski", false, None, None).unwrap();
+        assert!(!merge_item_twins(&mut other, &|_| None, &|_, _| None));
+        assert_eq!(other.len(), 2);
     }
 }

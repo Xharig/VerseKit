@@ -267,12 +267,10 @@ pub fn board(
             texts.sizes[TileSize::ALL.iter().position(|s| *s == tiles[i].size).unwrap_or(0)]
         );
         grab.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &name));
-        // The hint of the tile names its keys; over the X and the corner their own hints show instead.
+        // ⚠ The keys of a tile are named in a line below the board, not in a hint beside the pointer: that hint
+        // stood on the tile below.
         let corner = Rect::from_min_max(rect.max - Vec2::splat(RESIZE_CORNER), rect.max);
         let hide_rect = Rect::from_min_size(pos2(rect.right() - 30.0, rect.top() + 6.0), Vec2::splat(24.0));
-        let over_button = ui.ctx().pointer_hover_pos().is_some_and(|p| corner.contains(p) || hide_rect.contains(p));
-        let grab =
-            if over_button || dragging.is_some() || resizing.is_some() { grab } else { grab.on_hover_text(texts.keys) };
         // A click on the tile itself (not on a button in it) opens its page: the caller takes it with
         // [`clicked_tile`].
         if grab.clicked() && dragging.is_none() && resizing.is_none() {
@@ -458,6 +456,10 @@ pub fn board(
         Some(Action::Hide(i)) => tiles[i].hidden = true,
         None => {}
     }
+
+    // The keys of the tiles, in a line of their own below them, where it covers no tile.
+    ui.add_space(4.0);
+    ui.add(egui::Label::new(RichText::new(texts.keys).small().color(color(scheme.sub))).wrap());
 
     let hidden: Vec<usize> = (0..tiles.len()).filter(|&i| tiles[i].hidden).collect();
     if !hidden.is_empty() {
@@ -918,6 +920,8 @@ mod tests {
             .iter()
             .filter(|s| s.shape.visual_bounding_rect().min.y > tile_bottom + 1.0)
             .filter(|s| s.clip_rect.max.y > tile_bottom + 0.5)
+            // The line with the keys of the tiles stands below the board on purpose.
+            .filter(|s| !matches!(&s.shape, egui::Shape::Text(t) if t.galley.text() == texts.keys))
             .collect();
         assert!(below.is_empty(), "{} shapes paint below the tile", below.len());
     }
@@ -1114,7 +1118,7 @@ mod tests {
 
     /// The hint of a tile names its keys; over its X the hint of the X shows instead, not both.
     #[test]
-    fn the_hint_of_a_tile_names_its_keys() {
+    fn the_keys_of_the_tiles_stand_below_them_and_cover_no_tile() {
         let ctx = egui::Context::default();
         crate::install(&ctx);
         let scheme = versekit_core::theme::by_id("original").expect("scheme exists");
@@ -1154,9 +1158,9 @@ mod tests {
                     );
                 });
                 output.textures_delta.clear();
-                fn collect(shape: &egui::Shape, into: &mut Vec<String>) {
+                fn collect(shape: &egui::Shape, into: &mut Vec<(String, f32)>) {
                     match shape {
-                        egui::Shape::Text(text) => into.push(text.galley.text().to_string()),
+                        egui::Shape::Text(text) => into.push((text.galley.text().to_string(), shape.visual_bounding_rect().min.y)),
                         egui::Shape::Vec(shapes) => shapes.iter().for_each(|shape| collect(shape, into)),
                         _ => {}
                     }
@@ -1166,12 +1170,14 @@ mod tests {
             }
             drawn
         };
-        // Tile `a`: 244 × 110 at the top left.
+        // Tiles `a` and `b`: 110 high at the top; the mouse rests on `a`, where a hint beside the pointer stood on
+        // what lies below it.
         let shown = rest(pos2(100.0, 70.0), &mut tiles);
-        assert!(shown.iter().any(|t| t == "Tasten der Kachel"), "over the tile its keys show: {shown:?}");
+        let keys: Vec<f32> = shown.iter().filter(|(t, _)| t == "Tasten der Kachel").map(|(_, y)| *y).collect();
+        assert_eq!(keys.len(), 1, "the keys are named once: {shown:?}");
+        assert!(keys[0] >= TILE_ROW_HEIGHT, "below the tiles, on none of them: {shown:?}");
         let shown = rest(pos2(244.0 - 30.0 + 12.0, 6.0 + 12.0), &mut tiles);
-        assert!(shown.iter().any(|t| t == "Ausblenden"), "over the X its hint shows: {shown:?}");
-        assert!(!shown.iter().any(|t| t == "Tasten der Kachel"), "and not the keys as well: {shown:?}");
+        assert!(shown.iter().any(|(t, _)| t == "Ausblenden"), "over the X its hint shows: {shown:?}");
     }
 
     /// Draws `add` in a frame `width` points wide; the shapes painted, flat.

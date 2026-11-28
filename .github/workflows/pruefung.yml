@@ -62,3 +62,10 @@ jobs:
           python tools/beta_workflow_pruefen.py
           python tools/beta_workflow_pruefen.py --selbsttest
           python tools/beta_masken_tests.py
+
+      - name: Every release carries the Stream Deck profiles ZIP
+        run: |
+          python tools/release_workflow_pruefen.py
+          python tools/release_workflow_pruefen.py --selbsttest
+          python tools/streamdeck_profile_zip.py --selbsttest
+          python tools/streamdeck_profile_zip.py dist/VerseKit-StreamDeck-Profile.zip

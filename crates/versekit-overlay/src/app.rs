@@ -488,6 +488,8 @@ pub struct OverlayApp {
     scanner: Scanner,
     /// The joins of a shard in the running session, as the watcher tells them.
     shard: Joins,
+    /// The readable name of the last ship of the running session, as the watcher tells it.
+    ship: Option<String>,
     /// The info bar: a window of its own with the shard and the scanned material.
     pub info: info_window::InfoWindow,
     /// The hint of a button of the bar, in a window of its own next to the pointer.
@@ -516,6 +518,19 @@ pub struct OverlayApp {
     started_main: Option<Instant>,
     /// A page the icon's menu asked for while the main window was not there yet: handed on once it is.
     pending_page: Option<(Signal, Instant)>,
+    /// A page a key of the Stream Deck asked for while the main window was not there yet, by its key.
+    pending_key: Option<(String, Instant)>,
+    /// The interface of the Stream Deck, once its setting was on.
+    deck: Option<crate::streamdeck_host::Deck>,
+    /// What the interface needs to start, until it starts.
+    deck_parts: Option<crate::streamdeck_host::DeckParts>,
+    /// What the overlay shows, for the state of the interface.
+    deck_snapshot: Arc<Mutex<crate::streamdeck_host::Snapshot>>,
+    /// What the keys of the Stream Deck ask of the overlay.
+    deck_orders: Receiver<crate::streamdeck_host::Order>,
+    deck_orders_tx: Sender<crate::streamdeck_host::Order>,
+    /// The newer plugin file to open once the game is not running.
+    deck_plugin_waiting: Option<String>,
     /// The main window said it changed the settings.
     pub settings_told: Arc<AtomicBool>,
     /// A second start asked for the main window.
@@ -533,6 +548,12 @@ pub struct OverlayApp {
     pub system_places: bool,
     pub injected: Vec<egui::Event>,
     pub nudged: Vec<(i32, i32)>,
+}
+
+/// Does the interface of the Stream Deck run: switched on, on the own data of a real start, never in the self-check
+/// (`--probe`), so the real plugin never meets a test overlay and no window of the Stream Deck program comes up.
+pub fn deck_wanted(on: bool, probe: bool, real: bool, other_data: bool) -> bool {
+    on && !probe && real && !other_data
 }
 
 /// The probe of Windows and the one of X11; on macOS a placeholder type.
@@ -987,6 +1008,13 @@ impl OverlayApp {
     fn start_scmdb(&mut self) {
         use versekit_core::scmdb_bridge::State;
         let on = self.settings.scmdb && self.args.probe.is_none();
+        // The switch off: turned on again, the scmdb page gets the whole stock once more.
+        if !self.settings.scmdb
+            && self.args.probe.is_none()
+            && let Some(paths) = self.paths.as_ref()
+        {
+            versekit_core::scmdb_bridge::forget_stock(paths);
+        }
         let Some(paths) = self.paths.as_ref().filter(|_| on) else {
             self.scmdb.stop();
             return;
@@ -1105,6 +1133,18 @@ impl OverlayApp {
         }
     }
 
+    /// The log asked for a page of the Stream Deck: handed to the plugin while the interface runs and the player did
+    /// not switch it off.
+    pub(crate) fn device_page_told(&mut self, page: versekit_core::streamdeck::DevicePage) {
+        let wanted = self.paths.as_ref().is_some_and(|p| p.setting_bool(versekit_core::streamdeck::SETTING_AUTO_PAGE, true));
+        if let Some(deck) = &self.deck
+            && wanted
+            && deck.server.enabled()
+        {
+            deck.host.ask_page(page);
+        }
+    }
+
     fn take_news(&mut self) {
         let now = self.now();
         // A settings file that broke here, in the window's own reading, is told like the one the watcher finds.
@@ -1169,6 +1209,9 @@ impl OverlayApp {
                 }
                 News::OwnHandle(handle) => self.search.set_own_handle(Some(handle)),
                 News::Zone(zone) => self.zone_told(zone, now),
+                News::DevicePage(page) => self.device_page_told(page),
+                News::LogFound(found) => self.deck_snapshot.lock().unwrap_or_else(|e| e.into_inner()).log_found = Some(found),
+                News::Ship(name) => self.ship = name,
             }
         }
         // How a start went: a reason is shown and noted, as in 4.12.
@@ -1200,6 +1243,7 @@ impl OverlayApp {
         while self.hotkey_presses.try_recv().is_ok() {
             self.fold_by_hand(now);
         }
+        self.follow_deck(now);
         // The hotkey of the refinery scan: one reading at a time; its notice over the game says what came of it, and
         // the main window opens on what it read.
         let paths = self.paths.as_ref().map(|p| Paths::new(p.host.clone()));
@@ -1332,14 +1376,14 @@ impl OverlayApp {
                 self.rows.push(hint, self.settings.rows);
             }
         }
-        // The hotkey of the main window: shown on its page and in front, started where it does not run. Several
-        // presses in one frame are one.
+        // The hotkey of the main window: started where it does not run, brought to the front where it is behind,
+        // closed where it is in front. Several presses in one frame are one.
         let mut main_asked = false;
         while self.main_presses.try_recv().is_ok() {
             main_asked = true;
         }
         if main_asked {
-            self.show_main_by_key();
+            self.toggle_main_by_key();
         }
         // The hotkey of Anti-AFK: the same as a click on its button (the other state, said in the status line, with the
         // click of the sounds). Several presses in one frame are one.
@@ -1920,12 +1964,7 @@ impl OverlayApp {
             }
             Action::Clear => self.rows.clear(),
             Action::Fold => self.fold_by_hand(now),
-            Action::Lock => {
-                let on = !self.settings.click_through;
-                self.settings.click_through = on;
-                self.store(keys::CLICK_THROUGH, Value::Bool(on));
-                self.status = Phrase::new(if on { "ov_v_schloss_zu" } else { "ov_schloss_offen" }).into();
-            }
+            Action::Lock => self.toggle_click_through(),
             Action::Overview => self.open_main(Signal::Overview),
             Action::Launch => self.launch_game(),
             Action::Extra(afk::ID) => {
@@ -1955,6 +1994,10 @@ impl OverlayApp {
         self.closed = true;
         // The switch goes off for good; the file the main window reads says so.
         self.afk.shutdown();
+        // Keys held for the Stream Deck come up, and its key file goes.
+        if let Some(deck) = &self.deck {
+            deck.stop();
+        }
         self.scanner.close();
         self.fps.close();
         // The icon next to the clock goes first: a dead shell would stay there until the pointer passes over it.
@@ -1999,6 +2042,104 @@ impl OverlayApp {
             && let Some(hwnd) = window_signal::find(Role::Main)
         {
             crate::win::give_front(hwnd);
+        }
+    }
+
+    /// The hotkey of the main window and its key on the Stream Deck: a main window in front is closed as by its own
+    /// button (the program goes on); one that is behind, hidden or not there is shown as by
+    /// [`OverlayApp::show_main_by_key`].
+    fn toggle_main_by_key(&mut self) {
+        // The same decision as the key of the Stream Deck shows (`streamdeck::MainWindow`).
+        let found = window_signal::find(Role::Main);
+        let window = main_window_of(found);
+        match window.press() {
+            versekit_core::streamdeck::MainPress::Close => {
+                if let Some(hwnd) = found {
+                    window_signal::close_window(hwnd);
+                }
+            }
+            versekit_core::streamdeck::MainPress::Open | versekit_core::streamdeck::MainPress::ToFront => self.show_main_by_key(),
+        }
+    }
+
+    /// A page of the main window asked for by a key of the Stream Deck: handed to the running window, or kept until
+    /// the started one shows up.
+    fn open_page_by_key(&mut self, key: &str) {
+        if !versekit_core::streamdeck::page_allowed(key) {
+            return;
+        }
+        if let Some(hwnd) = window_signal::find(Role::Main) {
+            window_signal::bring_to_front(hwnd);
+            window_signal::send_data(hwnd, window_signal::DataKind::Page, key.as_bytes());
+            return;
+        }
+        self.open_main(Signal::Show);
+        self.pending_key = Some((key.to_string(), Instant::now()));
+    }
+
+    /// The interface of the Stream Deck as its setting says: started the first time it is on (only on the own data,
+    /// never in the self-check), on or off afterwards; the state it shows, and what its keys asked of the overlay.
+    fn follow_deck(&mut self, now: f64) {
+        let wanted = deck_wanted(self.settings.streamdeck, self.args.probe.is_some(), self.args.real, self.args.data.is_some());
+        if wanted
+            && self.deck.is_none()
+            && let (Some(paths), Some(parts)) = (&self.paths, self.deck_parts.take())
+        {
+            let host = crate::streamdeck_host::system_host(
+                paths.host.clone(),
+                self.deck_snapshot.clone(),
+                parts.senders,
+                self.deck_orders_tx.clone(),
+                parts.wake,
+            );
+            self.deck = crate::streamdeck_host::Deck::start(paths, host);
+        }
+        if let Some(deck) = &self.deck
+            && deck.server.enabled() != wanted
+        {
+            deck.set_on(wanted);
+        }
+        if self.deck.is_none() {
+            return;
+        }
+        let mut shared = self.deck_snapshot.lock().unwrap_or_else(|e| e.into_inner());
+        // What the watch of the log said last stays; the rest is what the overlay shows now.
+        *shared = crate::streamdeck_host::Snapshot {
+            overlay_open: self.vis.shown(now) == Shown::Open,
+            anti_afk: self.afk.enabled(),
+            mining_scanner: self.settings.scanner,
+            click_through: self.settings.click_through,
+            sounds: self.settings.sound,
+            game_runs: self.game_real,
+            log_found: shared.log_found,
+        };
+        drop(shared);
+        if let Some(deck) = &self.deck {
+            deck.host.set_contracts(&self.contracts);
+            deck.host.set_ship(self.ship.as_deref());
+        }
+        while let Ok(order) = self.deck_orders.try_recv() {
+            match order {
+                crate::streamdeck_host::Order::Main => self.toggle_main_by_key(),
+                crate::streamdeck_host::Order::Page(key) => self.open_page_by_key(&key),
+                crate::streamdeck_host::Order::Folder(folder) => {
+                    if !versekit_core::browser::show_folder(&folder) {
+                        versekit_core::errors::record("streamdeck.belegungsordner", &"Ordner ließ sich nicht öffnen");
+                    }
+                }
+                crate::streamdeck_host::Order::PluginFile(file) => self.deck_plugin_waiting = Some(file),
+                crate::streamdeck_host::Order::ClickThrough => self.toggle_click_through(),
+                crate::streamdeck_host::Order::Sounds => self.toggle_sounds(),
+            }
+        }
+        // A window of the Stream Deck program never comes up over the game: the newer plugin waits for its end. Under
+        // `--probe` it never comes up at all.
+        if !self.game_real
+            && self.args.probe.is_none()
+            && let Some(file) = self.deck_plugin_waiting.take()
+            && !versekit_core::browser::open_stream_deck_plugin(&file)
+        {
+            versekit_core::errors::record("streamdeck.plugin_update", &"Plugin-Datei ließ sich nicht öffnen");
         }
     }
 
@@ -2124,12 +2265,21 @@ impl OverlayApp {
     /// Does a page asked for wait for the main window to show up?
     #[cfg_attr(not(windows), allow(dead_code))]
     pub fn page_waits(&self) -> bool {
-        self.pending_page.is_some()
+        self.pending_page.is_some() || self.pending_key.is_some()
     }
 
     /// Hands a page asked for before the main window was there on to it, once it is marked; gives up
     /// after [`PAGE_WAIT`] (the start failed or took too long: the window shows the overview).
     fn deliver_pending_page(&mut self) {
+        if let Some((key, since)) = &self.pending_key {
+            if since.elapsed() > PAGE_WAIT {
+                self.pending_key = None;
+            } else if let Some(hwnd) = window_signal::find(Role::Main)
+                && window_signal::send_data(hwnd, window_signal::DataKind::Page, key.as_bytes())
+            {
+                self.pending_key = None;
+            }
+        }
         let Some((signal, since)) = self.pending_page else { return };
         if since.elapsed() > PAGE_WAIT {
             self.pending_page = None;
@@ -2237,6 +2387,21 @@ impl OverlayApp {
     }
 
     /// The eye of the bar: the scanner on or off, the same switch as on the page Mining.
+    /// Clicks through the overlay into the game on or off: the lock of the bar and the key of the Stream Deck.
+    fn toggle_click_through(&mut self) {
+        let on = !self.settings.click_through;
+        self.settings.click_through = on;
+        self.store(keys::CLICK_THROUGH, Value::Bool(on));
+        self.status = Phrase::new(if on { "ov_v_schloss_zu" } else { "ov_schloss_offen" }).into();
+    }
+
+    /// The sounds of the overlay on or off, as the setting of the overlay page.
+    fn toggle_sounds(&mut self) {
+        let on = !self.settings.sound;
+        self.settings.sound = on;
+        self.store(keys::SOUND, Value::Bool(on));
+    }
+
     fn toggle_scanner(&mut self) {
         let on = !self.settings.scanner;
         self.settings.scanner = on;
@@ -2837,6 +3002,26 @@ struct Parts {
     demand: Arc<Mutex<Vec<Material>>>,
     /// Where the bank the main window hands over lands.
     bank: Arc<Mutex<versekit_core::basetool::bank::Handed>>,
+    /// The channels for the interface of the Stream Deck; none in a test.
+    deck: Option<crate::streamdeck_host::DeckParts>,
+}
+
+/// Is the main window `hwnd` shown and the window in front?
+#[cfg(windows)]
+fn main_in_front(hwnd: isize) -> bool {
+    window_signal::is_shown(hwnd) && crate::win::in_front(hwnd)
+}
+
+/// Elsewhere the front cannot be told: the key shows the window.
+#[cfg(not(windows))]
+fn main_in_front(_hwnd: isize) -> bool {
+    false
+}
+
+/// The main window as the key shows it: closed, open behind another window, or open in front.
+pub(crate) fn main_window_of(found: Option<isize>) -> versekit_core::streamdeck::MainWindow {
+    let shown = found.is_some_and(window_signal::is_shown);
+    versekit_core::streamdeck::MainWindow::of(shown, shown && found.is_some_and(main_in_front))
 }
 
 /// The overlay lines of a bank handed over (see [`OverlayApp::bank_lines`]).
@@ -2916,6 +3101,7 @@ impl OverlayApp {
         {
             vis.restore(folded);
         }
+        let (deck_orders_tx, deck_orders) = mpsc::channel();
         OverlayApp {
             hwnd: p.hwnd,
             paths: p.paths,
@@ -3049,6 +3235,7 @@ impl OverlayApp {
             afk,
             scanner,
             shard: Joins::default(),
+            ship: None,
             info: info_window::InfoWindow::new(settings.info_bar_places.clone()),
             hint_window: hint_window::HintWindow::new(),
             search,
@@ -3063,6 +3250,13 @@ impl OverlayApp {
             learn_child: None,
             started_main: None,
             pending_page: None,
+            pending_key: None,
+            deck: None,
+            deck_parts: p.deck,
+            deck_snapshot: Arc::default(),
+            deck_orders,
+            deck_orders_tx,
+            deck_plugin_waiting: None,
             settings_told: p.settings_told,
             overview_asked: p.overview_asked,
             frame_asked: p.frame_asked,
@@ -3230,6 +3424,8 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                         *bank_handed.lock().unwrap_or_else(|e| e.into_inner()) =
                             versekit_core::basetool::bank::taken_over(&bytes);
                     }
+                    // Pages are for the main window.
+                    window_signal::DataKind::Page => return,
                 }
                 ctx.request_repaint();
             });
@@ -3239,6 +3435,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             let stock_news = news_tx.clone();
             let (game_tx, game_rx) = mpsc::channel();
             let (hotkey_tx, hotkey_rx) = mpsc::channel();
+            let deck_overlay = hotkey_tx.clone();
             let hotkey = Arc::new(Mutex::new(settings.hotkey));
             let place_known =
                 paths.as_ref().is_some_and(|p| std::path::Path::new(&p.app_file(overlay::GEOMETRY_FILE)).exists());
@@ -3301,6 +3498,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             let hotkey_choice = paths.as_ref().map(overlay::HotkeyChoice::read);
             let scan_choice = paths.as_ref().map(overlay::HotkeyChoice::read_scan);
             let (scan_tx, scan_rx) = mpsc::channel();
+            let deck_refinery = scan_tx.clone();
             let refinery = crate::refinery::RefineryKey::new(settings.scan_hotkey, scan_rx);
             #[cfg_attr(target_os = "macos", allow(unused_mut))]
             let mut registered: Result<(), String> = Err("kein System, das es kann".into());
@@ -3346,6 +3544,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             // The hotkey of the handle search, the same way as the one of the overlay.
             let search_hotkey = Arc::new(Mutex::new(settings.search_hotkey));
             let (search_tx, search_rx) = mpsc::channel();
+            let deck_search = search_tx.clone();
             #[cfg_attr(target_os = "macos", allow(unused_mut))]
             let mut search_registered: Result<(), String> = Err("kein System, das es kann".into());
             #[cfg(windows)]
@@ -3367,6 +3566,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             drop(search_tx);
             // The hotkey of the picture of the game grabs the screen: only where that works, as the refinery scan.
             let (picture_tx, picture_rx) = mpsc::channel();
+            let deck_picture = picture_tx.clone();
             let picture = crate::picture::PictureKey::new(settings.picture_hotkey, picture_rx);
             #[cfg_attr(target_os = "macos", allow(unused_mut))]
             let mut picture_registered: Result<(), String> = Err("kein System, das es kann".into());
@@ -3413,6 +3613,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             // and the start trail says so.
             let anti_afk_hotkey = Arc::new(Mutex::new(settings.anti_afk_hotkey));
             let (anti_afk_tx, anti_afk_rx) = mpsc::channel();
+            let deck_anti_afk = anti_afk_tx.clone();
             #[cfg_attr(not(windows), allow(unused_mut))]
             let mut anti_afk_registered: Result<(), String> = Err("kein System, das es kann".into());
             #[cfg(windows)]
@@ -3428,6 +3629,8 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             // The hotkey of the signature scanner: only where the screen can be read (Windows, X11).
             let scanner_hotkey = Arc::new(Mutex::new(settings.scanner_hotkey));
             let (scanner_tx, scanner_rx) = mpsc::channel();
+            // The key of the Stream Deck takes the way of the hotkey (`toggle_scanner_by_key`).
+            let deck_scanner = scanner_tx.clone();
             #[cfg_attr(target_os = "macos", allow(unused_mut))]
             let mut scanner_registered: Result<(), String> = Err("kein System, das es kann".into());
             #[cfg(windows)]
@@ -3493,6 +3696,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             drop(learn_tx);
             // The hotkey of the blueprint scan reads letters with the recognition of Windows: only there.
             let (blueprint_tx, blueprint_rx) = mpsc::channel();
+            let deck_blueprint = blueprint_tx.clone();
             let blueprint = crate::blueprint::BlueprintKey::new(settings.blueprint_hotkey, blueprint_rx);
             #[cfg_attr(not(windows), allow(unused_mut))]
             let mut blueprint_registered: Result<(), String> = Err("kein System, das es kann".into());
@@ -3509,6 +3713,21 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
             // The hotkeys of the stock scan read the card with the recognition of Windows too: only there.
             let (stock_own_tx, stock_own_rx) = mpsc::channel();
             let (stock_unit_tx, stock_unit_rx) = mpsc::channel();
+            let wake = cc.egui_ctx.clone();
+            let deck_parts = crate::streamdeck_host::DeckParts {
+                senders: crate::streamdeck_host::Senders {
+                    overlay: deck_overlay,
+                    refinery: deck_refinery,
+                    picture: deck_picture,
+                    search: deck_search,
+                    anti_afk: deck_anti_afk,
+                    blueprint: deck_blueprint,
+                    stock: stock_own_tx.clone(),
+                    unit_stock: stock_unit_tx.clone(),
+                    mining_scanner: deck_scanner,
+                },
+                wake: Arc::new(move || wake.request_repaint()),
+            };
             let stock_own = crate::stock_keys::StockKey::new(settings.stock_hotkey, stock_own_rx);
             let stock_unit = crate::stock_keys::StockKey::new(settings.unit_stock_hotkey, stock_unit_rx);
             #[cfg_attr(not(windows), allow(unused_mut))]
@@ -3609,6 +3828,7 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
                 afk_asked,
                 demand,
                 bank,
+                deck: Some(deck_parts),
             });
             #[cfg(windows)]
             if let Some(file) = &args.probe {
@@ -3650,6 +3870,15 @@ pub fn run(args: Args, paths: Option<Paths>, points: i64) -> eframe::Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_stream_deck_interface_never_runs_in_the_self_check() {
+        assert!(deck_wanted(true, false, true, false), "on, a real start on the own data");
+        assert!(!deck_wanted(true, true, true, false), "--probe: never, the plugin must not meet a test overlay");
+        assert!(!deck_wanted(true, false, false, false), "no real start");
+        assert!(!deck_wanted(true, false, true, true), "other data");
+        assert!(!deck_wanted(false, false, true, false), "switched off");
+    }
 
     #[test]
     fn the_window_of_the_overlay_carries_the_class_of_the_program() {
@@ -4178,6 +4407,11 @@ mod tests {
         // The language of this thread only: asking for the program's would decide it from the
         // real data of whoever runs the test, and race with the tests that set it.
         language::set_thread_language(language::Choice::De);
+        // No icon next to the clock: with a data folder the overlay would place a real one in the taskbar of
+        // whoever runs the test, and its window would take the messages of the icon the tray tests start.
+        if let Some(paths) = &paths {
+            paths.set_setting(keys::TRAY, Value::Bool(false));
+        }
         let (news, news_rx) = mpsc::channel();
         let (game, game_rx) = mpsc::channel();
         let (_presses, presses_rx) = mpsc::channel();
@@ -4236,6 +4470,7 @@ mod tests {
             afk_asked: Arc::new(AtomicU8::new(0)),
             demand: Arc::new(Mutex::new(Vec::new())),
             bank: Arc::default(),
+            deck: None,
         });
         // The game of whoever runs the test does not decide: not in front.
         let mut app = app;
@@ -4459,6 +4694,9 @@ mod tests {
         versekit_ui::install(&ctx);
         let mut bench = bench_at(Args { game: true, ..Args::default() }, true, None, 2.0);
         let app = &mut bench.app;
+        // A pointer of its own, shown and far from the bar: the real one of the computer may be hidden (a game, a
+        // film), and a hidden pointer lets the clicks through the bar on its own.
+        app.pointer_override = Some(Pointer { hidden: false, x: -30_000, y: -30_000 });
         run_frame(app, &ctx);
         assert!(app.info.shown(), "on by default while the game runs");
         app.settings.info_bar = false;
@@ -4586,6 +4824,7 @@ mod tests {
             title: format!("Auftrag {n}"),
             text: Message::Plain(format!("Auftrag {n}  →  Baupläne 1/3 · dir fehlt: Helm")),
             goals: goals.clone(),
+            steps: None,
             grey: false,
             count: 1,
             complete: false,
@@ -5674,7 +5913,9 @@ mod tests {
             assert!(!window.is_null());
             window as isize
         };
-        let key = "pruefung-overlay-ende";
+        // A key of this run: a second run of the same checks at the same time makes windows of the same kind.
+        let key = format!("pruefung-overlay-ende-{}", versekit_core::testdir::run_tag());
+        let key = key.as_str();
         let (first, second) = (make(), make());
         let asked = std::sync::Arc::new(AtomicUsize::new(0));
         for window in [first, second] {

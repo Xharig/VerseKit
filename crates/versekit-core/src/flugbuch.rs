@@ -533,6 +533,21 @@ pub fn read_log(path: &str, account: Option<&str>, phrases: &Phrases) -> Option<
     scan.finish()
 }
 
+/// The class of the last ship in `text` the player took or left the controls of, or chose a quantum target from;
+/// `None` when the text names none.
+pub fn last_ship_in(text: &str) -> Option<String> {
+    text.lines().rev().find_map(|line| {
+        let name = if line.contains(CONTROL_MARK) {
+            play_stats::CONTROL.captures(line)?.get(1)
+        } else if line.contains(TARGET_MARK) {
+            SHIP_BAR.captures(line)?.get(1)
+        } else {
+            None
+        };
+        name.map(|n| play_stats::ship_class(n.as_str()))
+    })
+}
+
 fn empty_file() -> Map {
     vec![
         ("format".into(), Value::int(FORMAT)),

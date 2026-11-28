@@ -76,6 +76,10 @@ pub const POLL: Duration = Duration::from_secs(1);
 pub const MISSION_WINDOW: f64 = 120.0;
 /// Another port (test runs); the old name [`crate::legacy::ENV_SCMDB_PORT`] still counts.
 pub const ENV_PORT: &str = "VERSEKIT_SCMDB_PORT";
+/// The file in the data folder with the blueprints the scmdb page has received since the switch was turned on (their
+/// English catalog names, as `productName` carries them): a subscription brings the stock that is not in it yet.
+/// Emptied while the switch is off ([`forget_stock`]).
+pub const SENT_FILE: &str = "scmdb-gemeldet.json";
 
 static TIMESTAMP: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^<(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?Z>").expect("pattern"));
@@ -100,6 +104,107 @@ static LEFT_GAME: LazyLock<Regex> =
 /// Whether the switch is on.
 pub fn enabled(paths: &Paths) -> bool {
     paths.setting_bool(SETTING, false)
+}
+
+/// The switch is off: the list of blueprints sent is emptied, so the next subscription after turning it on brings
+/// the whole stock again. Writes only where the list holds something.
+pub fn forget_stock(paths: &Paths) {
+    if !sent_products(paths).is_empty() {
+        write_sent(paths, &HashSet::new());
+    }
+}
+
+/// The blueprints the scmdb page has received since the switch was turned on ([`SENT_FILE`]); none where there is no
+/// list or it cannot be read.
+pub fn sent_products(paths: &Paths) -> HashSet<String> {
+    match jsonio::read_json(&paths.app_file(SENT_FILE)) {
+        Ok(value) => match value.get("gemeldet") {
+            Some(Value::Array(items)) => items.iter().filter_map(Value::as_str).map(String::from).collect(),
+            _ => HashSet::new(),
+        },
+        Err(_) => HashSet::new(),
+    }
+}
+
+/// Keeps `products` as the list of blueprints sent, sorted, written whole or not at all.
+fn write_sent(paths: &Paths, products: &HashSet<String>) {
+    let mut sorted: Vec<&String> = products.iter().collect();
+    sorted.sort();
+    let value = Value::Object(vec![
+        ("format".into(), Value::int(1)),
+        ("gemeldet".into(), Value::Array(sorted.into_iter().map(|p| Value::str(p.clone())).collect())),
+    ]);
+    if let Err(error) = jsonio::write_text_atomic(
+        &paths.app_file(SENT_FILE),
+        &jsonio::dumps(&value, None, false),
+        jsonio::Newline::Keep,
+    ) {
+        crate::errors::record("scmdb.gemeldet", &error);
+    }
+}
+
+/// Adds `products` to the list of blueprints sent (read again first: another subscription may have added some).
+fn mark_sent(paths: &Paths, products: impl IntoIterator<Item = String>) {
+    let mut sent = sent_products(paths);
+    let before = sent.len();
+    sent.extend(products);
+    if sent.len() != before {
+        write_sent(paths, &sent);
+    }
+}
+
+/// The blueprints of the stock (the collection of the blueprint list) as `blueprint_received` events of the replay:
+/// the English catalog name as `productName`, no contract, `ts` the moment of sending (scmdb takes the blueprint, not
+/// the date). Each product once, and none that `skip` holds (sent before, or brought by the session's history with
+/// its contract). Names without one catalog entry are not sent; they come back as the second part.
+pub fn stock_events(
+    names: &[String],
+    english: &dyn Fn(&str) -> Option<String>,
+    channel: &str,
+    skip: &HashSet<String>,
+    at: f64,
+) -> (Vec<Value>, Vec<String>) {
+    let (mut events, mut unmatched, mut seen) = (Vec::new(), Vec::new(), HashSet::new());
+    for name in names {
+        let Some(product) = english(name) else {
+            unmatched.push(name.clone());
+            continue;
+        };
+        if skip.contains(&product) || !seen.insert(product.clone()) {
+            continue;
+        }
+        let event = Value::Object(vec![
+            ("type".into(), Value::str("blueprint_received")),
+            ("channel".into(), Value::str(channel)),
+            ("productName".into(), Value::str(product)),
+            ("missionGuid".into(), Value::Null),
+            ("missionDebugName".into(), Value::Null),
+            ("missionContractDefinitionId".into(), Value::Null),
+            ("missionTrigger".into(), Value::Null),
+            ("ts".into(), float(at)),
+        ]);
+        events.push(replayed(&event));
+    }
+    (events, unmatched)
+}
+
+/// The names of the blueprints in the collection of the blueprint list, read only (nothing is migrated or saved
+/// here); none where there is no collection.
+fn stock_names(paths: &Paths) -> Vec<String> {
+    let file = paths.app_file(crate::collection::FILE_NAME);
+    match jsonio::read_json(&file) {
+        Ok(Value::Object(data)) => crate::collection::names(&data),
+        _ => Vec::new(),
+    }
+}
+
+/// The products the session's history already brings.
+fn products_in(events: &[Value]) -> HashSet<String> {
+    events
+        .iter()
+        .filter(|event| event.get("type").and_then(Value::as_str) == Some("blueprint_received"))
+        .filter_map(|event| event.get("productName").and_then(Value::as_str).map(String::from))
+        .collect()
 }
 
 /// The port: [`ENV_PORT`], else the old name, else [`PORT`]; a value that is no port counts as none.
@@ -443,10 +548,23 @@ struct Shared {
     /// The contracts running now (`reader.snapshot()`), for a listener who connects.
     snapshot: Option<Value>,
     status: Status,
+    /// Where the stock of blueprints comes from: the data folder and how its names become English catalog names.
+    stock: Option<(Paths, Namer)>,
 }
+
+/// Makes the namer of the English catalog names for a data folder ([`Setup::namer`]), shared by the reading of the
+/// log and the stock.
+type Namer = Arc<dyn Fn(&Paths) -> EnglishName<'static> + Send + Sync>;
 
 fn lock(shared: &Mutex<Shared>) -> MutexGuard<'_, Shared> {
     shared.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// The shared state for a reading thread, or `None` once its run was stopped: checked under the lock, so a thread
+/// that is still busy after [`Bridge::stop`] writes nothing into the state of the next start.
+fn lock_running<'a>(shared: &'a Mutex<Shared>, stop: &AtomicBool) -> Option<MutexGuard<'a, Shared>> {
+    let guard = lock(shared);
+    (!stop.load(Ordering::SeqCst)).then_some(guard)
 }
 
 /// What the bridge needs from the program: the folders, the version and how names become English catalog names.
@@ -481,6 +599,7 @@ impl Bridge {
             channel: "UNKNOWN".into(),
             snapshot: None,
             status: Status::default(),
+            stock: None,
         };
         Bridge { shared: Arc::new(Mutex::new(shared)), stop: Arc::new(AtomicBool::new(false)), running: false }
     }
@@ -514,6 +633,11 @@ impl Bridge {
         };
         self.stop = Arc::new(AtomicBool::new(false));
         self.running = true;
+        // One namer maker for the reading of the log and for the stock.
+        let Setup { host, version, namer, poll } = setup;
+        let namer: Namer = Arc::from(namer);
+        let for_log = Arc::clone(&namer);
+        let setup = Setup { host, version, namer: Box::new(move |paths: &Paths| for_log(paths)), poll };
         {
             // The log is read from its start again: the history of a run before is dropped, so no event comes twice.
             let mut shared = lock(&self.shared);
@@ -523,6 +647,7 @@ impl Bridge {
             shared.status.clients = 0;
             shared.status.port = port;
             shared.status.error = None;
+            shared.stock = Some((Paths::new(setup.host.clone()), namer));
         }
         let version: String = setup.version.chars().take(16).collect();
         let (shared, stop) = (Arc::clone(&self.shared), Arc::clone(&self.stop));
@@ -566,11 +691,13 @@ impl Drop for Bridge {
 }
 
 /// `publish`: events into the history and to every listener.
-fn publish(shared: &Mutex<Shared>, events: Vec<Value>) {
+fn publish(shared: &Mutex<Shared>, stop: &AtomicBool, events: Vec<Value>) {
     if events.is_empty() {
         return;
     }
-    let mut shared = lock(shared);
+    let Some(mut shared) = lock_running(shared, stop) else {
+        return;
+    };
     let listeners = shared.listeners.clone();
     for event in events {
         if shared.history.len() == HISTORY {
@@ -587,8 +714,10 @@ fn publish(shared: &Mutex<Shared>, events: Vec<Value>) {
 }
 
 /// `reset`: a new session of the game; the history is emptied first, then it is said.
-fn reset(shared: &Mutex<Shared>, channel: &str) {
-    let mut shared = lock(shared);
+fn reset(shared: &Mutex<Shared>, stop: &AtomicBool, channel: &str) {
+    let Some(mut shared) = lock_running(shared, stop) else {
+        return;
+    };
     shared.history.clear();
     shared.channel = channel.to_string();
     let event =
@@ -621,14 +750,15 @@ fn tail(setup: Setup, shared: Arc<Mutex<Shared>>, stop: Arc<AtomicBool>) {
                     || first.get(..head.len()) != Some(head.as_slice());
                 if rotated {
                     if file.is_some() {
-                        reset(&shared, &channel);
+                        reset(&shared, &stop, &channel);
                     }
                     reader.fresh(&channel);
                     (file, position, head, rest) = (Some(current.clone()), 0, first, Vec::new());
-                    let mut guard = lock(&shared);
-                    guard.channel = channel.clone();
-                    guard.status.channel = channel.clone();
-                    guard.snapshot = Some(reader.snapshot());
+                    if let Some(mut guard) = lock_running(&shared, &stop) {
+                        guard.channel = channel.clone();
+                        guard.status.channel = channel.clone();
+                        guard.snapshot = Some(reader.snapshot());
+                    }
                 }
                 let mut chunk = Vec::new();
                 if handle.seek(SeekFrom::Start(position)).is_ok() {
@@ -645,18 +775,22 @@ fn tail(setup: Setup, shared: Arc<Mutex<Shared>>, stop: Arc<AtomicBool>) {
                         for line in text.split('\n') {
                             events.extend(reader.feed(line));
                         }
-                        publish(&shared, events);
+                        publish(&shared, &stop, events);
                         if !reader.unmatched.is_empty() {
                             for name in &reader.unmatched {
                                 crate::trail::step(&format!(
                                     "scmdb: Bauplan nicht zugeordnet, nicht geschickt: {name}"
                                 ));
                             }
-                            lock(&shared).status.unmatched += reader.unmatched.len();
+                            if let Some(mut guard) = lock_running(&shared, &stop) {
+                                guard.status.unmatched += reader.unmatched.len();
+                            }
                             reader.unmatched.clear();
                         }
                         // The state now, for a listener who comes later (`subscribe`).
-                        lock(&shared).snapshot = Some(reader.snapshot());
+                        if let Some(mut guard) = lock_running(&shared, &stop) {
+                            guard.snapshot = Some(reader.snapshot());
+                        }
                     }
                     None => rest = data,
                 }
@@ -981,6 +1115,33 @@ fn subscribe(shared: &Mutex<Shared>) -> (u64, Receiver<Option<Value>>, Vec<Value
     (number, rx, replay, snapshot)
 }
 
+/// For a new listener: the stock events not sent before (nor brought by `replay`), the data folder that keeps the list
+/// of blueprints sent, and what this subscription delivers once its first part reached the page (the stock events and
+/// the blueprints of `replay`). `None` without a data folder (a bridge never started).
+fn stock_for(shared: &Mutex<Shared>, replay: &[Value]) -> Option<(Vec<Value>, Paths, Vec<String>)> {
+    let (source, channel) = {
+        let guard = lock(shared);
+        (guard.stock.as_ref().map(|(paths, namer)| (paths.working_copy(), Arc::clone(namer))), guard.channel.clone())
+    };
+    let (paths, namer) = source?;
+    let in_replay = products_in(replay);
+    let names = stock_names(&paths);
+    let mut events = Vec::new();
+    if !names.is_empty() {
+        let mut skip = sent_products(&paths);
+        skip.extend(in_replay.iter().cloned());
+        let english = namer(&paths);
+        let unmatched;
+        (events, unmatched) = stock_events(&names, &|name| english(name), &channel, &skip, pyfloat::round(now(), 3));
+        for name in &unmatched {
+            crate::trail::step(&format!("scmdb: Bauplan des Bestands nicht zugeordnet, nicht geschickt: {name}"));
+        }
+        lock(shared).status.unmatched += unmatched.len();
+    }
+    let delivered = products_in(&events).into_iter().chain(in_replay).collect();
+    Some((events, paths, delivered))
+}
+
 /// `unsubscribe`: the listener `number` is gone.
 fn unsubscribe(shared: &Mutex<Shared>, number: u64) {
     let mut guard = lock(shared);
@@ -1002,11 +1163,25 @@ fn events(request: &Request, mut writer: TcpStream, shared: &Arc<Mutex<Shared>>,
         return;
     }
     let (number, rx, replay, snapshot) = subscribe(shared);
+    // First the stock the page has not received yet, then the session, then the state now. What comes in the
+    // meantime waits in the listener's queue.
+    let stock = stock_for(shared, &replay);
     let mut send = |text: &str| writer.write_all(text.as_bytes()).and_then(|()| writer.flush()).is_ok();
-    let mut open = replay.iter().all(|event| send(&message(event))) && send(&message(&snapshot));
+    let stock_sent = stock.as_ref().is_none_or(|(events, _, _)| events.iter().all(|event| send(&message(event))));
+    let mut open = stock_sent && replay.iter().all(|event| send(&message(event))) && send(&message(&snapshot));
+    // Kept as sent only once it reached the page: a page closed in the middle gets it at its next subscription.
+    if open && let Some((_, paths, delivered)) = &stock {
+        mark_sent(paths, delivered.iter().cloned());
+    }
     while open && !stop.load(Ordering::SeqCst) {
         match rx.recv_timeout(HEARTBEAT) {
-            Ok(Some(event)) => open = send(&message(&event)),
+            Ok(Some(event)) => {
+                open = send(&message(&event));
+                // A blueprint that came live is sent as well: the next subscription does not bring it again.
+                if open && let Some((_, paths, _)) = &stock {
+                    mark_sent(paths, products_in(std::slice::from_ref(&event)));
+                }
+            }
             Ok(None) | Err(RecvTimeoutError::Disconnected) => break,
             Err(RecvTimeoutError::Timeout) => open = send(": heartbeat\n\n"),
         }

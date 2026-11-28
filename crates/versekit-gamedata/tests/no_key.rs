@@ -50,7 +50,7 @@ fn an_encrypted_dataforge_is_noted_not_asked_for() {
     assert!(error.is_encrypted(), "{error}");
     assert!(game.blueprints(&texts).unwrap_err().is_encrypted());
 
-    let home = Path::new(env!("CARGO_TARGET_TMPDIR")).join("versekit-gamedata").join("encrypted-log");
+    let home = common::run_root().join("encrypted-log");
     let _ = fs::remove_dir_all(&home);
     fs::create_dir_all(&home).unwrap();
     let dir = home.to_string_lossy().to_string();

@@ -1,0 +1,193 @@
+<!doctype html>
+<!-- VerseKit — companion for Star Citizen. Copyright (C) 2026 Xharig. SPDX-License-Identifier: GPL-3.0-only -->
+<!-- The settings of a VerseKit key in the Stream Deck program. Its texts come from the plugin, in the language of VerseKit. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 8px 12px; background: #2d2d2d; color: #d8d8d8; font: 13px "Segoe UI", Arial, sans-serif; }
+  label { display: block; margin: 10px 0 4px; color: #9a9a9a; font-size: 12px; }
+  select, input { width: 100%; box-sizing: border-box; background: #3d3d3d; color: #e8e8e8; border: 1px solid #555;
+                  border-radius: 3px; padding: 5px 6px; font: inherit; }
+  select:focus, input:focus, button:focus-visible { outline: 2px solid #9ce430; outline-offset: 0; }
+  select:hover, input:hover { border-color: #9ce430; }
+  .hint { margin-top: 10px; line-height: 1.4; color: #c8c8c8; }
+  .warn { color: #f0c040; }
+  button { margin-top: 8px; background: #3d3d3d; color: #e8e8e8; border: 1px solid #9ce430; border-radius: 3px;
+           padding: 5px 10px; font: inherit; cursor: pointer; }
+  button:hover { background: #4a4a4a; }
+  label.check { display: flex; gap: 6px; align-items: center; color: #d8d8d8; font-size: 13px; }
+  label.check input { width: auto; }
+  option.aus { color: #8b98a5; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="getrennt" class="hint warn" hidden></div>
+<div id="seite" hidden>
+  <label for="seiten" id="seiten_titel"></label>
+  <select id="seiten"></select>
+</div>
+<div id="spiel" hidden>
+  <label for="suche" id="suche_titel"></label>
+  <input id="suche" type="search" autocomplete="off">
+  <label class="check"><input id="nur_sendbar" type="checkbox" aria-describedby="nur_sendbar_hinweis"> <span id="nur_sendbar_titel"></span></label>
+  <div id="nur_sendbar_hinweis" class="hint"></div>
+  <div id="felder"></div>
+  <div id="umschalter_feld" hidden>
+    <label class="check"><input id="umschalter" type="checkbox" aria-describedby="umschalter_hinweis"> <span id="umschalter_titel"></span></label>
+    <div id="umschalter_hinweis" class="hint"></div>
+  </div>
+  <div id="taste_zeigen_feld" hidden>
+    <label class="check"><input id="taste_zeigen" type="checkbox" aria-describedby="taste_zeigen_hinweis"> <span id="taste_zeigen_titel"></span></label>
+    <div id="taste_zeigen_hinweis" class="hint"></div>
+  </div>
+  <div id="zurueck_feld" hidden>
+    <label for="zurueck" id="zurueck_titel"></label>
+    <input id="zurueck" type="number" min="1" max="99" step="1" aria-describedby="zurueck_hinweis">
+    <div id="zurueck_hinweis" class="hint"></div>
+  </div>
+  <div id="info" class="hint"></div>
+  <button id="steuerung" type="button" hidden></button>
+</div>
+<script>
+"use strict";
+let socket = null, uuid = "", action = "", data = null, settings = {};
+const $ = (id) => document.getElementById(id);
+
+function send(message) { if (socket && socket.readyState === 1) socket.send(JSON.stringify(message)); }
+function ask(question) { send({ event: "sendToPlugin", action: action, context: uuid, payload: { frage: question } }); }
+function save() { send({ event: "setSettings", context: uuid, payload: settings }); }
+function text(key) { return (data && data.texte && data.texte[key]) || ""; }
+
+function option(value, label) { const o = document.createElement("option"); o.value = value; o.textContent = label; return o; }
+
+function fillPages() {
+  const select = $("seiten");
+  select.replaceChildren(option("", text("sd_pi_seite_waehlen")));
+  for (const page of data.seiten) select.appendChild(option(page.id, page.name));
+  select.value = settings.seite || "";
+}
+
+function fillActions(select, chosen) {
+  const filter = $("suche").value.trim().toLowerCase();
+  const onlySendable = $("nur_sendbar").checked;
+  select.replaceChildren(option("", text("sd_ga_waehlen")));
+  const groups = new Map();
+  for (const a of data.aktionen) {
+    // An action the deck cannot press says why after its name, in grey.
+    const blocked = a.sendbar === false;
+    const shown = a.name + (a.taste ? "  (" + a.taste + ")" : "") + (blocked && a.hinweis ? "  · " + a.hinweis : "");
+    if (filter && !(shown + " " + a.gruppe + " " + a.id).toLowerCase().includes(filter) && a.id !== chosen) continue;
+    if (onlySendable && blocked && a.id !== chosen) continue;
+    if (!groups.has(a.gruppe)) { const g = document.createElement("optgroup"); g.label = a.gruppe; groups.set(a.gruppe, g); select.appendChild(g); }
+    const item = option(a.id, shown);
+    if (blocked) item.className = "aus";
+    groups.get(a.gruppe).appendChild(item);
+  }
+  select.value = chosen || "";
+}
+
+function describe() {
+  const names = fields().map((f) => settings[f.key]).filter((x) => x);
+  const parts = [];
+  for (const id of names) {
+    const a = data.aktionen.find((x) => x.id === id);
+    if (!a) { parts.push(text("sd_ga_unbekannt")); continue; }
+    if (a.art === "tastatur") parts.push(a.name + ": " + text("sd_pi_taste").replace("{0}", a.taste));
+    else parts.push(a.name + ": " + text("sd_ga_" + a.art) + ". " + text("sd_pi_belegen").replace("{0}", a.gruppe));
+  }
+  if (!data.aktionen.length) parts.push(text("sd_pi_keine_aktionen"));
+  $("info").textContent = parts.join("\n");
+  $("info").style.whiteSpace = "pre-line";
+  $("steuerung").hidden = !data.verbunden;
+}
+
+function fields() {
+  return data && data.regler
+    ? [{ key: "aktion_links", title: text("sd_pi_links") }, { key: "aktion_rechts", title: text("sd_pi_rechts") },
+       { key: "aktion_druck", title: text("sd_pi_druck") }]
+    : [{ key: "aktion", title: "" }];
+}
+
+function fillGame() {
+  const box = $("felder");
+  box.replaceChildren();
+  for (const field of fields()) {
+    if (field.title) { const l = document.createElement("label"); l.textContent = field.title; box.appendChild(l); }
+    const select = document.createElement("select");
+    select.dataset.key = field.key;
+    select.setAttribute("aria-label", field.title || text("sd_pi_aktion"));
+    fillActions(select, settings[field.key] || "");
+    select.addEventListener("change", () => { settings[field.key] = select.value; save(); describe(); });
+    box.appendChild(select);
+  }
+  describe();
+}
+
+function show() {
+  $("getrennt").hidden = data.verbunden;
+  $("getrennt").textContent = text("sd_pi_getrennt");
+  $("seiten_titel").textContent = text("sd_pi_seite");
+  $("suche_titel").textContent = text("sd_pi_aktion");
+  $("suche").placeholder = text("sd_pi_suchen");
+  $("steuerung").textContent = text("sd_pi_steuerung");
+  const game = data.aktion === "spielaktion" || data.aktion === "emote";
+  $("seite").hidden = data.aktion !== "seite";
+  $("spiel").hidden = !game;
+  $("umschalter_feld").hidden = !(data.aktion === "spielaktion" && !data.regler);
+  $("umschalter_titel").textContent = text("sd_pi_umschalter");
+  $("umschalter_hinweis").textContent = text("sd_pi_umschalter_h");
+  $("umschalter").checked = settings.umschalter === true;
+  $("taste_zeigen_feld").hidden = !game || data.regler;
+  $("taste_zeigen_titel").textContent = text("sd_pi_taste_zeigen");
+  $("taste_zeigen_hinweis").textContent = text("sd_pi_taste_zeigen_h");
+  $("taste_zeigen").checked = settings.taste_anzeigen === true;
+  $("nur_sendbar_titel").textContent = text("sd_pi_nur_sendbar");
+  $("nur_sendbar_hinweis").textContent = text("sd_pi_nur_sendbar_h");
+  $("zurueck_feld").hidden = data.aktion !== "emote" || data.regler;
+  $("zurueck_titel").textContent = text("sd_pi_zurueck");
+  $("zurueck_hinweis").textContent = text("sd_pi_zurueck_h");
+  $("zurueck").placeholder = text("sd_pi_zurueck_bsp");
+  $("zurueck").value = Number.isInteger(settings.zurueck_seite) ? String(settings.zurueck_seite + 1) : "";
+  if (data.aktion === "seite") fillPages();
+  if (game) fillGame();
+}
+
+$("seiten").addEventListener("change", () => { settings.seite = $("seiten").value; save(); });
+$("umschalter").addEventListener("change", () => { settings.umschalter = $("umschalter").checked; save(); });
+$("taste_zeigen").addEventListener("change", () => { settings.taste_anzeigen = $("taste_zeigen").checked; save(); });
+$("zurueck").addEventListener("change", () => {
+  // Empty keeps the page; a number outside 1 to 99 is set to the nearest one the field shows.
+  const n = parseInt($("zurueck").value, 10);
+  if (Number.isNaN(n)) { delete settings.zurueck_seite; $("zurueck").value = ""; }
+  else { const page = Math.min(99, Math.max(1, n)); settings.zurueck_seite = page - 1; $("zurueck").value = String(page); }
+  save();
+});
+$("suche").addEventListener("input", () => { if (data) fillGame(); });
+$("nur_sendbar").addEventListener("change", () => { if (data) fillGame(); });
+$("steuerung").addEventListener("click", () => ask("steuerung"));
+
+// Called by the Stream Deck program when the settings of a key open.
+window.connectElgatoStreamDeckSocket = function (port, inUuid, registerEvent, info, actionInfo) {
+  uuid = inUuid;
+  try { const a = JSON.parse(actionInfo); action = a.action; settings = (a.payload && a.payload.settings) || {}; } catch (e) { settings = {}; }
+  socket = new WebSocket("ws://127.0.0.1:" + port);
+  socket.onopen = () => { send({ event: registerEvent, uuid: uuid }); ask("daten"); };
+  socket.onmessage = (event) => {
+    let message;
+    try { message = JSON.parse(event.data); } catch (e) { return; }
+    if (message.event === "sendToPropertyInspector") {
+      data = message.payload;
+      settings = Object.assign({}, data.einstellungen || {}, settings);
+      show();
+    } else if (message.event === "didReceiveSettings") {
+      settings = (message.payload && message.payload.settings) || {};
+      if (data) show();
+    }
+  };
+};
+</script>
+</body>
+</html>

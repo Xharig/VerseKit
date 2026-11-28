@@ -257,9 +257,14 @@ pub fn entry_of(blueprint: &Blueprint) -> Entry {
         "ballistic" => Some("Bal".to_string()),
         _ => None,
     });
+    // A personal weapon the catalog keeps without a class (the crossbows) still carries its kind in the hint.
+    let unknown_kind = (blueprint.class.is_none() && blueprint.kind == PERSONAL_WEAPON).then(|| WEAPON.to_string());
     Entry {
         name: blueprint.name.clone(),
-        class: crate::injection::specs::class_short(blueprint.class.as_deref()).map(str::to_string).or(broad),
+        class: crate::injection::specs::class_short(blueprint.class.as_deref())
+            .map(str::to_string)
+            .or(broad)
+            .or(unknown_kind),
         size: blueprint.size,
         grade: blueprint.grade.and_then(grade_letter),
     }
@@ -480,6 +485,13 @@ const ENERGY: &str = "Energy";
 /// The kinds a hint names for an energy weapon.
 const ENERGY_KINDS: [&str; 4] = ["Las", "Ele", "Pla", "Dis"];
 
+/// The kind of item of a personal weapon in the catalog.
+const PERSONAL_WEAPON: &str = "WeaponPersonal";
+/// The class of a personal weapon the catalog keeps without one: any kind a hint names for a personal weapon.
+const WEAPON: &str = "Weapon";
+/// The kinds a hint names for a personal weapon.
+const WEAPON_KINDS: [&str; 5] = ["Bal", "Las", "Ele", "Pla", "Dis"];
+
 /// What a tag read says of a blueprint: every part read must agree with the catalog, and at least two must have
 /// been compared for it to count as agreeing. A part read that the blueprint has not (a class behind a magazine, a
 /// size where the catalog knows none) says it is another one.
@@ -490,7 +502,8 @@ pub fn check_tag(tag: Option<&Tag>, entry: &Entry) -> TagCheck {
         (Some(read), Some(known)) => {
             let meant = class_meant(read);
             let energy = known == ENERGY && ENERGY_KINDS.iter().any(|kind| meant.eq_ignore_ascii_case(kind));
-            if !energy && !meant.eq_ignore_ascii_case(known) {
+            let weapon = known == WEAPON && WEAPON_KINDS.iter().any(|kind| meant.eq_ignore_ascii_case(kind));
+            if !energy && !weapon && !meant.eq_ignore_ascii_case(known) {
                 return TagCheck::Contradicts;
             }
             compared += 1;
@@ -843,7 +856,8 @@ fn read_whole_with_grade_off(reading: &Reading, name: &str) -> bool {
 /// Puts the readings of several passes together. Sure when at least [`MIN_AGREE`] passes read the same blueprint
 /// sure and no pass read another one, or when every pass read the whole of a name that longer names begin with and
 /// none of them read one of the longer names (a last word lost in every pass at once is not to be feared); a single
-/// hit, or hits that differ, go to the player.
+/// hit, or hits that differ, go to the player. A pass that read the name with words lost does not count against a
+/// name read sure in [`MIN_AGREE`] passes, and hits that share no word with one another are nothing read.
 pub fn combine(readings: &[Reading]) -> Outcome {
     let mut outcome = Outcome::nothing();
     for reading in readings.iter().filter(|r| r.certainty > Certainty::None) {
@@ -858,12 +872,18 @@ pub fn combine(readings: &[Reading]) -> Outcome {
     let mut different: Vec<&str> = named.iter().filter_map(|r| r.name.as_deref()).collect();
     different.sort_unstable();
     different.dedup();
+    let sure_of =
+        |name: &str| named.iter().filter(|r| r.certainty == Certainty::Sure && r.name.as_deref() == Some(name)).count();
+    // A pass that lost a word of the name (`ADP Arms Woodland` for `ADP-mk4 Arms Woodland`) does not speak against
+    // the whole name read sure in enough passes: the recognition loses words, it does not add them.
+    let backed: Vec<&str> = different.iter().copied().filter(|name| sure_of(name) >= MIN_AGREE).collect();
+    different.retain(|name| !backed.iter().any(|whole| words_lost_from(name, whole)));
     if different.len() > 1 {
         outcome.certainty = Certainty::Unclear;
-        return outcome;
+        return unless_unrelated(outcome, !backed.is_empty());
     }
     if let Some(name) = different.first() {
-        let sure = named.iter().filter(|r| r.certainty == Certainty::Sure).count();
+        let sure = sure_of(name);
         outcome.name = Some((*name).to_string());
         let whole_in_every_pass =
             readings.len() >= PASSES.len() && readings.iter().all(|r| read_whole_beginning_of_longer(r, name));
@@ -892,6 +912,36 @@ pub fn combine(readings: &[Reading]) -> Outcome {
     }
     if readings.iter().any(|r| r.certainty == Certainty::Unclear) {
         outcome.certainty = Certainty::Unclear;
+        return unless_unrelated(outcome, false);
+    }
+    outcome
+}
+
+/// Whether `short` is `whole` with words lost: its words, in their order, are some of the words of `whole` and fewer.
+fn words_lost_from(short: &str, whole: &str) -> bool {
+    let (short, whole) = (plain(short), plain(whole));
+    let mut left = whole.split(' ');
+    short.split(' ').count() < whole.split(' ').count() && short.split(' ').all(|word| left.any(|w| w == word))
+}
+
+/// Whether no two of `names` share a word: blueprints that have nothing to do with one another.
+fn unrelated(names: &[String]) -> bool {
+    let words: Vec<Vec<String>> = names.iter().map(|n| plain(n).split(' ').map(str::to_string).collect()).collect();
+    names.len() > 1
+        && words
+            .iter()
+            .enumerate()
+            .all(|(i, mine)| words[i + 1..].iter().all(|other| !mine.iter().any(|w| other.contains(w))))
+}
+
+/// An unclear outcome whose candidates have nothing to do with one another (`Comer Scraper Module`, `Lindstrom`) is
+/// no question the player can answer: text around the pointer that is no hint, so nothing was read. Unless one of
+/// them was read sure in enough passes (`backed`), then it stays a question.
+fn unless_unrelated(mut outcome: Outcome, backed: bool) -> Outcome {
+    if !backed && unrelated(&outcome.candidates) {
+        outcome.certainty = Certainty::None;
+        outcome.name = None;
+        outcome.candidates.clear();
     }
     outcome
 }

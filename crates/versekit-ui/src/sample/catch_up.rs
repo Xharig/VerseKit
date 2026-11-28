@@ -334,7 +334,7 @@ mod tests {
                 "the reading waits for the one who holds the lock"
             );
             release_tx.send(()).unwrap();
-            let result = done_rx.recv_timeout(std::time::Duration::from_secs(30)).expect("the reading goes on");
+            let result = done_rx.recv_timeout(std::time::Duration::from_secs(120)).expect("the reading goes on");
             assert!(result.saved && result.added == 2, "{result:?}");
             writer.join().unwrap();
             reading.join().unwrap();

@@ -564,17 +564,29 @@ impl SamplePage {
             out.insert("hf_auftragslog", contracts);
         }
         lap.lap("hf_auftragslog");
-        // The hangar file is read once for the three pages that are made of it.
+        // The hangar file is read once for the pages that are made of it, and again only when it changed.
         if pinned("hf_hangar") || pinned("hf_einkaufsliste") || pinned("hf_herstellung") || pinned("hf_farmliste") {
-            let data = hangar::read(&paths.app_file(hangar::FILE));
-            let numbers = data.as_ref().map(hangar_numbers).unwrap_or_default();
+            let file = paths.app_file(hangar::FILE);
+            let data = self.hangar_memo.get(super::glance_tiles::stamps(std::slice::from_ref(&file)), || {
+                std::sync::Arc::new(hangar::read(&file))
+            });
+            let numbers = data.as_ref().as_ref().map(hangar_numbers).unwrap_or_default();
             out.insert("hf_hangar", hangar_glance(&numbers, lang));
             out.insert("hf_einkaufsliste", shopping_glance(&numbers, lang));
             // The notes of the crafting plan live in the same file.
-            let notes = data.as_ref().map(notepad::notes).unwrap_or_default();
+            let notes = data.as_ref().as_ref().map(notepad::notes).unwrap_or_default();
             out.insert("hf_herstellung", plan_glance(&notes, lang));
             if pinned("hf_farmliste") {
-                out.insert("hf_farmliste", farm_glance(self, paths, data.as_ref(), lang));
+                // Worked out again only when one of its files, the language or the game values changed.
+                let mut files = vec![file.clone(), paths.app_file(stock::RAW_FILE)];
+                files.extend(versekit_core::erkul_slots::ErkulData::files(paths));
+                let values = match (self.crafting.parts(), self.crafting.values_wait()) {
+                    (Some((values, _, _)), _) => std::ptr::from_ref(values) as usize,
+                    (None, wait) => wait.map_or(0, |w| w as usize + 1),
+                };
+                let key = (super::glance_tiles::stamps(&files), lang, values);
+                let farm = self.farm_memo.get(key, || farm_glance(self, paths, data.as_ref().as_ref(), lang));
+                out.insert("hf_farmliste", farm);
             }
         }
         lap.lap("hf_hangar");
@@ -689,7 +701,7 @@ mod tests {
         // Each says what is missing and where it comes from.
         assert!(selling_page(&paths, Lang::De, 1000).line.starts_with("Noch keine Preise geholt."));
         assert!(routes_page(&paths, Lang::De).line.starts_with("Noch keine Routen nachgesehen."));
-        assert!(shops_page(&paths, Lang::En).line.starts_with("No shop catalog yet."));
+        assert!(shops_page(&paths, Lang::En).line.starts_with("No shop catalogue yet."));
         for key in ["hf_st_schiffe", "hf_st_auftraege", "hf_st_quantum", "hf_st_stabil"] {
             let tile = statistics_glance(key, &paths, Lang::De).expect("a page of the statistics");
             assert!(tile.line.starts_with("Noch nichts erfasst."), "{key}");

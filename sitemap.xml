@@ -73,4 +73,16 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/aenderungen/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/aenderungen/"/>
   </url>
+  <url>
+    <loc>https://versekit.xharig.com/streamdeck/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/streamdeck/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/streamdeck/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/streamdeck/"/>
+  </url>
+  <url>
+    <loc>https://versekit.xharig.com/en/streamdeck/</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://versekit.xharig.com/streamdeck/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://versekit.xharig.com/en/streamdeck/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versekit.xharig.com/en/streamdeck/"/>
+  </url>
 </urlset>

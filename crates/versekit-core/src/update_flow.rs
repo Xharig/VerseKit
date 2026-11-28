@@ -486,17 +486,34 @@ pub fn fetch_newest(
     let now = updater::now();
     // ⚠ Look first, then take: the remembered list can be a day old.
     updater::check(&*env.net, paths, &env.own_version, false, now);
-    let cache = updater::cache_read(paths);
-    let newest = updater::latest(&cache.releases, with_prerelease).cloned();
-    // The beta only when it is asked for, the stage is on and the stored code opened its key ring.
-    let unlocked = if beta { crate::beta::unlocked(paths) } else { None };
-    let release = match (newest, unlocked) {
-        (Some(newest), Some(beta)) => {
-            if crate::version::is_newer(&beta.version, &newest.version) { beta } else { newest }
+    let choose = || {
+        let cache = updater::cache_read(paths);
+        let newest = updater::latest(&cache.releases, with_prerelease).cloned();
+        // The beta only when it is asked for, the stage is on and the stored code opened its key ring.
+        let unlocked = if beta { crate::beta::unlocked(paths) } else { None };
+        match (newest, unlocked) {
+            (Some(newest), Some(beta)) => Some(if crate::version::is_newer(&beta.version, &newest.version) { beta } else { newest }),
+            (Some(one), None) | (None, Some(one)) => Some(one),
+            (None, None) => None,
         }
-        (Some(one), None) | (None, Some(one)) => one,
-        (None, None) => return Done::Stopped(Some(t("s_ub_keine_bekannt"))),
     };
+    let Some(mut release) = choose() else { return Done::Stopped(Some(t("s_ub_keine_bekannt"))) };
+    // ⚠ The files of a release come one after the other: a list remembered in those seconds can hold the release
+    // without the file of this computer. GitHub is asked once more before the player is sent to fetch it by hand.
+    let kind = updater::packaging(env.appimage.as_deref(), &env.own_version);
+    let fits = |release: &Release| {
+        if crate::beta::is_beta_tag(&release.version) {
+            crate::beta::matching_asset(release, kind).is_some()
+        } else {
+            updater::matching_asset(release, kind).is_some()
+        }
+    };
+    if kind != Packaging::Source && !fits(&release) {
+        updater::check(&*env.net, paths, &env.own_version, true, updater::now());
+        if let Some(again) = choose() {
+            release = again;
+        }
+    }
     let release = &release;
     // ⚠ The running version would be installed again for nothing, and an older one would take the place of a newer
     // one: the newest the program knows is not newer than the one that runs.

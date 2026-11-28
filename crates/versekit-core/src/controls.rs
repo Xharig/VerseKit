@@ -142,6 +142,63 @@ pub struct Profile {
     pub groups: OrderedMap<String>,
     /// The `actionmap`s in the order of the file, each to `(UILabel, UICategory)`: the keys of the texts, with the `@`.
     pub maps: OrderedMap<(String, String)>,
+    /// Action to how the game takes its key ([`Timing`]); only those that do not simply follow the key.
+    pub timings: OrderedMap<Timing>,
+    /// The actions whose `keyboard` field is empty (`keyboard=""`, not even a space): the game drops a keyboard line
+    /// of the player there when it saves its bindings (seen 27.11.2026 with `v_toggle_mining_mode` and
+    /// `v_toggle_salvage_mode`), so no key may be put there.
+    pub no_keyboard: std::collections::BTreeSet<String>,
+}
+
+/// How the game takes the key of an action, by its `activationMode`: as it goes down and up, only after it was held
+/// a while (`delayed_press`: at least so many milliseconds), only when it is let go soon (`tap`: within so many
+/// milliseconds), or only when it is tapped twice (`double_tap`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Timing {
+    #[default]
+    Follow,
+    AtLeast(u32),
+    Within(u32),
+    Twice,
+}
+
+impl Timing {
+    /// The timing of an `<ActivationMode>` of the `defaultProfile.xml`.
+    fn of_mode(node: Node) -> Timing {
+        let number = |name: &str| attribute(node, name).and_then(|v| v.trim().parse::<f64>().ok()).unwrap_or(-1.0);
+        let ms = |seconds: f64| (seconds * 1000.0).round() as u32;
+        if number("multiTap") >= 2.0 {
+            Timing::Twice
+        } else if number("pressTriggerThreshold") > 0.0 {
+            Timing::AtLeast(ms(number("pressTriggerThreshold")))
+        } else if number("releaseTriggerThreshold") > 0.0 && number("onRelease") >= 1.0 {
+            Timing::Within(ms(number("releaseTriggerThreshold")))
+        } else {
+            Timing::Follow
+        }
+    }
+
+    /// The timing as a word of the kept file: `mindestens:250`, `hoechstens:250`, `zweimal`, `folgen`.
+    pub fn word(&self) -> String {
+        match self {
+            Timing::Follow => "folgen".into(),
+            Timing::AtLeast(ms) => format!("mindestens:{ms}"),
+            Timing::Within(ms) => format!("hoechstens:{ms}"),
+            Timing::Twice => "zweimal".into(),
+        }
+    }
+
+    /// The timing of a word of [`Timing::word`].
+    pub fn parse(word: &str) -> Option<Timing> {
+        let (kind, ms) = word.split_once(':').map_or((word, None), |(k, n)| (k, n.parse::<u32>().ok()));
+        match (kind, ms) {
+            ("folgen", None) => Some(Timing::Follow),
+            ("zweimal", None) => Some(Timing::Twice),
+            ("mindestens", Some(ms)) => Some(Timing::AtLeast(ms)),
+            ("hoechstens", Some(ms)) => Some(Timing::Within(ms)),
+            _ => None,
+        }
+    }
 }
 
 fn attribute<'a>(node: Node<'a, '_>, name: &str) -> Option<&'a str> {
@@ -160,6 +217,11 @@ impl Profile {
         let options = roxmltree::ParsingOptions { allow_dtd: true, ..roxmltree::ParsingOptions::default() };
         let document = roxmltree::Document::parse_with_options(text, options).ok()?;
         let mut profile = Profile::default();
+        let modes: std::collections::HashMap<&str, Timing> = document
+            .descendants()
+            .filter(|n| is_element(*n, "ActivationMode"))
+            .filter_map(|n| Some((attribute(n, "name")?, Timing::of_mode(n))))
+            .collect();
         for group in document.descendants().filter(|n| is_element(*n, "actionmap")) {
             let section = attribute(group, "name").unwrap_or("");
             if !section.is_empty() && profile.maps.get(section).is_none() {
@@ -202,8 +264,21 @@ impl Profile {
             if !preset.is_empty() {
                 profile.defaults.set(name, preset);
             }
+            if attribute(node, "keyboard") == Some("") {
+                profile.no_keyboard.insert(name.to_string());
+            }
+            let timing = attribute(node, "activationMode").and_then(|mode| modes.get(mode.trim())).copied().unwrap_or_default();
+            if timing != Timing::Follow {
+                profile.timings.set(name, timing);
+            }
         }
         Some(profile)
+    }
+
+    /// How the game takes the key of `action` (also as `actionmap.action`).
+    pub fn timing_of(&self, action: &str) -> Timing {
+        let plain = action.split_once('.').map_or(action, |(_, plain)| plain);
+        self.timings.get(plain).copied().unwrap_or_default()
     }
 
     /// Does the profile say anything (an empty one is what a missing archive gives)?
@@ -667,6 +742,38 @@ pub fn ini_stamp(game_folder: &str, lang: crate::language::Lang) -> String {
     parts.join("|")
 }
 
+/// A name of the game on one line: the line breaks some texts of the `global.ini` hold (written `\n`) become
+/// spaces.
+pub fn one_line(name: &str) -> String {
+    name.replace("\\n", " ").replace(['\n', '\r'], " ").split(' ').filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
+/// The actions whose name has no text of the game in `lang` (an English or a technical name stands instead), from
+/// the `global.ini` of that language; every action without a game folder. A text the same as the English one but
+/// for capitals counts as none: the German file of the game holds `flex`, `greet`, `sleep` and `wait` for emotes.
+pub fn without_own_text(
+    profile: &Profile,
+    game_folder: Option<&str>,
+    lang: crate::language::Lang,
+) -> std::collections::HashSet<String> {
+    let texts = game_folder.map(|folder| ini_texts(folder, lang)).unwrap_or_default();
+    let english = match game_folder {
+        Some(folder) if lang != crate::language::Lang::En => ini_texts(folder, crate::language::Lang::En),
+        _ => Default::default(),
+    };
+    profile
+        .labels
+        .iter()
+        .filter(|(_, (label, _))| {
+            let key = label.trim_start_matches('@');
+            texts.get(key).is_none_or(|t| {
+                t.trim().is_empty() || english.get(key).is_some_and(|e| e.trim().eq_ignore_ascii_case(t.trim()))
+            })
+        })
+        .map(|(action, _)| action.to_string())
+        .collect()
+}
+
 /// The names of the actions from the `global.ini` files of the game folder: the language asked first, the
 /// English where CIG gave no text in it (better than a technical short form).
 pub fn labels_from_folder(profile: &Profile, game_folder: &str, lang: crate::language::Lang) -> OrderedMap<Label> {
@@ -848,6 +955,60 @@ mod tests {
     use super::*;
     use crate::joysticks::bindings_from_text;
     use crate::language::{self, Choice};
+
+    /// The modes of the `defaultProfile.xml` of the game, as it writes them.
+    const MODES: &str = r#"<ActivationModes>
+    <ActivationMode name="tap" onPress="0" onHold="0" onRelease="1" multiTap="1" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="0.25" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="double_tap" onPress="1" onHold="0" onRelease="0" multiTap="2" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="tap_quicker" onPress="0" onHold="0" onRelease="1" multiTap="1" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="0.15" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="press" onPress="1" onHold="0" onRelease="0" multiTap="1" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="delayed_press" onPress="1" onHold="0" onRelease="0" multiTap="1" multiTapBlock="1" pressTriggerThreshold="0.25" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="delayed_press_medium" onPress="1" onHold="0" onRelease="0" multiTap="1" multiTapBlock="1" pressTriggerThreshold="0.5" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="delayed_press_long" onPress="1" onHold="0" onRelease="0" multiTap="1" multiTapBlock="1" pressTriggerThreshold="1.5" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="0"/>
+    <ActivationMode name="hold" onPress="1" onHold="0" onRelease="1" multiTap="1" multiTapBlock="1" pressTriggerThreshold="-1" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="1"/>
+    <ActivationMode name="delayed_hold" onPress="1" onHold="0" onRelease="1" multiTap="1" multiTapBlock="1" pressTriggerThreshold="0.25" releaseTriggerThreshold="-1" releaseTriggerDelay="0" retriggerable="1"/>
+  </ActivationModes>"#;
+
+    #[test]
+    fn every_action_knows_how_the_game_takes_its_key() {
+        let xml = format!(
+            r#"<ActionMaps>{MODES}<actionmap name="spaceship_movement">
+              <action name="v_master_mode_cycle" activationMode="tap" keyboard="b"/>
+              <action name="v_master_mode_cycle_long" activationMode="delayed_press" keyboard="b"/>
+              <action name="v_toggle_quantum_mode" activationMode="press" keyboard="b"/>
+              <action name="v_self_destruct" activationMode="delayed_press_medium"/>
+              <action name="v_long" activationMode="delayed_press_long"/>
+              <action name="v_quick" activationMode="tap_quicker"/>
+              <action name="v_twice" activationMode="double_tap"/>
+              <action name="v_scan" activationMode="hold"/>
+              <action name="v_dhold" activationMode="delayed_hold"/>
+              <action name="v_none"/>
+              <action name="v_unknown" activationMode="gibt_es_nicht"/>
+            </actionmap></ActionMaps>"#
+        );
+        let profile = Profile::from_xml(&xml).expect("profile");
+        let cases = [
+            ("v_master_mode_cycle", Timing::Within(250)),
+            ("v_master_mode_cycle_long", Timing::AtLeast(250)),
+            ("v_toggle_quantum_mode", Timing::Follow),
+            ("v_self_destruct", Timing::AtLeast(500)),
+            ("v_long", Timing::AtLeast(1500)),
+            ("v_quick", Timing::Within(150)),
+            ("v_twice", Timing::Twice),
+            ("v_scan", Timing::Follow),
+            ("v_dhold", Timing::AtLeast(250)),
+            ("v_none", Timing::Follow),
+            ("v_unknown", Timing::Follow),
+            ("spaceship_movement.v_master_mode_cycle_long", Timing::AtLeast(250)),
+        ];
+        for (action, timing) in cases {
+            assert_eq!(profile.timing_of(action), timing, "{action}");
+        }
+        for timing in [Timing::Follow, Timing::AtLeast(250), Timing::Within(150), Timing::Twice] {
+            assert_eq!(Timing::parse(&timing.word()), Some(timing));
+        }
+        assert_eq!(Timing::parse("mindestens:x"), None);
+    }
 
     const PROFILE: &str = r#"<profile>
  <actionmap name="spaceship_general">
@@ -1095,5 +1256,31 @@ mod tests {
         write_csv(&file, &text).expect("write");
         assert!(std::fs::read(&file).expect("read").starts_with(&[0xef, 0xbb, 0xbf]));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_actions_without_a_text_in_the_language_are_known_and_a_name_stands_on_one_line() {
+        let profile = Profile::from_xml(PROFILE).expect("profile");
+        let game = std::env::temp_dir().join(format!("versekit-controls-own-text-{}", crate::testdir::run_tag()));
+        let german = game.join("data").join("Localization").join("german_(germany)");
+        std::fs::create_dir_all(&german).expect("folder");
+        std::fs::write(german.join("global.ini"), "ui_CIEject=Aussteigen\r\nui_CIUse=\r\nui_CIRespawn=respawn\r\n").expect("ini");
+        let english = game.join("data").join("Localization").join("english");
+        std::fs::create_dir_all(&english).expect("folder");
+        std::fs::write(english.join("global.ini"), "ui_CIEject=Eject\r\nui_CIRespawn=Respawn\r\n").expect("ini");
+        let folder = game.to_string_lossy().into_owned();
+        let without = without_own_text(&profile, Some(&folder), crate::language::Lang::De);
+        assert!(!without.contains("v_eject"), "a German text");
+        // The German file of the game holds the English word in small letters for some emotes (`flex`, `greet`).
+        for action in ["v_respawn", "pl_use", "v_free", "v_hidden"] {
+            assert!(without.contains(action), "{action}: no German text (missing, empty, English or no label)");
+        }
+        let in_english = without_own_text(&profile, Some(&folder), crate::language::Lang::En);
+        assert!(!in_english.contains("v_eject") && !in_english.contains("v_respawn"), "{in_english:?}");
+        assert_eq!(without_own_text(&profile, None, crate::language::Lang::De).len(), profile.labels.len(), "no game folder");
+        let _ = std::fs::remove_dir_all(game);
+        assert_eq!(one_line("Andocken\\n(Einleiten)"), "Andocken (Einleiten)");
+        assert_eq!(one_line("Zwei\nZeilen  hier"), "Zwei Zeilen hier");
+        assert_eq!(one_line("Aussteigen"), "Aussteigen");
     }
 }

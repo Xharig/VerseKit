@@ -43,6 +43,7 @@ VerseKit sits on top of Star Citizen as a narrow overlay and reports every new b
 - **For your org, through an open interface:** VerseKit connects to your org's panel and shows its stock, blueprints and orders next to your own. You share your stock back with a click. The interface is an open standard any org can build into its panel, and an org without one hosts the ready-made org server itself. More below under *For orgs*.
 - **Translation per channel:** German, French, Spanish, Bavarian, Dutch and more, set apart for LIVE, HOTFIX and PTU.
 - **Game settings from outside:** Controls, graphics with the shader cache, axes and field of view, without switching into the game.
+- **Stream Deck:** A plugin of its own with ready-made profiles for every device size, from Mini to Stream Deck + XL, with more than 160 game actions. VerseKit adds missing keys in the game with one click. The profiles come as a ZIP with every release, the instructions are on the **[Stream Deck page](https://versekit.xharig.com/en/streamdeck/)**.
 
 ## Download
 
@@ -50,6 +51,7 @@ VerseKit sits on top of Star Citizen as a narrow overlay and reports every new b
 |---|---|---|
 | **Windows** | [`VerseKit-Setup.exe`](https://github.com/Xharig/VerseKit/releases/latest) | Installer with a start menu entry, uninstalls cleanly |
 | **Linux** | [`VerseKit-x86_64.AppImage`](https://github.com/Xharig/VerseKit/releases/latest) | A single file, make it executable once |
+| **Stream Deck** | [`VerseKit-StreamDeck-Profile.zip`](https://github.com/Xharig/VerseKit/releases/latest/download/VerseKit-StreamDeck-Profile.zip) | Profiles for every device size, VerseKit sets up the plugin itself |
 
 Run it, and a wizard sets everything up in about a minute. VerseKit is free and open source, needs no account and keeps itself up to date: it checks every ten minutes and installs a new version as soon as Star Citizen is closed, on Windows also when you quit VerseKit. The Windows warning on first start is not a virus detection, more on that below under *Installation in detail*.
 

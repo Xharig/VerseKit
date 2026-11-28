@@ -222,12 +222,16 @@ impl eframe::App for MainWindow {
         }) {
             self.end(ui.ctx());
         }
-        // A restored backup: the program starts anew, because its modules hold the old data in memory.
-        if self.restarting.is_none() && self.page.take_restart() {
-            // ⚠ The overlay, closing, asks this window to go with it: this window starts the program again
-            // and must outlive that.
-            self.signals.keep_open(true);
-            self.restarting = Some(restart(self.data.clone()));
+        // A restored backup or a switched data folder: the program starts anew, because its modules hold the old
+        // data (the old folder) in memory. After a switch the main window opens again.
+        if self.restarting.is_none() {
+            let reopen = self.page.take_whole_restart();
+            if self.page.take_restart() || reopen {
+                // ⚠ The overlay, closing, asks this window to go with it: this window starts the program again
+                // and must outlive that.
+                self.signals.keep_open(true);
+                self.restarting = Some(restart(self.data.clone(), reopen));
+            }
         }
         // The player closes the window: with an overlay running it only goes out of sight on Windows (the program
         // goes on, as 4.12 does with its overlay); no closing while the backup works, since a cut file would be
@@ -274,7 +278,7 @@ impl eframe::App for MainWindow {
             // folder locked): the overlay follows. Only a program that was never set up ends with the
             // assistant, as 4.12 does.
             if end.finished || self.page.is_set_up() {
-                start_overlay(data.as_deref());
+                start_overlay(data.as_deref(), false);
             }
             if end.finished && end.overview {
                 // The window stays: what it would have started on its own at the beginning starts now.
@@ -301,15 +305,19 @@ fn end_for_update(handed_over: bool, find: impl Fn() -> Option<isize>, close: im
 }
 
 /// Starts the overlay as a program of its own: this file, with the copy of the data ([`overlay_args`]).
-fn start_overlay(data: Option<&str>) {
+fn start_overlay(data: Option<&str>, reopen: bool) {
     let Ok(program) = std::env::current_exe() else { return };
-    let _ = std::process::Command::new(program).args(overlay_args(data)).spawn();
+    let _ = std::process::Command::new(program).args(overlay_args(data, reopen)).spawn();
 }
 
 /// The command line of the overlay this window starts: the mark that this window started it (this process holds
-/// the single instance, see `versekit_overlay::already_running`), and the copy of the data if there is one.
-fn overlay_args(data: Option<&str>) -> Vec<String> {
+/// the single instance, see `versekit_overlay::already_running`), the mark that it opens the main window again
+/// (`reopen`, [`crate::REOPEN_MAIN_WINDOW`]), and the copy of the data if there is one.
+fn overlay_args(data: Option<&str>, reopen: bool) -> Vec<String> {
     let mut out = vec![crate::BY_MAIN_WINDOW.to_string()];
+    if reopen {
+        out.push(crate::REOPEN_MAIN_WINDOW.to_string());
+    }
     if let Some(folder) = data {
         out.push("--daten".to_string());
         out.push(folder.to_string());
@@ -317,10 +325,11 @@ fn overlay_args(data: Option<&str>) -> Vec<String> {
     out
 }
 
-/// Starts the program anew after a restore: the overlay that runs is asked to close like its own window
-/// would be (it carries the single instance), and once it is gone the program starts again as the overlay.
+/// Starts the program anew after a restore or a switch of the data folder: the overlay that runs is asked to close
+/// like its own window would be (it carries the single instance and takes its other windows with it), and once it
+/// is gone the program starts again as the overlay, with the main window open again when `reopen`.
 /// The work runs in a thread of its own; the flag is set when it is done and the main window may close.
-fn restart(data: Option<String>) -> Arc<AtomicBool> {
+fn restart(data: Option<String>, reopen: bool) -> Arc<AtomicBool> {
     use std::time::Duration;
     use versekit_core::window_signal::{self, Role};
     let done = Arc::new(AtomicBool::new(false));
@@ -331,7 +340,7 @@ fn restart(data: Option<String>) -> Arc<AtomicBool> {
             |hwnd| {
                 window_signal::close_window(hwnd);
             },
-            || start_overlay(data.as_deref()),
+            || start_overlay(data.as_deref(), reopen),
             // At most ten seconds for it to go; then a moment for its process to end and give up the mutex.
             (Duration::from_millis(250), 40, Duration::from_millis(1500)),
         );
@@ -764,10 +773,33 @@ mod tests {
 
     #[test]
     fn the_overlay_this_window_starts_is_marked_as_its_own_and_runs_on_the_same_copy() {
-        assert_eq!(overlay_args(None), ["--vom-hauptfenster"]);
-        assert_eq!(overlay_args(Some("C:/copy")), ["--vom-hauptfenster", "--daten", "C:/copy"]);
+        assert_eq!(overlay_args(None, false), ["--vom-hauptfenster"]);
+        assert_eq!(overlay_args(Some("C:/copy"), false), ["--vom-hauptfenster", "--daten", "C:/copy"]);
         // The mark is no data switch: a start with it is not refused.
-        assert!(!crate::refuses(&overlay_args(Some("C:/copy"))));
+        assert!(!crate::refuses(&overlay_args(Some("C:/copy"), false)));
+        // After a switch of the data folder the overlay opens the main window again.
+        let reopen = overlay_args(Some("C:/copy"), true);
+        assert_eq!(reopen, ["--vom-hauptfenster", crate::REOPEN_MAIN_WINDOW, "--daten", "C:/copy"]);
+        assert!(!crate::refuses(&reopen));
+        assert!(crate::reopens_main_window(&reopen) && !crate::reopens_main_window(&overlay_args(None, false)));
+    }
+
+    /// A restart closes the overlay of this run (which takes its other windows with it), waits until it is gone,
+    /// and only then starts the program again: no process of the run goes on writing into the old data folder.
+    #[test]
+    fn a_restart_ends_the_running_overlay_before_the_program_starts_again() {
+        use std::cell::{Cell, RefCell};
+        let events = RefCell::new(Vec::<String>::new());
+        let looks = Cell::new(0);
+        let find = || {
+            looks.set(looks.get() + 1);
+            (looks.get() <= 3).then_some(7)
+        };
+        let close = |hwnd: isize| events.borrow_mut().push(format!("close {hwnd}"));
+        let start = || events.borrow_mut().push(format!("start after {} looks", looks.get()));
+        let no_wait = std::time::Duration::ZERO;
+        restart_steps(find, close, start, (no_wait, 40, no_wait));
+        assert_eq!(*events.borrow(), ["close 7", "start after 4 looks"], "closed, waited until gone, then started");
     }
 
     #[test]

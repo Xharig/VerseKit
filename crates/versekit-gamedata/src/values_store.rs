@@ -154,13 +154,14 @@ impl Supply for Runtime {
         self.off
     }
 
-    /// Asks the process list and the logs of every channel (`game_start::run_state`); what cannot be told
-    /// counts as running.
+    /// Asks the process list and the logs of every channel (`game_start::read_state`: these files are only read
+    /// from the game, so a process of the game whose command line cannot be read, maybe the shader run after a
+    /// patch, does not hold the reading up by itself); what cannot be told counts as running.
     fn game_closed(&self) -> bool {
-        use versekit_core::game_start::run_state;
+        use versekit_core::game_start::read_state;
         let state = match &self.host {
-            Some(host) => run_state(&versekit_core::paths::Paths::new(host.clone())),
-            None => run_state(versekit_core::paths::global()),
+            Some(host) => read_state(&versekit_core::paths::Paths::new(host.clone())),
+            None => read_state(versekit_core::paths::global()),
         };
         !state.blocks_writing()
     }
@@ -1125,7 +1126,8 @@ mod tests {
 
     #[test]
     fn a_cache_of_another_layout_is_not_used() {
-        let dir = folder("format");
+        // A folder name of its own: another check of this file uses "format", and the two run side by side.
+        let dir = folder("anderes-format");
         let file = dir.join(CACHE_FILE).to_string_lossy().into_owned();
         fs::write(&file, "{\"stamp\": {}, \"values\": {}}").unwrap();
         assert!(start(None, &file, Arc::new(Offline)).values.is_none());

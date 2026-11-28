@@ -130,7 +130,7 @@ pub fn waiting_line(ui: &mut Ui, scheme: &Scheme, text: &str) {
 pub fn block(ui: &mut Ui, scheme: &Scheme, snapshot: &Snapshot) {
     ui.add_space(4.0);
     ui.vertical_centered(|ui| {
-        widgets::progress(ui, scheme, snapshot.fraction as f32, BLOCK_BAR);
+        widgets::progress(ui, scheme, snapshot.fraction as f32, BLOCK_BAR, &t("kat_fortschritt_kopf"));
         ui.label(RichText::new(step_line(snapshot)).color(color(scheme.fg)));
         let since = tf("kat_fortschritt_dauer", &[("0", Arg::from(elapsed_text(snapshot.elapsed)))]);
         ui.label(RichText::new(since).small().color(color(scheme.sub)));
@@ -145,7 +145,7 @@ pub fn strip(ui: &mut Ui, scheme: &Scheme, snapshot: &Snapshot) {
             row.add(image);
         }
         row.label(RichText::new(t("kat_fortschritt_kopf")).color(color(scheme.sub)));
-        widgets::progress(row, scheme, snapshot.fraction as f32, STRIP_BAR);
+        widgets::progress(row, scheme, snapshot.fraction as f32, STRIP_BAR, &t("kat_fortschritt_kopf"));
         let line = format!(
             "{} · {}",
             step_line(snapshot),

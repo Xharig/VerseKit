@@ -2451,12 +2451,13 @@ mod tests {
                 events: vec![tab.clone()],
                 ..Default::default()
             };
-            let output = bench.ctx.run_ui(input, |ui| {
+            let mut output = bench.ctx.run_ui(input, |ui| {
                 let scheme = versekit_core::theme::current();
                 let box_ctx =
                     Ctx { stores: &bench.stores, extra: &bench.extra, sources: &Fake, paths: None, others: None };
                 show(ui, scheme, &box_ctx, &mut bench.state, &bench.ship, "key", false);
             });
+            output.textures_delta.clear();
             if let Some(update) = output.platform_output.accesskit_update {
                 reached |= update
                     .nodes

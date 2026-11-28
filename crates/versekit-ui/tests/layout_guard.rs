@@ -1473,11 +1473,12 @@ fn lines_in_cell(width: f32, add: impl FnOnce(&mut egui::Ui)) -> Vec<Line> {
     versekit_ui::install(&ctx);
     let input = egui::RawInput { screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(400.0, 400.0))), ..Default::default() };
     let mut add = Some(add);
-    let output = ctx.run_ui(input, |ui| {
+    let mut output = ctx.run_ui(input, |ui| {
         if let Some(add) = add.take() {
             ui.allocate_ui(vec2(width, 300.0), add);
         }
     });
+    output.textures_delta.clear();
     let (mut lines, mut pictures) = (Vec::new(), Vec::new());
     for (order, clipped) in output.shapes.iter().enumerate() {
         collect_lines(&clipped.shape, (clipped.clip_rect, order), &mut lines, &mut pictures);

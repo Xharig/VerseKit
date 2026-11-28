@@ -255,10 +255,16 @@
   .weiter li:nth-child(3){padding-left:0;border-left:0}
   .weiter li:nth-child(n+3){border-top:1px solid var(--linie)}
 }
-/* Between 861 and 960 px the header has no room for one more link; the
-   footer and the "Is it safe?" section still lead to the page. */
-@media (max-width:960px){
+/* Header links stay on one line. Up to 1080 px there is no room for
+   "Your data" next to "Stream Deck" (measured: 36 px short at 1024); the
+   menu, the footer and "Is it safe?" still lead to it. */
+.kopf nav a.weg{white-space:nowrap}
+@media (max-width:1080px){
   .kopf nav a.weg-breit{display:none}
+}
+/* Just above the phone menu (861 to 910 px) one line is 6 px too wide. */
+@media (max-width:910px){
+  .kopf nav a.weg{white-space:normal}
 }
 @media (max-width:860px){
   .gross,.gross.andersrum{grid-template-columns:minmax(0,1fr);gap:24px}
@@ -311,3 +317,58 @@
 .tasten th{color:var(--leise);font-weight:600;border-top:0}
 .tasten td:first-child{white-space:nowrap;width:1%}
 .tasten kbd{font-family:inherit;background:var(--flaeche);border:1px solid var(--linie);border-radius:6px;padding:2px 7px}
+
+/* ---------- Stream Deck page ----------
+   Built by tools/streamdeck_seite_bauen.py from the guide of the profiles. */
+/* Jump targets are the sections; the sticky header must not cover their heading. */
+.sd-abschnitt{scroll-margin-top:72px}
+.sd-abschnitt h2{font-size:30px}
+.sd-abschnitt p,.sd-abschnitt ol,.sd-abschnitt ul{color:var(--leise);max-width:46em}
+.sd-abschnitt ol,.sd-abschnitt ul{padding-left:22px}
+.sd-abschnitt li{margin-bottom:8px}
+/* Long paths such as the game's install folder break instead of widening the page. */
+.sd-abschnitt p,.sd-abschnitt li,.sd-abschnitt td{overflow-wrap:break-word}
+.sd-abschnitt strong{color:var(--text)}
+.sd-abschnitt h3{font-size:18px;margin:28px 0 6px}
+.tabelle{overflow-x:auto;max-width:860px;margin:10px 0 18px}
+.sd-tasten td:first-child{white-space:normal;width:auto}
+.sd-tasten td:last-child{width:1%;white-space:nowrap}
+.sd-tasten kbd{display:inline-block}
+/* Device choice: one radio button per device, the panel of the chosen one
+   shows. Browsers without :has() show every panel. */
+.geraete-wahl{border:0;margin:24px 0 0;padding:0;min-width:0}
+.geraete-wahl legend{font-weight:700;margin:0 0 10px;padding:0;color:var(--text)}
+.geraet-knoepfe{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:860px}
+.geraet-knopf{display:flex;align-items:center;gap:10px;min-height:44px;padding:10px 14px;background:var(--flaeche);
+  border:1px solid var(--linie-hell);border-radius:6px;cursor:pointer;font-size:15px;line-height:1.35}
+.geraet-knopf:hover{border-color:var(--neon);background:var(--hover)}
+.geraet-knopf input{accent-color:var(--neon);margin:0;flex:none;width:18px;height:18px}
+.geraet-knopf:has(input:checked){border-color:var(--neon);background:var(--neon-dunkel);color:var(--neon);font-weight:700}
+.geraet-knopf:has(input:focus-visible){outline:2px solid var(--neon);outline-offset:2px}
+.geraet-felder{margin:16px 0 24px;max-width:860px;display:grid;gap:12px}
+.geraet-feld{padding:20px 22px;background:var(--feld);border:1px solid var(--linie);border-radius:var(--rund)}
+.sd-abschnitt .geraet-feld h3{margin:0 0 12px}
+.geraet-feld dl{margin:0;display:grid;gap:12px}
+.geraet-feld dt{color:var(--leise);font-size:14px}
+.geraet-feld dd{margin:2px 0 0}
+.geraet-feld code{color:var(--neon);font-size:14px;overflow-wrap:anywhere}
+@supports selector(:has(*)){
+  .geraet-feld{display:none}
+  #geraet:has(input[value="xl"]:checked) [data-geraet="xl"],
+  #geraet:has(input[value="mobile"]:checked) [data-geraet="mobile"],
+  #geraet:has(input[value="mk2"]:checked) [data-geraet="mk2"],
+  #geraet:has(input[value="neo"]:checked) [data-geraet="neo"],
+  #geraet:has(input[value="mini"]:checked) [data-geraet="mini"],
+  #geraet:has(input[value="plusxl"]:checked) [data-geraet="plusxl"]{display:block}
+}
+.sd-verlauf{max-width:860px}
+@media (max-width:860px){
+  .geraet-knoepfe{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .geraet-knoepfe{grid-template-columns:minmax(0,1fr)}
+  .geraet-feld{padding:16px}
+  .sd-abschnitt h2{font-size:26px}
+  .sd-tasten td:last-child{width:auto;white-space:normal}
+  .sd-tasten th,.sd-tasten td{padding:8px 6px}
+}

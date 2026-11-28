@@ -1656,11 +1656,24 @@ mod tests {
             }),
             poll: std::time::Duration::from_millis(100),
         };
+        // The server answers from a thread of its own, the line asks with a short wait: asked again until it holds,
+        // at most a minute (a loaded computer is slow to answer).
+        let line_becomes = |wanted: &dyn Fn(&str) -> bool| {
+            let end = std::time::Instant::now() + std::time::Duration::from_secs(60);
+            loop {
+                let line = scmdb_line(&on, Lang::De);
+                if wanted(&line) || std::time::Instant::now() > end {
+                    return line;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+        };
         assert!(bridge.start(setup));
-        assert_eq!(scmdb_line(&on, Lang::De), format!("an, VerseKit lauscht auf {address}"));
+        let listening = format!("an, VerseKit lauscht auf {address}");
+        assert_eq!(line_becomes(&|line| line == listening), listening);
         bridge.stop();
-        std::thread::sleep(std::time::Duration::from_millis(300));
-        assert!(scmdb_line(&on, Lang::De).starts_with("an, aber niemand lauscht"), "{}", scmdb_line(&on, Lang::De));
+        let after = line_becomes(&|line| line.starts_with("an, aber niemand lauscht"));
+        assert!(after.starts_with("an, aber niemand lauscht"), "{after}");
         let _ = fs::remove_dir_all(&dir);
     }
 

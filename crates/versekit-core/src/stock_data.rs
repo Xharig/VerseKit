@@ -133,6 +133,9 @@ pub struct StockData {
     goods: HashMap<String, Vec<f64>>,
     choices: HashMap<String, Choice>,
     item_names: Vec<String>,
+    /// The items of the goods list by [`crate::paths::name_key`]: the lower-case key of the one item with that key,
+    /// `None` where two items share it.
+    item_keys: HashMap<String, Option<String>>,
 }
 
 // ------------------------------------------------------------ helpers
@@ -639,6 +642,29 @@ impl StockData {
         }
         self.item_names = self.choices.values().filter(|c| c.item.is_some()).map(|c| c.name.clone()).collect();
         self.item_names.sort_by_cached_key(|n| lower(n));
+        self.item_keys.clear();
+        for (low, choice) in self.choices.iter().filter(|(_, c)| c.item.is_some()) {
+            self.item_keys
+                .entry(crate::paths::name_key(&choice.name))
+                .and_modify(|found| {
+                    if found.as_deref() != Some(low.as_str()) {
+                        *found = None;
+                    }
+                })
+                .or_insert_with(|| Some(low.clone()));
+        }
+    }
+
+    /// Only the goods list, for a caller that needs the names of the items and nothing else.
+    pub fn load_catalog(file: impl Fn(&str) -> String) -> StockData {
+        let mut data = StockData::default();
+        let catalog = read(&file(CATALOG_FILE))
+            .filter(|d| format_is(d, CATALOG_FORMAT))
+            .or_else(|| jsonio::loads(BUNDLED_CATALOG).ok().filter(|d| format_is(d, CATALOG_FORMAT)));
+        if let Some(catalog) = catalog {
+            data.read_catalog(&catalog);
+        }
+        data
     }
 
     // -------------------------------------------------------- materials
@@ -804,9 +830,21 @@ impl StockData {
         &self.item_names
     }
 
-    /// The item entry for a typed name, if it is in the list.
+    /// The item entry for a typed name, if it is in the list. A name with the class code before or behind it, as a
+    /// translation of the game or the tag of VerseKit writes it (`Mil/3/B MegaFlux (Mil/3/B)`), is the item of the
+    /// list without it, where only one item has that name.
     pub fn item_choice(&self, name: &str) -> Option<&Choice> {
-        self.choices.get(&lower(name)).filter(|c| c.item.is_some())
+        let exact = self.choices.get(&lower(py_strip(name))).filter(|c| c.item.is_some());
+        exact.or_else(|| {
+            let low = self.item_keys.get(&crate::paths::name_key(name))?.as_ref()?;
+            self.choices.get(low).filter(|c| c.item.is_some())
+        })
+    }
+
+    /// The name of the goods list for the item `name` ([`StockData::item_choice`]), `None` where the list does not
+    /// know it.
+    pub fn item_name(&self, name: &str) -> Option<&str> {
+        self.item_choice(name).map(|c| c.name.as_str())
     }
 
     // -------------------------------------------------------- kinds
@@ -879,7 +917,7 @@ impl StockData {
     /// The kind of an item from its section in the goods list
     /// (`stock_kinds.item_kind`, last source only).
     pub fn item_kind(&self, name: &str) -> Kind {
-        let Some(entry) = self.choices.get(&lower(py_strip(name))).filter(|c| c.item.is_some()) else {
+        let Some(entry) = self.item_choice(name) else {
             return Kind::Other;
         };
         match entry.section.as_str() {
@@ -1007,5 +1045,26 @@ mod tests {
         sorted.dedup();
         assert_eq!(names, sorted, "sorted, each name once");
         assert!(!data.goods().iter().any(|n| n == "Scrap"), "the list of the sell offers does not change");
+    }
+
+    /// The name a translation of the game shows, the class code before it and the tag of VerseKit behind it, is the
+    /// item of the list: a ship component, not "Sonstiges".
+    #[test]
+    fn an_item_with_its_class_code_around_it_is_the_listed_item() {
+        let data = StockData::sample();
+        for (shown, listed) in [
+            ("Mil/3/B MegaFlux (Mil/3/B)", "MegaFlux"),
+            ("Cmp/2/B AbsoluteZero (Cmp/2/B)", "AbsoluteZero"),
+            ("Mil/3/B Fulgur", "Fulgur"),
+            ("megaflux", "MegaFlux"),
+        ] {
+            assert_eq!(data.item_name(shown), Some(listed), "{shown}");
+            assert_eq!(data.item_kind(shown), Kind::VehicleItem, "{shown}");
+        }
+        assert_eq!(data.item_name("Mil/3/B Unbekanntes Teil (Mil/3/B)"), None);
+        assert_eq!(data.item_kind("Mil/3/B Unbekanntes Teil (Mil/3/B)"), Kind::Other);
+        // The catalog alone gives the same names.
+        let only = StockData::load_catalog(|name| format!("/nicht/da/{name}"));
+        assert_eq!(only.item_name("Mil/3/B MegaFlux (Mil/3/B)"), Some("MegaFlux"));
     }
 }

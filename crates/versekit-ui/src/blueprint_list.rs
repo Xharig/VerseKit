@@ -2878,13 +2878,15 @@ mod tests {
         let building = Pending::spawn(move || {
             running.store(true, Ordering::SeqCst);
             // A build that takes its time: it ends when the test says so.
-            wait.recv_timeout(Duration::from_secs(5)).ok()?;
+            wait.recv_timeout(Duration::from_secs(120)).ok()?;
             flag.store(true, Ordering::SeqCst);
             Some(copy)
         });
         let mut data = ListData::load_from(&paths, Some(stale.clone()), building).expect("a list");
         let loaded = started.elapsed();
-        assert!(loaded < Duration::from_millis(250), "the list waited {loaded:?} for the build");
+        // The build waits up to two minutes for the test: a list that waited for it would take that long, the list
+        // that does not is done far sooner, also on a loaded computer.
+        assert!(loaded < Duration::from_secs(30), "the list waited {loaded:?} for the build");
         let mut state = ListState::default();
         let texts = frame(&ctx, &mut data, &mut state);
         assert!(!done.load(Ordering::SeqCst), "the first frame came before the build was done");
@@ -2896,7 +2898,7 @@ mod tests {
         go.send(()).unwrap();
         let waited = Instant::now();
         while repaints.load(Ordering::SeqCst) == 0 {
-            assert!(waited.elapsed() < Duration::from_secs(10), "the build did not wake the window");
+            assert!(waited.elapsed() < Duration::from_secs(120), "the build did not wake the window");
             std::thread::sleep(Duration::from_millis(10));
         }
         let texts = frame(&ctx, &mut data, &mut state);
@@ -3146,6 +3148,8 @@ mod tests {
         assert!(texts.iter().any(|t| t.contains("(2)") && t.contains("Baupläne")), "the count stands in the head: {texts:?}");
         // No catalog and none coming: the same names stand under the plain notice.
         let mut none = ListData::load_from(&paths, Some(CatalogCache::default()), None).expect("a list");
+        // No build: a build another test of this process runs meanwhile must not turn the notice.
+        none.set_build_progress(None);
         let texts = frame(&ctx, &mut none, &mut state);
         assert!(texts.iter().any(|t| *t == t_de("kein_katalog")), "{texts:?}");
         assert!(texts.iter().any(|t| *t == format!("Alpha Rifle · {mark}")), "{texts:?}");
@@ -3192,6 +3196,8 @@ mod tests {
             frame(&ctx, &mut empty, &mut state);
             false
         });
+        // No build: a build another test of this process runs meanwhile must not turn the notice.
+        empty.set_build_progress(None);
         let texts = frame(&ctx, &mut empty, &mut state);
         assert!(texts.iter().any(|t| *t == t_de("kein_katalog")), "{texts:?}");
     }

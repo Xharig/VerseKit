@@ -80,6 +80,12 @@ export const PAGES = {
   bereich_spiel_einst: ['Karten', 'Bereich Spiel-Einstellungen'],
   bereich_basetool: ['Karten', 'Bereich Basetool'],
   bereich_info: ['Karten', 'Bereich Info'],
+  // Neue Seiten von VerseKit 5.
+  signatur: ['Abbau & Bergung', 'Signaturen'],
+  finanzen: ['Handel', 'Finanzen'],
+  bank: ['Handel', 'Bank'],
+  statistik_flugbuch: ['Statistik', 'Flugbuch'],
+  streamdeck: ['Einstellungen', 'Tasten & Stream Deck'],
 };
 
 // Seiten ohne eigenen Reiter: Der Worker nimmt sie weiter an (ältere

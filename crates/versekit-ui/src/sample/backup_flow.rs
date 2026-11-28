@@ -28,6 +28,7 @@
 //! hold their data in memory and would write it over the files just restored.
 
 use versekit_core::language::SpawnWithLanguage as _;
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use egui::RichText;
@@ -228,9 +229,17 @@ pub(super) struct BackupFlow {
     can_restart: bool,
     /// A restore is done and the program should start anew.
     restart: bool,
+    /// The data folder was switched and the whole program should start anew, its main window open again.
+    whole_restart: bool,
     /// The program is starting anew: no second backup is begun meanwhile.
     locked: bool,
+    /// How far the thread at work has come, where it counts its files (writing and restoring); the dialog shows a
+    /// bar for it, else a spinner.
+    progress: Option<Arc<backup::Progress>>,
 }
+
+/// Width of the bar in the dialog while a backup is written or restored.
+const BAR_WIDTH: f32 = 280.0;
 
 /// What the dialogs of the backup show.
 const ZIP_FILES: file_dialog::Filters = &[("ZIP", &["zip"])];
@@ -250,6 +259,29 @@ impl SamplePage {
     /// A restore is done and the program should start anew; true once.
     pub fn take_restart(&mut self) -> bool {
         std::mem::take(&mut self.backup.restart)
+    }
+
+    /// The data folder was switched and every process of this run (the overlay, its windows) is to end and the
+    /// program to start anew with the main window open ([`SamplePage::restart_program`]); true once.
+    pub fn take_whole_restart(&mut self) -> bool {
+        std::mem::take(&mut self.backup.whole_restart)
+    }
+
+    /// Starts the whole program anew after a switch of the data folder: where the window can do that
+    /// ([`SamplePage::offer_restart`], the main window) the settings are written and the restart is handed to it
+    /// ([`SamplePage::take_whole_restart`]); else this window starts again by itself
+    /// ([`SamplePage::restart_now`]). True when the restart is under way.
+    ///
+    /// ⚠⚠ Not just a new window: the overlay and the window that started it would go on writing into the old data
+    /// folder.
+    pub(super) fn restart_program(&mut self, ctx: &egui::Context) -> bool {
+        if !self.backup.can_restart {
+            return self.restart_now(ctx);
+        }
+        self.save_and_wait();
+        self.backup.whole_restart = true;
+        self.pin_notice = Some((ctx.input(|i| i.time), t("s_pf_startet_neu")));
+        true
     }
 
     /// May a backup be begun now: real data are open, no backup is under way and the program is not starting anew.
@@ -356,14 +388,17 @@ impl SamplePage {
         self.pin_notice = Some((ctx.input(|i| i.time), text));
     }
 
-    /// Starts `work` on a copy of the paths in a thread of its own, under the same lock of writing.
+    /// Starts `work` on a copy of the paths in a thread of its own, under the same lock of writing; `progress` is what
+    /// the work counts its files in, where it does.
     fn start_backup_work<T: Send + 'static>(
         &mut self,
         ctx: &egui::Context,
         label: &'static str,
+        progress: Option<Arc<backup::Progress>>,
         work: impl FnOnce(&Paths) -> T + Send + 'static,
         done: impl FnOnce(T) -> Done + Send + 'static,
     ) {
+        self.backup.progress = progress;
         let Some(store) = &self.store else { return };
         let paths = store.paths.working_copy();
         let guard = writeguard::state();
@@ -390,11 +425,16 @@ impl SamplePage {
                 Some(Some(path)) => {
                     let (target, version) = (with_suffix(path), env!("CARGO_PKG_VERSION"));
                     let on = target.clone();
+                    let progress = Arc::new(backup::Progress::default());
+                    let counted = Arc::clone(&progress);
                     self.start_backup_work(
                         ctx,
                         "sich_arbeitet",
+                        Some(progress),
                         // The files of the game of every installed channel come along whenever there are any.
-                        move |paths| backup::write_reporting(paths, &on, version, &backup_game::bindings_all(paths)),
+                        move |paths| {
+                            backup::write_counting(paths, &on, version, &backup_game::bindings_all(paths), &counted)
+                        },
                         move |outcome| Done::Written { target, outcome },
                     );
                 }
@@ -407,6 +447,7 @@ impl SamplePage {
                     self.start_backup_work(
                         ctx,
                         "sich_arbeitet",
+                        None,
                         // The look at what a restore would do is taken with the check, before the question.
                         move |paths| {
                             let found = backup::check(&on);
@@ -436,7 +477,9 @@ impl SamplePage {
                     }
                 }
                 if matches!(self.backup.phase, Phase::Working(..)) {
-                    Self::backup_waiting(ctx, scheme, label);
+                    Self::backup_waiting(ctx, scheme, label, self.backup.progress.as_deref());
+                } else {
+                    self.backup.progress = None;
                 }
             }
             Phase::Asking { source, found, look } => self.backup_ask(ctx, scheme, source, found, look),
@@ -473,12 +516,23 @@ impl SamplePage {
         }
     }
 
-    fn backup_waiting(ctx: &egui::Context, scheme: &Scheme, label: &str) {
-        widgets::dialog(ctx, scheme, "sicherung-arbeit", |ui| {
-            ui.horizontal(|ui| {
-                ui.add(egui::Spinner::new().color(color(scheme.accent)));
+    /// The dialog while a thread works: a bar with the files done once the work has counted them, else a spinner.
+    fn backup_waiting(ctx: &egui::Context, scheme: &Scheme, label: &str, progress: Option<&backup::Progress>) {
+        let counted = progress.map(backup::Progress::get).filter(|(_, total)| *total > 0);
+        widgets::dialog(ctx, scheme, "sicherung-arbeit", |ui| match counted {
+            Some((done, total)) => {
                 ui.add(egui::Label::new(t(label)).wrap());
-            });
+                ui.add_space(4.0);
+                widgets::progress(ui, scheme, done as f32 / total as f32, BAR_WIDTH, &t(label));
+                let files = tf("sich_dateien", &[("0", Arg::from(done)), ("1", Arg::from(total))]);
+                ui.add(egui::Label::new(RichText::new(files).small().color(color(scheme.sub))).wrap());
+            }
+            None => {
+                ui.horizontal(|ui| {
+                    ui.add(egui::Spinner::new().color(color(scheme.accent)));
+                    ui.add(egui::Label::new(t(label)).wrap());
+                });
+            }
         });
     }
 
@@ -591,6 +645,7 @@ impl SamplePage {
         self.start_backup_work(
             ctx,
             "sich_arbeitet",
+            None,
             move |paths| backup_game::restore(paths, &source, with_active),
             move |outcome| Done::Controls { restored, outcome, by_channel },
         );
@@ -696,11 +751,14 @@ impl SamplePage {
         });
         if restore {
             let on = source.clone();
+            let progress = Arc::new(backup::Progress::default());
+            let counted = Arc::clone(&progress);
             self.start_backup_work(
                 ctx,
                 "sich_arbeitet",
+                Some(progress),
                 // The copy of before carries the player's files of the game too: a slip costs nothing.
-                move |paths| backup::restore(paths, &on, &backup_game::bindings_all(paths)),
+                move |paths| backup::restore_counting(paths, &on, &backup_game::bindings_all(paths), &counted),
                 move |outcome| {
                     let controls = backup::bindings_in_archive(&source);
                     let channels = backup_game::in_archive(&source);
@@ -876,6 +934,42 @@ mod tests {
         let _ = std::fs::remove_dir_all(folder);
     }
 
+    /// While the backup is written the dialog shows a bar with the files counted so far; before the work has counted
+    /// them (and for the steps that count nothing) the spinner with the text stays.
+    #[test]
+    fn the_work_shows_a_bar_with_the_files_once_they_are_counted() {
+        let _language = crate::language_lock();
+        let (page, folder, _data) = backup_page("sicherung-balken");
+        let mut bench = Bench::new(page);
+        let (_tx, rx) = mpsc::channel();
+        bench.page.backup.phase = Phase::Working(rx, "sich_arbeitet");
+        let progress = Arc::new(backup::Progress::default());
+        bench.page.backup.progress = Some(Arc::clone(&progress));
+        let files = |done: usize, total: usize| {
+            language::tf("sich_dateien", &[("0", Arg::from(done)), ("1", Arg::from(total))])
+        };
+        let texts = bench.settle();
+        assert!(shows(&texts, &language::t("sich_arbeitet")), "the work is said: {texts:?}");
+        let exactly = |texts: &[(String, Pos2)], text: &str| texts.iter().any(|(shown, _)| shown == text);
+        assert!(!exactly(&texts, "0 %") && !exactly(&texts, "100 %"), "nothing counted yet: no bar");
+        // The work counts its files.
+        let other = Arc::clone(&progress);
+        let paths_folder = folder.join("zaehlen");
+        std::fs::create_dir_all(paths_folder.join("Bestand")).unwrap();
+        for name in ["a", "b", "c", "d", "e"] {
+            std::fs::write(paths_folder.join("Bestand").join(format!("{name}.json")), "[]").unwrap();
+        }
+        let host = host_in(&paths_folder, &[]);
+        let target = folder.join("zaehlen.zip").to_string_lossy().into_owned();
+        backup::write_counting(&Paths::new(host), &target, "5.6.5", &[], &other).unwrap();
+        let (done, total) = progress.get();
+        let texts = bench.settle();
+        assert!(shows(&texts, &files(done, total)), "the files counted: {texts:?}");
+        assert!(exactly(&texts, "100 %"), "the bar with its share: {texts:?}");
+        assert!(shows(&texts, &language::t("sich_arbeitet")), "the text stays above the bar");
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
     #[test]
     fn a_backup_is_written_where_the_player_picked_with_the_ending_and_told_in_the_line() {
         let _language = crate::language_lock();
@@ -917,6 +1011,9 @@ mod tests {
         big.set_len(versekit_core::zip::MAX_ENTRY as u64 + 1).unwrap();
         drop(big);
         let mut bench = Bench::new(page);
+        // The clock of the window stands still: the line stays six seconds of it, and on a loaded computer the frames
+        // until the check take longer than that.
+        bench.time = Some(1000.0);
         bench.page.backup.phase =
             Phase::Saving(Pending::answered(Some(folder.join("meine").to_string_lossy().into_owned())));
         finish(&mut bench);
@@ -1330,6 +1427,8 @@ mod tests {
         std::fs::create_dir_all(data.join("Bestand")).unwrap();
         std::fs::write(data.join("Bestand").join("x.json"), "[1]").unwrap();
         let mut bench = Bench::new(page);
+        // The clock of the window stands still, so the line is still there when it is read (see above).
+        bench.time = Some(1000.0);
         bench.page.backup.phase =
             Phase::Saving(Pending::answered(Some(folder.join("mit").to_string_lossy().into_owned())));
         finish(&mut bench);

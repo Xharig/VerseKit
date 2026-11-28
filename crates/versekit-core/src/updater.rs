@@ -268,7 +268,13 @@ pub fn check(net: &dyn Net, paths: &Paths, own: &str, force: bool, at: f64) -> C
         let mut betas: Option<Vec<Release>> = None;
         let mut failed = None;
         for source in sources(own) {
-            match net.get(source).map_err(|e| (only_waiting(&e), e.to_string())).and_then(|body| {
+            let got = net.get(source);
+            // ⚠ The repository of the test versions answers 404 to everybody while it holds none (or is not public):
+            // that is no failure, the betas come from the main repository.
+            if *source == TEST_API && got == Err(FetchError::Missing) {
+                continue;
+            }
+            match got.map_err(|e| (only_waiting(&e), e.to_string())).and_then(|body| {
                 if beta_on && *source == API {
                     betas = crate::beta::releases_from_api(&body);
                 }

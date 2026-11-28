@@ -67,7 +67,7 @@ Protect Fuel Tanks
 Recover Vanduul Corpses
 Retake the Outpost
 Stop Rival Attack at Asteroiden Bergbaubasis
-Verified Bounty: Brendon Broad | HRT (Großes Mehrbesatzungsschiff, mittlere Unterstützung)
+Verified Bounty: Brendon Broad | HRT (Large Multi-Crew Ship, Medium Support)
 
 # Places and routes with amounts: names, numbers and units, no wording.
 Agricium: Orison → New Babbage
@@ -91,6 +91,7 @@ Failed to recreate surface
 Surface: {text}
 
 # Technical names: file types, libraries, screen sizes, the program with a number.
+GET {} HTTP/1.1rnHost: 127.0.0.1:{}rnAuthorization: Bearer {}rnConnection: closernrn
 HTTP/1.1 200 OKrnContent-Length: 0rnConnection: closernrn
 PNG / JPG
 Rust · egui 0.37

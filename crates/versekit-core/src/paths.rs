@@ -35,7 +35,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -179,6 +180,24 @@ const SKIP_BACKUP_EXT: [&str; 8] = [".zip", ".7z", ".gz", ".rar", ".dmp", ".mdmp
 
 fn is_dir(p: &str) -> bool {
     !p.is_empty() && fs::metadata(p).is_ok_and(|m| m.is_dir())
+}
+
+/// Whether `root` is a folder with a file system on it: under Unix one that lies on another device than its parent
+/// folder (a mount point with nothing mounted lies on the device of its parent) or `/`, elsewhere a folder that
+/// answers.
+fn mounted(root: &str) -> bool {
+    let Ok(meta) = fs::metadata(root) else { return false };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let here = Path::new(root);
+        if let Some(parent) = here.parent()
+            && let Ok(above) = fs::metadata(parent)
+        {
+            return meta.is_dir() && above.dev() != meta.dev();
+        }
+    }
+    meta.is_dir()
 }
 
 /// The roots of the fixed drives (`C:\`), nothing else: no network drive, whose probe can hold the program for
@@ -369,6 +388,9 @@ pub struct Host {
     /// The drives to look for the game on (`C:\`), `None` to ask the system ([`Host::drive_roots`]). A test
     /// gives the list; nothing else touches the drives of the computer then.
     drives: Option<Vec<String>>,
+    /// How many more questions for the root of a place answer "not ready" ([`Host::with_unready_roots`]), `None`
+    /// to ask the system.
+    unready_roots: Option<Arc<AtomicUsize>>,
 }
 
 impl Host {
@@ -382,6 +404,7 @@ impl Host {
             cwd: std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
             copy: None,
             drives: None,
+            unready_roots: None,
         };
         for (key, value) in std::env::vars_os() {
             if let (Ok(key), Ok(value)) = (key.into_string(), value.into_string()) {
@@ -418,7 +441,15 @@ impl Host {
     /// A made-up machine for tests. No registry.
     pub fn new(flavor: Flavor, vars: &[(&str, &str)], cwd: &str) -> Host {
         let mut host =
-            Host { flavor, env: HashMap::new(), registry: false, cwd: cwd.to_string(), copy: None, drives: None };
+            Host {
+            flavor,
+            env: HashMap::new(),
+            registry: false,
+            cwd: cwd.to_string(),
+            copy: None,
+            drives: None,
+            unready_roots: None,
+        };
         for (key, value) in vars {
             host.set_var(key, value);
         }
@@ -430,6 +461,24 @@ impl Host {
     pub fn with_drives(mut self, drives: &[&str]) -> Host {
         self.drives = Some(drives.iter().map(|d| d.to_string()).collect());
         self
+    }
+
+    /// The same machine on which the root of every place answers "not ready" to the next `probes` questions of
+    /// [`Host::root_ready`], whatever the system says; `usize::MAX` for always. For tests: a drive that is not
+    /// ready without one.
+    pub fn with_unready_roots(mut self, probes: usize) -> Host {
+        self.unready_roots = Some(Arc::new(AtomicUsize::new(probes)));
+        self
+    }
+
+    /// Whether the root `root` of a place (a drive `E:\`, a share `\\server\share\`, a mount point) answers: a
+    /// drive or share that is there and ready, a mount point with a file system on it.
+    pub fn root_ready(&self, root: &str) -> bool {
+        if let Some(left) = &self.unready_roots {
+            let unready = left.try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok();
+            return !unready;
+        }
+        mounted(root)
     }
 
     /// Whether the drives were given ([`Host::with_drives`]): the host is closed to what this computer holds, the
@@ -1066,6 +1115,12 @@ impl Paths {
         )
     }
 
+    /// A file in the configuration folder of the current name ([`CONFIG_FOLDER_NAME`]): the same place for every
+    /// data folder, found by another program of the same user without reading the pointer files.
+    pub fn config_file(&self, name: &str) -> String {
+        self.join_all(&self.config_base(), &[CONFIG_FOLDER_NAME, name])
+    }
+
     /// The configuration directory: `%APPDATA%` (else the home folder) or `$XDG_CONFIG_HOME` (else `~/.config`).
     fn config_base(&self) -> String {
         match self.host.flavor {
@@ -1247,7 +1302,12 @@ impl Paths {
             let Some(value) = value else { continue };
             let folder = self.host.expanduser(&value);
             if !is_dir(&folder) {
-                // Points into nothing (disk not mounted): ask the other one.
+                // ⚠⚠ A drive that is not ready names no other place: the other pointer would be taken and this one
+                // written over with it (`Paths::storage_missing` waits for the drive).
+                if self.root_down(&folder) {
+                    return Some(value);
+                }
+                // Points into nothing: ask the other one.
                 continue;
             }
             // ⚠ A pointer to the default folder names no other place. Healing the visible pointer there would
@@ -1394,17 +1454,24 @@ impl Paths {
         }
     }
 
-    /// Younger than `SETTINGS_FRESH_SEC`? A time in the future does not count.
-    fn just_written(path: &str) -> bool {
+    /// Younger than `SETTINGS_FRESH_SEC` at `at` (seconds since 1970)? A time in the future does not count.
+    fn just_written(path: &str, at: f64) -> bool {
         mtime_seconds(path).is_some_and(|t| {
-            let age = now_seconds() - t;
+            let age = at - t;
             (0.0..SETTINGS_FRESH_SEC).contains(&age)
         })
     }
 
     /// (data, readable). Locked or just written means not readable, then
-    /// `set_setting` must not overwrite anything.
+    /// `set_setting` must not overwrite anything. The age of the file counts up to the moment the reading began: a
+    /// read held for seconds (a lock, a virus scanner) does not make a file that was being written count as old.
     pub fn settings_read(&self) -> (Map, bool) {
+        self.settings_read_since(now_seconds())
+    }
+
+    /// [`Self::settings_read`] with the age of the file counted up to `began` (seconds since 1970): the moment a
+    /// caller that read before (and may have waited for a lock) began.
+    fn settings_read_since(&self, began: f64) -> (Map, bool) {
         let target = self.settings_file();
         match self.read_settings_waiting(&target) {
             Ok(data) => (data, true),
@@ -1422,7 +1489,7 @@ impl Paths {
                 }
             }
             Err(ReadError::Value(message)) => {
-                if Self::just_written(&target) {
+                if Self::just_written(&target, began) {
                     return (Vec::new(), false);
                 }
                 self.settings_recover(&target, &message)
@@ -1603,11 +1670,12 @@ impl Paths {
             return self.set_storage_folder(&value);
         }
         let target = self.settings_file();
+        let began = now_seconds();
         // Wait out a short lock before taking the write lock.
         let _ = self.read_settings_waiting(&target);
         let result = (|| -> io::Result<()> {
             let _lock = jsonio::lock_saves();
-            let (data, readable) = self.settings_read();
+            let (data, readable) = self.settings_read_since(began);
             if !readable {
                 // ⚠ Locked does not mean empty: with the template written over it, all
                 // other settings would be gone.
@@ -2848,14 +2916,33 @@ mod tests {
     }
 
     #[test]
+    fn a_file_counts_as_just_written_by_its_age_at_the_moment_given() {
+        let home = scratch("frisch-moment");
+        let file = format!("{home}/x.json");
+        touch(&file, "{halb");
+        let written = mtime_seconds(&file).unwrap();
+        assert!(Paths::just_written(&file, written + 1.0), "a second after");
+        assert!(!Paths::just_written(&file, written + SETTINGS_FRESH_SEC + 1.0), "long after");
+        assert!(!Paths::just_written(&file, written - 1.0), "a time in the future does not count");
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    #[test]
     fn freshly_written_broken_settings_are_left_alone() {
         let home = scratch("fresh");
         let p = linux(&home);
         let target = p.settings_file();
+        // "Just written" lasts two seconds, and writing the file can take more than that on a loaded computer: the
+        // write lock is taken first (the same thread may take it again), so no call waits for the saves of other
+        // checks, and the time of change is set to now right before each call.
+        let held = jsonio::lock_saves();
         touch(&target, "{halb");
+        crate::testdir::freshen(Path::new(&target)).unwrap();
         assert!(p.settings().is_empty());
         assert_eq!(fs::read_to_string(&target).unwrap(), "{halb", "wird gerade geschrieben — nicht anfassen");
+        crate::testdir::freshen(Path::new(&target)).unwrap();
         assert!(!p.set_setting("x", Value::Null), "nicht lesbar heißt nicht überschreiben");
+        drop(held);
         assert_eq!(fs::read_to_string(&target).unwrap(), "{halb");
         let _ = fs::remove_dir_all(&home);
     }

@@ -338,7 +338,22 @@ pub fn write_reporting(
     version: &str,
     bindings: &[Binding],
 ) -> Result<Written, WriteError> {
-    write_within(paths, target, version, bindings, READER_LIMITS)
+    write_within(paths, target, version, bindings, READER_LIMITS, None)
+}
+
+/// [`write_reporting`] that counts every file in `progress` as it goes, for the bar of the page.
+///
+/// # Errors
+///
+/// As [`write`].
+pub fn write_counting(
+    paths: &Paths,
+    target: &str,
+    version: &str,
+    bindings: &[Binding],
+    progress: &Progress,
+) -> Result<Written, WriteError> {
+    write_within(paths, target, version, bindings, READER_LIMITS, Some(progress))
 }
 
 /// [`write_reporting`] within `limits`.
@@ -348,8 +363,13 @@ fn write_within(
     version: &str,
     bindings: &[Binding],
     limits: Limits,
+    progress: Option<&Progress>,
 ) -> Result<Written, WriteError> {
-    write_setting_within(paths, target, version, bindings, limits).map_err(WriteError::from)
+    let written = write_setting_within(paths, target, version, bindings, limits, progress).map_err(WriteError::from);
+    if let Some(progress) = progress {
+        progress.finish();
+    }
+    written
 }
 
 /// [`write_within`] with the reason kept apart: the restore tells "too large" another way.
@@ -359,14 +379,47 @@ fn write_setting_within(
     version: &str,
     bindings: &[Binding],
     limits: Limits,
+    progress: Option<&Progress>,
 ) -> Result<Written, Refusal> {
-    let written = write_marked_within(paths, target, version, bindings, MARKER, limits)?;
+    let written = write_marked_within(paths, target, version, bindings, MARKER, limits, progress)?;
     let (year, month, day, hour, minute, second) = jsonio::local_time();
     paths.set_setting(
         LAST_SETTING,
         Value::str(format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}")),
     );
     Ok(written)
+}
+
+/// How far a backup or a restore has come, in files: written by the thread at work, read by the page that shows
+/// the bar. A total of 0 means the count is not known yet.
+#[derive(Debug, Default)]
+pub struct Progress {
+    done: std::sync::atomic::AtomicUsize,
+    total: std::sync::atomic::AtomicUsize,
+}
+
+impl Progress {
+    /// (files done, files in all); never more done than in all.
+    pub fn get(&self) -> (usize, usize) {
+        use std::sync::atomic::Ordering::Relaxed;
+        let total = self.total.load(Relaxed);
+        (self.done.load(Relaxed).min(total), total)
+    }
+
+    /// More files to come: a restore counts the files of the backup before the copy of before counts its own.
+    fn add_total(&self, more: usize) {
+        self.total.fetch_add(more, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    fn step(&self) {
+        self.done.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Everything done: the bar stands full, also where files were skipped.
+    fn finish(&self) {
+        use std::sync::atomic::Ordering::Relaxed;
+        self.done.store(self.total.load(Relaxed), Relaxed);
+    }
 }
 
 /// The file in `Intern` that says a backup or a restore is at work right now (`{"pid": …, "zeit": …}`).
@@ -505,7 +558,7 @@ pub(crate) fn write_marked(
     bindings: &[Binding],
     marker: &str,
 ) -> Result<usize, WriteError> {
-    write_marked_within(paths, target, version, bindings, marker, READER_LIMITS)
+    write_marked_within(paths, target, version, bindings, marker, READER_LIMITS, None)
         .map(|written| written.count)
         .map_err(WriteError::from)
 }
@@ -538,6 +591,7 @@ fn write_marked_within(
     bindings: &[Binding],
     marker: &str,
     limits: Limits,
+    progress: Option<&Progress>,
 ) -> Result<Written, Refusal> {
     let root = paths.app_folder();
     let mut files = match files(&root) {
@@ -551,6 +605,9 @@ fn write_marked_within(
         return Err(WriteError::Empty.into());
     }
     files.extend(bindings.iter().map(|b| (b.full.clone(), b.name.clone())));
+    if let Some(progress) = progress {
+        progress.add_total(files.len());
+    }
     // ⚠ First next to the target, then rename. If the writing breaks off (stick pulled, disk full), a half
     // backup would stand there that looks like a whole one.
     let temp = format!("{target}.teil");
@@ -560,6 +617,9 @@ fn write_marked_within(
         let mut held = Vec::new();
         let mut left_out = Vec::new();
         for (full, name) in &files {
+            if let Some(progress) = progress {
+                progress.step();
+            }
             // ⚠ What the reader would refuse must not go in: one such file would make the whole backup impossible
             // to put back, and the player would learn it only on the day it is needed. Asked before it is read.
             if fs::metadata(full).is_ok_and(|meta| meta.len() > limits.entry) {
@@ -1172,7 +1232,32 @@ pub fn restore(paths: &Paths, source: &str, bindings: &[Binding]) -> Result<Rest
         if folder.is_empty() { &root } else { &folder },
         &format!("{BEFORE_FILE_START}-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}{second:02}.zip"),
     );
-    restore_with_copy(paths, source, bindings, &fallback)
+    restore_with_copy(paths, source, bindings, &fallback, None)
+}
+
+/// [`restore`] that counts every file in `progress` as it goes (the copy of before first, then the files put back),
+/// for the bar of the page.
+///
+/// # Errors
+///
+/// As [`restore`].
+pub fn restore_counting(
+    paths: &Paths,
+    source: &str,
+    bindings: &[Binding],
+    progress: &Progress,
+) -> Result<Restored, RestoreError> {
+    let flavor = paths.host.flavor;
+    let root = paths.app_folder();
+    let (year, month, day, hour, minute, second) = jsonio::local_time();
+    let folder = flavor.dirname(root.trim_end_matches(flavor.sep()));
+    let fallback = flavor.join(
+        if folder.is_empty() { &root } else { &folder },
+        &format!("{BEFORE_FILE_START}-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}{second:02}.zip"),
+    );
+    let restored = restore_with_copy(paths, source, bindings, &fallback, Some(progress));
+    progress.finish();
+    restored
 }
 
 /// [`restore`] with the file named in which the state of before is put aside.
@@ -1181,8 +1266,9 @@ fn restore_with_copy(
     source: &str,
     bindings: &[Binding],
     fallback: &str,
+    progress: Option<&Progress>,
 ) -> Result<Restored, RestoreError> {
-    restore_within(paths, source, bindings, fallback, READER_LIMITS)
+    restore_within(paths, source, bindings, fallback, READER_LIMITS, progress)
 }
 
 /// [`restore_with_copy`] where the copy of before is written within `limits`.
@@ -1192,16 +1278,21 @@ fn restore_within(
     bindings: &[Binding],
     fallback: &str,
     limits: Limits,
+    progress: Option<&Progress>,
 ) -> Result<Restored, RestoreError> {
     let Some(found) = check(source) else { return Err(RestoreError::Invalid) };
     let data = read_archive(source).map_err(RestoreError::Failed)?;
     let entries = zip::entries(&data).map_err(|e| RestoreError::Failed(e.to_string()))?;
+    // The files of the backup are counted before the copy of before counts its own: the bar never runs back.
+    if let Some(progress) = progress {
+        progress.add_total(entries.len());
+    }
     let flavor = paths.host.flavor;
     let root = paths.app_folder();
     let before = paths.settings();
     // ⚠ Without the copy of before nothing is overwritten: that copy is what the question promised. (Nothing
     // to copy, an empty data folder, is no reason to stop.)
-    let previous = match write_setting_within(paths, fallback, "", bindings, limits) {
+    let previous = match write_setting_within(paths, fallback, "", bindings, limits, progress) {
         // ⚠ A copy of before that would be too large is no reason to write without the copy: said so the player
         // understands it, and nothing is touched.
         Err(Refusal::TooLarge) => {
@@ -1230,6 +1321,9 @@ fn restore_within(
         .any(|(target, _)| flavor.basename(target).to_lowercase() == crate::collection::FILE_NAME);
     let outcome = (|| -> Result<(), String> {
         for (target, content) in &planned {
+            if let Some(progress) = progress {
+                progress.step();
+            }
             jsonio::make_dirs(&flavor.dirname(target)).map_err(|e| e.to_string())?;
             write_atomic(target, content).map_err(|e| e.to_string())?;
         }
@@ -1887,13 +1981,13 @@ mod tests {
             .unwrap();
         // The copy cannot be written: its folder is not there.
         let nowhere = dir.join("gibt-es-nicht").join("vorher.zip").to_string_lossy().into_owned();
-        let result = restore_with_copy(&paths, &source.to_string_lossy(), &[], &nowhere);
+        let result = restore_with_copy(&paths, &source.to_string_lossy(), &[], &nowhere, None);
         assert!(matches!(result, Err(RestoreError::Failed(_))), "{result:?}");
         let read = |rel: &str| fs::read_to_string(Path::new(&paths.app_folder()).join(rel)).unwrap();
         assert_eq!(read("Bestand/a.json"), "alt", "nothing was overwritten");
         // With a place for it the same restore goes through.
         let here = dir.join("vorher.zip").to_string_lossy().into_owned();
-        assert!(restore_with_copy(&paths, &source.to_string_lossy(), &[], &here).is_ok());
+        assert!(restore_with_copy(&paths, &source.to_string_lossy(), &[], &here, None).is_ok());
         assert_eq!(read("Bestand/a.json"), "neu");
         let _ = fs::remove_dir_all(dir);
     }
@@ -1906,7 +2000,7 @@ mod tests {
         let target = dir.join("meine.zip").to_string_lossy().into_owned();
         // The limit of one file made small, so no 256 MiB have to be written for the test.
         let small = Limits { entry: 1000, total: READ_LIMIT };
-        let written = write_marked_within(&paths, &target, "5.4.2", &[], MARKER, small).unwrap();
+        let written = write_marked_within(&paths, &target, "5.4.2", &[], MARKER, small, None).unwrap();
         assert_eq!(written.count, 1, "only the small file");
         assert_eq!(written.left_out, ["Intern/riesig.json"], "and the page is told which one is missing");
         let data = fs::read(&target).unwrap();
@@ -1914,11 +2008,43 @@ mod tests {
         assert!(!names.iter().any(|n| n.contains("riesig")), "the large file is not in the archive: {names:?}");
         fs::write(Path::new(&paths.app_folder()).join("Bestand").join("klein.json"), "neu").unwrap();
         let here = dir.join("vorher.zip").to_string_lossy().into_owned();
-        restore_with_copy(&paths, &target, &[], &here).expect("what was written can be put back");
+        restore_with_copy(&paths, &target, &[], &here, None).expect("what was written can be put back");
         let read = fs::read_to_string(Path::new(&paths.app_folder()).join("Bestand").join("klein.json")).unwrap();
         assert_eq!(read, "alt");
         // A normal write says nothing is missing.
         assert!(write_reporting(&paths, &target, "5.4.2", &[]).unwrap().left_out.is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// The bar of the page: every file is counted as it is written or put back, the total is known before the first
+    /// one, and a restore counts the files of the backup and the copy of before in one total that never runs back.
+    #[test]
+    fn a_backup_and_a_restore_count_their_files_for_the_bar() {
+        let (paths, dir) = paths_in("fortschritt");
+        for name in ["Bestand/a.json", "Bestand/b.json", "Intern/c.json"] {
+            put(&paths, name, "alt");
+        }
+        let target = dir.join("meine.zip").to_string_lossy().into_owned();
+        let progress = Progress::default();
+        assert_eq!(progress.get(), (0, 0), "nothing known before the work");
+        write_marked_within(&paths, &target, "5.6.5", &[], MARKER, READER_LIMITS, Some(&progress)).unwrap();
+        assert_eq!(progress.get(), (3, 3), "each of the three files counted, without the finish");
+        let progress = Progress::default();
+        assert_eq!(write_counting(&paths, &target, "5.6.5", &[], &progress).unwrap().count, 3);
+        assert_eq!(progress.get(), (3, 3));
+        let here = dir.join("vorher.zip").to_string_lossy().into_owned();
+        let progress = Progress::default();
+        // The data folder holds the setting of the last backup by now as well.
+        let before = files(&paths.app_folder()).unwrap().len();
+        restore_within(&paths, &target, &[], &here, READER_LIMITS, Some(&progress)).unwrap();
+        let entries = zip::entries(&fs::read(&target).unwrap()).unwrap().len();
+        // Every entry but the attachment of the backup is put back; the finish fills that one.
+        let total = entries + before;
+        assert_eq!(progress.get(), (total - 1, total), "the copy of before and the files put back");
+        let progress = Progress::default();
+        restore_counting(&paths, &target, &[], &progress).unwrap();
+        let (done, total) = progress.get();
+        assert!(total > entries && done == total, "{done} of {total}");
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -1928,7 +2054,7 @@ mod tests {
         put(&paths, "Bestand/klein.json", "alt");
         let target = dir.join("meine.zip").to_string_lossy().into_owned();
         let tiny = Limits { entry: READER_LIMITS.entry, total: 10 };
-        let result = write_marked_within(&paths, &target, "5.4.2", &[], MARKER, tiny);
+        let result = write_marked_within(&paths, &target, "5.4.2", &[], MARKER, tiny, None);
         assert_eq!(result, Err(Refusal::TooLarge));
         assert_eq!(WriteError::from(Refusal::TooLarge), WriteError::Failed(language::t("sich_zu_gross")));
         assert!(!Path::new(&target).exists() && !Path::new(&format!("{target}.teil")).exists(), "nothing is left");
@@ -1945,7 +2071,7 @@ mod tests {
             .unwrap();
         let here = dir.join("vorher.zip").to_string_lossy().into_owned();
         let tiny = Limits { entry: READER_LIMITS.entry, total: 10 };
-        let result = restore_within(&paths, &source.to_string_lossy(), &[], &here, tiny);
+        let result = restore_within(&paths, &source.to_string_lossy(), &[], &here, tiny, None);
         assert_eq!(result.unwrap_err(), RestoreError::Failed(language::t("sich_vorher_zu_gross")));
         let read = fs::read_to_string(Path::new(&paths.app_folder()).join("Bestand").join("a.json")).unwrap();
         assert_eq!(read, "alt", "nothing is written without the copy of before");
@@ -1968,7 +2094,7 @@ mod tests {
         )
         .unwrap();
         let here = dir.join("vorher.zip").to_string_lossy().into_owned();
-        restore_with_copy(&paths, &source.to_string_lossy(), &[], &here).unwrap();
+        restore_with_copy(&paths, &source.to_string_lossy(), &[], &here, None).unwrap();
         assert!(
             !Path::new(&mark).exists(),
             "a smaller collection that was put back on purpose is no shrinkage the next start has to warn about"
@@ -1988,7 +2114,7 @@ mod tests {
         fs::write(&source, zip::tests::build(&[("Intern/notizen.json", b"{}", true), (INFO_FILE, info.as_bytes(), true)]))
             .unwrap();
         let here = dir.join("vorher.zip").to_string_lossy().into_owned();
-        restore_with_copy(&paths, &source.to_string_lossy(), &[], &here).unwrap();
+        restore_with_copy(&paths, &source.to_string_lossy(), &[], &here, None).unwrap();
         assert!(Path::new(&mark).exists(), "no collection came back, so the protection stays");
         let _ = fs::remove_dir_all(dir);
     }

@@ -321,6 +321,12 @@ pub fn give_front(hwnd: isize) -> bool {
     take_front(hwnd as HWND)
 }
 
+/// Is the window `hwnd` the one in front?
+pub fn in_front(hwnd: isize) -> bool {
+    // SAFETY: a call without arguments; the handle is only compared.
+    unsafe { GetForegroundWindow() as isize == hwnd }
+}
+
 /// The top-level window of this process with the title `title`; 0 where there is none.
 pub fn own_window_titled(title: &str) -> isize {
     use windows_sys::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextW};

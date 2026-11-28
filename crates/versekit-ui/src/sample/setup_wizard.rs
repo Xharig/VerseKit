@@ -36,7 +36,7 @@ use versekit_core::language::{self, Arg, t, tf};
 use versekit_core::logsource::ALL_ACCOUNTS;
 use versekit_core::paths::{Host, Paths};
 use versekit_core::setup::{self, GameFolder, Step};
-use versekit_core::theme::{self, Scheme};
+use versekit_core::theme::{self, IconTint, Scheme};
 use versekit_core::{desktop_entry, export, game_texts, injection, overlay, report_facts};
 
 use super::catch_up::{self, Reading};
@@ -76,6 +76,9 @@ const STEP_MIN_BESIDE_PICTURE: f32 = 200.0;
 
 /// The least height the content of a step gets.
 const STEP_MIN: f32 = 100.0;
+
+/// Width of the bar of a catalogue being built in the head of the assistant (with its percent).
+const CATALOG_BAR: f32 = 120.0;
 
 /// The look for the game below the folder typed, in a thread of its own ([`setup::check_game_folder`], which can
 /// walk through five levels of a big folder). The answer is for `typed`; the assistant drops the look when the
@@ -407,6 +410,31 @@ impl SamplePage {
         self.setup = Some(wizard);
     }
 
+    /// The bar of the foot lies behind the assistant: a catalogue being built shows in its head instead, as a small
+    /// bar with its share (the step and the time on hover), or the clock while it waits for the end of the game. In
+    /// the head row, so the assistant keeps its height and nothing in it moves when the build comes or goes.
+    fn setup_catalog_mark(&self, ui: &mut Ui, scheme: &Scheme) {
+        let Some(seen) = self.catalog_watch.seen() else { return };
+        ui.add_space(12.0);
+        if seen.waiting {
+            if let Some(image) = crate::icons::themed("clock", scheme, IconTint::Highlight, 14.0) {
+                ui.add(image).on_hover_text(t("kat_wartet_spiel"));
+            }
+            return;
+        }
+        let detail = format!(
+            "{}\n{}\n{}",
+            t("kat_fortschritt_kopf"),
+            crate::catalog_progress::step_line(seen),
+            tf("kat_fortschritt_dauer", &[("0", Arg::from(crate::catalog_progress::elapsed_text(seen.elapsed)))])
+        );
+        widgets::progress(ui, scheme, seen.fraction as f32, CATALOG_BAR, &t("kat_fortschritt_kopf"))
+            .on_hover_text(&detail);
+        if let Some(image) = crate::icons::themed("database", scheme, IconTint::Highlight, 14.0) {
+            ui.add(image).on_hover_text(detail);
+        }
+    }
+
     fn setup_body(&mut self, ui: &mut Ui, scheme: &Scheme, wizard: &mut Wizard) {
         let names: Vec<String> = wizard.steps.iter().map(|s| t(step_title(*s))).collect();
         let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
@@ -421,6 +449,7 @@ impl SamplePage {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let count = tf("schritt_von", &[("0", Arg::from(step + 1)), ("1", Arg::from(wizard.steps.len()))]);
                 ui.label(RichText::new(count).small().color(color(scheme.sub)));
+                self.setup_catalog_mark(ui, scheme);
             });
         });
         ui.add_space(6.0);
@@ -1289,7 +1318,11 @@ mod tests {
         let (page, dir) = real_page(name, "{}\n", &[]);
         drop(page);
         let host = host_apart(&dir);
-        (SamplePage::with_settings(Paths::new(host)), dir)
+        let mut page = SamplePage::with_settings(Paths::new(host));
+        // No build of the catalogue: the build of another test running beside this one would show its strip in the
+        // assistant and move its buttons. A test that wants the strip gives its own state.
+        page.show_catalog_build(None, None);
+        (page, dir)
     }
 
     #[test]
@@ -1430,6 +1463,36 @@ mod tests {
         bench.click(&language::t("s_mlg_bestaetigen"));
         let file = std::fs::read_to_string(dir.join("einstellungen.json")).unwrap();
         assert!(file.contains("\"eigener_account\": \"Alice\""), "{file}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The bar of the foot lies behind the assistant: a catalogue being built shows its bar in the assistant itself,
+    /// and the line "waits for the end of the game" while the archive may not be read.
+    #[test]
+    fn the_assistant_shows_the_build_of_the_catalogue_that_runs_behind_it() {
+        use versekit_core::build_progress::{Snapshot, Step as BuildStep};
+        let snapshot =
+            |step, fraction, waiting| Snapshot { step, step_fraction: None, fraction, elapsed: 187, waiting };
+        let _language = crate::language_lock();
+        let (page, dir) = page_with_game("einrichtung-katalog");
+        let mut bench = Bench::new(page);
+        bench.page.open_setup();
+        // The share in the head row of the assistant: on the line of "Schritt 1 von …" (the foot behind it may show
+        // a share of its own, lower down).
+        let in_head = |texts: &[(String, Pos2)], share: &str| {
+            let count = language::t("schritt_von").split("{0}").next().unwrap_or_default().to_string();
+            let head = texts.iter().find(|(text, _)| text.starts_with(&count)).map(|(_, at)| at.y);
+            head.is_some_and(|y| texts.iter().any(|(text, at)| text == share && (at.y - y).abs() < 12.0))
+        };
+        let texts = bench.settle();
+        assert!(!in_head(&texts, "40 %"), "no build: no bar {texts:?}");
+        bench.page.show_catalog_build(Some(snapshot(BuildStep::Contracts, 0.4, false)), None);
+        let texts = bench.settle();
+        assert!(in_head(&texts, "40 %"), "the bar with its share in the head of the assistant: {texts:?}");
+        // Waiting for the end of the game: the clock instead of the bar (its text on hover).
+        bench.page.show_catalog_build(Some(snapshot(BuildStep::Contracts, 0.0, true)), None);
+        let texts = bench.settle();
+        assert!(!in_head(&texts, "0 %"), "no bar while it waits: {texts:?}");
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2569,6 +2632,18 @@ mod tests {
         let _language = crate::language_lock();
         let mut findings = Vec::new();
         let (mut page, dir) = page_with_game("einrichtung-mass");
+        // A build of the catalogue stands fixed, so the strip of it is measured in every step as well (and the build of
+        // another test running beside this one changes nothing).
+        page.show_catalog_build(
+            Some(versekit_core::build_progress::Snapshot {
+                step: versekit_core::build_progress::Step::Contracts,
+                step_fraction: None,
+                fraction: 0.4,
+                elapsed: 187,
+                waiting: false,
+            }),
+            None,
+        );
         let ctx = egui::Context::default();
         crate::install(&ctx);
         ctx.all_styles_mut(|style| style.animation_time = 0.0);
